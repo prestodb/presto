@@ -458,6 +458,7 @@ public class SqlQueryManager
                 session = Session.builder(new SessionPropertyManager())
                         .setQueryId(queryId)
                         .setIdentity(sessionContext.getIdentity())
+                        .setSource(sessionContext.getSource())
                         .setPath(new SqlPath(Optional.empty()))
                         .build();
             }
