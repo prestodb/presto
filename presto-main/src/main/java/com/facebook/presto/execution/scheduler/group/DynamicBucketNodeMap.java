@@ -11,45 +11,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution.scheduler;
+package com.facebook.presto.execution.scheduler.group;
 
+import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
-import com.google.common.collect.ImmutableMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.ToIntFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-// the bucket to node mapping is fixed and pre-assigned
-public class FixedBucketNodeMap
+public class DynamicBucketNodeMap
         extends BucketNodeMap
 {
-    private final Map<Integer, Node> bucketToNode;
     private final int bucketCount;
+    private final Int2ObjectMap<Node> bucketToNode = new Int2ObjectOpenHashMap<>();
 
-    public FixedBucketNodeMap(ToIntFunction<Split> splitToBucket, Map<Integer, Node> bucketToNode)
+    public DynamicBucketNodeMap(ToIntFunction<Split> splitToBucket, int bucketCount)
     {
         super(splitToBucket);
-        requireNonNull(bucketToNode, "bucketToNode is null");
-        this.bucketToNode = ImmutableMap.copyOf(bucketToNode);
-        bucketCount = bucketToNode.keySet().stream()
-                .mapToInt(Integer::intValue)
-                .max()
-                .getAsInt() + 1;
+        checkArgument(bucketCount > 0, "bucketCount must be positive");
+        this.bucketCount = bucketCount;
     }
 
     @Override
     public Optional<Node> getAssignedNode(int bucketedId)
     {
-        checkArgument(bucketedId >= 0 && bucketedId < bucketCount);
-        Node node = bucketToNode.get(bucketedId);
-        verify(node != null);
-        return Optional.of(node);
+        return Optional.ofNullable(bucketToNode.get(bucketedId));
     }
 
     @Override
@@ -61,12 +54,15 @@ public class FixedBucketNodeMap
     @Override
     public void assignBucketToNode(int bucketedId, Node node)
     {
-        throw new UnsupportedOperationException();
+        checkArgument(bucketedId >= 0 && bucketedId < bucketCount);
+        requireNonNull(node, "node is null");
+        checkState(!bucketToNode.containsKey(bucketedId), "bucket already assigned");
+        bucketToNode.put(bucketedId, node);
     }
 
     @Override
     public boolean isDynamic()
     {
-        return false;
+        return true;
     }
 }
