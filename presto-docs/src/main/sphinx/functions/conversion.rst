@@ -22,6 +22,35 @@ Conversion Functions
 
     Like :func:`cast`, but returns null if the cast fails.
 
+Data Size
+---------
+
+The ``parse_presto_data_size`` function supports the following units:
+
+======= ============= ==============
+Unit    Description   Value
+======= ============= ==============
+``B``   Bytes         1
+``kB``  Kilobytes     1024
+``MB``  Megabytes     1024\ :sup:`2`
+``GB``  Gigabytes     1024\ :sup:`3`
+``TB``  Terabytes     1024\ :sup:`4`
+``PB``  Petabytes     1024\ :sup:`5`
+``EB``  Exabytes      1024\ :sup:`6`
+``ZB``  Zettabytes    1024\ :sup:`7`
+``YB``  Yottabytes    1024\ :sup:`8`
+======= ============= ==============
+
+.. function:: parse_presto_data_size(string) -> decimal(38)
+
+    Parses ``string`` of format ``value unit`` into a number, where
+    ``value`` is the fractional number of ``unit`` values::
+
+        SELECT parse_presto_data_size('1B'); -- 1
+        SELECT parse_presto_data_size('1kB'); -- 1024
+        SELECT parse_presto_data_size('1MB'); -- 1048576
+        SELECT parse_presto_data_size('2.3MB'); -- 2411724
+
 Miscellaneous
 -------------
 
