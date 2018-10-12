@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlAggregationFunction;
+import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.block.Block;
@@ -88,13 +89,14 @@ public class ChecksumAggregationFunction
                 INPUT_FUNCTION.bindTo(type),
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
-                NullableLongState.class,
-                StateCompiler.generateStateSerializer(NullableLongState.class, classLoader),
-                StateCompiler.generateStateFactory(NullableLongState.class, classLoader),
+                ImmutableList.of(new AccumulatorStateDescriptor(
+                        NullableLongState.class,
+                        StateCompiler.generateStateSerializer(NullableLongState.class, classLoader),
+                        StateCompiler.generateStateFactory(NullableLongState.class, classLoader))),
                 VARBINARY);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, BIGINT, VARBINARY, true, false, factory);
+        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(BIGINT), VARBINARY, true, false, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)

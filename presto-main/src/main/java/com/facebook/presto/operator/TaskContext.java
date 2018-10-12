@@ -162,7 +162,7 @@ public class TaskContext
         return totalPartitions;
     }
 
-    public PipelineContext addPipelineContext(int pipelineId, boolean inputPipeline, boolean outputPipeline)
+    public PipelineContext addPipelineContext(int pipelineId, boolean inputPipeline, boolean outputPipeline, boolean partitioned)
     {
         PipelineContext pipelineContext = new PipelineContext(
                 pipelineId,
@@ -171,7 +171,8 @@ public class TaskContext
                 yieldExecutor,
                 taskMemoryContext.newMemoryTrackingContext(),
                 inputPipeline,
-                outputPipeline);
+                outputPipeline,
+                partitioned);
         pipelineContexts.add(pipelineContext);
         return pipelineContext;
     }

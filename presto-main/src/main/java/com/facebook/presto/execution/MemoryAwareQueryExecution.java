@@ -168,7 +168,9 @@ public class MemoryAwareQueryExecution
                     startedWaiting = true;
                     delegate.startWaitingForResources();
                     memoryManager.addChangeListener(GENERAL_POOL, none -> start());
-                    memoryManager.addChangeListener(RESERVED_POOL, none -> start());
+                    if (memoryManager.memoryPoolExists(RESERVED_POOL)) {
+                        memoryManager.addChangeListener(RESERVED_POOL, none -> start());
+                    }
                 }
             }
             catch (Throwable e) {

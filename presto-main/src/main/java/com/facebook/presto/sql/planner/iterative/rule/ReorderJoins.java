@@ -55,8 +55,6 @@ import java.util.stream.Stream;
 import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
 import static com.facebook.presto.SystemSessionProperties.getJoinReorderingStrategy;
 import static com.facebook.presto.SystemSessionProperties.getMaxReorderedJoins;
-import static com.facebook.presto.cost.PlanNodeCostEstimate.INFINITE_COST;
-import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
@@ -64,6 +62,7 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStra
 import static com.facebook.presto.sql.planner.DeterminismEvaluator.isDeterministic;
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
 import static com.facebook.presto.sql.planner.EqualityInference.nonInferrableConjuncts;
+import static com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType.canReplicate;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult.INFINITE_COST_RESULT;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult.UNKNOWN_COST_RESULT;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.MultiJoinNode.toMultiJoinNode;
@@ -376,7 +375,7 @@ public class ReorderJoins
                 possibleJoinNodes.add(createJoinEnumerationResult(joinNode.withDistributionType(PARTITIONED)));
                 possibleJoinNodes.add(createJoinEnumerationResult(joinNode.flipChildren().withDistributionType(PARTITIONED)));
             }
-            if (joinDistributionType.canReplicate()) {
+            if (canReplicate(joinNode, context)) {
                 possibleJoinNodes.add(createJoinEnumerationResult(joinNode.withDistributionType(REPLICATED)));
                 possibleJoinNodes.add(createJoinEnumerationResult(joinNode.flipChildren().withDistributionType(REPLICATED)));
             }
@@ -544,8 +543,8 @@ public class ReorderJoins
     @VisibleForTesting
     static class JoinEnumerationResult
     {
-        public static final JoinEnumerationResult UNKNOWN_COST_RESULT = new JoinEnumerationResult(Optional.empty(), UNKNOWN_COST);
-        public static final JoinEnumerationResult INFINITE_COST_RESULT = new JoinEnumerationResult(Optional.empty(), INFINITE_COST);
+        public static final JoinEnumerationResult UNKNOWN_COST_RESULT = new JoinEnumerationResult(Optional.empty(), PlanNodeCostEstimate.unknown());
+        public static final JoinEnumerationResult INFINITE_COST_RESULT = new JoinEnumerationResult(Optional.empty(), PlanNodeCostEstimate.infinite());
 
         private final Optional<PlanNode> planNode;
         private final PlanNodeCostEstimate cost;
@@ -554,8 +553,8 @@ public class ReorderJoins
         {
             this.planNode = requireNonNull(planNode, "planNode is null");
             this.cost = requireNonNull(cost, "cost is null");
-            checkArgument((cost.hasUnknownComponents() || cost.equals(INFINITE_COST)) && !planNode.isPresent()
-                            || (!cost.hasUnknownComponents() || !cost.equals(INFINITE_COST)) && planNode.isPresent(),
+            checkArgument((cost.hasUnknownComponents() || cost.equals(PlanNodeCostEstimate.infinite())) && !planNode.isPresent()
+                            || (!cost.hasUnknownComponents() || !cost.equals(PlanNodeCostEstimate.infinite())) && planNode.isPresent(),
                     "planNode should be present if and only if cost is known");
         }
 
@@ -574,7 +573,7 @@ public class ReorderJoins
             if (cost.hasUnknownComponents()) {
                 return UNKNOWN_COST_RESULT;
             }
-            if (cost.equals(INFINITE_COST)) {
+            if (cost.equals(PlanNodeCostEstimate.infinite())) {
                 return INFINITE_COST_RESULT;
             }
             return new JoinEnumerationResult(planNode, cost);

@@ -62,7 +62,6 @@ import static io.airlift.units.Duration.succinctDuration;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -311,8 +310,8 @@ public class StageStateMachine
                 succinctBytes(userMemoryReservation),
                 succinctBytes(totalMemoryReservation),
 
-                new Duration(totalCpuTime, MILLISECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(totalScheduledTime, MILLISECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
                 fullyBlocked,
                 blockedReasons,

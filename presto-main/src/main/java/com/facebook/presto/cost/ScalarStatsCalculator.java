@@ -77,7 +77,7 @@ public class ScalarStatsCalculator
         @Override
         protected SymbolStatsEstimate visitNode(Node node, Void context)
         {
-            return SymbolStatsEstimate.UNKNOWN_STATS;
+            return SymbolStatsEstimate.unknown();
         }
 
         @Override

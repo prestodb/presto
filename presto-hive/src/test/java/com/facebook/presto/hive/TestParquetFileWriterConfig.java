@@ -11,37 +11,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.event.query;
+package com.facebook.presto.hive;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
+import parquet.hadoop.ParquetWriter;
 
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.airlift.units.DataSize.Unit;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
-public class TestQueryMonitorConfig
+public class TestParquetFileWriterConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(QueryMonitorConfig.class)
-                .setMaxOutputStageJsonSize(new DataSize(16, Unit.MEGABYTE)));
+        assertRecordedDefaults(recordDefaults(ParquetFileWriterConfig.class)
+                .setBlockSize(new DataSize(ParquetWriter.DEFAULT_BLOCK_SIZE, BYTE))
+                .setPageSize(new DataSize(ParquetWriter.DEFAULT_PAGE_SIZE, BYTE)));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("event.max-output-stage-size", "512kB")
+                .put("hive.parquet.writer.block-size", "234MB")
+                .put("hive.parquet.writer.page-size", "11MB")
                 .build();
 
-        QueryMonitorConfig expected = new QueryMonitorConfig()
-                .setMaxOutputStageJsonSize(new DataSize(512, Unit.KILOBYTE));
+        ParquetFileWriterConfig expected = new ParquetFileWriterConfig()
+                .setBlockSize(new DataSize(234, MEGABYTE))
+                .setPageSize(new DataSize(11, MEGABYTE));
 
         assertFullMapping(properties, expected);
     }

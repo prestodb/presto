@@ -342,6 +342,28 @@ public class TestThriftMetastoreUtil
     }
 
     @Test
+    public void testSingleDistinctValue()
+    {
+        DoubleColumnStatsData doubleColumnStatsData = new DoubleColumnStatsData();
+        doubleColumnStatsData.setNumNulls(10);
+        doubleColumnStatsData.setNumDVs(1);
+        ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", DOUBLE_TYPE_NAME, doubleStats(doubleColumnStatsData));
+        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.of(10));
+
+        assertEquals(actual.getNullsCount(), OptionalLong.of(10));
+        assertEquals(actual.getDistinctValuesCount(), OptionalLong.of(0));
+
+        doubleColumnStatsData = new DoubleColumnStatsData();
+        doubleColumnStatsData.setNumNulls(10);
+        doubleColumnStatsData.setNumDVs(1);
+        columnStatisticsObj = new ColumnStatisticsObj("my_col", DOUBLE_TYPE_NAME, doubleStats(doubleColumnStatsData));
+        actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.of(11));
+
+        assertEquals(actual.getNullsCount(), OptionalLong.of(10));
+        assertEquals(actual.getDistinctValuesCount(), OptionalLong.of(1));
+    }
+
+    @Test
     public void testBasicStatisticsRoundTrip()
     {
         testBasicStatisticsRoundTrip(new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty()));

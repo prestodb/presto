@@ -31,6 +31,7 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -133,25 +134,74 @@ public class TestMemoryManager
             }
 
             // Wait for one of the queries to die
-            boolean queryDone = false;
-            while (!queryDone) {
-                for (BasicQueryInfo info : queryRunner.getCoordinator().getQueryManager().getQueries()) {
-                    if (info.getState().isDone()) {
-                        assertNotNull(info.getErrorCode());
-                        assertEquals(info.getErrorCode().getCode(), CLUSTER_OUT_OF_MEMORY.toErrorCode().getCode());
-                        queryDone = true;
-                        break;
-                    }
-                }
-                MILLISECONDS.sleep(10);
-            }
+            waitForQueryToBeKilled(queryRunner);
 
             // Release the memory in the reserved pool
             for (TestingPrestoServer server : queryRunner.getServers()) {
-                MemoryPool reserved = server.getLocalMemoryManager().getPool(RESERVED_POOL);
+                Optional<MemoryPool> reserved = server.getLocalMemoryManager().getReservedPool();
+                assertTrue(reserved.isPresent());
                 // Free up the entire pool
-                reserved.free(fakeQueryId, "test", reserved.getMaxBytes());
-                assertTrue(reserved.getFreeBytes() > 0);
+                reserved.get().free(fakeQueryId, "test", reserved.get().getMaxBytes());
+                assertTrue(reserved.get().getFreeBytes() > 0);
+            }
+
+            for (Future<?> query : queryFutures) {
+                query.get();
+            }
+        }
+    }
+
+    private void waitForQueryToBeKilled(DistributedQueryRunner queryRunner)
+            throws InterruptedException
+    {
+        while (true) {
+            for (BasicQueryInfo info : queryRunner.getCoordinator().getQueryManager().getQueries()) {
+                if (info.getState().isDone()) {
+                    assertNotNull(info.getErrorCode());
+                    assertEquals(info.getErrorCode().getCode(), CLUSTER_OUT_OF_MEMORY.toErrorCode().getCode());
+                    return;
+                }
+            }
+            MILLISECONDS.sleep(10);
+        }
+    }
+
+    @Test(timeOut = 240_000, expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*Query killed because the cluster is out of memory. Please try again in a few minutes.")
+    public void testReservedPoolDisabled()
+            throws Exception
+    {
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("experimental.reserved-pool-enabled", "false")
+                .put("query.low-memory-killer.delay", "5s")
+                .put("query.low-memory-killer.policy", "total-reservation")
+                .build();
+
+        try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
+            // Reserve all the memory
+            QueryId fakeQueryId = new QueryId("fake");
+            for (TestingPrestoServer server : queryRunner.getServers()) {
+                List<MemoryPool> memoryPools = server.getLocalMemoryManager().getPools();
+                assertEquals(memoryPools.size(), 1, "Only general pool should exist");
+                assertTrue(memoryPools.get(0).tryReserve(fakeQueryId, "test", memoryPools.get(0).getMaxBytes()));
+            }
+
+            List<Future<?>> queryFutures = new ArrayList<>();
+            for (int i = 0; i < 2; i++) {
+                queryFutures.add(executor.submit(() -> queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk")));
+            }
+
+            // Wait for one of the queries to die
+            waitForQueryToBeKilled(queryRunner);
+
+            // Reserved pool shouldn't exist on the workers and allocation should have been done in the general pool
+            for (TestingPrestoServer server : queryRunner.getServers()) {
+                Optional<MemoryPool> reserved = server.getLocalMemoryManager().getReservedPool();
+                MemoryPool general = server.getLocalMemoryManager().getGeneralPool();
+                assertFalse(reserved.isPresent());
+                assertTrue(general.getReservedBytes() > 0);
+                // Free up the entire pool
+                general.free(fakeQueryId, "test", general.getMaxBytes());
+                assertTrue(general.getFreeBytes() > 0);
             }
 
             for (Future<?> query : queryFutures) {
@@ -184,9 +234,10 @@ public class TestMemoryManager
 
             // Make sure we didn't leak any memory on the workers
             for (TestingPrestoServer worker : queryRunner.getServers()) {
-                MemoryPool reserved = worker.getLocalMemoryManager().getPool(RESERVED_POOL);
-                assertEquals(reserved.getMaxBytes(), reserved.getFreeBytes());
-                MemoryPool general = worker.getLocalMemoryManager().getPool(GENERAL_POOL);
+                Optional<MemoryPool> reserved = worker.getLocalMemoryManager().getReservedPool();
+                assertTrue(reserved.isPresent());
+                assertEquals(reserved.get().getMaxBytes(), reserved.get().getFreeBytes());
+                MemoryPool general = worker.getLocalMemoryManager().getGeneralPool();
                 assertEquals(general.getMaxBytes(), general.getFreeBytes());
             }
         }
@@ -247,10 +298,11 @@ public class TestMemoryManager
 
             // Release the memory in the reserved pool
             for (TestingPrestoServer server : queryRunner.getServers()) {
-                MemoryPool reserved = server.getLocalMemoryManager().getPool(RESERVED_POOL);
+                Optional<MemoryPool> reserved = server.getLocalMemoryManager().getReservedPool();
+                assertTrue(reserved.isPresent());
                 // Free up the entire pool
-                reserved.free(fakeQueryId, "test", reserved.getMaxBytes());
-                assertTrue(reserved.getFreeBytes() > 0);
+                reserved.get().free(fakeQueryId, "test", reserved.get().getMaxBytes());
+                assertTrue(reserved.get().getFreeBytes() > 0);
             }
 
             // Make sure both queries finish now that there's memory free in the reserved pool.
@@ -265,9 +317,10 @@ public class TestMemoryManager
 
             // Make sure we didn't leak any memory on the workers
             for (TestingPrestoServer worker : queryRunner.getServers()) {
-                MemoryPool reserved = worker.getLocalMemoryManager().getPool(RESERVED_POOL);
-                assertEquals(reserved.getMaxBytes(), reserved.getFreeBytes());
-                MemoryPool general = worker.getLocalMemoryManager().getPool(GENERAL_POOL);
+                Optional<MemoryPool> reserved = worker.getLocalMemoryManager().getReservedPool();
+                assertTrue(reserved.isPresent());
+                assertEquals(reserved.get().getMaxBytes(), reserved.get().getFreeBytes());
+                MemoryPool general = worker.getLocalMemoryManager().getGeneralPool();
                 // Free up the memory we reserved earlier
                 general.free(fakeQueryId, "test", general.getMaxBytes());
                 assertEquals(general.getMaxBytes(), general.getFreeBytes());

@@ -18,6 +18,7 @@ import java.sql.Driver;
 import java.sql.SQLException;
 import java.util.Properties;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class DriverConnectionFactory
@@ -56,6 +57,8 @@ public class DriverConnectionFactory
     public Connection openConnection()
             throws SQLException
     {
-        return driver.connect(connectionUrl, connectionProperties);
+        Connection connection = driver.connect(connectionUrl, connectionProperties);
+        checkState(connection != null, "Driver returned null connection");
+        return connection;
     }
 }

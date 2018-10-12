@@ -69,7 +69,7 @@ public class TestMemoryAwareExecution
         while (clusterMemoryManager.getClusterMemoryBytes() == 0) {
             Thread.sleep(1000);
         }
-        totalAvailableMemory = localMemoryManager.getPool(LocalMemoryManager.GENERAL_POOL).getMaxBytes();
+        totalAvailableMemory = localMemoryManager.getGeneralPool().getMaxBytes();
     }
 
     @AfterMethod(alwaysRun = true)

@@ -92,7 +92,7 @@ public class ValuesStatsRule
                 .collect(toImmutableList());
 
         if (nonNullValues.isEmpty()) {
-            return SymbolStatsEstimate.ZERO_STATS;
+            return SymbolStatsEstimate.zero();
         }
 
         double[] valuesAsDoubles = nonNullValues.stream()

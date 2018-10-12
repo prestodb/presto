@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.serde2.thrift.ThriftDeserializer;
@@ -58,7 +59,7 @@ public class TestHiveUtil
         schema.setProperty(SERIALIZATION_CLASS, IntString.class.getName());
         schema.setProperty(SERIALIZATION_FORMAT, TBinaryProtocol.class.getName());
 
-        assertInstanceOf(getDeserializer(schema), ThriftDeserializer.class);
+        assertInstanceOf(getDeserializer(new Configuration(false), schema), ThriftDeserializer.class);
     }
 
     @Test

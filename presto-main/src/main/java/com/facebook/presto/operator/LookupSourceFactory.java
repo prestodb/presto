@@ -26,6 +26,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Collections.emptyList;
 
 public interface LookupSourceFactory
+        extends JoinBridge
 {
     List<Type> getTypes();
 
@@ -49,6 +50,7 @@ public interface LookupSourceFactory
     /**
      * Can be called only after {@link #createLookupSourceProvider()} is done and all users of {@link LookupSource}-s finished.
      */
+    @Override
     OuterPositionIterator getOuterPositionIterator();
 
     Map<Symbol, Integer> getLayout();
@@ -66,6 +68,7 @@ public interface LookupSourceFactory
         throw new UnsupportedOperationException();
     }
 
+    @Override
     void destroy();
 
     default ListenableFuture<?> isDestroyed()

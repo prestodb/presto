@@ -18,7 +18,6 @@ import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
@@ -159,8 +158,7 @@ public class TestQueryContext
         QueryContext queryContext = createQueryContext(useLegacyQueryContext, queryId, generalPool, systemPool);
         TaskStateMachine taskStateMachine = new TaskStateMachine(TaskId.valueOf("task-id"), TEST_EXECUTOR);
         TaskContext taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, false, false, OptionalInt.empty());
-        PipelineContext pipelineContext = taskContext.addPipelineContext(0, false, false);
-        DriverContext driverContext = pipelineContext.addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, false, false, false).addDriverContext();
         OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), "test");
 
         // allocate some memory in the general pool

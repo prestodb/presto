@@ -64,15 +64,16 @@ public class TestNestedLoopBuildOperator
     {
         TaskContext taskContext = createTaskContext();
         List<Type> buildTypes = ImmutableList.of(BIGINT);
-        JoinBridgeDataManager<NestedLoopJoinPagesBridge> nestedLoopJoinPagesSupplierManager = JoinBridgeDataManager.nestedLoop(
+        JoinBridgeManager<NestedLoopJoinPagesBridge> nestedLoopJoinPagesSupplierManager = new JoinBridgeManager<>(
+                false,
                 PipelineExecutionStrategy.UNGROUPED_EXECUTION,
                 PipelineExecutionStrategy.UNGROUPED_EXECUTION,
                 lifespan -> new NestedLoopJoinPagesSupplier(),
                 buildTypes);
         NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"), nestedLoopJoinPagesSupplierManager);
-        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
         NestedLoopBuildOperator nestedLoopBuildOperator = (NestedLoopBuildOperator) nestedLoopBuildOperatorFactory.createOperator(driverContext);
-        NestedLoopJoinPagesBridge nestedLoopJoinPagesBridge = nestedLoopJoinPagesSupplierManager.forLifespan(Lifespan.taskWide());
+        NestedLoopJoinPagesBridge nestedLoopJoinPagesBridge = nestedLoopJoinPagesSupplierManager.getJoinBridge(Lifespan.taskWide());
 
         assertFalse(nestedLoopJoinPagesBridge.getPagesFuture().isDone());
 
@@ -100,15 +101,16 @@ public class TestNestedLoopBuildOperator
     {
         TaskContext taskContext = createTaskContext();
         List<Type> buildTypes = ImmutableList.of();
-        JoinBridgeDataManager<NestedLoopJoinPagesBridge> nestedLoopJoinPagesSupplierManager = JoinBridgeDataManager.nestedLoop(
+        JoinBridgeManager<NestedLoopJoinPagesBridge> nestedLoopJoinPagesSupplierManager = new JoinBridgeManager<>(
+                false,
                 PipelineExecutionStrategy.UNGROUPED_EXECUTION,
                 PipelineExecutionStrategy.UNGROUPED_EXECUTION,
                 lifespan -> new NestedLoopJoinPagesSupplier(),
                 buildTypes);
         NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"), nestedLoopJoinPagesSupplierManager);
-        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
         NestedLoopBuildOperator nestedLoopBuildOperator = (NestedLoopBuildOperator) nestedLoopBuildOperatorFactory.createOperator(driverContext);
-        NestedLoopJoinPagesBridge nestedLoopJoinPagesBridge = nestedLoopJoinPagesSupplierManager.forLifespan(Lifespan.taskWide());
+        NestedLoopJoinPagesBridge nestedLoopJoinPagesBridge = nestedLoopJoinPagesSupplierManager.getJoinBridge(Lifespan.taskWide());
 
         assertFalse(nestedLoopJoinPagesBridge.getPagesFuture().isDone());
 
