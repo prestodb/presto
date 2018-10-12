@@ -447,6 +447,13 @@ The following operations are not supported when ``avro_schema_url`` is set:
 * Using partitioning(``partitioned_by``) or bucketing(``bucketed_by``) columns are not supported in ``CREATE TABLE``.
 * ``ALTER TABLE`` commands modifying columns are not supported.
 
+Procedures
+----------
+
+* ``system.create_empty_partition(schema_name, table_name, partition_columns, partition_values)``
+
+    Create an empty partition in the specified table.
+
 Examples
 --------
 
@@ -484,6 +491,14 @@ Drop a partition from the ``page_views`` table::
     DELETE FROM hive.web.page_views
     WHERE ds = DATE '2016-08-09'
       AND country = 'US'
+
+Add an empty partition to the ``page_views`` table::
+
+    CALL system.create_empty_partition(
+        schema_name => 'web',
+        table_name => 'page_views',
+        partition_columns => ARRAY['ds', 'country'],
+        partition_values => ARRAY['2016-08-09', 'US']);
 
 Query the ``page_views`` table::
 
