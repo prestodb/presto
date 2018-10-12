@@ -292,7 +292,7 @@ public final class ThriftMetastoreUtil
         }
         StorageDescriptor storageDescriptor = table.getSd();
         if (storageDescriptor == null) {
-            throw new PrestoException(HIVE_INVALID_METADATA, "Partition does not contain a storage descriptor: " + table);
+            throw new PrestoException(HIVE_INVALID_METADATA, "Table does not contain a storage descriptor: " + table);
         }
         SerDeInfo serdeInfo = storageDescriptor.getSerdeInfo();
         if (serdeInfo == null) {
