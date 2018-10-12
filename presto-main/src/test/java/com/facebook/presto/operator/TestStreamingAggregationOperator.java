@@ -69,7 +69,7 @@ public class TestStreamingAggregationOperator
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
 
         driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
-                .addPipelineContext(0, true, true)
+                .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 
         operatorFactory = new StreamingAggregationOperatorFactory(

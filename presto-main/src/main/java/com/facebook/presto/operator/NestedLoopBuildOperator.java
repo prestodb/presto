@@ -32,11 +32,11 @@ public class NestedLoopBuildOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final JoinBridgeDataManager<NestedLoopJoinPagesBridge> nestedLoopJoinPagesBridgeManager;
+        private final JoinBridgeManager<NestedLoopJoinPagesBridge> nestedLoopJoinPagesBridgeManager;
 
         private boolean closed;
 
-        public NestedLoopBuildOperatorFactory(int operatorId, PlanNodeId planNodeId, JoinBridgeDataManager<NestedLoopJoinPagesBridge> nestedLoopJoinPagesBridgeManager)
+        public NestedLoopBuildOperatorFactory(int operatorId, PlanNodeId planNodeId, JoinBridgeManager<NestedLoopJoinPagesBridge> nestedLoopJoinPagesBridgeManager)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -48,7 +48,7 @@ public class NestedLoopBuildOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, NestedLoopBuildOperator.class.getSimpleName());
-            return new NestedLoopBuildOperator(operatorContext, nestedLoopJoinPagesBridgeManager.forLifespan(driverContext.getLifespan()));
+            return new NestedLoopBuildOperator(operatorContext, nestedLoopJoinPagesBridgeManager.getJoinBridge(driverContext.getLifespan()));
         }
 
         @Override

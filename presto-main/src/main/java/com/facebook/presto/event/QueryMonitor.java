@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.event.query;
+package com.facebook.presto.event;
 
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.connector.ConnectorId;
@@ -22,15 +22,11 @@ import com.facebook.presto.execution.Input;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
-import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.operator.DriverStats;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.TableFinishInfo;
 import com.facebook.presto.operator.TaskStats;
@@ -43,9 +39,6 @@ import com.facebook.presto.spi.eventlistener.QueryInputMetadata;
 import com.facebook.presto.spi.eventlistener.QueryMetadata;
 import com.facebook.presto.spi.eventlistener.QueryOutputMetadata;
 import com.facebook.presto.spi.eventlistener.QueryStatistics;
-import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
-import com.facebook.presto.spi.eventlistener.SplitFailureInfo;
-import com.facebook.presto.spi.eventlistener.SplitStatistics;
 import com.facebook.presto.spi.eventlistener.StageCpuDistribution;
 import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -59,17 +52,13 @@ import io.airlift.stats.Distribution;
 import io.airlift.stats.Distribution.DistributionSnapshot;
 import org.joda.time.DateTime;
 
-import javax.annotation.Nullable;
 import javax.inject.Inject;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
-import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
@@ -90,8 +79,6 @@ public class QueryMonitor
     private final SessionPropertyManager sessionPropertyManager;
     private final FunctionRegistry functionRegistry;
     private final int maxJsonLimit;
-    private final InternalNodeManager nodeManager;
-    private final NodeSchedulerConfig nodeSchedulerConfig;
 
     @Inject
     public QueryMonitor(
@@ -102,9 +89,7 @@ public class QueryMonitor
             NodeVersion nodeVersion,
             SessionPropertyManager sessionPropertyManager,
             Metadata metadata,
-            QueryMonitorConfig config,
-            InternalNodeManager nodeManager,
-            NodeSchedulerConfig nodeSchedulerConfig)
+            QueryMonitorConfig config)
     {
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.stageInfoCodec = requireNonNull(stageInfoCodec, "stageInfoCodec is null");
@@ -115,8 +100,6 @@ public class QueryMonitor
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.functionRegistry = requireNonNull(metadata, "metadata is null").getFunctionRegistry();
         this.maxJsonLimit = toIntExact(requireNonNull(config, "config is null").getMaxOutputStageJsonSize().toBytes());
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.nodeSchedulerConfig = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null");
     }
 
     public void queryCreatedEvent(QueryInfo queryInfo)
@@ -210,11 +193,6 @@ public class QueryMonitor
                     plan = Optional.of(textDistributedPlan(
                             queryInfo.getOutputStage().get(),
                             functionRegistry,
-                            // Not possible to recompute stats and costs, since transaction is already completed at this moment
-                            (node, sourceStats, lookup, session, types) -> UNKNOWN_STATS,
-                            (node, stats, lookup, session, types) -> UNKNOWN_COST,
-                            nodeManager,
-                            nodeSchedulerConfig,
                             queryInfo.getSession().toSession(sessionPropertyManager),
                             false));
                 }
@@ -375,59 +353,6 @@ public class QueryMonitor
         }
         catch (Exception e) {
             log.error(e, "Error logging query timeline");
-        }
-    }
-
-    public void splitCompletedEvent(TaskId taskId, DriverStats driverStats)
-    {
-        splitCompletedEvent(taskId, driverStats, null, null);
-    }
-
-    public void splitFailedEvent(TaskId taskId, DriverStats driverStats, Throwable cause)
-    {
-        splitCompletedEvent(taskId, driverStats, cause.getClass().getName(), cause.getMessage());
-    }
-
-    private void splitCompletedEvent(TaskId taskId, DriverStats driverStats, @Nullable String failureType, @Nullable String failureMessage)
-    {
-        Optional<Duration> timeToStart = Optional.empty();
-        if (driverStats.getStartTime() != null) {
-            timeToStart = Optional.of(ofMillis(driverStats.getStartTime().getMillis() - driverStats.getCreateTime().getMillis()));
-        }
-
-        Optional<Duration> timeToEnd = Optional.empty();
-        if (driverStats.getEndTime() != null) {
-            timeToEnd = Optional.of(ofMillis(driverStats.getEndTime().getMillis() - driverStats.getCreateTime().getMillis()));
-        }
-
-        Optional<SplitFailureInfo> splitFailureMetadata = Optional.empty();
-        if (failureType != null) {
-            splitFailureMetadata = Optional.of(new SplitFailureInfo(failureType, failureMessage != null ? failureMessage : ""));
-        }
-
-        try {
-            eventListenerManager.splitCompleted(
-                    new SplitCompletedEvent(
-                            taskId.getQueryId().toString(),
-                            taskId.getStageId().toString(),
-                            Integer.toString(taskId.getId()),
-                            driverStats.getCreateTime().toDate().toInstant(),
-                            Optional.ofNullable(driverStats.getStartTime()).map(startTime -> startTime.toDate().toInstant()),
-                            Optional.ofNullable(driverStats.getEndTime()).map(endTime -> endTime.toDate().toInstant()),
-                            new SplitStatistics(
-                                    ofMillis(driverStats.getTotalCpuTime().toMillis()),
-                                    ofMillis(driverStats.getElapsedTime().toMillis()),
-                                    ofMillis(driverStats.getQueuedTime().toMillis()),
-                                    ofMillis(driverStats.getRawInputReadTime().toMillis()),
-                                    driverStats.getRawInputPositions(),
-                                    driverStats.getRawInputDataSize().toBytes(),
-                                    timeToStart,
-                                    timeToEnd),
-                            splitFailureMetadata,
-                            objectMapper.writeValueAsString(driverStats)));
-        }
-        catch (JsonProcessingException e) {
-            log.error(e, "Error processing split completion event for task %s", taskId);
         }
     }
 

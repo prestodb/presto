@@ -18,7 +18,7 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
-import com.facebook.presto.operator.JoinBridgeDataManager;
+import com.facebook.presto.operator.JoinBridgeManager;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.LookupSourceFactory;
 import com.facebook.presto.operator.OperatorFactory;
@@ -89,7 +89,7 @@ public class HashBuildAndJoinBenchmark
         }
 
         // hash build
-        JoinBridgeDataManager<LookupSourceFactory> lookupSourceFactoryManager = JoinBridgeDataManager.lookupAllAtOnce(new PartitionedLookupSourceFactory(
+        JoinBridgeManager<LookupSourceFactory> lookupSourceFactoryManager = JoinBridgeManager.lookupAllAtOnce(new PartitionedLookupSourceFactory(
                 sourceTypes,
                 ImmutableList.of(0, 1).stream()
                         .map(sourceTypes::get)
@@ -116,8 +116,6 @@ public class HashBuildAndJoinBenchmark
                 SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory());
         driversBuilder.add(hashBuilder);
         DriverFactory hashBuildDriverFactory = new DriverFactory(0, true, false, driversBuilder.build(), OptionalInt.empty(), UNGROUPED_EXECUTION);
-        Driver hashBuildDriver = hashBuildDriverFactory.createDriver(taskContext.addPipelineContext(0, true, false).addDriverContext());
-        hashBuildDriverFactory.noMoreDrivers();
 
         // join
         ImmutableList.Builder<OperatorFactory> joinDriversBuilder = ImmutableList.builder();
@@ -146,7 +144,10 @@ public class HashBuildAndJoinBenchmark
         joinDriversBuilder.add(joinOperator);
         joinDriversBuilder.add(new NullOutputOperatorFactory(3, new PlanNodeId("test")));
         DriverFactory joinDriverFactory = new DriverFactory(1, true, true, joinDriversBuilder.build(), OptionalInt.empty(), UNGROUPED_EXECUTION);
-        Driver joinDriver = joinDriverFactory.createDriver(taskContext.addPipelineContext(1, true, true).addDriverContext());
+
+        Driver hashBuildDriver = hashBuildDriverFactory.createDriver(taskContext.addPipelineContext(0, true, false, false).addDriverContext());
+        hashBuildDriverFactory.noMoreDrivers();
+        Driver joinDriver = joinDriverFactory.createDriver(taskContext.addPipelineContext(1, true, true, false).addDriverContext());
         joinDriverFactory.noMoreDrivers();
 
         return ImmutableList.of(hashBuildDriver, joinDriver);

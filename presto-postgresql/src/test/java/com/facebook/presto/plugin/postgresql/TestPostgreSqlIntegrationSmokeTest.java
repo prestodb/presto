@@ -23,6 +23,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.UUID;
 
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
@@ -137,8 +138,10 @@ public class TestPostgreSqlIntegrationSmokeTest
             assertQuery("SHOW COLUMNS FROM no_columns", "SELECT 'nothing' WHERE false");
 
             // Other tables should be visible in SHOW TABLES (the no_supported_columns might be included or might be not) and information_schema.tables
-            assertQuery("SHOW TABLES", "VALUES 'orders', 'no_supported_columns', 'supported_columns', 'no_columns'");
-            assertQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = 'tpch'", "VALUES 'orders', 'no_supported_columns', 'supported_columns', 'no_columns'");
+            assertThat(computeActual("SHOW TABLES").getOnlyColumn())
+                    .contains("orders", "no_supported_columns", "supported_columns", "no_columns");
+            assertThat(computeActual("SELECT table_name FROM information_schema.tables WHERE table_schema = 'tpch'").getOnlyColumn())
+                    .contains("orders", "no_supported_columns", "supported_columns", "no_columns");
 
             // Other tables should be introspectable with SHOW COLUMNS and information_schema.columns
             assertQuery("SHOW COLUMNS FROM supported_columns", "VALUES ('good', 'varchar(5)', '', '')");
@@ -146,6 +149,36 @@ public class TestPostgreSqlIntegrationSmokeTest
             // Listing columns in all tables should not fail due to tables with no columns
             computeActual("SELECT column_name FROM information_schema.columns WHERE table_schema = 'tpch'");
         }
+    }
+
+    @Test
+    public void testInsertWithFailureDoesntLeaveBehindOrphanedTable()
+            throws Exception
+    {
+        String schemaName = format("tmp_schema_%s", UUID.randomUUID().toString().replaceAll("-", ""));
+        try (AutoCloseable schema = withSchema(schemaName);
+                AutoCloseable table = withTable(format("%s.test_cleanup", schemaName), "(x INTEGER)")) {
+            assertQuery(format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", schemaName), "VALUES 'test_cleanup'");
+
+            execute(format("ALTER TABLE %s.test_cleanup ADD CHECK (x > 0)", schemaName));
+
+            assertQueryFails(format("INSERT INTO %s.test_cleanup (x) VALUES (0)", schemaName), "ERROR: new row .* violates check constraint [\\s\\S]*");
+            assertQuery(format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", schemaName), "VALUES 'test_cleanup'");
+        }
+    }
+
+    private AutoCloseable withSchema(String schema)
+            throws Exception
+    {
+        execute(format("CREATE SCHEMA %s", schema));
+        return () -> {
+            try {
+                execute(format("DROP SCHEMA %s", schema));
+            }
+            catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        };
     }
 
     private AutoCloseable withTable(String tableName, String tableDefinition)

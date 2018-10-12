@@ -52,7 +52,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.TaskTestUtils.PLAN_FRAGMENT;
 import static com.facebook.presto.execution.TaskTestUtils.SPLIT;
 import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
-import static com.facebook.presto.execution.TaskTestUtils.createTestQueryMonitor;
+import static com.facebook.presto.execution.TaskTestUtils.createTestSplitMonitor;
 import static com.facebook.presto.execution.TaskTestUtils.createTestingPlanner;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -240,7 +240,7 @@ public class TestSqlTaskManager
                 createTestingPlanner(),
                 new MockLocationFactory(),
                 taskExecutor,
-                createTestQueryMonitor(),
+                createTestSplitMonitor(),
                 new NodeInfo("test"),
                 localMemoryManager,
                 taskManagementExecutor,

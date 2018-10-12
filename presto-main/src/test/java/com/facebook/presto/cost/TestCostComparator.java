@@ -16,8 +16,6 @@ package com.facebook.presto.cost;
 import com.facebook.presto.Session;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
-import static com.facebook.presto.cost.PlanNodeCostEstimate.ZERO_COST;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Preconditions.checkState;
 import static org.testng.Assert.assertThrows;
@@ -71,9 +69,9 @@ public class TestCostComparator
     {
         CostComparator costComparator = new CostComparator(1.0, 1.0, 1.0);
         Session session = testSessionBuilder().build();
-        assertThrows(IllegalArgumentException.class, () -> costComparator.compare(session, ZERO_COST, UNKNOWN_COST));
-        assertThrows(IllegalArgumentException.class, () -> costComparator.compare(session, UNKNOWN_COST, ZERO_COST));
-        assertThrows(IllegalArgumentException.class, () -> costComparator.compare(session, UNKNOWN_COST, UNKNOWN_COST));
+        assertThrows(IllegalArgumentException.class, () -> costComparator.compare(session, PlanNodeCostEstimate.zero(), PlanNodeCostEstimate.unknown()));
+        assertThrows(IllegalArgumentException.class, () -> costComparator.compare(session, PlanNodeCostEstimate.unknown(), PlanNodeCostEstimate.zero()));
+        assertThrows(IllegalArgumentException.class, () -> costComparator.compare(session, PlanNodeCostEstimate.unknown(), PlanNodeCostEstimate.unknown()));
     }
 
     private static class CostComparisonAssertion

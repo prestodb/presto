@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.212-SNAPSHOT</version>
+        <version>0.213-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-server-rpm</artifactId>
@@ -98,7 +98,12 @@
                                     <name>/usr/sbin/groupadd</name>
                                 </dependency>
                                 <dependency>
+                                    <!-- Used e.g. to generate node.properties -->
                                     <name>/usr/bin/uuidgen</name>
+                                </dependency>
+                                <dependency>
+                                    <!-- Used e.g. by service launcher -->
+                                    <name>/usr/bin/sudo</name>
                                 </dependency>
                             </dependencies>
 

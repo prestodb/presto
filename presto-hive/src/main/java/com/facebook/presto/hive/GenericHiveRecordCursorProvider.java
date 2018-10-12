@@ -71,6 +71,8 @@ public class GenericHiveRecordCursorProvider
                 () -> HiveUtil.createRecordReader(configuration, path, start, length, schema, columns));
 
         return Optional.of(new GenericHiveRecordCursor<>(
+                configuration,
+                path,
                 genericRecordReader(recordReader),
                 length,
                 schema,

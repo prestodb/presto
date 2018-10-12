@@ -21,7 +21,6 @@ import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 
 import java.util.Optional;
 
-import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.sql.planner.plan.Patterns.spatialJoin;
 import static java.util.Objects.requireNonNull;
 
@@ -49,7 +48,7 @@ public class SpatialJoinStatsRule
             case INNER:
                 return Optional.of(statsCalculator.filterStats(crossJoinStats, node.getFilter(), session, types));
             case LEFT:
-                return Optional.of(UNKNOWN_STATS);
+                return Optional.of(PlanNodeStatsEstimate.unknown());
             default:
                 throw new IllegalArgumentException("Unknown spatial join type: " + node.getType());
         }

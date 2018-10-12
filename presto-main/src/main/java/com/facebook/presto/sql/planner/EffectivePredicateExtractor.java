@@ -231,11 +231,12 @@ public class EffectivePredicateExtractor
 
             switch (node.getType()) {
                 case INNER:
-                    return combineConjuncts(ImmutableList.<Expression>builder()
-                            .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
-                            .add(pullExpressionThroughSymbols(rightPredicate, node.getOutputSymbols()))
-                            .addAll(pullExpressionsThroughSymbols(joinConjuncts, node.getOutputSymbols()))
-                            .build());
+                    return pullExpressionThroughSymbols(combineConjuncts(ImmutableList.<Expression>builder()
+                            .add(leftPredicate)
+                            .add(rightPredicate)
+                            .add(combineConjuncts(joinConjuncts))
+                            .add(node.getFilter().orElse(TRUE_LITERAL))
+                            .build()), node.getOutputSymbols());
                 case LEFT:
                     return combineConjuncts(ImmutableList.<Expression>builder()
                             .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))

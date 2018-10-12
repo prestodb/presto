@@ -89,7 +89,7 @@ Name                              Description
                                   to validate HTTPS server certificates.
 ``SSLTrustStorePassword``         The password for the TrustStore.
 ``KerberosRemoteServiceName``     Presto coordinator Kerberos service name. This parameter is
-                                  required for Kerberos authentiation.
+                                  required for Kerberos authentication.
 ``KerberosPrincipal``             The principal to use when authenticating to the Presto coordinator.
 ``KerberosUseCanonicalHostname``  Use the canonical hostname of the Presto coordinator for the Kerberos
                                   service principal by first resolving the hostname to an IP address

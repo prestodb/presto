@@ -92,7 +92,7 @@ public class TestHashSemiJoinOperator
     @Test(dataProvider = "hashEnabledValues")
     public void testSemiJoin(boolean hashEnabled)
     {
-        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());
@@ -183,7 +183,7 @@ public class TestHashSemiJoinOperator
     @Test(dataProvider = "hashEnabledValues")
     public void testBuildSideNulls(boolean hashEnabled)
     {
-        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());
@@ -239,7 +239,7 @@ public class TestHashSemiJoinOperator
     @Test(dataProvider = "hashEnabledValues")
     public void testProbeSideNulls(boolean hashEnabled)
     {
-        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());
@@ -295,7 +295,7 @@ public class TestHashSemiJoinOperator
     @Test(dataProvider = "hashEnabledValues")
     public void testProbeAndBuildNulls(boolean hashEnabled)
     {
-        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
 
         // build
         OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());
@@ -353,7 +353,7 @@ public class TestHashSemiJoinOperator
     public void testMemoryLimit(boolean hashEnabled)
     {
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(100, BYTE))
-                .addPipelineContext(0, true, true)
+                .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 
         OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), ValuesOperator.class.getSimpleName());

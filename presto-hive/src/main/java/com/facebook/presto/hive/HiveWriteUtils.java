@@ -21,6 +21,7 @@ import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.s3.PrestoS3FileSystem;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
@@ -172,7 +173,7 @@ public final class HiveWriteUtils
     {
     }
 
-    public static RecordWriter createRecordWriter(Path target, JobConf conf, Properties properties, String outputFormatName)
+    public static RecordWriter createRecordWriter(Path target, JobConf conf, Properties properties, String outputFormatName, ConnectorSession session)
     {
         try {
             boolean compress = HiveConf.getBoolVar(conf, COMPRESSRESULT);
@@ -180,7 +181,7 @@ public final class HiveWriteUtils
                 return createRcFileWriter(target, conf, properties, compress);
             }
             if (outputFormatName.equals(MapredParquetOutputFormat.class.getName())) {
-                return createParquetWriter(target, conf, properties, compress);
+                return createParquetWriter(target, conf, properties, compress, session);
             }
             Object writer = Class.forName(outputFormatName).getConstructor().newInstance();
             return ((HiveOutputFormat<?, ?>) writer).getHiveRecordWriter(conf, target, Text.class, compress, properties, Reporter.NULL);

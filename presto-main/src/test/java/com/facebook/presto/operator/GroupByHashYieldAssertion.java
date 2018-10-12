@@ -91,7 +91,7 @@ public final class GroupByHashYieldAssertion
                 new SpillSpaceTracker(new DataSize(512, MEGABYTE)));
 
         DriverContext driverContext = createTaskContext(queryContext, EXECUTOR, TEST_SESSION)
-                .addPipelineContext(0, true, true)
+                .addPipelineContext(0, true, true, false)
                 .addDriverContext();
         Operator operator = operatorFactory.createOperator(driverContext);
 

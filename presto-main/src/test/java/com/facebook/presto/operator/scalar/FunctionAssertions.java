@@ -983,7 +983,7 @@ public final class FunctionAssertions
     private static DriverContext createDriverContext(Session session)
     {
         return createTaskContext(EXECUTOR, SCHEDULED_EXECUTOR, session)
-                .addPipelineContext(0, true, true)
+                .addPipelineContext(0, true, true, false)
                 .addDriverContext();
     }
 

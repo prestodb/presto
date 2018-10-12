@@ -30,7 +30,6 @@ import org.testng.annotations.Test;
 import java.time.LocalDate;
 
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
-import static com.facebook.presto.cost.SymbolStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -73,7 +72,7 @@ public class TestStatsNormalizer
         PlanNodeStatsEstimate estimate = PlanNodeStatsEstimate.builder()
                 .addSymbolStatistics(a, SymbolStatsEstimate.builder().setDistinctValuesCount(20).build())
                 .addSymbolStatistics(b, SymbolStatsEstimate.builder().setDistinctValuesCount(30).build())
-                .addSymbolStatistics(c, SymbolStatsEstimate.buildFrom(UNKNOWN_STATS).build())
+                .addSymbolStatistics(c, SymbolStatsEstimate.unknown())
                 .build();
 
         PlanNodeStatsAssertion.assertThat(normalizer.normalize(estimate, ImmutableList.of(b, c), TypeProvider.copyOf(ImmutableMap.of(b, BIGINT, c, BIGINT))))
@@ -90,7 +89,7 @@ public class TestStatsNormalizer
         PlanNodeStatsEstimate estimate = PlanNodeStatsEstimate.builder()
                 .addSymbolStatistics(a, SymbolStatsEstimate.builder().setNullsFraction(0).setDistinctValuesCount(20).build())
                 .addSymbolStatistics(b, SymbolStatsEstimate.builder().setNullsFraction(0.4).setDistinctValuesCount(20).build())
-                .addSymbolStatistics(c, SymbolStatsEstimate.builder().build())
+                .addSymbolStatistics(c, SymbolStatsEstimate.unknown())
                 .setOutputRowCount(10)
                 .build();
 

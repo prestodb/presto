@@ -83,7 +83,6 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -91,7 +90,6 @@ import static java.util.Objects.requireNonNull;
 class Query
 {
     private static final Logger log = Logger.get(Query.class);
-    private static final long DESIRED_RESULT_BYTES = new DataSize(1, MEGABYTE).toBytes();
 
     private final QueryManager queryManager;
     private final QueryId queryId;
@@ -285,7 +283,7 @@ class Query
         return clearTransactionId;
     }
 
-    public synchronized ListenableFuture<QueryResults> waitForResults(OptionalLong token, UriInfo uriInfo, String scheme, Duration wait)
+    public synchronized ListenableFuture<QueryResults> waitForResults(OptionalLong token, UriInfo uriInfo, String scheme, Duration wait, DataSize targetResultSize)
     {
         // before waiting, check if this request has already been processed and cached
         if (token.isPresent()) {
@@ -303,7 +301,7 @@ class Query
                 timeoutExecutor);
 
         // when state changes, fetch the next result
-        return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, scheme), resultsProcessorExecutor);
+        return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, scheme, targetResultSize), resultsProcessorExecutor);
     }
 
     private synchronized ListenableFuture<?> getFutureStateChange()
@@ -356,7 +354,7 @@ class Query
         return Optional.empty();
     }
 
-    public synchronized QueryResults getNextResult(OptionalLong token, UriInfo uriInfo, String scheme)
+    public synchronized QueryResults getNextResult(OptionalLong token, UriInfo uriInfo, String scheme, DataSize targetResultSize)
     {
         // check if the result for the token have already been created
         if (token.isPresent()) {
@@ -409,7 +407,8 @@ class Query
             ImmutableList.Builder<RowIterable> pages = ImmutableList.builder();
             long bytes = 0;
             long rows = 0;
-            while (bytes < DESIRED_RESULT_BYTES) {
+            long targetResultBytes = targetResultSize.toBytes();
+            while (bytes < targetResultBytes) {
                 SerializedPage serializedPage = exchangeClient.pollPage();
                 if (serializedPage == null) {
                     break;

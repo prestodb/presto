@@ -15,6 +15,13 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.cost.CachingCostProvider;
+import com.facebook.presto.cost.CachingStatsProvider;
+import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.CostProvider;
+import com.facebook.presto.cost.StatsAndCosts;
+import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -101,14 +108,18 @@ public class LogicalPlanner
     private final Metadata metadata;
     private final SqlParser sqlParser;
     private final StatisticsAggregationPlanner statisticsAggregationPlanner;
+    private final StatsCalculator statsCalculator;
+    private final CostCalculator costCalculator;
 
     public LogicalPlanner(Session session,
             List<PlanOptimizer> planOptimizers,
             PlanNodeIdAllocator idAllocator,
             Metadata metadata,
-            SqlParser sqlParser)
+            SqlParser sqlParser,
+            StatsCalculator statsCalculator,
+            CostCalculator costCalculator)
     {
-        this(session, planOptimizers, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, metadata, sqlParser);
+        this(session, planOptimizers, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, metadata, sqlParser, statsCalculator, costCalculator);
     }
 
     public LogicalPlanner(Session session,
@@ -116,22 +127,19 @@ public class LogicalPlanner
             PlanSanityChecker planSanityChecker,
             PlanNodeIdAllocator idAllocator,
             Metadata metadata,
-            SqlParser sqlParser)
+            SqlParser sqlParser,
+            StatsCalculator statsCalculator,
+            CostCalculator costCalculator)
     {
-        requireNonNull(session, "session is null");
-        requireNonNull(planOptimizers, "planOptimizers is null");
-        requireNonNull(planSanityChecker, "planSanityChecker is null");
-        requireNonNull(idAllocator, "idAllocator is null");
-        requireNonNull(metadata, "metadata is null");
-        requireNonNull(sqlParser, "sqlParser is null");
-
-        this.session = session;
-        this.planOptimizers = planOptimizers;
-        this.planSanityChecker = planSanityChecker;
-        this.idAllocator = idAllocator;
-        this.metadata = metadata;
-        this.sqlParser = sqlParser;
+        this.session = requireNonNull(session, "session is null");
+        this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
+        this.planSanityChecker = requireNonNull(planSanityChecker, "planSanityChecker is null");
+        this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(symbolAllocator, metadata);
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+        this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
     }
 
     public Plan plan(Analysis analysis)
@@ -157,7 +165,10 @@ public class LogicalPlanner
             planSanityChecker.validateFinalPlan(root, session, metadata, sqlParser, symbolAllocator.getTypes());
         }
 
-        return new Plan(root, symbolAllocator.getTypes());
+        TypeProvider types = symbolAllocator.getTypes();
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session, types);
+        return new Plan(root, types, StatsAndCosts.create(root, statsProvider, costProvider));
     }
 
     public PlanNode planStatement(Analysis analysis, Statement statement)

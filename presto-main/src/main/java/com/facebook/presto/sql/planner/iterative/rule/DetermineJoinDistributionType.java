@@ -17,6 +17,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.CostProvider;
 import com.facebook.presto.cost.PlanNodeCostEstimate;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
@@ -24,11 +25,14 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.Ordering;
+import io.airlift.units.DataSize;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
+import static com.facebook.presto.SystemSessionProperties.getJoinMaxBroadcastTableSize;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
@@ -68,25 +72,30 @@ public class DetermineJoinDistributionType
         return Result.ofPlanNode(getSyntacticOrderJoin(joinNode, context, joinDistributionType));
     }
 
+    public static boolean canReplicate(JoinNode joinNode, Context context)
+    {
+        JoinDistributionType joinDistributionType = getJoinDistributionType(context.getSession());
+        if (!joinDistributionType.canReplicate()) {
+            return false;
+        }
+
+        Optional<DataSize> joinMaxBroadcastTableSize = getJoinMaxBroadcastTableSize(context.getSession());
+        if (!joinMaxBroadcastTableSize.isPresent()) {
+            return true;
+        }
+
+        PlanNode buildSide = joinNode.getRight();
+        PlanNodeStatsEstimate buildSideStatsEstimate = context.getStatsProvider().getStats(buildSide);
+        double buildSideSizeInBytes = buildSideStatsEstimate.getOutputSizeInBytes(buildSide.getOutputSymbols(), context.getSymbolAllocator().getTypes());
+        return buildSideSizeInBytes <= joinMaxBroadcastTableSize.get().toBytes();
+    }
+
     private PlanNode getCostBasedJoin(JoinNode joinNode, Context context)
     {
-        CostProvider costProvider = context.getCostProvider();
         List<PlanNodeWithCost> possibleJoinNodes = new ArrayList<>();
 
-        if (!mustPartition(joinNode)) {
-            possibleJoinNodes.add(getJoinNodeWithCost(costProvider, joinNode.withDistributionType(REPLICATED)));
-        }
-        if (!mustReplicate(joinNode, context)) {
-            possibleJoinNodes.add(getJoinNodeWithCost(costProvider, joinNode.withDistributionType(PARTITIONED)));
-        }
-
-        JoinNode flipped = joinNode.flipChildren();
-        if (!mustPartition(flipped)) {
-            possibleJoinNodes.add(getJoinNodeWithCost(costProvider, flipped.withDistributionType(REPLICATED)));
-        }
-        if (!mustReplicate(flipped, context)) {
-            possibleJoinNodes.add(getJoinNodeWithCost(costProvider, flipped.withDistributionType(PARTITIONED)));
-        }
+        addJoinsWithDifferentDistributions(joinNode, possibleJoinNodes, context);
+        addJoinsWithDifferentDistributions(joinNode.flipChildren(), possibleJoinNodes, context);
 
         if (possibleJoinNodes.stream().anyMatch(result -> result.getCost().hasUnknownComponents()) || possibleJoinNodes.isEmpty()) {
             return getSyntacticOrderJoin(joinNode, context, AUTOMATIC);
@@ -95,6 +104,16 @@ public class DetermineJoinDistributionType
         // Using Ordering to facilitate rule determinism
         Ordering<PlanNodeWithCost> planNodeOrderings = costComparator.forSession(context.getSession()).onResultOf(PlanNodeWithCost::getCost);
         return planNodeOrderings.min(possibleJoinNodes).getPlanNode();
+    }
+
+    private void addJoinsWithDifferentDistributions(JoinNode joinNode, List<PlanNodeWithCost> possibleJoinNodes, Context context)
+    {
+        if (!mustPartition(joinNode) && canReplicate(joinNode, context)) {
+            possibleJoinNodes.add(getJoinNodeWithCost(context.getCostProvider(), joinNode.withDistributionType(REPLICATED)));
+        }
+        if (!mustReplicate(joinNode, context)) {
+            possibleJoinNodes.add(getJoinNodeWithCost(context.getCostProvider(), joinNode.withDistributionType(PARTITIONED)));
+        }
     }
 
     private PlanNode getSyntacticOrderJoin(JoinNode joinNode, Context context, JoinDistributionType joinDistributionType)

@@ -11,15 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.facebook.presto.operator;
 
-package com.facebook.presto.cost;
+import com.google.common.util.concurrent.ListenableFuture;
 
-import com.facebook.presto.sql.planner.plan.PlanNode;
-
-import java.util.List;
-
-@FunctionalInterface
-public interface PlanNodeSourceProvider
+/**
+ * A bridge that connects build, probe, and outer operators of a join.
+ * It often carries data that lets probe find out what is available on
+ * the build side, and lets outer find the orphaned rows.
+ */
+public interface JoinBridge
 {
-    List<PlanNode> getSources(PlanNode node);
+    /**
+     * Can be called only after build and probe are finished.
+     */
+    OuterPositionIterator getOuterPositionIterator();
+
+    void destroy();
+
+    ListenableFuture<?> whenBuildFinishes();
 }

@@ -200,7 +200,9 @@ public class JdbcMetadata
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return jdbcClient.beginInsertTable(getTableMetadata(session, tableHandle));
+        JdbcOutputTableHandle handle = jdbcClient.beginInsertTable(getTableMetadata(session, tableHandle));
+        setRollback(() -> jdbcClient.rollbackCreateTable(handle));
+        return handle;
     }
 
     @Override

@@ -114,7 +114,7 @@ public class TestAggregationOperator
                 false);
 
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
-                .addPipelineContext(0, true, true)
+                .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT, REAL, DOUBLE, VARCHAR)
@@ -147,7 +147,7 @@ public class TestAggregationOperator
                 useSystemMemory);
 
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
-                .addPipelineContext(0, true, true)
+                .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 
         try (Operator operator = operatorFactory.createOperator(driverContext)) {

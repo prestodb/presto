@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.tests.hive;
 
-import io.airlift.log.Logger;
 import io.prestodb.tempto.AfterTestWithContext;
 import io.prestodb.tempto.BeforeTestWithContext;
 import io.prestodb.tempto.ProductTest;
@@ -28,7 +27,7 @@ import static io.prestodb.tempto.context.ThreadLocalTestContextHolder.testContex
 import static io.prestodb.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 
-public class TestAvroSchemaDefinedTable
+public class TestAvroSchemaEvolution
         extends ProductTest
 {
     private static final String TABLE_NAME = "product_tests_avro_table";
@@ -48,7 +47,6 @@ public class TestAvroSchemaDefinedTable
     private static final String INCOMPATIBLE_TYPE_SCHEMA = "file:///docker/volumes/presto-product-tests/avro/incompatible_type_schema.avsc";
     private static final String SELECT_STAR = "SELECT * FROM " + TABLE_NAME;
     private static final String COLUMNS_IN_TABLE = "SHOW COLUMNS IN " + TABLE_NAME;
-    private static final Logger LOGGER = Logger.get(TestAvroSchemaDefinedTable.class);
 
     @BeforeTestWithContext
     public void createAndLoadTable()
@@ -60,12 +58,7 @@ public class TestAvroSchemaDefinedTable
     @AfterTestWithContext
     public void dropTestTable()
     {
-        try {
-            query(format("DROP TABLE IF EXISTS %s", TABLE_NAME));
-        }
-        catch (Exception e) {
-            LOGGER.warn(e, "failed to clean up");
-        }
+        query(format("DROP TABLE IF EXISTS %s", TABLE_NAME));
     }
 
     @Test(groups = {AVRO, HIVE_CONNECTOR})

@@ -135,6 +135,9 @@ public class MetastoreHiveStatisticsProvider
         if (!isStatisticsEnabled(session)) {
             return TableStatistics.empty();
         }
+        if (partitions.isEmpty()) {
+            return createZeroStatistics(columns, columnTypes);
+        }
         int sampleSize = getPartitionStatisticsSampleSize(session);
         List<HivePartition> partitionsSample = getPartitionsSample(partitions, sampleSize);
         try {
@@ -149,6 +152,24 @@ public class MetastoreHiveStatisticsProvider
             }
             throw e;
         }
+    }
+
+    private TableStatistics createZeroStatistics(Map<String, ColumnHandle> columns, Map<String, Type> columnTypes)
+    {
+        TableStatistics.Builder result = TableStatistics.builder();
+        result.setRowCount(Estimate.of(0));
+        columns.forEach((columnName, columnHandle) -> {
+            Type columnType = columnTypes.get(columnName);
+            verify(columnType != null, "columnType is missing for column: %s", columnName);
+            ColumnStatistics.Builder columnStatistics = ColumnStatistics.builder();
+            columnStatistics.setNullsFraction(Estimate.of(0));
+            columnStatistics.setDistinctValuesCount(Estimate.of(0));
+            if (hasDataSize(columnType)) {
+                columnStatistics.setDataSize(Estimate.of(0));
+            }
+            result.setColumnStatistics(columnHandle, columnStatistics.build());
+        });
+        return result.build();
     }
 
     @VisibleForTesting
@@ -483,7 +504,7 @@ public class MetastoreHiveStatisticsProvider
             Map<String, PartitionStatistics> statistics,
             double averageRowsPerPartition)
     {
-        if (!isVarcharType(type) && !isCharType(type)) {
+        if (!hasDataSize(type)) {
             return Estimate.unknown();
         }
         double dataSize = 0;
@@ -493,6 +514,11 @@ public class MetastoreHiveStatisticsProvider
             dataSize += length * rowCount;
         }
         return Estimate.of(dataSize);
+    }
+
+    private static boolean hasDataSize(Type type)
+    {
+        return isVarcharType(type) || isCharType(type);
     }
 
     private static int getSize(NullableValue nullableValue)

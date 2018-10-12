@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hadoop.TextLineLengthLimitExceededException;
+import com.facebook.presto.hive.avro.PrestoAvroSerDe;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.util.FooterAwareRecordReader;
@@ -45,10 +47,10 @@ import org.apache.hadoop.hive.ql.exec.Utilities;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
+import org.apache.hadoop.hive.serde2.AbstractSerDe;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 import org.apache.hadoop.io.Writable;
@@ -90,6 +92,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.bucketColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.isBucketColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.pathColumnHandle;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
@@ -97,7 +100,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
+import static com.facebook.presto.hive.util.ConfigurationUtils.copy;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -216,6 +219,10 @@ public final class HiveUtil
             return recordReader;
         }
         catch (IOException e) {
+            if (e instanceof TextLineLengthLimitExceededException) {
+                throw new PrestoException(HIVE_BAD_DATA, "Line too long in text file: " + path, e);
+            }
+
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, format("Error opening Hive split %s (offset=%s, length=%s) using %s: %s",
                     path,
                     start,
@@ -313,11 +320,6 @@ public final class HiveUtil
         }
     }
 
-    public static StructObjectInspector getTableObjectInspector(Properties schema)
-    {
-        return getTableObjectInspector(getDeserializer(schema));
-    }
-
     public static StructObjectInspector getTableObjectInspector(@SuppressWarnings("deprecation") Deserializer deserializer)
     {
         try {
@@ -328,11 +330,6 @@ public final class HiveUtil
         catch (SerDeException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    public static List<? extends StructField> getTableStructFields(Table table)
-    {
-        return getTableObjectInspector(getHiveSchema(table)).getAllStructFieldRefs();
     }
 
     public static boolean isDeserializerClass(Properties schema, Class<?> deserializerClass)
@@ -348,12 +345,12 @@ public final class HiveUtil
     }
 
     @SuppressWarnings("deprecation")
-    public static Deserializer getDeserializer(Properties schema)
+    public static Deserializer getDeserializer(Configuration configuration, Properties schema)
     {
         String name = getDeserializerClassName(schema);
 
         Deserializer deserializer = createDeserializer(getDeserializerClass(name));
-        initializeDeserializer(deserializer, schema);
+        initializeDeserializer(configuration, deserializer, schema);
         return deserializer;
     }
 
@@ -363,6 +360,10 @@ public final class HiveUtil
         // CDH uses different names for Parquet
         if ("parquet.hive.serde.ParquetHiveSerDe".equals(name)) {
             return ParquetHiveSerDe.class;
+        }
+
+        if ("org.apache.hadoop.hive.serde2.avro.AvroSerDe".equals(name)) {
+            return PrestoAvroSerDe.class;
         }
 
         try {
@@ -388,13 +389,23 @@ public final class HiveUtil
     }
 
     @SuppressWarnings("deprecation")
-    private static void initializeDeserializer(Deserializer deserializer, Properties schema)
+    private static void initializeDeserializer(Configuration configuration, Deserializer deserializer, Properties schema)
     {
         try {
-            deserializer.initialize(new Configuration(false), schema);
+            configuration = copy(configuration); // Some SerDes (e.g. Avro) modify passed configuration
+            deserializer.initialize(configuration, schema);
+            validate(deserializer);
         }
-        catch (SerDeException e) {
-            throw new RuntimeException("error initializing deserializer: " + deserializer.getClass().getName());
+        catch (SerDeException | RuntimeException e) {
+            throw new RuntimeException("error initializing deserializer: " + deserializer.getClass().getName(), e);
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    private static void validate(Deserializer deserializer)
+    {
+        if (deserializer instanceof AbstractSerDe && !((AbstractSerDe) deserializer).getConfigurationErrors().isEmpty()) {
+            throw new RuntimeException("There are configuration errors: " + ((AbstractSerDe) deserializer).getConfigurationErrors());
         }
     }
 

@@ -343,7 +343,7 @@ public class TestMergeOperator
                 sortChannels,
                 sortOrder);
         DriverContext driverContext = createTaskContext(executor, executor, TEST_SESSION)
-                .addPipelineContext(0, true, true)
+                .addPipelineContext(0, true, true, false)
                 .addDriverContext();
         return (MergeOperator) factory.createOperator(driverContext);
     }

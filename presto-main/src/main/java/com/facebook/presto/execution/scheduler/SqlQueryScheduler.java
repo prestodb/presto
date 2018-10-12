@@ -60,7 +60,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -98,7 +97,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -290,8 +288,6 @@ public class SqlQueryScheduler
         else {
             // nodes are pre determined by the nodePartitionMap
             NodePartitionMap nodePartitionMap = partitioningCache.apply(plan.getFragment().getPartitioning());
-            long nodeCount = nodePartitionMap.getPartitionToNode().values().stream().distinct().count();
-            OptionalInt concurrentLifespansPerTask = getConcurrentLifespansPerNode(session);
 
             Map<PlanNodeId, SplitSource> splitSources = plan.getSplitSources();
             if (!splitSources.isEmpty()) {
@@ -312,7 +308,7 @@ public class SqlQueryScheduler
                         schedulingOrder,
                         nodePartitionMap,
                         splitBatchSize,
-                        concurrentLifespansPerTask.isPresent() ? OptionalInt.of(toIntExact(concurrentLifespansPerTask.getAsInt() * nodeCount)) : OptionalInt.empty(),
+                        getConcurrentLifespansPerNode(session),
                         nodeScheduler.createNodeSelector(null),
                         connectorPartitionHandles));
                 bucketToPartition = Optional.of(nodePartitionMap.getBucketToPartition());

@@ -199,7 +199,7 @@ public class TestTableWriterOperator
                 .setSystemProperty("statistics_cpu_timer_enabled", "true")
                 .build();
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, session)
-                .addPipelineContext(0, true, true)
+                .addPipelineContext(0, true, true, false)
                 .addDriverContext();
         TableWriterOperator operator = (TableWriterOperator) createTableWriterOperator(
                 pageSinkManager,
@@ -278,7 +278,7 @@ public class TestTableWriterOperator
     private Operator createTableWriterOperator(PageSinkManager pageSinkManager, OperatorFactory statisticsAggregation, List<Type> outputTypes, Session session)
     {
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, session)
-                .addPipelineContext(0, true, true)
+                .addPipelineContext(0, true, true, false)
                 .addDriverContext();
         return createTableWriterOperator(pageSinkManager, statisticsAggregation, outputTypes, session, driverContext);
     }

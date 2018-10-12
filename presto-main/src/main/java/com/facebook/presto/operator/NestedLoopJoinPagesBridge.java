@@ -15,11 +15,28 @@ package com.facebook.presto.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
+import static com.google.common.util.concurrent.Futures.transform;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+
 public interface NestedLoopJoinPagesBridge
+        extends JoinBridge
 {
     ListenableFuture<NestedLoopJoinPages> getPagesFuture();
 
     ListenableFuture<?> setPages(NestedLoopJoinPages nestedLoopJoinPages);
 
+    @Override
     void destroy();
+
+    @Override
+    default OuterPositionIterator getOuterPositionIterator()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    default ListenableFuture<?> whenBuildFinishes()
+    {
+        return transform(getPagesFuture(), ignored -> null, directExecutor());
+    }
 }

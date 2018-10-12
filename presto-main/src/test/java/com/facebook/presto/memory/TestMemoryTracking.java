@@ -113,7 +113,7 @@ public class TestMemoryTracking
                 true,
                 true,
                 OptionalInt.empty());
-        pipelineContext = taskContext.addPipelineContext(0, true, true);
+        pipelineContext = taskContext.addPipelineContext(0, true, true, false);
         driverContext = pipelineContext.addDriverContext();
         operatorContext = driverContext.addOperatorContext(1, new PlanNodeId("a"), "test-operator");
     }
