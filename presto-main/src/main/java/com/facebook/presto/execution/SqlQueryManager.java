@@ -48,6 +48,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.util.StatementUtils;
+import com.facebook.presto.version.EmbedVersion;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -115,6 +116,7 @@ public class SqlQueryManager
 
     private final SqlParser sqlParser;
 
+    private final EmbedVersion embedVersion;
     private final ExecutorService queryExecutor;
     private final ThreadPoolExecutorMBean queryExecutorMBean;
     private final ResourceGroupManager resourceGroupManager;
@@ -159,6 +161,7 @@ public class SqlQueryManager
     @Inject
     public SqlQueryManager(
             SqlParser sqlParser,
+            EmbedVersion embedVersion,
             NodeSchedulerConfig nodeSchedulerConfig,
             QueryManagerConfig queryManagerConfig,
             SqlEnvironmentConfig sqlEnvironmentConfig,
@@ -175,6 +178,7 @@ public class SqlQueryManager
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
 
+        this.embedVersion = requireNonNull(embedVersion, "embedVersion is null");
         this.executionFactories = requireNonNull(executionFactories, "executionFactories is null");
 
         this.queryExecutor = newCachedThreadPool(threadsNamed("query-scheduler-%s"));
@@ -377,7 +381,7 @@ public class SqlQueryManager
     public ListenableFuture<?> createQuery(QueryId queryId, SessionContext sessionContext, String query)
     {
         QueryCreationFuture queryCreationFuture = new QueryCreationFuture();
-        queryExecutor.submit(() -> {
+        queryExecutor.submit(embedVersion.embedVersion(() -> {
             try {
                 createQueryInternal(queryId, sessionContext, query);
                 queryCreationFuture.set(null);
@@ -385,7 +389,7 @@ public class SqlQueryManager
             catch (Throwable e) {
                 queryCreationFuture.setException(e);
             }
-        });
+        }));
         return queryCreationFuture;
     }
 

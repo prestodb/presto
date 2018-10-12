@@ -16,7 +16,9 @@ package com.facebook.presto.execution.executor;
 import com.facebook.presto.execution.SplitRunner;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManagerConfig;
+import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.version.EmbedVersion;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ComparisonChain;
@@ -89,6 +91,7 @@ public class TaskExecutor
     private final int minimumNumberOfDrivers;
     private final int guaranteedNumberOfDriversPerTask;
     private final int maximumNumberOfDriversPerTask;
+    private final EmbedVersion embedVersion;
 
     private final Ticker ticker;
 
@@ -153,12 +156,13 @@ public class TaskExecutor
     private volatile boolean closed;
 
     @Inject
-    public TaskExecutor(TaskManagerConfig config, MultilevelSplitQueue splitQueue)
+    public TaskExecutor(TaskManagerConfig config, EmbedVersion embedVersion, MultilevelSplitQueue splitQueue)
     {
         this(requireNonNull(config, "config is null").getMaxWorkerThreads(),
                 config.getMinDrivers(),
                 config.getMinDriversPerTask(),
                 config.getMaxDriversPerTask(),
+                embedVersion,
                 splitQueue,
                 Ticker.systemTicker());
     }
@@ -166,11 +170,24 @@ public class TaskExecutor
     @VisibleForTesting
     public TaskExecutor(int runnerThreads, int minDrivers, int guaranteedNumberOfDriversPerTask, int maximumNumberOfDriversPerTask, Ticker ticker)
     {
-        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, new MultilevelSplitQueue(2), ticker);
+        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, new EmbedVersion(new ServerConfig()), new MultilevelSplitQueue(2), ticker);
     }
 
     @VisibleForTesting
     public TaskExecutor(int runnerThreads, int minDrivers, int guaranteedNumberOfDriversPerTask, int maximumNumberOfDriversPerTask, MultilevelSplitQueue splitQueue, Ticker ticker)
+    {
+        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, new EmbedVersion(new ServerConfig()), splitQueue, ticker);
+    }
+
+    @VisibleForTesting
+    public TaskExecutor(
+            int runnerThreads,
+            int minDrivers,
+            int guaranteedNumberOfDriversPerTask,
+            int maximumNumberOfDriversPerTask,
+            EmbedVersion embedVersion,
+            MultilevelSplitQueue splitQueue,
+            Ticker ticker)
     {
         checkArgument(runnerThreads > 0, "runnerThreads must be at least 1");
         checkArgument(guaranteedNumberOfDriversPerTask > 0, "guaranteedNumberOfDriversPerTask must be at least 1");
@@ -181,6 +198,7 @@ public class TaskExecutor
         this.executor = newCachedThreadPool(threadsNamed("task-processor-%s"));
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
         this.runnerThreads = runnerThreads;
+        this.embedVersion = requireNonNull(embedVersion, "embedVersion is null");
 
         this.ticker = requireNonNull(ticker, "ticker is null");
 
@@ -224,7 +242,7 @@ public class TaskExecutor
     private synchronized void addRunnerThread()
     {
         try {
-            executor.execute(new TaskRunner());
+            executor.execute(embedVersion.embedVersion(new TaskRunner()));
         }
         catch (RejectedExecutionException ignored) {
         }
