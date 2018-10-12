@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.ToIntFunction;
 import java.util.stream.IntStream;
 

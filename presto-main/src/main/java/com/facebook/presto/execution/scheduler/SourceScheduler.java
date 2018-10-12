@@ -20,7 +20,7 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 
-interface SourceScheduler
+public interface SourceScheduler
 {
     ScheduleResult schedule();
 
