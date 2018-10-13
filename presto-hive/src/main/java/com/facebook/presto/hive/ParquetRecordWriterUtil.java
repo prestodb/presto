@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.RecordFileWriter.ExtendedRecordWriter;
+import com.facebook.presto.spi.ConnectorSession;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
@@ -23,11 +24,15 @@ import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 import parquet.hadoop.ParquetFileWriter;
+import parquet.hadoop.ParquetOutputFormat;
 import parquet.hadoop.ParquetRecordWriter;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.Properties;
+
+import static com.facebook.presto.hive.HiveSessionProperties.getParquetWriterBlockSize;
+import static com.facebook.presto.hive.HiveSessionProperties.getParquetWriterPageSize;
 
 public final class ParquetRecordWriterUtil
 {
@@ -52,9 +57,12 @@ public final class ParquetRecordWriterUtil
 
     private ParquetRecordWriterUtil() {}
 
-    public static RecordWriter createParquetWriter(Path target, JobConf conf, Properties properties, boolean compress)
+    public static RecordWriter createParquetWriter(Path target, JobConf conf, Properties properties, boolean compress, ConnectorSession session)
             throws IOException, ReflectiveOperationException
     {
+        conf.setLong(ParquetOutputFormat.BLOCK_SIZE, getParquetWriterBlockSize(session).toBytes());
+        conf.setLong(ParquetOutputFormat.PAGE_SIZE, getParquetWriterPageSize(session).toBytes());
+
         RecordWriter recordWriter = new MapredParquetOutputFormat()
                 .getHiveRecordWriter(conf, target, Text.class, compress, properties, Reporter.NULL);
 

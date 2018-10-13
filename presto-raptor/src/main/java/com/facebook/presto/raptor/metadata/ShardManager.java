@@ -78,14 +78,9 @@ public interface ShardManager
     ResultIterator<BucketShards> getShardNodesBucketed(long tableId, boolean merged, Map<Integer, String> bucketToNode, TupleDomain<RaptorColumnHandle> effectivePredicate);
 
     /**
-     * Assign a shard to a node.
+     * Remove all old shard assignments and assign a shard to a node
      */
-    void assignShard(long tableId, UUID shardUuid, String nodeIdentifier, boolean gracePeriod);
-
-    /**
-     * Remove shard assignment from a node.
-     */
-    void unassignShard(long tableId, UUID shardUuid, String nodeIdentifier);
+    void replaceShardAssignment(long tableId, UUID shardUuid, String nodeIdentifier, boolean gracePeriod);
 
     /**
      * Get the number of bytes used by assigned shards per node.

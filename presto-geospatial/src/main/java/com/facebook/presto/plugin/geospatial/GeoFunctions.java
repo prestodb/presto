@@ -15,16 +15,19 @@ package com.facebook.presto.plugin.geospatial;
 
 import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.GeometryCursor;
+import com.esri.core.geometry.ListeningGeometryCursor;
 import com.esri.core.geometry.MultiPath;
 import com.esri.core.geometry.MultiPoint;
 import com.esri.core.geometry.MultiVertexGeometry;
 import com.esri.core.geometry.NonSimpleResult;
 import com.esri.core.geometry.NonSimpleResult.Reason;
 import com.esri.core.geometry.OperatorSimplifyOGC;
+import com.esri.core.geometry.OperatorUnion;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.Polygon;
 import com.esri.core.geometry.Polyline;
 import com.esri.core.geometry.SpatialReference;
+import com.esri.core.geometry.ogc.OGCConcreteGeometryCollection;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.esri.core.geometry.ogc.OGCGeometryCollection;
 import com.esri.core.geometry.ogc.OGCLineString;
@@ -44,13 +47,20 @@ import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.linearref.LengthIndexedLine;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
 import java.util.EnumSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
 
@@ -88,6 +98,7 @@ import static java.lang.Math.sqrt;
 import static java.lang.Math.toIntExact;
 import static java.lang.Math.toRadians;
 import static java.lang.String.format;
+import static java.util.Arrays.setAll;
 import static java.util.Objects.requireNonNull;
 import static org.locationtech.jts.simplify.TopologyPreservingSimplifier.simplify;
 
@@ -106,6 +117,7 @@ public final class GeoFunctions
             .put(OGCPolygonSelfTangency, "Self-tangency")
             .put(OGCDisconnectedInterior, "Disconnected interior")
             .build();
+    private static final int NUMBER_OF_DIMENSIONS = 3;
 
     private GeoFunctions() {}
 
@@ -561,27 +573,66 @@ public final class GeoFunctions
         return ((OGCGeometryCollection) geometry).numGeometries();
     }
 
-    @Description("Returns a geometry that represents the point set union of the input geometries. This function doesn't support geometry collections.")
+    @Description("Returns a geometry that represents the point set union of the input geometries.")
     @ScalarFunction("ST_Union")
     @SqlType(GEOMETRY_TYPE_NAME)
     public static Slice stUnion(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
     {
-        // Only supports Geometry but not GeometryCollection due to ESRI library limitation
-        // https://github.com/Esri/geometry-api-java/issues/176
-        // https://github.com/Esri/geometry-api-java/issues/177
-        OGCGeometry leftGeometry = deserialize(left);
-        validateType("ST_Union", leftGeometry, EnumSet.of(POINT, MULTI_POINT, LINE_STRING, MULTI_LINE_STRING, POLYGON, MULTI_POLYGON));
-        if (leftGeometry.isEmpty()) {
-            return right;
+        return stUnion(ImmutableList.of(left, right));
+    }
+
+    @Description("Returns a geometry that represents the point set union of the input geometries.")
+    @ScalarFunction("geometry_union")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice geometryUnion(@SqlType("array(" + GEOMETRY_TYPE_NAME + ")") Block input)
+    {
+        return stUnion(getGeometrySlicesFromBlock(input));
+    }
+
+    private static Slice stUnion(Iterable<Slice> slices)
+    {
+        // The current state of Esri/geometry-api-java does not allow support for multiple dimensions being
+        // fed to the union operator without dropping the lower dimensions:
+        // https://github.com/Esri/geometry-api-java/issues/199
+        // When operating over a collection of geometries, it is more efficient to reuse the same operator
+        // for the entire operation.  Therefore, split the inputs and operators by dimension, and then union
+        // each dimension's result at the end.
+        ListeningGeometryCursor[] cursorsByDimension = new ListeningGeometryCursor[NUMBER_OF_DIMENSIONS];
+        GeometryCursor[] operatorsByDimension = new GeometryCursor[NUMBER_OF_DIMENSIONS];
+
+        setAll(cursorsByDimension, i -> new ListeningGeometryCursor());
+        setAll(operatorsByDimension, i -> OperatorUnion.local().execute(cursorsByDimension[i], null, null));
+
+        Iterator<Slice> slicesIterator = slices.iterator();
+        if (!slicesIterator.hasNext()) {
+            return null;
+        }
+        while (slicesIterator.hasNext()) {
+            Slice slice = slicesIterator.next();
+            // Ignore null inputs
+            if (slice.getInput().available() == 0) {
+                continue;
+            }
+
+            for (OGCGeometry geometry : flattenCollection(deserialize(slice))) {
+                int dimension = geometry.dimension();
+                cursorsByDimension[dimension].tick(geometry.getEsriGeometry());
+                operatorsByDimension[dimension].tock();
+            }
         }
 
-        OGCGeometry rightGeometry = deserialize(right);
-        validateType("ST_Union", rightGeometry, EnumSet.of(POINT, MULTI_POINT, LINE_STRING, MULTI_LINE_STRING, POLYGON, MULTI_POLYGON));
-        if (rightGeometry.isEmpty()) {
-            return left;
+        List<OGCGeometry> outputs = new ArrayList<>();
+        for (GeometryCursor operator : operatorsByDimension) {
+            OGCGeometry unionedGeometry = createFromEsriGeometry(operator.next(), null);
+            if (unionedGeometry != null) {
+                outputs.add(unionedGeometry);
+            }
         }
 
-        return serialize(leftGeometry.union(rightGeometry));
+        if (outputs.size() == 1) {
+            return serialize(outputs.get(0));
+        }
+        return serialize(new OGCConcreteGeometryCollection(outputs, null).flattenAndRemoveOverlaps().reduceFromMulti());
     }
 
     @SqlNullable
@@ -822,15 +873,16 @@ public final class GeoFunctions
         return serialize(leftGeometry.difference(rightGeometry));
     }
 
+    @SqlNullable
     @Description("Returns the 2-dimensional cartesian minimum distance (based on spatial ref) between two geometries in projected units")
     @ScalarFunction("ST_Distance")
     @SqlType(DOUBLE)
-    public static double stDistance(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
+    public static Double stDistance(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
     {
         OGCGeometry leftGeometry = deserialize(left);
         OGCGeometry rightGeometry = deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
-        return leftGeometry.distance(rightGeometry);
+        return leftGeometry.isEmpty() || rightGeometry.isEmpty() ? null : leftGeometry.distance(rightGeometry);
     }
 
     @SqlNullable
@@ -1093,7 +1145,7 @@ public final class GeoFunctions
         requireNonNull(input, "input is null");
         OGCGeometry geometry;
         try {
-            geometry = OGCGeometry.fromBinary(input.toByteBuffer());
+            geometry = OGCGeometry.fromBinary(input.toByteBuffer().slice());
         }
         catch (IllegalArgumentException | IndexOutOfBoundsException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid WKB", e);
@@ -1241,5 +1293,77 @@ public final class GeoFunctions
     private interface EnvelopesPredicate
     {
         boolean apply(Envelope left, Envelope right);
+    }
+
+    private static Iterable<Slice> getGeometrySlicesFromBlock(Block block)
+    {
+        requireNonNull(block, "block is null");
+        return () -> new Iterator<Slice>() {
+            private int iteratorPosition;
+
+            @Override
+            public boolean hasNext()
+            {
+                return iteratorPosition != block.getPositionCount();
+            }
+
+            @Override
+            public Slice next()
+            {
+                if (!hasNext()) {
+                    throw new NoSuchElementException("Slices have been consumed");
+                }
+                return GEOMETRY.getSlice(block, iteratorPosition++);
+            }
+        };
+    }
+
+    private static Iterable<OGCGeometry> flattenCollection(OGCGeometry geometry)
+    {
+        if (geometry == null) {
+            return ImmutableList.of();
+        }
+        if (!(geometry instanceof OGCConcreteGeometryCollection)) {
+            return ImmutableList.of(geometry);
+        }
+        if (((OGCConcreteGeometryCollection) geometry).numGeometries() == 0) {
+            return ImmutableList.of();
+        }
+        return () -> new GeometryCollectionIterator(geometry);
+    }
+
+    private static class GeometryCollectionIterator
+            implements Iterator<OGCGeometry>
+    {
+        private final Deque<OGCGeometry> geometriesDeque = new ArrayDeque<>();
+
+        GeometryCollectionIterator(OGCGeometry geometries)
+        {
+            geometriesDeque.push(requireNonNull(geometries, "geometries is null"));
+        }
+
+        @Override
+        public boolean hasNext()
+        {
+            if (geometriesDeque.isEmpty()) {
+                return false;
+            }
+            while (geometriesDeque.peek() instanceof OGCConcreteGeometryCollection) {
+                OGCGeometryCollection collection = (OGCGeometryCollection) geometriesDeque.pop();
+                for (int i = 0; i < collection.numGeometries(); i++) {
+                    geometriesDeque.push(collection.geometryN(i));
+                }
+            }
+            return !geometriesDeque.isEmpty();
+        }
+
+        @Override
+        public OGCGeometry next()
+        {
+            if (!hasNext()) {
+                throw new NoSuchElementException("Geometries have been consumed");
+            }
+            return geometriesDeque.pop();
+        }
     }
 }

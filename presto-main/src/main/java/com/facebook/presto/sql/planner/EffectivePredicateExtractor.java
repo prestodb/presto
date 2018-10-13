@@ -26,6 +26,7 @@ import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
@@ -230,11 +231,12 @@ public class EffectivePredicateExtractor
 
             switch (node.getType()) {
                 case INNER:
-                    return combineConjuncts(ImmutableList.<Expression>builder()
-                            .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
-                            .add(pullExpressionThroughSymbols(rightPredicate, node.getOutputSymbols()))
-                            .addAll(pullExpressionsThroughSymbols(joinConjuncts, node.getOutputSymbols()))
-                            .build());
+                    return pullExpressionThroughSymbols(combineConjuncts(ImmutableList.<Expression>builder()
+                            .add(leftPredicate)
+                            .add(rightPredicate)
+                            .add(combineConjuncts(joinConjuncts))
+                            .add(node.getFilter().orElse(TRUE_LITERAL))
+                            .build()), node.getOutputSymbols());
                 case LEFT:
                     return combineConjuncts(ImmutableList.<Expression>builder()
                             .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
@@ -273,6 +275,28 @@ public class EffectivePredicateExtractor
         {
             // Filtering source does not change the effective predicate over the output symbols
             return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Expression visitSpatialJoin(SpatialJoinNode node, Void context)
+        {
+            Expression leftPredicate = node.getLeft().accept(this, context);
+            Expression rightPredicate = node.getRight().accept(this, context);
+
+            switch (node.getType()) {
+                case INNER:
+                    return combineConjuncts(ImmutableList.<Expression>builder()
+                            .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
+                            .add(pullExpressionThroughSymbols(rightPredicate, node.getOutputSymbols()))
+                            .build());
+                case LEFT:
+                    return combineConjuncts(ImmutableList.<Expression>builder()
+                            .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
+                            .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
+                            .build());
+                default:
+                    throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
+            }
         }
 
         private Expression deriveCommonPredicates(PlanNode node, Function<Integer, Collection<Map.Entry<Symbol, SymbolReference>>> mapping)

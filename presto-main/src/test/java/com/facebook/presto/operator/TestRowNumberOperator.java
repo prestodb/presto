@@ -93,7 +93,7 @@ public class TestRowNumberOperator
     private DriverContext getDriverContext()
     {
         return createTaskContext(executor, scheduledExecutor, TEST_SESSION)
-                .addPipelineContext(0, true, true)
+                .addPipelineContext(0, true, true, false)
                 .addDriverContext();
     }
 

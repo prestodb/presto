@@ -425,6 +425,12 @@ Node Scheduler Properties
     * **Allowed values:** ``legacy``, ``flat``
     * **Default value:** ``legacy``
 
+    Sets the network topology to use when scheduling splits. ``legacy`` will ignore
+    the topology when scheduling splits. ``flat`` will try to schedule splits on the host
+    where the data is located by reserving 50% of the work queue for local splits.
+    It is recommended to use ``flat`` for clusters where distributed storage runs on
+    the same nodes as Presto workers.
+
 
 Optimizer Properties
 --------------------

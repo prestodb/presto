@@ -247,6 +247,20 @@ public class TestJoinStatsRule
     }
 
     @Test
+    public void testLeftJoinMissingStats()
+    {
+        PlanNodeStatsEstimate leftStats = planNodeStats(
+                0,
+                new SymbolStatistics(LEFT_JOIN_COLUMN, SymbolStatsEstimate.unknown()),
+                new SymbolStatistics(LEFT_OTHER_COLUMN, SymbolStatsEstimate.unknown()));
+        PlanNodeStatsEstimate rightStats = planNodeStats(
+                0,
+                new SymbolStatistics(RIGHT_JOIN_COLUMN, SymbolStatsEstimate.unknown()),
+                new SymbolStatistics(RIGHT_OTHER_COLUMN, SymbolStatsEstimate.unknown()));
+        assertJoinStats(LEFT, leftStats, rightStats, leftStats);
+    }
+
+    @Test
     public void testStatsForFullJoin()
     {
         double innerJoinRowCount = LEFT_ROWS_COUNT * RIGHT_ROWS_COUNT / LEFT_JOIN_COLUMN_NDV * LEFT_JOIN_COLUMN_NON_NULLS * RIGHT_JOIN_COLUMN_NON_NULLS;
@@ -331,6 +345,11 @@ public class TestJoinStatsRule
     {
         final Symbol symbol;
         final SymbolStatsEstimate estimate;
+
+        SymbolStatistics(String symbolName, SymbolStatsEstimate estimate)
+        {
+            this(new Symbol(symbolName), estimate);
+        }
 
         SymbolStatistics(Symbol symbol, SymbolStatsEstimate estimate)
         {

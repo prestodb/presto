@@ -85,6 +85,8 @@ public class SetSessionTask
         String value = serializeSessionProperty(type, objectValue);
 
         // verify the SQL value can be decoded by the property
+        propertyMetadata.decode(objectValue);
+
         stateMachine.addSetSessionProperties(propertyName.toString(), value);
 
         return immediateFuture(null);

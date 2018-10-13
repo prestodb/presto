@@ -19,6 +19,7 @@ import com.facebook.presto.cost.CachingCostProvider;
 import com.facebook.presto.cost.CachingStatsProvider;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.CostProvider;
+import com.facebook.presto.cost.PlanNodeCostEstimate;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -39,7 +40,6 @@ import org.testng.annotations.Test;
 import java.util.LinkedHashSet;
 import java.util.Optional;
 
-import static com.facebook.presto.cost.PlanNodeCostEstimate.INFINITE_COST;
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator.generatePartitions;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -102,7 +102,7 @@ public class TestJoinEnumerator
                 createContext());
         JoinEnumerationResult actual = joinEnumerator.createJoinAccordingToPartitioning(multiJoinNode.getSources(), multiJoinNode.getOutputSymbols(), ImmutableSet.of(0));
         assertFalse(actual.getPlanNode().isPresent());
-        assertEquals(actual.getCost(), INFINITE_COST);
+        assertEquals(actual.getCost(), PlanNodeCostEstimate.infinite());
     }
 
     private Rule.Context createContext()
@@ -119,7 +119,6 @@ public class TestJoinEnumerator
                 queryRunner.getCostCalculator(),
                 statsProvider,
                 Optional.empty(),
-                noLookup(),
                 queryRunner.getDefaultSession(),
                 symbolAllocator.getTypes());
 

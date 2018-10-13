@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isEnableStatsCalculator;
-import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
@@ -59,7 +58,7 @@ public final class CachingStatsProvider
     public PlanNodeStatsEstimate getStats(PlanNode node)
     {
         if (!isEnableStatsCalculator(session)) {
-            return UNKNOWN_STATS;
+            return PlanNodeStatsEstimate.unknown();
         }
 
         requireNonNull(node, "node is null");

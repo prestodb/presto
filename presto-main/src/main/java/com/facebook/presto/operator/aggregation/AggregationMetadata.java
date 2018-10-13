@@ -45,8 +45,7 @@ public class AggregationMetadata
     private final MethodHandle inputFunction;
     private final MethodHandle combineFunction;
     private final MethodHandle outputFunction;
-    private final AccumulatorStateSerializer<?> stateSerializer;
-    private final AccumulatorStateFactory<?> stateFactory;
+    private final List<AccumulatorStateDescriptor> accumulatorStateDescriptors;
     private final Type outputType;
 
     public AggregationMetadata(
@@ -55,9 +54,7 @@ public class AggregationMetadata
             MethodHandle inputFunction,
             MethodHandle combineFunction,
             MethodHandle outputFunction,
-            Class<?> stateInterface,
-            AccumulatorStateSerializer<?> stateSerializer,
-            AccumulatorStateFactory<?> stateFactory,
+            List<AccumulatorStateDescriptor> accumulatorStateDescriptors,
             Type outputType)
     {
         this.outputType = requireNonNull(outputType);
@@ -66,12 +63,11 @@ public class AggregationMetadata
         this.inputFunction = requireNonNull(inputFunction, "inputFunction is null");
         this.combineFunction = requireNonNull(combineFunction, "combineFunction is null");
         this.outputFunction = requireNonNull(outputFunction, "outputFunction is null");
-        this.stateSerializer = requireNonNull(stateSerializer, "stateSerializer is null");
-        this.stateFactory = requireNonNull(stateFactory, "stateFactory is null");
+        this.accumulatorStateDescriptors = requireNonNull(accumulatorStateDescriptors, "accumulatorStateDescriptors is null");
 
-        verifyInputFunctionSignature(inputFunction, inputMetadata, stateInterface);
-        verifyCombineFunction(combineFunction, stateInterface);
-        verifyExactOutputFunction(outputFunction, stateInterface);
+        verifyInputFunctionSignature(inputFunction, inputMetadata, accumulatorStateDescriptors);
+        verifyCombineFunction(combineFunction, accumulatorStateDescriptors);
+        verifyExactOutputFunction(outputFunction, accumulatorStateDescriptors);
     }
 
     public Type getOutputType()
@@ -104,27 +100,25 @@ public class AggregationMetadata
         return outputFunction;
     }
 
-    public AccumulatorStateSerializer<?> getStateSerializer()
+    public List<AccumulatorStateDescriptor> getAccumulatorStateDescriptors()
     {
-        return stateSerializer;
+        return accumulatorStateDescriptors;
     }
 
-    public AccumulatorStateFactory<?> getStateFactory()
-    {
-        return stateFactory;
-    }
-
-    private static void verifyInputFunctionSignature(MethodHandle method, List<ParameterMetadata> parameterMetadatas, Class<?> stateInterface)
+    private static void verifyInputFunctionSignature(MethodHandle method, List<ParameterMetadata> parameterMetadatas, List<AccumulatorStateDescriptor> stateDescriptors)
     {
         Class<?>[] parameters = method.type().parameterArray();
         checkArgument(parameters.length > 0, "Aggregation input function must have at least one parameter");
-        checkArgument(parameterMetadatas.stream().filter(m -> m.getParameterType() == STATE).count() == 1, "There must be exactly one state parameter in input function");
+        checkArgument(parameterMetadatas.stream().filter(m -> m.getParameterType() == STATE).count() == stateDescriptors.size(), "Number of state parameter in input function must be the same as size of stateDescriptors");
         checkArgument(parameterMetadatas.get(0).getParameterType() == STATE, "First parameter must be state");
+
+        int stateIndex = 0;
         for (int i = 0; i < parameters.length; i++) {
             ParameterMetadata metadata = parameterMetadatas.get(i);
             switch (metadata.getParameterType()) {
                 case STATE:
-                    checkArgument(stateInterface == parameters[i], String.format("State argument must be of type %s", stateInterface));
+                    checkArgument(stateDescriptors.get(stateIndex).getStateInterface() == parameters[i], String.format("State argument must be of type %s", stateDescriptors.get(stateIndex).getStateInterface()));
+                    stateIndex++;
                     break;
                 case BLOCK_INPUT_CHANNEL:
                 case NULLABLE_BLOCK_INPUT_CHANNEL:
@@ -146,23 +140,30 @@ public class AggregationMetadata
                     throw new IllegalArgumentException("Unsupported parameter: " + metadata.getParameterType());
             }
         }
+        checkArgument(stateIndex == stateDescriptors.size(), String.format("Input function only has %d states, expected: %d.", stateIndex, stateDescriptors.size()));
     }
 
-    private static void verifyCombineFunction(MethodHandle method, Class<?> stateInterface)
+    private static void verifyCombineFunction(MethodHandle method, List<AccumulatorStateDescriptor> stateDescriptors)
     {
         Class<?>[] parameterTypes = method.type().parameterArray();
-        checkArgument(parameterTypes.length == 2, "Combine function must take exactly 2 arguments.");
-        checkArgument(Arrays.stream(parameterTypes).filter(type -> type.equals(stateInterface)).count() == 2, "Combine function must take exactly two arguments of type %s annotated as @AggregationState", stateInterface.getSimpleName());
+        checkArgument(parameterTypes.length == stateDescriptors.size() * 2, "Number of arguments for combine function must be 2 times the size of states.");
+        for (int i = 0; i < stateDescriptors.size() * 2; i++) {
+            checkArgument(
+                    parameterTypes[i].equals(stateDescriptors.get(i % stateDescriptors.size()).getStateInterface()),
+                    String.format("Type for Parameter index %d is unexpected. Arguments for combine function must appear in the order of state1, state2, ..., otherState1, otherState2, ...", i));
+        }
     }
 
-    private static void verifyExactOutputFunction(MethodHandle method, Class<?> stateInterface)
+    private static void verifyExactOutputFunction(MethodHandle method, List<AccumulatorStateDescriptor> stateDescriptors)
     {
         if (method == null) {
             return;
         }
         Class<?>[] parameterTypes = method.type().parameterArray();
-        checkArgument(parameterTypes.length == 2, "Output function must take at exactly 2 arguments.");
-        checkArgument(Arrays.stream(parameterTypes).filter(type -> type.equals(stateInterface)).count() == 1, "Output function must take exactly one @AggregationState of type %s", stateInterface.getSimpleName());
+        checkArgument(parameterTypes.length == stateDescriptors.size() + 1, "Number of arguments for combine function must be exactly one plus than number of states.");
+        for (int i = 0; i < stateDescriptors.size(); i++) {
+            checkArgument(parameterTypes[i].equals(stateDescriptors.get(i).getStateInterface()), String.format("Type for Parameter index %d is unexpected", i));
+        }
         checkArgument(Arrays.stream(parameterTypes).filter(type -> type.equals(BlockBuilder.class)).count() == 1, "Output function must take exactly one BlockBuilder parameter");
     }
 
@@ -250,6 +251,35 @@ public class AggregationMetadata
                     }
                 }
             }
+        }
+    }
+
+    public static class AccumulatorStateDescriptor
+    {
+        private final Class<?> stateInterface;
+        private final AccumulatorStateSerializer<?> serializer;
+        private final AccumulatorStateFactory<?> factory;
+
+        public AccumulatorStateDescriptor(Class<?> stateInterface, AccumulatorStateSerializer<?> serializer, AccumulatorStateFactory<?> factory)
+        {
+            this.stateInterface = requireNonNull(stateInterface, "stateInterface is null");
+            this.serializer = requireNonNull(serializer, "serializer is null");
+            this.factory = requireNonNull(factory, "factory is null");
+        }
+
+        public Class<?> getStateInterface()
+        {
+            return stateInterface;
+        }
+
+        public AccumulatorStateSerializer<?> getSerializer()
+        {
+            return serializer;
+        }
+
+        public AccumulatorStateFactory<?> getFactory()
+        {
+            return factory;
         }
     }
 }

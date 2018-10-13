@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.event.query;
+package com.facebook.presto.event;
 
 import io.airlift.configuration.Config;
 import io.airlift.units.DataSize;

@@ -61,7 +61,7 @@ public abstract class AbstractSimpleOperatorBenchmark
     protected List<Driver> createDrivers(TaskContext taskContext)
     {
         DriverFactory driverFactory = createDriverFactory();
-        DriverContext driverContext = taskContext.addPipelineContext(0, true, true).addDriverContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
         Driver driver = driverFactory.createDriver(driverContext);
         return ImmutableList.of(driver);
     }

@@ -299,8 +299,9 @@ public class SpillableHashAggregationBuilder
                 groupByChannels,
                 hashChannel,
                 operatorContext,
-                DataSize.succinctBytes(0),
+                Optional.of(DataSize.succinctBytes(0)),
                 joinCompiler,
+                false,
                 false);
         emptyHashAggregationBuilderSize = hashAggregationBuilder.getSizeInMemory();
     }

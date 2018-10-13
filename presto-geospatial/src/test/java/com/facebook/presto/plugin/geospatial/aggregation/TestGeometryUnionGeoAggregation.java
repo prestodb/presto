@@ -13,12 +13,23 @@
  */
 package com.facebook.presto.plugin.geospatial.aggregation;
 
+import com.google.common.base.Joiner;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+
+import java.util.Arrays;
+import java.util.List;
+
+import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
+import static java.lang.String.format;
+import static java.util.Collections.reverse;
+import static java.util.stream.Collectors.toList;
 
 public class TestGeometryUnionGeoAggregation
         extends AbstractTestGeoAggregationFunctions
 {
+    private static final Joiner COMMA_JOINER = Joiner.on(",");
+
     @DataProvider(name = "point")
     public Object[][] point()
     {
@@ -32,11 +43,6 @@ public class TestGeometryUnionGeoAggregation
                         "no input yields null",
                         null,
                         new String[] {},
-                },
-                {
-                        "null before value yields the value",
-                        "POINT (1 2)",
-                        new String[] {null, "POINT (1 2)"},
                 },
                 {
                         "empty with non-empty",
@@ -213,13 +219,13 @@ public class TestGeometryUnionGeoAggregation
         return new Object[][] {
                 {
                         "identity",
-                        "MULTIPOLYGON(((4 2, 5 1, 3 1, 4 2)))",
-                        new String[] {"MULTIPOLYGON(((4 2, 5 1, 3 1, 4 2)))", "MULTIPOLYGON(((4 2, 5 1, 3 1, 4 2)))", "MULTIPOLYGON(((4 2, 5 1, 3 1, 4 2)))"},
+                        "MULTIPOLYGON (((4 2, 3 1, 5 1, 4 2)), ((14 12, 13 11, 15 11, 14 12)))",
+                        new String[] {"MULTIPOLYGON(((4 2, 5 1, 3 1, 4 2)), ((14 12, 15 11, 13 11, 14 12)))", "MULTIPOLYGON(((4 2, 5 1, 3 1, 4 2)), ((14 12, 15 11, 13 11, 14 12)))"},
                 },
                 {
                         "empty with non-empty",
-                        "MULTIPOLYGON(((4 2, 5 1, 3 1, 4 2)))",
-                        new String[] {"MULTIPOLYGON EMPTY", "MULTIPOLYGON(((4 2, 5 1, 3 1, 4 2)))"},
+                        "MULTIPOLYGON (((4 2, 3 1, 5 1, 4 2)), ((14 12, 13 11, 15 11, 14 12)))",
+                        new String[] {"MULTIPOLYGON EMPTY", "MULTIPOLYGON (((4 2, 5 1, 3 1, 4 2)), ((14 12, 15 11, 13 11, 14 12)))"},
                 },
                 {
                         "disjoint",
@@ -229,7 +235,7 @@ public class TestGeometryUnionGeoAggregation
                 },
                 {
                         "overlapping multipolygons are simplified",
-                        "POLYGON ((2 2, 1 1, 2 1, 3 1, 4 1, 5 1, 4 2, 3.5 1.5, 3 2, 2.5 1.5, 2 2))",
+                        "POLYGON ((1 1, 2 1, 3 1, 4 1, 5 1, 4 2, 3.5 1.5, 3 2, 2.5 1.5, 2 2, 1 1))",
                         new String[] {"MULTIPOLYGON (((2 2, 3 1, 1 1, 2 2)), ((3 2, 4 1, 2 1, 3 2)))", "MULTIPOLYGON(((4 2, 5 1, 3 1, 4 2)))"},
                 },
                 {
@@ -251,6 +257,12 @@ public class TestGeometryUnionGeoAggregation
                         new String[] {"MULTIPOLYGON (((0 0, 2 0, 2 2, 0 2, 0 0)), ((3 0, 5 0, 5 2, 3 2, 3 0)))",
                                 "GEOMETRYCOLLECTION ( POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0)), POLYGON ((3 0, 5 0, 5 2, 3 2, 3 0)))",
                                 "GEOMETRYCOLLECTION ( POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0)), POLYGON ((3 0, 5 0, 5 2, 3 2, 3 0)))"},
+                },
+                {
+                        "empty collection with empty collection",
+                        "GEOMETRYCOLLECTION EMPTY",
+                        new String[] {"GEOMETRYCOLLECTION EMPTY",
+                                "GEOMETRYCOLLECTION EMPTY"},
                 },
                 {
                         "empty with non-empty",
@@ -292,47 +304,66 @@ public class TestGeometryUnionGeoAggregation
     public void testPoint(String testDescription, String expectedWkt, String... wkts)
     {
         assertAggregatedGeometries(testDescription, expectedWkt, wkts);
+        assertArrayAggAndGeometryUnion(testDescription, expectedWkt, wkts);
     }
 
     @Test(dataProvider = "linestring")
     public void testLineString(String testDescription, String expectedWkt, String... wkts)
     {
         assertAggregatedGeometries(testDescription, expectedWkt, wkts);
+        assertArrayAggAndGeometryUnion(testDescription, expectedWkt, wkts);
     }
 
     @Test(dataProvider = "polygon")
     public void testPolygon(String testDescription, String expectedWkt, String... wkts)
     {
         assertAggregatedGeometries(testDescription, expectedWkt, wkts);
+        assertArrayAggAndGeometryUnion(testDescription, expectedWkt, wkts);
     }
 
     @Test(dataProvider = "multipoint")
     public void testMultiPoint(String testDescription, String expectedWkt, String... wkts)
     {
         assertAggregatedGeometries(testDescription, expectedWkt, wkts);
+        assertArrayAggAndGeometryUnion(testDescription, expectedWkt, wkts);
     }
 
     @Test(dataProvider = "multilinestring")
     public void testMultiLineString(String testDescription, String expectedWkt, String... wkts)
     {
         assertAggregatedGeometries(testDescription, expectedWkt, wkts);
+        assertArrayAggAndGeometryUnion(testDescription, expectedWkt, wkts);
     }
 
     @Test(dataProvider = "multipolygon")
     public void testMultiPolygon(String testDescription, String expectedWkt, String... wkts)
     {
         assertAggregatedGeometries(testDescription, expectedWkt, wkts);
+        assertArrayAggAndGeometryUnion(testDescription, expectedWkt, wkts);
     }
 
     @Test(dataProvider = "geometrycollection")
     public void testGeometryCollection(String testDescription, String expectedWkt, String... wkts)
     {
         assertAggregatedGeometries(testDescription, expectedWkt, wkts);
+        assertArrayAggAndGeometryUnion(testDescription, expectedWkt, wkts);
     }
 
     @Override
     protected String getFunctionName()
     {
         return "geometry_union_agg";
+    }
+
+    private void assertArrayAggAndGeometryUnion(String testDescription, String expectedWkt, String[] wkts)
+    {
+        List<String> wktList = Arrays.stream(wkts).map(wkt -> format("ST_GeometryFromText('%s')", wkt)).collect(toList());
+        String wktArray = format("ARRAY[%s]", COMMA_JOINER.join(wktList));
+        // ST_Union(ARRAY[ST_GeometryFromText('...'), ...])
+        assertFunction(format("geometry_union(%s)", wktArray), GEOMETRY, expectedWkt);
+
+        reverse(wktList);
+        wktArray = format("ARRAY[%s]", COMMA_JOINER.join(wktList));
+        assertFunction(format("geometry_union(%s)", wktArray), GEOMETRY, expectedWkt);
     }
 }

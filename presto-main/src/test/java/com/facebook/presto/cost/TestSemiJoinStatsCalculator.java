@@ -21,7 +21,6 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.cost.PlanNodeStatsAssertion.assertThat;
 import static com.facebook.presto.cost.SemiJoinStatsCalculator.computeAntiJoin;
 import static com.facebook.presto.cost.SemiJoinStatsCalculator.computeSemiJoin;
-import static com.facebook.presto.cost.SymbolStatsEstimate.UNKNOWN_STATS;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
@@ -127,7 +126,7 @@ public class TestSemiJoinStatsCalculator
                 .addSymbolStatistics(rightOpen, rightOpenStats)
                 .addSymbolStatistics(unknownRange, unknownRangeStats)
                 .addSymbolStatistics(emptyRange, emptyRangeStats)
-                .addSymbolStatistics(unknown, UNKNOWN_STATS)
+                .addSymbolStatistics(unknown, SymbolStatsEstimate.unknown())
                 .setOutputRowCount(1000.0)
                 .build();
     }

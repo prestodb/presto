@@ -48,6 +48,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
+import static com.google.common.util.concurrent.Futures.transform;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
@@ -160,6 +162,20 @@ public final class PartitionedLookupSourceFactory
         finally {
             lock.writeLock().unlock();
         }
+    }
+
+    @Override
+    public ListenableFuture<?> whenBuildFinishes()
+    {
+        return transform(
+                this.createLookupSourceProvider(),
+                lookupSourceProvider -> {
+                    // Close the lookupSourceProvider we just created.
+                    // The only reason we created it is to wait until lookup source is ready.
+                    lookupSourceProvider.close();
+                    return null;
+                },
+                directExecutor());
     }
 
     @Override

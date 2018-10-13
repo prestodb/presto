@@ -15,6 +15,7 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.checkpoint.InputStreamCheckpoint;
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.zstd.ZstdJniCompressor;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.compress.Compressor;
 import io.airlift.compress.lz4.Lz4Compressor;
@@ -30,7 +31,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.util.Arrays;
-import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -97,6 +97,9 @@ public class OrcOutputBuffer
         }
         else if (compression == CompressionKind.LZ4) {
             this.compressor = new Lz4Compressor();
+        }
+        else if (compression == CompressionKind.ZSTD) {
+            this.compressor = new ZstdJniCompressor();
         }
         else {
             throw new IllegalArgumentException("Unsupported compression " + compression);
@@ -363,12 +366,6 @@ public class OrcOutputBuffer
     public Slice getUnderlyingSlice()
     {
         throw new UnsupportedOperationException();
-    }
-
-    public List<Slice> getCompressedSlices()
-    {
-        flushBufferToOutputStream();
-        return compressedOutputStream.getSlices();
     }
 
     @Override

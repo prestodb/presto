@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import static java.util.Objects.requireNonNull;
@@ -21,14 +22,13 @@ public class Plan
 {
     private final PlanNode root;
     private final TypeProvider types;
+    private final StatsAndCosts statsAndCosts;
 
-    public Plan(PlanNode root, TypeProvider types)
+    public Plan(PlanNode root, TypeProvider types, StatsAndCosts statsAndCosts)
     {
-        requireNonNull(root, "root is null");
-        requireNonNull(types, "types is null");
-
-        this.root = root;
-        this.types = types;
+        this.root = requireNonNull(root, "root is null");
+        this.types = requireNonNull(types, "types is null");
+        this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
     }
 
     public PlanNode getRoot()
@@ -39,5 +39,10 @@ public class Plan
     public TypeProvider getTypes()
     {
         return types;
+    }
+
+    public StatsAndCosts getStatsAndCosts()
+    {
+        return statsAndCosts;
     }
 }

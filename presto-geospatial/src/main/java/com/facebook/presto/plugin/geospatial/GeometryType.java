@@ -59,12 +59,20 @@ public class GeometryType
     @Override
     public void writeSlice(BlockBuilder blockBuilder, Slice value)
     {
+        if (value == null) {
+            blockBuilder.appendNull();
+            return;
+        }
         writeSlice(blockBuilder, value, 0, value.length());
     }
 
     @Override
     public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
+        if (value == null) {
+            blockBuilder.appendNull();
+            return;
+        }
         blockBuilder.writeBytes(value, offset, length).closeEntry();
     }
 

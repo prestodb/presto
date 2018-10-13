@@ -17,6 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 
+import java.util.function.Function;
+
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public final class TpchQueryRunnerBuilder
@@ -31,6 +33,12 @@ public final class TpchQueryRunnerBuilder
     private TpchQueryRunnerBuilder()
     {
         super(DEFAULT_SESSION);
+    }
+
+    @Override
+    public TpchQueryRunnerBuilder amendSession(Function<Session.SessionBuilder, Session.SessionBuilder> amendSession)
+    {
+        return (TpchQueryRunnerBuilder) super.amendSession(amendSession);
     }
 
     public static TpchQueryRunnerBuilder builder()

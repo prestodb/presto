@@ -53,7 +53,7 @@ public final class HiveTestUtils
     }
 
     public static final ConnectorSession SESSION = new TestingConnectorSession(
-            new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig()).getSessionProperties());
+            new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
 
     public static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
 
@@ -92,14 +92,20 @@ public final class HiveTestUtils
         HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
         return ImmutableSet.<HiveFileWriterFactory>builder()
                 .add(new RcFileFileWriterFactory(testHdfsEnvironment, TYPE_MANAGER, new NodeVersion("test_version"), hiveClientConfig, new FileFormatDataSourceStats()))
-                .add(new OrcFileWriterFactory(
-                        testHdfsEnvironment,
-                        TYPE_MANAGER,
-                        new NodeVersion("test_version"),
-                        hiveClientConfig,
-                        new FileFormatDataSourceStats(),
-                        new OrcFileWriterConfig()))
+                .add(getDefaultOrcFileWriterFactory(hiveClientConfig))
                 .build();
+    }
+
+    public static OrcFileWriterFactory getDefaultOrcFileWriterFactory(HiveClientConfig hiveClientConfig)
+    {
+        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
+        return new OrcFileWriterFactory(
+                testHdfsEnvironment,
+                TYPE_MANAGER,
+                new NodeVersion("test_version"),
+                hiveClientConfig,
+                new FileFormatDataSourceStats(),
+                new OrcFileWriterConfig());
     }
 
     public static List<Type> getTypes(List<? extends ColumnHandle> columnHandles)

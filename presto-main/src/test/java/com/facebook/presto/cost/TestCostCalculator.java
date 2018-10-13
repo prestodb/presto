@@ -70,16 +70,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
-import static com.facebook.presto.cost.PlanNodeCostEstimate.ZERO_COST;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.cpuCost;
-import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
@@ -318,7 +314,7 @@ public class TestCostCalculator
                 .network(6000 * IS_NULL_OVERHEAD);
 
         assertCostFragmentedPlan(aggregation, costs, stats, types)
-                .cpu((6000) * IS_NULL_OVERHEAD + 6000)
+                .cpu(6000 + 6000 * IS_NULL_OVERHEAD)
                 .memory(13 * IS_NULL_OVERHEAD)
                 .network(0 * IS_NULL_OVERHEAD);
 
@@ -411,10 +407,47 @@ public class TestCostCalculator
     {
         TypeProvider typeProvider = TypeProvider.copyOf(types.entrySet().stream()
                 .collect(ImmutableMap.toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue)));
-        SubPlan subPlan = fragment(new Plan(node, typeProvider));
-        FragmentedPlanSourceProvider sourceProvider = FragmentedPlanSourceProvider.create(subPlan.getAllFragments());
-        FragmentedPlanCostCalculator costCalculator = new FragmentedPlanCostCalculator(costCalculatorUsingExchanges, sourceProvider, () -> NUMBER_OF_NODES);
-        return assertCost(costCalculator, node, costs, stats, types);
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator(stats), session, typeProvider);
+        CostProvider costProvider = new TestingCostProvider(costs, costCalculatorUsingExchanges, statsProvider, session, typeProvider);
+        SubPlan subPlan = fragment(new Plan(node, typeProvider, StatsAndCosts.create(node, statsProvider, costProvider)));
+        return new CostAssertionBuilder(subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.getId(), PlanNodeCostEstimate.unknown()));
+    }
+
+    private static class TestingCostProvider
+            implements CostProvider
+    {
+        private final Map<String, PlanNodeCostEstimate> costs;
+        private final CostCalculator costCalculator;
+        private final StatsProvider statsProvider;
+        private final Session session;
+        private final TypeProvider types;
+
+        private TestingCostProvider(Map<String, PlanNodeCostEstimate> costs, CostCalculator costCalculator, StatsProvider statsProvider, Session session, TypeProvider types)
+        {
+            this.costs = ImmutableMap.copyOf(requireNonNull(costs, "costs is null"));
+            this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+            this.statsProvider = requireNonNull(statsProvider, "statsProvider is null");
+            this.session = requireNonNull(session, "session is null");
+            this.types = requireNonNull(types, "types is null");
+        }
+
+        @Override
+        public PlanNodeCostEstimate getCumulativeCost(PlanNode node)
+        {
+            if (costs.containsKey(node.getId().toString())) {
+                return costs.get(node.getId().toString());
+            }
+            return calculateCumulativeCost(node);
+        }
+
+        private PlanNodeCostEstimate calculateCumulativeCost(PlanNode node)
+        {
+            PlanNodeCostEstimate sourcesCost = node.getSources().stream()
+                    .map(this::getCumulativeCost)
+                    .reduce(PlanNodeCostEstimate.zero(), PlanNodeCostEstimate::add);
+
+            return costCalculator.calculateCost(node, statsProvider, session, types).add(sourcesCost);
+        }
     }
 
     private CostAssertionBuilder assertCost(
@@ -438,15 +471,15 @@ public class TestCostCalculator
         new CostAssertionBuilder(calculateCumulativeCost(
                 costCalculatorUsingExchanges,
                 node,
-                planNode -> UNKNOWN_COST,
-                planNode -> UNKNOWN_STATS,
+                planNode -> PlanNodeCostEstimate.unknown(),
+                planNode -> PlanNodeStatsEstimate.unknown(),
                 types))
                 .hasUnknownComponents();
         new CostAssertionBuilder(calculateCumulativeCost(
                 costCalculatorWithEstimatedExchanges,
                 node,
-                planNode -> UNKNOWN_COST,
-                planNode -> UNKNOWN_STATS,
+                planNode -> PlanNodeCostEstimate.unknown(),
+                planNode -> PlanNodeStatsEstimate.unknown(),
                 types))
                 .hasUnknownComponents();
     }
@@ -475,14 +508,13 @@ public class TestCostCalculator
         PlanNodeCostEstimate localCost = costCalculator.calculateCost(
                 node,
                 planNode -> requireNonNull(stats.apply(planNode), "no stats for node"),
-                noLookup(),
                 session,
                 TypeProvider.copyOf(types.entrySet().stream()
                         .collect(ImmutableMap.toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue))));
 
         PlanNodeCostEstimate sourcesCost = node.getSources().stream()
                 .map(source -> requireNonNull(costs.apply(source), format("no cost for source: %s", source.getId())))
-                .reduce(ZERO_COST, PlanNodeCostEstimate::add);
+                .reduce(PlanNodeCostEstimate.zero(), PlanNodeCostEstimate::add);
         return sourcesCost.add(localCost);
     }
 
@@ -491,7 +523,7 @@ public class TestCostCalculator
         TypeProvider typeProvider = TypeProvider.copyOf(types.entrySet().stream()
                 .collect(ImmutableMap.toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue)));
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, typeProvider);
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), noLookup(), session, typeProvider);
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session, typeProvider);
         return costProvider.getCumulativeCost(node);
     }
 
@@ -499,11 +531,10 @@ public class TestCostCalculator
     {
         TypeProvider typeProvider = TypeProvider.copyOf(types.entrySet().stream()
                 .collect(ImmutableMap.toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue)));
-        SubPlan subPlan = fragment(new Plan(node, typeProvider));
-        FragmentedPlanSourceProvider sourceProvider = FragmentedPlanSourceProvider.create(subPlan.getAllFragments());
-        statsCalculator = new FragmentedPlanStatsCalculator(statsCalculator, sourceProvider);
-        CostCalculator costCalculator = new FragmentedPlanCostCalculator(costCalculatorUsingExchanges, sourceProvider, () -> NUMBER_OF_NODES);
-        return calculateCumulativeCost(node, costCalculator, statsCalculator, types);
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, typeProvider);
+        CostProvider costProvider = new CachingCostProvider(costCalculatorUsingExchanges, statsProvider, Optional.empty(), session, typeProvider);
+        SubPlan subPlan = fragment(new Plan(node, typeProvider, StatsAndCosts.create(node, statsProvider, costProvider)));
+        return subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.getId(), PlanNodeCostEstimate.unknown());
     }
 
     private static class CostAssertionBuilder
