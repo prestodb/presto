@@ -1,6 +1,6 @@
 # Presto OraclePlugin
 
-This is a plugin for Presto that allow you to use Oracle Jdbc Connection
+This is a plugin for Presto that allow you to use Oracle Jdbc Connection. Note that this code base doesn't include Oracle JDBC driver. So once you build presto code base, you will have to manually deploy Oracle JDBC jar file to presto plugin folder (details are below) before the connector will work.
 
 [![Presto-Connectors Member](https://img.shields.io/badge/presto--connectors-member-green.svg)](http://presto-connectors.ml)
 
@@ -19,11 +19,14 @@ Create new properties file inside etc/catalog dir:
 
     mvn clean install
     
+
 ## Adding Oracle Driver
 Oracle Driver is not available in common repositories, so you will need to download it from Oracle and install manually in your repository.
-Oracle’s JDBC drivers may be obtained from Oracle’s [https://www.oracle.com/technetwork/database/application-development/jdbc/downloads/index.htm](https://www.oracle.com/technetwork/database/application-development/jdbc/downloads/index.htm)
+Oracle’s JDBC drivers may be obtained from Oracle’s download page: [https://www.oracle.com/technetwork/database/application-development/jdbc/downloads/index.htm](https://www.oracle.com/technetwork/database/application-development/jdbc/downloads/index.htm)
 
-Once you have the Oracle JDBC driver downloaded, you can add that driver to local maven repository using the following command.
-    mvn install:install-file -Dfile=<PATH>/ojdbc8.jar -DgroupId=com.oracle -DartifactId=ojdbc8 -Dversion=12.2.0.1 -Dpackaging=jar
-Note that you will have to update the PATH to the appropriate location where you have the JDBC file downloaded. In addition, the version can be specified
-as well. Make sure you update the pom file for presto-oracle module appropriately if you do that.
+Once you have the Oracle JDBC driver downloaded, you can deploy the oracle jdbc jar file to presto plugin folder on coordinator and worker nodes.
+For example, if the oracle driver file is ojdbc8.jar and presto plugin folder is /usr/lib/presto/lib/plugin, use the following command to copy the library to the plugin folder.
+
+    cp ojdbc8.jar /usr/lib/presto/lib/plugin/oracle 
+
+Restart the coordinator and worker processes and Oracle connector will work.

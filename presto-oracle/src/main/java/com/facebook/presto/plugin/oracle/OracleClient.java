@@ -16,7 +16,7 @@ package com.facebook.presto.plugin.oracle;
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.ConnectionFactory;
-import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
+import com.facebook.presto.plugin.jdbc.DriverManagerConnectionFactory;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
 import com.facebook.presto.plugin.jdbc.ReadMapping;
@@ -25,7 +25,6 @@ import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableSet;
-import oracle.jdbc.OracleDriver;
 
 import javax.inject.Inject;
 
@@ -64,6 +63,8 @@ import static java.lang.Math.min;
 public class OracleClient
         extends BaseJdbcClient
 {
+    static final String ORACLE_DRIVER_NAME = "oracle.jdbc.driver.OracleDriver";
+
     @Inject
     public OracleClient(JdbcConnectorId connectorId, BaseJdbcConfig config,
                         com.facebook.presto.plugin.oracle.OracleConfig oracleConfig) throws SQLException
@@ -90,7 +91,7 @@ public class OracleClient
             connectionProperties.setProperty("connectTimeout", String.valueOf(oracleConfig.getConnectionTimeout().toMillis()));
         }
 
-        return new DriverConnectionFactory(new OracleDriver(), config.getConnectionUrl(), connectionProperties);
+        return new DriverManagerConnectionFactory(ORACLE_DRIVER_NAME, config.getConnectionUrl(), connectionProperties);
     }
 
     @Override
@@ -111,7 +112,7 @@ public class OracleClient
     }
 
     protected ResultSet getTables(Connection connection, String schemaName,
-            String tableName) throws SQLException
+                                  String tableName) throws SQLException
     {
         // Here we put TABLE and SYNONYM when the table schema is another user schema
         return connection.getMetaData().getTables(null, schemaName, tableName,
