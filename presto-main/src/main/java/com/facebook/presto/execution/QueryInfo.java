@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorType;
@@ -37,11 +36,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.execution.QueryState.FAILED;
-import static com.facebook.presto.execution.QueryStats.immediateFailureQueryStats;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
-import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
-import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -156,41 +151,6 @@ public class QueryInfo
         this.output = output;
         this.completeInfo = completeInfo;
         this.resourceGroupId = resourceGroupId;
-    }
-
-    public static QueryInfo immediateFailureQueryInfo(Session session, String query, URI self, Optional<ResourceGroupId> resourceGroupId, Throwable throwable)
-    {
-        ExecutionFailureInfo failureCause = toFailure(throwable);
-        QueryInfo queryInfo = new QueryInfo(
-                session.getQueryId(),
-                session.toSessionRepresentation(),
-                FAILED,
-                GENERAL_POOL,
-                false,
-                self,
-                ImmutableList.of(),
-                query,
-                immediateFailureQueryStats(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableMap.of(),
-                ImmutableSet.of(),
-                ImmutableMap.of(),
-                ImmutableSet.of(),
-                Optional.empty(),
-                false,
-                null,
-                Optional.empty(),
-                failureCause,
-                failureCause.getErrorCode(),
-                ImmutableList.of(),
-                ImmutableSet.of(),
-                Optional.empty(),
-                true,
-                resourceGroupId);
-
-        return queryInfo;
     }
 
     @JsonProperty

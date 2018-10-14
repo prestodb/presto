@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.dispatcher.DispatcherQueryManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -43,12 +43,12 @@ import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 @Path("/v1/queryState")
 public class QueryStateInfoResource
 {
-    private final QueryManager queryManager;
+    private final DispatcherQueryManager queryManager;
     private final ResourceGroupManager<?> resourceGroupManager;
 
     @Inject
     public QueryStateInfoResource(
-            QueryManager queryManager,
+            DispatcherQueryManager queryManager,
             ResourceGroupManager<?> resourceGroupManager)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");

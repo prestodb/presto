@@ -34,10 +34,8 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.server.BasicQueryInfo;
-import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.analyzer.Analysis;
@@ -58,7 +56,6 @@ import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.Explain;
-import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
@@ -70,7 +67,6 @@ import org.joda.time.DateTime;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
-import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -86,8 +82,6 @@ import static com.facebook.presto.execution.scheduler.SqlQueryScheduler.createSq
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
-import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
@@ -102,8 +96,7 @@ public class SqlQueryExecution
     private static final OutputBufferId OUTPUT_BUFFER_ID = new OutputBufferId(0);
 
     private final QueryStateMachine stateMachine;
-
-    private final ClusterSizeMonitor clusterSizeMonitor;
+    private final String slug;
     private final Metadata metadata;
     private final SqlParser sqlParser;
     private final SplitManager splitManager;
@@ -128,13 +121,9 @@ public class SqlQueryExecution
     private final CostCalculator costCalculator;
 
     private SqlQueryExecution(
-            String query,
-            Session session,
-            URI self,
-            ResourceGroupId resourceGroup,
             PreparedQuery preparedQuery,
-            ClusterSizeMonitor clusterSizeMonitor,
-            TransactionManager transactionManager,
+            QueryStateMachine stateMachine,
+            String slug,
             Metadata metadata,
             AccessControl accessControl,
             SqlParser sqlParser,
@@ -157,8 +146,8 @@ public class SqlQueryExecution
             CostCalculator costCalculator,
             WarningCollector warningCollector)
     {
-        try (SetThreadName ignored = new SetThreadName("Query-%s", session.getQueryId())) {
-            this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
+        try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
+            this.slug = requireNonNull(slug, "slug is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
@@ -179,20 +168,7 @@ public class SqlQueryExecution
             checkArgument(scheduleSplitBatchSize > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
 
-            requireNonNull(query, "query is null");
-            requireNonNull(session, "session is null");
-            requireNonNull(self, "self is null");
-            this.stateMachine = QueryStateMachine.begin(
-                    query,
-                    session,
-                    self,
-                    resourceGroup,
-                    false,
-                    transactionManager,
-                    accessControl,
-                    queryExecutor,
-                    metadata,
-                    warningCollector);
+            this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
 
             // analyze query
             requireNonNull(preparedQuery, "preparedQuery is null");
@@ -224,6 +200,12 @@ public class SqlQueryExecution
 
             this.remoteTaskFactory = new MemoryTrackingRemoteTaskFactory(requireNonNull(remoteTaskFactory, "remoteTaskFactory is null"), stateMachine);
         }
+    }
+
+    @Override
+    public String getSlug()
+    {
+        return slug;
     }
 
     @Override
@@ -321,20 +303,6 @@ public class SqlQueryExecution
     @Override
     public void start()
     {
-        if (stateMachine.transitionToWaitingForResources()) {
-            waitForMinimumWorkers();
-        }
-    }
-
-    private void waitForMinimumWorkers()
-    {
-        ListenableFuture<?> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers();
-        addSuccessCallback(minimumWorkerFuture, this::startExecution);
-        addExceptionCallback(minimumWorkerFuture, stateMachine::transitionToFailed);
-    }
-
-    private void startExecution()
-    {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             try {
                 // transition to planning
@@ -383,12 +351,6 @@ public class SqlQueryExecution
     public Session getSession()
     {
         return stateMachine.getSession();
-    }
-
-    @Override
-    public Optional<ErrorCode> getErrorCode()
-    {
-        return stateMachine.getFailureInfo().map(ExecutionFailureInfo::getErrorCode);
     }
 
     @Override
@@ -674,7 +636,6 @@ public class SqlQueryExecution
         private final List<PlanOptimizer> planOptimizers;
         private final PlanFragmenter planFragmenter;
         private final RemoteTaskFactory remoteTaskFactory;
-        private final TransactionManager transactionManager;
         private final QueryExplainer queryExplainer;
         private final LocationFactory locationFactory;
         private final ExecutorService queryExecutor;
@@ -682,7 +643,6 @@ public class SqlQueryExecution
         private final FailureDetector failureDetector;
         private final NodeTaskMap nodeTaskMap;
         private final Map<String, ExecutionPolicy> executionPolicies;
-        private final ClusterSizeMonitor clusterSizeMonitor;
         private final StatsCalculator statsCalculator;
         private final CostCalculator costCalculator;
 
@@ -698,7 +658,6 @@ public class SqlQueryExecution
                 PlanOptimizers planOptimizers,
                 PlanFragmenter planFragmenter,
                 RemoteTaskFactory remoteTaskFactory,
-                TransactionManager transactionManager,
                 @ForQueryExecution ExecutorService queryExecutor,
                 @ForScheduler ScheduledExecutorService schedulerExecutor,
                 FailureDetector failureDetector,
@@ -706,7 +665,6 @@ public class SqlQueryExecution
                 QueryExplainer queryExplainer,
                 Map<String, ExecutionPolicy> executionPolicies,
                 SplitSchedulerStats schedulerStats,
-                ClusterSizeMonitor clusterSizeMonitor,
                 StatsCalculator statsCalculator,
                 CostCalculator costCalculator)
         {
@@ -723,14 +681,12 @@ public class SqlQueryExecution
             requireNonNull(planOptimizers, "planOptimizers is null");
             this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
             this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
-            this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
             this.schedulerExecutor = requireNonNull(schedulerExecutor, "schedulerExecutor is null");
             this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.executionPolicies = requireNonNull(executionPolicies, "schedulerPolicies is null");
-            this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
             this.planOptimizers = planOptimizers.get();
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
@@ -738,24 +694,19 @@ public class SqlQueryExecution
 
         @Override
         public QueryExecution createQueryExecution(
-                String query,
-                Session session,
                 PreparedQuery preparedQuery,
-                ResourceGroupId resourceGroup,
+                QueryStateMachine stateMachine,
+                String slug,
                 WarningCollector warningCollector)
         {
-            String executionPolicyName = SystemSessionProperties.getExecutionPolicy(session);
+            String executionPolicyName = SystemSessionProperties.getExecutionPolicy(stateMachine.getSession());
             ExecutionPolicy executionPolicy = executionPolicies.get(executionPolicyName);
             checkArgument(executionPolicy != null, "No execution policy %s", executionPolicy);
 
             SqlQueryExecution execution = new SqlQueryExecution(
-                    query,
-                    session,
-                    locationFactory.createQueryLocation(session.getQueryId()),
-                    resourceGroup,
                     preparedQuery,
-                    clusterSizeMonitor,
-                    transactionManager,
+                    stateMachine,
+                    slug,
                     metadata,
                     accessControl,
                     sqlParser,

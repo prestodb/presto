@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
@@ -30,6 +31,9 @@ import javax.annotation.concurrent.Immutable;
 import java.net.URI;
 import java.util.Optional;
 
+import static com.facebook.presto.execution.QueryState.FAILED;
+import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
+import static com.facebook.presto.server.BasicQueryStats.immediateFailureQueryStats;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -92,6 +96,22 @@ public class BasicQueryInfo
                 new BasicQueryStats(queryInfo.getQueryStats()),
                 queryInfo.getErrorType(),
                 queryInfo.getErrorCode());
+    }
+
+    public static BasicQueryInfo immediateFailureQueryInfo(Session session, String query, URI self, Optional<ResourceGroupId> resourceGroupId, ErrorCode errorCode)
+    {
+        return new BasicQueryInfo(
+                session.getQueryId(),
+                session.toSessionRepresentation(),
+                resourceGroupId,
+                FAILED,
+                GENERAL_POOL,
+                false,
+                self,
+                query,
+                immediateFailureQueryStats(),
+                errorCode == null ? null : errorCode.getType(),
+                errorCode);
     }
 
     @JsonProperty

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.dispatcher.DispatcherQueryManager;
 import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.TestingSessionContext;
 import com.facebook.presto.memory.LegacyQueryContext;
@@ -54,11 +54,12 @@ public class TestLegacyQueryContext
     public void testLegacyQueryContext()
             throws Exception
     {
-        QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
+        DispatcherQueryManager queryManager = queryRunner.getCoordinator().getDispatcherQueryManager();
 
         QueryId queryId = queryManager.createQueryId();
         queryManager.createQuery(
                 queryId,
+                "slug",
                 new TestingSessionContext(TEST_SESSION),
                 "SELECT * FROM lineitem")
                 .get();
@@ -66,7 +67,7 @@ public class TestLegacyQueryContext
         waitForQueryState(queryRunner, queryId, RUNNING);
 
         // cancel query
-        queryManager.failQuery(queryId, new PrestoException(GENERIC_INTERNAL_ERROR, "mock exception"));
+        queryRunner.getCoordinator().getQueryManager().failQuery(queryId, new PrestoException(GENERIC_INTERNAL_ERROR, "mock exception"));
 
         // assert that LegacyQueryContext is used instead of the DefaultQueryContext
         SqlTaskManager taskManager = (SqlTaskManager) queryRunner.getServers().get(0).getTaskManager();

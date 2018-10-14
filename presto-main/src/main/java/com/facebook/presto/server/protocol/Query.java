@@ -30,9 +30,7 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.buffer.SerializedPage;
-import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.ExchangeClient;
-import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.QueryId;
@@ -46,8 +44,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.util.concurrent.AbstractFuture;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
@@ -67,7 +63,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -81,7 +76,6 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -93,6 +87,8 @@ class Query
 
     private final QueryManager queryManager;
     private final QueryId queryId;
+    private final Session session;
+    private final String slug;
 
     @GuardedBy("this")
     private final ExchangeClient exchangeClient;
@@ -100,17 +96,9 @@ class Query
     private final Executor resultsProcessorExecutor;
     private final ScheduledExecutorService timeoutExecutor;
 
-    @GuardedBy("this")
-    private PagesSerde serde;
+    private final PagesSerde serde;
 
     private final AtomicLong resultId = new AtomicLong();
-
-    private final QuerySubmissionFuture submissionFuture;
-    private final SessionPropertyManager sessionPropertyManager;
-    private final BlockEncodingSerde blockEncodingSerde;
-
-    @GuardedBy("this")
-    private Session session;
 
     @GuardedBy("this")
     private QueryResults lastResult;
@@ -155,76 +143,60 @@ class Query
     private Long updateCount;
 
     public static Query create(
-            SessionContext sessionContext,
-            String query,
+            Session session,
+            String slug,
             QueryManager queryManager,
-            SessionPropertyManager sessionPropertyManager,
             ExchangeClient exchangeClient,
             Executor dataProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
             BlockEncodingSerde blockEncodingSerde)
     {
-        Query result = new Query(sessionContext, query, queryManager, sessionPropertyManager, exchangeClient, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
+        Query result = new Query(session, slug, queryManager, exchangeClient, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
 
-        // register listeners after submission finishes
-        addSuccessCallback(result.submissionFuture, () -> {
-            result.queryManager.addOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
+        result.queryManager.addOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
 
-            result.queryManager.addStateChangeListener(result.getQueryId(), state -> {
-                if (state.isDone()) {
-                    QueryInfo queryInfo = queryManager.getFullQueryInfo(result.getQueryId());
-                    result.closeExchangeClientIfNecessary(queryInfo);
-                }
-            });
+        result.queryManager.addStateChangeListener(result.getQueryId(), state -> {
+            if (state.isDone()) {
+                QueryInfo queryInfo = queryManager.getFullQueryInfo(result.getQueryId());
+                result.closeExchangeClientIfNecessary(queryInfo);
+            }
         });
 
         return result;
     }
 
     private Query(
-            SessionContext sessionContext,
-            String query,
+            Session session,
+            String slug,
             QueryManager queryManager,
-            SessionPropertyManager sessionPropertyManager,
             ExchangeClient exchangeClient,
             Executor resultsProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
             BlockEncodingSerde blockEncodingSerde)
     {
-        requireNonNull(sessionContext, "sessionContext is null");
-        requireNonNull(query, "query is null");
+        requireNonNull(session, "session is null");
+        requireNonNull(slug, "slug is null");
         requireNonNull(queryManager, "queryManager is null");
-        requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         requireNonNull(exchangeClient, "exchangeClient is null");
         requireNonNull(resultsProcessorExecutor, "resultsProcessorExecutor is null");
         requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         requireNonNull(blockEncodingSerde, "serde is null");
 
         this.queryManager = queryManager;
-        this.sessionPropertyManager = sessionPropertyManager;
 
-        queryId = queryManager.createQueryId();
-        submissionFuture = new QuerySubmissionFuture(queryId, query, sessionContext, queryManager);
+        this.queryId = session.getQueryId();
+        this.session = session;
+        this.slug = slug;
         this.exchangeClient = exchangeClient;
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
-        this.blockEncodingSerde = blockEncodingSerde;
-    }
 
-    public boolean isSubmissionFinished()
-    {
-        return submissionFuture.isDone();
+        serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session)).createPagesSerde();
     }
 
     public void cancel()
     {
-        // if submission is not finished, send cancel after it is finished
-        if (submissionFuture.isDone()) {
-            submissionFuture.addListener(() -> queryManager.cancelQuery(queryId), resultsProcessorExecutor);
-        }
-        else {
-            queryManager.cancelQuery(queryId);
-        }
+        queryManager.cancelQuery(queryId);
         dispose();
     }
 
@@ -236,6 +208,11 @@ class Query
     public QueryId getQueryId()
     {
         return queryId;
+    }
+
+    public String getSlug()
+    {
+        return slug;
     }
 
     public synchronized Optional<String> getSetCatalog()
@@ -283,14 +260,12 @@ class Query
         return clearTransactionId;
     }
 
-    public synchronized ListenableFuture<QueryResults> waitForResults(OptionalLong token, UriInfo uriInfo, String scheme, Duration wait, DataSize targetResultSize)
+    public synchronized ListenableFuture<QueryResults> waitForResults(long token, UriInfo uriInfo, String scheme, Duration wait, DataSize targetResultSize)
     {
         // before waiting, check if this request has already been processed and cached
-        if (token.isPresent()) {
-            Optional<QueryResults> cachedResult = getCachedResult(token.getAsLong(), uriInfo);
-            if (cachedResult.isPresent()) {
-                return immediateFuture(cachedResult.get());
-            }
+        Optional<QueryResults> cachedResult = getCachedResult(token, uriInfo);
+        if (cachedResult.isPresent()) {
+            return immediateFuture(cachedResult.get());
         }
 
         // wait for a results data or query to finish, up to the wait timeout
@@ -306,14 +281,6 @@ class Query
 
     private synchronized ListenableFuture<?> getFutureStateChange()
     {
-        // ensure the query has been submitted
-        submissionFuture.submitQuery();
-
-        // if query query submission has not finished, wait for it to finish
-        if (!submissionFuture.isDone()) {
-            return submissionFuture;
-        }
-
         // if the exchange client is open, wait for data
         if (!exchangeClient.isClosed()) {
             return exchangeClient.isBlocked();
@@ -331,13 +298,16 @@ class Query
 
     private synchronized Optional<QueryResults> getCachedResult(long token, UriInfo uriInfo)
     {
+        // is this the first request?
+        if (lastResult == null) {
+            return Optional.empty();
+        }
+
         // is the a repeated request for the last results?
         String requestedPath = uriInfo.getAbsolutePath().getPath();
         if (requestedPath.equals(lastResultPath)) {
-            if (submissionFuture.isDone()) {
-                // tell query manager we are still interested in the query
-                queryManager.recordHeartbeat(queryId);
-            }
+            // tell query manager we are still interested in the query
+            queryManager.recordHeartbeat(queryId);
             return Optional.of(lastResult);
         }
 
@@ -354,14 +324,12 @@ class Query
         return Optional.empty();
     }
 
-    public synchronized QueryResults getNextResult(OptionalLong token, UriInfo uriInfo, String scheme, DataSize targetResultSize)
+    private synchronized QueryResults getNextResult(long token, UriInfo uriInfo, String scheme, DataSize targetResultSize)
     {
         // check if the result for the token have already been created
-        if (token.isPresent()) {
-            Optional<QueryResults> cachedResult = getCachedResult(token.getAsLong(), uriInfo);
-            if (cachedResult.isPresent()) {
-                return cachedResult.get();
-            }
+        Optional<QueryResults> cachedResult = getCachedResult(token, uriInfo);
+        if (cachedResult.isPresent()) {
+            return cachedResult.get();
         }
 
         URI queryHtmlUri = uriInfo.getRequestUriBuilder()
@@ -369,34 +337,6 @@ class Query
                 .replacePath("ui/query.html")
                 .replaceQuery(queryId.toString())
                 .build();
-
-        // if query query submission has not finished, return simple empty result
-        if (!submissionFuture.isDone()) {
-            QueryResults queryResults = new QueryResults(
-                    queryId.toString(),
-                    queryHtmlUri,
-                    null,
-                    createNextResultsUri(scheme, uriInfo),
-                    null,
-                    null,
-                    StatementStats.builder()
-                            .setState(QueryState.QUEUED.toString())
-                            .setQueued(true)
-                            .setScheduled(false)
-                            .build(),
-                    null,
-                    ImmutableList.of(),
-                    null,
-                    null);
-
-            cacheLastResults(queryResults);
-            return queryResults;
-        }
-
-        if (session == null) {
-            session = queryManager.getFullQueryInfo(queryId).getSession().toSession(sessionPropertyManager);
-            serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session)).createPagesSerde();
-        }
 
         // Remove as many pages as possible from the exchange until just greater than DESIRED_RESULT_BYTES
         // NOTE: it is critical that query results are created for the pages removed from the exchange
@@ -559,8 +499,9 @@ class Query
     {
         return uriInfo.getBaseUriBuilder()
                 .scheme(scheme)
-                .replacePath("/v1/statement")
+                .replacePath("/v1/statement/executing")
                 .path(queryId.toString())
+                .path(slug)
                 .path(String.valueOf(resultId.incrementAndGet()))
                 .replaceQuery("")
                 .build();
@@ -704,55 +645,5 @@ class Query
                 errorCode.getType().toString(),
                 failure.getErrorLocation(),
                 failure);
-    }
-
-    private static class QuerySubmissionFuture
-            extends AbstractFuture<QueryInfo>
-    {
-        private final QueryId queryId;
-        private final String query;
-        private final SessionContext sessionContext;
-        private final QueryManager queryManager;
-
-        @GuardedBy("this")
-        private ListenableFuture<?> querySubmissionFuture;
-
-        public QuerySubmissionFuture(QueryId queryId, String query, SessionContext sessionContext, QueryManager queryManager)
-        {
-            this.queryId = requireNonNull(queryId, "queryId is null");
-            this.query = requireNonNull(query, "query is null");
-            this.sessionContext = requireNonNull(sessionContext, "sessionContext is null");
-            this.queryManager = requireNonNull(queryManager, "queryManager is null");
-        }
-
-        private synchronized void submitQuery()
-        {
-            if (querySubmissionFuture != null) {
-                return;
-            }
-
-            querySubmissionFuture = queryManager.createQuery(queryId, sessionContext, this.query);
-            Futures.addCallback(querySubmissionFuture, new FutureCallback<Object>()
-            {
-                @Override
-                public void onSuccess(Object result)
-                {
-                    set(null);
-                }
-
-                @Override
-                public void onFailure(Throwable t)
-                {
-                    setException(t);
-                }
-            }, directExecutor());
-        }
-
-        @Override
-        public boolean cancel(boolean mayInterruptIfRunning)
-        {
-            // query submission can not be canceled
-            return false;
-        }
     }
 }
