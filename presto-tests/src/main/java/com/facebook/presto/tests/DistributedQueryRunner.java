@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.cost.StatsCalculator;
-import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.AllNodes;
@@ -413,11 +412,6 @@ public class DistributedQueryRunner
         Plan queryPlan = getQueryPlan(queryId);
         coordinator.getQueryManager().cancelQuery(queryId);
         return queryPlan;
-    }
-
-    public QueryInfo getQueryInfo(QueryId queryId)
-    {
-        return coordinator.getQueryManager().getFullQueryInfo(queryId);
     }
 
     public Plan getQueryPlan(QueryId queryId)

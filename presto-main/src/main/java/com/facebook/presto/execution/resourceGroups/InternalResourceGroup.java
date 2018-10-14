@@ -662,7 +662,7 @@ public class InternalResourceGroup
                 group = group.parent.get();
             }
             updateEligibility();
-            executor.execute(query::start);
+            executor.execute(query::startWaitingForResources);
         }
     }
 

@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.tests.DistributedQueryRunner;
@@ -35,14 +36,14 @@ public final class TestQueryRunnerUtil
 
     public static QueryId createQuery(DistributedQueryRunner queryRunner, Session session, String sql)
     {
-        QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-        getFutureValue(queryManager.createQuery(session.getQueryId(), new TestingSessionContext(session), sql));
+        DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
+        getFutureValue(dispatchManager.createQuery(session.getQueryId(), "slug", new TestingSessionContext(session), sql));
         return session.getQueryId();
     }
 
     public static void cancelQuery(DistributedQueryRunner queryRunner, QueryId queryId)
     {
-        queryRunner.getCoordinator().getQueryManager().cancelQuery(queryId);
+        queryRunner.getCoordinator().getDispatchManager().cancelQuery(queryId);
     }
 
     public static void waitForQueryState(DistributedQueryRunner queryRunner, QueryId queryId, QueryState expectedQueryState)
@@ -54,17 +55,17 @@ public final class TestQueryRunnerUtil
     public static void waitForQueryState(DistributedQueryRunner queryRunner, QueryId queryId, Set<QueryState> expectedQueryStates)
             throws InterruptedException
     {
-        QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
+        DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
         do {
             // Heartbeat all the running queries, so they don't die while we're waiting
-            for (BasicQueryInfo queryInfo : queryManager.getQueries()) {
+            for (BasicQueryInfo queryInfo : dispatchManager.getQueries()) {
                 if (queryInfo.getState() == RUNNING) {
-                    queryManager.recordHeartbeat(queryInfo.getQueryId());
+                    dispatchManager.getQueryInfo(queryInfo.getQueryId());
                 }
             }
             MILLISECONDS.sleep(500);
         }
-        while (!expectedQueryStates.contains(queryManager.getQueryState(queryId)));
+        while (!expectedQueryStates.contains(dispatchManager.getQueryInfo(queryId).getState()));
     }
 
     public static DistributedQueryRunner createQueryRunner()
