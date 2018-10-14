@@ -16,9 +16,13 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.DistributionStat;
 import com.facebook.airlift.stats.TimeStat;
+import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.spi.ErrorCode;
+import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
@@ -67,7 +71,7 @@ public class SqlQueryManagerStats
         runningQueries.decrementAndGet();
     }
 
-    public void queryFinished(QueryInfo info)
+    public void queryFinished(BasicQueryInfo info)
     {
         completedQueries.update(1);
 
@@ -118,6 +122,38 @@ public class SqlQueryManagerStats
             }
             failedQueries.update(1);
         }
+    }
+
+    public void queuedQueryFailed(Duration queuedTime, Optional<ErrorCode> errorCode)
+    {
+        completedQueries.update(1);
+        failedQueries.update(1);
+
+        this.queuedTime.add(queuedTime);
+
+        errorCode.ifPresent(error -> {
+            switch (error.getType()) {
+                case USER_ERROR:
+                    userErrorFailures.update(1);
+                    break;
+                case INTERNAL_ERROR:
+                    internalFailures.update(1);
+                    break;
+                case INSUFFICIENT_RESOURCES:
+                    insufficientResourcesFailures.update(1);
+                    break;
+                case EXTERNAL:
+                    externalFailures.update(1);
+                    break;
+            }
+
+            if (error.getCode() == ABANDONED_QUERY.toErrorCode().getCode()) {
+                abandonedQueries.update(1);
+            }
+            else if (error.getCode() == USER_CANCELED.toErrorCode().getCode()) {
+                canceledQueries.update(1);
+            }
+        });
     }
 
     @Managed
