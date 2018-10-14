@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -43,15 +43,15 @@ import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 @Path("/v1/queryState")
 public class QueryStateInfoResource
 {
-    private final QueryManager queryManager;
+    private final DispatchManager dispatchManager;
     private final ResourceGroupManager<?> resourceGroupManager;
 
     @Inject
     public QueryStateInfoResource(
-            QueryManager queryManager,
+            DispatchManager dispatchManager,
             ResourceGroupManager<?> resourceGroupManager)
     {
-        this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
     }
 
@@ -59,7 +59,7 @@ public class QueryStateInfoResource
     @Produces(MediaType.APPLICATION_JSON)
     public List<QueryStateInfo> getQueryStateInfos(@QueryParam("user") String user)
     {
-        List<BasicQueryInfo> queryInfos = queryManager.getQueries();
+        List<BasicQueryInfo> queryInfos = dispatchManager.getQueries();
 
         if (!isNullOrEmpty(user)) {
             queryInfos = queryInfos.stream()
@@ -92,7 +92,7 @@ public class QueryStateInfoResource
             throws WebApplicationException
     {
         try {
-            return getQueryStateInfo(queryManager.getQueryInfo(new QueryId(queryId)));
+            return getQueryStateInfo(dispatchManager.getQueryInfo(new QueryId(queryId)));
         }
         catch (NoSuchElementException e) {
             throw new WebApplicationException(NOT_FOUND);
