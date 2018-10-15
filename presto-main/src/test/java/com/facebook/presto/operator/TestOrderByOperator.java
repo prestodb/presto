@@ -23,9 +23,11 @@ import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -51,6 +53,14 @@ public class TestOrderByOperator
     private ScheduledExecutorService scheduledExecutor;
     private DriverContext driverContext;
 
+    @DataProvider(name = "testWithoutSpillEnabledAndWithSpillEnabled")
+    public static Object[][] testWithoutSpillEnabledAndSpillEnabled()
+    {
+        return new Object[][] {
+                {false},
+                {true}};
+    }
+
     @BeforeMethod
     public void setUp()
     {
@@ -68,8 +78,8 @@ public class TestOrderByOperator
         scheduledExecutor.shutdownNow();
     }
 
-    @Test
-    public void testSingleFieldKey()
+    @Test(dataProvider = "testWithoutSpillEnabledAndWithSpillEnabled")
+    public void testSingleFieldKey(boolean spillEnabled)
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1L, 0.1)
@@ -87,7 +97,9 @@ public class TestOrderByOperator
                 10,
                 ImmutableList.of(0),
                 ImmutableList.of(ASC_NULLS_LAST),
-                new PagesIndex.TestingFactory(false));
+                new PagesIndex.TestingFactory(false),
+                spillEnabled,
+                Optional.of(new DummySpillerFactory()));
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE)
                 .row(-0.1)
@@ -99,8 +111,8 @@ public class TestOrderByOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
-    @Test
-    public void testMultiFieldKey()
+    @Test(dataProvider = "testWithoutSpillEnabledAndWithSpillEnabled")
+    public void testMultiFieldKey(boolean spillEnabled)
     {
         List<Page> input = rowPagesBuilder(VARCHAR, BIGINT)
                 .row("a", 1L)
@@ -118,7 +130,9 @@ public class TestOrderByOperator
                 10,
                 ImmutableList.of(0, 1),
                 ImmutableList.of(ASC_NULLS_LAST, DESC_NULLS_LAST),
-                new PagesIndex.TestingFactory(false));
+                new PagesIndex.TestingFactory(false),
+                spillEnabled,
+                Optional.of(new DummySpillerFactory()));
 
         MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
                 .row("a", 4L)
@@ -130,8 +144,8 @@ public class TestOrderByOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
-    @Test
-    public void testReverseOrder()
+    @Test(dataProvider = "testWithoutSpillEnabledAndWithSpillEnabled")
+    public void testReverseOrder(boolean spillEnabled)
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1L, 0.1)
@@ -149,7 +163,9 @@ public class TestOrderByOperator
                 10,
                 ImmutableList.of(0),
                 ImmutableList.of(DESC_NULLS_LAST),
-                new PagesIndex.TestingFactory(false));
+                new PagesIndex.TestingFactory(false),
+                spillEnabled,
+                Optional.of(new DummySpillerFactory()));
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(4L)
@@ -184,7 +200,9 @@ public class TestOrderByOperator
                 10,
                 ImmutableList.of(0),
                 ImmutableList.of(ASC_NULLS_LAST),
-                new PagesIndex.TestingFactory(false));
+                new PagesIndex.TestingFactory(false),
+                true,
+                Optional.of(new DummySpillerFactory()));
 
         toPages(operatorFactory, driverContext, input);
     }

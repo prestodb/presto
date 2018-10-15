@@ -15,16 +15,26 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spiller.Spiller;
+import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 
+import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.util.MergeSortedPages.mergeSortedPages;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.util.Objects.requireNonNull;
 
 public class OrderByOperator
@@ -42,6 +52,8 @@ public class OrderByOperator
         private final List<SortOrder> sortOrder;
         private boolean closed;
         private final PagesIndex.Factory pagesIndexFactory;
+        private final boolean spillEnabled;
+        private final Optional<SpillerFactory> spillerFactory;
 
         public OrderByOperatorFactory(
                 int operatorId,
@@ -51,7 +63,9 @@ public class OrderByOperator
                 int expectedPositions,
                 List<Integer> sortChannels,
                 List<SortOrder> sortOrder,
-                PagesIndex.Factory pagesIndexFactory)
+                PagesIndex.Factory pagesIndexFactory,
+                boolean spillEnabled,
+                Optional<SpillerFactory> spillerFactory)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -62,6 +76,11 @@ public class OrderByOperator
             this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
 
             this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
+            this.spillEnabled = spillEnabled;
+
+            checkState(!spillEnabled || spillerFactory.isPresent(), "Spiller Factory is not present when spill is enabled");
+
+            this.spillerFactory = spillerFactory;
         }
 
         @Override
@@ -77,7 +96,9 @@ public class OrderByOperator
                     expectedPositions,
                     sortChannels,
                     sortOrder,
-                    pagesIndexFactory);
+                    pagesIndexFactory,
+                    spillEnabled,
+                    spillerFactory);
         }
 
         @Override
@@ -89,7 +110,7 @@ public class OrderByOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new OrderByOperatorFactory(operatorId, planNodeId, sourceTypes, outputChannels, expectedPositions, sortChannels, sortOrder, pagesIndexFactory);
+            return new OrderByOperatorFactory(operatorId, planNodeId, sourceTypes, outputChannels, expectedPositions, sortChannels, sortOrder, pagesIndexFactory, spillEnabled, spillerFactory);
         }
     }
 
@@ -104,12 +125,19 @@ public class OrderByOperator
     private final List<Integer> sortChannels;
     private final List<SortOrder> sortOrder;
     private final int[] outputChannels;
-    private final LocalMemoryContext localUserMemoryContext;
+    private final LocalMemoryContext pagesIndexRevocableMemoryContext;
+    private final LocalMemoryContext pagesIndexUserMemoryContext;
 
     private final PagesIndex pageIndex;
 
-    private final PageBuilder pageBuilder;
-    private int currentPosition;
+    private final List<Type> sourceTypes;
+
+    private final boolean spillEnabled;
+    private final Optional<SpillerFactory> spillerFactory;
+    private Optional<Spiller> spiller = Optional.empty();
+    private ListenableFuture<?> spillInProgress = immediateFuture(null);
+
+    private Iterator<Page> sortedPages;
 
     private State state = State.NEEDS_INPUT;
 
@@ -120,7 +148,9 @@ public class OrderByOperator
             int expectedPositions,
             List<Integer> sortChannels,
             List<SortOrder> sortOrder,
-            PagesIndex.Factory pagesIndexFactory)
+            PagesIndex.Factory pagesIndexFactory,
+            boolean spillEnabled,
+            Optional<SpillerFactory> spillerFactory)
     {
         requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
 
@@ -128,11 +158,14 @@ public class OrderByOperator
         this.outputChannels = Ints.toArray(requireNonNull(outputChannels, "outputChannels is null"));
         this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels, "sortChannels is null"));
         this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
-        this.localUserMemoryContext = operatorContext.localUserMemoryContext();
+        this.sourceTypes = sourceTypes;
+        this.pagesIndexUserMemoryContext = operatorContext.localUserMemoryContext();
+        this.pagesIndexRevocableMemoryContext = operatorContext.localRevocableMemoryContext();
 
+        this.spillerFactory = spillerFactory;
         this.pageIndex = pagesIndexFactory.newPagesIndex(sourceTypes, expectedPositions);
 
-        this.pageBuilder = new PageBuilder(toTypes(sourceTypes, outputChannels));
+        this.spillEnabled = spillEnabled;
     }
 
     @Override
@@ -147,8 +180,10 @@ public class OrderByOperator
         if (state == State.NEEDS_INPUT) {
             state = State.HAS_OUTPUT;
 
-            // sort the index
-            pageIndex.sort(sortChannels, sortOrder);
+            WorkProcessor<Page> resultPages = getSortedPages(
+                    new SimplePageWithPositionComparator(sourceTypes, sortChannels, sortOrder));
+
+            sortedPages = resultPages.iterator();
         }
     }
 
@@ -171,11 +206,7 @@ public class OrderByOperator
         requireNonNull(page, "page is null");
 
         pageIndex.addPage(page);
-
-        if (!localUserMemoryContext.trySetBytes(pageIndex.getEstimatedSize().toBytes())) {
-            pageIndex.compact();
-            localUserMemoryContext.setBytes(pageIndex.getEstimatedSize().toBytes());
-        }
+        updateMemoryUsage(spillEnabled);
     }
 
     @Override
@@ -185,23 +216,77 @@ public class OrderByOperator
             return null;
         }
 
-        if (currentPosition >= pageIndex.getPositionCount()) {
+        if (!sortedPages.hasNext()) {
             state = State.FINISHED;
             return null;
         }
 
-        // iterate through the positions sequentially until we have one full page
-        pageBuilder.reset();
-        currentPosition = pageIndex.buildPage(currentPosition, outputChannels, pageBuilder);
+        Page resultPage = sortedPages.next();
+        Block[] blocksArray = new Block[outputChannels.length];
 
-        // output the page if we have any data
-        if (pageBuilder.isEmpty()) {
-            state = State.FINISHED;
-            return null;
+        for (int i = 0; i < outputChannels.length; i++) {
+            blocksArray[i] = resultPage.getBlock(outputChannels[i]);
         }
 
-        Page page = pageBuilder.build();
-        return page;
+        return new Page(resultPage.getPositionCount(), blocksArray);
+    }
+
+    @Override
+    public ListenableFuture<?> startMemoryRevoke()
+    {
+        return spillToDisk();
+    }
+
+    public ListenableFuture<?> spillToDisk()
+    {
+        checkState(hasPreviousSpillCompletedSuccessfully(), "Previous spill hasn't yet finished");
+
+        if (pagesIndexRevocableMemoryContext.getBytes() == 0 ||
+                pageIndex.getPositionCount() == 0 ||
+                state == State.HAS_OUTPUT) {
+            return Futures.immediateFuture(null);
+        }
+
+        if (!spiller.isPresent()) {
+            this.spiller = Optional.of(spillerFactory.get().create(
+                    sourceTypes,
+                    operatorContext.getSpillContext(),
+                    operatorContext.newAggregateSystemMemoryContext()));
+        }
+
+        if (pageIndex.getPositionCount() == 0) {
+            return spillInProgress;
+        }
+
+        pageIndex.sort(sortChannels, sortOrder);
+        spillInProgress = spiller.get().spill(pageIndex.getSortedPages());
+
+        return spillInProgress;
+    }
+
+    private boolean hasPreviousSpillCompletedSuccessfully()
+    {
+        if (spillInProgress.isDone()) {
+            // check for exception from previous spill for early failure
+            getFutureValue(spillInProgress);
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    @Override
+    public void finishMemoryRevoke()
+    {
+        if (pagesIndexRevocableMemoryContext.getBytes() == 0) {
+            return;
+        }
+
+        pageIndex.clear();
+
+        pagesIndexRevocableMemoryContext.setBytes(0L);
+        pagesIndexUserMemoryContext.setBytes(pageIndex.getEstimatedSize().toBytes());
     }
 
     @Override
@@ -210,12 +295,61 @@ public class OrderByOperator
         pageIndex.clear();
     }
 
-    private static List<Type> toTypes(List<? extends Type> sourceTypes, List<Integer> outputChannels)
+    public WorkProcessor<Page> getSortedPages(PageWithPositionComparator pageWithPositionComparator)
     {
-        ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (int channel : outputChannels) {
-            types.add(sourceTypes.get(channel));
+        List<WorkProcessor<Page>> spilledPages = getSpilledPages();
+
+        if (!spillEnabled || spilledPages.isEmpty()) {
+            pageIndex.sort(sortChannels, sortOrder);
+
+            return WorkProcessor.fromIterator(pageIndex.getSortedPages());
         }
-        return types.build();
+
+        return mergeSpilledPagesAndCurrentPagesIndex(pageIndex, spilledPages, pageWithPositionComparator);
+    }
+
+    public List<WorkProcessor<Page>> getSpilledPages()
+    {
+        if (!spiller.isPresent()) {
+            return ImmutableList.of();
+        }
+
+        return spiller.get().getSpills().stream()
+                .map(WorkProcessor::fromIterator)
+                .collect(Collectors.toList());
+    }
+
+    public WorkProcessor<Page> mergeSpilledPagesAndCurrentPagesIndex(
+            PagesIndex currentPagesIndex,
+            List<WorkProcessor<Page>> spilledPages,
+            PageWithPositionComparator pageWithPositionComparator)
+    {
+        WorkProcessor<Page> pageIndexPages = WorkProcessor.fromIterator(currentPagesIndex.getSortedPages());
+
+        spilledPages.add(pageIndexPages);
+
+        return mergeSortedPages(
+                spilledPages,
+                requireNonNull(pageWithPositionComparator, "comparator is null"),
+                sourceTypes,
+                operatorContext.aggregateUserMemoryContext(),
+                operatorContext.getDriverContext().getYieldSignal());
+    }
+
+    private void updateMemoryUsage(boolean useRevocableMemory)
+    {
+        if (useRevocableMemory) {
+            if (!spillEnabled) {
+                throw new IllegalStateException("Revocable memory requested when spill to disk is not enabled");
+            }
+
+            pagesIndexRevocableMemoryContext.setBytes(pageIndex.getEstimatedSize().toBytes());
+        }
+        else {
+            if (!pagesIndexUserMemoryContext.trySetBytes(pageIndex.getEstimatedSize().toBytes())) {
+                pageIndex.compact();
+                pagesIndexUserMemoryContext.setBytes(pageIndex.getEstimatedSize().toBytes());
+            }
+        }
     }
 }
