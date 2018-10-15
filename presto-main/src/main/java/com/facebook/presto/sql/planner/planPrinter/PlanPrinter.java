@@ -354,7 +354,13 @@ public class PlanPrinter
         double cpuTimeFraction = 100.0d * nodeStats.getPlanNodeCpuTime().toMillis() / totalCpuMillis;
 
         output.append(indentString(indent));
-        output.append("CPU fraction: " + formatDouble(cpuTimeFraction) + "%, Scheduled fraction: " + formatDouble(scheduledTimeFraction) + "%");
+        output.append(format(
+                "CPU: %s (%s%%), Scheduled: %s (%s%%)",
+                nodeStats.getPlanNodeCpuTime(),
+                formatDouble(cpuTimeFraction),
+                nodeStats.getPlanNodeScheduledTime(),
+                formatDouble(scheduledTimeFraction)));
+
         if (printInput) {
             output.append(format(", Input: %s (%s)",
                     formatPositions(nodeStats.getPlanNodeInputPositions()),
