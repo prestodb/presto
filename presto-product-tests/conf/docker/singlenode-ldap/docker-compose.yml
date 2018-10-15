@@ -18,4 +18,4 @@ services:
       - CLI_ARGUMENTS=--server https://presto-master:8443 --keystore-path /etc/openldap/certs/coordinator.jks --keystore-password testldap
 
   ldapserver:
-    image: 'prestodb/centos6-oj8-openldap:${DOCKER_IMAGES_VERSION}'
+    image: 'prestodb/centos6-oj8-openldap:4fc1925'
