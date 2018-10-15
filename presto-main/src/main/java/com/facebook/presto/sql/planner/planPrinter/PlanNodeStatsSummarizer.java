@@ -66,6 +66,8 @@ public class PlanNodeStatsSummarizer
         // it's possible that some or all of them are missing or out of date.
         // For example, a LIMIT clause can cause a query to finish before stats
         // are collected from the leaf stages.
+        Set<PlanNodeId> planNodeIds = new HashSet<>();
+
         Map<PlanNodeId, Long> planNodeInputPositions = new HashMap<>();
         Map<PlanNodeId, Long> planNodeInputBytes = new HashMap<>();
         Map<PlanNodeId, Long> planNodeOutputPositions = new HashMap<>();
@@ -90,6 +92,7 @@ public class PlanNodeStatsSummarizer
             // Gather input statistics
             for (OperatorStats operatorStats : pipelineStats.getOperatorSummaries()) {
                 PlanNodeId planNodeId = operatorStats.getPlanNodeId();
+                planNodeIds.add(planNodeId);
 
                 long scheduledMillis = operatorStats.getAddInputWall().toMillis() + operatorStats.getGetOutputWall().toMillis() + operatorStats.getFinishWall().toMillis();
                 planNodeScheduledMillis.merge(planNodeId, scheduledMillis, Long::sum);
@@ -157,8 +160,7 @@ public class PlanNodeStatsSummarizer
         }
 
         List<PlanNodeStats> stats = new ArrayList<>();
-        for (Map.Entry<PlanNodeId, Long> entry : planNodeScheduledMillis.entrySet()) {
-            PlanNodeId planNodeId = entry.getKey();
+        for (PlanNodeId planNodeId : planNodeIds) {
             if (!planNodeInputPositions.containsKey(planNodeId)) {
                 continue;
             }
