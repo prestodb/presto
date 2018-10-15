@@ -238,13 +238,13 @@ public final class VarcharOperators
         return xxHash64(value);
     }
 
-    @LiteralParameters({"x", "y"})
+    @LiteralParameters("x")
     @ScalarOperator(IS_DISTINCT_FROM)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean isDistinctFrom(
             @SqlType("varchar(x)") Slice left,
             @IsNull boolean leftNull,
-            @SqlType("varchar(y)") Slice right,
+            @SqlType("varchar(x)") Slice right,
             @IsNull boolean rightNull)
     {
         if (leftNull != rightNull) {
