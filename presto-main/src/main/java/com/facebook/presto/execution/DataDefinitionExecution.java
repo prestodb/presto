@@ -324,19 +324,18 @@ public class DataDefinitionExecution<T extends Statement>
 
         @Override
         public DataDefinitionExecution<?> createQueryExecution(
-                QueryId queryId,
                 String query,
                 Session session,
                 Statement statement,
                 List<Expression> parameters,
                 WarningCollector warningCollector)
         {
-            URI self = locationFactory.createQueryLocation(queryId);
+            URI self = locationFactory.createQueryLocation(session.getQueryId());
 
             DataDefinitionTask<Statement> task = getTask(statement);
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
 
-            QueryStateMachine stateMachine = QueryStateMachine.begin(queryId, query, session, self, task.isTransactionControl(), transactionManager, accessControl, executor, metadata, warningCollector);
+            QueryStateMachine stateMachine = QueryStateMachine.begin(query, session, self, task.isTransactionControl(), transactionManager, accessControl, executor, metadata, warningCollector);
             stateMachine.setUpdateType(task.getName());
             return new DataDefinitionExecution<>(task, statement, transactionManager, metadata, accessControl, stateMachine, parameters);
         }

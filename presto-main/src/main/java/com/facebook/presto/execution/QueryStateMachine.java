@@ -163,7 +163,6 @@ public class QueryStateMachine
     private final WarningCollector warningCollector;
 
     private QueryStateMachine(
-            QueryId queryId,
             String query,
             Session session,
             URI self,
@@ -173,9 +172,9 @@ public class QueryStateMachine
             Metadata metadata,
             WarningCollector warningCollector)
     {
-        this.queryId = requireNonNull(queryId, "queryId is null");
         this.query = requireNonNull(query, "query is null");
         this.session = requireNonNull(session, "session is null");
+        this.queryId = session.getQueryId();
         this.self = requireNonNull(self, "self is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.ticker = ticker;
@@ -192,7 +191,6 @@ public class QueryStateMachine
      * Created QueryStateMachines must be transitioned to terminal states to clean up resources.
      */
     public static QueryStateMachine begin(
-            QueryId queryId,
             String query,
             Session session,
             URI self,
@@ -203,11 +201,10 @@ public class QueryStateMachine
             Metadata metadata,
             WarningCollector warningCollector)
     {
-        return beginWithTicker(queryId, query, session, self, transactionControl, transactionManager, accessControl, executor, Ticker.systemTicker(), metadata, warningCollector);
+        return beginWithTicker(query, session, self, transactionControl, transactionManager, accessControl, executor, Ticker.systemTicker(), metadata, warningCollector);
     }
 
     static QueryStateMachine beginWithTicker(
-            QueryId queryId,
             String query,
             Session session,
             URI self,
@@ -226,8 +223,8 @@ public class QueryStateMachine
             session = session.beginTransactionId(transactionId, transactionManager, accessControl);
         }
 
-        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, transactionManager, executor, ticker, metadata, warningCollector);
-        queryStateMachine.addStateChangeListener(newState -> QUERY_STATE_LOG.debug("Query %s is %s", queryId, newState));
+        QueryStateMachine queryStateMachine = new QueryStateMachine(query, session, self, transactionManager, executor, ticker, metadata, warningCollector);
+        queryStateMachine.addStateChangeListener(newState -> QUERY_STATE_LOG.debug("Query %s is %s", queryStateMachine.getQueryId(), newState));
 
         return queryStateMachine;
     }

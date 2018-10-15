@@ -24,7 +24,6 @@ import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.PathElement;
@@ -104,7 +103,6 @@ public class TestSetPathTask
     private QueryStateMachine createQueryStateMachine(String query)
     {
         return QueryStateMachine.begin(
-                new QueryId("query"),
                 query,
                 TEST_SESSION,
                 URI.create("fake://uri"),

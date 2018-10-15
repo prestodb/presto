@@ -126,7 +126,7 @@ public class SqlQueryExecution
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
 
-    private SqlQueryExecution(QueryId queryId,
+    private SqlQueryExecution(
             String query,
             Session session,
             URI self,
@@ -155,7 +155,7 @@ public class SqlQueryExecution
             CostCalculator costCalculator,
             WarningCollector warningCollector)
     {
-        try (SetThreadName ignored = new SetThreadName("Query-%s", queryId)) {
+        try (SetThreadName ignored = new SetThreadName("Query-%s", session.getQueryId())) {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
@@ -176,11 +176,10 @@ public class SqlQueryExecution
             checkArgument(scheduleSplitBatchSize > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
 
-            requireNonNull(queryId, "queryId is null");
             requireNonNull(query, "query is null");
             requireNonNull(session, "session is null");
             requireNonNull(self, "self is null");
-            this.stateMachine = QueryStateMachine.begin(queryId, query, session, self, false, transactionManager, accessControl, queryExecutor, metadata, warningCollector);
+            this.stateMachine = QueryStateMachine.begin(query, session, self, false, transactionManager, accessControl, queryExecutor, metadata, warningCollector);
 
             // analyze query
             Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, accessControl, Optional.of(queryExplainer), parameters, warningCollector);
@@ -731,17 +730,16 @@ public class SqlQueryExecution
         }
 
         @Override
-        public QueryExecution createQueryExecution(QueryId queryId, String query, Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
+        public QueryExecution createQueryExecution(String query, Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
         {
             String executionPolicyName = SystemSessionProperties.getExecutionPolicy(session);
             ExecutionPolicy executionPolicy = executionPolicies.get(executionPolicyName);
             checkArgument(executionPolicy != null, "No execution policy %s", executionPolicy);
 
             SqlQueryExecution execution = new SqlQueryExecution(
-                    queryId,
                     query,
                     session,
-                    locationFactory.createQueryLocation(queryId),
+                    locationFactory.createQueryLocation(session.getQueryId()),
                     statement,
                     transactionManager,
                     metadata,

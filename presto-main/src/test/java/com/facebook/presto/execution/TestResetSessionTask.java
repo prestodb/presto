@@ -25,7 +25,6 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AllowAllAccessControl;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.ResetSession;
@@ -104,7 +103,6 @@ public class TestResetSessionTask
                 .build();
 
         QueryStateMachine stateMachine = QueryStateMachine.begin(
-                new QueryId("query"),
                 "reset foo",
                 session,
                 URI.create("fake://uri"),

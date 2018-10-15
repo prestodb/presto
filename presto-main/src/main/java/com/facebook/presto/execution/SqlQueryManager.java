@@ -386,7 +386,6 @@ public class SqlQueryManager
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + preparedQuery.getStatement().getClass().getSimpleName());
             }
             queryExecution = queryExecutionFactory.createQueryExecution(
-                    queryId,
                     query,
                     session,
                     preparedQuery.getStatement(),
