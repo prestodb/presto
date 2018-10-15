@@ -522,7 +522,10 @@ public class IOPlanPrinter
             ImmutableSet.Builder<ColumnConstraint> columnConstraints = ImmutableSet.builder();
             for (Map.Entry<ColumnHandle, Domain> entry : constraint.getDomains().get().entrySet()) {
                 ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle, entry.getKey());
-                columnConstraints.add(new ColumnConstraint(columnMetadata.getName(), columnMetadata.getType().getTypeSignature(), parseDomain(entry.getValue())));
+                columnConstraints.add(new ColumnConstraint(
+                        columnMetadata.getName(),
+                        columnMetadata.getType().getTypeSignature(),
+                        parseDomain(entry.getValue().simplify())));
             }
             return columnConstraints.build();
         }
