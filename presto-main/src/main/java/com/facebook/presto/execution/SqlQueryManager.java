@@ -390,6 +390,7 @@ public class SqlQueryManager
                     session,
                     preparedQuery.getStatement(),
                     preparedQuery.getParameters(),
+                    selectionContext.getResourceGroupId(),
                     warningCollectorFactory.create());
 
             // mark existing transaction as inactive

@@ -25,6 +25,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AllowAllAccessControl;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.ResetSession;
@@ -106,6 +107,7 @@ public class TestResetSessionTask
                 "reset foo",
                 session,
                 URI.create("fake://uri"),
+                new ResourceGroupId("test"),
                 false,
                 transactionManager,
                 accessControl,

@@ -223,10 +223,4 @@ public class FailedQueryExecution
     {
         return resourceGroup;
     }
-
-    @Override
-    public void setResourceGroup(ResourceGroupId resourceGroupId)
-    {
-        throw new UnsupportedOperationException("setResourceGroup is not supported for FailedQueryExecution");
-    }
 }

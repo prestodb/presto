@@ -102,6 +102,7 @@ public class QueryStateMachine
     private final String query;
     private final Session session;
     private final URI self;
+    private final Optional<ResourceGroupId> resourceGroup;
     private final TransactionManager transactionManager;
     private final Ticker ticker;
     private final Metadata metadata;
@@ -158,14 +159,13 @@ public class QueryStateMachine
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
 
-    private final AtomicReference<ResourceGroupId> resourceGroup = new AtomicReference<>();
-
     private final WarningCollector warningCollector;
 
     private QueryStateMachine(
             String query,
             Session session,
             URI self,
+            Optional<ResourceGroupId> resourceGroup,
             TransactionManager transactionManager,
             Executor executor,
             Ticker ticker,
@@ -176,6 +176,7 @@ public class QueryStateMachine
         this.session = requireNonNull(session, "session is null");
         this.queryId = session.getQueryId();
         this.self = requireNonNull(self, "self is null");
+        this.resourceGroup = requireNonNull(resourceGroup, "resourceGroup is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.ticker = ticker;
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -194,6 +195,7 @@ public class QueryStateMachine
             String query,
             Session session,
             URI self,
+            ResourceGroupId resourceGroup,
             boolean transactionControl,
             TransactionManager transactionManager,
             AccessControl accessControl,
@@ -201,13 +203,25 @@ public class QueryStateMachine
             Metadata metadata,
             WarningCollector warningCollector)
     {
-        return beginWithTicker(query, session, self, transactionControl, transactionManager, accessControl, executor, Ticker.systemTicker(), metadata, warningCollector);
+        return beginWithTicker(
+                query,
+                session,
+                self,
+                resourceGroup,
+                transactionControl,
+                transactionManager,
+                accessControl,
+                executor,
+                Ticker.systemTicker(),
+                metadata,
+                warningCollector);
     }
 
     static QueryStateMachine beginWithTicker(
             String query,
             Session session,
             URI self,
+            ResourceGroupId resourceGroup,
             boolean transactionControl,
             TransactionManager transactionManager,
             AccessControl accessControl,
@@ -223,7 +237,16 @@ public class QueryStateMachine
             session = session.beginTransactionId(transactionId, transactionManager, accessControl);
         }
 
-        QueryStateMachine queryStateMachine = new QueryStateMachine(query, session, self, transactionManager, executor, ticker, metadata, warningCollector);
+        QueryStateMachine queryStateMachine = new QueryStateMachine(
+                query,
+                session,
+                self,
+                Optional.of(resourceGroup),
+                transactionManager,
+                executor,
+                ticker,
+                metadata,
+                warningCollector);
         queryStateMachine.addStateChangeListener(newState -> QUERY_STATE_LOG.debug("Query %s is %s", queryStateMachine.getQueryId(), newState));
 
         return queryStateMachine;
@@ -268,15 +291,9 @@ public class QueryStateMachine
         peakTaskTotalMemory.accumulateAndGet(taskTotalMemoryInBytes, Math::max);
     }
 
-    public void setResourceGroup(ResourceGroupId group)
-    {
-        requireNonNull(group, "group is null");
-        resourceGroup.compareAndSet(null, group);
-    }
-
     public Optional<ResourceGroupId> getResourceGroup()
     {
-        return Optional.ofNullable(resourceGroup.get());
+        return resourceGroup;
     }
 
     public BasicQueryInfo getBasicQueryInfo(Optional<BasicStageStats> rootStage)
@@ -343,7 +360,7 @@ public class QueryStateMachine
         return new BasicQueryInfo(
                 queryId,
                 session.toSessionRepresentation(),
-                Optional.ofNullable(resourceGroup.get()),
+                resourceGroup,
                 state,
                 memoryPool.get().getId(),
                 stageStats.isScheduled(),

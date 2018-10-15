@@ -45,7 +45,6 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -282,12 +281,6 @@ public class MockQueryExecution
     public Optional<ResourceGroupId> getResourceGroup()
     {
         return this.resourceGroupId;
-    }
-
-    @Override
-    public void setResourceGroup(ResourceGroupId resourceGroupId)
-    {
-        this.resourceGroupId = Optional.of(requireNonNull(resourceGroupId, "resourceGroupId is null"));
     }
 
     @Override

@@ -277,12 +277,6 @@ public class DataDefinitionExecution<T extends Statement>
         return stateMachine.getResourceGroup();
     }
 
-    @Override
-    public void setResourceGroup(ResourceGroupId resourceGroupId)
-    {
-        stateMachine.setResourceGroup(resourceGroupId);
-    }
-
     public List<Expression> getParameters()
     {
         return parameters;
@@ -328,6 +322,7 @@ public class DataDefinitionExecution<T extends Statement>
                 Session session,
                 Statement statement,
                 List<Expression> parameters,
+                ResourceGroupId resourceGroup,
                 WarningCollector warningCollector)
         {
             URI self = locationFactory.createQueryLocation(session.getQueryId());
@@ -335,7 +330,17 @@ public class DataDefinitionExecution<T extends Statement>
             DataDefinitionTask<Statement> task = getTask(statement);
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
 
-            QueryStateMachine stateMachine = QueryStateMachine.begin(query, session, self, task.isTransactionControl(), transactionManager, accessControl, executor, metadata, warningCollector);
+            QueryStateMachine stateMachine = QueryStateMachine.begin(
+                    query,
+                    session,
+                    self,
+                    resourceGroup,
+                    task.isTransactionControl(),
+                    transactionManager,
+                    accessControl,
+                    executor,
+                    metadata,
+                    warningCollector);
             stateMachine.setUpdateType(task.getName());
             return new DataDefinitionExecution<>(task, statement, transactionManager, metadata, accessControl, stateMachine, parameters);
         }

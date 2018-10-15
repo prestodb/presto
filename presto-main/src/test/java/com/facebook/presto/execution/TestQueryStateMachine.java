@@ -24,6 +24,7 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Ticker;
@@ -464,7 +465,18 @@ public class TestQueryStateMachine
         Metadata metadata = MetadataManager.createTestMetadataManager();
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControl accessControl = new AccessControlManager(transactionManager);
-        QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(QUERY, TEST_SESSION, LOCATION, false, transactionManager, accessControl, executor, ticker, metadata, WarningCollector.NOOP);
+        QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(
+                QUERY,
+                TEST_SESSION,
+                LOCATION,
+                new ResourceGroupId("test"),
+                false,
+                transactionManager,
+                accessControl,
+                executor,
+                ticker,
+                metadata,
+                WarningCollector.NOOP);
         stateMachine.setInputs(INPUTS);
         stateMachine.setOutput(OUTPUT);
         stateMachine.setColumns(OUTPUT_FIELD_NAMES, OUTPUT_FIELD_TYPES);

@@ -583,7 +583,6 @@ public class InternalResourceGroup
         synchronized (root) {
             checkState(subGroups.isEmpty(), "Cannot add queries to %s. It is not a leaf group.", id);
             // Check all ancestors for capacity
-            query.setResourceGroup(id);
             InternalResourceGroup group = this;
             boolean canQueue = true;
             boolean canRun = true;

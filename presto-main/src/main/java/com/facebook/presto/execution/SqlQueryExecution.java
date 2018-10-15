@@ -130,6 +130,7 @@ public class SqlQueryExecution
             String query,
             Session session,
             URI self,
+            ResourceGroupId resourceGroup,
             Statement statement,
             TransactionManager transactionManager,
             Metadata metadata,
@@ -179,7 +180,17 @@ public class SqlQueryExecution
             requireNonNull(query, "query is null");
             requireNonNull(session, "session is null");
             requireNonNull(self, "self is null");
-            this.stateMachine = QueryStateMachine.begin(query, session, self, false, transactionManager, accessControl, queryExecutor, metadata, warningCollector);
+            this.stateMachine = QueryStateMachine.begin(
+                    query,
+                    session,
+                    self,
+                    resourceGroup,
+                    false,
+                    transactionManager,
+                    accessControl,
+                    queryExecutor,
+                    metadata,
+                    warningCollector);
 
             // analyze query
             Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, accessControl, Optional.of(queryExplainer), parameters, warningCollector);
@@ -594,12 +605,6 @@ public class SqlQueryExecution
     }
 
     @Override
-    public void setResourceGroup(ResourceGroupId resourceGroupId)
-    {
-        stateMachine.setResourceGroup(resourceGroupId);
-    }
-
-    @Override
     public Plan getQueryPlan()
     {
         return queryPlan.get();
@@ -730,7 +735,13 @@ public class SqlQueryExecution
         }
 
         @Override
-        public QueryExecution createQueryExecution(String query, Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
+        public QueryExecution createQueryExecution(
+                String query,
+                Session session,
+                Statement statement,
+                List<Expression> parameters,
+                ResourceGroupId resourceGroup,
+                WarningCollector warningCollector)
         {
             String executionPolicyName = SystemSessionProperties.getExecutionPolicy(session);
             ExecutionPolicy executionPolicy = executionPolicies.get(executionPolicyName);
@@ -740,6 +751,7 @@ public class SqlQueryExecution
                     query,
                     session,
                     locationFactory.createQueryLocation(session.getQueryId()),
+                    resourceGroup,
                     statement,
                     transactionManager,
                     metadata,

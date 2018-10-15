@@ -18,10 +18,10 @@ import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Isolation;
@@ -77,8 +77,7 @@ public class TestStartTransactionTask
     {
         Session session = sessionBuilder().build();
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControl accessControl = new AccessControlManager(transactionManager);
-        QueryStateMachine stateMachine = QueryStateMachine.begin("START TRANSACTION", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor, metadata, WarningCollector.NOOP);
+        QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
         try {
@@ -98,13 +97,11 @@ public class TestStartTransactionTask
     public void testNestedTransaction()
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControl accessControl = new AccessControlManager(transactionManager);
-
         Session session = sessionBuilder()
                 .setTransactionId(TransactionId.create())
                 .setClientTransactionSupport()
                 .build();
-        QueryStateMachine stateMachine = QueryStateMachine.begin("START TRANSACTION", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor, metadata, WarningCollector.NOOP);
+        QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
 
         try {
             getFutureValue(new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
@@ -126,8 +123,7 @@ public class TestStartTransactionTask
                 .setClientTransactionSupport()
                 .build();
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControl accessControl = new AccessControlManager(transactionManager);
-        QueryStateMachine stateMachine = QueryStateMachine.begin("START TRANSACTION", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor, metadata, WarningCollector.NOOP);
+        QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
         getFutureValue(new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
@@ -146,8 +142,7 @@ public class TestStartTransactionTask
                 .setClientTransactionSupport()
                 .build();
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControl accessControl = new AccessControlManager(transactionManager);
-        QueryStateMachine stateMachine = QueryStateMachine.begin("START TRANSACTION", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor, metadata, WarningCollector.NOOP);
+        QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
         getFutureValue(new StartTransactionTask().execute(
@@ -174,8 +169,7 @@ public class TestStartTransactionTask
                 .setClientTransactionSupport()
                 .build();
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControl accessControl = new AccessControlManager(transactionManager);
-        QueryStateMachine stateMachine = QueryStateMachine.begin("START TRANSACTION", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor, metadata, WarningCollector.NOOP);
+        QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
         try {
@@ -204,8 +198,7 @@ public class TestStartTransactionTask
                 .setClientTransactionSupport()
                 .build();
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControl accessControl = new AccessControlManager(transactionManager);
-        QueryStateMachine stateMachine = QueryStateMachine.begin("START TRANSACTION", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor, metadata, WarningCollector.NOOP);
+        QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
         try {
@@ -241,8 +234,7 @@ public class TestStartTransactionTask
                 scheduledExecutor,
                 new CatalogManager(),
                 executor);
-        AccessControl accessControl = new AccessControlManager(transactionManager);
-        QueryStateMachine stateMachine = QueryStateMachine.begin("START TRANSACTION", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor, metadata, WarningCollector.NOOP);
+        QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
         getFutureValue(new StartTransactionTask().execute(
@@ -262,6 +254,21 @@ public class TestStartTransactionTask
             }
             TimeUnit.MILLISECONDS.sleep(10);
         }
+    }
+
+    private QueryStateMachine createQueryStateMachine(String query, Session session, TransactionManager transactionManager)
+    {
+        return QueryStateMachine.begin(
+                query,
+                session,
+                URI.create("fake://uri"),
+                new ResourceGroupId("test"),
+                true,
+                transactionManager,
+                new AccessControlManager(transactionManager),
+                executor,
+                metadata,
+                WarningCollector.NOOP);
     }
 
     private static SessionBuilder sessionBuilder()

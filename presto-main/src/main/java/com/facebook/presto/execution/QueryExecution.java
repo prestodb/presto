@@ -64,7 +64,7 @@ public interface QueryExecution
 
     interface QueryExecutionFactory<T extends QueryExecution>
     {
-        T createQueryExecution(String query, Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector);
+        T createQueryExecution(String query, Session session, Statement statement, List<Expression> parameters, ResourceGroupId resourceGroup, WarningCollector warningCollector);
     }
 
     /**

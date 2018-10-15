@@ -25,6 +25,7 @@ import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.Expression;
@@ -177,7 +178,17 @@ public class TestSetSessionTask
     private void testSetSessionWithParameters(String property, Expression expression, String expectedValue, List<Expression> parameters)
     {
         QualifiedName qualifiedPropName = QualifiedName.of(CATALOG_NAME, property);
-        QueryStateMachine stateMachine = QueryStateMachine.begin(format("set %s = 'old_value'", qualifiedPropName), TEST_SESSION, URI.create("fake://uri"), false, transactionManager, accessControl, executor, metadata, WarningCollector.NOOP);
+        QueryStateMachine stateMachine = QueryStateMachine.begin(
+                format("set %s = 'old_value'", qualifiedPropName),
+                TEST_SESSION,
+                URI.create("fake://uri"),
+                new ResourceGroupId("test"),
+                false,
+                transactionManager,
+                accessControl,
+                executor,
+                metadata,
+                WarningCollector.NOOP);
         getFutureValue(new SetSessionTask().execute(new SetSession(qualifiedPropName, expression), transactionManager, metadata, accessControl, stateMachine, parameters));
 
         Map<String, String> sessionProperties = stateMachine.getSetSessionProperties();

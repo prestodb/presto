@@ -96,12 +96,6 @@ public class MemoryAwareQueryExecution
     }
 
     @Override
-    public void setResourceGroup(ResourceGroupId resourceGroupId)
-    {
-        delegate.setResourceGroup(resourceGroupId);
-    }
-
-    @Override
     public Plan getQueryPlan()
     {
         return delegate.getQueryPlan();
