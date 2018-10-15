@@ -227,8 +227,9 @@ public class PlanPrinter
             double sdAmongTasks = Math.sqrt(squaredDifferences / stageInfo.get().getTasks().size());
 
             builder.append(indentString(1))
-                    .append(format("CPU: %s, Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s)\n",
+                    .append(format("CPU: %s, Scheduled: %s, Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s)\n",
                             stageStats.getTotalCpuTime(),
+                            stageStats.getTotalScheduledTime(),
                             formatPositions(stageStats.getProcessedInputPositions()),
                             stageStats.getProcessedInputDataSize(),
                             formatDouble(avgPositionsPerTask),
@@ -326,8 +327,8 @@ public class PlanPrinter
             return;
         }
 
-        long totalMillis = stats.get().values().stream()
-                .mapToLong(node -> node.getPlanNodeWallTime().toMillis())
+        long totalScheduledMillis = stats.get().values().stream()
+                .mapToLong(node -> node.getPlanNodeScheduledTime().toMillis())
                 .sum();
 
         PlanNodeStats nodeStats = stats.get().get(planNodeId);
@@ -345,10 +346,10 @@ public class PlanPrinter
             return;
         }
 
-        double fraction = 100.0d * nodeStats.getPlanNodeWallTime().toMillis() / totalMillis;
+        double scheduledTimeFraction = 100.0d * nodeStats.getPlanNodeScheduledTime().toMillis() / totalScheduledMillis;
 
         output.append(indentString(indent));
-        output.append("CPU fraction: " + formatDouble(fraction) + "%");
+        output.append("Scheduled fraction: " + formatDouble(scheduledTimeFraction) + "%");
         if (printInput) {
             output.append(format(", Input: %s (%s)",
                     formatPositions(nodeStats.getPlanNodeInputPositions()),
