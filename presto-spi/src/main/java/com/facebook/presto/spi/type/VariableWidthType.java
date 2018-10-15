@@ -16,7 +16,11 @@ package com.facebook.presto.spi.type;
 /**
  * VariableWidthType is a type that can have a different size for every value.
  */
-public interface VariableWidthType
-        extends Type
+public abstract class VariableWidthType
+        extends AbstractType
 {
+    protected VariableWidthType(TypeSignature signature, Class<?> javaType)
+    {
+        super(signature, javaType);
+    }
 }

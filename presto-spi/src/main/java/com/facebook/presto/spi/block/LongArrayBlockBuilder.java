@@ -28,7 +28,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 
 public class LongArrayBlockBuilder
-        implements BlockBuilder
+        extends BlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongArrayBlockBuilder.class).instanceSize();
     private static final Block NULL_VALUE_BLOCK = new LongArrayBlock(0, 1, new boolean[] {true}, new long[1]);

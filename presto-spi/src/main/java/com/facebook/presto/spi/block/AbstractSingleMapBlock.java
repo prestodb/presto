@@ -17,7 +17,7 @@ package com.facebook.presto.spi.block;
 import io.airlift.slice.Slice;
 
 public abstract class AbstractSingleMapBlock
-        implements Block
+        extends BlockBuilder
 {
     abstract int getOffset();
 

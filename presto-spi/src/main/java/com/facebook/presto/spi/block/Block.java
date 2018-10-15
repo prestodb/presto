@@ -20,13 +20,13 @@ import java.util.function.BiConsumer;
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 
-public interface Block
+public abstract class Block
 {
     /**
      * Gets the length of the value at the {@code position}.
      * This method must be implemented if @{code getSlice} is implemented.
      */
-    default int getSliceLength(int position)
+    public int getSliceLength(int position)
     {
         throw new UnsupportedOperationException();
     }
@@ -34,7 +34,7 @@ public interface Block
     /**
      * Gets a byte at {@code offset} in the value at {@code position}.
      */
-    default byte getByte(int position, int offset)
+    public byte getByte(int position, int offset)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
@@ -42,7 +42,7 @@ public interface Block
     /**
      * Gets a little endian short at {@code offset} in the value at {@code position}.
      */
-    default short getShort(int position, int offset)
+    public short getShort(int position, int offset)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
@@ -50,7 +50,7 @@ public interface Block
     /**
      * Gets a little endian int at {@code offset} in the value at {@code position}.
      */
-    default int getInt(int position, int offset)
+    public int getInt(int position, int offset)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
@@ -58,7 +58,7 @@ public interface Block
     /**
      * Gets a little endian long at {@code offset} in the value at {@code position}.
      */
-    default long getLong(int position, int offset)
+    public long getLong(int position, int offset)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
@@ -66,7 +66,7 @@ public interface Block
     /**
      * Gets a slice at {@code offset} in the value at {@code position}.
      */
-    default Slice getSlice(int position, int offset, int length)
+    public Slice getSlice(int position, int offset, int length)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
@@ -74,7 +74,7 @@ public interface Block
     /**
      * Gets an object in the value at {@code position}.
      */
-    default <T> T getObject(int position, Class<T> clazz)
+    public <T> T getObject(int position, Class<T> clazz)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
@@ -84,7 +84,7 @@ public interface Block
      * to the byte sequence at {@code otherOffset} in {@code otherSlice}.
      * This method must be implemented if @{code getSlice} is implemented.
      */
-    default boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
+    public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
@@ -94,7 +94,7 @@ public interface Block
      * to the byte sequence at {@code otherOffset} in {@code otherSlice}.
      * This method must be implemented if @{code getSlice} is implemented.
      */
-    default int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
+    public int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
@@ -104,7 +104,7 @@ public interface Block
      * to {@code blockBuilder}.
      * This method must be implemented if @{code getSlice} is implemented.
      */
-    default void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
+    public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
@@ -112,7 +112,7 @@ public interface Block
     /**
      * Appends the value at {@code position} to {@code blockBuilder} and close the entry.
      */
-    void writePositionTo(int position, BlockBuilder blockBuilder);
+    public abstract void writePositionTo(int position, BlockBuilder blockBuilder);
 
     /**
      * Is the byte sequences at {@code offset} in the value at {@code position} equal
@@ -120,7 +120,7 @@ public interface Block
      * in {@code otherBlock}.
      * This method must be implemented if @{code getSlice} is implemented.
      */
-    default boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
+    public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
@@ -130,7 +130,7 @@ public interface Block
      * value at {@code position}.
      * This method must be implemented if @{code getSlice} is implemented.
      */
-    default long hash(int position, int offset, int length)
+    public long hash(int position, int offset, int length)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
@@ -141,7 +141,7 @@ public interface Block
      * in {@code otherBlock}.
      * This method must be implemented if @{code getSlice} is implemented.
      */
-    default int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength)
+    public int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
@@ -155,35 +155,35 @@ public interface Block
      *
      * @throws IllegalArgumentException if this position is not valid
      */
-    Block getSingleValueBlock(int position);
+    public abstract Block getSingleValueBlock(int position);
 
     /**
      * Returns the number of positions in this block.
      */
-    int getPositionCount();
+    public abstract int getPositionCount();
 
     /**
      * Returns the logical size of this block in memory.
      */
-    long getSizeInBytes();
+    public abstract long getSizeInBytes();
 
     /**
      * Returns the logical size of {@code block.getRegion(position, length)} in memory.
      * The method can be expensive. Do not use it outside an implementation of Block.
      */
-    long getRegionSizeInBytes(int position, int length);
+    public abstract long getRegionSizeInBytes(int position, int length);
 
     /**
      * Returns the retained size of this block in memory.
      * This method is called from the inner most execution loop and must be fast.
      */
-    long getRetainedSizeInBytes();
+    public abstract long getRetainedSizeInBytes();
 
     /**
      * Returns the estimated in memory data size for stats of position.
      * Do not use it for other purpose.
      */
-    long getEstimatedDataSizeForStats(int position);
+    public abstract long getEstimatedDataSizeForStats(int position);
 
     /**
      * {@code consumer} visits each of the internal data container and accepts the size for it.
@@ -193,19 +193,19 @@ public interface Block
      * {@code consumer} should be called at least once with the current block and
      * must include the instance size of the current block
      */
-    void retainedBytesForEachPart(BiConsumer<Object, Long> consumer);
+    public abstract void retainedBytesForEachPart(BiConsumer<Object, Long> consumer);
 
     /**
      * Get the encoding for this block.
      */
-    String getEncodingName();
+    public abstract String getEncodingName();
 
     /**
      * Create a new block from the current block by keeping the same elements
      * only with respect to {@code positions} that starts at {@code offset} and has length of {@code length}.
      * May return a view over the data in this block or may return a copy
      */
-    default Block getPositions(int[] positions, int offset, int length)
+    public Block getPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);
 
@@ -220,7 +220,7 @@ public interface Block
      * <p>
      * The returned block must be a compact representation of the original block.
      */
-    Block copyPositions(int[] positions, int offset, int length);
+    public abstract Block copyPositions(int[] positions, int offset, int length);
 
     /**
      * Returns a block starting at the specified position and extends for the
@@ -231,7 +231,7 @@ public interface Block
      * the region block may also be released.  If the region block is released
      * this block may also be released.
      */
-    Block getRegion(int positionOffset, int length);
+    public abstract Block getRegion(int positionOffset, int length);
 
     /**
      * Returns a block starting at the specified position and extends for the
@@ -243,13 +243,13 @@ public interface Block
      * operators that hold on to a range of values without holding on to the
      * entire block.
      */
-    Block copyRegion(int position, int length);
+    public abstract Block copyRegion(int position, int length);
 
     /**
      * Is it possible the block may have a null value?  If false, the block can not contain
      * a null, but if true, the block may or may not have a null.
      */
-    default boolean mayHaveNull()
+    public boolean mayHaveNull()
     {
         return true;
     }
@@ -259,7 +259,7 @@ public interface Block
      *
      * @throws IllegalArgumentException if this position is not valid
      */
-    boolean isNull(int position);
+    public abstract boolean isNull(int position);
 
     /**
      * Returns a block that assures all data is in memory.
@@ -268,7 +268,7 @@ public interface Block
      * This allows streaming data sources to skip sections that are not
      * accessed in a query.
      */
-    default Block getLoadedBlock()
+    public Block getLoadedBlock()
     {
         return this;
     }

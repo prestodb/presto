@@ -368,7 +368,7 @@ public final class BytecodeUtils
                         .ifTrue(new BytecodeBlock()
                                 .comment("output.appendNull();")
                                 .pop(valueJavaType)
-                                .invokeInterface(BlockBuilder.class, "appendNull", BlockBuilder.class)
+                                .invokeVirtual(BlockBuilder.class, "appendNull", BlockBuilder.class)
                                 .pop())
                         .ifFalse(new BytecodeBlock()
                                 .comment("%s.%s(output, %s)", type.getTypeSignature(), methodName, valueJavaType.getSimpleName())
@@ -377,6 +377,6 @@ public final class BytecodeUtils
                                 .append(loadConstant(callSiteBinder.bind(type, Type.class)))
                                 .getVariable(tempOutput)
                                 .getVariable(tempValue)
-                                .invokeInterface(Type.class, methodName, void.class, BlockBuilder.class, valueJavaType)));
+                                .invokeVirtual(Type.class, methodName, void.class, BlockBuilder.class, valueJavaType)));
     }
 }

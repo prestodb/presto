@@ -22,29 +22,29 @@ import io.airlift.slice.Slice;
 
 import java.util.List;
 
-public interface Type
+public abstract class Type
 {
     /**
      * Gets the name of this type which must be case insensitive globally unique.
      * The name of a user defined type must be a legal identifier in Presto.
      */
     @JsonValue
-    TypeSignature getTypeSignature();
+    public abstract TypeSignature getTypeSignature();
 
     /**
      * Returns the name of this type that should be displayed to end-users.
      */
-    String getDisplayName();
+    public abstract String getDisplayName();
 
     /**
      * True if the type supports equalTo and hash.
      */
-    boolean isComparable();
+    public abstract boolean isComparable();
 
     /**
      * True if the type supports compareTo.
      */
-    boolean isOrderable();
+    public abstract boolean isOrderable();
 
     /**
      * Gets the Java class type used to represent this value on the stack during
@@ -52,107 +52,107 @@ public interface Type
      * <p>
      * Currently, this must be boolean, long, double, Slice or Block.
      */
-    Class<?> getJavaType();
+    public abstract Class<?> getJavaType();
 
     /**
      * For parameterized types returns the list of parameters.
      */
-    List<Type> getTypeParameters();
+    public abstract List<Type> getTypeParameters();
 
     /**
      * Creates the preferred block builder for this type. This is the builder used to
      * store values after an expression projection within the query.
      */
-    BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry);
+    public abstract BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry);
 
     /**
      * Creates the preferred block builder for this type. This is the builder used to
      * store values after an expression projection within the query.
      */
-    BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries);
+    public abstract BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries);
 
     /**
      * Gets an object representation of the type value in the {@code block}
      * {@code position}. This is the value returned to the user via the
      * REST endpoint and therefore must be JSON serializable.
      */
-    Object getObjectValue(ConnectorSession session, Block block, int position);
+    public abstract Object getObjectValue(ConnectorSession session, Block block, int position);
 
     /**
      * Gets the value at the {@code block} {@code position} as a boolean.
      */
-    boolean getBoolean(Block block, int position);
+    public abstract boolean getBoolean(Block block, int position);
 
     /**
      * Gets the value at the {@code block} {@code position} as a long.
      */
-    long getLong(Block block, int position);
+    public abstract long getLong(Block block, int position);
 
     /**
      * Gets the value at the {@code block} {@code position} as a double.
      */
-    double getDouble(Block block, int position);
+    public abstract double getDouble(Block block, int position);
 
     /**
      * Gets the value at the {@code block} {@code position} as a Slice.
      */
-    Slice getSlice(Block block, int position);
+    public abstract Slice getSlice(Block block, int position);
 
     /**
      * Gets the value at the {@code block} {@code position} as an Object.
      */
-    Object getObject(Block block, int position);
+    public abstract Object getObject(Block block, int position);
 
     /**
      * Writes the boolean value into the {@code BlockBuilder}.
      */
-    void writeBoolean(BlockBuilder blockBuilder, boolean value);
+    public abstract void writeBoolean(BlockBuilder blockBuilder, boolean value);
 
     /**
      * Writes the long value into the {@code BlockBuilder}.
      */
-    void writeLong(BlockBuilder blockBuilder, long value);
+    public abstract void writeLong(BlockBuilder blockBuilder, long value);
 
     /**
      * Writes the double value into the {@code BlockBuilder}.
      */
-    void writeDouble(BlockBuilder blockBuilder, double value);
+    public abstract void writeDouble(BlockBuilder blockBuilder, double value);
 
     /**
      * Writes the Slice value into the {@code BlockBuilder}.
      */
-    void writeSlice(BlockBuilder blockBuilder, Slice value);
+    public abstract void writeSlice(BlockBuilder blockBuilder, Slice value);
 
     /**
      * Writes the Slice value into the {@code BlockBuilder}.
      */
-    void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length);
+    public abstract void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length);
 
     /**
      * Writes the Object value into the {@code BlockBuilder}.
      */
-    void writeObject(BlockBuilder blockBuilder, Object value);
+    public abstract void writeObject(BlockBuilder blockBuilder, Object value);
 
     /**
      * Append the value at {@code position} in {@code block} to {@code blockBuilder}.
      */
-    void appendTo(Block block, int position, BlockBuilder blockBuilder);
+    public abstract void appendTo(Block block, int position, BlockBuilder blockBuilder);
 
     /**
      * Are the values in the specified blocks at the specified positions equal?
      *
      * This method assumes input is not null.
      */
-    boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition);
+    public abstract boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition);
 
     /**
      * Calculates the hash code of the value at the specified position in the
      * specified block.
      */
-    long hash(Block block, int position);
+    public abstract long hash(Block block, int position);
 
     /**
      * Compare the values in the specified block at the specified positions equal.
      */
-    int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition);
+    public abstract int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition);
 }

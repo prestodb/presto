@@ -67,7 +67,7 @@ public class DereferenceCodeGenerator
                 .comment("call rowBlock.isNull(index)")
                 .append(rowBlock)
                 .push(index)
-                .invokeInterface(Block.class, "isNull", boolean.class, int.class);
+                .invokeVirtual(Block.class, "isNull", boolean.class, int.class);
 
         ifFieldIsNull.ifTrue()
                 .comment("if the field is null, push null to stack")

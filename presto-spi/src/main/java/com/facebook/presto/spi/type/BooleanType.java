@@ -23,8 +23,7 @@ import com.facebook.presto.spi.block.PageBuilderStatus;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 
 public final class BooleanType
-        extends AbstractType
-        implements FixedWidthType
+        extends FixedWidthType
 {
     public static final BooleanType BOOLEAN = new BooleanType();
 

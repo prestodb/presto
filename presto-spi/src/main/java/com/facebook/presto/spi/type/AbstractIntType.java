@@ -23,8 +23,7 @@ import io.airlift.slice.Slice;
 import static java.lang.Long.rotateLeft;
 
 public abstract class AbstractIntType
-        extends AbstractType
-        implements FixedWidthType
+        extends FixedWidthType
 {
     protected AbstractIntType(TypeSignature signature)
     {

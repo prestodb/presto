@@ -20,7 +20,7 @@ import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
 
 public abstract class AbstractArrayBlock
-        implements Block
+        extends BlockBuilder
 {
     protected abstract Block getRawElementBlock();
 

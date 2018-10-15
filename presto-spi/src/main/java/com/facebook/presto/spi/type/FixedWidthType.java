@@ -18,18 +18,23 @@ import com.facebook.presto.spi.block.BlockBuilder;
 /**
  * FixedWidthType is a type that has a fixed size for every value.
  */
-public interface FixedWidthType
-        extends Type
+public abstract class FixedWidthType
+        extends AbstractType
 {
+    protected FixedWidthType(TypeSignature signature, Class<?> javaType)
+    {
+        super(signature, javaType);
+    }
+
     /**
      * Gets the size of a value of this type is bytes. All values
      * of a FixedWidthType are the same size.
      */
-    int getFixedSize();
+    public abstract int getFixedSize();
 
     /**
      * Creates a block builder for this type sized to hold the specified number
      * of positions.
      */
-    BlockBuilder createFixedSizeBlockBuilder(int positionCount);
+    public abstract BlockBuilder createFixedSizeBlockBuilder(int positionCount);
 }

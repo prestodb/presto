@@ -31,7 +31,7 @@ import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public class DictionaryBlock
-        implements Block
+        extends Block
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(DictionaryBlock.class).instanceSize() + ClassLayout.parseClass(DictionaryId.class).instanceSize();
 

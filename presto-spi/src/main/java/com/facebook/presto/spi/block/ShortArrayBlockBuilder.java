@@ -27,7 +27,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
 
 public class ShortArrayBlockBuilder
-        implements BlockBuilder
+        extends BlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ShortArrayBlockBuilder.class).instanceSize();
     private static final Block NULL_VALUE_BLOCK = new ShortArrayBlock(0, 1, new boolean[] {true}, new short[1]);

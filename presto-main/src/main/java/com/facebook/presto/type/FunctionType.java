@@ -30,7 +30,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class FunctionType
-        implements Type
+        extends Type
 {
     public static final String NAME = "function";
 

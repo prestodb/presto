@@ -464,7 +464,7 @@ public class AccumulatorCompiler
                         .condition(new BytecodeBlock()
                                 .getVariable(variableDefinition)
                                 .getVariable(positionVariable)
-                                .invokeInterface(Block.class, "isNull", boolean.class, int.class))
+                                .invokeVirtual(Block.class, "isNull", boolean.class, int.class))
                         .ifFalse(loopBody);
             }
         }
@@ -548,35 +548,35 @@ public class AccumulatorCompiler
                     .append(constantType(callSiteBinder, sqlType))
                     .append(getBlockBytecode)
                     .append(position)
-                    .invokeInterface(Type.class, "getLong", long.class, Block.class, int.class);
+                    .invokeVirtual(Type.class, "getLong", long.class, Block.class, int.class);
         }
         else if (parameter == double.class) {
             block.comment("%s.getDouble(block, position)", sqlType.getTypeSignature())
                     .append(constantType(callSiteBinder, sqlType))
                     .append(getBlockBytecode)
                     .append(position)
-                    .invokeInterface(Type.class, "getDouble", double.class, Block.class, int.class);
+                    .invokeVirtual(Type.class, "getDouble", double.class, Block.class, int.class);
         }
         else if (parameter == boolean.class) {
             block.comment("%s.getBoolean(block, position)", sqlType.getTypeSignature())
                     .append(constantType(callSiteBinder, sqlType))
                     .append(getBlockBytecode)
                     .append(position)
-                    .invokeInterface(Type.class, "getBoolean", boolean.class, Block.class, int.class);
+                    .invokeVirtual(Type.class, "getBoolean", boolean.class, Block.class, int.class);
         }
         else if (parameter == Slice.class) {
             block.comment("%s.getSlice(block, position)", sqlType.getTypeSignature())
                     .append(constantType(callSiteBinder, sqlType))
                     .append(getBlockBytecode)
                     .append(position)
-                    .invokeInterface(Type.class, "getSlice", Slice.class, Block.class, int.class);
+                    .invokeVirtual(Type.class, "getSlice", Slice.class, Block.class, int.class);
         }
         else {
             block.comment("%s.getObject(block, position)", sqlType.getTypeSignature())
                     .append(constantType(callSiteBinder, sqlType))
                     .append(getBlockBytecode)
                     .append(position)
-                    .invokeInterface(Type.class, "getObject", Object.class, Block.class, int.class);
+                    .invokeVirtual(Type.class, "getObject", Object.class, Block.class, int.class);
         }
     }
 
@@ -711,14 +711,14 @@ public class AccumulatorCompiler
 
         BytecodeBlock block = new BytecodeBlock()
                 .append(blockVariable)
-                .invokeInterface(Block.class, "getPositionCount", int.class)
+                .invokeVirtual(Block.class, "getPositionCount", int.class)
                 .putVariable(rowsVariable);
 
         IfStatement ifStatement = new IfStatement("if(!block.isNull(position))")
                 .condition(new BytecodeBlock()
                         .append(blockVariable)
                         .append(positionVariable)
-                        .invokeInterface(Block.class, "isNull", boolean.class, int.class))
+                        .invokeVirtual(Block.class, "isNull", boolean.class, int.class))
                 .ifFalse(loopBody);
 
         block.append(new ForLoop()

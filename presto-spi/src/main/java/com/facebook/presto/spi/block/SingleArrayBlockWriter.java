@@ -22,7 +22,6 @@ import static java.lang.String.format;
 
 public class SingleArrayBlockWriter
         extends AbstractSingleArrayBlock
-        implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleArrayBlockWriter.class).instanceSize();
 
