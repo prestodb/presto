@@ -116,7 +116,7 @@ public class TestLocalQueries
     }
 
     @Test
-    public void testExplainIO()
+    public void testIOExplain()
     {
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) " + query);

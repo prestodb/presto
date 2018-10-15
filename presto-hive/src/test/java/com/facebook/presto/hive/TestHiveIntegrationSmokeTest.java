@@ -164,9 +164,10 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testIOExplain()
     {
-        computeActual("CREATE TABLE test_orders WITH (partitioned_by = ARRAY['orderkey']) AS select custkey, orderkey FROM orders where orderkey < 10");
+        // Test IO explain with small number of discrete components.
+        computeActual("CREATE TABLE test_orders WITH (partitioned_by = ARRAY['orderkey']) AS select custkey, orderkey FROM orders where orderkey < 3");
 
-        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey + 10 FROM test_orders where orderkey > 5 AND custkey <= 10");
+        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey FROM test_orders where custkey <= 10");
         assertEquals(
                 jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IOPlan(
@@ -180,11 +181,34 @@ public class TestHiveIntegrationSmokeTest
                                                         false,
                                                         ImmutableSet.of(
                                                                 new FormattedRange(
-                                                                        new FormattedMarker(Optional.of("6"), EXACTLY),
-                                                                        new FormattedMarker(Optional.of("6"), EXACTLY)),
+                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                        new FormattedMarker(Optional.of("1"), EXACTLY)),
                                                                 new FormattedRange(
-                                                                        new FormattedMarker(Optional.of("7"), EXACTLY),
-                                                                        new FormattedMarker(Optional.of("7"), EXACTLY)))))))),
+                                                                        new FormattedMarker(Optional.of("2"), EXACTLY),
+                                                                        new FormattedMarker(Optional.of("2"), EXACTLY)))))))),
+                        Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders"))));
+
+        assertUpdate("DROP TABLE test_orders");
+
+        // Test IO explain with large number of discrete components where Domain::simpify comes into play.
+        computeActual("CREATE TABLE test_orders WITH (partitioned_by = ARRAY['orderkey']) AS select custkey, orderkey FROM orders where orderkey < 200");
+
+        result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey + 10 FROM test_orders where custkey <= 10");
+        assertEquals(
+                jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                new IOPlan(
+                        ImmutableSet.of(new TableColumnInfo(
+                                new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
+                                ImmutableSet.of(
+                                        new ColumnConstraint(
+                                                "orderkey",
+                                                BIGINT.getTypeSignature(),
+                                                new FormattedDomain(
+                                                        false,
+                                                        ImmutableSet.of(
+                                                                new FormattedRange(
+                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                        new FormattedMarker(Optional.of("199"), EXACTLY)))))))),
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders"))));
 
         assertUpdate("DROP TABLE test_orders");
