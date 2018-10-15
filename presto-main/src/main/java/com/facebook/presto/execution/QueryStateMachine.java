@@ -291,11 +291,6 @@ public class QueryStateMachine
         peakTaskTotalMemory.accumulateAndGet(taskTotalMemoryInBytes, Math::max);
     }
 
-    public Optional<ResourceGroupId> getResourceGroup()
-    {
-        return resourceGroup;
-    }
-
     public BasicQueryInfo getBasicQueryInfo(Optional<BasicStageStats> rootStage)
     {
         // Query state must be captured first in order to provide a
@@ -418,7 +413,7 @@ public class QueryStateMachine
                 inputs.get(),
                 output.get(),
                 completeInfo,
-                getResourceGroup());
+                resourceGroup);
     }
 
     private QueryStats getQueryStats(Optional<StageInfo> rootStage)

@@ -18,12 +18,10 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.Optional;
 import java.util.function.Consumer;
 
 public interface QueryManager
@@ -64,12 +62,6 @@ public interface QueryManager
      */
     QueryInfo getFullQueryInfo(QueryId queryId)
             throws NoSuchElementException;
-
-    /**
-     * Gets to the resource group assigned to the query.  If the query does not exist or
-     * a resource group has not been assigned, the result will be empty.
-     */
-    Optional<ResourceGroupId> getQueryResourceGroup(QueryId queryId);
 
     /**
      * @throws NoSuchElementException if query does not exist

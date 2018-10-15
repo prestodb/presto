@@ -33,7 +33,6 @@ import com.facebook.presto.server.SessionPropertyDefaults;
 import com.facebook.presto.server.SessionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.sql.SqlEnvironmentConfig;
@@ -277,13 +276,6 @@ public class SqlQueryManager
     public QueryInfo getFullQueryInfo(QueryId queryId)
     {
         return queryTracker.getQuery(queryId).getQueryInfo();
-    }
-
-    @Override
-    public Optional<ResourceGroupId> getQueryResourceGroup(QueryId queryId)
-    {
-        return queryTracker.tryGetQuery(queryId)
-                .flatMap(QueryExecution::getResourceGroup);
     }
 
     public Plan getQueryPlan(QueryId queryId)

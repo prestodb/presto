@@ -19,7 +19,6 @@ import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.planner.Plan;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
@@ -87,12 +86,6 @@ public class MemoryAwareQueryExecution
     public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
     {
         delegate.addOutputInfoListener(listener);
-    }
-
-    @Override
-    public Optional<ResourceGroupId> getResourceGroup()
-    {
-        return delegate.getResourceGroup();
     }
 
     @Override

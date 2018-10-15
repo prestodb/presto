@@ -44,16 +44,14 @@ public class FailedQueryExecution
 {
     private final QueryInfo queryInfo;
     private final Session session;
-    private final Optional<ResourceGroupId> resourceGroup;
     private final Executor executor;
 
     public FailedQueryExecution(Session session, String query, URI self, Optional<ResourceGroupId> resourceGroup, Executor executor, Throwable cause)
     {
         requireNonNull(cause, "cause is null");
         this.session = requireNonNull(session, "session is null");
-        this.resourceGroup = requireNonNull(resourceGroup, "resourceGroup is null");
         this.executor = requireNonNull(executor, "executor is null");
-        this.queryInfo = immediateFailureQueryInfo(session, query, self, cause);
+        this.queryInfo = immediateFailureQueryInfo(session, query, self, resourceGroup, cause);
     }
 
     @Override
@@ -216,11 +214,5 @@ public class FailedQueryExecution
     public void pruneInfo()
     {
         // no-op
-    }
-
-    @Override
-    public Optional<ResourceGroupId> getResourceGroup()
-    {
-        return resourceGroup;
     }
 }

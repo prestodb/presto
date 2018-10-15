@@ -599,12 +599,6 @@ public class SqlQueryExecution
     }
 
     @Override
-    public Optional<ResourceGroupId> getResourceGroup()
-    {
-        return stateMachine.getResourceGroup();
-    }
-
-    @Override
     public Plan getQueryPlan()
     {
         return queryPlan.get();

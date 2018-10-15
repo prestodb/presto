@@ -271,12 +271,6 @@ public class DataDefinitionExecution<T extends Statement>
         return stateMachine.getQueryState();
     }
 
-    @Override
-    public Optional<ResourceGroupId> getResourceGroup()
-    {
-        return stateMachine.getResourceGroup();
-    }
-
     public List<Expression> getParameters()
     {
         return parameters;

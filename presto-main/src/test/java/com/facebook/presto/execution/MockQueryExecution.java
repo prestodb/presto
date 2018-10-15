@@ -278,12 +278,6 @@ public class MockQueryExecution
     }
 
     @Override
-    public Optional<ResourceGroupId> getResourceGroup()
-    {
-        return this.resourceGroupId;
-    }
-
-    @Override
     public void start()
     {
         state = RUNNING;

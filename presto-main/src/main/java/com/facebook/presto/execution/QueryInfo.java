@@ -158,7 +158,7 @@ public class QueryInfo
         this.resourceGroupId = resourceGroupId;
     }
 
-    public static QueryInfo immediateFailureQueryInfo(Session session, String query, URI self, Throwable throwable)
+    public static QueryInfo immediateFailureQueryInfo(Session session, String query, URI self, Optional<ResourceGroupId> resourceGroupId, Throwable throwable)
     {
         ExecutionFailureInfo failureCause = toFailure(throwable);
         QueryInfo queryInfo = new QueryInfo(
@@ -188,7 +188,7 @@ public class QueryInfo
                 ImmutableSet.of(),
                 Optional.empty(),
                 true,
-                Optional.empty());
+                resourceGroupId);
 
         return queryInfo;
     }
