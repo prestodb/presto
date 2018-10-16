@@ -24,6 +24,7 @@ Functions and Operators
     functions/map
     functions/url
     functions/geospatial
+    functions/hyperloglog
     functions/color
     functions/session
     functions/teradata
