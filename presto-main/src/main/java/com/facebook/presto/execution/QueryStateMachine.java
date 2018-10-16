@@ -366,14 +366,6 @@ public class QueryStateMachine
         // never be visible.
         QueryState state = queryState.get();
 
-        Duration elapsedTime;
-        if (endNanos.get() != 0) {
-            elapsedTime = new Duration(endNanos.get() - createNanos, NANOSECONDS);
-        }
-        else {
-            elapsedTime = nanosSince(createNanos);
-        }
-
         ExecutionFailureInfo failureCause = null;
         ErrorCode errorCode = null;
         if (state == FAILED) {
@@ -381,6 +373,48 @@ public class QueryStateMachine
             if (failureCause != null) {
                 errorCode = failureCause.getErrorCode();
             }
+        }
+
+        boolean completeInfo = getAllStages(rootStage).stream().allMatch(StageInfo::isCompleteInfo);
+        boolean isScheduled = isScheduled(rootStage);
+
+        return new QueryInfo(queryId,
+                session.toSessionRepresentation(),
+                state,
+                memoryPool.get().getId(),
+                isScheduled,
+                self,
+                outputManager.getQueryOutputInfo().map(QueryOutputInfo::getColumnNames).orElse(ImmutableList.of()),
+                query,
+                getQueryStats(rootStage),
+                Optional.ofNullable(setCatalog.get()),
+                Optional.ofNullable(setSchema.get()),
+                Optional.ofNullable(setPath.get()),
+                setSessionProperties,
+                resetSessionProperties,
+                addedPreparedStatements,
+                deallocatedPreparedStatements,
+                Optional.ofNullable(startedTransactionId.get()),
+                clearTransactionId.get(),
+                updateType.get(),
+                rootStage,
+                failureCause,
+                errorCode,
+                warningCollector.getWarnings(),
+                inputs.get(),
+                output.get(),
+                completeInfo,
+                getResourceGroup());
+    }
+
+    private QueryStats getQueryStats(Optional<StageInfo> rootStage)
+    {
+        Duration elapsedTime;
+        if (endNanos.get() != 0) {
+            elapsedTime = new Duration(endNanos.get() - createNanos, NANOSECONDS);
+        }
+        else {
+            elapsedTime = nanosSince(createNanos);
         }
 
         int totalTasks = 0;
@@ -467,7 +501,7 @@ public class QueryStateMachine
 
         boolean isScheduled = isScheduled(rootStage);
 
-        QueryStats queryStats = new QueryStats(
+        return new QueryStats(
                 createTime,
                 executionStartTime.get(),
                 lastHeartbeat.get(),
@@ -518,34 +552,6 @@ public class QueryStateMachine
                 stageGcStatistics.build(),
 
                 operatorStatsSummary.build());
-
-        return new QueryInfo(queryId,
-                session.toSessionRepresentation(),
-                state,
-                memoryPool.get().getId(),
-                isScheduled,
-                self,
-                outputManager.getQueryOutputInfo().map(QueryOutputInfo::getColumnNames).orElse(ImmutableList.of()),
-                query,
-                queryStats,
-                Optional.ofNullable(setCatalog.get()),
-                Optional.ofNullable(setSchema.get()),
-                Optional.ofNullable(setPath.get()),
-                setSessionProperties,
-                resetSessionProperties,
-                addedPreparedStatements,
-                deallocatedPreparedStatements,
-                Optional.ofNullable(startedTransactionId.get()),
-                clearTransactionId.get(),
-                updateType.get(),
-                rootStage,
-                failureCause,
-                errorCode,
-                warningCollector.getWarnings(),
-                inputs.get(),
-                output.get(),
-                completeInfo,
-                getResourceGroup());
     }
 
     public VersionedMemoryPoolId getMemoryPool()
