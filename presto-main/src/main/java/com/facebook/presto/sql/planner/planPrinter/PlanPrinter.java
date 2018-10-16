@@ -228,8 +228,8 @@ public class PlanPrinter
 
             builder.append(indentString(1))
                     .append(format("CPU: %s, Scheduled: %s, Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s)\n",
-                            stageStats.getTotalCpuTime(),
-                            stageStats.getTotalScheduledTime(),
+                            stageStats.getTotalCpuTime().convertToMostSuccinctTimeUnit(),
+                            stageStats.getTotalScheduledTime().convertToMostSuccinctTimeUnit(),
                             formatPositions(stageStats.getProcessedInputPositions()),
                             stageStats.getProcessedInputDataSize(),
                             formatDouble(avgPositionsPerTask),
@@ -356,9 +356,9 @@ public class PlanPrinter
         output.append(indentString(indent));
         output.append(format(
                 "CPU: %s (%s%%), Scheduled: %s (%s%%)",
-                nodeStats.getPlanNodeCpuTime(),
+                nodeStats.getPlanNodeCpuTime().convertToMostSuccinctTimeUnit(),
                 formatDouble(cpuTimeFraction),
-                nodeStats.getPlanNodeScheduledTime(),
+                nodeStats.getPlanNodeScheduledTime().convertToMostSuccinctTimeUnit(),
                 formatDouble(scheduledTimeFraction)));
 
         if (printInput) {
