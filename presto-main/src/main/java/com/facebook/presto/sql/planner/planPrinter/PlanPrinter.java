@@ -106,7 +106,6 @@ import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
@@ -131,6 +130,7 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 import static java.lang.String.format;
+import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -1384,30 +1384,29 @@ public class PlanPrinter
 
         private void printPlanNodesStatsAndCost(int indent, PlanNode... nodes)
         {
-            List<String> statsAndCosts = Arrays.stream(nodes)
-                    .map(this::formatPlanNodeStatsAndCost)
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .collect(toImmutableList());
-
-            if (!statsAndCosts.isEmpty()) {
-                print(indent, "Cost: %s", Joiner.on("/").join(statsAndCosts));
+            if (stream(nodes).allMatch(this::isPlanNodeStatsAndCostsUnknown)) {
+                return;
             }
+            print(indent, "Cost: %s", stream(nodes).map(this::formatPlanNodeStatsAndCost).collect(joining("/")));
         }
 
-        private Optional<String> formatPlanNodeStatsAndCost(PlanNode node)
+        private boolean isPlanNodeStatsAndCostsUnknown(PlanNode node)
         {
             PlanNodeStatsEstimate stats = estimatedStatsAndCosts.getStats().getOrDefault(node.getId(), PlanNodeStatsEstimate.unknown());
             PlanNodeCostEstimate cost = estimatedStatsAndCosts.getCosts().getOrDefault(node.getId(), PlanNodeCostEstimate.unknown());
-            if (stats.isOutputRowCountUnknown() || cost.equals(PlanNodeCostEstimate.unknown())) {
-                return Optional.empty();
-            }
-            return Optional.of(String.format("{rows: %s (%s), cpu: %s, memory: %s, network: %s}",
+            return stats.isOutputRowCountUnknown() || cost.equals(PlanNodeCostEstimate.unknown());
+        }
+
+        private String formatPlanNodeStatsAndCost(PlanNode node)
+        {
+            PlanNodeStatsEstimate stats = estimatedStatsAndCosts.getStats().getOrDefault(node.getId(), PlanNodeStatsEstimate.unknown());
+            PlanNodeCostEstimate cost = estimatedStatsAndCosts.getCosts().getOrDefault(node.getId(), PlanNodeCostEstimate.unknown());
+            return format("{rows: %s (%s), cpu: %s, memory: %s, network: %s}",
                     formatAsLong(stats.getOutputRowCount()),
                     formatEstimateAsDataSize(stats.getOutputSizeInBytes(node.getOutputSymbols(), types)),
                     formatDouble(cost.getCpuCost()),
                     formatDouble(cost.getMemoryCost()),
-                    formatDouble(cost.getNetworkCost())));
+                    formatDouble(cost.getNetworkCost()));
         }
     }
 
@@ -1418,7 +1417,7 @@ public class PlanPrinter
 
     private static String formatHash(Optional<Symbol>... hashes)
     {
-        List<Symbol> symbols = Arrays.stream(hashes)
+        List<Symbol> symbols = stream(hashes)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(toList());
