@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
@@ -38,7 +39,6 @@ import org.joda.time.DateTime;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
-import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -307,20 +307,29 @@ public class DataDefinitionExecution<T extends Statement>
         public DataDefinitionExecution<?> createQueryExecution(
                 String query,
                 Session session,
-                Statement statement,
-                List<Expression> parameters,
+                PreparedQuery preparedQuery,
                 ResourceGroupId resourceGroup,
                 WarningCollector warningCollector)
         {
-            URI self = locationFactory.createQueryLocation(session.getQueryId());
+            return createDataDefinitionExecution(query, session, resourceGroup, preparedQuery.getStatement(), preparedQuery.getParameters(), warningCollector);
+        }
 
-            DataDefinitionTask<Statement> task = getTask(statement);
+        private <T extends Statement> DataDefinitionExecution<T> createDataDefinitionExecution(
+                String query,
+                Session session,
+                ResourceGroupId resourceGroup,
+                T statement,
+                List<Expression> parameters,
+                WarningCollector warningCollector)
+        {
+            @SuppressWarnings("unchecked")
+            DataDefinitionTask<T> task = (DataDefinitionTask<T>) tasks.get(statement.getClass());
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
 
             QueryStateMachine stateMachine = QueryStateMachine.begin(
                     query,
                     session,
-                    self,
+                    locationFactory.createQueryLocation(session.getQueryId()),
                     resourceGroup,
                     task.isTransactionControl(),
                     transactionManager,
@@ -330,12 +339,6 @@ public class DataDefinitionExecution<T extends Statement>
                     warningCollector);
             stateMachine.setUpdateType(task.getName());
             return new DataDefinitionExecution<>(task, statement, transactionManager, metadata, accessControl, stateMachine, parameters);
-        }
-
-        @SuppressWarnings("unchecked")
-        private <T extends Statement> DataDefinitionTask<T> getTask(T statement)
-        {
-            return (DataDefinitionTask<T>) tasks.get(statement.getClass());
         }
     }
 }

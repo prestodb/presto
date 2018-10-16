@@ -381,8 +381,7 @@ public class SqlQueryManager
             queryExecution = queryExecutionFactory.createQueryExecution(
                     query,
                     session,
-                    preparedQuery.getStatement(),
-                    preparedQuery.getParameters(),
+                    preparedQuery,
                     selectionContext.getResourceGroupId(),
                     warningCollectorFactory.create());
 

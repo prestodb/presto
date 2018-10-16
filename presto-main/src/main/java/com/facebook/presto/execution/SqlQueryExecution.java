@@ -20,6 +20,7 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
@@ -59,8 +60,6 @@ import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.Explain;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -131,7 +130,7 @@ public class SqlQueryExecution
             Session session,
             URI self,
             ResourceGroupId resourceGroup,
-            Statement statement,
+            PreparedQuery preparedQuery,
             TransactionManager transactionManager,
             Metadata metadata,
             AccessControl accessControl,
@@ -150,7 +149,6 @@ public class SqlQueryExecution
             NodeTaskMap nodeTaskMap,
             QueryExplainer queryExplainer,
             ExecutionPolicy executionPolicy,
-            List<Expression> parameters,
             SplitSchedulerStats schedulerStats,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
@@ -193,8 +191,16 @@ public class SqlQueryExecution
                     warningCollector);
 
             // analyze query
-            Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, accessControl, Optional.of(queryExplainer), parameters, warningCollector);
-            this.analysis = analyzer.analyze(statement);
+            requireNonNull(preparedQuery, "preparedQuery is null");
+            Analyzer analyzer = new Analyzer(
+                    stateMachine.getSession(),
+                    metadata,
+                    sqlParser,
+                    accessControl,
+                    Optional.of(queryExplainer),
+                    preparedQuery.getParameters(),
+                    warningCollector);
+            this.analysis = analyzer.analyze(preparedQuery.getStatement());
 
             stateMachine.setUpdateType(analysis.getUpdateType());
 
@@ -732,8 +738,7 @@ public class SqlQueryExecution
         public QueryExecution createQueryExecution(
                 String query,
                 Session session,
-                Statement statement,
-                List<Expression> parameters,
+                PreparedQuery preparedQuery,
                 ResourceGroupId resourceGroup,
                 WarningCollector warningCollector)
         {
@@ -746,7 +751,7 @@ public class SqlQueryExecution
                     session,
                     locationFactory.createQueryLocation(session.getQueryId()),
                     resourceGroup,
-                    statement,
+                    preparedQuery,
                     transactionManager,
                     metadata,
                     accessControl,
@@ -765,7 +770,6 @@ public class SqlQueryExecution
                     nodeTaskMap,
                     queryExplainer,
                     executionPolicy,
-                    parameters,
                     schedulerStats,
                     statsCalculator,
                     costCalculator,
