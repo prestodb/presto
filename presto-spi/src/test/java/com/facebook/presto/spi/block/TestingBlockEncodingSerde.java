@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.block.Map.MapBlockEncoding;
+import com.facebook.presto.spi.block.Map.SingleMapBlockEncoding;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.SliceInput;

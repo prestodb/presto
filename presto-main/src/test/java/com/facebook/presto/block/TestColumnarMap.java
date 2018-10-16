@@ -15,9 +15,9 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.ColumnarMap;
 import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.MapBlockBuilder;
+import com.facebook.presto.spi.block.Map.ColumnarMap;
+import com.facebook.presto.spi.block.Map.MapBlockBuilder;
 import com.facebook.presto.spi.block.MethodHandleUtil;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import io.airlift.slice.Slice;
@@ -35,7 +35,7 @@ import static com.facebook.presto.block.ColumnarTestUtils.createTestDictionaryBl
 import static com.facebook.presto.block.ColumnarTestUtils.createTestDictionaryExpectedValues;
 import static com.facebook.presto.block.ColumnarTestUtils.createTestRleBlock;
 import static com.facebook.presto.block.ColumnarTestUtils.createTestRleExpectedValues;
-import static com.facebook.presto.spi.block.ColumnarMap.toColumnarMap;
+import static com.facebook.presto.spi.block.Map.ColumnarMap.toColumnarMap;
 import static com.facebook.presto.spi.block.MethodHandleUtil.compose;
 import static com.facebook.presto.spi.block.MethodHandleUtil.nativeValueGetter;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;

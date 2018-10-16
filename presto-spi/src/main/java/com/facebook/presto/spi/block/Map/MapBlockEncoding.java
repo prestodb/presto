@@ -12,8 +12,12 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.spi.block;
+package com.facebook.presto.spi.block.Map;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.block.EncoderUtil;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -23,7 +27,7 @@ import io.airlift.slice.SliceOutput;
 
 import java.util.Optional;
 
-import static com.facebook.presto.spi.block.AbstractMapBlock.HASH_MULTIPLIER;
+import static com.facebook.presto.spi.block.Map.AbstractMapBlock.HASH_MULTIPLIER;
 import static io.airlift.slice.Slices.wrappedIntArray;
 import static java.lang.String.format;
 

@@ -12,9 +12,10 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.spi.block;
+package com.facebook.presto.spi.block.Map;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
@@ -24,7 +25,7 @@ import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.block.AbstractMapBlock.HASH_MULTIPLIER;
+import static com.facebook.presto.spi.block.Map.AbstractMapBlock.HASH_MULTIPLIER;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static java.lang.String.format;

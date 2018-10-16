@@ -17,9 +17,9 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.MapBlock;
-import com.facebook.presto.spi.block.MapBlockBuilder;
-import com.facebook.presto.spi.block.SingleMapBlock;
+import com.facebook.presto.spi.block.Map.MapBlock;
+import com.facebook.presto.spi.block.Map.MapBlockBuilder;
+import com.facebook.presto.spi.block.Map.SingleMapBlock;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collections;

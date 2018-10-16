@@ -27,7 +27,7 @@ import com.facebook.presto.orc.stream.LongOutputStream;
 import com.facebook.presto.orc.stream.PresentOutputStream;
 import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.ColumnarMap;
+import com.facebook.presto.spi.block.Map.ColumnarMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -44,7 +44,7 @@ import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.stream.LongOutputStream.createLengthOutputStream;
-import static com.facebook.presto.spi.block.ColumnarMap.toColumnarMap;
+import static com.facebook.presto.spi.block.Map.ColumnarMap.toColumnarMap;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;

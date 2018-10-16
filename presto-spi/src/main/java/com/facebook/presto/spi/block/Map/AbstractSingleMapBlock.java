@@ -12,8 +12,10 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.spi.block;
+package com.facebook.presto.spi.block.Map;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import io.airlift.slice.Slice;
 
 public abstract class AbstractSingleMapBlock

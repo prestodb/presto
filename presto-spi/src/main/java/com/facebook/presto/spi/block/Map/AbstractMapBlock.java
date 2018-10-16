@@ -12,8 +12,12 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.spi.block;
+package com.facebook.presto.spi.block.Map;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockUtil;
+import com.facebook.presto.spi.block.IntArrayList;
 import com.facebook.presto.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
@@ -22,9 +26,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
-import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
-import static com.facebook.presto.spi.block.MapBlock.createMapBlockInternal;
+import static com.facebook.presto.spi.block.Map.MapBlock.createMapBlockInternal;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractMapBlock
@@ -173,8 +176,8 @@ public abstract class AbstractMapBlock
 
         int[] newOffsets = compactOffsets(getOffsets(), position + getOffsetBase(), length);
         boolean[] mapIsNull = getMapIsNull();
-        boolean[] newMapIsNull = mapIsNull == null ? null : compactArray(mapIsNull, position + getOffsetBase(), length);
-        int[] newHashTable = compactArray(getHashTables(), startValueOffset * HASH_MULTIPLIER, (endValueOffset - startValueOffset) * HASH_MULTIPLIER);
+        boolean[] newMapIsNull = mapIsNull == null ? null : BlockUtil.compactArray(mapIsNull, position + getOffsetBase(), length);
+        int[] newHashTable = BlockUtil.compactArray(getHashTables(), startValueOffset * HASH_MULTIPLIER, (endValueOffset - startValueOffset) * HASH_MULTIPLIER);
 
         if (newKeys == getRawKeyBlock() && newValues == getRawValueBlock() && newOffsets == getOffsets() && newMapIsNull == mapIsNull && newHashTable == getHashTables()) {
             return this;

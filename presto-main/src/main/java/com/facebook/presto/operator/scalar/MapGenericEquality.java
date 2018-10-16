@@ -14,7 +14,7 @@ package com.facebook.presto.operator.scalar;
  */
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.SingleMapBlock;
+import com.facebook.presto.spi.block.Map.SingleMapBlock;
 import com.facebook.presto.spi.type.Type;
 
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
