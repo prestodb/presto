@@ -303,13 +303,6 @@ public class DataDefinitionExecution<T extends Statement>
             this.tasks = requireNonNull(tasks, "tasks is null");
         }
 
-        public String explain(Statement statement, List<Expression> parameters)
-        {
-            DataDefinitionTask<Statement> task = getTask(statement);
-            checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
-            return task.explain(statement, parameters);
-        }
-
         @Override
         public DataDefinitionExecution<?> createQueryExecution(
                 String query,
