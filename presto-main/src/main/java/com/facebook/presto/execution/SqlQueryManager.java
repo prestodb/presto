@@ -76,6 +76,7 @@ import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
+import static com.facebook.presto.util.Failures.toFailure;
 import static com.facebook.presto.util.StatementUtils.getQueryType;
 import static com.facebook.presto.util.StatementUtils.isTransactionControlStatement;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -420,13 +421,13 @@ public class SqlQueryManager
             try {
                 queryTracker.addQuery(execution);
 
-                QueryInfo queryInfo = execution.getQueryInfo();
+                BasicQueryInfo queryInfo = execution.getBasicQueryInfo();
                 queryMonitor.queryCreatedEvent(queryInfo);
-                queryMonitor.queryCompletedEvent(queryInfo);
+                queryMonitor.queryImmediateFailureEvent(queryInfo, toFailure(e));
                 stats.queryQueued();
                 stats.queryStarted();
                 stats.queryStopped();
-                stats.queryFinished(queryInfo);
+                stats.queryFinished(execution.getQueryInfo());
             }
             finally {
                 // execution MUST be added to the expiration queue or there will be a leak
@@ -436,14 +437,12 @@ public class SqlQueryManager
             return;
         }
 
-        QueryInfo queryInfo = queryExecution.getQueryInfo();
-        queryMonitor.queryCreatedEvent(queryInfo);
+        queryMonitor.queryCreatedEvent(queryExecution.getBasicQueryInfo());
 
         queryExecution.addFinalQueryInfoListener(finalQueryInfo -> {
             try {
-                QueryInfo info = queryExecution.getQueryInfo();
-                stats.queryFinished(info);
-                queryMonitor.queryCompletedEvent(info);
+                stats.queryFinished(finalQueryInfo);
+                queryMonitor.queryCompletedEvent(finalQueryInfo);
             }
             finally {
                 // execution MUST be added to the expiration queue or there will be a leak
