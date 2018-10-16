@@ -578,7 +578,7 @@ public class InternalResourceGroup
         }
     }
 
-    public void run(ManagedQueryExecution query)
+    public void run(ManagedQueryExecution query, boolean shouldQueueQueries)
     {
         synchronized (root) {
             checkState(subGroups.isEmpty(), "Cannot add queries to %s. It is not a leaf group.", id);
@@ -599,7 +599,7 @@ public class InternalResourceGroup
                 query.fail(new QueryQueueFullException(id));
                 return;
             }
-            if (canRun) {
+            if (canRun && !shouldQueueQueries) {
                 startInBackground(query);
             }
             else {

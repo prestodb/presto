@@ -13,10 +13,23 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+
+import static com.facebook.presto.execution.QueryState.QUEUED;
+import static com.facebook.presto.execution.QueryState.RUNNING;
+import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
+import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -24,7 +37,7 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestMinWorkerRequirement
 {
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Cluster is still initializing, there are insufficient active worker nodes \\(4\\) to run query")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Cluster is still initializing, there are insufficient active worker nodes \\(4\\) to run query. Waiting for \\(5\\) active worker nodes.")
     public void testInsufficientWorkerNodes()
             throws Exception
     {
@@ -37,7 +50,7 @@ public class TestMinWorkerRequirement
         }
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Cluster is still initializing, there are insufficient active worker nodes \\(3\\) to run query")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Cluster is still initializing, there are insufficient active worker nodes \\(3\\) to run query. Waiting for \\(4\\) active worker nodes.")
     public void testInsufficientWorkerNodesWithCoordinatorExcluded()
             throws Exception
     {
@@ -82,6 +95,61 @@ public class TestMinWorkerRequirement
                 .build()) {
             queryRunner.execute("SELECT 1");
             assertEquals(queryRunner.getCoordinator().refreshNodes().getActiveNodes().size(), 4);
+        }
+    }
+    @Test(timeOut = 50_000)
+    public void testInsufficientWorkerNodesWithQueuePolicy()
+            throws Exception
+    {
+        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+                .setSingleCoordinatorProperty("query-manager.initialization-required-workers", "5")
+                .setSingleExtraProperty("query-manager.queue-queries.insufficient-workers", "true")
+                .setNodeCount(4)
+                .build()) {
+            QueryId scheduled = createQuery(queryRunner, newSession("scheduled", ImmutableSet.of(), null), "SELECT 1");
+            waitForQueryState(queryRunner, scheduled, QUEUED);
+        }
+    }
+
+    private static Session newSession(String source, Set<String> clientTags, ResourceEstimates resourceEstimates)
+    {
+        return testSessionBuilder()
+                .setCatalog(null)
+                .setSchema(null)
+                .setSource(source)
+                .setClientTags(clientTags)
+                .setResourceEstimates(resourceEstimates)
+                .build();
+    }
+
+    @Test(timeOut = 50_000)
+    public void testInsufficientWorkerNodesWithCoordinatorExcludedWithQueuePolicy()
+            throws Exception
+    {
+        Map<String, String> extraProperties = new HashMap<>();
+        extraProperties.put("query-manager.initialization-required-workers", "4");
+        extraProperties.put("query-manager.queue-queries.insufficient-workers", "true");
+        extraProperties.put("node-scheduler.include-coordinator", "false");
+        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+                .setExtraProperties(extraProperties)
+                .setNodeCount(4)
+                .build()) {
+            QueryId scheduled = createQuery(queryRunner, newSession("scheduled", ImmutableSet.of(), null), "SELECT 1");
+            waitForQueryState(queryRunner, scheduled, QUEUED);
+        }
+    }
+
+    @Test
+    public void testSufficientWorkerNodesWithQueuePolicy()
+            throws Exception
+    {
+        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+                .setSingleCoordinatorProperty("query-manager.initialization-required-workers", "4")
+                .setSingleExtraProperty("query-manager.queue-queries.insufficient-workers", "true")
+                .setNodeCount(4)
+                .build()) {
+            QueryId scheduled = createQuery(queryRunner, newSession("scheduled", ImmutableSet.of(), null), "SELECT 1");
+            waitForQueryState(queryRunner, scheduled, RUNNING);
         }
     }
 }

@@ -59,6 +59,7 @@ public class QueryManagerConfig
 
     private int initializationRequiredWorkers = 1;
     private Duration initializationTimeout = new Duration(5, TimeUnit.MINUTES);
+    private boolean queueQueriesWithInsufficientWorkers;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -328,6 +329,20 @@ public class QueryManagerConfig
     public QueryManagerConfig setInitializationTimeout(Duration initializationTimeout)
     {
         this.initializationTimeout = initializationTimeout;
+        return this;
+    }
+
+    @NotNull
+    public boolean getQueueQueriesWithInsufficientWorkers()
+    {
+        return queueQueriesWithInsufficientWorkers;
+    }
+
+    @Config("query-manager.queue-queries.insufficient-workers")
+    @ConfigDescription("Whether to queue or reject queries when the number of workers are less than query-manager.initialization-required-workers")
+    public QueryManagerConfig setQueueQueriesWithInsufficientWorkers(boolean queueQueriesWithInsufficientWorkers)
+    {
+        this.queueQueriesWithInsufficientWorkers = queueQueriesWithInsufficientWorkers;
         return this;
     }
 }
