@@ -51,10 +51,16 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptySet;
 import static java.util.stream.Collectors.toList;
 
 public interface ConnectorMetadata
 {
+    default Set<ConnectorFeature> listFeatures()
+    {
+        return emptySet();
+    }
+
     /**
      * Checks if a schema exists. The connector may have schemas that exist
      * but are not enumerable via {@link #listSchemaNames}.
@@ -117,6 +123,7 @@ public interface ConnectorMetadata
 
     /**
      * List table names, possibly filtered by schema. An empty list is returned if none match.
+     *
      * @deprecated replaced by {@link ConnectorMetadata#listTables(ConnectorSession, Optional)}
      */
     @Deprecated
@@ -314,6 +321,12 @@ public interface ConnectorMetadata
     /**
      * Begin insert query
      */
+    default ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> inputColumns)
+    {
+        return beginInsert(session, tableHandle);
+    }
+
+    @Deprecated
     default ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support inserts");
@@ -373,6 +386,7 @@ public interface ConnectorMetadata
 
     /**
      * List view names, possibly filtered by schema. An empty list is returned if none match.
+     *
      * @deprecated replaced by {@link ConnectorMetadata#listViews(ConnectorSession, Optional)}
      */
     @Deprecated

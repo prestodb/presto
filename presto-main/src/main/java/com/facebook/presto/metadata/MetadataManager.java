@@ -35,6 +35,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.connector.ConnectorFeature;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -281,6 +282,12 @@ public class MetadataManager
     public boolean catalogExists(Session session, String catalogName)
     {
         return getOptionalCatalogMetadata(session, catalogName).isPresent();
+    }
+
+    @Override
+    public Set<ConnectorFeature> getConnectorFeatures(Session session, ConnectorId connectorId)
+    {
+        return getCatalogMetadata(session, connectorId).getMetadata().listFeatures();
     }
 
     @Override
@@ -662,13 +669,13 @@ public class MetadataManager
     }
 
     @Override
-    public InsertTableHandle beginInsert(Session session, TableHandle tableHandle)
+    public InsertTableHandle beginInsert(Session session, TableHandle tableHandle, List<ColumnHandle> inputColumns)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, connectorId);
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
         ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(connectorId);
-        ConnectorInsertTableHandle handle = metadata.beginInsert(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
+        ConnectorInsertTableHandle handle = metadata.beginInsert(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), inputColumns);
         return new InsertTableHandle(tableHandle.getConnectorId(), transactionHandle, handle);
     }
 

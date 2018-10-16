@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -257,15 +258,22 @@ public class TableWriterNode
             extends WriterTarget
     {
         private final TableHandle handle;
+        private final List<ColumnHandle> columnHandles;
 
-        public InsertReference(TableHandle handle)
+        public InsertReference(TableHandle handle, List<ColumnHandle> columnHandles)
         {
             this.handle = requireNonNull(handle, "handle is null");
+            this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
         }
 
         public TableHandle getHandle()
         {
             return handle;
+        }
+
+        public List<ColumnHandle> getColumnHandles()
+        {
+            return columnHandles;
         }
 
         @Override

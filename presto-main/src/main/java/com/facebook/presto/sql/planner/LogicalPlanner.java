@@ -79,6 +79,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.connector.ConnectorFeature.INSERT_NEED_ALL_COLUMNS;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
@@ -87,6 +88,7 @@ import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.facebook.presto.sql.planner.sanity.PlanSanityChecker.DISTRIBUTED_PLAN_SANITY_CHECKER;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.builder;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.zip;
@@ -259,17 +261,12 @@ public class LogicalPlanner
 
         TableMetadata tableMetadata = metadata.getTableMetadata(session, insert.getTarget());
 
-        List<ColumnMetadata> visibleTableColumns = tableMetadata.getColumns().stream()
-                .filter(column -> !column.isHidden())
-                .collect(toImmutableList());
-        List<String> visibleTableColumnNames = visibleTableColumns.stream()
-                .map(ColumnMetadata::getName)
-                .collect(toImmutableList());
-
         RelationPlan plan = createRelationPlan(analysis, insertStatement.getQuery());
 
         Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, insert.getTarget());
         Assignments.Builder assignments = Assignments.builder();
+        ImmutableList.Builder<String> columnNames = builder();
+        ImmutableList.Builder<Field> fields = builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             if (column.isHidden()) {
                 continue;
@@ -277,29 +274,34 @@ public class LogicalPlanner
             Symbol output = symbolAllocator.newSymbol(column.getName(), column.getType());
             int index = insert.getColumns().indexOf(columns.get(column.getName()));
             if (index < 0) {
-                Expression cast = new Cast(new NullLiteral(), column.getType().getTypeSignature().toString());
-                assignments.put(output, cast);
+                if (metadata.getConnectorFeatures(session, insert.getTarget().getConnectorId()).contains(INSERT_NEED_ALL_COLUMNS)) {
+                    Expression cast = new Cast(new NullLiteral(), column.getType().getTypeSignature().toString());
+                    assignments.put(output, cast);
+                    columnNames.add(column.getName());
+                    fields.add(Field.newUnqualified(column.getName(), column.getType()));
+                }
+                continue;
+            }
+            Symbol input = plan.getSymbol(index);
+            Type tableType = column.getType();
+            Type queryType = symbolAllocator.getTypes().get(input);
+            fields.add(Field.newUnqualified(column.getName(), column.getType()));
+            columnNames.add(column.getName());
+
+            if (queryType.equals(tableType) || metadata.getTypeManager().isTypeOnlyCoercion(queryType, tableType)) {
+                assignments.put(output, input.toSymbolReference());
             }
             else {
-                Symbol input = plan.getSymbol(index);
-                Type tableType = column.getType();
-                Type queryType = symbolAllocator.getTypes().get(input);
-
-                if (queryType.equals(tableType) || metadata.getTypeManager().isTypeOnlyCoercion(queryType, tableType)) {
-                    assignments.put(output, input.toSymbolReference());
-                }
-                else {
-                    Expression cast = new Cast(input.toSymbolReference(), tableType.getTypeSignature().toString());
-                    assignments.put(output, cast);
-                }
+                Expression cast = new Cast(input.toSymbolReference(), tableType.getTypeSignature().toString());
+                assignments.put(output, cast);
             }
         }
+        List<String> inputColumnNames = columnNames.build();
+        List<ColumnHandle> inputColumns = inputColumnNames.stream()
+                .map(columns::get).collect(toImmutableList());
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments.build());
 
-        List<Field> fields = visibleTableColumns.stream()
-                .map(column -> Field.newUnqualified(column.getName(), column.getType()))
-                .collect(toImmutableList());
-        Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields)).build();
+        Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields.build())).build();
 
         plan = new RelationPlan(projectNode, scope, projectNode.getOutputSymbols());
 
@@ -310,8 +312,8 @@ public class LogicalPlanner
         return createTableWriterPlan(
                 analysis,
                 plan,
-                new InsertReference(insert.getTarget()),
-                visibleTableColumnNames,
+                new InsertReference(insert.getTarget(), inputColumns),
+                inputColumnNames,
                 newTableLayout,
                 statisticsMetadata);
     }

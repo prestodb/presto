@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.connector.ConnectorFeature;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.GrantInfo;
@@ -42,12 +43,20 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 
+import static java.util.Collections.emptySet;
+
 public abstract class AbstractMockMetadata
         implements Metadata
 {
     public static Metadata dummyMetadata()
     {
         return new AbstractMockMetadata() {};
+    }
+
+    @Override
+    public Set<ConnectorFeature> getConnectorFeatures(Session session, ConnectorId connectorId)
+    {
+        return emptySet();
     }
 
     @Override
@@ -249,7 +258,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public InsertTableHandle beginInsert(Session session, TableHandle tableHandle)
+    public InsertTableHandle beginInsert(Session session, TableHandle tableHandle, List<ColumnHandle> inputColumnHandles)
     {
         throw new UnsupportedOperationException();
     }

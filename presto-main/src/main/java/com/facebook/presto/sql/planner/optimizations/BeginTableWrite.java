@@ -163,7 +163,7 @@ public class BeginTableWrite
             }
             if (target instanceof TableWriterNode.InsertReference) {
                 TableWriterNode.InsertReference insert = (TableWriterNode.InsertReference) target;
-                return new TableWriterNode.InsertHandle(metadata.beginInsert(session, insert.getHandle()), metadata.getTableMetadata(session, insert.getHandle()).getTable());
+                return new TableWriterNode.InsertHandle(metadata.beginInsert(session, insert.getHandle(), insert.getColumnHandles()), metadata.getTableMetadata(session, insert.getHandle()).getTable());
             }
             if (target instanceof TableWriterNode.DeleteHandle) {
                 TableWriterNode.DeleteHandle delete = (TableWriterNode.DeleteHandle) target;

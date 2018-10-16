@@ -23,6 +23,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.connector.ConnectorFeature;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.GrantInfo;
@@ -58,6 +59,8 @@ public interface Metadata
     boolean schemaExists(Session session, CatalogSchemaName schema);
 
     boolean catalogExists(Session session, String catalogName);
+
+    Set<ConnectorFeature> getConnectorFeatures(Session session, ConnectorId connectorId);
 
     List<String> listSchemaNames(Session session, String catalogName);
 
@@ -192,7 +195,7 @@ public interface Metadata
     /**
      * Begin insert query
      */
-    InsertTableHandle beginInsert(Session session, TableHandle tableHandle);
+    InsertTableHandle beginInsert(Session session, TableHandle tableHandle, List<ColumnHandle> columnHandles);
 
     /**
      * Finish insert query
