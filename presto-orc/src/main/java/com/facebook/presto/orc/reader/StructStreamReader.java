@@ -184,7 +184,8 @@ public class StructStreamReader
                 .toString();
     }
 
-    private Block[] getBlocksForType(Type type, int positionCount) throws IOException
+    private Block[] getBlocksForType(Type type, int positionCount)
+            throws IOException
     {
         RowType rowType = (RowType) type;
 

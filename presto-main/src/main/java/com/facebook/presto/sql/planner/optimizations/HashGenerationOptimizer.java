@@ -697,8 +697,8 @@ public class HashGenerationOptimizer
                         .addAll(requiredHashes.getHashes())
                         .addAll(preferredHashes.getHashes())
                         .build();
-                preferenceSatisfied = resultHashes.containsAll(requiredHashes.getHashes())
-                    && requiredAndPreferredHashes.containsAll(resultHashes);
+                preferenceSatisfied = resultHashes.containsAll(requiredHashes.getHashes()) &&
+                        requiredAndPreferredHashes.containsAll(resultHashes);
             }
             else {
                 preferenceSatisfied = result.getHashSymbols().keySet().containsAll(requiredHashes.getHashes());

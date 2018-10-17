@@ -75,9 +75,9 @@ public class TestJdbcWarnings
         server = new TestingPrestoServer(
                 true,
                 ImmutableMap.<String, String>builder()
-                    .put("testing-warning-collector.add-warnings", "true")
-                    .put("testing-warning-collector.preloaded-warnings", String.valueOf(PRELOADED_WARNINGS))
-                    .build(),
+                        .put("testing-warning-collector.add-warnings", "true")
+                        .put("testing-warning-collector.preloaded-warnings", String.valueOf(PRELOADED_WARNINGS))
+                        .build(),
                 null,
                 null,
                 new SqlParserOptions(),
@@ -110,6 +110,7 @@ public class TestJdbcWarnings
         closeQuietly(statement);
         closeQuietly(connection);
     }
+
     @Test
     public void testStatementWarnings()
             throws SQLException

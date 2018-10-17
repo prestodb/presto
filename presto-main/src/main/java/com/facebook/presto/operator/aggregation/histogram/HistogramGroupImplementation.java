@@ -15,6 +15,5 @@ package com.facebook.presto.operator.aggregation.histogram;
 
 public enum HistogramGroupImplementation
 {
-    LEGACY,
-    NEW,;
+    LEGACY, NEW
 }

@@ -130,7 +130,7 @@ public class TestBingTileFunctions
             double longitude,
             int zoomLevel,
             double radius,
-            String...expectedQuadKeys)
+            String... expectedQuadKeys)
     {
         assertFunction(
                 format("transform(bing_tiles_around(%s, %s, %s, %s), x -> bing_tile_quadkey(x))",

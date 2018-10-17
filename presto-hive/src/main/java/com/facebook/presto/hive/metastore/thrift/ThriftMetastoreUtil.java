@@ -403,6 +403,7 @@ public final class ThriftMetastoreUtil
 
     /**
      * Impala `COMPUTE STATS` will write -1 as the null count.
+     *
      * @see <a href="https://issues.apache.org/jira/browse/IMPALA-7497">IMPALA-7497</a>
      */
     public static OptionalLong fromMetastoreNullsCount(long nullsCount)

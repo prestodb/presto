@@ -498,8 +498,8 @@ class QueryPlanner
 
             if (node.getGroupBy().get().isDistinct()) {
                 columnOnlyGroupingSets = columnOnlyGroupingSets.stream()
-                    .distinct()
-                    .collect(toImmutableList());
+                        .distinct()
+                        .collect(toImmutableList());
             }
 
             // add in the complex expressions an turn materialize the grouping sets in terms of plan columns

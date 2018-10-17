@@ -117,6 +117,7 @@ public interface ConnectorMetadata
 
     /**
      * List table names, possibly filtered by schema. An empty list is returned if none match.
+     *
      * @deprecated replaced by {@link ConnectorMetadata#listTables(ConnectorSession, Optional)}
      */
     @Deprecated
@@ -373,6 +374,7 @@ public interface ConnectorMetadata
 
     /**
      * List view names, possibly filtered by schema. An empty list is returned if none match.
+     *
      * @deprecated replaced by {@link ConnectorMetadata#listViews(ConnectorSession, Optional)}
      */
     @Deprecated

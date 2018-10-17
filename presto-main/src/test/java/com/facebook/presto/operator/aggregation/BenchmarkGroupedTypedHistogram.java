@@ -80,7 +80,7 @@ public class BenchmarkGroupedTypedHistogram
         private float mainFillRatio;
         @Param("0.5f") // found slight benefit over 0.75, the canonical starting point
         private float valueStoreFillRatio;
-// these must be manually set in each class now; the mechanism to change and test was removed; the enum was kept in case we want to revisit. Retesting showed linear was superior
+        // these must be manually set in each class now; the mechanism to change and test was removed; the enum was kept in case we want to revisit. Retesting showed linear was superior
         //        //        @Param({"LINEAR", "SUM_OF_COUNT", "SUM_OF_SQUARE"})
 //        @Param({"LINEAR"}) // found to be best, by about 10-15%
 //        private ProbeType mainProbeTyepe;
@@ -192,8 +192,6 @@ public class BenchmarkGroupedTypedHistogram
 
     public enum ProbeType
     {
-        LINEAR,
-        SUM_OF_COUNT,
-        SUM_OF_SQUARE,;
+        LINEAR, SUM_OF_COUNT, SUM_OF_SQUARE
     }
 }

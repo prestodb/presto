@@ -458,7 +458,8 @@ public class OrcTester
         assertRoundTrip(type, type, readValues, readValues, true);
     }
 
-    public void assertRoundTrip(Type type, List<?> readValues, boolean verifyWithHiveReader) throws Exception
+    public void assertRoundTrip(Type type, List<?> readValues, boolean verifyWithHiveReader)
+            throws Exception
     {
         assertRoundTrip(type, type, readValues, readValues, verifyWithHiveReader);
     }

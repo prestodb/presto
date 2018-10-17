@@ -45,8 +45,8 @@ public class RowType
 
         this.fields = fields;
         this.fieldTypes = fields.stream()
-            .map(Field::getType)
-            .collect(Collectors.toList());
+                .map(Field::getType)
+                .collect(Collectors.toList());
     }
 
     public static RowType from(List<Field> fields)

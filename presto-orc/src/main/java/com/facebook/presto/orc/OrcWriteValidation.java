@@ -92,7 +92,8 @@ import static java.util.function.Function.identity;
 
 public class OrcWriteValidation
 {
-    public enum OrcWriteValidationMode {
+    public enum OrcWriteValidationMode
+    {
         HASHED, DETAILED, BOTH
     }
 
@@ -260,10 +261,10 @@ public class OrcWriteValidation
     private static RowGroupStatistics buildActualRowGroupStatistics(int rowGroupIndex, Map<Integer, List<RowGroupIndex>> actualRowGroupStatistics)
     {
         return new RowGroupStatistics(
-                        BOTH,
-                        IntStream.range(1, actualRowGroupStatistics.size() + 1)
-                                .boxed()
-                                .collect(toImmutableMap(identity(), columnIndex -> actualRowGroupStatistics.get(columnIndex).get(rowGroupIndex).getColumnStatistics())));
+                BOTH,
+                IntStream.range(1, actualRowGroupStatistics.size() + 1)
+                        .boxed()
+                        .collect(toImmutableMap(identity(), columnIndex -> actualRowGroupStatistics.get(columnIndex).get(rowGroupIndex).getColumnStatistics())));
     }
 
     public void validateRowGroupStatistics(

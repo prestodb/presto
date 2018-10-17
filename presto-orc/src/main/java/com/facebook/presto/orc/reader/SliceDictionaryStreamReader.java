@@ -28,7 +28,6 @@ import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.VariableWidthBlock;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -50,6 +49,7 @@ import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStr
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -79,7 +79,7 @@ public class SliceDictionaryStreamReader
     private byte[] stripeDictionaryData = EMPTY_DICTIONARY_DATA;
     private int[] stripeDictionaryOffsetVector = EMPTY_DICTIONARY_OFFSETS;
 
-    private VariableWidthBlock dictionaryBlock = new VariableWidthBlock(1, Slices.wrappedBuffer(EMPTY_DICTIONARY_DATA), EMPTY_DICTIONARY_OFFSETS, Optional.of(new boolean[] {true}));
+    private VariableWidthBlock dictionaryBlock = new VariableWidthBlock(1, wrappedBuffer(EMPTY_DICTIONARY_DATA), EMPTY_DICTIONARY_OFFSETS, Optional.of(new boolean[] {true}));
     private byte[] currentDictionaryData = EMPTY_DICTIONARY_DATA;
 
     private InputStreamSource<LongInputStream> stripeDictionaryLengthStreamSource = missingStreamSource(LongInputStream.class);
@@ -202,7 +202,7 @@ public class SliceDictionaryStreamReader
             boolean[] isNullVector = new boolean[positionCount];
             isNullVector[positionCount - 1] = true;
             dictionaryOffsets[positionCount] = dictionaryOffsets[positionCount - 1];
-            dictionaryBlock = new VariableWidthBlock(positionCount, Slices.wrappedBuffer(dictionaryData), dictionaryOffsets, Optional.of(isNullVector));
+            dictionaryBlock = new VariableWidthBlock(positionCount, wrappedBuffer(dictionaryData), dictionaryOffsets, Optional.of(isNullVector));
             currentDictionaryData = dictionaryData;
         }
     }
@@ -296,7 +296,7 @@ public class SliceDictionaryStreamReader
             Type type)
             throws IOException
     {
-        Slice slice = Slices.wrappedBuffer(data);
+        Slice slice = wrappedBuffer(data);
 
         // initialize the offset if necessary;
         // otherwise, use the previous offset

@@ -19,6 +19,7 @@ public interface Mergeable<T>
 {
     /**
      * Merges the current state with the state of the other instance, and returns the merged state.
+     *
      * @throws NullPointerException if other is null
      */
     T mergeWith(T other);

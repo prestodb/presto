@@ -125,6 +125,7 @@ public class TestPlannerWarnings
 
         return queryRunner.createPlan(session, sql, ImmutableList.of(optimizer), LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, warningCollector);
     }
+
     public static List<PrestoWarning> createTestWarnings(int numberOfWarnings)
     {
         checkArgument(numberOfWarnings > 0, "numberOfWarnings must be > 0");

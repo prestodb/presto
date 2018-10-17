@@ -393,16 +393,16 @@ public class TestHashAggregationOperator
     {
         List<Page> input = createPagesWithDistinctHashKeys(type, 6_000, 600);
         OperatorFactory operatorFactory = new HashAggregationOperatorFactory(
-                        0,
-                        new PlanNodeId("test"),
-                        ImmutableList.of(type),
-                        ImmutableList.of(0),
-                        ImmutableList.of(),
-                        Step.SINGLE,
-                        ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty())),
-                        Optional.of(1),
-                        Optional.empty(),
-                        1,
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(type),
+                ImmutableList.of(0),
+                ImmutableList.of(),
+                Step.SINGLE,
+                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty())),
+                Optional.of(1),
+                Optional.empty(),
+                1,
                 Optional.of(new DataSize(16, MEGABYTE)),
                 joinCompiler,
                 false);

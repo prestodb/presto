@@ -48,6 +48,7 @@ public class TestGeometryStateSerializer
 
         assertEquals(state.getGeometry().asText(), "POINT (1 2)");
     }
+
     @Test
     public void testSerializeDeserializeGrouped()
     {

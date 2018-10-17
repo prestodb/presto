@@ -51,9 +51,9 @@ public final class BingTile
         }
 
         BingTile otherTile = (BingTile) other;
-        return this.x == otherTile.x
-            && this.y == otherTile.y
-            && this.zoomLevel == otherTile.zoomLevel;
+        return this.x == otherTile.x &&
+                this.y == otherTile.y &&
+                this.zoomLevel == otherTile.zoomLevel;
     }
 
     @Override
@@ -66,10 +66,10 @@ public final class BingTile
     public String toString()
     {
         return toStringHelper(this)
-            .add("x", x)
-            .add("y", y)
-            .add("zoom_level", zoomLevel)
-            .toString();
+                .add("x", x)
+                .add("y", y)
+                .add("zoom_level", zoomLevel)
+                .toString();
     }
 
     @JsonCreator

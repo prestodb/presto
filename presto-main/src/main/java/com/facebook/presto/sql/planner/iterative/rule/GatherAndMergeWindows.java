@@ -58,12 +58,12 @@ public class GatherAndMergeWindows
         // TODO convert to a pattern that allows for a sequence of ProjectNode, instead
         // of a canned number, once the pattern system supports it.
         return IntStream.range(0, 5)
-                        .boxed()
-                        .flatMap(numProjects ->
-                                Stream.of(
-                                        new MergeAdjacentWindowsOverProjects(numProjects),
-                                        new SwapAdjacentWindowsBySpecifications(numProjects)))
-                        .collect(toImmutableSet());
+                .boxed()
+                .flatMap(numProjects ->
+                        Stream.of(
+                                new MergeAdjacentWindowsOverProjects(numProjects),
+                                new SwapAdjacentWindowsBySpecifications(numProjects)))
+                .collect(toImmutableSet());
     }
 
     private abstract static class ManipulateAdjacentWindowsOverProjects
@@ -115,6 +115,7 @@ public class GatherAndMergeWindows
          * Looks for the pattern (ProjectNode*)WindowNode, and rewrites it to WindowNode(ProjectNode*),
          * returning an empty option if it can't rewrite the projects, for example because they rely on
          * the output of the WindowNode.
+         *
          * @param projects the nodes above the target, bottom first.
          */
         protected static Optional<WindowNode> pullWindowNodeAboveProjects(

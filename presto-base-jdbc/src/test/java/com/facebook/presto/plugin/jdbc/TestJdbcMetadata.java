@@ -179,9 +179,11 @@ public class TestJdbcMetadata
     @Test(expectedExceptions = PrestoException.class)
     public void testCreateTable()
     {
-        metadata.createTable(SESSION, new ConnectorTableMetadata(
-                new SchemaTableName("example", "foo"),
-                ImmutableList.of(new ColumnMetadata("text", VARCHAR))),
+        metadata.createTable(
+                SESSION,
+                new ConnectorTableMetadata(
+                        new SchemaTableName("example", "foo"),
+                        ImmutableList.of(new ColumnMetadata("text", VARCHAR))),
                 false);
     }
 
