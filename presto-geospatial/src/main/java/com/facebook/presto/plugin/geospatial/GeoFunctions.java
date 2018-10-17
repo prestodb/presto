@@ -191,6 +191,39 @@ public final class GeoFunctions
         return serialize(geometry);
     }
 
+    @SqlNullable
+    @Description("Returns a multi-point geometry formed from input points")
+    @ScalarFunction("ST_MultiPoint")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice stMultiPoint(@SqlType("array(" + GEOMETRY_TYPE_NAME + ")") Block input)
+    {
+        MultiPoint multipoint = new MultiPoint();
+        for (int i = 0; i < input.getPositionCount(); i++) {
+            // Null point raises exception
+            if (input.isNull(i)) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "ST_MultiPoint takes only an array of valid points, NULL point was passed");
+            }
+
+            Slice slice = GEOMETRY.getSlice(input, i);
+            OGCGeometry geometry = deserialize(slice);
+            if (!(geometry instanceof OGCPoint)) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("ST_MultiPoint takes only an array of valid points, %s was passed", geometry.geometryType()));
+            }
+            OGCPoint point = (OGCPoint) geometry;
+
+            // Empty points are ignored
+            if (point.isEmpty()) {
+                continue;
+            }
+
+            multipoint.add(point.X(), point.Y());
+        }
+        if (multipoint.getPointCount() < 1) {
+            return null;
+        }
+        return serialize(createFromEsriGeometry(multipoint, null, true));
+    }
+
     @Description("Returns a Geometry type Polygon object from Well-Known Text representation (WKT)")
     @ScalarFunction("ST_Polygon")
     @SqlType(GEOMETRY_TYPE_NAME)
