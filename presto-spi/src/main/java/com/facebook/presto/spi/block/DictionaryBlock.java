@@ -321,7 +321,7 @@ public class DictionaryBlock
     public Block getRegion(int positionOffset, int length)
     {
         checkValidRegion(positionCount, positionOffset, length);
-        return new DictionaryBlock(idsOffset + positionOffset, length, getDictionary(), ids, false, getDictionarySourceId());
+        return new DictionaryBlock(idsOffset + positionOffset, length, dictionary, ids, false, dictionarySourceId);
     }
 
     @Override
