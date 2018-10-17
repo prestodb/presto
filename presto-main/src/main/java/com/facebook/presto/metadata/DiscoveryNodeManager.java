@@ -117,9 +117,8 @@ public final class DiscoveryNodeManager
         // poll worker states only on the coordinators
         if (getCoordinators().contains(currentNode)) {
             nodeStateUpdateExecutor.scheduleWithFixedDelay(() -> {
-                ImmutableSet.Builder nodeSetBuilder = ImmutableSet.builder();
                 AllNodes allNodes = getAllNodes();
-                Set<Node> aliveNodes = nodeSetBuilder
+                Set<Node> aliveNodes = ImmutableSet.<Node>builder()
                         .addAll(allNodes.getActiveNodes())
                         .addAll(allNodes.getShuttingDownNodes())
                         .build();
@@ -263,7 +262,7 @@ public final class DiscoveryNodeManager
         Optional<NodeState> remoteNodeState = nodeStates.containsKey(nodeId)
                 ? nodeStates.get(nodeId).getNodeState()
                 : Optional.empty();
-        return remoteNodeState.isPresent() && remoteNodeState.get().equals(SHUTTING_DOWN);
+        return remoteNodeState.isPresent() && remoteNodeState.get() == SHUTTING_DOWN;
     }
 
     @Override
