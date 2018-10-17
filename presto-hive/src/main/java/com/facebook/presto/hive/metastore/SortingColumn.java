@@ -18,11 +18,14 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import javax.annotation.concurrent.Immutable;
+
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_LAST;
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class SortingColumn
 {
     public enum Order

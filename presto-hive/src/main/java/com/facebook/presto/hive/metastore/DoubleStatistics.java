@@ -16,12 +16,15 @@ package com.facebook.presto.hive.metastore;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import javax.annotation.concurrent.Immutable;
+
 import java.util.Objects;
 import java.util.OptionalDouble;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class DoubleStatistics
 {
     private final OptionalDouble min;
