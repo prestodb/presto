@@ -187,10 +187,11 @@ public final class IpAddressOperators
 
     @ScalarOperator(IS_DISTINCT_FROM)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean isDistinctFrom(@SqlType(StandardTypes.IPADDRESS) Slice left,
-                                         @IsNull boolean leftNull,
-                                         @SqlType(StandardTypes.IPADDRESS) Slice right,
-                                         @IsNull boolean rightNull)
+    public static boolean isDistinctFrom(
+            @SqlType(StandardTypes.IPADDRESS) Slice left,
+            @IsNull boolean leftNull,
+            @SqlType(StandardTypes.IPADDRESS) Slice right,
+            @IsNull boolean rightNull)
     {
         if (leftNull != rightNull) {
             return true;

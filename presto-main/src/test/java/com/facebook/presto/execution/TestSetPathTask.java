@@ -82,9 +82,8 @@ public class TestSetPathTask
     @Test
     public void testSetPath()
     {
-        PathSpecification pathSpecification = new PathSpecification(
-                Optional.empty(), ImmutableList.of(
-                        new PathElement(Optional.empty(), new Identifier("foo"))));
+        PathSpecification pathSpecification = new PathSpecification(Optional.empty(), ImmutableList.of(
+                new PathElement(Optional.empty(), new Identifier("foo"))));
 
         QueryStateMachine stateMachine = createQueryStateMachine("SET PATH foo");
         executeSetPathTask(pathSpecification, stateMachine);
@@ -95,9 +94,8 @@ public class TestSetPathTask
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Catalog does not exist: .*")
     public void testSetPathInvalidCatalog()
     {
-        PathSpecification invalidPathSpecification = new PathSpecification(
-                Optional.empty(), ImmutableList.of(
-                        new PathElement(Optional.of(new Identifier("invalidCatalog")), new Identifier("thisDoesNotMatter"))));
+        PathSpecification invalidPathSpecification = new PathSpecification(Optional.empty(), ImmutableList.of(
+                new PathElement(Optional.of(new Identifier("invalidCatalog")), new Identifier("thisDoesNotMatter"))));
 
         QueryStateMachine stateMachine = createQueryStateMachine("SET PATH invalidCatalog.thisDoesNotMatter");
         executeSetPathTask(invalidPathSpecification, stateMachine);

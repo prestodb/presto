@@ -101,7 +101,8 @@ public class KuduRecordCursor
                     }
 
                     nextRows = scanner.nextRows();
-                } while (!nextRows.hasNext());
+                }
+                while (!nextRows.hasNext());
                 log.debug("Fetched " + nextRows.getNumRows() + " rows");
             }
             catch (KuduException e) {

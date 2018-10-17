@@ -728,7 +728,8 @@ class Query
             }
 
             querySubmissionFuture = queryManager.createQuery(queryId, sessionContext, this.query);
-            Futures.addCallback(querySubmissionFuture, new FutureCallback<Object>() {
+            Futures.addCallback(querySubmissionFuture, new FutureCallback<Object>()
+            {
                 @Override
                 public void onSuccess(Object result)
                 {

@@ -55,7 +55,8 @@ public class TestMetadataManager
             throws Exception
     {
         queryRunner = TpchQueryRunnerBuilder.builder().build();
-        queryRunner.installPlugin(new Plugin() {
+        queryRunner.installPlugin(new Plugin()
+        {
             @Override
             public Iterable<ConnectorFactory> getConnectorFactories()
             {

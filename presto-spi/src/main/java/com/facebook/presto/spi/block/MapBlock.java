@@ -98,7 +98,7 @@ public class MapBlock
 
     /**
      * Create a map block directly without per element validations.
-     *
+     * <p>
      * Internal use by this package and com.facebook.presto.spi.Type only.
      *
      * @param keyType key type K

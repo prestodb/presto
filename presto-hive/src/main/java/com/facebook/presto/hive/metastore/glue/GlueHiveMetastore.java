@@ -587,6 +587,7 @@ public class GlueHiveMetastore
      *     ['1','2','3'] or
      *     ['', '2', '']
      * </pre>
+     *
      * @param parts Full or partial list of partition values to filter on. Keys without filter will be empty strings.
      * @return a list of partition names.
      */
@@ -636,6 +637,7 @@ public class GlueHiveMetastore
      * Ex: Partition keys = ['a', 'b']
      *     Partition names = ['a=1/b=2', 'a=2/b=2']
      * </pre>
+     *
      * @param partitionNames List of full partition names
      * @return Mapping of partition name to partition object
      */

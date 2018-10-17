@@ -96,14 +96,13 @@ public final class GroupingOperationRewriter
      * grouping and 1 otherwise. For an example, see the SQL documentation for the
      * function.
      *
-     * @param columns The column arguments with which the function was
-     *        invoked converted to ordinals with respect to the base table column
-     *        ordering.
+     * @param columns The column arguments with which the function was invoked
+     * converted to ordinals with respect to the base table column ordering.
      * @param groupingSet A collection containing the ordinals of the
-     *        columns present in the grouping.
+     * columns present in the grouping.
      * @return A bit set converted to decimal indicating which columns are present in
-     *         the grouping. If a column is NOT present in the grouping its corresponding
-     *         bit is set to 1 and to 0 if the column is present in the grouping.
+     * the grouping. If a column is NOT present in the grouping its corresponding
+     * bit is set to 1 and to 0 if the column is present in the grouping.
      */
     static long calculateGrouping(Set<Integer> groupingSet, List<Integer> columns)
     {

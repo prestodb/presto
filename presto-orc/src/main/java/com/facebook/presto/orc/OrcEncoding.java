@@ -50,5 +50,6 @@ public enum OrcEncoding
     };
 
     public abstract MetadataReader createMetadataReader();
+
     public abstract MetadataWriter createMetadataWriter();
 }

@@ -31,6 +31,7 @@ public class TestGeometryStateFactory
     {
         factory = new GeometryStateFactory();
     }
+
     @Test
     public void testCreateSingleStateEmpty()
     {

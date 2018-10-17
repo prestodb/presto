@@ -389,21 +389,21 @@ public class AddLocalExchanges
         /**
          * Prune redundant distinct symbols to reduce CPU cost of hashing corresponding values and amount of memory
          * needed to store all the distinct values.
-         *
+         * <p>
          * Consider the following plan,
-         *
+         * <pre>
          *  - MarkDistinctNode (unique, c1, c2)
          *      - Join
          *          - AssignUniqueId (unique)
          *              - probe (c1, c2)
          *          - build
-         *
+         * </pre>
          * In this case MarkDistinctNode (unique, c1, c2) is equivalent to MarkDistinctNode (unique),
          * because if two rows match on `unique`, they must match on `c1` and `c2` as well.
-         *
+         * <p>
          * More generally, any distinct symbol that is functionally dependent on a subset of
          * other distinct symbols can be dropped.
-         *
+         * <p>
          * Ideally, this logic would be encapsulated in a separate rule, but currently no rule other
          * than AddLocalExchanges can reason about local properties.
          */

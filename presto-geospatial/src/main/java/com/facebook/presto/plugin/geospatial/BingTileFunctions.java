@@ -432,7 +432,7 @@ public class BingTileFunctions
     {
         if (pointOrRectangle) {
             checkCondition(tileCount <= 1_000_000, "The number of tiles covering input rectangle exceeds the limit of 1M. " +
-                    "Number of tiles: %d. Rectangle: xMin=%.2f, yMin=%.2f, xMax=%.2f, yMax=%.2f. Zoom level: %d.",
+                            "Number of tiles: %d. Rectangle: xMin=%.2f, yMin=%.2f, xMax=%.2f, yMax=%.2f. Zoom level: %d.",
                     tileCount, envelope.getXMin(), envelope.getYMin(), envelope.getXMax(), envelope.getYMax(), zoomLevel);
         }
         else {

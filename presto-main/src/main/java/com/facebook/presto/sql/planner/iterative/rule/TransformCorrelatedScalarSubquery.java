@@ -73,8 +73,7 @@ import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
  *       - non scalar subquery
  * </pre>
  * <p>
- *
- *  This must be run after {@link TransformCorrelatedScalarAggregationToJoin}
+ * This must be run after {@link TransformCorrelatedScalarAggregationToJoin}
  */
 public class TransformCorrelatedScalarSubquery
         implements Rule<LateralJoinNode>

@@ -36,7 +36,9 @@ public class JoinStatisticsCounter
     //      [2*bucket + 1]  total count of rows that were produces by probe rows in this bucket.
     private final long[] logHistogramCounters = new long[HISTOGRAM_BUCKETS * 2];
 
-    /** Estimated number of positions in on the build side */
+    /**
+     * Estimated number of positions in on the build side
+     */
     private Optional<Long> lookupSourcePositions = Optional.empty();
 
     public JoinStatisticsCounter(JoinType joinType)

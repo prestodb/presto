@@ -389,7 +389,8 @@ public class SliceDictionaryColumnWriter
             sortedPositions[i] = i;
         }
 
-        IntArrays.quickSort(sortedPositions, 0, sortedPositions.length, new AbstractIntComparator() {
+        IntArrays.quickSort(sortedPositions, 0, sortedPositions.length, new AbstractIntComparator()
+        {
             @Override
             public int compare(int left, int right)
             {

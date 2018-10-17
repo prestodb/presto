@@ -141,9 +141,9 @@ public final class TestingMetastoreObjects
     private static final Consumer<Storage.Builder> STORAGE_CONSUMER = storage ->
     {
         storage.setStorageFormat(StorageFormat.create("SerdeLib", "InputFormat", "OutputFormat"))
-            .setLocation("/test-tbl")
-            .setBucketProperty(Optional.empty())
-            .setSerdeParameters(ImmutableMap.of());
+                .setLocation("/test-tbl")
+                .setBucketProperty(Optional.empty())
+                .setSerdeParameters(ImmutableMap.of());
     };
 
     private static String generateRandom()

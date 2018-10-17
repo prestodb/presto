@@ -700,6 +700,8 @@ public class TestSqlTaskExecution
     public static class Pauser
     {
         private volatile SettableFuture<?> future = SettableFuture.create();
+
+        public Pauser()
         {
             future.set(null);
         }

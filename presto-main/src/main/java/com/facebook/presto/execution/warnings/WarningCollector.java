@@ -21,7 +21,8 @@ import java.util.List;
 public interface WarningCollector
 {
     WarningCollector NOOP =
-            new WarningCollector() {
+            new WarningCollector()
+            {
                 @Override
                 public void add(PrestoWarning warning) {}
 

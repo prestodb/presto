@@ -220,7 +220,8 @@ public class TestGeometryUnionGeoAggregation
                 {
                         "identity",
                         "MULTIPOLYGON (((4 2, 3 1, 5 1, 4 2)), ((14 12, 13 11, 15 11, 14 12)))",
-                        new String[] {"MULTIPOLYGON(((4 2, 5 1, 3 1, 4 2)), ((14 12, 15 11, 13 11, 14 12)))", "MULTIPOLYGON(((4 2, 5 1, 3 1, 4 2)), ((14 12, 15 11, 13 11, 14 12)))"},
+                        new String[] {"MULTIPOLYGON(((4 2, 5 1, 3 1, 4 2)), ((14 12, 15 11, 13 11, 14 12)))",
+                                "MULTIPOLYGON(((4 2, 5 1, 3 1, 4 2)), ((14 12, 15 11, 13 11, 14 12)))"},
                 },
                 {
                         "empty with non-empty",

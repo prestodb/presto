@@ -20,7 +20,7 @@ import java.util.Optional;
  * and receives a {@link com.facebook.presto.spi.resourceGroups.SelectionContext} in return which
  * contains a fully-qualified {@link com.facebook.presto.spi.resourceGroups.ResourceGroupId},
  * and a manager-specific data structure of type {@code C}.
- *
+ * <p>
  * At a later time, the engine may decide to construct a resource group with that ID. To do so,
  * it will walk the tree to find the right position for the group, and then create it. It also
  * creates any necessary parent groups. Every time the engine creates a group it will

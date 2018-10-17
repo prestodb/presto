@@ -50,21 +50,21 @@ public class TestDwrfMetadataReader
         for (boolean isRowGroup : ImmutableList.of(true, false)) {
             assertEquals(
                     DwrfMetadataReader.toStringStatistics(
-                    HiveWriterVersion.ORC_HIVE_8732,
-                    DwrfProto.StringStatistics.newBuilder()
-                            .setSum(45)
-                            .build(),
-                    isRowGroup),
+                            HiveWriterVersion.ORC_HIVE_8732,
+                            DwrfProto.StringStatistics.newBuilder()
+                                    .setSum(45)
+                                    .build(),
+                            isRowGroup),
                     new StringStatistics(null, null, 45));
         }
         // and the ORIGINAL version row group stats (but not rolled up stats)
         assertEquals(
                 DwrfMetadataReader.toStringStatistics(
-                HiveWriterVersion.ORIGINAL,
-                DwrfProto.StringStatistics.newBuilder()
-                        .setSum(45)
-                        .build(),
-                true),
+                        HiveWriterVersion.ORIGINAL,
+                        DwrfProto.StringStatistics.newBuilder()
+                                .setSum(45)
+                                .build(),
+                        true),
                 new StringStatistics(null, null, 45));
 
         // having only a min or max should work

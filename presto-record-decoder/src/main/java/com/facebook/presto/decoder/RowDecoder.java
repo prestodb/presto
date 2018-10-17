@@ -26,7 +26,6 @@ public interface RowDecoder
      *
      * @param data The row data to decode.
      * @param dataMap The row data as fields map
-     *
      * @return Returns mapping from column handle to decoded value. Unmapped columns will be reported as null. Optional.empty() signals decoding error.
      */
     Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(

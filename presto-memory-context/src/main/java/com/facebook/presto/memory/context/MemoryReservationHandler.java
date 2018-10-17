@@ -24,6 +24,7 @@ public interface MemoryReservationHandler
 
     /**
      * Try reserving the given number of bytes.
+     *
      * @return true if reservation is successful, false otherwise.
      */
     boolean tryReserveMemory(String allocationTag, long delta);

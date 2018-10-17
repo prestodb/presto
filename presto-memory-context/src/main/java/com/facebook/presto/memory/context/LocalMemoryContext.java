@@ -34,6 +34,7 @@ public interface LocalMemoryContext
      * This method can return false when there is not enough memory available to satisfy a positive delta allocation
      * ({@code bytes} is greater than the bytes tracked by this LocalMemoryContext).
      * <p/>
+     *
      * @return true if the bytes tracked by this LocalMemoryContext can be set to {@code bytes}.
      */
     boolean trySetBytes(long bytes);
