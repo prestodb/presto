@@ -102,9 +102,9 @@ public class VarcharsTest
         assertByteCountFailure("\u6000\u6001\u6002\u6003", 21, 0, 1);
 
         // invalid code points; always return the original lengths unless code point count is 0
-        assertByteCount(new byte[]{(byte) 0x81, (byte) 0x81, (byte) 0x81}, 0, 2, 0, new byte[]{});
-        assertByteCount(new byte[]{(byte) 0x81, (byte) 0x81, (byte) 0x81}, 0, 2, 1, new byte[]{(byte) 0x81, (byte) 0x81});
-        assertByteCount(new byte[]{(byte) 0x81, (byte) 0x81, (byte) 0x81}, 0, 2, 3, new byte[]{(byte) 0x81, (byte) 0x81});
+        assertByteCount(new byte[] {(byte) 0x81, (byte) 0x81, (byte) 0x81}, 0, 2, 0, new byte[] {});
+        assertByteCount(new byte[] {(byte) 0x81, (byte) 0x81, (byte) 0x81}, 0, 2, 1, new byte[] {(byte) 0x81, (byte) 0x81});
+        assertByteCount(new byte[] {(byte) 0x81, (byte) 0x81, (byte) 0x81}, 0, 2, 3, new byte[] {(byte) 0x81, (byte) 0x81});
     }
 
     private static void assertByteCountFailure(String string, int offset, int length, int codePointCount)

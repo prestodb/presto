@@ -73,7 +73,7 @@ public class TestOrcWriter
                     new OrcWriterStats());
 
             // write down some data with unsorted streams
-            String[] data = new String[]{"a", "bbbbb", "ccc", "dd", "eeee"};
+            String[] data = new String[] {"a", "bbbbb", "ccc", "dd", "eeee"};
             Block[] blocks = new Block[data.length];
             int entries = 65536;
             BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, entries);

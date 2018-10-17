@@ -60,7 +60,7 @@ public class HiveBucketProperty
         List<SortingColumn> sortedBy = ImmutableList.of();
         if (storageDescriptor.isSetSortCols()) {
             sortedBy = storageDescriptor.getSortCols().stream()
-                    .map(order-> SortingColumn.fromMetastoreApiOrder(order, tablePartitionName))
+                    .map(order -> SortingColumn.fromMetastoreApiOrder(order, tablePartitionName))
                     .collect(toImmutableList());
         }
         return Optional.of(new HiveBucketProperty(storageDescriptor.getBucketCols(), storageDescriptor.getNumBuckets(), sortedBy));

@@ -24,11 +24,11 @@ public final class TestngUtils
     {
         return Collector.of(
                 ArrayList::new,
-                (builder, entry) -> builder.add(new Object[]{entry}),
+                (builder, entry) -> builder.add(new Object[] {entry}),
                 (left, right) -> {
                     left.addAll(right);
                     return left;
                 },
-                builder -> builder.toArray(new Object[][]{}));
+                builder -> builder.toArray(new Object[][] {}));
     }
 }
