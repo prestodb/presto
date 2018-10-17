@@ -24,7 +24,6 @@ import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
 import com.facebook.presto.memory.ClusterMemoryManager;
-import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.server.BasicQueryInfo;
@@ -72,10 +71,8 @@ import java.util.function.Consumer;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxCpuTime;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.QueryStateMachine.QUERY_STATE_LOG;
-import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
-import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.facebook.presto.util.StatementUtils.getQueryType;
 import static com.facebook.presto.util.StatementUtils.isTransactionControlStatement;
@@ -83,7 +80,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -103,11 +99,7 @@ public class SqlQueryManager
     private final ClusterMemoryManager memoryManager;
 
     private final Optional<String> path;
-    private final boolean isIncludeCoordinator;
     private final int maxQueryLength;
-    private final int initializationRequiredWorkers;
-    private final Duration initializationTimeout;
-    private final long initialNanos;
     private final Duration maxQueryCpuTime;
 
     private final QueryTracker<QueryExecution> queryTracker;
@@ -126,13 +118,11 @@ public class SqlQueryManager
     private final SessionSupplier sessionSupplier;
     private final SessionPropertyDefaults sessionPropertyDefaults;
 
-    private final InternalNodeManager internalNodeManager;
+    private final ClusterSizeMonitor clusterSizeMonitor;
 
     private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
 
     private final SqlQueryManagerStats stats = new SqlQueryManagerStats();
-
-    private final AtomicBoolean acceptQueries = new AtomicBoolean();
 
     private final WarningCollectorFactory warningCollectorFactory;
 
@@ -152,7 +142,7 @@ public class SqlQueryManager
             QueryIdGenerator queryIdGenerator,
             SessionSupplier sessionSupplier,
             SessionPropertyDefaults sessionPropertyDefaults,
-            InternalNodeManager internalNodeManager,
+            ClusterSizeMonitor clusterSizeMonitor,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
             WarningCollectorFactory warningCollectorFactory)
     {
@@ -180,15 +170,11 @@ public class SqlQueryManager
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
 
-        this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
+        this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
 
         this.path = sqlEnvironmentConfig.getPath();
-        this.isIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
         this.maxQueryLength = queryManagerConfig.getMaxQueryLength();
         this.maxQueryCpuTime = queryManagerConfig.getQueryMaxCpuTime();
-        this.initializationRequiredWorkers = queryManagerConfig.getInitializationRequiredWorkers();
-        this.initializationTimeout = queryManagerConfig.getInitializationTimeout();
-        this.initialNanos = System.nanoTime();
 
         this.warningCollectorFactory = requireNonNull(warningCollectorFactory, "warningCollectorFactory is null");
 
@@ -332,18 +318,7 @@ public class SqlQueryManager
         QueryExecution queryExecution;
         PreparedQuery preparedQuery;
         try {
-            if (!acceptQueries.get()) {
-                int activeWorkerCount = internalNodeManager.getNodes(ACTIVE).size();
-                if (!isIncludeCoordinator) {
-                    activeWorkerCount--;
-                }
-                if (nanosSince(initialNanos).compareTo(initializationTimeout) < 0 && activeWorkerCount < initializationRequiredWorkers) {
-                    throw new PrestoException(
-                            SERVER_STARTING_UP,
-                            format("Cluster is still initializing, there are insufficient active worker nodes (%s) to run query", activeWorkerCount));
-                }
-                acceptQueries.set(true);
-            }
+            clusterSizeMonitor.verifyInitialMinimumWorkersRequirement();
 
             if (query.length() > maxQueryLength) {
                 int queryLength = query.length();

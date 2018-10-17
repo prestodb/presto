@@ -21,6 +21,7 @@ import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeState;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
@@ -42,12 +43,15 @@ import javax.inject.Inject;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.NodeState.INACTIVE;
@@ -59,6 +63,7 @@ import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 @ThreadSafe
@@ -74,6 +79,7 @@ public final class DiscoveryNodeManager
     private final ConcurrentHashMap<String, RemoteNodeState> nodeStates = new ConcurrentHashMap<>();
     private final HttpClient httpClient;
     private final ScheduledExecutorService nodeStateUpdateExecutor;
+    private final ExecutorService nodeStateEventExecutor;
     private final boolean httpsRequired;
     private final PrestoNode currentNode;
 
@@ -85,6 +91,9 @@ public final class DiscoveryNodeManager
 
     @GuardedBy("this")
     private Set<Node> coordinators;
+
+    @GuardedBy("this")
+    private final List<Consumer<AllNodes>> listeners = new ArrayList<>();
 
     @Inject
     public DiscoveryNodeManager(
@@ -100,6 +109,7 @@ public final class DiscoveryNodeManager
         this.expectedNodeVersion = requireNonNull(expectedNodeVersion, "expectedNodeVersion is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.nodeStateUpdateExecutor = newSingleThreadScheduledExecutor(threadsNamed("node-state-poller-%s"));
+        this.nodeStateEventExecutor = newCachedThreadPool(threadsNamed("node-state-events-%s"));
         this.httpsRequired = internalCommunicationConfig.isHttpsRequired();
 
         this.currentNode = findCurrentNode(
@@ -252,9 +262,15 @@ public final class DiscoveryNodeManager
             }
         }
 
-        allNodes = new AllNodes(activeNodesBuilder.build(), inactiveNodesBuilder.build(), shuttingDownNodesBuilder.build());
+        // assign allNodes to a local variable for use in the callback below
+        AllNodes allNodes = new AllNodes(activeNodesBuilder.build(), inactiveNodesBuilder.build(), shuttingDownNodesBuilder.build(), coordinatorsBuilder.build());
+        this.allNodes = allNodes;
         activeNodesByConnectorId = byConnectorIdBuilder.build();
         coordinators = coordinatorsBuilder.build();
+
+        // notify listeners
+        List<Consumer<AllNodes>> listeners = ImmutableList.copyOf(this.listeners);
+        nodeStateEventExecutor.submit(() -> listeners.forEach(listener -> listener.accept(allNodes)));
     }
 
     private NodeState getNodeState(PrestoNode node)
@@ -335,6 +351,18 @@ public final class DiscoveryNodeManager
     public synchronized Set<Node> getCoordinators()
     {
         return coordinators;
+    }
+
+    @Override
+    public synchronized void addNodeChangeListener(Consumer<AllNodes> listener)
+    {
+        listeners.add(requireNonNull(listener, "listener is null"));
+    }
+
+    @Override
+    public synchronized void removeNodeChangeListener(Consumer<AllNodes> listener)
+    {
+        listeners.remove(requireNonNull(listener, "listener is null"));
     }
 
     private static URI getHttpUri(ServiceDescriptor descriptor, boolean httpsRequired)
