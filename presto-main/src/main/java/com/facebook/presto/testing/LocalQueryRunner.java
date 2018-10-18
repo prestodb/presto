@@ -785,13 +785,9 @@ public class LocalQueryRunner
 
     public List<PlanOptimizer> getPlanOptimizers(boolean forceSingleNode)
     {
-        FeaturesConfig featuresConfig = new FeaturesConfig()
-                .setDistributedIndexJoinsEnabled(false)
-                .setOptimizeHashGeneration(true);
         return new PlanOptimizers(
                 metadata,
                 sqlParser,
-                featuresConfig,
                 forceSingleNode,
                 new MBeanExporter(new TestingMBeanServer()),
                 splitManager,
@@ -799,7 +795,7 @@ public class LocalQueryRunner
                 statsCalculator,
                 costCalculator,
                 estimatedExchangesCostCalculator,
-                new CostComparator(featuresConfig)).get();
+                new CostComparator(new FeaturesConfig())).get();
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, WarningCollector warningCollector)

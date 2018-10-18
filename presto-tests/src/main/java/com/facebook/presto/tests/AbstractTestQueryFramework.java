@@ -318,13 +318,11 @@ public abstract class AbstractTestQueryFramework
     private QueryExplainer getQueryExplainer()
     {
         Metadata metadata = queryRunner.getMetadata();
-        FeaturesConfig featuresConfig = new FeaturesConfig().setOptimizeHashGeneration(true);
         boolean forceSingleNode = queryRunner.getNodeCount() == 1;
         CostCalculator costCalculator = new CostCalculatorUsingExchanges(queryRunner::getNodeCount);
         List<PlanOptimizer> optimizers = new PlanOptimizers(
                 metadata,
                 sqlParser,
-                featuresConfig,
                 forceSingleNode,
                 new MBeanExporter(new TestingMBeanServer()),
                 queryRunner.getSplitManager(),
@@ -332,7 +330,7 @@ public abstract class AbstractTestQueryFramework
                 queryRunner.getStatsCalculator(),
                 costCalculator,
                 new CostCalculatorWithEstimatedExchanges(costCalculator, queryRunner::getNodeCount),
-                new CostComparator(featuresConfig)).get();
+                new CostComparator(new FeaturesConfig())).get();
         return new QueryExplainer(
                 optimizers,
                 new PlanFragmenter(new QueryManagerConfig()),

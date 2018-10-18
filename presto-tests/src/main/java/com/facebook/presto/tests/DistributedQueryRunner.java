@@ -133,7 +133,6 @@ public class DistributedQueryRunner
             }
 
             Map<String, String> extraCoordinatorProperties = new HashMap<>();
-            extraCoordinatorProperties.put("experimental.iterative-optimizer-enabled", "true");
             extraCoordinatorProperties.putAll(extraProperties);
             extraCoordinatorProperties.putAll(coordinatorProperties);
             coordinator = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), true, extraCoordinatorProperties, parserOptions, environment));

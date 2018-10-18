@@ -63,9 +63,6 @@ public class BenchmarkPlanner
     @State(Scope.Benchmark)
     public static class BenchmarkData
     {
-        @Param({"true", "false"})
-        private String iterativeOptimizerEnabled = "true";
-
         @Param({"optimized", "created"})
         private String stage = LogicalPlanner.Stage.OPTIMIZED.toString();
 
@@ -81,7 +78,6 @@ public class BenchmarkPlanner
             session = testSessionBuilder()
                     .setCatalog(tpch)
                     .setSchema("sf1")
-                    .setSystemProperty("iterative_optimizer_enabled", iterativeOptimizerEnabled)
                     .build();
 
             queryRunner = new LocalQueryRunner(session);

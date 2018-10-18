@@ -52,7 +52,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.SystemSessionProperties.isNewOptimizerEnabled;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.metadata.TableLayoutResult.computeEnforced;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
@@ -133,12 +132,6 @@ public class PickTableLayout
         }
 
         @Override
-        public boolean isEnabled(Session session)
-        {
-            return isNewOptimizerEnabled(session);
-        }
-
-        @Override
         public Result apply(FilterNode filterNode, Captures captures, Context context)
         {
             TableScanNode tableScan = captures.get(TABLE_SCAN);
@@ -198,12 +191,6 @@ public class PickTableLayout
         public Pattern<TableScanNode> getPattern()
         {
             return PATTERN;
-        }
-
-        @Override
-        public boolean isEnabled(Session session)
-        {
-            return isNewOptimizerEnabled(session);
         }
 
         @Override

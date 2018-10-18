@@ -31,11 +31,9 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 
 import java.util.Iterator;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -53,20 +51,13 @@ public class IterativeOptimizer
     private final RuleStatsRecorder stats;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
-    private final List<PlanOptimizer> legacyRules;
     private final RuleIndex ruleIndex;
 
-    public IterativeOptimizer(RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Set<Rule<?>> rules)
-    {
-        this(stats, statsCalculator, costCalculator, ImmutableList.of(), rules);
-    }
-
-    public IterativeOptimizer(RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules)
+    public IterativeOptimizer(RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Set<Rule<?>> newRules)
     {
         this.stats = requireNonNull(stats, "stats is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
-        this.legacyRules = ImmutableList.copyOf(legacyRules);
         this.ruleIndex = RuleIndex.builder()
                 .register(newRules)
                 .build();
@@ -77,15 +68,6 @@ public class IterativeOptimizer
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        // only disable new rules if we have legacy rules to fall back to
-        if (!SystemSessionProperties.isNewOptimizerEnabled(session) && !legacyRules.isEmpty()) {
-            for (PlanOptimizer optimizer : legacyRules) {
-                plan = optimizer.optimize(plan, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector);
-            }
-
-            return plan;
-        }
-
         Memo memo = new Memo(idAllocator, plan);
         Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
         Matcher matcher = new PlanNodeMatcher(lookup);
