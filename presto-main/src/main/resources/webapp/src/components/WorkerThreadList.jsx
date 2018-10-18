@@ -41,7 +41,7 @@ export class WorkerThreadList extends React.Component {
         };
     }
 
-    componentDidMount() {
+    captureSnapshot() {
         const nodeId = getFirstParameter(window.location.search);
         $.get('/v1/worker/' + nodeId + '/thread', function (threads) {
             this.setState({
@@ -50,11 +50,11 @@ export class WorkerThreadList extends React.Component {
                 initialized: true,
             });
         }.bind(this))
-            .error(function () {
-                this.setState({
-                    initialized: true,
-                });
-            }.bind(this));
+        .error(function () {
+            this.setState({
+                initialized: true,
+            });
+        }.bind(this));
     }
 
     componentDidUpdate() {
@@ -113,7 +113,7 @@ export class WorkerThreadList extends React.Component {
         this.setState({
             initialized: false
         });
-        this.componentDidMount();
+        this.captureSnapshot();
         event.preventDefault();
     }
 
@@ -173,46 +173,99 @@ export class WorkerThreadList extends React.Component {
     render() {
         const threads = this.state.threads;
 
+        let display = null;
+        let toolbar = null;
         if (threads === null) {
             if (this.state.initialized === false) {
-                return (
-                    <div className="loader">Loading...</div>
+                display = (
+                    <div className="row error-message">
+                        <div className="col-xs-12"><button className="btn btn-info live-button" onClick={this.handleNewSnapshotClick.bind(this)}>Capture Snapshot</button></div>
+                    </div>
                 );
             }
             else {
-                return (
+                display = (
                     <div className="row error-message">
                         <div className="col-xs-12"><h4>Thread snapshot could not be loaded</h4></div>
                     </div>
                 );
             }
         }
-
-        const filteredThreads = this.filterThreads(this.state.selectedGroup, this.state.selectedThreadState);
-        let renderedThreads;
-        if (filteredThreads.length === 0 && this.state.selectedThreadState === ALL_THREAD_STATE) {
-            renderedThreads = (
-                <div className="row error-message">
-                    <div className="col-xs-12"><h4>No threads in group '{this.state.selectedGroup}'</h4></div>
-                </div>);
-        }
-        else if (filteredThreads.length === 0 && this.state.selectedGroup === ALL_THREADS) {
-            renderedThreads = (
-                <div className="row error-message">
-                    <div className="col-xs-12"><h4>No threads with state {this.state.selectedThreadState}</h4></div>
-                </div>);
-        }
-        else if (filteredThreads.length === 0) {
-            renderedThreads = (
-                <div className="row error-message">
-                    <div className="col-xs-12"><h4>No threads in group '{this.state.selectedGroup}' with state {this.state.selectedThreadState}</h4></div>
-                </div>);
-        }
         else {
-            renderedThreads = (
-                <pre>
-                    {filteredThreads.map(t => this.renderThread(t))}
-                </pre>);
+            toolbar = (
+                <div className="col-xs-9">
+                    <table className="header-inline-links">
+                        <tbody>
+                        <tr>
+                            <td>
+                                <small>Snapshot at {this.state.snapshotTime.toTimeString()}</small>
+                                &nbsp;&nbsp;
+                            </td>
+                            <td>
+                                <button className="btn btn-info live-button" onClick={this.handleNewSnapshotClick.bind(this)}>New Snapshot</button>
+                                &nbsp;&nbsp;
+                                &nbsp;&nbsp;
+                            </td>
+                            <td>
+                                <div className="input-group-btn text-right">
+                                    <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true"
+                                            aria-expanded="false">
+                                        <strong>Group:</strong> {this.state.selectedGroup} <span className="caret"/>
+                                    </button>
+                                    <ul className="dropdown-menu">
+                                        {Object.keys(threads).map(group => this.renderGroupListItem(group))}
+                                    </ul>
+                                </div>
+                            </td>
+                            <td>
+                                <div className="input-group-btn text-right">
+                                    <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true"
+                                            aria-expanded="false">
+                                        <strong>State:</strong> {this.state.selectedThreadState} <span className="caret"/>
+                                    </button>
+                                    <ul className="dropdown-menu">
+                                        {THREAD_STATES.map(state => this.renderThreadStateListItem(state))}
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            );
+
+            const filteredThreads = this.filterThreads(this.state.selectedGroup, this.state.selectedThreadState);
+            let displayedThreads;
+            if (filteredThreads.length === 0 && this.state.selectedThreadState === ALL_THREAD_STATE) {
+                displayedThreads = (
+                    <div className="row error-message">
+                        <div className="col-xs-12"><h4>No threads in group '{this.state.selectedGroup}'</h4></div>
+                    </div>);
+            }
+            else if (filteredThreads.length === 0 && this.state.selectedGroup === ALL_THREADS) {
+                displayedThreads = (
+                    <div className="row error-message">
+                        <div className="col-xs-12"><h4>No threads with state {this.state.selectedThreadState}</h4></div>
+                    </div>);
+            }
+            else if (filteredThreads.length === 0) {
+                displayedThreads = (
+                    <div className="row error-message">
+                        <div className="col-xs-12"><h4>No threads in group '{this.state.selectedGroup}' with state {this.state.selectedThreadState}</h4></div>
+                    </div>);
+            }
+            else {
+                displayedThreads = (
+                    <pre>
+                        {filteredThreads.map(t => this.renderThread(t))}
+                    </pre>);
+            }
+
+            display = (
+                <div id="stack-traces">
+                    {displayedThreads}
+                </div>
+            );
         }
 
         return (
@@ -227,52 +280,12 @@ export class WorkerThreadList extends React.Component {
                             &nbsp;
                         </h3>
                     </div>
-                    <div className="col-xs-9">
-                        <table className="header-inline-links">
-                            <tbody>
-                            <tr>
-                                <td>
-                                    <small>Snapshot at {this.state.snapshotTime.toTimeString()}</small>
-                                    &nbsp;&nbsp;
-                                </td>
-                                <td>
-                                    <button className="btn btn-info live-button" onClick={this.handleNewSnapshotClick.bind(this)}>New Snapshot</button>
-                                    &nbsp;&nbsp;
-                                    &nbsp;&nbsp;
-                                </td>
-                                <td>
-                                    <div className="input-group-btn text-right">
-                                        <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true"
-                                                aria-expanded="false">
-                                            <strong>Group:</strong> {this.state.selectedGroup} <span className="caret"/>
-                                        </button>
-                                        <ul className="dropdown-menu">
-                                            {Object.keys(threads).map(group => this.renderGroupListItem(group))}
-                                        </ul>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div className="input-group-btn text-right">
-                                        <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true"
-                                                aria-expanded="false">
-                                            <strong>State:</strong> {this.state.selectedThreadState} <span className="caret"/>
-                                        </button>
-                                        <ul className="dropdown-menu">
-                                            {THREAD_STATES.map(state => this.renderThreadStateListItem(state))}
-                                        </ul>
-                                    </div>
-                                </td>
-                            </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                    {toolbar}
                 </div>
                 <div className="row">
                     <div className="col-xs-12">
                         <hr className="h3-hr"/>
-                        <div id="stack-traces">
-                            {renderedThreads}
-                        </div>
+                        {display}
                     </div>
                 </div>
             </div>
