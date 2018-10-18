@@ -15,6 +15,7 @@ package com.facebook.presto.spi.block;
 
 import static com.facebook.presto.spi.block.BlockUtil.arraySame;
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
@@ -105,6 +106,30 @@ public abstract class AbstractRowBlock
             regionSizeInBytes += getRawFieldBlocks()[i].getRegionSizeInBytes(startFieldBlockOffset, fieldBlockLength);
         }
         return regionSizeInBytes;
+    }
+
+    @Override
+    public long getPositionsSizeInBytes(boolean[] positions)
+    {
+        checkValidPositions(positions, getPositionCount());
+
+        int usedPositionCount = 0;
+        boolean[] fieldPositions = new boolean[getRawFieldBlocks()[0].getPositionCount()];
+        for (int i = 0; i < positions.length; i++) {
+            if (positions[i]) {
+                usedPositionCount++;
+                int startFieldBlockOffset = getFieldBlockOffset(i);
+                int endFieldBlockOffset = getFieldBlockOffset(i + 1);
+                for (int j = startFieldBlockOffset; j < endFieldBlockOffset; j++) {
+                    fieldPositions[j] = true;
+                }
+            }
+        }
+        long sizeInBytes = 0;
+        for (int j = 0; j < numFields; j++) {
+            sizeInBytes += getRawFieldBlocks()[j].getPositionsSizeInBytes(fieldPositions);
+        }
+        return sizeInBytes + (Integer.BYTES + Byte.BYTES) * (long) usedPositionCount;
     }
 
     @Override

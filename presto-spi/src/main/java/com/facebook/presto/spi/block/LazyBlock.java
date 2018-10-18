@@ -178,6 +178,13 @@ public class LazyBlock
     }
 
     @Override
+    public long getPositionsSizeInBytes(boolean[] positions)
+    {
+        assureLoaded();
+        return block.getPositionsSizeInBytes(positions);
+    }
+
+    @Override
     public long getRetainedSizeInBytes()
     {
         assureLoaded();

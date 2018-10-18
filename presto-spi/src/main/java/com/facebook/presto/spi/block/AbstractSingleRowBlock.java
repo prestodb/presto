@@ -161,6 +161,12 @@ public abstract class AbstractSingleRowBlock
     }
 
     @Override
+    public long getPositionsSizeInBytes(boolean[] positions)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Block copyPositions(int[] positions, int offset, int length)
     {
         throw new UnsupportedOperationException();

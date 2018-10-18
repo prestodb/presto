@@ -23,6 +23,7 @@ import java.util.function.BiConsumer;
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
+import static com.facebook.presto.spi.block.BlockUtil.countUsedPositions;
 import static io.airlift.slice.SizeOf.sizeOf;
 
 public class IntArrayBlock
@@ -79,6 +80,12 @@ public class IntArrayBlock
     public long getRegionSizeInBytes(int position, int length)
     {
         return (Integer.BYTES + Byte.BYTES) * (long) length;
+    }
+
+    @Override
+    public long getPositionsSizeInBytes(boolean[] positions)
+    {
+        return (Integer.BYTES + Byte.BYTES) * (long) countUsedPositions(positions);
     }
 
     @Override
