@@ -15,11 +15,13 @@ package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 public interface OutputBuffer
 {
@@ -83,13 +85,13 @@ public interface OutputBuffer
      * Adds a split-up page to an unpartitioned buffer. If no-more-pages has been set, the enqueue
      * page call is ignored.  This can happen with limit queries.
      */
-    void enqueue(List<SerializedPage> pages);
+    void enqueue(Lifespan lifespan, List<SerializedPage> pages);
 
     /**
      * Adds a split-up page to a specific partition.  If no-more-pages has been set, the enqueue
      * page call is ignored.  This can happen with limit queries.
      */
-    void enqueue(int partition, List<SerializedPage> pages);
+    void enqueue(Lifespan lifespan, int partition, List<SerializedPage> pages);
 
     /**
      * Notify buffer that no more pages will be added. Any future calls to enqueue a
@@ -107,6 +109,12 @@ public interface OutputBuffer
      * readers will be unblocked when the failed query is cleaned up.
      */
     void fail();
+
+    void setNoMorePagesForLifespan(Lifespan lifespan);
+
+    void registerLifespanFinishCallback(Consumer<Lifespan> callback);
+
+    boolean isLifespanFinished(Lifespan lifespan);
 
     /**
      * @return the peak memory usage of this output buffer.

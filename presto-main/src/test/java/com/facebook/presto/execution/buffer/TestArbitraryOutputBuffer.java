@@ -15,6 +15,7 @@ package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
 import com.facebook.presto.spi.Page;
@@ -950,7 +951,7 @@ public class TestArbitraryOutputBuffer
 
     private static ListenableFuture<?> enqueuePage(OutputBuffer buffer, Page page)
     {
-        buffer.enqueue(ImmutableList.of(PAGES_SERDE.serialize(page)));
+        buffer.enqueue(Lifespan.taskWide(), ImmutableList.of(PAGES_SERDE.serialize(page)));
         ListenableFuture<?> future = buffer.isFull();
         assertFalse(future.isDone());
         return future;
@@ -958,7 +959,7 @@ public class TestArbitraryOutputBuffer
 
     private static void addPage(OutputBuffer buffer, Page page)
     {
-        buffer.enqueue(ImmutableList.of(PAGES_SERDE.serialize(page)));
+        buffer.enqueue(Lifespan.taskWide(), ImmutableList.of(PAGES_SERDE.serialize(page)));
         assertTrue(buffer.isFull().isDone(), "Expected add page to not block");
     }
 

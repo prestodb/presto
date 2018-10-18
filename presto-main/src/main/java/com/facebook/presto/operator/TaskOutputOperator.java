@@ -146,7 +146,9 @@ public class TaskOutputOperator
                 .map(serde::serialize)
                 .collect(toImmutableList());
 
-        outputBuffer.enqueue(serializedPages);
+        outputBuffer.enqueue(
+                operatorContext.getDriverContext().getLifespan(),
+                serializedPages);
         operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
     }
 

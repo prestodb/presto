@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
@@ -220,7 +221,8 @@ public class PartitionedOutputOperator
                 outputBuffer,
                 serdeFactory,
                 sourceTypes,
-                maxMemory);
+                maxMemory,
+                operatorContext.getDriverContext().getLifespan());
 
         operatorContext.setInfoSupplier(this::getInfo);
         this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(PartitionedOutputOperator.class.getSimpleName());
@@ -302,6 +304,7 @@ public class PartitionedOutputOperator
         private final List<Integer> partitionChannels;
         private final List<Optional<Block>> partitionConstants;
         private final PagesSerde serde;
+        private final Lifespan lifespan;
         private final PageBuilder[] pageBuilders;
         private final boolean replicatesAnyRow;
         private final OptionalInt nullChannel; // when present, send the position to every partition if this channel is null.
@@ -318,7 +321,8 @@ public class PartitionedOutputOperator
                 OutputBuffer outputBuffer,
                 PagesSerdeFactory serdeFactory,
                 List<Type> sourceTypes,
-                DataSize maxMemory)
+                DataSize maxMemory,
+                Lifespan lifespan)
         {
             this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
             this.partitionChannels = requireNonNull(partitionChannels, "partitionChannels is null");
@@ -330,6 +334,7 @@ public class PartitionedOutputOperator
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null");
             this.serde = requireNonNull(serdeFactory, "serdeFactory is null").createPagesSerde();
+            this.lifespan = requireNonNull(lifespan, "lifespan is null");
 
             int partitionCount = partitionFunction.getPartitionCount();
             int pageSize = min(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, ((int) maxMemory.toBytes()) / partitionCount);
@@ -434,7 +439,7 @@ public class PartitionedOutputOperator
                             .map(serde::serialize)
                             .collect(toImmutableList());
 
-                    outputBuffer.enqueue(partition, serializedPages);
+                    outputBuffer.enqueue(lifespan, partition, serializedPages);
                     pagesAdded.incrementAndGet();
                     rowsAdded.addAndGet(pagePartition.getPositionCount());
                 }

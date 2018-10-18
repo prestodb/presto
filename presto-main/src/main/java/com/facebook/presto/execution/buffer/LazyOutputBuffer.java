@@ -15,6 +15,7 @@ package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskId;
@@ -32,6 +33,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
@@ -245,25 +247,25 @@ public class LazyOutputBuffer
     }
 
     @Override
-    public void enqueue(List<SerializedPage> pages)
+    public void enqueue(Lifespan lifespan, List<SerializedPage> pages)
     {
         OutputBuffer outputBuffer;
         synchronized (this) {
             checkState(delegate != null, "Buffer has not been initialized");
             outputBuffer = delegate;
         }
-        outputBuffer.enqueue(pages);
+        outputBuffer.enqueue(lifespan, pages);
     }
 
     @Override
-    public void enqueue(int partition, List<SerializedPage> pages)
+    public void enqueue(Lifespan lifespan, int partition, List<SerializedPage> pages)
     {
         OutputBuffer outputBuffer;
         synchronized (this) {
             checkState(delegate != null, "Buffer has not been initialized");
             outputBuffer = delegate;
         }
-        outputBuffer.enqueue(partition, pages);
+        outputBuffer.enqueue(lifespan, partition, pages);
     }
 
     @Override
@@ -321,6 +323,39 @@ public class LazyOutputBuffer
             outputBuffer = delegate;
         }
         outputBuffer.fail();
+    }
+
+    @Override
+    public void setNoMorePagesForLifespan(Lifespan lifespan)
+    {
+        OutputBuffer outputBuffer;
+        synchronized (this) {
+            checkState(delegate != null, "Buffer has not been initialized");
+            outputBuffer = delegate;
+        }
+        outputBuffer.setNoMorePagesForLifespan(lifespan);
+    }
+
+    @Override
+    public void registerLifespanFinishCallback(Consumer<Lifespan> callback)
+    {
+        OutputBuffer outputBuffer;
+        synchronized (this) {
+            checkState(delegate != null, "Buffer has not been initialized");
+            outputBuffer = delegate;
+        }
+        outputBuffer.registerLifespanFinishCallback(callback);
+    }
+
+    @Override
+    public boolean isLifespanFinished(Lifespan lifespan)
+    {
+        OutputBuffer outputBuffer;
+        synchronized (this) {
+            checkState(delegate != null, "Buffer has not been initialized");
+            outputBuffer = delegate;
+        }
+        return outputBuffer.isLifespanFinished(lifespan);
     }
 
     @Override
