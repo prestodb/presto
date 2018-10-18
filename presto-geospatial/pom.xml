@@ -38,11 +38,6 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-array</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-geospatial-toolkit</artifactId>
         </dependency>
 
@@ -87,12 +82,6 @@
         </dependency>
 
         <!-- for testing -->
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-memory</artifactId>
-            <scope>test</scope>
-        </dependency>
-
         <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
             <artifactId>hadoop-apache2</artifactId>
