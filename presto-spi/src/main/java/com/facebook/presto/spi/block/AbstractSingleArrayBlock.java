@@ -179,6 +179,12 @@ public abstract class AbstractSingleArrayBlock
     }
 
     @Override
+    public long getPositionsSizeInBytes(boolean[] positions)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Block copyRegion(int position, int length)
     {
         throw new UnsupportedOperationException();

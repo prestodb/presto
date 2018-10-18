@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
@@ -182,6 +183,35 @@ public abstract class AbstractMapBlock
                 Integer.BYTES * HASH_MULTIPLIER * (long) entryCount;
     }
 
+    @Override
+    public long getPositionsSizeInBytes(boolean[] positions)
+    {
+        // We can use either the getRegionSizeInBytes or getPositionsSizeInBytes
+        // from the underlying raw blocks to implement this function. We chose
+        // getPositionsSizeInBytes with the assumption that constructing a
+        // positions array is cheaper than calling getRegionSizeInBytes for each
+        // used position.
+        int positionCount = getPositionCount();
+        checkValidPositions(positions, positionCount);
+        boolean[] entryPositions = new boolean[getRawKeyBlock().getPositionCount()];
+        int usedEntryCount = 0;
+        int usedPositionCount = 0;
+        for (int i = 0; i < positions.length; ++i) {
+            if (positions[i]) {
+                usedPositionCount++;
+                int entriesStart = getOffsets()[getOffsetBase() + i];
+                int entriesEnd = getOffsets()[getOffsetBase() + i + 1];
+                for (int j = entriesStart; j < entriesEnd; j++) {
+                    entryPositions[j] = true;
+                }
+                usedEntryCount += (entriesEnd - entriesStart);
+            }
+        }
+        return getRawKeyBlock().getPositionsSizeInBytes(entryPositions) +
+                getRawValueBlock().getPositionsSizeInBytes(entryPositions) +
+                (Integer.BYTES + Byte.BYTES) * (long) usedPositionCount +
+                Integer.BYTES * HASH_MULTIPLIER * (long) usedEntryCount;
+    }
     @Override
     public Block copyRegion(int position, int length)
     {

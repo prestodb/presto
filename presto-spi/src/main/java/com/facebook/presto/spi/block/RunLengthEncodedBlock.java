@@ -146,6 +146,12 @@ public class RunLengthEncodedBlock
     }
 
     @Override
+    public long getPositionsSizeInBytes(boolean[] positions)
+    {
+        return value.getSizeInBytes();
+    }
+
+    @Override
     public Block copyRegion(int positionOffset, int length)
     {
         checkValidRegion(positionCount, positionOffset, length);

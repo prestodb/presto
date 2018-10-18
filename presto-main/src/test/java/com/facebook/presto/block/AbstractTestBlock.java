@@ -48,6 +48,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.util.Arrays.fill;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotSame;
@@ -224,6 +225,14 @@ public abstract class AbstractTestBlock
         long expectedSecondHalfSize = copyBlockViaBlockSerde(secondHalf).getSizeInBytes();
         assertEquals(secondHalf.getSizeInBytes(), expectedSecondHalfSize);
         assertEquals(block.getRegionSizeInBytes(firstHalf.getPositionCount(), secondHalf.getPositionCount()), expectedSecondHalfSize);
+
+        boolean[] positions = new boolean[block.getPositionCount()];
+        fill(positions, 0, firstHalf.getPositionCount(), true);
+        assertEquals(block.getPositionsSizeInBytes(positions), expectedFirstHalfSize);
+        fill(positions, true);
+        assertEquals(block.getPositionsSizeInBytes(positions), expectedBlockSize);
+        fill(positions, 0, firstHalf.getPositionCount(), false);
+        assertEquals(block.getPositionsSizeInBytes(positions), expectedSecondHalfSize);
     }
 
     // expectedValueType is required since otherwise the expected value type is unknown when expectedValue is null.

@@ -15,6 +15,7 @@ package com.facebook.presto.spi.block;
 
 import static com.facebook.presto.spi.block.ArrayBlock.createArrayBlockInternal;
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
+import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
@@ -98,6 +99,25 @@ public abstract class AbstractArrayBlock
         int valueEnd = getOffsets()[getOffsetBase() + position + length];
 
         return getRawElementBlock().getRegionSizeInBytes(valueStart, valueEnd - valueStart) + ((Integer.BYTES + Byte.BYTES) * (long) length);
+    }
+
+    @Override
+    public long getPositionsSizeInBytes(boolean[] positions)
+    {
+        checkValidPositions(positions, getPositionCount());
+        boolean[] used = new boolean[getRawElementBlock().getPositionCount()];
+        int usedPositionCount = 0;
+        for (int i = 0; i < positions.length; ++i) {
+            if (positions[i]) {
+                usedPositionCount++;
+                int valueStart = getOffsets()[getOffsetBase() + i];
+                int valueEnd = getOffsets()[getOffsetBase() + i + 1];
+                for (int j = valueStart; j < valueEnd; ++j) {
+                    used[j] = true;
+                }
+            }
+        }
+        return getRawElementBlock().getPositionsSizeInBytes(used) + ((Integer.BYTES + Byte.BYTES) * (long) usedPositionCount);
     }
 
     @Override
