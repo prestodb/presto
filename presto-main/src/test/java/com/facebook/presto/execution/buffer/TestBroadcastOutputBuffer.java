@@ -1087,6 +1087,7 @@ public class TestBroadcastOutputBuffer
                 () -> memoryContext.newLocalMemoryContext("test"),
                 notificationExecutor);
         buffer.setOutputBuffers(outputBuffers);
+        buffer.registerLifespanCompletionCallback(ignore -> {});
         return buffer;
     }
 
@@ -1148,6 +1149,7 @@ public class TestBroadcastOutputBuffer
                 () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 stateNotificationExecutor);
         buffer.setOutputBuffers(outputBuffers);
+        buffer.registerLifespanCompletionCallback(ignore -> {});
         return buffer;
     }
 

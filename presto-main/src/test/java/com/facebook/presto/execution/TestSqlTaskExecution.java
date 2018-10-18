@@ -105,6 +105,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -253,6 +254,8 @@ public class TestSqlTaskExecution
                     waitUntilEquals(taskContext::getCompletedDriverGroups, ImmutableSet.of(Lifespan.driverGroup(1), Lifespan.driverGroup(5)), ASSERT_WAIT_TIMEOUT);
 
                     // pause operator execution to make sure that
+                    // * operatorFactory will be closed even though operator can't execute
+                    // * completedDriverGroups will NOT include the newly scheduled driver group while pause is in place
                     testingScanOperatorFactory.getPauser().pause();
                     // add source for pipeline (driver group [7]), mark pipeline as noMoreSplits without explicitly marking driver group 7
                     sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
@@ -270,6 +273,9 @@ public class TestSqlTaskExecution
                     assertEquals(taskContext.getCompletedDriverGroups(), ImmutableSet.of(Lifespan.driverGroup(1), Lifespan.driverGroup(5)));
                     // resume operator execution
                     testingScanOperatorFactory.getPauser().resume();
+                    // assert driver group [7] is not completed before output buffer is consumed
+                    MILLISECONDS.sleep(1000);
+                    assertEquals(taskContext.getCompletedDriverGroups(), ImmutableSet.of(Lifespan.driverGroup(1), Lifespan.driverGroup(5)));
                     // assert that result is produced
                     outputBufferConsumer.consume(45 + 54, ASSERT_WAIT_TIMEOUT);
                     outputBufferConsumer.assertBufferComplete(ASSERT_WAIT_TIMEOUT);

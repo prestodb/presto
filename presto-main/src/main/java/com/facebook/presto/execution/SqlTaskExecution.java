@@ -219,6 +219,7 @@ public class SqlTaskExecution
                     .collect(toImmutableMap(identity(), ignore -> new PendingSplitsForPlanNode()));
             this.status = new Status(
                     taskContext,
+                    outputBuffer,
                     localExecutionPlan.getDriverFactories().stream()
                             .collect(toImmutableMap(DriverFactory::getPipelineId, DriverFactory::getPipelineExecutionStrategy)));
             this.schedulingLifespanManager = new SchedulingLifespanManager(localExecutionPlan.getPartitionedSourceOrder(), localExecutionPlan.getStageExecutionDescriptor(), this.status);
@@ -245,6 +246,7 @@ public class SqlTaskExecution
             }
 
             outputBuffer.addStateChangeListener(new CheckTaskCompletionOnBufferFinish(SqlTaskExecution.this));
+            outputBuffer.registerLifespanCompletionCallback(status::checkLifespanCompletion);
         }
     }
 
@@ -639,7 +641,7 @@ public class SqlTaskExecution
         // no more output will be created
         outputBuffer.setNoMorePages();
 
-        // are there still pages in the output buffer
+        // are there still pages in the output buffer?
         if (!outputBuffer.isFinished()) {
             return;
         }
@@ -1127,6 +1129,7 @@ public class SqlTaskExecution
         // remaining driver: number of created Drivers that haven't yet finished.
 
         private final TaskContext taskContext;
+        private final OutputBuffer outputBuffer;
 
         @GuardedBy("this")
         private final int pipelineWithTaskLifeCycleCount;
@@ -1150,9 +1153,11 @@ public class SqlTaskExecution
         @GuardedBy("this")
         private boolean noMoreLifespans;
 
-        public Status(TaskContext taskContext, Map<Integer, PipelineExecutionStrategy> pipelineToExecutionStrategy)
+        public Status(TaskContext taskContext, OutputBuffer outputBuffer, Map<Integer, PipelineExecutionStrategy> pipelineToExecutionStrategy)
         {
             this.taskContext = requireNonNull(taskContext, "taskContext is null");
+            this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
+
             int pipelineWithTaskLifeCycleCount = 0;
             int pipelineWithDriverGroupLifeCycleCount = 0;
             ImmutableMap.Builder<Integer, Map<Lifespan, PerPipelineAndLifespanStatus>> perPipelineAndLifespan = ImmutableMap.builder();
@@ -1311,12 +1316,26 @@ public class SqlTaskExecution
             if (lifespan.isTaskWide()) {
                 return; // not a driver group
             }
+
+            // are there more partition splits expected?
             if (!isNoMoreDriverRunners(lifespan)) {
                 return;
             }
+
+            // do we still have running tasks?
             if (getRemainingDriver(lifespan) != 0) {
                 return;
             }
+
+            // no more output will be created
+            outputBuffer.setNoMorePagesForLifespan(lifespan);
+
+            // are there still pages in the output buffer?
+            if (!outputBuffer.isFinishedForLifespan(lifespan)) {
+                return;
+            }
+
+            // Cool! All done!
             taskContext.addCompletedDriverGroup(lifespan);
         }
 
