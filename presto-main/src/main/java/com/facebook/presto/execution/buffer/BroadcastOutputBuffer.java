@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
@@ -31,9 +32,12 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.execution.buffer.BufferState.FAILED;
@@ -67,6 +71,10 @@ public class BroadcastOutputBuffer
     private final AtomicLong totalPagesAdded = new AtomicLong();
     private final AtomicLong totalRowsAdded = new AtomicLong();
     private final AtomicLong totalBufferedPages = new AtomicLong();
+
+    private final ConcurrentMap<Lifespan, AtomicLong> outstandingPageCountPerLifespan = new ConcurrentHashMap<>();
+    private final Set<Lifespan> noMorePagesForLifespan = ConcurrentHashMap.newKeySet();
+    private volatile Consumer<Lifespan> lifespanCompletionCallback;
 
     public BroadcastOutputBuffer(
             String taskInstanceId,
@@ -185,14 +193,22 @@ public class BroadcastOutputBuffer
     }
 
     @Override
-    public void enqueue(List<SerializedPage> pages)
+    public void registerLifespanCompletionCallback(Consumer<Lifespan> callback)
+    {
+        checkState(lifespanCompletionCallback == null, "lifespanCompletionCallback is already set");
+        this.lifespanCompletionCallback = requireNonNull(callback, "callback is null");
+    }
+
+    @Override
+    public void enqueue(Lifespan lifespan, List<SerializedPage> pages)
     {
         checkState(!Thread.holdsLock(this), "Can not enqueue pages while holding a lock on this");
         requireNonNull(pages, "pages is null");
+        checkState(lifespanCompletionCallback != null, "lifespanCompletionCallback must be set before enqueueing data");
 
         // ignore pages after "no more pages" is set
         // this can happen with a limit query
-        if (!state.get().canAddPages()) {
+        if (!state.get().canAddPages() || noMorePagesForLifespan.contains(lifespan)) {
             return;
         }
 
@@ -205,13 +221,14 @@ public class BroadcastOutputBuffer
         totalRowsAdded.addAndGet(rowCount);
         totalPagesAdded.addAndGet(pages.size());
         totalBufferedPages.addAndGet(pages.size());
+        outstandingPageCountPerLifespan.computeIfAbsent(lifespan, ignore -> new AtomicLong()).addAndGet(pages.size());
 
         // create page reference counts with an initial single reference
         List<SerializedPageReference> serializedPageReferences = pages.stream()
-                .map(pageSplit -> new SerializedPageReference(pageSplit, 1, () -> {
-                    checkState(totalBufferedPages.decrementAndGet() >= 0);
-                    memoryManager.updateMemoryUsage(-pageSplit.getRetainedSizeInBytes());
-                }))
+                .map(pageSplit -> new SerializedPageReference(
+                        pageSplit,
+                        1,
+                        () -> dereferencePage(pageSplit, lifespan)))
                 .collect(toImmutableList());
 
         // if we can still add buffers, remember the pages for the future buffers
@@ -234,10 +251,10 @@ public class BroadcastOutputBuffer
     }
 
     @Override
-    public void enqueue(int partitionNumber, List<SerializedPage> pages)
+    public void enqueue(Lifespan lifespan, int partitionNumber, List<SerializedPage> pages)
     {
         checkState(partitionNumber == 0, "Expected partition number to be zero");
-        enqueue(pages);
+        enqueue(lifespan, pages);
     }
 
     @Override
@@ -308,6 +325,24 @@ public class BroadcastOutputBuffer
             forceFreeMemory();
             // DO NOT destroy buffers or set no more pages.  The coordinator manages the teardown of failed queries.
         }
+    }
+
+    @Override
+    public void setNoMorePagesForLifespan(Lifespan lifespan)
+    {
+        requireNonNull(lifespan, "lifespan is null");
+        noMorePagesForLifespan.add(lifespan);
+    }
+
+    @Override
+    public boolean isFinishedForLifespan(Lifespan lifespan)
+    {
+        if (!noMorePagesForLifespan.contains(lifespan)) {
+            return false;
+        }
+
+        AtomicLong outstandingPageCount = outstandingPageCountPerLifespan.get(lifespan);
+        return outstandingPageCount == null || outstandingPageCount.get() == 0;
     }
 
     @Override
@@ -399,5 +434,17 @@ public class BroadcastOutputBuffer
     OutputBufferMemoryManager getMemoryManager()
     {
         return memoryManager;
+    }
+
+    private void dereferencePage(SerializedPage pageSplit, Lifespan lifespan)
+    {
+        long outstandingPageCount = outstandingPageCountPerLifespan.get(lifespan).decrementAndGet();
+        if (outstandingPageCount == 0 && noMorePagesForLifespan.contains(lifespan)) {
+            checkState(lifespanCompletionCallback != null, "lifespanCompletionCallback is not null");
+            lifespanCompletionCallback.accept(lifespan);
+        }
+
+        checkState(totalBufferedPages.decrementAndGet() >= 0);
+        memoryManager.updateMemoryUsage(-pageSplit.getRetainedSizeInBytes());
     }
 }

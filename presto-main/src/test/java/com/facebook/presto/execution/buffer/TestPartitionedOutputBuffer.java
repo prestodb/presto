@@ -839,13 +839,15 @@ public class TestPartitionedOutputBuffer
 
     private PartitionedOutputBuffer createPartitionedBuffer(OutputBuffers buffers, DataSize dataSize)
     {
-        return new PartitionedOutputBuffer(
+        PartitionedOutputBuffer buffer = new PartitionedOutputBuffer(
                 TASK_INSTANCE_ID,
                 new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
                 buffers,
                 dataSize,
                 () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 stateNotificationExecutor);
+        buffer.registerLifespanCompletionCallback(ignore -> {});
+        return buffer;
     }
 
     private static BufferResult bufferResult(long token, Page firstPage, Page... otherPages)
