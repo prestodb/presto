@@ -28,7 +28,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
-import static com.facebook.presto.execution.QueryState.QUEUED;
+import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
@@ -85,7 +85,7 @@ public class TestQueryStateInfoResource
             List<BasicQueryInfo> queryInfos = client.execute(
                     prepareGet().setUri(uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/query").build()).build(),
                     createJsonResponseHandler(listJsonCodec(BasicQueryInfo.class)));
-            if ((queryInfos.size() == 2) && queryInfos.stream().noneMatch(info -> info.getState() == QUEUED)) {
+            if ((queryInfos.size() == 2) && queryInfos.stream().allMatch(info -> info.getState() == RUNNING)) {
                 break;
             }
         }
