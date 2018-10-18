@@ -23,7 +23,6 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -39,7 +38,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -48,8 +46,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
-import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
-import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.facebook.presto.hive.metastore.HivePartitionName.hivePartitionName;
+import static com.facebook.presto.hive.metastore.HiveTableName.hiveTableName;
+import static com.facebook.presto.hive.metastore.PartitionFilter.partitionFilter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -256,7 +255,7 @@ public class CachingHiveMetastore
     @Override
     public Optional<Table> getTable(String databaseName, String tableName)
     {
-        return get(tableCache, HiveTableName.table(databaseName, tableName));
+        return get(tableCache, hiveTableName(databaseName, tableName));
     }
 
     @Override
@@ -273,7 +272,7 @@ public class CachingHiveMetastore
     @Override
     public PartitionStatistics getTableStatistics(String databaseName, String tableName)
     {
-        return get(tableStatisticsCache, new HiveTableName(databaseName, tableName));
+        return get(tableStatisticsCache, hiveTableName(databaseName, tableName));
     }
 
     private PartitionStatistics loadTableColumnStatistics(HiveTableName hiveTableName)
@@ -285,7 +284,7 @@ public class CachingHiveMetastore
     public Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
     {
         List<HivePartitionName> partitions = partitionNames.stream()
-                .map(partitionName -> HivePartitionName.partition(databaseName, tableName, partitionName))
+                .map(partitionName -> HivePartitionName.hivePartitionName(databaseName, tableName, partitionName))
                 .collect(toImmutableList());
         Map<HivePartitionName, PartitionStatistics> statistics = getAll(partitionStatisticsCache, partitions);
         return statistics.entrySet()
@@ -319,7 +318,7 @@ public class CachingHiveMetastore
                 if (!partitionStatistics.containsKey(partitionName)) {
                     throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Statistics result does not contain entry for partition: " + partitionName);
                 }
-                result.put(HivePartitionName.partition(table, partitionName), partitionStatistics.get(partitionName));
+                result.put(HivePartitionName.hivePartitionName(table, partitionName), partitionStatistics.get(partitionName));
             }
         });
         return result.build();
@@ -332,7 +331,7 @@ public class CachingHiveMetastore
             delegate.updateTableStatistics(databaseName, tableName, update);
         }
         finally {
-            tableStatisticsCache.invalidate(HiveTableName.table(databaseName, tableName));
+            tableStatisticsCache.invalidate(hiveTableName(databaseName, tableName));
         }
     }
 
@@ -343,7 +342,7 @@ public class CachingHiveMetastore
             delegate.updatePartitionStatistics(databaseName, tableName, partitionName, update);
         }
         finally {
-            partitionStatisticsCache.invalidate(HivePartitionName.partition(databaseName, tableName, partitionName));
+            partitionStatisticsCache.invalidate(HivePartitionName.hivePartitionName(databaseName, tableName, partitionName));
         }
     }
 
@@ -490,27 +489,27 @@ public class CachingHiveMetastore
 
     protected void invalidateTable(String databaseName, String tableName)
     {
-        tableCache.invalidate(new HiveTableName(databaseName, tableName));
+        tableCache.invalidate(hiveTableName(databaseName, tableName));
         tableNamesCache.invalidate(databaseName);
         viewNamesCache.invalidate(databaseName);
         userTablePrivileges.asMap().keySet().stream()
                 .filter(userTableKey -> userTableKey.matches(databaseName, tableName))
                 .forEach(userTablePrivileges::invalidate);
-        tableStatisticsCache.invalidate(new HiveTableName(databaseName, tableName));
+        tableStatisticsCache.invalidate(hiveTableName(databaseName, tableName));
         invalidatePartitionCache(databaseName, tableName);
     }
 
     @Override
     public Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues)
     {
-        HivePartitionName name = HivePartitionName.partition(databaseName, tableName, partitionValues);
+        HivePartitionName name = hivePartitionName(databaseName, tableName, partitionValues);
         return get(partitionCache, name);
     }
 
     @Override
     public Optional<List<String>> getPartitionNames(String databaseName, String tableName)
     {
-        return get(partitionNamesCache, HiveTableName.table(databaseName, tableName));
+        return get(partitionNamesCache, hiveTableName(databaseName, tableName));
     }
 
     private Optional<List<String>> loadPartitionNames(HiveTableName hiveTableName)
@@ -521,7 +520,7 @@ public class CachingHiveMetastore
     @Override
     public Optional<List<String>> getPartitionNamesByParts(String databaseName, String tableName, List<String> parts)
     {
-        return get(partitionFilterCache, PartitionFilter.partitionFilter(databaseName, tableName, parts));
+        return get(partitionFilterCache, partitionFilter(databaseName, tableName, parts));
     }
 
     private Optional<List<String>> loadPartitionNamesByParts(PartitionFilter partitionFilter)
@@ -535,7 +534,7 @@ public class CachingHiveMetastore
     @Override
     public Map<String, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
     {
-        Iterable<HivePartitionName> names = transform(partitionNames, name -> HivePartitionName.partition(databaseName, tableName, name));
+        Iterable<HivePartitionName> names = transform(partitionNames, name -> HivePartitionName.hivePartitionName(databaseName, tableName, name));
 
         Map<HivePartitionName, Optional<Partition>> all = getAll(partitionCache, names);
         ImmutableMap.Builder<String, Optional<Partition>> partitionsByName = ImmutableMap.builder();
@@ -573,7 +572,7 @@ public class CachingHiveMetastore
         ImmutableMap.Builder<HivePartitionName, Optional<Partition>> partitions = ImmutableMap.builder();
         Map<String, Optional<Partition>> partitionsByNames = delegate.getPartitionsByNames(databaseName, tableName, partitionsToFetch);
         for (Entry<String, Optional<Partition>> entry : partitionsByNames.entrySet()) {
-            partitions.put(HivePartitionName.partition(hiveTableName, entry.getKey()), entry.getValue());
+            partitions.put(HivePartitionName.hivePartitionName(hiveTableName, entry.getKey()), entry.getValue());
         }
         return partitions.build();
     }
@@ -614,7 +613,7 @@ public class CachingHiveMetastore
 
     private void invalidatePartitionCache(String databaseName, String tableName)
     {
-        HiveTableName hiveTableName = HiveTableName.table(databaseName, tableName);
+        HiveTableName hiveTableName = hiveTableName(databaseName, tableName);
         partitionNamesCache.invalidate(hiveTableName);
         partitionCache.asMap().keySet().stream()
                 .filter(partitionName -> partitionName.getHiveTableName().equals(hiveTableName))
@@ -688,259 +687,5 @@ public class CachingHiveMetastore
         }
         cacheBuilder = cacheBuilder.maximumSize(maximumSize);
         return cacheBuilder;
-    }
-
-    private static class HiveTableName
-    {
-        private final String databaseName;
-        private final String tableName;
-
-        private HiveTableName(String databaseName, String tableName)
-        {
-            this.databaseName = databaseName;
-            this.tableName = tableName;
-        }
-
-        public static HiveTableName table(String databaseName, String tableName)
-        {
-            return new HiveTableName(databaseName, tableName);
-        }
-
-        public String getDatabaseName()
-        {
-            return databaseName;
-        }
-
-        public String getTableName()
-        {
-            return tableName;
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("databaseName", databaseName)
-                    .add("tableName", tableName)
-                    .toString();
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            HiveTableName other = (HiveTableName) o;
-            return Objects.equals(databaseName, other.databaseName) &&
-                    Objects.equals(tableName, other.tableName);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(databaseName, tableName);
-        }
-    }
-
-    private static class HivePartitionName
-    {
-        private final HiveTableName hiveTableName;
-        private final List<String> partitionValues;
-        private final String partitionName; // does not participate in hashCode/equals
-
-        private HivePartitionName(HiveTableName hiveTableName, List<String> partitionValues, String partitionName)
-        {
-            this.hiveTableName = requireNonNull(hiveTableName, "hiveTableName is null");
-            this.partitionValues = requireNonNull(partitionValues, "partitionValues is null");
-            this.partitionName = partitionName;
-        }
-
-        public static HivePartitionName partition(HiveTableName hiveTableName, String partitionName)
-        {
-            return new HivePartitionName(hiveTableName, toPartitionValues(partitionName), partitionName);
-        }
-
-        public static HivePartitionName partition(String databaseName, String tableName, String partitionName)
-        {
-            return partition(HiveTableName.table(databaseName, tableName), partitionName);
-        }
-
-        public static HivePartitionName partition(String databaseName, String tableName, List<String> partitionValues)
-        {
-            return new HivePartitionName(HiveTableName.table(databaseName, tableName), partitionValues, null);
-        }
-
-        public HiveTableName getHiveTableName()
-        {
-            return hiveTableName;
-        }
-
-        public List<String> getPartitionValues()
-        {
-            return partitionValues;
-        }
-
-        public String getPartitionName()
-        {
-            return requireNonNull(partitionName, "partitionName is null");
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("hiveTableName", hiveTableName)
-                    .add("partitionValues", partitionValues)
-                    .add("partitionName", partitionName)
-                    .toString();
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            HivePartitionName other = (HivePartitionName) o;
-            return Objects.equals(hiveTableName, other.hiveTableName) &&
-                    Objects.equals(partitionValues, other.partitionValues);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(hiveTableName, partitionValues);
-        }
-    }
-
-    private static class PartitionFilter
-    {
-        private final HiveTableName hiveTableName;
-        private final List<String> parts;
-
-        private PartitionFilter(HiveTableName hiveTableName, List<String> parts)
-        {
-            this.hiveTableName = hiveTableName;
-            this.parts = ImmutableList.copyOf(parts);
-        }
-
-        public static PartitionFilter partitionFilter(String databaseName, String tableName, List<String> parts)
-        {
-            return new PartitionFilter(HiveTableName.table(databaseName, tableName), parts);
-        }
-
-        public HiveTableName getHiveTableName()
-        {
-            return hiveTableName;
-        }
-
-        public List<String> getParts()
-        {
-            return parts;
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("hiveTableName", hiveTableName)
-                    .add("parts", parts)
-                    .toString();
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            PartitionFilter other = (PartitionFilter) o;
-            return Objects.equals(hiveTableName, other.hiveTableName) &&
-                    Objects.equals(parts, other.parts);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(hiveTableName, parts);
-        }
-    }
-
-    private static class UserTableKey
-    {
-        private final String user;
-        private final String database;
-        private final String table;
-
-        public UserTableKey(String user, String table, String database)
-        {
-            this.user = requireNonNull(user, "principalName is null");
-            this.table = requireNonNull(table, "table is null");
-            this.database = requireNonNull(database, "database is null");
-        }
-
-        public String getUser()
-        {
-            return user;
-        }
-
-        public String getDatabase()
-        {
-            return database;
-        }
-
-        public String getTable()
-        {
-            return table;
-        }
-
-        public boolean matches(String databaseName, String tableName)
-        {
-            return this.database.equals(databaseName) && this.table.equals(tableName);
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            UserTableKey that = (UserTableKey) o;
-            return Objects.equals(user, that.user) &&
-                    Objects.equals(table, that.table) &&
-                    Objects.equals(database, that.database);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(user, table, database);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("principalName", user)
-                    .add("table", table)
-                    .add("database", database)
-                    .toString();
-        }
     }
 }
