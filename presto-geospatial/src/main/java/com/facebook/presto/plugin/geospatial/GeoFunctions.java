@@ -378,7 +378,8 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stIsEmpty(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        return deserializeEnvelope(input) == null;
+        Envelope envelope = deserializeEnvelope(input);
+        return envelope == null || envelope.isEmpty();
     }
 
     @Description("Returns TRUE if this Geometry has no anomalous geometric points, such as self intersection or self tangency")
