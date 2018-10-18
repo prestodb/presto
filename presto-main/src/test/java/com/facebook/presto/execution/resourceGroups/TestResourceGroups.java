@@ -57,6 +57,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestResourceGroups
 {
+    // Setting shouldPendQueriesUntilScaleout to false  while invoking InternalResourceGroup.run() in these tests as query-manager.queue-pending-queries is disabled by default
     @Test(timeOut = 10_000)
     public void testQueueFull()
     {

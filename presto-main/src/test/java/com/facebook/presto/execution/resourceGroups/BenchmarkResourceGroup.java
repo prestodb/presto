@@ -83,6 +83,7 @@ public class BenchmarkResourceGroup
                 group.setHardConcurrencyLimit(queries);
             }
             for (int i = 0; i < queries; i++) {
+                // Setting shouldPendQueriesUntilScaleout to false as query-manager.queue-pending-queries is disabled by default
                 group.run(new MockQueryExecution(10), false);
             }
         }

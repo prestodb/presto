@@ -94,11 +94,18 @@ public final class InternalResourceGroupManager<C>
     private final int initializationRequiredWorkers;
     private final Duration initializationTimeout;
     private final long initialNanos;
-    private final boolean shouldQueueQueriesWithInsufficientWorkers;
+    private final boolean shouldQueuePendingQueries;
     private final AtomicBoolean acceptQueries = new AtomicBoolean();
 
     @Inject
-    public InternalResourceGroupManager(LegacyResourceGroupConfigurationManager legacyManager, ClusterMemoryPoolManager memoryPoolManager, NodeInfo nodeInfo, MBeanExporter exporter, InternalNodeManager internalNodeManager, QueryManagerConfig queryManagerConfig, NodeSchedulerConfig nodeSchedulerConfig)
+    public InternalResourceGroupManager(
+            LegacyResourceGroupConfigurationManager legacyManager,
+            ClusterMemoryPoolManager memoryPoolManager,
+            NodeInfo nodeInfo,
+            MBeanExporter exporter,
+            InternalNodeManager internalNodeManager,
+            QueryManagerConfig queryManagerConfig,
+            NodeSchedulerConfig nodeSchedulerConfig)
     {
         this.exporter = requireNonNull(exporter, "exporter is null");
         this.configurationManagerContext = new ResourceGroupConfigurationManagerContextInstance(memoryPoolManager, nodeInfo.getEnvironment());
@@ -111,7 +118,7 @@ public final class InternalResourceGroupManager<C>
         this.initializationRequiredWorkers = queryManagerConfig.getInitializationRequiredWorkers();
         this.initializationTimeout = queryManagerConfig.getInitializationTimeout();
         this.initialNanos = System.nanoTime();
-        this.shouldQueueQueriesWithInsufficientWorkers = queryManagerConfig.getQueueQueriesWithInsufficientWorkers();
+        this.shouldQueuePendingQueries = queryManagerConfig.getShouldQueuePendingQueries();
     }
 
     @Override
@@ -128,9 +135,9 @@ public final class InternalResourceGroupManager<C>
         return groups.get(id).getPathToRoot();
     }
 
-    private boolean shouldQueueQueries()
+    private boolean shouldPendQueriesUntilScaleout()
     {
-        return (getActiveWorkerCount() < initializationRequiredWorkers && shouldQueueQueriesWithInsufficientWorkers);
+        return (getActiveWorkerCount() < initializationRequiredWorkers && shouldQueuePendingQueries);
     }
 
     private int getActiveWorkerCount()
@@ -146,14 +153,14 @@ public final class InternalResourceGroupManager<C>
     {
         checkState(configurationManager.get() != null, "configurationManager not set");
         int activeWorkerCount = getActiveWorkerCount();
-        if (!acceptQueries.get() && !shouldQueueQueriesWithInsufficientWorkers) {
+        if (!acceptQueries.get() && !shouldPendQueriesUntilScaleout()) {
             if (nanosSince(initialNanos).compareTo(initializationTimeout) < 0 && activeWorkerCount < initializationRequiredWorkers) {
                 queryExecution.fail(new PrestoException(SERVER_STARTING_UP, String.format("Cluster is still initializing, there are insufficient active worker nodes (%s) to run query. Waiting for (%s) active worker nodes.", activeWorkerCount, initializationRequiredWorkers)));
             }
             acceptQueries.set(true);
         }
         createGroupIfNecessary(selectionContext, executor);
-        groups.get(selectionContext.getResourceGroupId()).run(queryExecution, shouldQueueQueries());
+        groups.get(selectionContext.getResourceGroupId()).run(queryExecution, shouldPendQueriesUntilScaleout());
     }
 
     @Override
@@ -238,7 +245,7 @@ public final class InternalResourceGroupManager<C>
             // nano time has overflowed
             lastCpuQuotaGenerationNanos.set(nanoTime);
         }
-        if (!shouldQueueQueries()) {
+        if (!shouldPendQueriesUntilScaleout()) {
             for (RootInternalResourceGroup group : rootGroups) {
                 try {
                     if (elapsedSeconds > 0) {

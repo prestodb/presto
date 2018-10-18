@@ -47,7 +47,7 @@ public class TestQueryManagerConfig
                 .setQueryMaxCpuTime(new Duration(1_000_000_000, TimeUnit.DAYS))
                 .setInitializationRequiredWorkers(1)
                 .setInitializationTimeout(new Duration(5, TimeUnit.MINUTES))
-                .setQueueQueriesWithInsufficientWorkers(false));
+                .setShouldQueuePendingQueries(false));
     }
 
     @Test
@@ -98,7 +98,7 @@ public class TestQueryManagerConfig
                 .setQueryMaxCpuTime(new Duration(2, TimeUnit.DAYS))
                 .setInitializationRequiredWorkers(200)
                 .setInitializationTimeout(new Duration(1, TimeUnit.MINUTES))
-                .setQueueQueriesWithInsufficientWorkers(true);
+                .setShouldQueuePendingQueries(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
