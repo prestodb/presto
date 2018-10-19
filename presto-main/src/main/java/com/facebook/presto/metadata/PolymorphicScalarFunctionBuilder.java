@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.metadata.PolymorphicScalarFunction.PolymorphicScalarFunctionChoice;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.Type;
@@ -21,18 +22,19 @@ import com.google.common.collect.ImmutableList;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Arrays.asList;
-import static java.util.Collections.emptyList;
+import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
 public final class PolymorphicScalarFunctionBuilder
@@ -42,9 +44,7 @@ public final class PolymorphicScalarFunctionBuilder
     private String description;
     private Optional<Boolean> hidden = Optional.empty();
     private Boolean deterministic;
-    private boolean nullableResult;
-    private List<ArgumentProperty> argumentProperties = emptyList();
-    private final List<MethodsGroup> methodsGroups = new ArrayList<>();
+    private final List<PolymorphicScalarFunctionChoice> choices = new ArrayList<>();
 
     public PolymorphicScalarFunctionBuilder(Class<?> clazz)
     {
@@ -76,31 +76,11 @@ public final class PolymorphicScalarFunctionBuilder
         return this;
     }
 
-    public PolymorphicScalarFunctionBuilder nullableResult(boolean nullableResult)
+    public PolymorphicScalarFunctionBuilder choice(Function<ChoiceBuilder, ChoiceBuilder> choiceSpecification)
     {
-        this.nullableResult = nullableResult;
-        return this;
-    }
-
-    public PolymorphicScalarFunctionBuilder argumentProperties(ArgumentProperty... argumentProperties)
-    {
-        requireNonNull(argumentProperties, "argumentProperties is null");
-        this.argumentProperties = ImmutableList.copyOf(argumentProperties);
-        return this;
-    }
-
-    public PolymorphicScalarFunctionBuilder argumentProperties(List<ArgumentProperty> argumentProperties)
-    {
-        this.argumentProperties = ImmutableList.copyOf(requireNonNull(argumentProperties, "argumentProperties is null"));
-        return this;
-    }
-
-    public PolymorphicScalarFunctionBuilder implementation(Function<MethodsGroupBuilder, MethodsGroupBuilder> methodGroupSpecification)
-    {
-        MethodsGroupBuilder methodsGroupBuilder = new MethodsGroupBuilder(clazz);
-        methodGroupSpecification.apply(methodsGroupBuilder);
-        MethodsGroup methodsGroup = methodsGroupBuilder.build();
-        methodsGroups.add(methodsGroup);
+        ChoiceBuilder choiceBuilder = new ChoiceBuilder(clazz, signature);
+        choiceSpecification.apply(choiceBuilder);
+        choices.add(choiceBuilder.build());
         return this;
     }
 
@@ -109,18 +89,12 @@ public final class PolymorphicScalarFunctionBuilder
         checkState(signature != null, "signature is null");
         checkState(deterministic != null, "deterministic is null");
 
-        if (argumentProperties.isEmpty()) {
-            argumentProperties = Collections.nCopies(signature.getArgumentTypes().size(), valueTypeArgumentProperty(RETURN_NULL_ON_NULL));
-        }
-
         return new PolymorphicScalarFunction(
                 signature,
                 description,
                 hidden.orElse(false),
                 deterministic,
-                nullableResult,
-                argumentProperties,
-                methodsGroups);
+                choices);
     }
 
     @SafeVarargs
@@ -151,7 +125,7 @@ public final class PolymorphicScalarFunctionBuilder
         return false;
     }
 
-    public static class SpecializeContext
+    public static final class SpecializeContext
     {
         private final BoundVariables boundVariables;
         private final List<Type> parameterTypes;
@@ -202,12 +176,17 @@ public final class PolymorphicScalarFunctionBuilder
     public static class MethodsGroupBuilder
     {
         private final Class<?> clazz;
-        private List<Method> methods;
+        private final Signature signature;
+        private List<ArgumentProperty> argumentProperties;
+        private final ImmutableList.Builder<MethodAndNativeContainerTypes> methodAndNativeContainerTypesList = ImmutableList.builder();
+
         private Optional<Function<SpecializeContext, List<Object>>> extraParametersFunction = Optional.empty();
 
-        private MethodsGroupBuilder(Class<?> clazz)
+        private MethodsGroupBuilder(Class<?> clazz, Signature signature, List<ArgumentProperty> argumentProperties)
         {
             this.clazz = clazz;
+            this.signature = signature;
+            this.argumentProperties = argumentProperties;
         }
 
         public MethodsGroupBuilder methods(String... methodNames)
@@ -219,57 +198,147 @@ public final class PolymorphicScalarFunctionBuilder
         {
             requireNonNull(methodNames, "methodNames is null");
             checkArgument(!methodNames.isEmpty(), "methods list is empty");
-
-            List<Method> matchingMethods = asList(clazz.getMethods()).stream()
-                    .filter(method -> methodNames.contains(method.getName()))
-                    .collect(toImmutableList());
-            List<String> matchingMethodNames = matchingMethods.stream()
-                    .map(Method::getName)
-                    .collect(toImmutableList());
-
-            for (String methodName : methodNames) {
-                checkState(matchingMethodNames.contains(methodName), "method %s was not found in %s", methodName, clazz);
-            }
-
-            this.methods = matchingMethods;
+            methodNames.forEach(methodName -> this.methodWithExplicitJavaTypes(methodName, nCopies(signature.getArgumentTypes().size(), Optional.empty())));
             return this;
         }
 
         public MethodsGroupBuilder withExtraParameters(Function<SpecializeContext, List<Object>> extraParametersFunction)
         {
-            checkState(methods != null, "methods must be selected first");
+            checkState(!methodAndNativeContainerTypesList.build().isEmpty(), "methods must be selected first");
             requireNonNull(extraParametersFunction, "extraParametersFunction is null");
             this.extraParametersFunction = Optional.of(extraParametersFunction);
             return this;
         }
 
+        public MethodsGroupBuilder methodWithExplicitJavaTypes(String methodName, List<Optional<Class<?>>> types)
+        {
+            requireNonNull(methodName, "methodName is null");
+            List<MethodAndNativeContainerTypes> matchingMethod = asList(clazz.getMethods()).stream()
+                    .filter(method -> methodName.equals(method.getName()))
+                    .map(method -> new MethodAndNativeContainerTypes(method, types))
+                    .collect(toImmutableList());
+
+            checkState(!matchingMethod.isEmpty(), "method %s was not found in %s", methodName, clazz);
+            checkState(matchingMethod.size() == 1, "multiple methods %s was not found in %s", methodName, clazz);
+            MethodAndNativeContainerTypes methodAndNativeContainerTypes = matchingMethod.get(0);
+            int argumentSize = signature.getArgumentTypes().size();
+            checkState(types.size() == argumentSize, "not matching number of arguments from signature: %s (should have %s)",
+                    types.size(), argumentSize);
+            checkState(types.size() == argumentProperties.size(), "not matching number of arguments from argument properties: %s (should have %s)",
+                    types.size(), argumentProperties.size());
+            Iterator<ArgumentProperty> argumentPropertyIterator = argumentProperties.iterator();
+            Iterator<Optional<Class<?>>> typesIterator = types.iterator();
+            while (argumentPropertyIterator.hasNext() && typesIterator.hasNext()) {
+                Optional<Class<?>> classOptional = typesIterator.next();
+                ArgumentProperty argumentProperty = argumentPropertyIterator.next();
+                checkState((argumentProperty.getNullConvention() == BLOCK_AND_POSITION) == classOptional.isPresent(),
+                        "Explicit type is not set when null convention is BLOCK_AND_POSITION");
+            }
+            methodAndNativeContainerTypesList.add(methodAndNativeContainerTypes);
+            return this;
+        }
+
         public MethodsGroup build()
         {
-            return new MethodsGroup(methods, extraParametersFunction);
+            return new MethodsGroup(methodAndNativeContainerTypesList.build(), extraParametersFunction);
         }
     }
 
-    static class MethodsGroup
+    public static class ChoiceBuilder
     {
-        private final List<Method> methods;
-        private final Optional<Function<SpecializeContext, List<Object>>> extraParametersFunction;
+        private final Class<?> clazz;
+        private final Signature signature;
+        private boolean nullableResult;
+        private List<ArgumentProperty> argumentProperties;
+        private final ImmutableList.Builder<MethodsGroup> methodsGroups = ImmutableList.builder();
 
-        private MethodsGroup(
-                List<Method> methods,
+        private ChoiceBuilder(Class<?> clazz, Signature signature)
+        {
+            this.clazz = requireNonNull(clazz, "clazz is null");
+            this.signature = requireNonNull(signature, "signature is null");
+        }
+
+        public ChoiceBuilder implementation(Function<MethodsGroupBuilder, MethodsGroupBuilder> methodsGroupSpecification)
+        {
+            // if the argumentProperties is not set yet. We assume it is set to the default value.
+            if (argumentProperties == null) {
+                argumentProperties = nCopies(signature.getArgumentTypes().size(), valueTypeArgumentProperty(RETURN_NULL_ON_NULL));
+            }
+            MethodsGroupBuilder methodsGroupBuilder = new MethodsGroupBuilder(clazz, signature, argumentProperties);
+            methodsGroupSpecification.apply(methodsGroupBuilder);
+            methodsGroups.add(methodsGroupBuilder.build());
+            return this;
+        }
+
+        public ChoiceBuilder nullableResult(boolean nullableResult)
+        {
+            this.nullableResult = nullableResult;
+            return this;
+        }
+
+        public ChoiceBuilder argumentProperties(ArgumentProperty... argumentProperties)
+        {
+            requireNonNull(argumentProperties, "argumentProperties is null");
+            checkState(this.argumentProperties == null,
+                    "The `argumentProperties` method must be invoked only once, and must be invoked before the `implementation` method");
+            this.argumentProperties = ImmutableList.copyOf(argumentProperties);
+            return this;
+        }
+
+        public PolymorphicScalarFunctionChoice build()
+        {
+            return new PolymorphicScalarFunctionChoice(nullableResult, argumentProperties, methodsGroups.build());
+        }
+    }
+
+    static final class MethodsGroup
+    {
+        private final Optional<Function<SpecializeContext, List<Object>>> extraParametersFunction;
+        private final List<MethodAndNativeContainerTypes> methodAndNativeContainerTypes;
+
+        MethodsGroup(
+                List<MethodAndNativeContainerTypes> methodAndNativeContainerTypes,
                 Optional<Function<SpecializeContext, List<Object>>> extraParametersFunction)
         {
-            this.methods = requireNonNull(methods, "methods is null");
+            this.methodAndNativeContainerTypes = requireNonNull(methodAndNativeContainerTypes, "methodAndNativeContainerTypes is null");
             this.extraParametersFunction = requireNonNull(extraParametersFunction, "extraParametersFunction is null");
         }
 
-        List<Method> getMethods()
+        List<MethodAndNativeContainerTypes> getMethods()
         {
-            return methods;
+            return methodAndNativeContainerTypes;
         }
 
         Optional<Function<SpecializeContext, List<Object>>> getExtraParametersFunction()
         {
             return extraParametersFunction;
+        }
+    }
+
+    static class MethodAndNativeContainerTypes
+    {
+        private final Method method;
+        private List<Optional<Class<?>>> explicitNativeContainerTypes;
+
+        MethodAndNativeContainerTypes(Method method, List<Optional<Class<?>>> explicitNativeContainerTypes)
+        {
+            this.method = method;
+            this.explicitNativeContainerTypes = explicitNativeContainerTypes;
+        }
+
+        public Method getMethod()
+        {
+            return method;
+        }
+
+        List<Optional<Class<?>>> getExplicitNativeContainerTypes()
+        {
+            return explicitNativeContainerTypes;
+        }
+
+        void setExplicitNativeContainerTypes(List<Optional<Class<?>>> explicitNativeContainerTypes)
+        {
+            this.explicitNativeContainerTypes = explicitNativeContainerTypes;
         }
     }
 }

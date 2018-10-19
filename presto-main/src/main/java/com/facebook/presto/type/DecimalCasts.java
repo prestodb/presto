@@ -14,7 +14,6 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
-import com.facebook.presto.metadata.PolymorphicScalarFunctionBuilder;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
@@ -101,7 +100,7 @@ public final class DecimalCasts
     public static final SqlScalarFunction DECIMAL_TO_VARCHAR_CAST = castFunctionFromDecimalTo(parseTypeSignature("varchar(x)", ImmutableSet.of("x")), "shortDecimalToVarchar", "longDecimalToVarchar");
     public static final SqlScalarFunction VARCHAR_TO_DECIMAL_CAST = castFunctionToDecimalFrom(parseTypeSignature("varchar(x)", ImmutableSet.of("x")), "varcharToShortDecimal", "varcharToLongDecimal");
     public static final SqlScalarFunction DECIMAL_TO_JSON_CAST = castFunctionFromDecimalTo(JSON.getTypeSignature(), "shortDecimalToJson", "longDecimalToJson");
-    public static final SqlScalarFunction JSON_TO_DECIMAL_CAST = castFunctionToDecimalFromBuilder(JSON.getTypeSignature(), "jsonToShortDecimal", "jsonToLongDecimal").nullableResult(true).build();
+    public static final SqlScalarFunction JSON_TO_DECIMAL_CAST = castFunctionToDecimalFromBuilder(JSON.getTypeSignature(), true, "jsonToShortDecimal", "jsonToLongDecimal");
 
     /**
      * Powers of 10 which can be represented exactly in double.
@@ -135,29 +134,30 @@ public final class DecimalCasts
         return SqlScalarFunction.builder(DecimalCasts.class)
                 .signature(signature)
                 .deterministic(true)
-                .implementation(b -> b
-                        .methods(methodNames)
-                        .withExtraParameters((context) -> {
-                            long precision = context.getLiteral("precision");
-                            long scale = context.getLiteral("scale");
-                            Number tenToScale;
-                            if (isShortDecimal(context.getParameterTypes().get(0))) {
-                                tenToScale = longTenToNth(intScale(scale));
-                            }
-                            else {
-                                tenToScale = bigIntegerTenToNth(intScale(scale));
-                            }
-                            return ImmutableList.of(precision, scale, tenToScale);
-                        }))
+                .choice(choice -> choice
+                    .implementation(methodsGroup -> methodsGroup
+                            .methods(methodNames)
+                            .withExtraParameters((context) -> {
+                                long precision = context.getLiteral("precision");
+                                long scale = context.getLiteral("scale");
+                                Number tenToScale;
+                                if (isShortDecimal(context.getParameterTypes().get(0))) {
+                                    tenToScale = longTenToNth(intScale(scale));
+                                }
+                                else {
+                                    tenToScale = bigIntegerTenToNth(intScale(scale));
+                                }
+                                return ImmutableList.of(precision, scale, tenToScale);
+                            })))
                 .build();
     }
 
     private static SqlScalarFunction castFunctionToDecimalFrom(TypeSignature from, String... methodNames)
     {
-        return castFunctionToDecimalFromBuilder(from, methodNames).build();
+        return castFunctionToDecimalFromBuilder(from, false, methodNames);
     }
 
-    private static PolymorphicScalarFunctionBuilder castFunctionToDecimalFromBuilder(TypeSignature from, String... methodNames)
+    private static SqlScalarFunction castFunctionToDecimalFromBuilder(TypeSignature from, boolean nullableResult, String... methodNames)
     {
         Signature signature = Signature.builder()
                 .kind(SCALAR)
@@ -168,19 +168,21 @@ public final class DecimalCasts
         return SqlScalarFunction.builder(DecimalCasts.class)
                 .signature(signature)
                 .deterministic(true)
-                .implementation(b -> b
-                        .methods(methodNames)
-                        .withExtraParameters((context) -> {
-                            DecimalType resultType = (DecimalType) context.getReturnType();
-                            Number tenToScale;
-                            if (isShortDecimal(resultType)) {
-                                tenToScale = longTenToNth(resultType.getScale());
-                            }
-                            else {
-                                tenToScale = bigIntegerTenToNth(resultType.getScale());
-                            }
-                            return ImmutableList.of(resultType.getPrecision(), resultType.getScale(), tenToScale);
-                        }));
+                .choice(choice -> choice
+                        .nullableResult(nullableResult)
+                        .implementation(methodsGroup -> methodsGroup
+                            .methods(methodNames)
+                            .withExtraParameters((context) -> {
+                                DecimalType resultType = (DecimalType) context.getReturnType();
+                                Number tenToScale;
+                                if (isShortDecimal(resultType)) {
+                                    tenToScale = longTenToNth(resultType.getScale());
+                                }
+                                else {
+                                    tenToScale = bigIntegerTenToNth(resultType.getScale());
+                                }
+                                return ImmutableList.of(resultType.getPrecision(), resultType.getScale(), tenToScale);
+                            }))).build();
     }
 
     private DecimalCasts() {}

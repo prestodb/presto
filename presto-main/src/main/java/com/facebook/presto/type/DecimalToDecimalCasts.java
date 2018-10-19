@@ -53,26 +53,27 @@ public final class DecimalToDecimalCasts
     public static final SqlScalarFunction DECIMAL_TO_DECIMAL_CAST = SqlScalarFunction.builder(DecimalToDecimalCasts.class)
             .signature(SIGNATURE)
             .deterministic(true)
-            .implementation(b -> b
-                    .methods("shortToShortCast")
-                    .withExtraParameters((context) -> {
-                        DecimalType argumentType = (DecimalType) context.getType("F");
-                        DecimalType resultType = (DecimalType) context.getType("T");
-                        long rescale = longTenToNth(Math.abs(resultType.getScale() - argumentType.getScale()));
-                        return ImmutableList.of(
-                                argumentType.getPrecision(), argumentType.getScale(),
-                                resultType.getPrecision(), resultType.getScale(),
-                                rescale, rescale / 2);
-                    }))
-            .implementation(b -> b
-                    .methods("shortToLongCast", "longToShortCast", "longToLongCast")
-                    .withExtraParameters((context) -> {
-                        DecimalType argumentType = (DecimalType) context.getType("F");
-                        DecimalType resultType = (DecimalType) context.getType("T");
-                        return ImmutableList.of(
-                                argumentType.getPrecision(), argumentType.getScale(),
-                                resultType.getPrecision(), resultType.getScale());
-                    }))
+            .choice(choice -> choice
+                    .implementation(methodsGroup -> methodsGroup
+                            .methods("shortToShortCast")
+                            .withExtraParameters((context) -> {
+                                DecimalType argumentType = (DecimalType) context.getType("F");
+                                DecimalType resultType = (DecimalType) context.getType("T");
+                                long rescale = longTenToNth(Math.abs(resultType.getScale() - argumentType.getScale()));
+                                return ImmutableList.of(
+                                        argumentType.getPrecision(), argumentType.getScale(),
+                                        resultType.getPrecision(), resultType.getScale(),
+                                        rescale, rescale / 2);
+                            }))
+                    .implementation(methodsGroup -> methodsGroup
+                            .methods("shortToLongCast", "longToShortCast", "longToLongCast")
+                            .withExtraParameters((context) -> {
+                                DecimalType argumentType = (DecimalType) context.getType("F");
+                                DecimalType resultType = (DecimalType) context.getType("T");
+                                return ImmutableList.of(
+                                        argumentType.getPrecision(), argumentType.getScale(),
+                                        resultType.getPrecision(), resultType.getScale());
+                            })))
             .build();
 
     private DecimalToDecimalCasts() {}
