@@ -107,6 +107,9 @@ public class TestHiveClientConfig
                 .setHdfsWireEncryptionEnabled(false)
                 .setPartitionStatisticsSampleSize(100)
                 .setIgnoreCorruptedStatistics(false)
+                .setRecordingPath(null)
+                .setRecordingDuration(new Duration(0, TimeUnit.MINUTES))
+                .setReplay(false)
                 .setCollectColumnStatisticsOnWrite(false));
     }
 
@@ -183,6 +186,9 @@ public class TestHiveClientConfig
                 .put("hive.hdfs.wire-encryption.enabled", "true")
                 .put("hive.partition-statistics-sample-size", "1234")
                 .put("hive.ignore-corrupted-statistics", "true")
+                .put("hive.metastore-recording-path", "/foo/bar")
+                .put("hive.metastore-recoding-duration", "42s")
+                .put("hive.replay-metastore-recording", "true")
                 .put("hive.collect-column-statistics-on-write", "true")
                 .build();
 
@@ -256,6 +262,9 @@ public class TestHiveClientConfig
                 .setHdfsWireEncryptionEnabled(true)
                 .setPartitionStatisticsSampleSize(1234)
                 .setIgnoreCorruptedStatistics(true)
+                .setRecordingPath("/foo/bar")
+                .setRecordingDuration(new Duration(42, TimeUnit.SECONDS))
+                .setReplay(true)
                 .setCollectColumnStatisticsOnWrite(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
