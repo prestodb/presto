@@ -26,6 +26,7 @@ import java.net.URI;
 import java.util.List;
 
 import static com.facebook.presto.client.FixJsonDataUtils.fixData;
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.unmodifiableIterable;
@@ -61,7 +62,18 @@ public class QueryResults
             @JsonProperty("updateType") String updateType,
             @JsonProperty("updateCount") Long updateCount)
     {
-        this(id, infoUri, partialCancelUri, nextUri, columns, fixData(columns, data), stats, error, warnings, updateType, updateCount);
+        this(
+                id,
+                infoUri,
+                partialCancelUri,
+                nextUri,
+                columns,
+                fixData(columns, data),
+                stats,
+                error,
+                firstNonNull(warnings, ImmutableList.of()),
+                updateType,
+                updateCount);
     }
 
     public QueryResults(
