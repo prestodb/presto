@@ -31,11 +31,11 @@ import static org.testng.Assert.assertTrue;
 
 public class TestRefreshSystemAccessControl
 {
-    @Test
-    public void testDefaultNoRefresh() throws Exception
+    @Test(expectedExceptions = IllegalStateException.class)
+    public void testFailIfNoInitialControl() throws Exception
     {
         Map<String, String> config = new HashMap<>();
-        assertNull(RefreshingSystemAccessControl.optionallyRefresh(config, previous -> null));
+        assertNull(RefreshingSystemAccessControl.optionallyRefresh(config, Optional::empty));
     }
 
     @Test
@@ -43,11 +43,12 @@ public class TestRefreshSystemAccessControl
     {
         Map<String, String> config = new HashMap<>();
         config.put(RefreshingSystemAccessControl.REFRESH_ENABLED, "true");
-        final AccessControlForTesting mock = new AccessControlForTesting();
-        SystemAccessControl ref = RefreshingSystemAccessControl.optionallyRefresh(config, previous -> mock);
-        assertNotEquals(mock, ref);
-        ref.checkCanSetUser(null, null);
-        assertTrue(mock.calledCheckCanSetUser);
+        final AccessControlForTesting control = new AccessControlForTesting();
+        SystemAccessControl ref = RefreshingSystemAccessControl.optionallyRefresh(config,
+                () -> Optional.of(control));
+        assertNotEquals(control, ref);
+        ref.checkCanSetUser(Optional.empty(), null);
+        assertTrue(control.calledCheckCanSetUser);
     }
 
     @Test
@@ -57,7 +58,7 @@ public class TestRefreshSystemAccessControl
         config.put(RefreshingSystemAccessControl.REFRESH_ENABLED, "true");
         config.put(RefreshingSystemAccessControl.REFRESH_PERIOD_SEC, "1");
         RefreshingSystemAccessControl ref = (RefreshingSystemAccessControl) RefreshingSystemAccessControl
-                .optionallyRefresh(config, previous -> new AccessControlForTesting());
+                .optionallyRefresh(config, () -> Optional.of(new AccessControlForTesting()));
         Instant start = Instant.now();
         SystemAccessControl mock = ref.getDelegateForTesting().get();
         // wait until we get a new mock or its been 10 seconds

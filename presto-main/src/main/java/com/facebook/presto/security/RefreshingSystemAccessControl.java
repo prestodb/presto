@@ -29,10 +29,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
+import java.util.function.Supplier;
 
 public class RefreshingSystemAccessControl
         implements SystemAccessControl
@@ -58,28 +57,28 @@ public class RefreshingSystemAccessControl
      * @param factory create the next {@link SystemAccessControl}, optionally informed by the previous
      * @return a {@link SystemAccessControl} that might be able to refresh itself
      */
-    public static SystemAccessControl optionallyRefresh(Map<String, String> config,
-            Function<Optional<SystemAccessControl>, SystemAccessControl> factory)
+    static SystemAccessControl optionallyRefresh(Map<String, String> config,
+            Supplier<Optional<SystemAccessControl>> factory)
     {
         if (Boolean.valueOf(config.getOrDefault(REFRESH_ENABLED, DEFAULT_REFRESH))) {
             long period = Long.valueOf(config.getOrDefault(REFRESH_PERIOD_SEC, DEFAULT_REFRESH_PERIOD_SEC));
             return new RefreshingSystemAccessControl(factory, period);
         }
-        return factory.apply(Optional.empty());
+        return factory.get().orElseThrow(() -> new IllegalStateException("Access Control factory did not provide an " +
+                "initial SystemAccessControl."));
     }
 
-    public RefreshingSystemAccessControl(
-            Function<Optional<SystemAccessControl>, SystemAccessControl> factory, long refreshPeriodSec)
+    private RefreshingSystemAccessControl(Supplier<Optional<SystemAccessControl>> factory, long refreshPeriodSec)
     {
         Runnable command = () -> {
             try {
-                delegate.set(factory.apply(Optional.ofNullable(delegate.get())));
+                factory.get().ifPresent(delegate::set);
             }
             catch (Exception e) {
                 LOG.error("Failed to reload configuration", e);
             }
         };
-        // run it the first time to ensure we have an access control
+        // run it the first time and ensure we have an access control
         command.run();
         Preconditions.checkState(this.delegate.get() != null, "No initial system control loaded!");
         this.service = new ScheduledThreadPoolExecutor(1,

@@ -22,10 +22,12 @@ import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
@@ -78,18 +80,36 @@ public class FileBasedSystemAccessControl
             checkState(
                     configFileName != null,
                     "Security configuration must contain the '%s' property", CONFIG_FILE_NAME);
-            Path path = Paths.get(configFileName);
-            return RefreshingSystemAccessControl.optionallyRefresh(config, previousControl -> load(path));
+            final Path path = Paths.get(configFileName);
+            return RefreshingSystemAccessControl.optionallyRefresh(config, new Supplier<Optional<SystemAccessControl>>()
+            {
+                private long lastModifiedTime = -1;
+                @Override
+                public Optional<SystemAccessControl> get()
+                {
+                    Path toRead = path;
+                    if (!toRead.isAbsolute()) {
+                        toRead = path.toAbsolutePath();
+                    }
+                    // ensure we can read the file
+                    File file = toRead.toFile();
+                    // NOTE: we don't check the return value -- legacy behavior
+                    file.canRead();
+
+                    // check to see if the file has been updated, in which case attempt to load it
+                    long lastModified = file.lastModified();
+                    if(lastModified > lastModifiedTime){
+                        lastModifiedTime = lastModified;
+                        return Optional.of(load(toRead));
+                    }
+                    return Optional.empty();
+                }
+            });
         }
 
         private FileBasedSystemAccessControl load(Path path)
         {
             try {
-                if (!path.isAbsolute()) {
-                    path = path.toAbsolutePath();
-                }
-                path.toFile().canRead();
-
                 FileBasedSystemAccessControlRules rules = parse(Files.readAllBytes(path));
 
                 ImmutableList.Builder<CatalogAccessControlRule> catalogRulesBuilder = ImmutableList.builder();
