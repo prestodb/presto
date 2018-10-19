@@ -21,6 +21,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -48,6 +49,30 @@ public class TestScalarStatsCalculator
     @Test
     public void testLiteral()
     {
+        assertCalculate(new GenericLiteral("TINYINT", "7"))
+                .distinctValuesCount(1.0)
+                .lowValue(7)
+                .highValue(7)
+                .nullsFraction(0.0);
+
+        assertCalculate(new GenericLiteral("SMALLINT", "8"))
+                .distinctValuesCount(1.0)
+                .lowValue(8)
+                .highValue(8)
+                .nullsFraction(0.0);
+
+        assertCalculate(new GenericLiteral("INTEGER", "9"))
+                .distinctValuesCount(1.0)
+                .lowValue(9)
+                .highValue(9)
+                .nullsFraction(0.0);
+
+        assertCalculate(new GenericLiteral("BIGINT", Long.toString(Long.MAX_VALUE)))
+                .distinctValuesCount(1.0)
+                .lowValue(Long.MAX_VALUE)
+                .highValue(Long.MAX_VALUE)
+                .nullsFraction(0.0);
+
         assertCalculate(new DoubleLiteral("7.5"))
                 .distinctValuesCount(1.0)
                 .lowValue(7.5)
