@@ -22,21 +22,27 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
+import com.facebook.presto.sql.planner.ExpressionInterpreter;
+import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
+import java.util.Map;
 import java.util.OptionalDouble;
 
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
@@ -46,6 +52,7 @@ import static com.facebook.presto.util.MoreMath.min;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.abs;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class ScalarStatsCalculator
@@ -58,9 +65,9 @@ public class ScalarStatsCalculator
         this.metadata = requireNonNull(metadata, "metadata can not be null");
     }
 
-    public SymbolStatsEstimate calculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics, Session session)
+    public SymbolStatsEstimate calculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics, Session session, TypeProvider types)
     {
-        return new Visitor(inputStatistics, session).process(scalarExpression);
+        return new Visitor(inputStatistics, session, types).process(scalarExpression);
     }
 
     private class Visitor
@@ -68,11 +75,13 @@ public class ScalarStatsCalculator
     {
         private final PlanNodeStatsEstimate input;
         private final Session session;
+        private final TypeProvider types;
 
-        Visitor(PlanNodeStatsEstimate input, Session session)
+        Visitor(PlanNodeStatsEstimate input, Session session, TypeProvider types)
         {
             this.input = input;
             this.session = session;
+            this.types = types;
         }
 
         @Override
@@ -90,10 +99,7 @@ public class ScalarStatsCalculator
         @Override
         protected SymbolStatsEstimate visitNullLiteral(NullLiteral node, Void context)
         {
-            return SymbolStatsEstimate.builder()
-                    .setDistinctValuesCount(0)
-                    .setNullsFraction(1)
-                    .build();
+            return nullStatsEstimate();
         }
 
         @Override
@@ -111,6 +117,44 @@ public class ScalarStatsCalculator
                 estimate.setHighValue(doubleValue.getAsDouble());
             }
             return estimate.build();
+        }
+
+        @Override
+        protected SymbolStatsEstimate visitFunctionCall(FunctionCall node, Void context)
+        {
+            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, node, types);
+            ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(node, metadata, session, expressionTypes);
+            Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+
+            if (value == null || value instanceof NullLiteral) {
+                return nullStatsEstimate();
+            }
+
+            if (value instanceof Expression && !(value instanceof Literal)) {
+                // value is not a constant
+                return SymbolStatsEstimate.unknown();
+            }
+
+            // value is a constant
+            return SymbolStatsEstimate.builder()
+                    .setNullsFraction(0)
+                    .setDistinctValuesCount(1)
+                    .build();
+        }
+
+        private Map<NodeRef<Expression>, Type> getExpressionTypes(Session session, Expression expression, TypeProvider types)
+        {
+            ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
+                    metadata.getFunctionRegistry(),
+                    metadata.getTypeManager(),
+                    session,
+                    types,
+                    emptyList(),
+                    node -> new IllegalStateException("Unexpected node: %s" + node),
+                    WarningCollector.NOOP,
+                    false);
+            expressionAnalyzer.analyze(expression, Scope.create());
+            return expressionAnalyzer.getExpressionTypes();
         }
 
         @Override
@@ -287,5 +331,13 @@ public class ScalarStatsCalculator
                         .build();
             }
         }
+    }
+
+    private static SymbolStatsEstimate nullStatsEstimate()
+    {
+        return SymbolStatsEstimate.builder()
+                .setDistinctValuesCount(0)
+                .setNullsFraction(1)
+                .build();
     }
 }

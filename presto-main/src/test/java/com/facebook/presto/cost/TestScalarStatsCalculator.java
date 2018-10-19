@@ -16,18 +16,28 @@ package com.facebook.presto.cost;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.NEGATIVE_INFINITY;
@@ -96,6 +106,44 @@ public class TestScalarStatsCalculator
                 .lowValueUnknown()
                 .highValueUnknown()
                 .nullsFraction(1.0);
+    }
+
+    @Test
+    public void testFunctionCall()
+    {
+        assertCalculate(
+                new FunctionCall(
+                        QualifiedName.of("length"),
+                        ImmutableList.of(new Cast(new NullLiteral(), "VARCHAR(10)"))))
+                .distinctValuesCount(0.0)
+                .lowValueUnknown()
+                .highValueUnknown()
+                .nullsFraction(1.0);
+
+        assertCalculate(
+                new FunctionCall(
+                        QualifiedName.of("length"),
+                        ImmutableList.of(new SymbolReference("x"))),
+                PlanNodeStatsEstimate.unknown(),
+                TypeProvider.viewOf(ImmutableMap.of(new Symbol("x"), createVarcharType(2))))
+                .distinctValuesCountUnknown()
+                .lowValueUnknown()
+                .highValueUnknown()
+                .nullsFractionUnknown();
+    }
+
+    @Test
+    public void testVarbinaryConstant()
+    {
+        MetadataManager metadata = createTestMetadataManager();
+        LiteralEncoder literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
+        Expression expression = literalEncoder.toExpression(Slices.utf8Slice("ala ma kota"), VARBINARY);
+
+        assertCalculate(expression)
+                .distinctValuesCount(1.0)
+                .lowValueUnknown()
+                .highValueUnknown()
+                .nullsFraction(0.0);
     }
 
     @Test
@@ -217,7 +265,12 @@ public class TestScalarStatsCalculator
 
     private SymbolStatsAssertion assertCalculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics)
     {
-        return SymbolStatsAssertion.assertThat(calculator.calculate(scalarExpression, inputStatistics, session));
+        return assertCalculate(scalarExpression, inputStatistics, TypeProvider.empty());
+    }
+
+    private SymbolStatsAssertion assertCalculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics, TypeProvider types)
+    {
+        return SymbolStatsAssertion.assertThat(calculator.calculate(scalarExpression, inputStatistics, session, types));
     }
 
     @Test
