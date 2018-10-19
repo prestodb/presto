@@ -15,16 +15,20 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
+import java.util.Iterator;
 import java.util.List;
 
+import static com.facebook.presto.util.MergeSortedPages.mergeSortedPages;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.util.Objects.requireNonNull;
 
 public class OrderByOperator
@@ -108,8 +112,7 @@ public class OrderByOperator
 
     private final PagesIndex pageIndex;
 
-    private final PageBuilder pageBuilder;
-    private int currentPosition;
+    private Iterator<Page> sortedPages;
 
     private State state = State.NEEDS_INPUT;
 
@@ -131,8 +134,6 @@ public class OrderByOperator
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
 
         this.pageIndex = pagesIndexFactory.newPagesIndex(sourceTypes, expectedPositions);
-
-        this.pageBuilder = new PageBuilder(toTypes(sourceTypes, outputChannels));
     }
 
     @Override
@@ -147,8 +148,9 @@ public class OrderByOperator
         if (state == State.NEEDS_INPUT) {
             state = State.HAS_OUTPUT;
 
-            // sort the index
             pageIndex.sort(sortChannels, sortOrder);
+            WorkProcessor<Page> resultPages = WorkProcessor.fromIterator(pageIndex.getSortedPages());
+            sortedPages = resultPages.iterator();
         }
     }
 
@@ -171,11 +173,7 @@ public class OrderByOperator
         requireNonNull(page, "page is null");
 
         pageIndex.addPage(page);
-
-        if (!localUserMemoryContext.trySetBytes(pageIndex.getEstimatedSize().toBytes())) {
-            pageIndex.compact();
-            localUserMemoryContext.setBytes(pageIndex.getEstimatedSize().toBytes());
-        }
+        updateMemoryUsage();
     }
 
     @Override
@@ -185,37 +183,34 @@ public class OrderByOperator
             return null;
         }
 
-        if (currentPosition >= pageIndex.getPositionCount()) {
+        verify(sortedPages != null, "sortedPages is null");
+        if (!sortedPages.hasNext()) {
             state = State.FINISHED;
             return null;
         }
 
-        // iterate through the positions sequentially until we have one full page
-        pageBuilder.reset();
-        currentPosition = pageIndex.buildPage(currentPosition, outputChannels, pageBuilder);
+        Page resultPage = sortedPages.next();
+        Block[] blocks = new Block[outputChannels.length];
 
-        // output the page if we have any data
-        if (pageBuilder.isEmpty()) {
-            state = State.FINISHED;
-            return null;
+        for (int i = 0; i < outputChannels.length; i++) {
+            blocks[i] = resultPage.getBlock(outputChannels[i]);
         }
 
-        Page page = pageBuilder.build();
-        return page;
+        return new Page(resultPage.getPositionCount(), blocks);
+    }
+
+    private void updateMemoryUsage()
+    {
+        if (!localUserMemoryContext.trySetBytes(pageIndex.getEstimatedSize().toBytes())) {
+            pageIndex.compact();
+            localUserMemoryContext.setBytes(pageIndex.getEstimatedSize().toBytes());
+        }
     }
 
     @Override
     public void close()
     {
         pageIndex.clear();
-    }
-
-    private static List<Type> toTypes(List<? extends Type> sourceTypes, List<Integer> outputChannels)
-    {
-        ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (int channel : outputChannels) {
-            types.add(sourceTypes.get(channel));
-        }
-        return types.build();
+        sortedPages = null;
     }
 }
