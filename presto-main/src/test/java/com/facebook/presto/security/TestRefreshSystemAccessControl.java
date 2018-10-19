@@ -43,7 +43,7 @@ public class TestRefreshSystemAccessControl
     {
         Map<String, String> config = new HashMap<>();
         config.put(RefreshingSystemAccessControl.REFRESH_ENABLED, "true");
-        final MockAccessControl mock = new MockAccessControl();
+        final AccessControlForTesting mock = new AccessControlForTesting();
         SystemAccessControl ref = RefreshingSystemAccessControl.optionallyRefresh(config, previous -> mock);
         assertNotEquals(mock, ref);
         ref.checkCanSetUser(null, null);
@@ -57,7 +57,7 @@ public class TestRefreshSystemAccessControl
         config.put(RefreshingSystemAccessControl.REFRESH_ENABLED, "true");
         config.put(RefreshingSystemAccessControl.REFRESH_PERIOD_SEC, "1");
         RefreshingSystemAccessControl ref = (RefreshingSystemAccessControl) RefreshingSystemAccessControl
-                .optionallyRefresh(config, previous -> new MockAccessControl());
+                .optionallyRefresh(config, previous -> new AccessControlForTesting());
         Instant start = Instant.now();
         SystemAccessControl mock = ref.getDelegateForTesting().get();
         // wait until we get a new mock or its been 10 seconds
@@ -68,7 +68,7 @@ public class TestRefreshSystemAccessControl
         assertNotEquals(ref.getDelegateForTesting().get(), mock, "Did not load a new reference");
     }
 
-    private static class MockAccessControl
+    private static class AccessControlForTesting
             implements SystemAccessControl
     {
         private boolean calledCheckCanSetUser;
