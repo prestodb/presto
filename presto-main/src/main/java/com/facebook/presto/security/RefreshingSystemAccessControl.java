@@ -21,6 +21,7 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.SystemAccessControl;
 import com.google.common.base.Preconditions;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.airlift.log.Logger;
 
 import java.security.Principal;
@@ -81,7 +82,8 @@ public class RefreshingSystemAccessControl
         // run it the first time to ensure we have an access control
         command.run();
         Preconditions.checkState(this.delegate.get() != null, "No initial system control loaded!");
-        this.service = new ScheduledThreadPoolExecutor(1, new DaemonFactory());
+        this.service = new ScheduledThreadPoolExecutor(1,
+                new ThreadFactoryBuilder().setDaemon(true).setNameFormat("refreshing-access-control-%d").build());
         service.scheduleWithFixedDelay(command, refreshPeriodSec, refreshPeriodSec, TimeUnit.SECONDS);
     }
 
@@ -270,54 +272,5 @@ public class RefreshingSystemAccessControl
             String revokee, boolean grantOptionFor)
     {
         delegate.get().checkCanRevokeTablePrivilege(identity, privilege, table, revokee, grantOptionFor);
-    }
-
-    public static class Daemon
-            extends Thread
-    {
-        Runnable runnable;
-
-        public Daemon()
-        {
-            this.setDaemon(true);
-            this.runnable = null;
-        }
-
-        public Daemon(Runnable runnable)
-        {
-            super(runnable);
-            this.setDaemon(true);
-            this.runnable = null;
-            this.runnable = runnable;
-            this.setName(runnable.toString());
-        }
-
-        public Daemon(ThreadGroup group, Runnable runnable)
-        {
-            super(group, runnable);
-            this.setDaemon(true);
-            this.runnable = null;
-            this.runnable = runnable;
-            this.setName(runnable.toString());
-        }
-
-        public Runnable getRunnable()
-        {
-            return this.runnable;
-        }
-    }
-
-    public static class DaemonFactory
-            extends Daemon
-            implements ThreadFactory
-    {
-        DaemonFactory()
-        {
-        }
-
-        public Thread newThread(Runnable runnable)
-        {
-            return new Daemon(runnable);
-        }
     }
 }
