@@ -29,6 +29,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.connector.ConnectorFeature;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
@@ -45,6 +46,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcMetadata
@@ -59,6 +62,12 @@ public class JdbcMetadata
     {
         this.jdbcClient = requireNonNull(jdbcClient, "client is null");
         this.allowDropTable = allowDropTable;
+    }
+
+    @Override
+    public Set<ConnectorFeature> listFeatures()
+    {
+        return emptySet();
     }
 
     @Override
@@ -198,9 +207,13 @@ public class JdbcMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> inputColumns)
     {
-        JdbcOutputTableHandle handle = jdbcClient.beginInsertTable(getTableMetadata(session, tableHandle));
+        JdbcOutputTableHandle handle = jdbcClient.beginInsertTable(
+                getTableMetadata(session, tableHandle),
+                inputColumns
+                        .stream()
+                        .map(JdbcColumnHandle.class::cast).collect(toImmutableList()));
         setRollback(() -> jdbcClient.rollbackCreateTable(handle));
         return handle;
     }

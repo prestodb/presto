@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.mysql;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
@@ -106,6 +107,19 @@ public class TestMySqlIntegrationSmokeTest
         assertUpdate("INSERT INTO test_insert VALUES (123, 'test')", 1);
         assertQuery("SELECT * FROM test_insert", "SELECT 123 x, 'test' y");
         assertUpdate("DROP TABLE test_insert");
+    }
+
+    @Test
+    public void testInsertPartial()
+            throws SQLException
+    {
+        execute("CREATE TABLE tpch.test_insert_partial (c1 BIGINT, c2 VARCHAR(100))");
+        assertUpdate("INSERT INTO test_insert_partial (c1) VALUES (1)", "VALUES(1)");
+        assertUpdate("INSERT INTO test_insert_partial (c1, c2) VALUES (2, NULL)", "VALUES(1)");
+        assertUpdate("INSERT INTO test_insert_partial (c1, c2) VALUES (3, 'test')", "VALUES(1)");
+        assertUpdate("INSERT INTO test_insert_partial (c2, c1) VALUES ('test2', 4)", "VALUES(1)");
+        assertQuery("SELECT * FROM test_insert_partial", "VALUES (1, NULL), (2, NULL), (3, 'test'), (4, 'test2')");
+        assertUpdate("DROP TABLE test_insert_partial");
     }
 
     @Test

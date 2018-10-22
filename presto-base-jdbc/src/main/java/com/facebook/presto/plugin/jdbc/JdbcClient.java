@@ -63,7 +63,7 @@ public interface JdbcClient
 
     void commitCreateTable(JdbcOutputTableHandle handle);
 
-    JdbcOutputTableHandle beginInsertTable(ConnectorTableMetadata tableMetadata);
+    JdbcOutputTableHandle beginInsertTable(ConnectorTableMetadata tableMetadata, List<JdbcColumnHandle> inputColumnHandles);
 
     void finishInsertTable(JdbcOutputTableHandle handle);
 

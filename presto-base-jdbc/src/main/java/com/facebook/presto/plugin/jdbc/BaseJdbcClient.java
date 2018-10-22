@@ -271,16 +271,16 @@ public class BaseJdbcClient
     @Override
     public JdbcOutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata)
     {
-        return beginWriteTable(tableMetadata);
+        return beginWriteTable(tableMetadata, ImmutableList.of());
     }
 
     @Override
-    public JdbcOutputTableHandle beginInsertTable(ConnectorTableMetadata tableMetadata)
+    public JdbcOutputTableHandle beginInsertTable(ConnectorTableMetadata tableMetadata, List<JdbcColumnHandle> inputColumns)
     {
-        return beginWriteTable(tableMetadata);
+        return beginWriteTable(tableMetadata, inputColumns);
     }
 
-    private JdbcOutputTableHandle beginWriteTable(ConnectorTableMetadata tableMetadata)
+    private JdbcOutputTableHandle beginWriteTable(ConnectorTableMetadata tableMetadata, List<JdbcColumnHandle> inputColumns)
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
         String schema = schemaTableName.getSchemaName();
@@ -306,19 +306,38 @@ public class BaseJdbcClient
             ImmutableList.Builder<String> columnNames = ImmutableList.builder();
             ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
             ImmutableList.Builder<String> columnList = ImmutableList.builder();
-            for (ColumnMetadata column : tableMetadata.getColumns()) {
-                String columnName = column.getName();
-                if (uppercase) {
-                    columnName = columnName.toUpperCase(ENGLISH);
+            // TODO cannot distinguish if insert list is empty (currently not a valid syntax anyway) or should be a full list
+            if (inputColumns.isEmpty()) {
+                for (ColumnMetadata column : tableMetadata.getColumns()) {
+                    String columnName = column.getName();
+                    if (uppercase) {
+                        columnName = columnName.toUpperCase(ENGLISH);
+                    }
+                    columnNames.add(columnName);
+                    columnTypes.add(column.getType());
+                    columnList.add(new StringBuilder()
+                            .append(quoted(columnName))
+                            .append(" ")
+                            .append(toSqlType(column.getType()))
+                            .toString());
                 }
-                columnNames.add(columnName);
-                columnTypes.add(column.getType());
-                columnList.add(new StringBuilder()
-                        .append(quoted(columnName))
-                        .append(" ")
-                        .append(toSqlType(column.getType()))
-                        .toString());
             }
+            else {
+                for (JdbcColumnHandle column : inputColumns) {
+                    String columnName = column.getColumnName();
+                    if (uppercase) {
+                        columnName = columnName.toUpperCase(ENGLISH);
+                    }
+                    columnNames.add(columnName);
+                    columnTypes.add(column.getColumnType());
+                    columnList.add(new StringBuilder()
+                            .append(quoted(columnName))
+                            .append(" ")
+                            .append(toSqlType(column.getColumnType()))
+                            .toString());
+                }
+            }
+
             Joiner.on(", ").appendTo(sql, columnList.build());
             sql.append(")");
 
@@ -365,7 +384,7 @@ public class BaseJdbcClient
     {
         String temporaryTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName());
         String targetTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
-        String insertSql = format("INSERT INTO %s SELECT * FROM %s", targetTable, temporaryTable);
+        String insertSql = format("INSERT INTO %s (%s) SELECT * FROM %s", targetTable, Joiner.on(",").join(handle.getColumnNames()), temporaryTable);
         String cleanupSql = "DROP TABLE " + temporaryTable;
 
         try (Connection connection = getConnection(handle)) {
