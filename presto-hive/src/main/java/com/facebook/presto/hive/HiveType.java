@@ -33,8 +33,6 @@ import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.VarcharTypeInfo;
 
-import javax.annotation.Nonnull;
-
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -178,14 +176,12 @@ public final class HiveType
     }
 
     @JsonCreator
-    @Nonnull
     public static HiveType valueOf(String hiveTypeName)
     {
         requireNonNull(hiveTypeName, "hiveTypeName is null");
         return toHiveType(getTypeInfoFromTypeString(hiveTypeName));
     }
 
-    @Nonnull
     public static List<HiveType> toHiveTypes(String hiveTypes)
     {
         requireNonNull(hiveTypes, "hiveTypes is null");
@@ -194,14 +190,12 @@ public final class HiveType
                 .collect(toList()));
     }
 
-    @Nonnull
     private static HiveType toHiveType(TypeInfo typeInfo)
     {
         requireNonNull(typeInfo, "typeInfo is null");
         return new HiveType(typeInfo);
     }
 
-    @Nonnull
     public static HiveType toHiveType(TypeTranslator typeTranslator, Type type)
     {
         requireNonNull(typeTranslator, "typeTranslator is null");
@@ -209,7 +203,6 @@ public final class HiveType
         return new HiveType(typeTranslator.translate(type));
     }
 
-    @Nonnull
     private static TypeSignature getTypeSignature(TypeInfo typeInfo)
     {
         switch (typeInfo.getCategory()) {
