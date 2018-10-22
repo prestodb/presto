@@ -29,7 +29,6 @@ import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 import org.joda.time.DateTimeZone;
 
-import javax.annotation.Nonnull;
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Max;
@@ -464,7 +463,7 @@ public class HiveClientConfig
         return this;
     }
 
-    @Nonnull
+    @NotNull
     public List<String> getResourceConfigFiles()
     {
         return resourceConfigFiles;
