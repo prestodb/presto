@@ -235,4 +235,9 @@ public class FunctionsParserHelper
         }
         return specializedTypeParameters;
     }
+
+    public static boolean parseDeprecated(AnnotatedElement aggregationDefinition)
+    {
+        return aggregationDefinition.getAnnotation(Deprecated.class) != null;
+    }
 }

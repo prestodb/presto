@@ -44,7 +44,7 @@ public class ParametricScalar
             ScalarHeader details,
             ParametricImplementationsGroup<ParametricScalarImplementation> implementations)
     {
-        super(signature);
+        super(signature, details.isDeprecated());
         this.details = requireNonNull(details);
         this.implementations = requireNonNull(implementations);
     }

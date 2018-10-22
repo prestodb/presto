@@ -24,14 +24,16 @@ public class AggregationHeader
     private final boolean decomposable;
     private final boolean orderSensitive;
     private final boolean hidden;
+    private final boolean deprecated;
 
-    public AggregationHeader(String name, Optional<String> description, boolean decomposable, boolean orderSensitive, boolean hidden)
+    public AggregationHeader(String name, Optional<String> description, boolean decomposable, boolean orderSensitive, boolean hidden, boolean deprecated)
     {
         this.name = requireNonNull(name, "name cannot be null");
         this.description = requireNonNull(description, "description cannot be null");
         this.decomposable = decomposable;
         this.orderSensitive = orderSensitive;
         this.hidden = hidden;
+        this.deprecated = deprecated;
     }
 
     public String getName()
@@ -57,5 +59,10 @@ public class AggregationHeader
     public boolean isHidden()
     {
         return hidden;
+    }
+
+    public boolean isDeprecated()
+    {
+        return deprecated;
     }
 }

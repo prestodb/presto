@@ -88,10 +88,10 @@ public class AggregateWindowFunction
         }
     }
 
-    public static WindowFunctionSupplier supplier(Signature signature, final InternalAggregationFunction function)
+    public static WindowFunctionSupplier supplier(Signature signature, final InternalAggregationFunction function, boolean deprecated)
     {
         requireNonNull(function, "function is null");
-        return new AbstractWindowFunctionSupplier(signature, null)
+        return new AbstractWindowFunctionSupplier(signature, null, deprecated)
         {
             @Override
             protected WindowFunction newWindowFunction(List<Integer> inputs)

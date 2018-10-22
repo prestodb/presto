@@ -56,9 +56,10 @@ class PolymorphicScalarFunction
             String description,
             boolean hidden,
             boolean deterministic,
-            List<PolymorphicScalarFunctionChoice> choices)
+            List<PolymorphicScalarFunctionChoice> choices,
+            boolean deprecated)
     {
-        super(signature);
+        super(signature, deprecated);
 
         this.description = description;
         this.hidden = hidden;

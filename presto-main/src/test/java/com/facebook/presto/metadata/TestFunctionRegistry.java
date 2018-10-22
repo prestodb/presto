@@ -421,6 +421,12 @@ public class TestFunctionRegistry
                     }
 
                     @Override
+                    public boolean isDeprecated()
+                    {
+                        return false;
+                    }
+
+                    @Override
                     public String getDescription()
                     {
                         return "testing function that does nothing";

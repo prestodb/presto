@@ -35,6 +35,7 @@ public abstract class SqlAggregationFunction
 {
     private final Signature signature;
     private final boolean hidden;
+    private final boolean deprecated;
 
     public static List<SqlAggregationFunction> createFunctionByAnnotations(Class<?> aggregationDefinition)
     {
@@ -67,13 +68,14 @@ public abstract class SqlAggregationFunction
             List<TypeSignature> argumentTypes,
             FunctionKind kind)
     {
-        this(createSignature(name, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, kind), false);
+        this(createSignature(name, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, kind), false, false);
     }
 
-    protected SqlAggregationFunction(Signature signature, boolean hidden)
+    protected SqlAggregationFunction(Signature signature, boolean hidden, boolean deprecated)
     {
         this.signature = requireNonNull(signature, "signature is null");
         this.hidden = hidden;
+        this.deprecated = deprecated;
     }
 
     private static Signature createSignature(
@@ -116,6 +118,12 @@ public abstract class SqlAggregationFunction
     public boolean isDeterministic()
     {
         return true;
+    }
+
+    @Override
+    public boolean isDeprecated()
+    {
+        return deprecated;
     }
 
     public abstract InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager);

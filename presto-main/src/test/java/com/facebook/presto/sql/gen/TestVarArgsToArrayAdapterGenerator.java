@@ -105,7 +105,17 @@ public class TestVarArgsToArrayAdapterGenerator
         }
 
         @Override
+<<<<<<< HEAD
         public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+=======
+        public boolean isDeprecated()
+        {
+            return false;
+        }
+
+        @Override
+        public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+>>>>>>> Add isDeprecated() to SqlFunction
         {
             VarArgsToArrayAdapterGenerator.MethodHandleAndConstructor methodHandleAndConstructor = generateVarArgsToArrayAdapter(
                     long.class,

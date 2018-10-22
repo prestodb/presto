@@ -24,4 +24,6 @@ public interface SqlFunction
     boolean isDeterministic();
 
     String getDescription();
+
+    boolean isDeprecated();
 }

@@ -405,7 +405,7 @@ class FunctionRegistry
                 .build(CacheLoader.from(key ->
                 {
                     if (key.getFunction() instanceof SqlAggregationFunction) {
-                        return supplier(key.getFunction().getSignature(), specializedAggregationCache.getUnchecked(key));
+                        return supplier(key.getFunction().getSignature(), specializedAggregationCache.getUnchecked(key), key.getFunction().isDeprecated());
                     }
                     return ((SqlWindowFunction) key.getFunction())
                             .specialize(key.getBoundVariables(), key.getArity(), typeManager, functionManager);
@@ -1256,6 +1256,12 @@ class FunctionRegistry
                     ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                     methodHandle,
                     isDeterministic());
+        }
+
+        @Override
+        public boolean isDeprecated()
+        {
+            return false;
         }
     }
 }

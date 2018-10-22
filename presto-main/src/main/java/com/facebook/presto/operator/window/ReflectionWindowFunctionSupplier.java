@@ -24,6 +24,7 @@ import java.lang.reflect.Constructor;
 import java.util.List;
 
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
+import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseDeprecated;
 import static java.util.Objects.requireNonNull;
 
 public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
@@ -38,7 +39,7 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
 
     public ReflectionWindowFunctionSupplier(Signature signature, Class<T> type)
     {
-        super(signature, getDescription(requireNonNull(type, "type is null")));
+        super(signature, getDescription(requireNonNull(type, "type is null")), parseDeprecated(type));
         try {
             if (signature.getArgumentTypes().isEmpty()) {
                 constructor = type.getConstructor();

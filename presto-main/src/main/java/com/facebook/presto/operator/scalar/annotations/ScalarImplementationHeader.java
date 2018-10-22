@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
+import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseDeprecated;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseDescription;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
@@ -74,20 +75,21 @@ public class ScalarImplementationHeader
         ScalarFunction scalarFunction = annotated.getAnnotation(ScalarFunction.class);
         ScalarOperator scalarOperator = annotated.getAnnotation(ScalarOperator.class);
         Optional<String> description = parseDescription(annotated);
+        boolean deprecated = parseDeprecated(annotated);
 
         ImmutableList.Builder<ScalarImplementationHeader> builder = ImmutableList.builder();
 
         if (scalarFunction != null) {
             String baseName = scalarFunction.value().isEmpty() ? camelToSnake(annotatedName(annotated)) : scalarFunction.value();
-            builder.add(new ScalarImplementationHeader(baseName, new ScalarHeader(description, scalarFunction.hidden(), scalarFunction.deterministic())));
+            builder.add(new ScalarImplementationHeader(baseName, new ScalarHeader(description, scalarFunction.hidden(), scalarFunction.deterministic(), deprecated)));
 
             for (String alias : scalarFunction.alias()) {
-                builder.add(new ScalarImplementationHeader(alias, new ScalarHeader(description, scalarFunction.hidden(), scalarFunction.deterministic())));
+                builder.add(new ScalarImplementationHeader(alias, new ScalarHeader(description, scalarFunction.hidden(), scalarFunction.deterministic(), deprecated)));
             }
         }
 
         if (scalarOperator != null) {
-            builder.add(new ScalarImplementationHeader(scalarOperator.value(), new ScalarHeader(description, true, true)));
+            builder.add(new ScalarImplementationHeader(scalarOperator.value(), new ScalarHeader(description, true, true, deprecated)));
         }
 
         List<ScalarImplementationHeader> result = builder.build();

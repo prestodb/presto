@@ -24,5 +24,7 @@ public interface WindowFunctionSupplier
 
     String getDescription();
 
+    boolean isDeprecated();
+
     WindowFunction createWindowFunction(List<Integer> argumentChannels);
 }

@@ -36,6 +36,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.operator.aggregation.AggregationImplementation.Parser.parseImplementation;
+import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseDeprecated;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseDescription;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -136,13 +137,13 @@ public class AggregationFromAnnotationsParser
                 parseDescription(aggregationDefinition),
                 aggregationAnnotation.decomposable(),
                 aggregationAnnotation.isOrderSensitive(),
-                aggregationAnnotation.hidden());
+                aggregationAnnotation.hidden(),
+                parseDeprecated(aggregationDefinition));
     }
 
     private static List<AggregationHeader> parseHeaders(AnnotatedElement aggregationDefinition, AnnotatedElement toParse)
     {
         AggregationFunction aggregationAnnotation = aggregationDefinition.getAnnotation(AggregationFunction.class);
-
         return getNames(toParse, aggregationAnnotation).stream()
                 .map(name ->
                         new AggregationHeader(
@@ -150,7 +151,8 @@ public class AggregationFromAnnotationsParser
                                 parseDescription(aggregationDefinition, toParse),
                                 aggregationAnnotation.decomposable(),
                                 aggregationAnnotation.isOrderSensitive(),
-                                aggregationAnnotation.hidden()))
+                                aggregationAnnotation.hidden(),
+                                parseDeprecated(aggregationDefinition)))
                 .collect(toImmutableList());
     }
 

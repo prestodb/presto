@@ -26,11 +26,13 @@ public abstract class AbstractWindowFunctionSupplier
 {
     private final Signature signature;
     private final String description;
+    private final boolean deprecated;
 
-    protected AbstractWindowFunctionSupplier(Signature signature, String description)
+    protected AbstractWindowFunctionSupplier(Signature signature, String description, boolean deprecated)
     {
         this.signature = requireNonNull(signature, "signature is null");
         this.description = description;
+        this.deprecated = deprecated;
     }
 
     @Override
@@ -43,6 +45,12 @@ public abstract class AbstractWindowFunctionSupplier
     public final String getDescription()
     {
         return description;
+    }
+
+    @Override
+    public final boolean isDeprecated()
+    {
+        return deprecated;
     }
 
     @Override

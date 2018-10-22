@@ -50,6 +50,12 @@ public class SqlWindowFunction
     }
 
     @Override
+    public boolean isDeprecated()
+    {
+        return supplier.isDeprecated();
+    }
+
+    @Override
     public String getDescription()
     {
         return supplier.getDescription();

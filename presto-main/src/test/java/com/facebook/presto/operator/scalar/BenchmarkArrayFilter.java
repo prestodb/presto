@@ -224,6 +224,11 @@ public class BenchmarkArrayFilter
             return "return array containing elements that match the given predicate";
         }
 
+        public boolean isDeprecated()
+        {
+            return false;
+        }
+
         @Override
         public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
         {

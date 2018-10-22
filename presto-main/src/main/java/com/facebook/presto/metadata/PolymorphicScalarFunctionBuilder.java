@@ -48,6 +48,7 @@ public final class PolymorphicScalarFunctionBuilder
     private Optional<Boolean> hidden = Optional.empty();
     private Boolean deterministic;
     private final List<PolymorphicScalarFunctionChoice> choices = new ArrayList<>();
+    private boolean deprecated;
 
     public PolymorphicScalarFunctionBuilder(Class<?> clazz)
     {
@@ -87,6 +88,12 @@ public final class PolymorphicScalarFunctionBuilder
         return this;
     }
 
+    public PolymorphicScalarFunctionBuilder deprecated(boolean deprecated)
+    {
+        this.deprecated = deprecated;
+        return this;
+    }
+
     public SqlScalarFunction build()
     {
         checkState(signature != null, "signature is null");
@@ -97,7 +104,8 @@ public final class PolymorphicScalarFunctionBuilder
                 description,
                 hidden.orElse(false),
                 deterministic,
-                choices);
+                choices,
+                deprecated);
     }
 
     @SafeVarargs

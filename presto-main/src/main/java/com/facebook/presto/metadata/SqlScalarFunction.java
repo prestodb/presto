@@ -25,10 +25,17 @@ public abstract class SqlScalarFunction
         implements SqlFunction
 {
     private final Signature signature;
+    private final boolean deprecated;
 
     protected SqlScalarFunction(Signature signature)
     {
+        this(signature, false);
+    }
+
+    protected SqlScalarFunction(Signature signature, boolean deprecated)
+    {
         this.signature = requireNonNull(signature, "signature is null");
+        this.deprecated = deprecated;
         checkArgument(signature.getKind() == SCALAR, "function kind must be SCALAR");
     }
 
@@ -36,6 +43,12 @@ public abstract class SqlScalarFunction
     public final Signature getSignature()
     {
         return signature;
+    }
+
+    @Override
+    public boolean isDeprecated()
+    {
+        return deprecated;
     }
 
     public abstract ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager);
