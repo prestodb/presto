@@ -16,8 +16,6 @@ package com.facebook.presto.spi;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import javax.annotation.Nonnull;
-
 import java.util.Objects;
 
 import static java.lang.String.format;
@@ -42,14 +40,12 @@ public final class PrestoWarning
         this(requireNonNull(warningCodeSupplier, "warningCodeSupplier is null").toWarningCode(), message);
     }
 
-    @Nonnull
     @JsonProperty
     public WarningCode getWarningCode()
     {
         return warningCode;
     }
 
-    @Nonnull
     @JsonProperty
     public String getMessage()
     {

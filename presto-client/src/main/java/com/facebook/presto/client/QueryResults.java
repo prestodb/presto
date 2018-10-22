@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -103,7 +102,6 @@ public class QueryResults
         this.updateCount = updateCount;
     }
 
-    @Nonnull
     @JsonProperty
     @Override
     public String getId()
@@ -111,7 +109,6 @@ public class QueryResults
         return id;
     }
 
-    @Nonnull
     @JsonProperty
     @Override
     public URI getInfoUri()
@@ -151,7 +148,6 @@ public class QueryResults
         return data;
     }
 
-    @Nonnull
     @JsonProperty
     @Override
     public StatementStats getStats()

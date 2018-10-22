@@ -26,7 +26,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
@@ -50,13 +49,11 @@ public class ByteStreamReader
     private int readOffset;
     private int nextBatchSize;
 
-    @Nonnull
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
     private BooleanInputStream presentStream;
     private boolean[] nullVector = new boolean[0];
 
-    @Nonnull
     private InputStreamSource<ByteInputStream> dataStreamSource = missingStreamSource(ByteInputStream.class);
     @Nullable
     private ByteInputStream dataStream;

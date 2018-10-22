@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
@@ -79,7 +78,6 @@ public class StageStats
         return stageId;
     }
 
-    @Nonnull
     @JsonProperty
     public String getState()
     {
@@ -146,7 +144,6 @@ public class StageStats
         return processedBytes;
     }
 
-    @Nonnull
     @JsonProperty
     public List<StageStats> getSubStages()
     {
