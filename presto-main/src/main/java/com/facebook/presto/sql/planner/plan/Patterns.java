@@ -24,7 +24,6 @@ import java.util.Optional;
 import static com.facebook.presto.matching.Pattern.typeOf;
 import static com.facebook.presto.matching.Property.optionalProperty;
 import static com.facebook.presto.matching.Property.property;
-import static java.util.Optional.empty;
 
 public class Patterns
 {
@@ -159,7 +158,7 @@ public class Patterns
     {
         return optionalProperty("source", node -> node.getSources().size() == 1 ?
                 Optional.of(node.getSources().get(0)) :
-                empty());
+                Optional.empty());
     }
 
     public static Property<PlanNode, List<PlanNode>> sources()

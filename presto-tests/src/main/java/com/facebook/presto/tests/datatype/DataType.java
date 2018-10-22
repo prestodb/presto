@@ -38,7 +38,6 @@ import static com.google.common.base.Strings.padEnd;
 import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
-import static java.util.Optional.empty;
 import static java.util.function.Function.identity;
 
 public class DataType<T>
@@ -95,7 +94,7 @@ public class DataType<T>
 
     public static DataType<String> varcharDataType()
     {
-        return varcharDataType(empty(), "");
+        return varcharDataType(Optional.empty(), "");
     }
 
     private static DataType<String> varcharDataType(Optional<Integer> length, String properties)
