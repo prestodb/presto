@@ -52,6 +52,7 @@ import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.connector.ConnectorFeature;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.Domain;
@@ -190,6 +191,7 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Streams.stream;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
@@ -266,6 +268,12 @@ public class HiveMetadata
     public SemiTransactionalHiveMetastore getMetastore()
     {
         return metastore;
+    }
+
+    @Override
+    public Set<ConnectorFeature> listFeatures()
+    {
+        return emptySet();
     }
 
     @Override
@@ -1136,7 +1144,7 @@ public class HiveMetadata
     }
 
     @Override
-    public HiveInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> inputColumns)
     {
         verifyJvmTimeZone();
 
@@ -1156,9 +1164,11 @@ public class HiveMetadata
             }
         }
 
-        List<HiveColumnHandle> handles = hiveColumnHandles(table.get()).stream()
+        List<HiveColumnHandle> handles = !inputColumns.isEmpty() ?
+                inputColumns.stream().map(HiveColumnHandle.class::cast).collect(toImmutableList())
+                : hiveColumnHandles(table.get()).stream()
                 .filter(columnHandle -> !columnHandle.isHidden())
-                .collect(toList());
+                .collect(toImmutableList());
 
         HiveStorageFormat tableStorageFormat = extractHiveStorageFormat(table.get());
         LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table.get());

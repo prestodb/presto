@@ -86,7 +86,7 @@ public class CreateEmptyPartitionProcedure
     {
         TransactionalMetadata hiveMetadata = hiveMetadataFactory.get();
 
-        HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) hiveMetadata.beginInsert(session, new HiveTableHandle(schema, table));
+        HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) hiveMetadata.beginInsert(session, new HiveTableHandle(schema, table), ImmutableList.of());
 
         List<String> actualPartitionColumnNames = hiveInsertTableHandle.getInputColumns().stream()
                 .filter(HiveColumnHandle::isPartitionKey)
