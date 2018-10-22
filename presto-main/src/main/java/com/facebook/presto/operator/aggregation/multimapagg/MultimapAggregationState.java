@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.aggregation.multimapagg;
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 
@@ -40,4 +41,6 @@ public interface MultimapAggregationState
     long getEstimatedSize();
 
     int getEntryCount();
+
+    void serialize(BlockBuilder out);
 }

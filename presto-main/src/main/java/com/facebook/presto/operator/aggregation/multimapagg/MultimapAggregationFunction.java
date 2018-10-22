@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation.multimapagg;
 
-import com.facebook.presto.array.ObjectBigArray;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.SqlAggregationFunction;
@@ -22,7 +21,6 @@ import com.facebook.presto.operator.aggregation.AggregationMetadata;
 import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import com.facebook.presto.operator.aggregation.GenericAccumulatorFactoryBinder;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.ArrayType;
@@ -45,7 +43,6 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.type.TypeUtils.expectedValueSize;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
@@ -128,35 +125,6 @@ public class MultimapAggregationFunction
 
     public static void output(Type keyType, Type valueType, MultimapAggregationState state, BlockBuilder out)
     {
-        if (state.isEmpty()) {
-            out.appendNull();
-        }
-        else {
-            // TODO: Avoid copy value block associated with the same key by using strategy similar to multimap_from_entries
-            ObjectBigArray<BlockBuilder> valueArrayBlockBuilders = new ObjectBigArray<>();
-            valueArrayBlockBuilders.ensureCapacity(state.getEntryCount());
-            BlockBuilder distinctKeyBlockBuilder = keyType.createBlockBuilder(null, state.getEntryCount(), expectedValueSize(keyType, 100));
-            TypedSet keySet = new TypedSet(keyType, state.getEntryCount(), MultimapAggregationFunction.NAME);
-
-            state.forEach((key, value, keyValueIndex) -> {
-                // Merge values of the same key into an array
-                if (!keySet.contains(key, keyValueIndex)) {
-                    keySet.add(key, keyValueIndex);
-                    keyType.appendTo(key, keyValueIndex, distinctKeyBlockBuilder);
-                    BlockBuilder valueArrayBuilder = valueType.createBlockBuilder(null, 10, expectedValueSize(valueType, EXPECTED_ENTRY_SIZE));
-                    valueArrayBlockBuilders.set(keySet.positionOf(key, keyValueIndex), valueArrayBuilder);
-                }
-                valueType.appendTo(value, keyValueIndex, valueArrayBlockBuilders.get(keySet.positionOf(key, keyValueIndex)));
-            });
-
-            // Write keys and value arrays into one Block
-            Type valueArrayType = new ArrayType(valueType);
-            BlockBuilder multimapBlockBuilder = out.beginBlockEntry();
-            for (int i = 0; i < distinctKeyBlockBuilder.getPositionCount(); i++) {
-                keyType.appendTo(distinctKeyBlockBuilder, i, multimapBlockBuilder);
-                valueArrayType.writeObject(multimapBlockBuilder, valueArrayBlockBuilders.get(i).build());
-            }
-            out.closeEntry();
-        }
+        state.serialize(out);
     }
 }

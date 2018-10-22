@@ -13,9 +13,13 @@
  */
 package com.facebook.presto.operator.aggregation.multimapagg;
 
+import com.facebook.presto.array.IntBigArray;
+import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.type.TypeUtils.expectedValueSize;
@@ -80,5 +84,54 @@ public class SingleMultimapAggregationState
         // Thus reset() will be called for each group (via MultimapAggregationStateSerializer#deserialize)
         keyBlockBuilder = keyBlockBuilder.newBlockBuilderLike(null);
         valueBlockBuilder = valueBlockBuilder.newBlockBuilderLike(null);
+    }
+
+    @Override
+    public void serialize(BlockBuilder out)
+    {
+        if (isEmpty()) {
+            out.appendNull();
+        }
+        else {
+            IntList initialPositions = new IntArrayList();
+            IntBigArray linkedList = new IntBigArray();
+            linkedList.ensureCapacity(keyBlockBuilder.getPositionCount());
+
+            {
+                TypedSet keySet = new TypedSet(keyType, getEntryCount(), MultimapAggregationFunction.NAME);
+                IntList currentPositions = new IntArrayList();
+                for (int i = 0; i < keyBlockBuilder.getPositionCount(); i++) {
+                    // Merge values of the same key into an array
+                    linkedList.add(i, i);
+                    if (!keySet.contains(keyBlockBuilder, i)) {
+                        keySet.add(keyBlockBuilder, i);
+                        initialPositions.add(i);
+                        currentPositions.add(i);
+                    }
+                    else {
+                        int position = keySet.positionOf(keyBlockBuilder, i);
+                        int oldPosition = currentPositions.getInt(position);
+                        currentPositions.set(position, i);
+                        linkedList.set(oldPosition, i);
+                    }
+                }
+            }
+
+            // Write keys and value arrays into one Block
+            BlockBuilder multimapBlockBuilder = out.beginBlockEntry();
+            for (int i = 0; i < initialPositions.size(); i++) {
+                int previousIndex = -1;
+                int valueIndex = initialPositions.getInt(i);
+                keyType.appendTo(keyBlockBuilder, initialPositions.getInt(i), multimapBlockBuilder);
+                BlockBuilder valuesBuilder = multimapBlockBuilder.beginBlockEntry();
+                while (previousIndex != valueIndex) {
+                    valueType.appendTo(valueBlockBuilder, valueIndex, valuesBuilder);
+                    previousIndex = valueIndex;
+                    valueIndex = linkedList.get(valueIndex);
+                }
+                multimapBlockBuilder.closeEntry();
+            }
+            out.closeEntry();
+        }
     }
 }

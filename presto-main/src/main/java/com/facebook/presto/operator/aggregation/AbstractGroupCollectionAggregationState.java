@@ -34,7 +34,7 @@ public abstract class AbstractGroupCollectionAggregationState<T>
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(AbstractGroupCollectionAggregationState.class).instanceSize();
     private static final int MAX_NUM_BLOCKS = 30000;
-    private static final short NULL = -1;
+    protected static final short NULL = -1;
 
     private final ShortBigArray headBlockIndex;
     private final IntBigArray headPosition;
@@ -154,15 +154,40 @@ public abstract class AbstractGroupCollectionAggregationState<T>
 
     public void forEach(T consumer)
     {
-        short currentBlockId = headBlockIndex.get(getGroupId());
-        int currentPosition = headPosition.get(getGroupId());
+        short currentBlockId = getHeadBlockIndex();
+        int currentPosition = getHeadPosition();
         while (currentBlockId != NULL) {
-            accept(consumer, values.get(currentBlockId), currentPosition);
+            accept(consumer, getPageBuilder(currentBlockId), currentPosition);
 
             long absoluteCurrentAddress = toAbsolutePosition(currentBlockId, currentPosition);
-            currentBlockId = nextBlockIndex.get(absoluteCurrentAddress);
-            currentPosition = nextPosition.get(absoluteCurrentAddress);
+            currentBlockId = getNextBlockIndex(absoluteCurrentAddress);
+            currentPosition = getNextPosition(absoluteCurrentAddress);
         }
+    }
+
+    protected final short getHeadBlockIndex()
+    {
+        return headBlockIndex.get(getGroupId());
+    }
+
+    protected final int getHeadPosition()
+    {
+        return headPosition.get(getGroupId());
+    }
+
+    protected final short getNextBlockIndex(long absoluteAddress)
+    {
+        return nextBlockIndex.get(absoluteAddress);
+    }
+
+    protected final int getNextPosition(long absoluteAddress)
+    {
+        return nextPosition.get(absoluteAddress);
+    }
+
+    protected PageBuilder getPageBuilder(short blockId)
+    {
+        return values.get(blockId);
     }
 
     public boolean isEmpty()
@@ -175,7 +200,7 @@ public abstract class AbstractGroupCollectionAggregationState<T>
         return groupEntryCount.get(getGroupId());
     }
 
-    private long toAbsolutePosition(short blockId, int position)
+    protected long toAbsolutePosition(short blockId, int position)
     {
         return sumPositions.get(blockId) + position;
     }

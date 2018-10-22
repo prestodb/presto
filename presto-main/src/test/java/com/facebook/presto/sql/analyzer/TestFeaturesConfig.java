@@ -161,7 +161,6 @@ public class TestFeaturesConfig
                 .put("experimental.filter-and-project-min-output-page-row-count", "2048")
                 .put("histogram.implementation", "LEGACY")
                 .put("arrayagg.implementation", "LEGACY")
-                .put("multimapagg.implementation", "LEGACY")
                 .put("optimizer.use-mark-distinct", "false")
                 .put("optimizer.prefer-partial-aggregation", "false")
                 .put("distributed-sort", "false")
