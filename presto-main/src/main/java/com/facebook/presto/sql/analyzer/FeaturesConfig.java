@@ -15,7 +15,6 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
-import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -100,7 +99,6 @@ public class FeaturesConfig
     private RegexLibrary regexLibrary = JONI;
     private HistogramGroupImplementation histogramGroupImplementation = HistogramGroupImplementation.NEW;
     private ArrayAggGroupImplementation arrayAggGroupImplementation = ArrayAggGroupImplementation.NEW;
-    private MultimapAggGroupImplementation multimapAggGroupImplementation = MultimapAggGroupImplementation.NEW;
     private boolean spillEnabled;
     private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, DataSize.Unit.MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
@@ -810,18 +808,6 @@ public class FeaturesConfig
     public FeaturesConfig setArrayAggGroupImplementation(ArrayAggGroupImplementation groupByMode)
     {
         this.arrayAggGroupImplementation = groupByMode;
-        return this;
-    }
-
-    public MultimapAggGroupImplementation getMultimapAggGroupImplementation()
-    {
-        return multimapAggGroupImplementation;
-    }
-
-    @Config("multimapagg.implementation")
-    public FeaturesConfig setMultimapAggGroupImplementation(MultimapAggGroupImplementation groupByMode)
-    {
-        this.multimapAggGroupImplementation = groupByMode;
         return this;
     }
 

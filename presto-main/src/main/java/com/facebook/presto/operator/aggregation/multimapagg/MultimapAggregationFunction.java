@@ -53,20 +53,19 @@ public class MultimapAggregationFunction
         extends SqlAggregationFunction
 {
     public static final String NAME = "multimap_agg";
+    public static final MultimapAggregationFunction MULTIMAP_AGG = new MultimapAggregationFunction();
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(MultimapAggregationFunction.class, "output", Type.class, Type.class, MultimapAggregationState.class, BlockBuilder.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(MultimapAggregationFunction.class, "combine", MultimapAggregationState.class, MultimapAggregationState.class);
     private static final MethodHandle INPUT_FUNCTION = methodHandle(MultimapAggregationFunction.class, "input", MultimapAggregationState.class, Block.class, Block.class, int.class);
     private static final int EXPECTED_ENTRY_SIZE = 100;
-    private final MultimapAggGroupImplementation groupMode;
 
-    public MultimapAggregationFunction(MultimapAggGroupImplementation groupMode)
+    public MultimapAggregationFunction()
     {
         super(NAME,
                 ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
                 ImmutableList.of(),
                 parseTypeSignature("map(K,array(V))"),
                 ImmutableList.of(parseTypeSignature("K"), parseTypeSignature("V")));
-        this.groupMode = groupMode;
     }
 
     @Override
@@ -102,7 +101,7 @@ public class MultimapAggregationFunction
                 ImmutableList.of(new AccumulatorStateDescriptor(
                         MultimapAggregationState.class,
                         stateSerializer,
-                        new MultimapAggregationStateFactory(keyType, valueType, groupMode))),
+                        new MultimapAggregationStateFactory(keyType, valueType))),
                 outputType);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
