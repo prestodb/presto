@@ -268,7 +268,7 @@ public class PageFunctionCompiler
         return classDefinition;
     }
 
-    private static MethodDefinition generateProcessMethod(
+    private MethodDefinition generateProcessMethod(
             ClassDefinition classDefinition,
             FieldDefinition blockBuilder,
             FieldDefinition session,
@@ -319,7 +319,7 @@ public class PageFunctionCompiler
         return method;
     }
 
-    private static BytecodeBlock generateCheckYieldBlock(Variable thisVariable, Variable index, FieldDefinition yieldSignal, FieldDefinition nextIndexOrPosition)
+    private BytecodeBlock generateCheckYieldBlock(Variable thisVariable, Variable index, FieldDefinition yieldSignal, FieldDefinition nextIndexOrPosition)
     {
         return new BytecodeBlock()
                 .comment("if (yieldSignal.isSet())")
