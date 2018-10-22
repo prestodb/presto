@@ -28,6 +28,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 
@@ -66,7 +67,7 @@ public class TestPageFunctionCompiler
     @Test(dataProvider = "forceYield")
     public void testFailureDoesNotCorruptFutureResults(boolean forceYield)
     {
-        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(createTestMetadataManager(), 0);
+        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(createTestMetadataManager(), 0, OptionalLong.of(0L));
 
         Supplier<PageProjection> projectionSupplier = functionCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty());
         PageProjection projection = projectionSupplier.get();

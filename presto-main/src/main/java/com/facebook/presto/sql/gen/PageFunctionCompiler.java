@@ -38,6 +38,7 @@ import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -55,6 +56,7 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
+import io.airlift.bytecode.expression.BytecodeExpression;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -64,6 +66,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Consumer;
@@ -89,15 +92,21 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.and;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantBoolean;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantLong;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
+import static io.airlift.bytecode.expression.BytecodeExpressions.greaterThan;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
 import static io.airlift.bytecode.expression.BytecodeExpressions.not;
+import static io.airlift.bytecode.expression.BytecodeExpressions.subtract;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class PageFunctionCompiler
 {
+    private static final long DEFAULT_YIELD_CHECK_NANOS = SECONDS.toNanos(5);
+
     private final Metadata metadata;
     private final DeterminismEvaluator determinismEvaluator;
 
@@ -107,6 +116,8 @@ public class PageFunctionCompiler
     private final CacheStatsMBean projectionCacheStats;
     private final CacheStatsMBean filterCacheStats;
 
+    private final long yieldCheckPeriodNanos;
+
     @Inject
     public PageFunctionCompiler(Metadata metadata, CompilerConfig config)
     {
@@ -115,6 +126,13 @@ public class PageFunctionCompiler
 
     public PageFunctionCompiler(Metadata metadata, int expressionCacheSize)
     {
+        this(metadata, expressionCacheSize, OptionalLong.of(DEFAULT_YIELD_CHECK_NANOS));
+    }
+
+    @VisibleForTesting
+    public PageFunctionCompiler(Metadata metadata, int expressionCacheSize, OptionalLong yieldCheckPeriodNanos)
+    {
+        requireNonNull(yieldCheckPeriodNanos, "yieldCheckPeriodNanos is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.determinismEvaluator = new DeterminismEvaluator(metadata.getFunctionRegistry());
 
@@ -141,6 +159,7 @@ public class PageFunctionCompiler
             filterCache = null;
             filterCacheStats = null;
         }
+        this.yieldCheckPeriodNanos = yieldCheckPeriodNanos.orElse(DEFAULT_YIELD_CHECK_NANOS);
     }
 
     @Nullable
@@ -288,6 +307,7 @@ public class PageFunctionCompiler
         Variable to = scope.declareVariable("to", body, add(thisVariable.getField(selectedPositions).invoke("getOffset", int.class), thisVariable.getField(selectedPositions).invoke("size", int.class)));
         Variable positions = scope.declareVariable(int[].class, "positions");
         Variable index = scope.declareVariable(int.class, "index");
+        Variable start = scope.declareVariable("start", body, invokeStatic(System.class, "nanoTime", long.class));
 
         IfStatement ifStatement = new IfStatement()
                 .condition(thisVariable.getField(selectedPositions).invoke("isList", boolean.class));
@@ -301,7 +321,7 @@ public class PageFunctionCompiler
                         .update(index.increment())
                         .body(new BytecodeBlock()
                                 .append(thisVariable.invoke("evaluate", void.class, thisVariable.getField(session), thisVariable.getField(page), positions.getElement(index)))
-                                .append(generateCheckYieldBlock(thisVariable, index, yieldSignal, nextIndexOrPosition)))));
+                                .append(generateCheckYieldBlock(thisVariable, start, index, yieldSignal, nextIndexOrPosition)))));
 
         ifStatement.ifFalse(new ForLoop("range based loop")
                 .initialize(index.set(from))
@@ -309,7 +329,7 @@ public class PageFunctionCompiler
                 .update(index.increment())
                 .body(new BytecodeBlock()
                         .append(thisVariable.invoke("evaluate", void.class, thisVariable.getField(session), thisVariable.getField(page), index))
-                        .append(generateCheckYieldBlock(thisVariable, index, yieldSignal, nextIndexOrPosition))));
+                        .append(generateCheckYieldBlock(thisVariable, start, index, yieldSignal, nextIndexOrPosition))));
 
         body.comment("result = this.blockBuilder.build(); return true;")
                 .append(thisVariable.setField(result, thisVariable.getField(blockBuilder).invoke("build", Block.class)))
@@ -319,12 +339,15 @@ public class PageFunctionCompiler
         return method;
     }
 
-    private BytecodeBlock generateCheckYieldBlock(Variable thisVariable, Variable index, FieldDefinition yieldSignal, FieldDefinition nextIndexOrPosition)
+    private BytecodeBlock generateCheckYieldBlock(Variable thisVariable, Variable start, Variable index, FieldDefinition yieldSignal, FieldDefinition nextIndexOrPosition)
     {
+        // Instead of checking the yield signal for each row, we check it every yieldCheckPeriodNanos nanoseconds
+        BytecodeExpression shouldCheckYieldSignal = greaterThan(subtract(invokeStatic(System.class, "nanoTime", long.class), start), constantLong(yieldCheckPeriodNanos));
+        BytecodeExpression checkYieldSignal = thisVariable.getField(yieldSignal).invoke("isSet", boolean.class);
         return new BytecodeBlock()
-                .comment("if (yieldSignal.isSet())")
+                .comment("if (System.nanoTime() - start > yieldCheckPeriodNanos)")
                 .append(new IfStatement()
-                        .condition(thisVariable.getField(yieldSignal).invoke("isSet", boolean.class))
+                        .condition(and(shouldCheckYieldSignal, checkYieldSignal))
                         .ifTrue(new BytecodeBlock()
                                 .comment("nextIndexOrPosition = index + 1;")
                                 .append(thisVariable.setField(nextIndexOrPosition, add(index, constantInt(1))))
