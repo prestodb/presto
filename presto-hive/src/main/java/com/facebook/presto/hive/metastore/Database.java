@@ -21,8 +21,10 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -173,5 +175,43 @@ public class Database
                     comment,
                     parameters);
         }
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("databaseName", databaseName)
+                .add("location", location)
+                .add("ownerName", ownerName)
+                .add("ownerType", ownerType)
+                .add("comment", comment)
+                .add("parameters", parameters)
+                .toString();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Database database = (Database) o;
+        return Objects.equals(databaseName, database.databaseName) &&
+                Objects.equals(location, database.location) &&
+                Objects.equals(ownerName, database.ownerName) &&
+                ownerType == database.ownerType &&
+                Objects.equals(comment, database.comment) &&
+                Objects.equals(parameters, database.parameters);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(databaseName, location, ownerName, ownerType, comment, parameters);
     }
 }

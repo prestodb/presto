@@ -22,6 +22,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -98,6 +99,31 @@ public class Partition
                 .add("tableName", tableName)
                 .add("values", values)
                 .toString();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Partition partition = (Partition) o;
+        return Objects.equals(databaseName, partition.databaseName) &&
+                Objects.equals(tableName, partition.tableName) &&
+                Objects.equals(values, partition.values) &&
+                Objects.equals(storage, partition.storage) &&
+                Objects.equals(columns, partition.columns) &&
+                Objects.equals(parameters, partition.parameters);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(databaseName, tableName, values, storage, columns, parameters);
     }
 
     public static Builder builder()
