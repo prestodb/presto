@@ -68,7 +68,6 @@ import static io.airlift.tpch.TpchTable.SUPPLIER;
 import static java.lang.String.format;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
-import static java.util.Optional.empty;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -395,7 +394,7 @@ public class TestTpchMetadata
 
     private ColumnStatistics rangeStatistics(double min, double max)
     {
-        return createColumnStatistics(empty(), Optional.of(new DoubleRange(min, max)), Optional.empty());
+        return createColumnStatistics(Optional.empty(), Optional.of(new DoubleRange(min, max)), Optional.empty());
     }
 
     private static ColumnStatistics createColumnStatistics(Optional<Double> distinctValuesCount, Optional<DoubleRange> range, Optional<Double> dataSize)
