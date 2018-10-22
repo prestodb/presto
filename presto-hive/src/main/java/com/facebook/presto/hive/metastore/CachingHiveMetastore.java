@@ -289,19 +289,20 @@ public class CachingHiveMetastore
         Map<HivePartitionName, PartitionStatistics> statistics = getAll(partitionStatisticsCache, partitions);
         return statistics.entrySet()
                 .stream()
-                .collect(toImmutableMap(entry -> entry.getKey().getPartitionName(), Entry::getValue));
+                .collect(toImmutableMap(entry -> entry.getKey().getPartitionName().get(), Entry::getValue));
     }
 
     private PartitionStatistics loadPartitionColumnStatistics(HivePartitionName partition)
     {
+        String partitionName = partition.getPartitionName().get();
         Map<String, PartitionStatistics> partitionStatistics = delegate.getPartitionStatistics(
                 partition.getHiveTableName().getDatabaseName(),
                 partition.getHiveTableName().getTableName(),
-                ImmutableSet.of(partition.getPartitionName()));
-        if (!partitionStatistics.containsKey(partition.getPartitionName())) {
+                ImmutableSet.of(partitionName));
+        if (!partitionStatistics.containsKey(partitionName)) {
             throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Statistics result does not contain entry for partition: " + partition.getPartitionName());
         }
-        return partitionStatistics.get(partition.getPartitionName());
+        return partitionStatistics.get(partitionName);
     }
 
     private Map<HivePartitionName, PartitionStatistics> loadPartitionColumnStatistics(Iterable<? extends HivePartitionName> keys)
@@ -311,7 +312,7 @@ public class CachingHiveMetastore
         ImmutableMap.Builder<HivePartitionName, PartitionStatistics> result = ImmutableMap.builder();
         tablePartitions.keySet().forEach(table -> {
             Set<String> partitionNames = tablePartitions.get(table).stream()
-                    .map(HivePartitionName::getPartitionName)
+                    .map(partitionName -> partitionName.getPartitionName().get())
                     .collect(toImmutableSet());
             Map<String, PartitionStatistics> partitionStatistics = delegate.getPartitionStatistics(table.getDatabaseName(), table.getTableName(), partitionNames);
             for (String partitionName : partitionNames) {
@@ -539,7 +540,7 @@ public class CachingHiveMetastore
         Map<HivePartitionName, Optional<Partition>> all = getAll(partitionCache, names);
         ImmutableMap.Builder<String, Optional<Partition>> partitionsByName = ImmutableMap.builder();
         for (Entry<HivePartitionName, Optional<Partition>> entry : all.entrySet()) {
-            partitionsByName.put(entry.getKey().getPartitionName(), entry.getValue());
+            partitionsByName.put(entry.getKey().getPartitionName().get(), entry.getValue());
         }
         return partitionsByName.build();
     }
@@ -566,7 +567,7 @@ public class CachingHiveMetastore
         List<String> partitionsToFetch = new ArrayList<>();
         for (HivePartitionName partitionName : partitionNames) {
             checkArgument(partitionName.getHiveTableName().equals(hiveTableName), "Expected table name %s but got %s", hiveTableName, partitionName.getHiveTableName());
-            partitionsToFetch.add(partitionName.getPartitionName());
+            partitionsToFetch.add(partitionName.getPartitionName().get());
         }
 
         ImmutableMap.Builder<HivePartitionName, Optional<Partition>> partitions = ImmutableMap.builder();

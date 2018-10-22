@@ -21,6 +21,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.HiveTableName.hiveTableName;
@@ -32,22 +33,22 @@ public class HivePartitionName
 {
     private final HiveTableName hiveTableName;
     private final List<String> partitionValues;
-    private final String partitionName; // does not participate in hashCode/equals
+    private final Optional<String> partitionName; // does not participate in hashCode/equals
 
     @JsonCreator
     public HivePartitionName(
             @JsonProperty("hiveTableName") HiveTableName hiveTableName,
             @JsonProperty("partitionValues") List<String> partitionValues,
-            @JsonProperty("partitionName") String partitionName)
+            @JsonProperty("partitionName") Optional<String> partitionName)
     {
         this.hiveTableName = requireNonNull(hiveTableName, "hiveTableName is null");
         this.partitionValues = ImmutableList.copyOf(requireNonNull(partitionValues, "partitionValues is null"));
-        this.partitionName = partitionName;
+        this.partitionName = requireNonNull(partitionName, "partitionName is null");
     }
 
     public static HivePartitionName hivePartitionName(HiveTableName hiveTableName, String partitionName)
     {
-        return new HivePartitionName(hiveTableName, toPartitionValues(partitionName), partitionName);
+        return new HivePartitionName(hiveTableName, toPartitionValues(partitionName), Optional.of(partitionName));
     }
 
     public static HivePartitionName hivePartitionName(String databaseName, String tableName, String partitionName)
@@ -57,7 +58,7 @@ public class HivePartitionName
 
     public static HivePartitionName hivePartitionName(String databaseName, String tableName, List<String> partitionValues)
     {
-        return new HivePartitionName(hiveTableName(databaseName, tableName), partitionValues, null);
+        return new HivePartitionName(hiveTableName(databaseName, tableName), partitionValues, Optional.empty());
     }
 
     @JsonProperty
@@ -73,9 +74,9 @@ public class HivePartitionName
     }
 
     @JsonProperty
-    public String getPartitionName()
+    public Optional<String> getPartitionName()
     {
-        return requireNonNull(partitionName, "partitionName is null");
+        return partitionName;
     }
 
     @Override
