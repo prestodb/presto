@@ -189,6 +189,19 @@ public class TestBlackHoleSmoke
     }
 
     @Test
+    public void testInsertPartial()
+    {
+        queryRunner.execute("CREATE TABLE test_insert_partial (c1 BIGINT, c2 VARCHAR)");
+        assertThatQueryReturnsValue("INSERT INTO test_insert_partial (c1) VALUES (1)", 1L);
+        assertThatQueryReturnsValue("INSERT INTO test_insert_partial (c1, c2) VALUES (2, NULL)", 1L);
+        assertThatQueryReturnsValue("INSERT INTO test_insert_partial (c1, c2) VALUES (3, 'test')", 1L);
+        assertThatQueryReturnsValue("INSERT INTO test_insert_partial (c2, c1) VALUES ('test2', 4)", 1L);
+        assertThatQueryReturnsValue("SELECT count(*) FROM test_insert_partial",  0L);
+        assertThatQueryReturnsValue("DROP TABLE test_insert_partial", true);
+    }
+
+
+    @Test
     public void fieldLength()
     {
         Session session = testSessionBuilder()
