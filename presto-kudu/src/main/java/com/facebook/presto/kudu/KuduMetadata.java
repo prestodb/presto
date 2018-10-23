@@ -30,6 +30,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.NotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.connector.ConnectorFeature;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
@@ -55,6 +56,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Sets.immutableEnumSet;
 import static java.util.Objects.requireNonNull;
 
 public class KuduMetadata
@@ -68,6 +70,12 @@ public class KuduMetadata
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.clientSession = requireNonNull(clientSession, "clientSession is null");
+    }
+
+    @Override
+    public Set<ConnectorFeature> listFeatures()
+    {
+        return immutableEnumSet(ConnectorFeature.INSERT_NEED_ALL_COLUMNS);
     }
 
     @Override
@@ -273,7 +281,7 @@ public class KuduMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle connectorTableHandle)
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle connectorTableHandle, List<ColumnHandle> inputColumns)
     {
         KuduTableHandle tableHandle = (KuduTableHandle) connectorTableHandle;
 
