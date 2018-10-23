@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.block.BlockSerdeUtil;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregation;
 import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileArrayAggregations;
@@ -144,6 +145,7 @@ import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.SqlWindowFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -295,6 +297,7 @@ import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
+import static com.facebook.presto.spi.StandardWarningCode.DEPRECATED_FUNCTION;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -685,14 +688,14 @@ class FunctionRegistry
         return Iterables.any(functions.get(name), function -> function.getSignature().getKind() == AGGREGATE);
     }
 
-    public FunctionHandle resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    public FunctionHandle resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes, WarningCollector warningCollector)
     {
         Collection<SqlFunction> allCandidates = functions.get(name);
         List<SqlFunction> exactCandidates = allCandidates.stream()
                 .filter(function -> function.getSignature().getTypeVariableConstraints().isEmpty())
                 .collect(Collectors.toList());
 
-        Optional<Signature> match = matchFunctionExact(exactCandidates, parameterTypes);
+        Optional<Signature> match = matchFunctionExact(exactCandidates, parameterTypes, warningCollector);
         if (match.isPresent()) {
             return new FunctionHandle(match.get());
         }
@@ -701,12 +704,12 @@ class FunctionRegistry
                 .filter(function -> !function.getSignature().getTypeVariableConstraints().isEmpty())
                 .collect(Collectors.toList());
 
-        match = matchFunctionExact(genericCandidates, parameterTypes);
+        match = matchFunctionExact(genericCandidates, parameterTypes, warningCollector);
         if (match.isPresent()) {
             return new FunctionHandle(match.get());
         }
 
-        match = matchFunctionWithCoercion(allCandidates, parameterTypes);
+        match = matchFunctionWithCoercion(allCandidates, parameterTypes, warningCollector);
         if (match.isPresent()) {
             return new FunctionHandle(match.get());
         }
@@ -741,17 +744,17 @@ class FunctionRegistry
         throw new PrestoException(FUNCTION_NOT_FOUND, message);
     }
 
-    private Optional<Signature> matchFunctionExact(List<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)
+    private Optional<Signature> matchFunctionExact(List<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters, WarningCollector warningCollector)
     {
-        return matchFunction(candidates, actualParameters, false);
+        return matchFunction(candidates, actualParameters, warningCollector, false);
     }
 
-    private Optional<Signature> matchFunctionWithCoercion(Collection<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)
+    private Optional<Signature> matchFunctionWithCoercion(Collection<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters, WarningCollector warningCollector)
     {
-        return matchFunction(candidates, actualParameters, true);
+        return matchFunction(candidates, actualParameters, warningCollector, true);
     }
 
-    private Optional<Signature> matchFunction(Collection<SqlFunction> candidates, List<TypeSignatureProvider> parameters, boolean coercionAllowed)
+    private Optional<Signature> matchFunction(Collection<SqlFunction> candidates, List<TypeSignatureProvider> parameters, WarningCollector warningCollector, boolean coercionAllowed)
     {
         List<ApplicableFunction> applicableFunctions = identifyApplicableFunctions(candidates, parameters, coercionAllowed);
         if (applicableFunctions.isEmpty()) {
@@ -764,7 +767,11 @@ class FunctionRegistry
         }
 
         if (applicableFunctions.size() == 1) {
-            return Optional.of(getOnlyElement(applicableFunctions).getBoundSignature());
+            ApplicableFunction function = getOnlyElement(applicableFunctions);
+            if (function.getFunction().isDeprecated()) {
+                warningCollector.add(new PrestoWarning(DEPRECATED_FUNCTION, format("%s is deprecated: %s", function.getFunction().getSignature().getName(), function.getFunction().getDescription())));
+            }
+            return Optional.of(function.getBoundSignature());
         }
 
         StringBuilder errorMessageBuilder = new StringBuilder();
@@ -786,7 +793,7 @@ class FunctionRegistry
             Optional<Signature> boundSignature = new SignatureBinder(typeManager, declaredSignature, allowCoercion)
                     .bind(actualParameters);
             if (boundSignature.isPresent()) {
-                applicableFunctions.add(new ApplicableFunction(declaredSignature, boundSignature.get()));
+                applicableFunctions.add(new ApplicableFunction(declaredSignature, boundSignature.get(), function));
             }
         }
         return applicableFunctions.build();
@@ -1075,7 +1082,7 @@ class FunctionRegistry
             throws OperatorNotFoundException
     {
         try {
-            return new FunctionHandle(resolveFunction(QualifiedName.of(mangleOperatorName(operatorType)), fromTypes(argumentTypes)).getSignature());
+            return new FunctionHandle(resolveFunction(QualifiedName.of(mangleOperatorName(operatorType)), fromTypes(argumentTypes), WarningCollector.NOOP).getSignature());
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
@@ -1172,11 +1179,13 @@ class FunctionRegistry
     {
         private final Signature declaredSignature;
         private final Signature boundSignature;
+        private final SqlFunction function;
 
-        private ApplicableFunction(Signature declaredSignature, Signature boundSignature)
+        private ApplicableFunction(Signature declaredSignature, Signature boundSignature, SqlFunction function)
         {
             this.declaredSignature = declaredSignature;
             this.boundSignature = boundSignature;
+            this.function = function;
         }
 
         public Signature getDeclaredSignature()
@@ -1187,6 +1196,11 @@ class FunctionRegistry
         public Signature getBoundSignature()
         {
             return boundSignature;
+        }
+
+        public SqlFunction getFunction()
+        {
+            return function;
         }
 
         @Override

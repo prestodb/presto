@@ -14,15 +14,28 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.execution.warnings.DefaultWarningCollector;
+import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.execution.warnings.WarningCollectorConfig;
+import com.facebook.presto.operator.aggregation.state.LongState;
 import com.facebook.presto.operator.scalar.CustomFunctions;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationState;
+import com.facebook.presto.spi.function.CombineFunction;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.OutputFunction;
+import com.facebook.presto.spi.function.RankingWindowFunction;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
+import com.facebook.presto.spi.function.WindowFunctionSignature;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -44,6 +57,8 @@ import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
+import static com.facebook.presto.spi.StandardWarningCode.DEPRECATED_FUNCTION;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -51,12 +66,14 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSig
 import static com.facebook.presto.sql.planner.LiteralEncoder.getMagicLiteralFunctionSignature;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Lists.transform;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -105,7 +122,7 @@ public class TestFunctionRegistry
 
         TypeRegistry typeManager = new TypeRegistry();
         FunctionRegistry registry = createFunctionRegistry(typeManager);
-        FunctionHandle functionHandle = registry.resolveFunction(QualifiedName.of(signature.getName()), fromTypeSignatures(signature.getArgumentTypes()));
+        FunctionHandle functionHandle = registry.resolveFunction(QualifiedName.of(signature.getName()), fromTypeSignatures(signature.getArgumentTypes()), WarningCollector.NOOP);
         assertEquals(functionHandle.getSignature().getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
     }
@@ -136,6 +153,56 @@ public class TestFunctionRegistry
         TypeRegistry typeManager = new TypeRegistry();
         FunctionRegistry registry = createFunctionRegistry(typeManager);
         registry.addFunctions(functions);
+    }
+
+    @Test
+    public void testDeprecatedScalarFunction()
+    {
+        List<SqlFunction> functions = new FunctionListBuilder()
+                .scalars(FooBarScalars.class)
+                .getFunctions();
+        TypeRegistry typeManager = new TypeRegistry();
+        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(typeManager);
+        FeaturesConfig featuresConfig = new FeaturesConfig();
+        FunctionRegistry registry = new FunctionRegistry(typeManager, blockEncodingSerde, featuresConfig, new FunctionManager(typeManager, blockEncodingSerde, featuresConfig));
+        registry.addFunctions(functions);
+        WarningCollector warningCollector = new DefaultWarningCollector(new WarningCollectorConfig());
+        registry.resolveFunction(QualifiedName.of("foo"), ImmutableList.of(), warningCollector);
+        assertEquals(getOnlyElement(warningCollector.getWarnings()).getWarningCode(), DEPRECATED_FUNCTION.toWarningCode());
+        assertNotNull(registry.resolveFunction(QualifiedName.of("bar"), ImmutableList.of(), warningCollector));
+        assertEquals(warningCollector.getWarnings().size(), 1);
+    }
+
+    @Test
+    public void testDeprecatedWindowFunction()
+    {
+        List<SqlFunction> functions = new FunctionListBuilder()
+                .window(TestWindowFunction.class)
+                .getFunctions();
+        TypeRegistry typeManager = new TypeRegistry();
+        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(typeManager);
+        FeaturesConfig featuresConfig = new FeaturesConfig();
+        FunctionRegistry registry = new FunctionRegistry(typeManager, blockEncodingSerde, featuresConfig, new FunctionManager(typeManager, blockEncodingSerde, featuresConfig));
+        registry.addFunctions(functions);
+        WarningCollector warningCollector = new DefaultWarningCollector(new WarningCollectorConfig());
+        registry.resolveFunction(QualifiedName.of("test_window"), ImmutableList.of(), warningCollector);
+        assertEquals(getOnlyElement(warningCollector.getWarnings()).getWarningCode(), DEPRECATED_FUNCTION.toWarningCode());
+    }
+
+    @Test
+    public void testDeprecatedAggregateFunction()
+    {
+        List<SqlFunction> functions = new FunctionListBuilder()
+                .aggregates(TestAggregation.class)
+                .getFunctions();
+        TypeRegistry typeManager = new TypeRegistry();
+        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(typeManager);
+        FeaturesConfig featuresConfig = new FeaturesConfig();
+        FunctionRegistry registry = new FunctionRegistry(typeManager, blockEncodingSerde, featuresConfig, new FunctionManager(typeManager, blockEncodingSerde, featuresConfig));
+        registry.addFunctions(functions);
+        WarningCollector warningCollector = new DefaultWarningCollector(new WarningCollectorConfig());
+        registry.resolveFunction(QualifiedName.of("test_agg"), ImmutableList.of(), warningCollector);
+        assertEquals(getOnlyElement(warningCollector.getWarnings()).getWarningCode(), DEPRECATED_FUNCTION.toWarningCode());
     }
 
     @Test
@@ -384,7 +451,7 @@ public class TestFunctionRegistry
             FunctionManager functionManager = new FunctionManager(typeRegistry, blockEncoding, featuresConfig);
             FunctionRegistry registry = new FunctionRegistry(typeRegistry, blockEncoding, featuresConfig, functionManager);
             registry.addFunctions(createFunctionsFromSignatures());
-            return registry.resolveFunction(QualifiedName.of(TEST_FUNCTION_NAME), fromTypeSignatures(parameterTypes));
+            return registry.resolveFunction(QualifiedName.of(TEST_FUNCTION_NAME), fromTypeSignatures(parameterTypes), WarningCollector.NOOP);
         }
 
         private List<SqlFunction> createFunctionsFromSignatures()
@@ -454,6 +521,64 @@ public class TestFunctionRegistry
         public static long sum(@SqlType(StandardTypes.BIGINT) long a, @SqlType(StandardTypes.BIGINT) long b)
         {
             return a + b;
+        }
+    }
+
+    public static final class FooBarScalars
+    {
+        private FooBarScalars() {}
+
+        @ScalarFunction
+        @SqlType(StandardTypes.BIGINT)
+        @Description("The foo() function is deprecated, use bar() instead")
+        @Deprecated
+        public static long foo()
+        {
+            return 3L;
+        }
+
+        @ScalarFunction
+        @SqlType(StandardTypes.BIGINT)
+        public static long bar()
+        {
+            return 3L;
+        }
+    }
+
+    @WindowFunctionSignature(name = "test_window", returnType = "bigint")
+    @Deprecated
+    public static final class TestWindowFunction
+            extends RankingWindowFunction
+    {
+        @Override
+        public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount, int currentPosition)
+        {
+            BIGINT.writeLong(output, currentPosition);
+        }
+    }
+
+    @AggregationFunction("test_agg")
+    @Deprecated
+    public static final class TestAggregation
+    {
+        private TestAggregation() {}
+
+        @InputFunction
+        public static void input(@AggregationState LongState state)
+        {
+            state.setLong(state.getLong() - 1);
+        }
+
+        @CombineFunction
+        public static void combine(@AggregationState LongState state, @AggregationState LongState otherState)
+        {
+            state.setLong(state.getLong() + otherState.getLong());
+        }
+
+        @OutputFunction(StandardTypes.BIGINT)
+        public static void output(@AggregationState LongState state, BlockBuilder out)
+        {
+            BIGINT.writeLong(out, state.getLong());
         }
     }
 }
