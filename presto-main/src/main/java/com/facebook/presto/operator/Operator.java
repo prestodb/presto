@@ -59,7 +59,7 @@ public interface Operator
      * For this purpose use implement finishMemoryRevoke
      * <p>
      * After startMemoryRevoke is called on Operator the Driver is disallowed to call any
-     * processing methods on it (finish/isFinished/isBlocked/needsInput/addInput/getOutput) until
+     * processing methods on it (isBlocked/needsInput/addInput/getOutput) until
      * finishMemoryRevoke is called.
      */
     default ListenableFuture<?> startMemoryRevoke()
