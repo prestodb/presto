@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 class PrioritizedSplitRunner
@@ -80,15 +81,15 @@ class PrioritizedSplitRunner
             TimeStat blockedQuantaWallTime,
             TimeStat unblockedQuantaWallTime)
     {
-        this.taskHandle = taskHandle;
+        this.taskHandle = requireNonNull(taskHandle, "taskHandle is null");
         this.splitId = taskHandle.getNextSplitId();
-        this.split = split;
-        this.ticker = ticker;
+        this.split = requireNonNull(split, "split is null");
+        this.ticker = requireNonNull(ticker, "ticker is null");
         this.workerId = NEXT_WORKER_ID.getAndIncrement();
-        this.globalCpuTimeMicros = globalCpuTimeMicros;
-        this.globalScheduledTimeMicros = globalScheduledTimeMicros;
-        this.blockedQuantaWallTime = blockedQuantaWallTime;
-        this.unblockedQuantaWallTime = unblockedQuantaWallTime;
+        this.globalCpuTimeMicros = requireNonNull(globalCpuTimeMicros, "globalCpuTimeMicros is null");
+        this.globalScheduledTimeMicros = requireNonNull(globalScheduledTimeMicros, "globalScheduledTimeMicros is null");
+        this.blockedQuantaWallTime = requireNonNull(blockedQuantaWallTime, "blockedQuantaWallTime is null");
+        this.unblockedQuantaWallTime = requireNonNull(unblockedQuantaWallTime, "unblockedQuantaWallTime is null");
 
         this.updateLevelPriority();
     }
