@@ -186,6 +186,7 @@ public class DistributedQueryRunner
                 .put("query.client.timeout", "10m")
                 .put("exchange.http-client.idle-timeout", "1h")
                 .put("task.max-index-memory", "16kB") // causes index joins to fault load
+                .put("task.split-run-duration", "1 us") // causes operators to yield more often TODO tests should pass with this set to "1 ns" too
                 .put("datasources", "system")
                 .put("distributed-index-joins-enabled", "true");
         if (coordinator) {
