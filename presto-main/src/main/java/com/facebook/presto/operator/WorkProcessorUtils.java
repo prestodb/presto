@@ -24,6 +24,7 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Optional;
 import java.util.PriorityQueue;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 
 import static com.facebook.presto.operator.WorkProcessor.ProcessorState.Type.BLOCKED;
@@ -150,6 +151,37 @@ public final class WorkProcessorUtils
                 }
             }
         });
+    }
+
+    static <T> WorkProcessor<T> yield(WorkProcessor<T> processor, BooleanSupplier yieldSignal)
+    {
+        return processor.transform(new YieldingTransformation<>(yieldSignal));
+    }
+
+    private static class YieldingTransformation<T>
+            implements Transformation<T, T>
+    {
+        final BooleanSupplier yieldSignal;
+        boolean lastProcessYielded;
+
+        YieldingTransformation(BooleanSupplier yieldSignal)
+        {
+            this.yieldSignal = requireNonNull(yieldSignal, "yieldSignal is null");
+        }
+
+        @Override
+        public ProcessorState<T> process(Optional<T> elementOptional)
+        {
+            if (!lastProcessYielded && yieldSignal.getAsBoolean()) {
+                lastProcessYielded = true;
+                return ProcessorState.yield();
+            }
+            lastProcessYielded = false;
+
+            return elementOptional
+                    .map(ProcessorState::ofResult)
+                    .orElse(ProcessorState.finished());
+        }
     }
 
     static <T, R> WorkProcessor<R> flatMap(WorkProcessor<T> processor, Function<T, WorkProcessor<R>> mapper)

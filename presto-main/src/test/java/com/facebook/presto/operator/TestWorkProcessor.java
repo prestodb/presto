@@ -22,6 +22,7 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.operator.WorkProcessorAssertion.assertBlocks;
 import static com.facebook.presto.operator.WorkProcessorAssertion.assertFinishes;
@@ -176,6 +177,46 @@ public class TestWorkProcessor
         assertFalse(mergedStream.isFinished());
 
         assertFinishes(mergedStream);
+    }
+
+    @Test(timeOut = 5000)
+    public void testYield()
+    {
+        SettableFuture<?> future = SettableFuture.create();
+
+        List<ProcessorState<Integer>> baseScenario = ImmutableList.of(
+                ProcessorState.ofResult(1),
+                ProcessorState.ofResult(2),
+                ProcessorState.blocked(future),
+                ProcessorState.ofResult(3),
+                ProcessorState.ofResult(4),
+                ProcessorState.finished());
+
+        AtomicBoolean yieldSignal = new AtomicBoolean();
+        WorkProcessor<Integer> processor = processorFrom(baseScenario)
+                .yielding(yieldSignal::get);
+
+        // no yield, process normally
+        assertResult(processor, 1);
+
+        yieldSignal.set(true);
+        assertYields(processor);
+
+        // processor should progress since it yielded last time
+        assertResult(processor, 2);
+
+        // base scenario future blocks
+        assertBlocks(processor);
+        assertUnblocks(processor, future);
+
+        // yield signal is still set
+        assertYields(processor);
+
+        // continue to process normally
+        yieldSignal.set(false);
+        assertResult(processor, 3);
+        assertResult(processor, 4);
+        assertFinishes(processor);
     }
 
     @Test(timeOut = 5000)
