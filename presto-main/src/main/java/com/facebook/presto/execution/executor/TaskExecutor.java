@@ -55,7 +55,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.function.DoubleSupplier;
@@ -73,6 +72,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @ThreadSafe
 public class TaskExecutor
@@ -80,11 +80,12 @@ public class TaskExecutor
     private static final Logger log = Logger.get(TaskExecutor.class);
 
     // print out split call stack if it has been running for a certain amount of time
-    private static final Duration LONG_SPLIT_WARNING_THRESHOLD = new Duration(600, TimeUnit.SECONDS);
+    private static final Duration LONG_SPLIT_WARNING_THRESHOLD = new Duration(600, SECONDS);
 
     private static final AtomicLong NEXT_RUNNER_ID = new AtomicLong();
 
     private final ExecutorService executor;
+    private final Duration splitRunDuration;
     private final ThreadPoolExecutorMBean executorMBean;
 
     private final int runnerThreads;
@@ -158,7 +159,9 @@ public class TaskExecutor
     @Inject
     public TaskExecutor(TaskManagerConfig config, EmbedVersion embedVersion, MultilevelSplitQueue splitQueue)
     {
-        this(requireNonNull(config, "config is null").getMaxWorkerThreads(),
+        this(
+                requireNonNull(config, "config is null").getSplitRunDuration(),
+                config.getMaxWorkerThreads(),
                 config.getMinDrivers(),
                 config.getMinDriversPerTask(),
                 config.getMaxDriversPerTask(),
@@ -170,17 +173,33 @@ public class TaskExecutor
     @VisibleForTesting
     public TaskExecutor(int runnerThreads, int minDrivers, int guaranteedNumberOfDriversPerTask, int maximumNumberOfDriversPerTask, Ticker ticker)
     {
-        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, new EmbedVersion(new ServerConfig()), new MultilevelSplitQueue(2), ticker);
+        this(
+                new TaskManagerConfig().getSplitRunDuration(),
+                runnerThreads,
+                minDrivers,
+                guaranteedNumberOfDriversPerTask,
+                maximumNumberOfDriversPerTask,
+                new EmbedVersion(new ServerConfig()),
+                new MultilevelSplitQueue(2),
+                ticker);
     }
 
     @VisibleForTesting
     public TaskExecutor(int runnerThreads, int minDrivers, int guaranteedNumberOfDriversPerTask, int maximumNumberOfDriversPerTask, MultilevelSplitQueue splitQueue, Ticker ticker)
     {
-        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, new EmbedVersion(new ServerConfig()), splitQueue, ticker);
+        this(
+                new TaskManagerConfig().getSplitRunDuration(),
+                runnerThreads,
+                minDrivers,
+                guaranteedNumberOfDriversPerTask,
+                maximumNumberOfDriversPerTask,
+                new EmbedVersion(new ServerConfig()),
+                splitQueue,
+                ticker);
     }
 
-    @VisibleForTesting
-    public TaskExecutor(
+    private TaskExecutor(
+            Duration splitRunDuration,
             int runnerThreads,
             int minDrivers,
             int guaranteedNumberOfDriversPerTask,
@@ -196,6 +215,7 @@ public class TaskExecutor
 
         // we manage thread pool size directly, so create an unlimited pool
         this.executor = newCachedThreadPool(threadsNamed("task-processor-%s"));
+        this.splitRunDuration = requireNonNull(splitRunDuration, "splitRunDuration is null");
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
         this.runnerThreads = runnerThreads;
         this.embedVersion = requireNonNull(embedVersion, "embedVersion is null");
@@ -313,6 +333,7 @@ public class TaskExecutor
                 PrioritizedSplitRunner prioritizedSplitRunner = new PrioritizedSplitRunner(
                         taskHandle,
                         taskSplit,
+                        splitRunDuration,
                         ticker,
                         globalCpuTimeMicros,
                         globalScheduledTimeMicros,

@@ -49,6 +49,7 @@ public class TaskManagerConfig
     private DataSize maxIndexMemoryUsage = new DataSize(64, Unit.MEGABYTE);
     private boolean shareIndexLoading;
     private int maxWorkerThreads = Runtime.getRuntime().availableProcessors() * 2;
+    private Duration splitRunDuration = new Duration(1, TimeUnit.SECONDS);
     private Integer minDrivers;
     private Integer initialSplitsPerNode;
     private int minDriversPerTask = 3;
@@ -219,6 +220,20 @@ public class TaskManagerConfig
     public TaskManagerConfig setMaxWorkerThreads(int maxWorkerThreads)
     {
         this.maxWorkerThreads = maxWorkerThreads;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("1ns")
+    public Duration getSplitRunDuration()
+    {
+        return splitRunDuration;
+    }
+
+    @Config("task.split-run-duration")
+    public TaskManagerConfig setSplitRunDuration(Duration splitRunDuration)
+    {
+        this.splitRunDuration = splitRunDuration;
         return this;
     }
 

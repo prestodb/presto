@@ -23,7 +23,6 @@ import io.airlift.stats.CpuTimer;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -39,15 +38,14 @@ class PrioritizedSplitRunner
 
     private static final Logger log = Logger.get(PrioritizedSplitRunner.class);
 
-    // each time we run a split, run it for this length before returning to the pool
-    private static final Duration SPLIT_RUN_QUANTA = new Duration(1, TimeUnit.SECONDS);
-
     private final long createdNanos = System.nanoTime();
 
     private final TaskHandle taskHandle;
     private final int splitId;
     private final long workerId;
     private final SplitRunner split;
+    // each time we run a split, run it for this length before returning to the pool
+    private final Duration splitRunDuration;
 
     private final Ticker ticker;
 
@@ -75,6 +73,7 @@ class PrioritizedSplitRunner
     PrioritizedSplitRunner(
             TaskHandle taskHandle,
             SplitRunner split,
+            Duration splitRunDuration,
             Ticker ticker,
             CounterStat globalCpuTimeMicros,
             CounterStat globalScheduledTimeMicros,
@@ -84,6 +83,7 @@ class PrioritizedSplitRunner
         this.taskHandle = requireNonNull(taskHandle, "taskHandle is null");
         this.splitId = taskHandle.getNextSplitId();
         this.split = requireNonNull(split, "split is null");
+        this.splitRunDuration = requireNonNull(splitRunDuration, "splitRunDuration is null");
         this.ticker = requireNonNull(ticker, "ticker is null");
         this.workerId = NEXT_WORKER_ID.getAndIncrement();
         this.globalCpuTimeMicros = requireNonNull(globalCpuTimeMicros, "globalCpuTimeMicros is null");
@@ -160,7 +160,7 @@ class PrioritizedSplitRunner
             waitNanos.getAndAdd(startNanos - lastReady.get());
 
             CpuTimer timer = new CpuTimer();
-            ListenableFuture<?> blocked = split.processFor(SPLIT_RUN_QUANTA);
+            ListenableFuture<?> blocked = split.processFor(splitRunDuration);
             CpuTimer.CpuDuration elapsed = timer.elapsedTime();
 
             long quantaScheduledNanos = ticker.read() - startNanos;
