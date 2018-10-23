@@ -102,44 +102,42 @@ public final class MergeSortedPages
     {
         LocalMemoryContext memoryContext = aggregatedMemoryContext.newLocalMemoryContext(MergeSortedPages.class.getSimpleName());
         PageBuilder pageBuilder = new PageBuilder(outputTypes);
-        return pageWithPositions.transform(pageWithPositionOptional -> {
-            if (yieldSignal.isSet()) {
-                return ProcessorState.yield();
-            }
+        return pageWithPositions
+                .yielding(yieldSignal::isSet)
+                .transform(pageWithPositionOptional -> {
+                    boolean finished = !pageWithPositionOptional.isPresent();
+                    if (finished && pageBuilder.isEmpty()) {
+                        memoryContext.close();
+                        return ProcessorState.finished();
+                    }
 
-            boolean finished = !pageWithPositionOptional.isPresent();
-            if (finished && pageBuilder.isEmpty()) {
-                memoryContext.close();
-                return ProcessorState.finished();
-            }
+                    if (finished || pageBreakPredicate.test(pageBuilder, pageWithPositionOptional.get())) {
+                        if (!updateMemoryAfterEveryPosition) {
+                            // update memory usage just before producing page to cap from top
+                            memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
+                        }
 
-            if (finished || pageBreakPredicate.test(pageBuilder, pageWithPositionOptional.get())) {
-                if (!updateMemoryAfterEveryPosition) {
-                    // update memory usage just before producing page to cap from top
-                    memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
-                }
+                        Page page = pageBuilder.build();
+                        pageBuilder.reset();
+                        if (!finished) {
+                            pageWithPositionOptional.get().appendTo(pageBuilder, outputChannels, outputTypes);
+                        }
 
-                Page page = pageBuilder.build();
-                pageBuilder.reset();
-                if (!finished) {
+                        if (updateMemoryAfterEveryPosition) {
+                            memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
+                        }
+
+                        return ProcessorState.ofResult(page, !finished);
+                    }
+
                     pageWithPositionOptional.get().appendTo(pageBuilder, outputChannels, outputTypes);
-                }
 
-                if (updateMemoryAfterEveryPosition) {
-                    memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
-                }
+                    if (updateMemoryAfterEveryPosition) {
+                        memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
+                    }
 
-                return ProcessorState.ofResult(page, !finished);
-            }
-
-            pageWithPositionOptional.get().appendTo(pageBuilder, outputChannels, outputTypes);
-
-            if (updateMemoryAfterEveryPosition) {
-                memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
-            }
-
-            return ProcessorState.needsMoreData();
-        });
+                    return ProcessorState.needsMoreData();
+                });
     }
 
     private static WorkProcessor<PageWithPosition> pageWithPositions(WorkProcessor<Page> pages, AggregatedMemoryContext aggregatedMemoryContext)

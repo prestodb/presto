@@ -355,6 +355,29 @@ public class TestMergeSortedPages
         assertTrue(mergedPages.isFinished());
     }
 
+    @Test
+    public void testMergeSortYieldingProgresses()
+            throws Exception
+    {
+        DriverYieldSignal yieldSignal = new DriverYieldSignal();
+        yieldSignal.forceYieldForTesting();
+        List<Type> types = ImmutableList.of(INTEGER);
+        WorkProcessor<Page> mergedPages = MergeSortedPages.mergeSortedPages(
+                ImmutableList.of(WorkProcessor.fromIterable(rowPagesBuilder(types).build())),
+                new SimplePageWithPositionComparator(types, ImmutableList.of(0), ImmutableList.of(DESC_NULLS_LAST)),
+                ImmutableList.of(0),
+                types,
+                (pageBuilder, pageWithPosition) -> pageBuilder.isFull(),
+                false,
+                newSimpleAggregatedMemoryContext().newAggregatedMemoryContext(),
+                yieldSignal);
+        // yield signal is on
+        assertFalse(mergedPages.process());
+        // processor finishes computations (yield signal is still on, but previous process() call yielded)
+        assertTrue(mergedPages.process());
+        assertTrue(mergedPages.isFinished());
+    }
+
     private static MaterializedResult mergeSortedPages(
             List<Type> types,
             List<Integer> sortChannels,
