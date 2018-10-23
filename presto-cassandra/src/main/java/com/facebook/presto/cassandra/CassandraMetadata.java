@@ -32,6 +32,7 @@ import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.connector.ConnectorFeature;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -59,6 +60,7 @@ import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Collections.emptySet;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -86,6 +88,12 @@ public class CassandraMetadata
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
         this.allowDropTable = requireNonNull(config, "config is null").getAllowDropTable();
         this.extraColumnMetadataCodec = requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
+    }
+
+    @Override
+    public Set<ConnectorFeature> listFeatures()
+    {
+        return emptySet();
     }
 
     @Override
@@ -319,7 +327,7 @@ public class CassandraMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> inputColumns)
     {
         CassandraTableHandle table = (CassandraTableHandle) tableHandle;
         if (cassandraSession.isMaterializedView(table.getSchemaTableName())) {
@@ -327,7 +335,8 @@ public class CassandraMetadata
         }
 
         SchemaTableName schemaTableName = new SchemaTableName(table.getSchemaName(), table.getTableName());
-        List<CassandraColumnHandle> columns = cassandraSession.getTable(schemaTableName).getColumns();
+        List<CassandraColumnHandle> columns = inputColumns.isEmpty() ? cassandraSession.getTable(schemaTableName).getColumns()
+                : inputColumns.stream().map(CassandraColumnHandle.class::cast).collect(toImmutableList());
         List<String> columnNames = columns.stream().map(CassandraColumnHandle::getName).map(CassandraCqlUtils::validColumnName).collect(Collectors.toList());
         List<Type> columnTypes = columns.stream().map(CassandraColumnHandle::getType).collect(Collectors.toList());
 
