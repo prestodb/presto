@@ -16,6 +16,7 @@ package com.facebook.presto.accumulo;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
 
@@ -50,5 +51,16 @@ public class TestAccumuloIntegrationSmokeTest
         assertEquals(actual.getMaterializedRows().get(7).getField(1), "integer");
         assertEquals(actual.getMaterializedRows().get(8).getField(0), "comment");
         assertEquals(actual.getMaterializedRows().get(8).getField(1), "varchar(79)");
+    }
+
+    @Test
+    public void testInsertPartial()
+    {
+        assertUpdate("CREATE TABLE test_insert_partial (c1 BIGINT, c2 VARCHAR)");
+        assertUpdate("INSERT INTO test_insert_partial (c1) VALUES (1)", "VALUES(1)");
+        assertUpdate("INSERT INTO test_insert_partial (c1, c2) VALUES (2, NULL)", "VALUES(1)");
+        assertUpdate("INSERT INTO test_insert_partial (c1, c2) VALUES (3, 'test')", "VALUES(1)");
+        assertUpdate("INSERT INTO test_insert_partial (c2, c1) VALUES ('test2', 4)", "VALUES(1)");
+        assertQuery("SELECT * FROM test_insert_partial", "VALUES (1, NULL), (2, NULL), (3, 'test'), (4, 'test2')");
     }
 }
