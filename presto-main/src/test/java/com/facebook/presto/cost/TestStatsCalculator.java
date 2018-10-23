@@ -24,6 +24,7 @@ import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.ENABLE_STATS_CALCULATOR;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -37,6 +38,7 @@ public class TestStatsCalculator
         this.queryRunner = new LocalQueryRunner(testSessionBuilder()
                 .setCatalog("local")
                 .setSchema("tiny")
+                .setSystemProperty(ENABLE_STATS_CALCULATOR, "true")
                 .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
                 .build());
 
