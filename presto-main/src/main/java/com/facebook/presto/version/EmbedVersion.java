@@ -82,7 +82,7 @@ public class EmbedVersion
         String configuredVersion = serverConfig.getPrestoVersion();
 
         String version = configuredVersion;
-        if (Objects.equals(builtInVersion, configuredVersion)) {
+        if (!Objects.equals(builtInVersion, configuredVersion)) {
             version = format("%s__%s", builtInVersion, configuredVersion);
         }
         return format("Presto_%s___", version);
