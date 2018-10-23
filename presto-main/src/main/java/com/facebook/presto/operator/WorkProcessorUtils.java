@@ -69,9 +69,9 @@ public final class WorkProcessorUtils
             extends AbstractIterator<Optional<T>>
     {
         @Nullable
-        private WorkProcessor<T> processor;
+        WorkProcessor<T> processor;
 
-        private YieldingIterator(WorkProcessor<T> processor)
+        YieldingIterator(WorkProcessor<T> processor)
         {
             this.processor = requireNonNull(processor, "processorParameter is null");
         }
@@ -288,11 +288,11 @@ public final class WorkProcessorUtils
             implements WorkProcessor<T>
     {
         @Nullable
-        private WorkProcessor.Process<T> process;
+        WorkProcessor.Process<T> process;
         @Nullable
-        private ProcessorState<T> state;
+        ProcessorState<T> state;
 
-        private ProcessWorkProcessor(WorkProcessor.Process<T> process)
+        ProcessWorkProcessor(WorkProcessor.Process<T> process)
         {
             this.process = requireNonNull(process, "process is null");
         }
