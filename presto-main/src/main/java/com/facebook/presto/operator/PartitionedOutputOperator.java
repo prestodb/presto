@@ -219,6 +219,7 @@ public class PartitionedOutputOperator
                 nullChannel,
                 outputBuffer,
                 serdeFactory,
+                operatorContext,
                 sourceTypes,
                 maxMemory);
 
@@ -277,8 +278,6 @@ public class PartitionedOutputOperator
         page = pagePreprocessor.apply(page);
         partitionFunction.partitionPage(page);
 
-        operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
-
         // We use getSizeInBytes() here instead of getRetainedSizeInBytes() for an approximation of
         // the amount of memory used by the pageBuilders, because calculating the retained
         // size can be expensive especially for complex types.
@@ -307,6 +306,7 @@ public class PartitionedOutputOperator
         private final OptionalInt nullChannel; // when present, send the position to every partition if this channel is null.
         private final AtomicLong rowsAdded = new AtomicLong();
         private final AtomicLong pagesAdded = new AtomicLong();
+        private final OperatorContext operatorContext;
         private boolean hasAnyRowBeenReplicated;
 
         public PagePartitioner(
@@ -317,6 +317,7 @@ public class PartitionedOutputOperator
                 OptionalInt nullChannel,
                 OutputBuffer outputBuffer,
                 PagesSerdeFactory serdeFactory,
+                OperatorContext operatorContext,
                 List<Type> sourceTypes,
                 DataSize maxMemory)
         {
@@ -330,6 +331,7 @@ public class PartitionedOutputOperator
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null");
             this.serde = requireNonNull(serdeFactory, "serdeFactory is null").createPagesSerde();
+            this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
             int partitionCount = partitionFunction.getPartitionCount();
             int pageSize = min(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, ((int) maxMemory.toBytes()) / partitionCount);
@@ -429,6 +431,8 @@ public class PartitionedOutputOperator
                 if (!partitionPageBuilder.isEmpty() && (force || partitionPageBuilder.isFull())) {
                     Page pagePartition = partitionPageBuilder.build();
                     partitionPageBuilder.reset();
+
+                    operatorContext.recordGeneratedOutput(pagePartition.getSizeInBytes(), pagePartition.getPositionCount());
 
                     List<SerializedPage> serializedPages = splitPage(pagePartition, DEFAULT_MAX_PAGE_SIZE_IN_BYTES).stream()
                             .map(serde::serialize)
