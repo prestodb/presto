@@ -17,6 +17,7 @@ public enum StandardWarningCode
         implements WarningCodeSupplier
 {
     TOO_MANY_STAGES(0x0000_0001),
+    DEPRECATED_FUNCTION(0x0000_0002),
     /**/;
     private final WarningCode warningCode;
 
