@@ -22,6 +22,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.ENABLE_STATS_CALCULATOR;
 import static com.facebook.presto.SystemSessionProperties.PREFER_PARTITIAL_AGGREGATION;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.absoluteError;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.defaultTolerance;
@@ -41,7 +42,9 @@ public class TestTpchDistributedStats
     {
         DistributedQueryRunner runner = TpchQueryRunnerBuilder.builder()
                 // We are not able to calculate stats for PARTIAL aggregations
-                .amendSession(builder -> builder.setSystemProperty(PREFER_PARTITIAL_AGGREGATION, "false"))
+                .amendSession(builder -> builder
+                        .setSystemProperty(ENABLE_STATS_CALCULATOR, "true")
+                        .setSystemProperty(PREFER_PARTITIAL_AGGREGATION, "false"))
                 .buildWithoutCatalogs();
         runner.createCatalog(
                 "tpch",
