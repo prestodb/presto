@@ -20,6 +20,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Optional;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 
 import static com.facebook.presto.operator.WorkProcessor.ProcessorState.Type.BLOCKED;
@@ -57,6 +58,16 @@ public interface WorkProcessor<T>
      * Get the result once the unit of work is done and the processor hasn't finished.
      */
     T getResult();
+
+    /**
+     * Makes {@link WorkProcessor} yield when given {@code yieldSignal} is set. The processor is
+     * guaranteed to progress computations on subsequent {@link WorkProcessor#process()} calls
+     * even if {@code yieldSignal} is permanently on.
+     */
+    default WorkProcessor<T> yielding(BooleanSupplier yieldSignal)
+    {
+        return WorkProcessorUtils.yield(this, yieldSignal);
+    }
 
     default <R> WorkProcessor<R> flatMap(Function<T, WorkProcessor<R>> mapper)
     {
