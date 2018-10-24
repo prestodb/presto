@@ -96,11 +96,11 @@ String Functions
 
     Removes trailing whitespace from ``string``.
 
-.. function:: split(string, delimiter) -> array<varchar>
+.. function:: split(string, delimiter) -> array(varchar)
 
     Splits ``string`` on ``delimiter`` and returns an array.
 
-.. function:: split(string, delimiter, limit) -> array<varchar>
+.. function:: split(string, delimiter, limit) -> array(varchar)
 
     Splits ``string`` on ``delimiter`` and returns an array of size at most
     ``limit``. The last element in the array always contain everything
@@ -118,7 +118,7 @@ String Functions
     ``entryDelimiter`` splits ``string`` into key-value pairs. ``keyValueDelimiter`` splits
     each pair into key and value.
 
-.. function:: split_to_multimap(string, entryDelimiter, keyValueDelimiter) -> map<varchar, array<varchar>>
+.. function:: split_to_multimap(string, entryDelimiter, keyValueDelimiter) -> map(varchar, array(varchar))
 
     Splits ``string`` by ``entryDelimiter`` and ``keyValueDelimiter`` and returns a map
     containing an array of values for each unique key. ``entryDelimiter`` splits ``string``
