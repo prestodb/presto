@@ -324,6 +324,16 @@ public class TaskResource
         taskManager.abortTaskResults(taskId, bufferId);
     }
 
+    @DELETE
+    @Path("{taskId}/remote-source/{remoteSourceTaskId}")
+    public void removeRemoteSource(@PathParam("taskId") TaskId taskId, @PathParam("remoteSourceTaskId") TaskId remoteSourceTaskId)
+    {
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(remoteSourceTaskId, "remoteSourceTaskId is null");
+
+        taskManager.removeRemoteSource(taskId, remoteSourceTaskId);
+    }
+
     @Managed
     @Nested
     public TimeStat getReadFromOutputBufferTime()

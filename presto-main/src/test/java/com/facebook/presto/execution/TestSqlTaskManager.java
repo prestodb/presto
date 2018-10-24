@@ -244,6 +244,7 @@ public class TestSqlTaskManager
                 config,
                 new NodeMemoryConfig(),
                 localSpillManager,
+                new MockExchangeClientSupplier(),
                 new NodeSpillConfig(),
                 new TestingGcMonitor());
     }

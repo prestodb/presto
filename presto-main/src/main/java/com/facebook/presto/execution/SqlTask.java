@@ -21,9 +21,11 @@ import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.memory.QueryContext;
+import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.PipelineStatus;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.operator.TaskExchangeClientManager;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -77,6 +79,7 @@ public class SqlTask
     private final QueryContext queryContext;
 
     private final SqlTaskExecutionFactory sqlTaskExecutionFactory;
+    private final TaskExchangeClientManager taskExchangeClientManager;
 
     private final AtomicReference<DateTime> lastHeartbeat = new AtomicReference<>(DateTime.now());
     private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskStatus.STARTING_VERSION);
@@ -90,12 +93,21 @@ public class SqlTask
             String nodeId,
             QueryContext queryContext,
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
+            ExchangeClientSupplier exchangeClientSupplier,
             ExecutorService taskNotificationExecutor,
             Function<SqlTask, ?> onDone,
             DataSize maxBufferSize,
             CounterStat failedTasks)
     {
-        SqlTask sqlTask = new SqlTask(taskId, location, nodeId, queryContext, sqlTaskExecutionFactory, taskNotificationExecutor, maxBufferSize);
+        SqlTask sqlTask = new SqlTask(
+                taskId,
+                location,
+                nodeId,
+                queryContext,
+                sqlTaskExecutionFactory,
+                exchangeClientSupplier,
+                taskNotificationExecutor,
+                maxBufferSize);
         sqlTask.initialize(onDone, failedTasks);
         return sqlTask;
     }
@@ -106,6 +118,7 @@ public class SqlTask
             String nodeId,
             QueryContext queryContext,
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
+            ExchangeClientSupplier exchangeClientSupplier,
             ExecutorService taskNotificationExecutor,
             DataSize maxBufferSize)
     {
@@ -115,9 +128,11 @@ public class SqlTask
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.queryContext = requireNonNull(queryContext, "queryContext is null");
         this.sqlTaskExecutionFactory = requireNonNull(sqlTaskExecutionFactory, "sqlTaskExecutionFactory is null");
+        requireNonNull(exchangeClientSupplier, "exchangeClientSupplier is null");
         requireNonNull(taskNotificationExecutor, "taskNotificationExecutor is null");
         requireNonNull(maxBufferSize, "maxBufferSize is null");
 
+        this.taskExchangeClientManager = new TaskExchangeClientManager(exchangeClientSupplier);
         outputBuffer = new LazyOutputBuffer(
                 taskId,
                 taskInstanceId,
@@ -376,7 +391,15 @@ public class SqlTask
                 taskExecution = taskHolder.getTaskExecution();
                 if (taskExecution == null) {
                     checkState(fragment.isPresent(), "fragment must be present");
-                    taskExecution = sqlTaskExecutionFactory.create(session, queryContext, taskStateMachine, outputBuffer, fragment.get(), sources, totalPartitions);
+                    taskExecution = sqlTaskExecutionFactory.create(
+                            session,
+                            queryContext,
+                            taskStateMachine,
+                            outputBuffer,
+                            taskExchangeClientManager,
+                            fragment.get(),
+                            sources,
+                            totalPartitions);
                     taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
                     needsPlan.set(false);
                 }
@@ -420,6 +443,16 @@ public class SqlTask
         outputBuffer.abort(bufferId);
 
         return getTaskInfo();
+    }
+
+    public void removeRemoteSource(TaskId sourceTaskId)
+    {
+        requireNonNull(sourceTaskId, "sourceTaskId is null");
+
+        log.debug("Removing remote source %s from task %s", sourceTaskId, taskId);
+
+        taskExchangeClientManager.getExchangeClients()
+                .forEach(exchangeClient -> exchangeClient.removeRemoteSource(sourceTaskId));
     }
 
     public void failed(Throwable cause)

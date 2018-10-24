@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.server;
+package com.facebook.presto.server.remotetask;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.LocationFactory;
@@ -26,33 +26,50 @@ import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.ForScheduler;
-import com.facebook.presto.server.remotetask.HttpRemoteTask;
-import com.facebook.presto.server.remotetask.RemoteTaskStats;
+import com.facebook.presto.server.InternalCommunicationConfig;
+import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.smile.Codec;
 import com.facebook.presto.server.smile.SmileCodec;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.Multimap;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.Request;
+import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import javax.annotation.Nullable;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
+import java.net.URI;
 import java.util.OptionalInt;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.facebook.presto.server.smile.JsonCodecWrapper.wrapJsonCodec;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.google.common.util.concurrent.Futures.addCallback;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.http.client.HttpStatus.OK;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.airlift.http.client.Request.Builder.prepareDelete;
+import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -60,6 +77,8 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 public class HttpRemoteTaskFactory
         implements RemoteTaskFactory
 {
+    private static final Logger LOG = Logger.get(HttpRemoteTaskFactory.class);
+
     private final HttpClient httpClient;
     private final LocationFactory locationFactory;
     private final Codec<TaskStatus> taskStatusCodec;
@@ -164,5 +183,75 @@ public class HttpRemoteTaskFactory
                 partitionedSplitCountTracker,
                 stats,
                 isBinaryTransportEnabled);
+    }
+
+    @Override
+    public ListenableFuture<?> removeRemoteSource(TaskId taskId, TaskId remoteSourceTaskId)
+    {
+        URI remoteSourceUri = uriBuilderFrom(locationFactory.createLocalTaskLocation(taskId))
+                .appendPath("remote-source")
+                .appendPath(remoteSourceTaskId.toString())
+                .build();
+
+        Request request = prepareDelete()
+                .setUri(remoteSourceUri)
+                .build();
+        RequestErrorTracker errorTracker = new RequestErrorTracker(
+                taskId,
+                remoteSourceUri,
+                maxErrorDuration,
+                errorScheduledExecutor,
+                "Remove exchange remote source");
+
+        SettableFuture<?> future = SettableFuture.create();
+        removeRemoteSourceHelper(errorTracker, request, future);
+        return future;
+    }
+
+    private void removeRemoteSourceHelper(RequestErrorTracker errorTracker, Request request, SettableFuture<?> future)
+    {
+        errorTracker.startRequest();
+
+        FutureCallback<StatusResponse> callback = new FutureCallback<StatusResponse>() {
+            @Override
+            public void onSuccess(@Nullable StatusResponse response)
+            {
+                if (response == null) {
+                    throw new PrestoException(GENERIC_INTERNAL_ERROR, "Request failed with null response");
+                }
+                if (response.getStatusCode() != OK.code()) {
+                    throw new PrestoException(GENERIC_INTERNAL_ERROR, "Request failed with HTTP status " + response.getStatusCode());
+                }
+                future.set(null);
+            }
+
+            @Override
+            public void onFailure(Throwable failedReason)
+            {
+                if (failedReason instanceof RejectedExecutionException && httpClient.isClosed()) {
+                    LOG.error("Unable to destroy exchange source at %s. HTTP client is closed", request.getUri());
+                    future.setException(failedReason);
+                    return;
+                }
+                // record failure
+                try {
+                    errorTracker.requestFailed(failedReason);
+                }
+                catch (PrestoException e) {
+                    future.setException(e);
+                    return;
+                }
+                // if throttled due to error, asynchronously wait for timeout and try again
+                ListenableFuture<?> errorRateLimit = errorTracker.acquireRequestPermit();
+                if (errorRateLimit.isDone()) {
+                    removeRemoteSourceHelper(errorTracker, request, future);
+                }
+                else {
+                    errorRateLimit.addListener(() -> removeRemoteSourceHelper(errorTracker, request, future), errorScheduledExecutor);
+                }
+            }
+        };
+
+        addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), callback, directExecutor());
     }
 }

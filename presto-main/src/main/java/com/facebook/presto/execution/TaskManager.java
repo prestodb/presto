@@ -129,4 +129,11 @@ public interface TaskManager
      * possible notifications are observed out of order due to the asynchronous execution.
      */
     void addStateChangeListener(TaskId taskId, StateChangeListener<TaskState> stateChangeListener);
+
+    /**
+     * Removes the remote source from exchange clients of {@code taskId} receiving data
+     * from {@code remoteSourceTaskId}. Any further output or transport timeout exception
+     * from {@code remoteSourceTaskId} will be ignored.
+     */
+    void removeRemoteSource(TaskId taskId, TaskId remoteSourceTaskId);
 }

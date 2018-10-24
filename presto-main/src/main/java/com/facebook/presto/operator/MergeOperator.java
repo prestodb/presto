@@ -30,7 +30,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -50,7 +49,7 @@ public class MergeOperator
     {
         private final int operatorId;
         private final PlanNodeId sourceId;
-        private final ExchangeClientSupplier exchangeClientSupplier;
+        private final TaskExchangeClientManager taskExchangeClientManager;
         private final PagesSerdeFactory serdeFactory;
         private final List<Type> types;
         private final List<Integer> outputChannels;
@@ -63,7 +62,7 @@ public class MergeOperator
         public MergeOperatorFactory(
                 int operatorId,
                 PlanNodeId sourceId,
-                ExchangeClientSupplier exchangeClientSupplier,
+                TaskExchangeClientManager taskExchangeClientManager,
                 PagesSerdeFactory serdeFactory,
                 OrderingCompiler orderingCompiler,
                 List<Type> types,
@@ -73,7 +72,7 @@ public class MergeOperator
         {
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
-            this.exchangeClientSupplier = requireNonNull(exchangeClientSupplier, "exchangeClientSupplier is null");
+            this.taskExchangeClientManager = requireNonNull(taskExchangeClientManager, "taskExchangeClientManager is null");
             this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
             this.types = requireNonNull(types, "types is null");
             this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
@@ -98,7 +97,7 @@ public class MergeOperator
             return new MergeOperator(
                     operatorContext,
                     sourceId,
-                    exchangeClientSupplier,
+                    taskExchangeClientManager,
                     serdeFactory.createPagesSerde(),
                     orderingCompiler.compilePageWithPositionComparator(types, sortChannels, sortOrder),
                     outputChannels,
@@ -114,7 +113,7 @@ public class MergeOperator
 
     private final OperatorContext operatorContext;
     private final PlanNodeId sourceId;
-    private final ExchangeClientSupplier exchangeClientSupplier;
+    private final TaskExchangeClientManager taskExchangeClientManager;
     private final PagesSerde pagesSerde;
     private final PageWithPositionComparator comparator;
     private final List<Integer> outputChannels;
@@ -131,7 +130,7 @@ public class MergeOperator
     public MergeOperator(
             OperatorContext operatorContext,
             PlanNodeId sourceId,
-            ExchangeClientSupplier exchangeClientSupplier,
+            TaskExchangeClientManager taskExchangeClientManager,
             PagesSerde pagesSerde,
             PageWithPositionComparator comparator,
             List<Integer> outputChannels,
@@ -139,7 +138,7 @@ public class MergeOperator
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
-        this.exchangeClientSupplier = requireNonNull(exchangeClientSupplier, "exchangeClientSupplier is null");
+        this.taskExchangeClientManager = requireNonNull(taskExchangeClientManager, "taskExchangeClientManager is null");
         this.pagesSerde = requireNonNull(pagesSerde, "pagesSerde is null");
         this.comparator = requireNonNull(comparator, "comparator is null");
         this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
@@ -160,7 +159,7 @@ public class MergeOperator
         checkState(!blockedOnSplits.isDone(), "noMoreSplits has been called already");
 
         RemoteSplit remoteSplit = (RemoteSplit) split.getConnectorSplit();
-        ExchangeClient exchangeClient = closer.register(exchangeClientSupplier.get(operatorContext.localSystemMemoryContext()));
+        ExchangeClient exchangeClient = closer.register(taskExchangeClientManager.createExchangeClient(operatorContext.localSystemMemoryContext()));
         exchangeClient.addLocation(remoteSplit.getLocation(), remoteSplit.getRemoteSourceTaskId());
         exchangeClient.noMoreLocations();
         pageProducers.add(exchangeClient.pages()
