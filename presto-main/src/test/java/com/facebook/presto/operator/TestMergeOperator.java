@@ -336,7 +336,7 @@ public class TestMergeOperator
         MergeOperator.MergeOperatorFactory factory = new MergeOperator.MergeOperatorFactory(
                 mergeOperatorId,
                 new PlanNodeId("plan_node_id" + mergeOperatorId),
-                exchangeClientFactory,
+                new TaskExchangeClientManager(exchangeClientFactory),
                 serdeFactory,
                 orderingCompiler,
                 sourceTypes,

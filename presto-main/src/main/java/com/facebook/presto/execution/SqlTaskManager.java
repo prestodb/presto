@@ -26,6 +26,7 @@ import com.facebook.presto.memory.MemoryPoolAssignment;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.QueryContext;
+import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spiller.LocalSpillManager;
@@ -120,6 +121,7 @@ public class SqlTaskManager
             TaskManagerConfig config,
             NodeMemoryConfig nodeMemoryConfig,
             LocalSpillManager localSpillManager,
+            ExchangeClientSupplier exchangeClientSupplier,
             NodeSpillConfig nodeSpillConfig,
             GcMonitor gcMonitor)
     {
@@ -153,6 +155,7 @@ public class SqlTaskManager
                         nodeInfo.getNodeId(),
                         queryContexts.getUnchecked(taskId.getQueryId()),
                         sqlTaskExecutionFactory,
+                        exchangeClientSupplier,
                         taskNotificationExecutor,
                         sqlTask -> {
                             finishedTaskStats.merge(sqlTask.getIoStats());
@@ -391,6 +394,15 @@ public class SqlTaskManager
         requireNonNull(bufferId, "bufferId is null");
 
         return tasks.getUnchecked(taskId).abortTaskResults(bufferId);
+    }
+
+    @Override
+    public void removeRemoteSource(TaskId taskId, TaskId remoteSourceTaskId)
+    {
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(remoteSourceTaskId, "remoteSourceTaskId is null");
+
+        tasks.getUnchecked(taskId).removeRemoteSource(remoteSourceTaskId);
     }
 
     @Override

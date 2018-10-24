@@ -248,7 +248,11 @@ public class TestExchangeOperator
 
     private SourceOperator createExchangeOperator()
     {
-        ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, SERDE_FACTORY);
+        ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                new TaskExchangeClientManager(exchangeClientSupplier),
+                SERDE_FACTORY);
 
         DriverContext driverContext = createTaskContext(scheduler, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)

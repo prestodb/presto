@@ -21,6 +21,7 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.Multimap;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.OptionalInt;
 
@@ -35,4 +36,6 @@ public interface RemoteTaskFactory
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             boolean summarizeTaskInfo);
+
+    ListenableFuture<?> removeRemoteSource(TaskId taskId, TaskId remoteSourceTaskId);
 }
