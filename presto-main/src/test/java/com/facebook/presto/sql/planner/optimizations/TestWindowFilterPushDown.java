@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
+import com.facebook.presto.sql.planner.plan.WindowNode;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_TOP_N_ROW_NUMBER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.limit;
@@ -34,11 +37,23 @@ public class TestWindowFilterPushDown
         @Language("SQL") String sql = "SELECT " +
                 "row_number() OVER (PARTITION BY suppkey ORDER BY orderkey) partition_row_number FROM lineitem LIMIT 10";
 
-        assertPlan(
+        assertPlanWithSession(
                 sql,
+                optimizeTopNRowNumber(true),
+                true,
                 anyTree(
                         limit(10, anyTree(
                                 node(TopNRowNumberNode.class,
+                                        anyTree(
+                                                tableScan("lineitem")))))));
+
+        assertPlanWithSession(
+                sql,
+                optimizeTopNRowNumber(false),
+                true,
+                anyTree(
+                        limit(10, anyTree(
+                                node(WindowNode.class,
                                         anyTree(
                                                 tableScan("lineitem")))))));
     }
@@ -50,12 +65,32 @@ public class TestWindowFilterPushDown
                 "(SELECT row_number() OVER (PARTITION BY suppkey ORDER BY orderkey) partition_row_number FROM lineitem) " +
                 "WHERE partition_row_number < 10";
 
-        assertPlan(
+        assertPlanWithSession(
                 sql,
+                optimizeTopNRowNumber(true),
+                true,
                 anyTree(
                         anyNot(FilterNode.class,
                                 node(TopNRowNumberNode.class,
                                         anyTree(
                                                 tableScan("lineitem"))))));
+
+        assertPlanWithSession(
+                sql,
+                optimizeTopNRowNumber(false),
+                true,
+                anyTree(
+                        node(FilterNode.class,
+                                anyTree(
+                                        node(WindowNode.class,
+                                                anyTree(
+                                                        tableScan("lineitem")))))));
+    }
+
+    private Session optimizeTopNRowNumber(boolean enabled)
+    {
+        return Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(OPTIMIZE_TOP_N_ROW_NUMBER, Boolean.toString(enabled))
+                .build();
     }
 }
