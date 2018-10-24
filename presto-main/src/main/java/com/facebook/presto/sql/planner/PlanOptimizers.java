@@ -331,8 +331,6 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableList.of(
-                                new com.facebook.presto.sql.planner.optimizations.TransformCorrelatedSingleRowSubqueryToProject()),
                         ImmutableSet.of(
                                 new InlineProjections(),
                                 new RemoveRedundantIdentityProjections(),
