@@ -82,6 +82,7 @@ idle time, initialization parameters, and accessed catalogs.
 System Connector Procedures
 ---------------------------
 
-.. function:: runtime.kill_query(id)
+.. function:: runtime.kill_query(query_id, message)
 
-    Kill the query with the specified ``id``.
+    Kill the query identified by ``query_id``. The query failure message
+    will include the specified ``message``.
