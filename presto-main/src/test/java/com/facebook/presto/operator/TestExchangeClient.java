@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
@@ -104,7 +105,7 @@ public class TestExchangeClient
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
 
-        exchangeClient.addLocation(location);
+        exchangeClient.addLocation(location, TaskId.valueOf("taskid"));
         exchangeClient.noMoreLocations();
 
         assertEquals(exchangeClient.isClosed(), false);
@@ -148,7 +149,7 @@ public class TestExchangeClient
         processor.addPage(location1, createPage(2));
         processor.addPage(location1, createPage(3));
         processor.setComplete(location1);
-        exchangeClient.addLocation(location1);
+        exchangeClient.addLocation(location1, TaskId.valueOf("foo"));
 
         assertEquals(exchangeClient.isClosed(), false);
         assertPageEquals(getNextPage(exchangeClient), createPage(1));
@@ -165,7 +166,7 @@ public class TestExchangeClient
         processor.addPage(location2, createPage(5));
         processor.addPage(location2, createPage(6));
         processor.setComplete(location2);
-        exchangeClient.addLocation(location2);
+        exchangeClient.addLocation(location2, TaskId.valueOf("bar"));
 
         assertEquals(exchangeClient.isClosed(), false);
         assertPageEquals(getNextPage(exchangeClient), createPage(4));
@@ -215,7 +216,7 @@ public class TestExchangeClient
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
 
-        exchangeClient.addLocation(location);
+        exchangeClient.addLocation(location, TaskId.valueOf("taskid"));
         exchangeClient.noMoreLocations();
         assertEquals(exchangeClient.isClosed(), false);
 
@@ -296,7 +297,7 @@ public class TestExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
-        exchangeClient.addLocation(location);
+        exchangeClient.addLocation(location, TaskId.valueOf("taskid"));
         exchangeClient.noMoreLocations();
 
         // fetch a page
@@ -318,6 +319,80 @@ public class TestExchangeClient
         assertEquals(clientStatus.getUri(), location);
         assertEquals(clientStatus.getState(), "closed", "status");
         assertEquals(clientStatus.getHttpRequestState(), "not scheduled", "httpRequestState");
+    }
+
+    @Test
+    public void testRemoveRemoteSource()
+            throws Exception
+    {
+        DataSize maxResponseSize = new DataSize(1, Unit.BYTE);
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
+
+        URI location1 = URI.create("http://localhost:8081/foo");
+        TaskId taskId1 = TaskId.valueOf("foo");
+        URI location2 = URI.create("http://localhost:8082/bar");
+        TaskId taskId2 = TaskId.valueOf("bar");
+
+        processor.addPage(location1, createPage(1));
+        processor.addPage(location1, createPage(2));
+        processor.addPage(location1, createPage(3));
+
+        ExchangeClient exchangeClient = new ExchangeClient(
+                new DataSize(1, Unit.BYTE),
+                maxResponseSize,
+                1,
+                new Duration(1, TimeUnit.MINUTES),
+                true,
+                new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))),
+                scheduler,
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                pageBufferClientCallbackExecutor);
+        exchangeClient.addLocation(location1, taskId1);
+        exchangeClient.addLocation(location2, taskId2);
+
+        // fetch a page
+        assertEquals(exchangeClient.isClosed(), false);
+        assertPageEquals(getNextPage(exchangeClient), createPage(1));
+
+        // remove remote source while pages are still available
+        exchangeClient.removeRemoteSource(taskId1);
+
+        // client should not receive any further pages from removed remote source
+        assertNull(exchangeClient.pollPage());
+        assertEquals(exchangeClient.getStatus().getBufferedPages(), 0);
+
+        // add pages to another source
+        processor.addPage(location2, createPage(4));
+        processor.addPage(location2, createPage(5));
+        processor.addPage(location2, createPage(6));
+        processor.setComplete(location2);
+
+        assertEquals(exchangeClient.isClosed(), false);
+        assertPageEquals(getNextPage(exchangeClient), createPage(4));
+        assertEquals(exchangeClient.isClosed(), false);
+        assertPageEquals(getNextPage(exchangeClient), createPage(5));
+        assertEquals(exchangeClient.isClosed(), false);
+        assertPageEquals(getNextPage(exchangeClient), createPage(6));
+
+        assertFalse(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS).isPresent());
+        assertEquals(exchangeClient.isClosed(), false);
+
+        exchangeClient.noMoreLocations();
+        // The transition to closed may happen asynchronously, since it requires that all the HTTP clients
+        // receive a final GONE response, so just spin until it's closed or the test times out.
+        while (!exchangeClient.isClosed()) {
+            Thread.sleep(1);
+        }
+
+        PageBufferClientStatus clientStatus1 = exchangeClient.getStatus().getPageBufferClientStatuses().get(0);
+        assertEquals(clientStatus1.getUri(), location1);
+        assertEquals(clientStatus1.getState(), "closed", "status");
+        assertEquals(clientStatus1.getHttpRequestState(), "not scheduled", "httpRequestState");
+
+        PageBufferClientStatus clientStatus2 = exchangeClient.getStatus().getPageBufferClientStatuses().get(1);
+        assertEquals(clientStatus2.getUri(), location2);
+        assertEquals(clientStatus2.getState(), "closed", "status");
+        assertEquals(clientStatus2.getHttpRequestState(), "not scheduled", "httpRequestState");
     }
 
     private static Page createPage(int size)

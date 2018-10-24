@@ -26,6 +26,7 @@ import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
@@ -552,7 +553,7 @@ class Query
         }
 
         for (URI outputLocation : outputInfo.getBufferLocations()) {
-            exchangeClient.addLocation(outputLocation);
+            exchangeClient.addLocation(outputLocation, TaskId.valueOf("taskid"));
         }
         if (outputInfo.isNoMoreBufferLocations()) {
             exchangeClient.noMoreLocations();

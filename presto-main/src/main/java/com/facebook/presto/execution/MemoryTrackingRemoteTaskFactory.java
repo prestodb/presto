@@ -19,11 +19,13 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.Multimap;
 
 import java.util.OptionalInt;
+import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
 
@@ -62,6 +64,12 @@ public class MemoryTrackingRemoteTaskFactory
 
         task.addStateChangeListener(new UpdatePeakMemory(stateMachine));
         return task;
+    }
+
+    @Override
+    public void removeRemoteSource(TaskId destinationTaskId, TaskId sourceTaskId, Consumer<PrestoException> onFailure)
+    {
+        remoteTaskFactory.removeRemoteSource(destinationTaskId, sourceTaskId, onFailure);
     }
 
     private static final class UpdatePeakMemory

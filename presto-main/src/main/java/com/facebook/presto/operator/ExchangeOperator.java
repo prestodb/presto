@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.execution.SqlTaskManager.ExchangeClientManager;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.buffer.SerializedPage;
@@ -25,7 +26,6 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.Closeable;
-import java.net.URI;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -43,7 +43,7 @@ public class ExchangeOperator
     {
         private final int operatorId;
         private final PlanNodeId sourceId;
-        private final ExchangeClientSupplier exchangeClientSupplier;
+        private final ExchangeClientManager exchangeClientManager;
         private final PagesSerdeFactory serdeFactory;
         private ExchangeClient exchangeClient;
         private boolean closed;
@@ -51,12 +51,12 @@ public class ExchangeOperator
         public ExchangeOperatorFactory(
                 int operatorId,
                 PlanNodeId sourceId,
-                ExchangeClientSupplier exchangeClientSupplier,
+                ExchangeClientManager exchangeClientManager,
                 PagesSerdeFactory serdeFactory)
         {
             this.operatorId = operatorId;
             this.sourceId = sourceId;
-            this.exchangeClientSupplier = exchangeClientSupplier;
+            this.exchangeClientManager = exchangeClientManager;
             this.serdeFactory = serdeFactory;
         }
 
@@ -72,7 +72,7 @@ public class ExchangeOperator
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, ExchangeOperator.class.getSimpleName());
             if (exchangeClient == null) {
-                exchangeClient = exchangeClientSupplier.get(driverContext.getPipelineContext().localSystemMemoryContext());
+                exchangeClient = exchangeClientManager.createExchangeClient(driverContext.getPipelineContext().localSystemMemoryContext());
             }
 
             return new ExchangeOperator(
@@ -120,8 +120,8 @@ public class ExchangeOperator
         requireNonNull(split, "split is null");
         checkArgument(split.getConnectorId().equals(REMOTE_CONNECTOR_ID), "split is not a remote split");
 
-        URI location = ((RemoteSplit) split.getConnectorSplit()).getLocation();
-        exchangeClient.addLocation(location);
+        RemoteSplit remoteSplit = (RemoteSplit) split.getConnectorSplit();
+        exchangeClient.addLocation(remoteSplit.getLocation(), remoteSplit.getSourceTaskId());
 
         return Optional::empty;
     }

@@ -15,6 +15,8 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.SqlTaskManager.ExchangeClientManager;
+import com.facebook.presto.execution.TestSqlTaskManager.MockExchangeClientSupplier;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.QueryContext;
@@ -303,6 +305,7 @@ public class TestMemoryRevokingScheduler
                         new DataSize(1, GIGABYTE),
                         spillSpaceTracker),
                 sqlTaskExecutionFactory,
+                new ExchangeClientManager(new MockExchangeClientSupplier()),
                 executor,
                 Functions.identity(),
                 new DataSize(32, MEGABYTE),

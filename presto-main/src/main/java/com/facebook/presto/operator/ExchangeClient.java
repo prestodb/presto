@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
@@ -70,10 +71,14 @@ public class ExchangeClient
 
     private final ConcurrentMap<URI, HttpPageBufferClient> allClients = new ConcurrentHashMap<>();
 
+    // TODO: can one task ID map to multiple URIs (i.e. buffer location)
+    private final ConcurrentMap<TaskId, URI> taskIdToURI = new ConcurrentHashMap<>();
+
     @GuardedBy("this")
     private final Deque<HttpPageBufferClient> queuedClients = new LinkedList<>();
 
     private final Set<HttpPageBufferClient> completedClients = newConcurrentHashSet();
+    private final Set<HttpPageBufferClient> cancelledClients = newConcurrentHashSet();
     private final LinkedBlockingDeque<SerializedPage> pageBuffer = new LinkedBlockingDeque<>();
 
     @GuardedBy("this")
@@ -138,7 +143,7 @@ public class ExchangeClient
         }
     }
 
-    public synchronized void addLocation(URI location)
+    public synchronized void addLocation(URI location, TaskId sourceTaskId)
     {
         requireNonNull(location, "location is null");
 
@@ -165,9 +170,34 @@ public class ExchangeClient
                 scheduler,
                 pageBufferClientCallbackExecutor);
         allClients.put(location, client);
+        taskIdToURI.put(sourceTaskId, location);
         queuedClients.add(client);
 
         scheduleRequestIfNecessary();
+    }
+
+    public synchronized void removeRemoteSource(TaskId sourceTaskId)
+    {
+        requireNonNull(sourceTaskId, "sourceTaskId is null");
+
+        // Ignore remove remote source after close
+        if (closed.get()) {
+            return;
+        }
+
+        URI location = taskIdToURI.get(sourceTaskId);
+        if (location == null) {
+            return;
+        }
+
+        HttpPageBufferClient client = allClients.get(location);
+        if (client == null) {
+            return;
+        }
+
+        client.close();
+        cancelledClients.add(client);
+        completedClients.add(client);
     }
 
     public synchronized void noMoreLocations()
@@ -309,6 +339,11 @@ public class ExchangeClient
                 // no more clients available
                 return;
             }
+
+            if (cancelledClients.contains(client)) {
+                continue;
+            }
+
             client.scheduleRequest();
         }
     }
@@ -432,6 +467,11 @@ public class ExchangeClient
         {
             requireNonNull(client, "client is null");
             requireNonNull(cause, "cause is null");
+
+            if (cancelledClients.contains(client)) {
+                // ignore failure for cancelled clients
+                return;
+            }
             ExchangeClient.this.clientFailed(cause);
         }
     }

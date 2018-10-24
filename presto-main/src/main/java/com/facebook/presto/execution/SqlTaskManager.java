@@ -26,6 +26,9 @@ import com.facebook.presto.memory.MemoryPoolAssignment;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.QueryContext;
+import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.operator.ExchangeClient;
+import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spiller.LocalSpillManager;
@@ -56,6 +59,7 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
 import java.io.Closeable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -111,6 +115,7 @@ public class SqlTaskManager
     @Inject
     public SqlTaskManager(
             LocalExecutionPlanner planner,
+            ExchangeClientSupplier exchangeClientSupplier,
             LocationFactory locationFactory,
             TaskExecutor taskExecutor,
             SplitMonitor splitMonitor,
@@ -136,7 +141,12 @@ public class SqlTaskManager
         this.taskManagementExecutor = requireNonNull(taskManagementExecutor, "taskManagementExecutor cannot be null").getExecutor();
         this.driverYieldExecutor = newScheduledThreadPool(config.getTaskYieldThreads(), threadsNamed("task-yield-%s"));
 
-        SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, splitMonitor, config);
+        SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(
+                taskNotificationExecutor,
+                taskExecutor,
+                planner,
+                splitMonitor,
+                config);
 
         this.localMemoryManager = requireNonNull(localMemoryManager, "localMemoryManager is null");
         DataSize maxQueryUserMemoryPerNode = nodeMemoryConfig.getMaxQueryMemoryPerNode();
@@ -153,6 +163,7 @@ public class SqlTaskManager
                         nodeInfo.getNodeId(),
                         queryContexts.getUnchecked(taskId.getQueryId()),
                         sqlTaskExecutionFactory,
+                        new ExchangeClientManager(exchangeClientSupplier),
                         taskNotificationExecutor,
                         sqlTask -> {
                             finishedTaskStats.merge(sqlTask.getIoStats());
@@ -394,6 +405,15 @@ public class SqlTaskManager
     }
 
     @Override
+    public void removeRemoteSource(TaskId taskId, TaskId srcTaskId)
+    {
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(srcTaskId, "srcTaskId is null");
+
+        tasks.getUnchecked(taskId).removeRemoteSource(srcTaskId);
+    }
+
+    @Override
     public TaskInfo cancelTask(TaskId taskId)
     {
         requireNonNull(taskId, "taskId is null");
@@ -481,5 +501,30 @@ public class SqlTaskManager
 
     {
         return queryContexts.getUnchecked(queryId);
+    }
+
+    public static class ExchangeClientManager
+    {
+        private final ExchangeClientSupplier supplier;
+        private final List<ExchangeClient> exchangeClients;
+
+        @VisibleForTesting
+        public ExchangeClientManager(ExchangeClientSupplier supplier)
+        {
+            this.supplier = requireNonNull(supplier, "supplier is null");
+            this.exchangeClients = new ArrayList<>();
+        }
+
+        public ExchangeClient createExchangeClient(LocalMemoryContext systemMemoryContext)
+        {
+            ExchangeClient exchangeClient = supplier.get(systemMemoryContext);
+            exchangeClients.add(exchangeClient);
+            return exchangeClient;
+        }
+
+        public List<ExchangeClient> getExchangeClients()
+        {
+            return ImmutableList.copyOf(exchangeClients);
+        }
     }
 }

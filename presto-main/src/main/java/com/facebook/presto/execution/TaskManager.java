@@ -123,6 +123,12 @@ public interface TaskManager
     TaskInfo abortTaskResults(TaskId taskId, OutputBufferId bufferId);
 
     /**
+     * Removes the remote source on {@code taskId} receiving data from {@code sourceTaskId}.
+     * Any further output or transport timeout failure from this remote source will be ignored.
+     */
+    void removeRemoteSource(TaskId taskId, TaskId sourceTaskId);
+
+    /**
      * Adds a state change listener to the specified task.
      * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
      * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
