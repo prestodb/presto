@@ -342,7 +342,7 @@ public class PredicatePushDown
             }
 
             FilterNode rewrittenFilterNode = (FilterNode) rewrittenPlan;
-            if (!expressionEquivalence.areExpressionsEquivalent(session, rewrittenFilterNode.getPredicate(), node.getPredicate(), types)
+            if (!areExpressionsEquivalent(rewrittenFilterNode.getPredicate(), node.getPredicate())
                     || node.getSource() != rewrittenFilterNode.getSource()) {
                 return rewrittenPlan;
             }
@@ -477,7 +477,7 @@ public class PredicatePushDown
 
             boolean filtersEquivalent =
                     newJoinFilter.isPresent() == node.getFilter().isPresent() &&
-                            (!newJoinFilter.isPresent() || expressionEquivalence.areExpressionsEquivalent(session, newJoinFilter.get(), node.getFilter().get(), types));
+                            (!newJoinFilter.isPresent() || areExpressionsEquivalent(newJoinFilter.get(), node.getFilter().get()));
 
             if (leftSource != node.getLeft() ||
                     rightSource != node.getRight() ||
@@ -570,7 +570,7 @@ public class PredicatePushDown
             PlanNode output = node;
             if (leftSource != node.getLeft() ||
                     rightSource != node.getRight() ||
-                    !expressionEquivalence.areExpressionsEquivalent(session, newJoinPredicate, joinPredicate, types)) {
+                    !areExpressionsEquivalent(newJoinPredicate, joinPredicate)) {
                 // Create identity projections for all existing symbols
                 Assignments.Builder leftProjections = Assignments.builder();
                 leftProjections.putAll(node.getLeft()
@@ -930,6 +930,11 @@ public class PredicatePushDown
                     WarningCollector.NOOP);
             ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
             return literalEncoder.toExpression(optimizer.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(NodeRef.of(expression)));
+        }
+
+        private boolean areExpressionsEquivalent(Expression leftExpression, Expression rightExpression)
+        {
+            return expressionEquivalence.areExpressionsEquivalent(session, leftExpression, rightExpression, types);
         }
 
         /**
