@@ -97,23 +97,48 @@ public class DefaultJsonFieldDecoder
     @Override
     public FieldValueProvider decode(JsonNode value)
     {
-        return new JsonValueProvider(value, columnHandle, minValue, maxValue);
+        return new RangedFieldValueProvider(value, columnHandle, minValue, maxValue);
+    }
+
+    /**
+     * Implementation of the {@link JsonValueProvider} that ensures that values are within a given range.
+     */
+    static class RangedFieldValueProvider
+            extends JsonValueProvider
+    {
+        private final long minValue;
+        private final long maxValue;
+
+        RangedFieldValueProvider(JsonNode value, DecoderColumnHandle columnHandle, long minValue, long maxValue)
+        {
+            super(value, columnHandle);
+            this.minValue = minValue;
+            this.maxValue = maxValue;
+        }
+
+        @Override
+        public long getLong()
+        {
+            long longValue = super.getLong();
+            if (longValue >= minValue && longValue <= maxValue) {
+                return longValue;
+            }
+            throw new PrestoException(
+                    DECODER_CONVERSION_NOT_SUPPORTED,
+                    format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnHandle.getType(), columnHandle.getName()));
+        }
     }
 
     public static class JsonValueProvider
             extends FieldValueProvider
     {
-        private final JsonNode value;
-        private final DecoderColumnHandle columnHandle;
-        private final long minValue;
-        private final long maxValue;
+        protected final JsonNode value;
+        protected final DecoderColumnHandle columnHandle;
 
-        public JsonValueProvider(JsonNode value, DecoderColumnHandle columnHandle, long minValue, long maxValue)
+        public JsonValueProvider(JsonNode value, DecoderColumnHandle columnHandle)
         {
             this.value = value;
             this.columnHandle = columnHandle;
-            this.minValue = minValue;
-            this.maxValue = maxValue;
         }
 
         @Override
@@ -137,18 +162,11 @@ public class DefaultJsonFieldDecoder
         public long getLong()
         {
             try {
-                long longValue;
                 if (value.isIntegralNumber() && !value.isBigInteger()) {
-                    longValue = value.longValue();
-                    if (longValue >= minValue && longValue <= maxValue) {
-                        return longValue;
-                    }
+                    return value.longValue();
                 }
                 else if (value.isValueNode()) {
-                    longValue = parseLong(value.asText());
-                    if (longValue >= minValue && longValue <= maxValue) {
-                        return longValue;
-                    }
+                    return parseLong(value.asText());
                 }
             }
             catch (NumberFormatException ignore) {
