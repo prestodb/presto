@@ -74,7 +74,6 @@ import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.facebook.presto.verifier.QueryType.CREATE;
@@ -84,6 +83,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 @Command(name = "verify", description = "verify")
 public class VerifyCommand
@@ -297,7 +297,7 @@ public class VerifyCommand
             for (int n = 1; n <= queries.size(); n++) {
                 completionService.take().get().ifPresent(rewritten::add);
 
-                if (!config.isQuiet() && (stopwatch.elapsed(TimeUnit.MILLISECONDS) > 0)) {
+                if (!config.isQuiet() && (stopwatch.elapsed(MINUTES) > 0)) {
                     stopwatch.reset().start();
                     LOG.info("Rewrite progress: %s valid, %s skipped, %.2f%% done",
                             rewritten.size(),
