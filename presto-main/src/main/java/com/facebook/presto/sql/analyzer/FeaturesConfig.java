@@ -114,6 +114,7 @@ public class FeaturesConfig
     private boolean parseDecimalLiteralsAsDouble;
     private boolean useMarkDistinct = true;
     private boolean preferPartialAggregation = true;
+    private boolean optimizeTopNRowNumber = true;
     private DataSize preAllocateMemoryThreshold = succinctBytes(0);
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
@@ -468,6 +469,18 @@ public class FeaturesConfig
     public FeaturesConfig setPreferPartialAggregation(boolean value)
     {
         this.preferPartialAggregation = value;
+        return this;
+    }
+
+    public boolean isOptimizeTopNRowNumber()
+    {
+        return optimizeTopNRowNumber;
+    }
+
+    @Config("optimizer.optimize-top-n-row-number")
+    public FeaturesConfig setOptimizeTopNRowNumber(boolean optimizeTopNRowNumber)
+    {
+        this.optimizeTopNRowNumber = optimizeTopNRowNumber;
         return this;
     }
 
