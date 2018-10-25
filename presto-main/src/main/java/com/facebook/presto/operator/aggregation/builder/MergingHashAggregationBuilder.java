@@ -118,6 +118,8 @@ public class MergingHashAggregationBuilder
                 }
 
                 reset = true;
+                // we can produce output after every input page, because input pages do not have
+                // hash values that span multiple pages (guaranteed by MergeHashSort)
                 return ProcessorState.ofResult(hashAggregationBuilder.buildResult(), !inputFinished);
             }
         });
