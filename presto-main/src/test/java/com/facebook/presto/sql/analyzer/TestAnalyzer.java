@@ -21,6 +21,7 @@ import com.facebook.presto.connector.informationSchema.InformationSchemaConnecto
 import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.TaskManagerConfig;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
@@ -1629,7 +1630,8 @@ public class TestAnalyzer
                 SQL_PARSER,
                 new AllowAllAccessControl(),
                 Optional.empty(),
-                emptyList());
+                emptyList(),
+                WarningCollector.NOOP);
     }
 
     private void analyze(@Language("SQL") String query)

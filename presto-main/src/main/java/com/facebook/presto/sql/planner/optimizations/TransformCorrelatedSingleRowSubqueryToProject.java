@@ -15,6 +15,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -57,7 +58,8 @@ public class TransformCorrelatedSingleRowSubqueryToProject
             Session session,
             TypeProvider types,
             SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator)
+            PlanNodeIdAllocator idAllocator,
+            WarningCollector warningCollector)
     {
         return rewriteWith(new Rewriter(idAllocator), plan, null);
     }

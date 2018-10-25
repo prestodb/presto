@@ -1,0 +1,70 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        final aggregation over (expr_266)
+            local exchange (REPARTITION, HASH, ["expr_266"])
+                partial aggregation over (i_manufact_id)
+                    final aggregation over (i_manufact_id)
+                        local exchange (GATHER, SINGLE, [])
+                            partial aggregation over (i_manufact_id)
+                                semijoin (PARTITIONED):
+                                    remote exchange (REPARTITION, HASH, ["i_manufact_id"])
+                                        join (INNER, REPLICATED):
+                                            scan tpcds:item:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    join (INNER, REPLICATED):
+                                                        scan tpcds:date_dim:sf3000.0
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                join (INNER, REPLICATED):
+                                                                    scan tpcds:store_sales:sf3000.0
+                                                                    local exchange (GATHER, SINGLE, [])
+                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                            scan tpcds:customer_address:sf3000.0
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPARTITION, HASH, ["i_manufact_id_14"])
+                                            scan tpcds:item:sf3000.0
+                partial aggregation over (i_manufact_id_98)
+                    final aggregation over (i_manufact_id_98)
+                        local exchange (GATHER, SINGLE, [])
+                            partial aggregation over (i_manufact_id_98)
+                                semijoin (PARTITIONED):
+                                    remote exchange (REPARTITION, HASH, ["i_manufact_id_98"])
+                                        join (INNER, REPLICATED):
+                                            scan tpcds:item:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    join (INNER, REPLICATED):
+                                                        scan tpcds:date_dim:sf3000.0
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                join (INNER, REPLICATED):
+                                                                    scan tpcds:catalog_sales:sf3000.0
+                                                                    local exchange (GATHER, SINGLE, [])
+                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                            scan tpcds:customer_address:sf3000.0
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPARTITION, HASH, ["i_manufact_id_121"])
+                                            scan tpcds:item:sf3000.0
+                partial aggregation over (i_manufact_id_210)
+                    final aggregation over (i_manufact_id_210)
+                        local exchange (GATHER, SINGLE, [])
+                            partial aggregation over (i_manufact_id_210)
+                                semijoin (PARTITIONED):
+                                    remote exchange (REPARTITION, HASH, ["i_manufact_id_210"])
+                                        join (INNER, REPLICATED):
+                                            scan tpcds:item:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    join (INNER, REPLICATED):
+                                                        scan tpcds:date_dim:sf3000.0
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                join (INNER, REPLICATED):
+                                                                    scan tpcds:web_sales:sf3000.0
+                                                                    local exchange (GATHER, SINGLE, [])
+                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                            scan tpcds:customer_address:sf3000.0
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPARTITION, HASH, ["i_manufact_id_233"])
+                                            scan tpcds:item:sf3000.0

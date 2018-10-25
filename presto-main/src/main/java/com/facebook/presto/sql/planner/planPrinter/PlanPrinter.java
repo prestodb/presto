@@ -106,7 +106,6 @@ import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
@@ -131,6 +130,7 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 import static java.lang.String.format;
+import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -194,8 +194,8 @@ public class PlanPrinter
         List<PlanFragment> allFragments = allStages.stream()
                 .map(StageInfo::getPlan)
                 .collect(toImmutableList());
+        Map<PlanNodeId, PlanNodeStats> aggregatedStats = aggregatePlanNodeStats(allStages);
         for (StageInfo stageInfo : allStages) {
-            Map<PlanNodeId, PlanNodeStats> aggregatedStats = aggregatePlanNodeStats(stageInfo);
             builder.append(formatFragment(functionRegistry, session, stageInfo.getPlan(), Optional.of(stageInfo), Optional.of(aggregatedStats), verbose, allFragments));
         }
 
@@ -227,8 +227,9 @@ public class PlanPrinter
             double sdAmongTasks = Math.sqrt(squaredDifferences / stageInfo.get().getTasks().size());
 
             builder.append(indentString(1))
-                    .append(format("CPU: %s, Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s)\n",
-                            stageStats.getTotalCpuTime(),
+                    .append(format("CPU: %s, Scheduled: %s, Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s)\n",
+                            stageStats.getTotalCpuTime().convertToMostSuccinctTimeUnit(),
+                            stageStats.getTotalScheduledTime().convertToMostSuccinctTimeUnit(),
                             formatPositions(stageStats.getProcessedInputPositions()),
                             stageStats.getProcessedInputDataSize(),
                             formatDouble(avgPositionsPerTask),
@@ -326,8 +327,12 @@ public class PlanPrinter
             return;
         }
 
-        long totalMillis = stats.get().values().stream()
-                .mapToLong(node -> node.getPlanNodeWallTime().toMillis())
+        long totalScheduledMillis = stats.get().values().stream()
+                .mapToLong(node -> node.getPlanNodeScheduledTime().toMillis())
+                .sum();
+
+        long totalCpuMillis = stats.get().values().stream()
+                .mapToLong(node -> node.getPlanNodeCpuTime().toMillis())
                 .sum();
 
         PlanNodeStats nodeStats = stats.get().get(planNodeId);
@@ -345,10 +350,17 @@ public class PlanPrinter
             return;
         }
 
-        double fraction = 100.0d * nodeStats.getPlanNodeWallTime().toMillis() / totalMillis;
+        double scheduledTimeFraction = 100.0d * nodeStats.getPlanNodeScheduledTime().toMillis() / totalScheduledMillis;
+        double cpuTimeFraction = 100.0d * nodeStats.getPlanNodeCpuTime().toMillis() / totalCpuMillis;
 
         output.append(indentString(indent));
-        output.append("CPU fraction: " + formatDouble(fraction) + "%");
+        output.append(format(
+                "CPU: %s (%s%%), Scheduled: %s (%s%%)",
+                nodeStats.getPlanNodeCpuTime().convertToMostSuccinctTimeUnit(),
+                formatDouble(cpuTimeFraction),
+                nodeStats.getPlanNodeScheduledTime().convertToMostSuccinctTimeUnit(),
+                formatDouble(scheduledTimeFraction)));
+
         if (printInput) {
             output.append(format(", Input: %s (%s)",
                     formatPositions(nodeStats.getPlanNodeInputPositions()),
@@ -560,6 +572,7 @@ public class PlanPrinter
                     node.getFilter(),
                     formatOutputs(node.getOutputSymbols()));
 
+            print(indent + 2, "Distribution: %s", node.getDistributionType());
             printPlanNodesStatsAndCost(indent + 2, node);
             printStats(indent + 2, node.getId());
             node.getLeft().accept(this, indent + 1);
@@ -1371,30 +1384,29 @@ public class PlanPrinter
 
         private void printPlanNodesStatsAndCost(int indent, PlanNode... nodes)
         {
-            List<String> statsAndCosts = Arrays.stream(nodes)
-                    .map(this::formatPlanNodeStatsAndCost)
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .collect(toImmutableList());
-
-            if (!statsAndCosts.isEmpty()) {
-                print(indent, "Cost: %s", Joiner.on("/").join(statsAndCosts));
+            if (stream(nodes).allMatch(this::isPlanNodeStatsAndCostsUnknown)) {
+                return;
             }
+            print(indent, "Cost: %s", stream(nodes).map(this::formatPlanNodeStatsAndCost).collect(joining("/")));
         }
 
-        private Optional<String> formatPlanNodeStatsAndCost(PlanNode node)
+        private boolean isPlanNodeStatsAndCostsUnknown(PlanNode node)
         {
             PlanNodeStatsEstimate stats = estimatedStatsAndCosts.getStats().getOrDefault(node.getId(), PlanNodeStatsEstimate.unknown());
             PlanNodeCostEstimate cost = estimatedStatsAndCosts.getCosts().getOrDefault(node.getId(), PlanNodeCostEstimate.unknown());
-            if (stats.isOutputRowCountUnknown() || cost.equals(PlanNodeCostEstimate.unknown())) {
-                return Optional.empty();
-            }
-            return Optional.of(String.format("{rows: %s (%s), cpu: %s, memory: %s, network: %s}",
+            return stats.isOutputRowCountUnknown() || cost.equals(PlanNodeCostEstimate.unknown());
+        }
+
+        private String formatPlanNodeStatsAndCost(PlanNode node)
+        {
+            PlanNodeStatsEstimate stats = estimatedStatsAndCosts.getStats().getOrDefault(node.getId(), PlanNodeStatsEstimate.unknown());
+            PlanNodeCostEstimate cost = estimatedStatsAndCosts.getCosts().getOrDefault(node.getId(), PlanNodeCostEstimate.unknown());
+            return format("{rows: %s (%s), cpu: %s, memory: %s, network: %s}",
                     formatAsLong(stats.getOutputRowCount()),
                     formatEstimateAsDataSize(stats.getOutputSizeInBytes(node.getOutputSymbols(), types)),
                     formatDouble(cost.getCpuCost()),
                     formatDouble(cost.getMemoryCost()),
-                    formatDouble(cost.getNetworkCost())));
+                    formatDouble(cost.getNetworkCost()));
         }
     }
 
@@ -1405,7 +1417,7 @@ public class PlanPrinter
 
     private static String formatHash(Optional<Symbol>... hashes)
     {
-        List<Symbol> symbols = Arrays.stream(hashes)
+        List<Symbol> symbols = stream(hashes)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(toList());

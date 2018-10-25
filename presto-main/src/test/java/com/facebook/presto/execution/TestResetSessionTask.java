@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.ColumnPropertyManager;
@@ -111,7 +112,8 @@ public class TestResetSessionTask
                 transactionManager,
                 accessControl,
                 executor,
-                metadata);
+                metadata,
+                WarningCollector.NOOP);
 
         getFutureValue(new ResetSessionTask().execute(
                 new ResetSession(QualifiedName.of(CATALOG_NAME, "baz")),

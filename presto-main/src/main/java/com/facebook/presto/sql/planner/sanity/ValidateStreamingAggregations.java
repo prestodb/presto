@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
@@ -43,9 +44,9 @@ public class ValidateStreamingAggregations
         implements Checker
 {
     @Override
-    public void validate(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types)
+    public void validate(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
     {
-        planNode.accept(new Visitor(session, metadata, sqlParser, types), null);
+        planNode.accept(new Visitor(session, metadata, sqlParser, types, warningCollector), null);
     }
 
     private static final class Visitor
@@ -55,13 +56,15 @@ public class ValidateStreamingAggregations
         private final Metadata metadata;
         private final SqlParser sqlParser;
         private final TypeProvider types;
+        private final WarningCollector warningCollector;
 
-        private Visitor(Session sesstion, Metadata metadata, SqlParser sqlParser, TypeProvider types)
+        private Visitor(Session sesstion, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
         {
             this.sesstion = sesstion;
             this.metadata = metadata;
             this.sqlParser = sqlParser;
             this.types = types;
+            this.warningCollector = warningCollector;
         }
 
         @Override

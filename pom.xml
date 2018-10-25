@@ -44,7 +44,7 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.173</dep.airlift.version>
+        <dep.airlift.version>0.174</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.36</dep.slice.version>
         <dep.aws-sdk.version>1.11.293</dep.aws-sdk.version>
@@ -77,6 +77,7 @@
         <module>presto-blackhole</module>
         <module>presto-memory</module>
         <module>presto-orc</module>
+        <module>presto-parquet</module>
         <module>presto-rcfile</module>
         <module>presto-hive</module>
         <module>presto-hive-hadoop2</module>
@@ -114,6 +115,7 @@
         <module>presto-resource-group-managers</module>
         <module>presto-password-authenticators</module>
         <module>presto-session-property-managers</module>
+        <module>presto-benchto-queries</module>
         <module>presto-benchto-benchmarks</module>
         <module>presto-thrift-connector-api</module>
         <module>presto-thrift-testing-server</module>
@@ -185,6 +187,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-orc</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-parquet</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -362,6 +370,18 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-benchto-queries</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-benchto-benchmarks</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-product-tests</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -425,7 +445,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>aircompressor</artifactId>
-                <version>0.12</version>
+                <version>0.13</version>
             </dependency>
 
             <dependency>

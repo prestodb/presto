@@ -16,22 +16,23 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
 
 import java.net.URI;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.execution.QueryInfo.immediateFailureQueryInfo;
+import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -43,17 +44,16 @@ public class FailedQueryExecution
 {
     private final QueryInfo queryInfo;
     private final Session session;
-    private final Executor executor;
     private final Optional<ResourceGroupId> resourceGroup;
+    private final Executor executor;
 
-    public FailedQueryExecution(QueryId queryId, String query, Optional<ResourceGroupId> resourceGroup, Session session, URI self, TransactionManager transactionManager, Executor executor, Metadata metadata, Throwable cause)
+    public FailedQueryExecution(Session session, String query, URI self, Optional<ResourceGroupId> resourceGroup, Executor executor, Throwable cause)
     {
         requireNonNull(cause, "cause is null");
         this.session = requireNonNull(session, "session is null");
-        this.executor = requireNonNull(executor, "executor is null");
-        QueryStateMachine queryStateMachine = QueryStateMachine.failed(queryId, query, session, self, transactionManager, executor, metadata, cause);
-        queryInfo = queryStateMachine.updateQueryInfo(Optional.empty());
         this.resourceGroup = requireNonNull(resourceGroup, "resourceGroup is null");
+        this.executor = requireNonNull(executor, "executor is null");
+        this.queryInfo = immediateFailureQueryInfo(session, query, self, cause);
     }
 
     @Override
@@ -117,6 +117,30 @@ public class FailedQueryExecution
     }
 
     @Override
+    public DateTime getCreateTime()
+    {
+        return queryInfo.getQueryStats().getCreateTime();
+    }
+
+    @Override
+    public Optional<DateTime> getExecutionStartTime()
+    {
+        return Optional.ofNullable(queryInfo.getQueryStats().getExecutionStartTime());
+    }
+
+    @Override
+    public DateTime getLastHeartbeat()
+    {
+        return queryInfo.getQueryStats().getLastHeartbeat();
+    }
+
+    @Override
+    public Optional<DateTime> getEndTime()
+    {
+        return Optional.ofNullable(queryInfo.getQueryStats().getEndTime());
+    }
+
+    @Override
     public Optional<ErrorCode> getErrorCode()
     {
         return Optional.ofNullable(getQueryInfo().getFailureInfo()).map(ExecutionFailureInfo::getErrorCode);
@@ -149,7 +173,7 @@ public class FailedQueryExecution
     @Override
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
-        executor.execute(() -> stateChangeListener.stateChanged(QueryState.FAILED));
+        executor.execute(() -> stateChangeListener.stateChanged(FAILED));
     }
 
     @Override
@@ -203,6 +227,6 @@ public class FailedQueryExecution
     @Override
     public void setResourceGroup(ResourceGroupId resourceGroupId)
     {
-        throw new UnsupportedOperationException("setResouceGroup is not supported for FailedQueryExecution");
+        throw new UnsupportedOperationException("setResourceGroup is not supported for FailedQueryExecution");
     }
 }

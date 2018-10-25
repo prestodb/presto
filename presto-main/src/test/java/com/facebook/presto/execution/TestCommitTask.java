@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AccessControlManager;
@@ -66,7 +67,7 @@ public class TestCommitTask
         Session session = sessionBuilder()
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
-        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "COMMIT", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor, metadata);
+        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "COMMIT", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor, metadata, WarningCollector.NOOP);
         assertTrue(stateMachine.getSession().getTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
 
@@ -85,7 +86,7 @@ public class TestCommitTask
 
         Session session = sessionBuilder()
                 .build();
-        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "COMMIT", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor, metadata);
+        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "COMMIT", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor, metadata, WarningCollector.NOOP);
 
         try {
             getFutureValue(new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
@@ -109,7 +110,7 @@ public class TestCommitTask
         Session session = sessionBuilder()
                 .setTransactionId(TransactionId.create()) // Use a random transaction ID that is unknown to the system
                 .build();
-        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "COMMIT", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor, metadata);
+        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "COMMIT", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor, metadata, WarningCollector.NOOP);
 
         try {
             getFutureValue(new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));

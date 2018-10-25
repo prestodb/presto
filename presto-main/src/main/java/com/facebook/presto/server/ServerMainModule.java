@@ -27,7 +27,6 @@ import com.facebook.presto.execution.ExplainAnalyzeContext;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.MemoryRevokingScheduler;
 import com.facebook.presto.execution.NodeTaskMap;
-import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.StageInfo;
@@ -38,16 +37,12 @@ import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.executor.MultilevelSplitQueue;
 import com.facebook.presto.execution.executor.TaskExecutor;
-import com.facebook.presto.execution.resourceGroups.NoOpResourceGroupManager;
-import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.FlatNetworkTopology;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.NodeSchedulerExporter;
-import com.facebook.presto.failureDetector.FailureDetector;
-import com.facebook.presto.failureDetector.NoOpFailureDetector;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManagerExporter;
@@ -118,12 +113,11 @@ import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.transaction.NoOpTransactionManager;
-import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.FinalizerService;
+import com.facebook.presto.version.EmbedVersion;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Key;
@@ -149,7 +143,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.FLAT;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
 import static com.google.common.base.Strings.nullToEmpty;
-import static com.google.common.reflect.Reflection.newProxy;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -187,22 +180,7 @@ public class ServerMainModule
             install(new CoordinatorModule());
         }
         else {
-            // Install no-op session supplier on workers, since only coordinators create sessions.
-            binder.bind(SessionSupplier.class).to(NoOpSessionSupplier.class).in(Scopes.SINGLETON);
-
-            // Install no-op resource group manager on workers, since only coordinators manage resource groups.
-            binder.bind(ResourceGroupManager.class).to(NoOpResourceGroupManager.class).in(Scopes.SINGLETON);
-
-            // Install no-op transaction manager on workers, since only coordinators manage transactions.
-            binder.bind(TransactionManager.class).to(NoOpTransactionManager.class).in(Scopes.SINGLETON);
-
-            // Install no-op failure detector on workers, since only coordinators need global node selection.
-            binder.bind(FailureDetector.class).to(NoOpFailureDetector.class).in(Scopes.SINGLETON);
-
-            // HACK: this binding is needed by SystemConnectorModule, but will only be used on the coordinator
-            binder.bind(QueryManager.class).toInstance(newProxy(QueryManager.class, (proxy, method, args) -> {
-                throw new UnsupportedOperationException();
-            }));
+            install(new WorkerModule());
         }
 
         install(new InternalCommunicationModule());
@@ -229,6 +207,7 @@ public class ServerMainModule
         // session properties
         binder.bind(SessionPropertyManager.class).in(Scopes.SINGLETON);
         binder.bind(SystemSessionProperties.class).in(Scopes.SINGLETON);
+        binder.bind(SessionPropertyDefaults.class).in(Scopes.SINGLETON);
 
         // schema properties
         binder.bind(SchemaPropertyManager.class).in(Scopes.SINGLETON);
@@ -291,6 +270,7 @@ public class ServerMainModule
         configBinder(binder).bindConfig(ReservedSystemMemoryConfig.class);
         binder.bind(LocalMemoryManager.class).in(Scopes.SINGLETON);
         binder.bind(LocalMemoryManagerExporter.class).in(Scopes.SINGLETON);
+        binder.bind(EmbedVersion.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskManager.class).withGeneratedName();
         binder.bind(TaskExecutor.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskExecutor.class).withGeneratedName();

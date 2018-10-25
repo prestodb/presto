@@ -129,7 +129,7 @@ Property Name                                      Description                  
                                                    absolutely necessary to access HDFS.
                                                    Example: ``/etc/hdfs-site.xml``
 
-``hive.storage-format``                            The default file format used when creating new tables.       ``RCBINARY``
+``hive.storage-format``                            The default file format used when creating new tables.       ``ORC``
 
 ``hive.compression-codec``                         The compression codec to use when writing files.             ``GZIP``
 

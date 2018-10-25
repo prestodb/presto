@@ -37,6 +37,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.ENABLE_STATS_CALCULATOR;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -66,7 +67,8 @@ public class TestReorderJoins
                 ImmutableList.of(),
                 ImmutableMap.of(
                         JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name(),
-                        JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.AUTOMATIC.name()),
+                        JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.AUTOMATIC.name(),
+                        ENABLE_STATS_CALCULATOR, "true"),
                 Optional.of(4));
     }
 

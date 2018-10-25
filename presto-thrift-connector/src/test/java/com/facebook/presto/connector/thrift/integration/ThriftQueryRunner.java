@@ -22,6 +22,8 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.split.PageSourceManager;
+import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
@@ -198,6 +200,18 @@ public final class ThriftQueryRunner
         public Metadata getMetadata()
         {
             return source.getMetadata();
+        }
+
+        @Override
+        public SplitManager getSplitManager()
+        {
+            return source.getSplitManager();
+        }
+
+        @Override
+        public PageSourceManager getPageSourceManager()
+        {
+            return source.getPageSourceManager();
         }
 
         @Override

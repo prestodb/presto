@@ -14,6 +14,7 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -99,7 +100,7 @@ public class ScalarStatsCalculator
         protected SymbolStatsEstimate visitLiteral(Literal node, Void context)
         {
             Object value = evaluate(metadata, session.toConnectorSession(), node);
-            Type type = ExpressionAnalyzer.createConstantAnalyzer(metadata, session, ImmutableList.of()).analyze(node, Scope.create());
+            Type type = ExpressionAnalyzer.createConstantAnalyzer(metadata, session, ImmutableList.of(), WarningCollector.NOOP).analyze(node, Scope.create());
             OptionalDouble doubleValue = toStatsRepresentation(metadata, session, type, value);
             SymbolStatsEstimate.Builder estimate = SymbolStatsEstimate.builder()
                     .setNullsFraction(0)

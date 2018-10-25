@@ -1,0 +1,37 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        final aggregation over (r_reason_desc)
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPARTITION, HASH, ["r_reason_desc"])
+                    partial aggregation over (r_reason_desc)
+                        join (INNER, REPLICATED):
+                            join (INNER, REPLICATED):
+                                join (INNER, PARTITIONED):
+                                    remote exchange (REPARTITION, HASH, ["cd_demo_sk_0", "cd_education_status_3", "cd_marital_status_2"])
+                                        scan tpcds:customer_demographics:sf3000.0
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPARTITION, HASH, ["cd_education_status", "cd_marital_status", "wr_returning_cdemo_sk"])
+                                            join (INNER, REPLICATED):
+                                                join (INNER, PARTITIONED):
+                                                    remote exchange (REPARTITION, HASH, ["ws_item_sk", "ws_order_number"])
+                                                        join (INNER, REPLICATED):
+                                                            scan tpcds:web_sales:sf3000.0
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                    scan tpcds:date_dim:sf3000.0
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPARTITION, HASH, ["wr_item_sk", "wr_order_number"])
+                                                            join (INNER, REPLICATED):
+                                                                scan tpcds:web_returns:sf3000.0
+                                                                local exchange (GATHER, SINGLE, [])
+                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                        scan tpcds:customer_address:sf3000.0
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        scan tpcds:customer_demographics:sf3000.0
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPLICATE, BROADCAST, [])
+                                        scan tpcds:web_page:sf3000.0
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    scan tpcds:reason:sf3000.0

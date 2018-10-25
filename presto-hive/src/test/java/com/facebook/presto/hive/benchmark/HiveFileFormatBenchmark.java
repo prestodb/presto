@@ -94,8 +94,7 @@ public class HiveFileFormatBenchmark
     }
 
     @SuppressWarnings("deprecation")
-    private static final HiveClientConfig CONFIG = new HiveClientConfig()
-            .setParquetOptimizedReaderEnabled(true);
+    private static final HiveClientConfig CONFIG = new HiveClientConfig();
 
     private static final ConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(CONFIG, new OrcFileWriterConfig(), new ParquetFileWriterConfig())
             .getSessionProperties());

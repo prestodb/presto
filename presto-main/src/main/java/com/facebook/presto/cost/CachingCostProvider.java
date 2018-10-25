@@ -23,6 +23,7 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.isEnableStatsCalculator;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
@@ -54,6 +55,10 @@ public class CachingCostProvider
     @Override
     public PlanNodeCostEstimate getCumulativeCost(PlanNode node)
     {
+        if (!isEnableStatsCalculator(session)) {
+            return PlanNodeCostEstimate.unknown();
+        }
+
         requireNonNull(node, "node is null");
 
         if (node instanceof GroupReference) {

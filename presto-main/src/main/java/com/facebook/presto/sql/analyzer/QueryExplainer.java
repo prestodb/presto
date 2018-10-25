@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.DataDefinitionTask;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
@@ -105,13 +106,13 @@ public class QueryExplainer
         this.dataDefinitionTask = ImmutableMap.copyOf(requireNonNull(dataDefinitionTask, "dataDefinitionTask is null"));
     }
 
-    public Analysis analyze(Session session, Statement statement, List<Expression> parameters)
+    public Analysis analyze(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
     {
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(this), parameters);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(this), parameters, warningCollector);
         return analyzer.analyze(statement);
     }
 
-    public String getPlan(Session session, Statement statement, Type planType, List<Expression> parameters)
+    public String getPlan(Session session, Statement statement, Type planType, List<Expression> parameters, WarningCollector warningCollector)
     {
         DataDefinitionTask<?> task = dataDefinitionTask.get(statement.getClass());
         if (task != null) {
@@ -120,13 +121,13 @@ public class QueryExplainer
 
         switch (planType) {
             case LOGICAL:
-                Plan plan = getLogicalPlan(session, statement, parameters);
+                Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
                 return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionRegistry(), plan.getStatsAndCosts(), session, 0, false);
             case DISTRIBUTED:
-                SubPlan subPlan = getDistributedPlan(session, statement, parameters);
+                SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
                 return PlanPrinter.textDistributedPlan(subPlan, metadata.getFunctionRegistry(), session, false);
             case IO:
-                return IOPlanPrinter.textIOPlan(getLogicalPlan(session, statement, parameters).getRoot(), metadata, session);
+                return IOPlanPrinter.textIOPlan(getLogicalPlan(session, statement, parameters, warningCollector).getRoot(), metadata, session);
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
@@ -136,7 +137,7 @@ public class QueryExplainer
         return task.explain((T) statement, parameters);
     }
 
-    public String getGraphvizPlan(Session session, Statement statement, Type planType, List<Expression> parameters)
+    public String getGraphvizPlan(Session session, Statement statement, Type planType, List<Expression> parameters, WarningCollector warningCollector)
     {
         DataDefinitionTask<?> task = dataDefinitionTask.get(statement.getClass());
         if (task != null) {
@@ -146,16 +147,16 @@ public class QueryExplainer
 
         switch (planType) {
             case LOGICAL:
-                Plan plan = getLogicalPlan(session, statement, parameters);
+                Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
                 return PlanPrinter.graphvizLogicalPlan(plan.getRoot(), plan.getTypes());
             case DISTRIBUTED:
-                SubPlan subPlan = getDistributedPlan(session, statement, parameters);
+                SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
                 return PlanPrinter.graphvizDistributedPlan(subPlan);
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
 
-    public String getJsonPlan(Session session, Statement statement, Type planType, List<Expression> parameters)
+    public String getJsonPlan(Session session, Statement statement, Type planType, List<Expression> parameters, WarningCollector warningCollector)
     {
         DataDefinitionTask<?> task = dataDefinitionTask.get(statement.getClass());
         if (task != null) {
@@ -165,28 +166,28 @@ public class QueryExplainer
 
         switch (planType) {
             case IO:
-                Plan plan = getLogicalPlan(session, statement, parameters);
+                Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
                 return textIOPlan(plan.getRoot(), metadata, session);
             default:
                 throw new PrestoException(NOT_SUPPORTED, format("Unsupported explain plan type %s for JSON format", planType));
         }
     }
 
-    public Plan getLogicalPlan(Session session, Statement statement, List<Expression> parameters)
+    public Plan getLogicalPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
     {
         // analyze statement
-        Analysis analysis = analyze(session, statement, parameters);
+        Analysis analysis = analyze(session, statement, parameters, warningCollector);
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
         // plan statement
-        LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizers, idAllocator, metadata, sqlParser, statsCalculator, costCalculator);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizers, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, warningCollector);
         return logicalPlanner.plan(analysis);
     }
 
-    private SubPlan getDistributedPlan(Session session, Statement statement, List<Expression> parameters)
+    private SubPlan getDistributedPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
     {
-        Plan plan = getLogicalPlan(session, statement, parameters);
+        Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
         return planFragmenter.createSubPlans(session, metadata, nodePartitioningManager, plan, false);
     }
 }

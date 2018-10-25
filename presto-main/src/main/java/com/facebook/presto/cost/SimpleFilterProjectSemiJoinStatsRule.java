@@ -30,6 +30,7 @@ import com.google.common.collect.Iterables;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static com.facebook.presto.cost.SemiJoinStatsCalculator.computeAntiJoin;
 import static com.facebook.presto.cost.SemiJoinStatsCalculator.computeSemiJoin;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
@@ -108,8 +109,16 @@ public class SimpleFilterProjectSemiJoinStatsRule
             semiJoinStats = computeSemiJoin(sourceStats, filteringSourceStats, sourceJoinSymbol, filteringSourceJoinSymbol);
         }
 
+        if (semiJoinStats.isOutputRowCountUnknown()) {
+            return Optional.of(PlanNodeStatsEstimate.unknown());
+        }
+
         // apply remaining predicate
-        return Optional.of(filterStatsCalculator.filterStats(semiJoinStats, semiJoinOutputFilter.get().getRemainingPredicate(), session, types));
+        PlanNodeStatsEstimate filteredStats = filterStatsCalculator.filterStats(semiJoinStats, semiJoinOutputFilter.get().getRemainingPredicate(), session, types);
+        if (filteredStats.isOutputRowCountUnknown()) {
+            return Optional.of(semiJoinStats.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT));
+        }
+        return Optional.of(filteredStats);
     }
 
     private static Optional<SemiJoinOutputFilter> extractSemiJoinOutputFilter(Expression predicate, Symbol semiJoinOutput)

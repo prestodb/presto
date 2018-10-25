@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
@@ -107,7 +108,8 @@ public class ExpressionEquivalence
                 sqlParser,
                 inputTypes,
                 expressionWithInputReferences,
-                emptyList() /* parameters have already been replaced */);
+                emptyList(), /* parameters have already been replaced */
+                WarningCollector.NOOP);
 
         // convert to row expression
         return translate(expressionWithInputReferences, SCALAR, expressionTypes, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, false);

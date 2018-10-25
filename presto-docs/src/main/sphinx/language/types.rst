@@ -234,3 +234,25 @@ Network Address
     using the canonical format defined in :rfc:`5952`.
 
     Examples: ``IPADDRESS '10.0.0.1'``, ``IPADDRESS '2001:db8::1'``
+
+HyperLogLog
+-----------
+
+Calculating the approximate distinct count can be done much more cheaply than an exact count using the
+`HyperLogLog <https://en.wikipedia.org/wiki/HyperLogLog>`_ data sketch. See :doc:`/functions/hyperloglog`.
+
+.. _hyperloglog_type:
+
+``HyperLogLog``
+^^^^^^^^^^^^^^^
+
+    A HyperLogLog sketch allows efficient computation of :func:`approx_distinct`. It starts as a
+    sparse representation, switching to a dense representation when it becomes more efficient.
+
+.. _p4hyperloglog_type:
+
+``P4HyperLogLog``
+^^^^^^^^^^^^^^^^^
+
+    A P4HyperLogLog sketch is similar to :ref:`hyperloglog_type`, but it starts (and remains)
+    in the dense representation.

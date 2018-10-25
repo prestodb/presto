@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.parquet;
 
 import com.facebook.presto.hive.FileFormatDataSourceStats;
+import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;

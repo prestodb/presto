@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.sanity;
 
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -39,7 +40,7 @@ public class TestVerifyOnlyOneOutputNode
                                         idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of()),
                                 Assignments.of()
                         ), ImmutableList.of(), ImmutableList.of());
-        new VerifyOnlyOneOutputNode().validate(root, null, null, null, null);
+        new VerifyOnlyOneOutputNode().validate(root, null, null, null, null, WarningCollector.NOOP);
     }
 
     @Test(expectedExceptions = IllegalStateException.class)
@@ -58,6 +59,6 @@ public class TestVerifyOnlyOneOutputNode
                                 ), new Symbol("a"),
                                 false),
                         ImmutableList.of(), ImmutableList.of());
-        new VerifyOnlyOneOutputNode().validate(root, null, null, null, null);
+        new VerifyOnlyOneOutputNode().validate(root, null, null, null, null, WarningCollector.NOOP);
     }
 }

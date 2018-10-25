@@ -26,15 +26,18 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.util.MoreMath;
 import com.google.common.annotations.VisibleForTesting;
 
-import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static com.facebook.presto.cost.SymbolStatsEstimate.buildFrom;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.difference;
 import static java.lang.Double.NaN;
@@ -141,43 +144,71 @@ public class JoinStatsRule
 
     private PlanNodeStatsEstimate computeInnerJoinStats(JoinNode node, PlanNodeStatsEstimate crossJoinStats, Session session, TypeProvider types)
     {
-        List<EquiJoinClause> equiJoinClauses = node.getCriteria();
+        List<EquiJoinClause> equiJoinCriteria = node.getCriteria();
 
+        if (equiJoinCriteria.isEmpty()) {
+            if (!node.getFilter().isPresent()) {
+                return crossJoinStats;
+            }
+            // TODO: this might explode stats
+            return filterStatsCalculator.filterStats(crossJoinStats, node.getFilter().get(), session, types);
+        }
+
+        PlanNodeStatsEstimate equiJoinEstimate = filterByEquiJoinClauses(crossJoinStats, node.getCriteria(), session, types);
+
+        if (equiJoinEstimate.isOutputRowCountUnknown()) {
+            return PlanNodeStatsEstimate.unknown();
+        }
+
+        if (!node.getFilter().isPresent()) {
+            return equiJoinEstimate;
+        }
+
+        PlanNodeStatsEstimate filteredEquiJoinEstimate = filterStatsCalculator.filterStats(equiJoinEstimate, node.getFilter().get(), session, types);
+
+        if (filteredEquiJoinEstimate.isOutputRowCountUnknown()) {
+            return equiJoinEstimate.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT);
+        }
+
+        return filteredEquiJoinEstimate;
+    }
+
+    private PlanNodeStatsEstimate filterByEquiJoinClauses(
+            PlanNodeStatsEstimate stats,
+            Collection<EquiJoinClause> clauses,
+            Session session,
+            TypeProvider types)
+    {
+        checkArgument(!clauses.isEmpty(), "clauses is empty");
+        PlanNodeStatsEstimate result = PlanNodeStatsEstimate.unknown();
         // Join equality clauses are usually correlated. Therefore we shouldn't treat each join equality
         // clause separately because stats estimates would be way off. Instead we choose so called
         // "driving clause" which mostly reduces join output rows cardinality and apply UNKNOWN_FILTER_COEFFICIENT
         // for other (auxiliary) clauses.
-        PlanNodeStatsEstimate equiJoinClausesFilteredStats = IntStream.range(0, equiJoinClauses.size())
-                .mapToObj(drivingClauseId -> {
-                    EquiJoinClause drivingClause = equiJoinClauses.get(drivingClauseId);
-                    List<EquiJoinClause> remainingClauses = copyWithout(equiJoinClauses, drivingClauseId);
-                    return filterByEquiJoinClauses(crossJoinStats, drivingClause, remainingClauses, session, types);
-                })
-                .min(comparingDouble(PlanNodeStatsEstimate::getOutputRowCount))
-                .orElse(crossJoinStats);
+        Queue<EquiJoinClause> remainingClauses = new LinkedList<>(clauses);
+        EquiJoinClause drivingClause = remainingClauses.poll();
+        for (int i = 0; i < clauses.size(); i++) {
+            PlanNodeStatsEstimate estimate = filterByEquiJoinClauses(stats, drivingClause, remainingClauses, session, types);
+            if (result.isOutputRowCountUnknown() || (!estimate.isOutputRowCountUnknown() && estimate.getOutputRowCount() < result.getOutputRowCount())) {
+                result = estimate;
+            }
+            remainingClauses.add(drivingClause);
+            drivingClause = remainingClauses.poll();
+        }
 
-        return node.getFilter()
-                .map(filter -> filterStatsCalculator.filterStats(equiJoinClausesFilteredStats, filter, session, types))
-                .orElse(equiJoinClausesFilteredStats);
-    }
-
-    private static <T> List<T> copyWithout(List<? extends T> list, int filteredOutIndex)
-    {
-        List<T> copy = new ArrayList<>(list);
-        copy.remove(filteredOutIndex);
-        return copy;
+        return result;
     }
 
     private PlanNodeStatsEstimate filterByEquiJoinClauses(
             PlanNodeStatsEstimate stats,
             EquiJoinClause drivingClause,
-            List<EquiJoinClause> auxiliaryClauses,
+            Collection<EquiJoinClause> remainingClauses,
             Session session,
             TypeProvider types)
     {
         ComparisonExpression drivingPredicate = new ComparisonExpression(EQUAL, drivingClause.getLeft().toSymbolReference(), drivingClause.getRight().toSymbolReference());
         PlanNodeStatsEstimate filteredStats = filterStatsCalculator.filterStats(stats, drivingPredicate, session, types);
-        for (EquiJoinClause clause : auxiliaryClauses) {
+        for (EquiJoinClause clause : remainingClauses) {
             filteredStats = filterByAuxiliaryClause(filteredStats, clause);
         }
         return filteredStats;

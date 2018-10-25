@@ -75,12 +75,12 @@ public class PluginManager
 
     private final ConnectorManager connectorManager;
     private final Metadata metadata;
-    private final ResourceGroupManager resourceGroupManager;
+    private final ResourceGroupManager<?> resourceGroupManager;
     private final AccessControlManager accessControlManager;
     private final PasswordAuthenticatorManager passwordAuthenticatorManager;
     private final EventListenerManager eventListenerManager;
     private final BlockEncodingManager blockEncodingManager;
-    private final SessionSupplier sessionSupplier;
+    private final SessionPropertyDefaults sessionPropertyDefaults;
     private final TypeRegistry typeRegistry;
     private final ArtifactResolver resolver;
     private final File installedPluginsDir;
@@ -94,12 +94,12 @@ public class PluginManager
             PluginManagerConfig config,
             ConnectorManager connectorManager,
             Metadata metadata,
-            ResourceGroupManager resourceGroupManager,
+            ResourceGroupManager<?> resourceGroupManager,
             AccessControlManager accessControlManager,
             PasswordAuthenticatorManager passwordAuthenticatorManager,
             EventListenerManager eventListenerManager,
             BlockEncodingManager blockEncodingManager,
-            SessionSupplier sessionSupplier,
+            SessionPropertyDefaults sessionPropertyDefaults,
             TypeRegistry typeRegistry)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
@@ -121,7 +121,7 @@ public class PluginManager
         this.passwordAuthenticatorManager = requireNonNull(passwordAuthenticatorManager, "passwordAuthenticatorManager is null");
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
-        this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
+        this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
         this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
     }
 
@@ -202,7 +202,7 @@ public class PluginManager
 
         for (SessionPropertyConfigurationManagerFactory sessionConfigFactory : plugin.getSessionPropertyConfigurationManagerFactories()) {
             log.info("Registering session property configuration manager %s", sessionConfigFactory.getName());
-            sessionSupplier.addConfigurationManager(sessionConfigFactory);
+            sessionPropertyDefaults.addConfigurationManagerFactory(sessionConfigFactory);
         }
 
         for (ResourceGroupConfigurationManagerFactory configurationManagerFactory : plugin.getResourceGroupConfigurationManagerFactories()) {

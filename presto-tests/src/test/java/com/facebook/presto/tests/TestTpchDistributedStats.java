@@ -22,6 +22,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.ENABLE_STATS_CALCULATOR;
 import static com.facebook.presto.SystemSessionProperties.PREFER_PARTITIAL_AGGREGATION;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.absoluteError;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.defaultTolerance;
@@ -41,7 +42,9 @@ public class TestTpchDistributedStats
     {
         DistributedQueryRunner runner = TpchQueryRunnerBuilder.builder()
                 // We are not able to calculate stats for PARTIAL aggregations
-                .amendSession(builder -> builder.setSystemProperty(PREFER_PARTITIAL_AGGREGATION, "false"))
+                .amendSession(builder -> builder
+                        .setSystemProperty(ENABLE_STATS_CALCULATOR, "true")
+                        .setSystemProperty(PREFER_PARTITIAL_AGGREGATION, "false"))
                 .buildWithoutCatalogs();
         runner.createCatalog(
                 "tpch",
@@ -106,24 +109,20 @@ public class TestTpchDistributedStats
     public void testIntersect()
     {
         statisticsAssertion.check("SELECT * FROM nation INTERSECT SELECT * FROM nation",
-                // real count is 25, estimation cannot know all rows are duplicate.
-                checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(.7, .9)));
+                checks -> checks.noEstimate(OUTPUT_ROW_COUNT));
 
         statisticsAssertion.check("SELECT * FROM orders WHERE o_custkey < 900 INTERSECT SELECT * FROM orders WHERE o_custkey > 600",
-                // TODO fix INTERSECT stats calculation as custkey values distribution is pretty linear
-                checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(4, 5)));
+                checks -> checks.noEstimate(OUTPUT_ROW_COUNT));
     }
 
     @Test
     public void testExcept()
     {
         statisticsAssertion.check("SELECT * FROM nation EXCEPT SELECT * FROM nation",
-                // real count is 0, estimation cannot know all rows are eliminated
-                checks -> checks.estimate(OUTPUT_ROW_COUNT, absoluteError(45, 45)));
+                checks -> checks.noEstimate(OUTPUT_ROW_COUNT));
 
         statisticsAssertion.check("SELECT * FROM orders WHERE o_custkey < 900 EXCEPT SELECT * FROM orders WHERE o_custkey > 600",
-                // TODO fix EXCEPT stats calculation as custkey values distribution is pretty linear
-                checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(1.5, 2)));
+                checks -> checks.noEstimate(OUTPUT_ROW_COUNT));
     }
 
     @Test

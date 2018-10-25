@@ -257,7 +257,7 @@ public class TestJoinStatsRule
                 0,
                 new SymbolStatistics(RIGHT_JOIN_COLUMN, SymbolStatsEstimate.unknown()),
                 new SymbolStatistics(RIGHT_OTHER_COLUMN, SymbolStatsEstimate.unknown()));
-        assertJoinStats(LEFT, leftStats, rightStats, leftStats);
+        assertJoinStats(LEFT, leftStats, rightStats, PlanNodeStatsEstimate.unknown());
     }
 
     @Test

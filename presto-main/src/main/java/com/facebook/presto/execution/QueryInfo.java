@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorType;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -35,7 +37,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.execution.QueryState.FAILED;
+import static com.facebook.presto.execution.QueryStats.immediateFailureQueryStats;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
+import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
+import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -65,6 +71,7 @@ public class QueryInfo
     private final ExecutionFailureInfo failureInfo;
     private final ErrorType errorType;
     private final ErrorCode errorCode;
+    private final List<PrestoWarning> warnings;
     private final Set<Input> inputs;
     private final Optional<Output> output;
     private final boolean completeInfo;
@@ -94,6 +101,7 @@ public class QueryInfo
             @JsonProperty("outputStage") Optional<StageInfo> outputStage,
             @JsonProperty("failureInfo") ExecutionFailureInfo failureInfo,
             @JsonProperty("errorCode") ErrorCode errorCode,
+            @JsonProperty("warnings") List<PrestoWarning> warnings,
             @JsonProperty("inputs") Set<Input> inputs,
             @JsonProperty("output") Optional<Output> output,
             @JsonProperty("completeInfo") boolean completeInfo,
@@ -118,6 +126,7 @@ public class QueryInfo
         requireNonNull(inputs, "inputs is null");
         requireNonNull(output, "output is null");
         requireNonNull(resourceGroupId, "resourceGroupId is null");
+        requireNonNull(warnings, "warnings is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -142,10 +151,46 @@ public class QueryInfo
         this.failureInfo = failureInfo;
         this.errorType = errorCode == null ? null : errorCode.getType();
         this.errorCode = errorCode;
+        this.warnings = ImmutableList.copyOf(warnings);
         this.inputs = ImmutableSet.copyOf(inputs);
         this.output = output;
         this.completeInfo = completeInfo;
         this.resourceGroupId = resourceGroupId;
+    }
+
+    public static QueryInfo immediateFailureQueryInfo(Session session, String query, URI self, Throwable throwable)
+    {
+        ExecutionFailureInfo failureCause = toFailure(throwable);
+        QueryInfo queryInfo = new QueryInfo(
+                session.getQueryId(),
+                session.toSessionRepresentation(),
+                FAILED,
+                GENERAL_POOL,
+                false,
+                self,
+                ImmutableList.of(),
+                query,
+                immediateFailureQueryStats(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of(),
+                ImmutableSet.of(),
+                ImmutableMap.of(),
+                ImmutableSet.of(),
+                Optional.empty(),
+                false,
+                null,
+                Optional.empty(),
+                failureCause,
+                failureCause.getErrorCode(),
+                ImmutableList.of(),
+                ImmutableSet.of(),
+                Optional.empty(),
+                true,
+                Optional.empty());
+
+        return queryInfo;
     }
 
     @JsonProperty
@@ -288,6 +333,12 @@ public class QueryInfo
     public ErrorCode getErrorCode()
     {
         return errorCode;
+    }
+
+    @JsonProperty
+    public List<PrestoWarning> getWarnings()
+    {
+        return warnings;
     }
 
     @JsonProperty

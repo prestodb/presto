@@ -30,5 +30,7 @@ interface SourceScheduler
 
     void startLifespan(Lifespan lifespan, ConnectorPartitionHandle partitionHandle);
 
+    void noMoreLifespans();
+
     List<Lifespan> drainCompletedLifespans();
 }

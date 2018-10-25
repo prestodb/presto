@@ -2575,18 +2575,41 @@ public class TestHiveIntegrationSmokeTest
             assertQuery(colocatedOneGroupAtATime, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult);
 
             //
-            // Filter out all splits
-            // =====================
+            // Filter out all or majority of splits
+            // ====================================
             @Language("SQL") String noSplits =
                     "SELECT key1, arbitrary(value1)\n" +
                             "FROM test_grouped_join1\n" +
                             "WHERE \"$bucket\" < 0\n" +
                             "GROUP BY key1";
+            @Language("SQL") String joinMismatchedBuckets =
+                    "SELECT key1, value1, key2, value2\n" +
+                            "FROM (\n" +
+                            "  SELECT *\n" +
+                            "  FROM test_grouped_join1\n" +
+                            "  WHERE \"$bucket\"=1\n" +
+                            ")\n" +
+                            "FULL OUTER JOIN (\n" +
+                            "  SELECT *\n" +
+                            "  FROM test_grouped_join2\n" +
+                            "  WHERE \"$bucket\"=11\n" +
+                            ")\n" +
+                            "ON key1=key2";
             @Language("SQL") String expectedNoSplits = "SELECT 1, 'a' WHERE FALSE";
+            @Language("SQL") String expectedJoinMismatchedBuckets = "SELECT\n" +
+                    "  CASE WHEN mod(orderkey, 13) = 1 THEN orderkey END,\n" +
+                    "  CASE WHEN mod(orderkey, 13) = 1 THEN comment END,\n" +
+                    "  CASE WHEN mod(orderkey, 13) = 11 THEN orderkey END,\n" +
+                    "  CASE WHEN mod(orderkey, 13) = 11 THEN comment END\n" +
+                    "FROM ORDERS\n" +
+                    "WHERE mod(orderkey, 13) IN (1, 11)";
 
             assertQuery(notColocated, noSplits, expectedNoSplits);
             assertQuery(colocatedAllGroupsAtOnce, noSplits, expectedNoSplits);
             assertQuery(colocatedOneGroupAtATime, noSplits, expectedNoSplits);
+            assertQuery(notColocated, joinMismatchedBuckets, expectedJoinMismatchedBuckets);
+            assertQuery(colocatedAllGroupsAtOnce, joinMismatchedBuckets, expectedJoinMismatchedBuckets);
+            assertQuery(colocatedOneGroupAtATime, joinMismatchedBuckets, expectedJoinMismatchedBuckets);
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS test_grouped_join1");
@@ -3094,9 +3117,6 @@ public class TestHiveIntegrationSmokeTest
         formats.add(new TestingHiveStorageFormat(
                 Session.builder(session).setCatalogSessionProperty(session.getCatalog().get(), "orc_optimized_writer_enabled", "true").build(),
                 HiveStorageFormat.DWRF));
-        formats.add(new TestingHiveStorageFormat(
-                Session.builder(session).setCatalogSessionProperty(session.getCatalog().get(), "parquet_optimized_reader_enabled", "true").build(),
-                HiveStorageFormat.PARQUET));
         return formats.build();
     }
 

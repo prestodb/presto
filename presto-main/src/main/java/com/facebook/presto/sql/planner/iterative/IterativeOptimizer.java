@@ -21,6 +21,7 @@ import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostProvider;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.StatsProvider;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.matching.Match;
 import com.facebook.presto.matching.Matcher;
 import com.facebook.presto.spi.PrestoException;
@@ -74,12 +75,12 @@ public class IterativeOptimizer
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         // only disable new rules if we have legacy rules to fall back to
         if (!SystemSessionProperties.isNewOptimizerEnabled(session) && !legacyRules.isEmpty()) {
             for (PlanOptimizer optimizer : legacyRules) {
-                plan = optimizer.optimize(plan, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator);
+                plan = optimizer.optimize(plan, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector);
             }
 
             return plan;
@@ -90,7 +91,7 @@ public class IterativeOptimizer
         Matcher matcher = new PlanNodeMatcher(lookup);
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
-        Context context = new Context(memo, lookup, idAllocator, symbolAllocator, System.nanoTime(), timeout.toMillis(), session);
+        Context context = new Context(memo, lookup, idAllocator, symbolAllocator, System.nanoTime(), timeout.toMillis(), session, warningCollector);
         exploreGroup(memo.getRootGroup(), context, matcher);
 
         return memo.extract();
@@ -238,6 +239,12 @@ public class IterativeOptimizer
             {
                 context.checkTimeoutNotExhausted();
             }
+
+            @Override
+            public WarningCollector getWarningCollector()
+            {
+                return context.warningCollector;
+            }
         };
     }
 
@@ -250,6 +257,7 @@ public class IterativeOptimizer
         private final long startTimeInNanos;
         private final long timeoutInMilliseconds;
         private final Session session;
+        private final WarningCollector warningCollector;
 
         public Context(
                 Memo memo,
@@ -258,7 +266,8 @@ public class IterativeOptimizer
                 SymbolAllocator symbolAllocator,
                 long startTimeInNanos,
                 long timeoutInMilliseconds,
-                Session session)
+                Session session,
+                WarningCollector warningCollector)
         {
             checkArgument(timeoutInMilliseconds >= 0, "Timeout has to be a non-negative number [milliseconds]");
 
@@ -269,6 +278,7 @@ public class IterativeOptimizer
             this.startTimeInNanos = startTimeInNanos;
             this.timeoutInMilliseconds = timeoutInMilliseconds;
             this.session = session;
+            this.warningCollector = warningCollector;
         }
 
         public void checkTimeoutNotExhausted()

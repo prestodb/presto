@@ -159,7 +159,7 @@ public class VariableWidthBlock
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
             if (!isEntryNull(position)) {
-                newSlice.appendBytes(slice.getBytes(getPositionOffset(position), getSliceLength(position)));
+                newSlice.writeBytes(slice, getPositionOffset(position), getSliceLength(position));
             }
             else if (newValueIsNull != null) {
                 newValueIsNull[i] = true;

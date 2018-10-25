@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
@@ -32,6 +33,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 
@@ -55,6 +57,18 @@ public abstract class AbstractTestAggregationFunction
     }
 
     public abstract Block[] getSequenceBlocks(int start, int length);
+
+    protected void registerFunctions(Plugin plugin)
+    {
+        functionRegistry.addFunctions(extractFunctions(plugin.getFunctions()));
+    }
+
+    protected void registerTypes(Plugin plugin)
+    {
+        for (Type type : plugin.getTypes()) {
+            typeRegistry.addType(type);
+        }
+    }
 
     protected final InternalAggregationFunction getFunction()
     {

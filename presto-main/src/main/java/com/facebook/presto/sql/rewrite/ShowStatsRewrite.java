@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableHandle;
@@ -109,9 +110,9 @@ public class ShowStatsRewrite
     private static final Expression NULL_VARCHAR = new Cast(new NullLiteral(), VARCHAR);
 
     @Override
-    public Statement rewrite(Session session, Metadata metadata, SqlParser parser, Optional<QueryExplainer> queryExplainer, Statement node, List<Expression> parameters, AccessControl accessControl)
+    public Statement rewrite(Session session, Metadata metadata, SqlParser parser, Optional<QueryExplainer> queryExplainer, Statement node, List<Expression> parameters, AccessControl accessControl, WarningCollector warningCollector)
     {
-        return (Statement) new Visitor(metadata, session, parameters, queryExplainer).process(node, null);
+        return (Statement) new Visitor(metadata, session, parameters, queryExplainer, warningCollector).process(node, null);
     }
 
     private static class Visitor
@@ -121,13 +122,15 @@ public class ShowStatsRewrite
         private final Session session;
         private final List<Expression> parameters;
         private final Optional<QueryExplainer> queryExplainer;
+        private final WarningCollector warningCollector;
 
-        public Visitor(Metadata metadata, Session session, List<Expression> parameters, Optional<QueryExplainer> queryExplainer)
+        public Visitor(Metadata metadata, Session session, List<Expression> parameters, Optional<QueryExplainer> queryExplainer, WarningCollector warningCollector)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.session = requireNonNull(session, "session is null");
             this.parameters = requireNonNull(parameters, "parameters is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
+            this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         }
 
         @Override
@@ -261,7 +264,7 @@ public class ShowStatsRewrite
                 return Constraint.alwaysTrue();
             }
 
-            Plan plan = queryExplainer.get().getLogicalPlan(session, new Query(Optional.empty(), specification, Optional.empty(), Optional.empty()), parameters);
+            Plan plan = queryExplainer.get().getLogicalPlan(session, new Query(Optional.empty(), specification, Optional.empty(), Optional.empty()), parameters, warningCollector);
 
             Optional<TableScanNode> scanNode = searchFrom(plan.getRoot())
                     .where(TableScanNode.class::isInstance)

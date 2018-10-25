@@ -20,6 +20,7 @@ import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
@@ -1199,7 +1200,8 @@ public class LocalExecutionPlanner
                     sqlParser,
                     sourceTypes,
                     concat(rewrittenFilter.map(ImmutableList::of).orElse(ImmutableList.of()), rewrittenProjections),
-                    emptyList());
+                    emptyList(),
+                    WarningCollector.NOOP);
 
             Optional<RowExpression> translatedFilter = rewrittenFilter.map(filter -> toRowExpression(filter, expressionTypes));
             List<RowExpression> translatedProjections = rewrittenProjections.stream()
@@ -1293,6 +1295,7 @@ public class LocalExecutionPlanner
                         TypeProvider.empty(),
                         ImmutableList.copyOf(row),
                         emptyList(),
+                        WarningCollector.NOOP,
                         false);
                 for (int i = 0; i < row.size(); i++) {
                     // evaluate the literal value
@@ -1798,7 +1801,10 @@ public class LocalExecutionPlanner
                     .filter(symbol -> probeNode.getOutputSymbols().contains(symbol))
                     .collect(toImmutableList());
             List<Integer> probeOutputChannels = ImmutableList.copyOf(getChannelsForSymbols(probeOutputSymbols, probeSource.getLayout()));
-            Integer probeChannel = channelGetter(probeSource).apply(probeSymbol);
+            Function<Symbol, Integer> probeChannelGetter = channelGetter(probeSource);
+            int probeChannel = probeChannelGetter.apply(probeSymbol);
+
+            Optional<Integer> partitionChannel = node.getLeftPartitionSymbol().map(probeChannelGetter::apply);
 
             return new SpatialJoinOperatorFactory(
                     context.getNextOperatorId(),
@@ -1807,6 +1813,7 @@ public class LocalExecutionPlanner
                     probeTypes,
                     probeOutputChannels,
                     probeChannel,
+                    partitionChannel,
                     pagesSpatialIndexFactory);
         }
 
@@ -1839,6 +1846,8 @@ public class LocalExecutionPlanner
                             context.getTypes(),
                             context.getSession()));
 
+            Optional<Integer> partitionChannel = node.getRightPartitionSymbol().map(buildChannelGetter::apply);
+
             SpatialIndexBuilderOperatorFactory builderOperatorFactory = new SpatialIndexBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),
                     node.getId(),
@@ -1846,7 +1855,9 @@ public class LocalExecutionPlanner
                     buildOutputChannels,
                     buildChannel,
                     radiusChannel,
+                    partitionChannel,
                     spatialRelationshipTest,
+                    node.getKdbTree(),
                     filterFunctionFactory,
                     10_000,
                     pagesIndexFactory);
@@ -2014,7 +2025,8 @@ public class LocalExecutionPlanner
                     sqlParser,
                     sourceTypes,
                     rewrittenFilter,
-                    emptyList() /* parameters have already been replaced */);
+                    emptyList(), /* parameters have already been replaced */
+                    WarningCollector.NOOP);
 
             RowExpression translatedFilter = toRowExpression(rewrittenFilter, expressionTypes);
             return joinFilterFunctionCompiler.compileJoinFilterFunction(translatedFilter, buildLayout.size());
