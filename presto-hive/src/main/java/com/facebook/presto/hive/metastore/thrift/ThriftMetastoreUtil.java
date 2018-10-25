@@ -301,7 +301,7 @@ public final class ThriftMetastoreUtil
 
         return serdeInfo.getSerializationLib() != null &&
                 table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null &&
-                serdeInfo.getSerializationLib().equalsIgnoreCase(AVRO.getSerDe());
+                serdeInfo.getSerializationLib().equals(AVRO.getSerDe());
     }
 
     public static Partition fromMetastoreApiPartition(org.apache.hadoop.hive.metastore.api.Partition partition)
