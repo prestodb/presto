@@ -589,6 +589,7 @@ public class PlanPrinter
                     node.getFilteringSourceJoinSymbol(),
                     formatHash(node.getSourceHashSymbol(), node.getFilteringSourceHashSymbol()),
                     formatOutputs(node.getOutputSymbols()));
+            node.getDistributionType().ifPresent(distributionType -> print(indent + 2, "Distribution: %s", distributionType));
             printPlanNodesStatsAndCost(indent + 2, node);
             printStats(indent + 2, node.getId());
             node.getSource().accept(this, indent + 1);
