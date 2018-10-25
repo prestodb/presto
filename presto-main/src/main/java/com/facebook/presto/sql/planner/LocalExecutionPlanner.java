@@ -49,7 +49,7 @@ import com.facebook.presto.operator.LookupSourceFactory;
 import com.facebook.presto.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import com.facebook.presto.operator.MergeOperator.MergeOperatorFactory;
 import com.facebook.presto.operator.MetadataDeleteOperator.MetadataDeleteOperatorFactory;
-import com.facebook.presto.operator.NestedLoopJoinPagesBridge;
+import com.facebook.presto.operator.NestedLoopJoinBridge;
 import com.facebook.presto.operator.NestedLoopJoinPagesSupplier;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
@@ -1717,7 +1717,7 @@ public class LocalExecutionPlanner
                     "Build source of a nested loop join is expected to be GROUPED_EXECUTION.");
             checkArgument(node.getType() == INNER, "NestedLoopJoin is only used for inner join");
 
-            JoinBridgeManager<NestedLoopJoinPagesBridge> nestedLoopJoinPagesSupplierManager = new JoinBridgeManager<>(
+            JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager = new JoinBridgeManager<>(
                     false,
                     probeSource.getPipelineExecutionStrategy(),
                     buildSource.getPipelineExecutionStrategy(),
@@ -1726,7 +1726,7 @@ public class LocalExecutionPlanner
             NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(
                     buildContext.getNextOperatorId(),
                     node.getId(),
-                    nestedLoopJoinPagesSupplierManager);
+                    nestedLoopJoinBridgeManager);
 
             checkArgument(buildContext.getDriverInstanceCount().orElse(1) == 1, "Expected local execution to not be parallel");
             context.addDriverFactory(
@@ -1749,7 +1749,7 @@ public class LocalExecutionPlanner
                 outputMappings.put(entry.getKey(), offset + entry.getValue());
             }
 
-            OperatorFactory operatorFactory = new NestedLoopJoinOperatorFactory(context.getNextOperatorId(), node.getId(), nestedLoopJoinPagesSupplierManager);
+            OperatorFactory operatorFactory = new NestedLoopJoinOperatorFactory(context.getNextOperatorId(), node.getId(), nestedLoopJoinBridgeManager);
             return new PhysicalOperation(operatorFactory, outputMappings.build(), context, probeSource);
         }
 
