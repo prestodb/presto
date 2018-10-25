@@ -24,6 +24,8 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.io.PrintStream;
+import java.util.List;
+import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.cli.FormatUtils.formatCount;
@@ -40,8 +42,11 @@ import static io.airlift.units.Duration.nanosSince;
 import static java.lang.Character.toUpperCase;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.IntStream.range;
 
 public class StatusPrinter
 {
@@ -87,6 +92,7 @@ Peak Memory: 1.97GB
     {
         long lastPrint = System.nanoTime();
         try {
+            WarningsPrinter warningsPrinter = new ConsoleWarningsPrinter(console);
             while (client.isRunning()) {
                 try {
                     // exit status loop if there is pending output
@@ -103,7 +109,7 @@ Peak Memory: 1.97GB
                         client.cancelLeafStage();
                     }
                     else if (key == CTRL_C) {
-                        updateScreen();
+                        updateScreen(warningsPrinter);
                         update = false;
                         client.close();
                     }
@@ -115,7 +121,7 @@ Peak Memory: 1.97GB
 
                     // update screen
                     if (update) {
-                        updateScreen();
+                        updateScreen(warningsPrinter);
                         lastPrint = System.nanoTime();
                     }
 
@@ -135,10 +141,10 @@ Peak Memory: 1.97GB
         }
     }
 
-    private void updateScreen()
+    private void updateScreen(WarningsPrinter warningsPrinter)
     {
         console.repositionCursor();
-        printQueryInfo(client.currentStatusInfo());
+        printQueryInfo(client.currentStatusInfo(), warningsPrinter);
     }
 
     public void printFinalInfo()
@@ -157,7 +163,7 @@ Peak Memory: 1.97GB
         out.println();
 
         // Query 12, FINISHED, 1 node
-        String querySummary = String.format("Query %s, %s, %,d %s",
+        String querySummary = format("Query %s, %s, %,d %s",
                 results.getId(),
                 stats.getState(),
                 nodes,
@@ -169,7 +175,7 @@ Peak Memory: 1.97GB
         }
 
         // Splits: 1000 total, 842 done (84.20%)
-        String splitsSummary = String.format("Splits: %,d total, %,d done (%.2f%%)",
+        String splitsSummary = format("Splits: %,d total, %,d done (%.2f%%)",
                 stats.getTotalSplits(),
                 stats.getCompletedSplits(),
                 stats.getProgressPercentage().orElse(0.0));
@@ -178,7 +184,7 @@ Peak Memory: 1.97GB
         if (debug) {
             // CPU Time: 565.2s total,   26K rows/s, 3.85MB/s
             Duration cpuTime = millis(stats.getCpuTimeMillis());
-            String cpuTimeSummary = String.format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
+            String cpuTimeSummary = format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
                     cpuTime.getValue(SECONDS),
                     formatCountRate(stats.getProcessedRows(), cpuTime, false),
                     formatDataRate(bytes(stats.getProcessedBytes()), cpuTime, true),
@@ -188,21 +194,21 @@ Peak Memory: 1.97GB
             double parallelism = cpuTime.getValue(MILLISECONDS) / wallTime.getValue(MILLISECONDS);
 
             // Per Node: 3.5 parallelism, 83.3K rows/s, 0.7 MB/s
-            String perNodeSummary = String.format("Per Node: %.1f parallelism, %5s rows/s, %8s",
+            String perNodeSummary = format("Per Node: %.1f parallelism, %5s rows/s, %8s",
                     parallelism / nodes,
                     formatCountRate((double) stats.getProcessedRows() / nodes, wallTime, false),
                     formatDataRate(bytes(stats.getProcessedBytes() / nodes), wallTime, true));
             reprintLine(perNodeSummary);
 
             // Parallelism: 5.3
-            out.println(String.format("Parallelism: %.1f", parallelism));
+            out.println(format("Parallelism: %.1f", parallelism));
 
             //Peak Memory: 1.97GB
             reprintLine("Peak Memory: " + formatDataSize(bytes(stats.getPeakMemoryBytes()), true));
         }
 
         // 0:32 [2.12GB, 15M rows] [67MB/s, 463K rows/s]
-        String statsLine = String.format("%s [%s rows, %s] [%s rows/s, %s]",
+        String statsLine = format("%s [%s rows, %s] [%s rows/s, %s]",
                 formatTime(wallTime),
                 formatCount(stats.getProcessedRows()),
                 formatDataSize(bytes(stats.getProcessedBytes()), true),
@@ -215,7 +221,7 @@ Peak Memory: 1.97GB
         out.println();
     }
 
-    private void printQueryInfo(QueryStatusInfo results)
+    private void printQueryInfo(QueryStatusInfo results, WarningsPrinter warningsPrinter)
     {
         StatementStats stats = results.getStats();
         Duration wallTime = nanosSince(start);
@@ -235,14 +241,14 @@ Peak Memory: 1.97GB
                 reprintLine("80 characters wide");
                 reprintLine("");
                 reprintLine(stats.getState());
-                reprintLine(String.format("%s %d%%", formatTime(wallTime), progressPercentage));
+                reprintLine(format("%s %d%%", formatTime(wallTime), progressPercentage));
                 return;
             }
 
             int nodes = stats.getNodes();
 
             // Query 10, RUNNING, 1 node, 778 splits
-            String querySummary = String.format("Query %s, %s, %,d %s, %,d splits",
+            String querySummary = format("Query %s, %s, %,d %s, %,d splits",
                     results.getId(),
                     stats.getState(),
                     nodes,
@@ -261,7 +267,7 @@ Peak Memory: 1.97GB
 
             if (debug) {
                 // Splits:   620 queued, 34 running, 124 done
-                String splitsSummary = String.format("Splits:   %,d queued, %,d running, %,d done",
+                String splitsSummary = format("Splits:   %,d queued, %,d running, %,d done",
                         stats.getQueuedSplits(),
                         stats.getRunningSplits(),
                         stats.getCompletedSplits());
@@ -269,7 +275,7 @@ Peak Memory: 1.97GB
 
                 // CPU Time: 56.5s total, 36.4K rows/s, 4.44MB/s, 60% active
                 Duration cpuTime = millis(stats.getCpuTimeMillis());
-                String cpuTimeSummary = String.format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
+                String cpuTimeSummary = format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
                         cpuTime.getValue(SECONDS),
                         formatCountRate(stats.getProcessedRows(), cpuTime, false),
                         formatDataRate(bytes(stats.getProcessedBytes()), cpuTime, true),
@@ -279,14 +285,14 @@ Peak Memory: 1.97GB
                 double parallelism = cpuTime.getValue(MILLISECONDS) / wallTime.getValue(MILLISECONDS);
 
                 // Per Node: 3.5 parallelism, 83.3K rows/s, 0.7 MB/s
-                String perNodeSummary = String.format("Per Node: %.1f parallelism, %5s rows/s, %8s",
+                String perNodeSummary = format("Per Node: %.1f parallelism, %5s rows/s, %8s",
                         parallelism / nodes,
                         formatCountRate((double) stats.getProcessedRows() / nodes, wallTime, false),
                         formatDataRate(bytes(stats.getProcessedBytes() / nodes), wallTime, true));
                 reprintLine(perNodeSummary);
 
                 // Parallelism: 5.3
-                reprintLine(String.format("Parallelism: %.1f", parallelism));
+                reprintLine(format("Parallelism: %.1f", parallelism));
 
                 //Peak Memory: 1.97GB
                 reprintLine("Peak Memory: " + formatDataSize(bytes(stats.getPeakMemoryBytes()), true));
@@ -302,7 +308,7 @@ Peak Memory: 1.97GB
                         stats.getTotalSplits());
 
                 // 0:17 [ 103MB,  802K rows] [5.74MB/s, 44.9K rows/s] [=====>>                                   ] 10%
-                String progressLine = String.format("%s [%5s rows, %6s] [%5s rows/s, %8s] [%s] %d%%",
+                String progressLine = format("%s [%5s rows, %6s] [%5s rows/s, %8s] [%s] %d%%",
                         formatTime(wallTime),
                         formatCount(stats.getProcessedRows()),
                         formatDataSize(bytes(stats.getProcessedBytes()), true),
@@ -317,7 +323,7 @@ Peak Memory: 1.97GB
                 String progressBar = formatProgressBar(progressWidth, Ints.saturatedCast(nanosSince(start).roundTo(SECONDS)));
 
                 // 0:17 [ 103MB,  802K rows] [5.74MB/s, 44.9K rows/s] [    <=>                                  ]
-                String progressLine = String.format("%s [%5s rows, %6s] [%5s rows/s, %8s] [%s]",
+                String progressLine = format("%s [%5s rows, %6s] [%5s rows/s, %8s] [%s]",
                         formatTime(wallTime),
                         formatCount(stats.getProcessedRows()),
                         formatDataSize(bytes(stats.getProcessedBytes()), true),
@@ -332,7 +338,7 @@ Peak Memory: 1.97GB
             reprintLine("");
 
             // STAGE  S    ROWS    RPS  BYTES    BPS   QUEUED    RUN   DONE
-            String stagesHeader = String.format("%10s%1s  %5s  %6s  %5s  %7s  %6s  %5s  %5s",
+            String stagesHeader = format("%10s%1s  %5s  %6s  %5s  %7s  %6s  %5s  %5s",
                     "STAGE",
                     "S",
                     "ROWS",
@@ -348,7 +354,7 @@ Peak Memory: 1.97GB
         }
         else {
             // Query 31 [S] i[2.7M 67.3MB 62.7MBps] o[35 6.1KB 1KBps] splits[252/16/380]
-            String querySummary = String.format("Query %s [%s] i[%s %s %s] o[%s %s %s] splits[%,d/%,d/%,d]",
+            String querySummary = format("Query %s [%s] i[%s %s %s] o[%s %s %s] splits[%,d/%,d/%,d]",
                     results.getId(),
                     stats.getState(),
 
@@ -365,6 +371,7 @@ Peak Memory: 1.97GB
                     stats.getCompletedSplits());
             reprintLine(querySummary);
         }
+        warningsPrinter.print(results.getWarnings(), false, false);
     }
 
     private void printStageTree(StageStats stage, String indent, AtomicInteger stageNumberCounter)
@@ -393,7 +400,7 @@ Peak Memory: 1.97GB
             rowsPerSecond = formatCountRate(stage.getProcessedRows(), elapsedTime, false);
         }
 
-        String stageSummary = String.format("%10s%1s  %5s  %6s  %5s  %7s  %6s  %5s  %5s",
+        String stageSummary = format("%10s%1s  %5s  %6s  %5s  %7s  %6s  %5s  %5s",
                 name,
                 stageStateCharacter(stage.getState()),
 
@@ -439,5 +446,36 @@ Peak Memory: 1.97GB
             return 0;
         }
         return min(100, (count * 100.0) / total);
+    }
+
+    private static class ConsoleWarningsPrinter
+            extends AbstractWarningsPrinter
+    {
+        private static final int DISPLAYED_WARNINGS = 5;
+        private final ConsolePrinter console;
+
+        ConsoleWarningsPrinter(ConsolePrinter console)
+        {
+            super(OptionalInt.of(DISPLAYED_WARNINGS));
+            this.console = requireNonNull(console, "console is null");
+        }
+
+        @Override
+        protected void print(List<String> warnings)
+        {
+            console.reprintLine("");
+            warnings.stream()
+                    .forEach(console::reprintLine);
+
+            // Remove warnings from previous screen
+            range(0, DISPLAYED_WARNINGS - warnings.size())
+                    .forEach(line -> console.reprintLine(""));
+        }
+
+        @Override
+        protected void printSeparator()
+        {
+            console.reprintLine("");
+        }
     }
 }

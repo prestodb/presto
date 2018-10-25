@@ -352,6 +352,6 @@ public class TestExtractSpatialInnerJoin
 
     private RuleAssert assertRuleApplication()
     {
-        return tester().assertThat(new ExtractSpatialInnerJoin(tester().getMetadata()));
+        return tester().assertThat(new ExtractSpatialInnerJoin(tester().getMetadata(), tester().getSplitManager(), tester().getPageSourceManager()));
     }
 }

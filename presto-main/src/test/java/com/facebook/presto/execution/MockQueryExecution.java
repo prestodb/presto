@@ -170,6 +170,7 @@ public class MockQueryExecution
                 Optional.empty(),
                 null,
                 null,
+                ImmutableList.of(),
                 ImmutableSet.of(),
                 Optional.empty(),
                 state.isDone(),
@@ -221,6 +222,30 @@ public class MockQueryExecution
     public Session getSession()
     {
         return session;
+    }
+
+    @Override
+    public DateTime getCreateTime()
+    {
+        return getQueryInfo().getQueryStats().getCreateTime();
+    }
+
+    @Override
+    public Optional<DateTime> getExecutionStartTime()
+    {
+        return Optional.ofNullable(getQueryInfo().getQueryStats().getExecutionStartTime());
+    }
+
+    @Override
+    public DateTime getLastHeartbeat()
+    {
+        return getQueryInfo().getQueryStats().getLastHeartbeat();
+    }
+
+    @Override
+    public Optional<DateTime> getEndTime()
+    {
+        return Optional.ofNullable(getQueryInfo().getQueryStats().getEndTime());
     }
 
     @Override

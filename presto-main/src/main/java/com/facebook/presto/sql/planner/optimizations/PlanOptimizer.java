@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -25,5 +26,6 @@ public interface PlanOptimizer
             Session session,
             TypeProvider types,
             SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator);
+            PlanNodeIdAllocator idAllocator,
+            WarningCollector warningCollector);
 }

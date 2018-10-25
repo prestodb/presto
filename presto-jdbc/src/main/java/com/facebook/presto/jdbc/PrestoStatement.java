@@ -48,6 +48,7 @@ public class PrestoStatement
     private final AtomicReference<PrestoConnection> connection;
     private final AtomicReference<StatementClient> executingClient = new AtomicReference<>();
     private final AtomicReference<PrestoResultSet> currentResult = new AtomicReference<>();
+    private final AtomicReference<Optional<WarningsManager>> currentWarningsManager = new AtomicReference<>(Optional.empty());
     private final AtomicLong currentUpdateCount = new AtomicLong(-1);
     private final AtomicReference<String> currentUpdateType = new AtomicReference<>();
     private final AtomicReference<Optional<Consumer<QueryStats>>> progressCallback = new AtomicReference<>(Optional.empty());
@@ -188,7 +189,7 @@ public class PrestoStatement
             throws SQLException
     {
         checkOpen();
-        return null;
+        return currentWarningsManager.get().map(WarningsManager::getWarnings).orElse(null);
     }
 
     @Override
@@ -196,6 +197,7 @@ public class PrestoStatement
             throws SQLException
     {
         checkOpen();
+        currentWarningsManager.get().ifPresent(WarningsManager::clearWarnings);
     }
 
     @Override
@@ -242,8 +244,9 @@ public class PrestoStatement
                 }
             }
             executingClient.set(client);
-
-            resultSet = new PrestoResultSet(client, maxRows.get(), progressConsumer);
+            WarningsManager warningsManager = new WarningsManager();
+            currentWarningsManager.set(Optional.of(warningsManager));
+            resultSet = new PrestoResultSet(client, maxRows.get(), progressConsumer, warningsManager);
 
             // check if this is a query
             if (client.currentStatusInfo().getUpdateType() == null) {
@@ -261,7 +264,7 @@ public class PrestoStatement
             Long updateCount = client.finalStatusInfo().getUpdateCount();
             currentUpdateCount.set((updateCount != null) ? updateCount : 0);
             currentUpdateType.set(client.finalStatusInfo().getUpdateType());
-
+            warningsManager.addWarnings(client.finalStatusInfo().getWarnings());
             return false;
         }
         catch (ClientException e) {
@@ -288,6 +291,7 @@ public class PrestoStatement
         currentResult.set(null);
         currentUpdateCount.set(-1);
         currentUpdateType.set(null);
+        currentWarningsManager.set(Optional.empty());
     }
 
     @Override

@@ -9,14 +9,6 @@ java_version() {
   "$JAVA" -version 2>&1 | grep "\(java\|openjdk\) version" | awk '{ print substr($3, 2, length($3)-2); }'
 }
 
-java_vendor() {
-# The one argument is the location of java (either $JAVA_HOME or a potential
-# candidate for JAVA_HOME).
-# Returns the java vendor name. eg: Oracle Corporation
-  JAVA="$1"/bin/java
-  "$JAVA" -XshowSettings:properties -version 2>&1 | grep "java.vendor =" | awk '{ print $3 " " $4; }'
-}
-
 check_if_correct_java_version() {
 
 # If the string is empty return non-zero code.  We don't want false positives if /bin/java is
@@ -29,9 +21,8 @@ check_if_correct_java_version() {
 # The one argument is the location of java (either $JAVA_HOME or a potential
 # candidate for JAVA_HOME).
   JAVA_VERSION=$(java_version "$1")
-  JAVA_VENDOR=$(java_vendor "$1")
   JAVA_UPDATE=$(echo $JAVA_VERSION | cut -d'_' -f2)
-  if [[ ("$JAVA_VERSION" > "1.8") && ($JAVA_UPDATE -ge 151) && ("$JAVA_VENDOR" = "Oracle Corporation") ]]; then
+  if [[ ("$JAVA_VERSION" > "1.8") && ($JAVA_UPDATE -ge 151) ]]; then
     echo "JAVA8_HOME=$1" > /tmp/presto_env.sh
     return 0
   else

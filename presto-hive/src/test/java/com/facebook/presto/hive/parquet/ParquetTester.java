@@ -411,8 +411,6 @@ public class ParquetTester
     {
         HiveClientConfig config = new HiveClientConfig();
         config.setHiveStorageFormat(HiveStorageFormat.PARQUET)
-                .setParquetOptimizedReaderEnabled(OPTIMIZED)
-                .setParquetPredicatePushdownEnabled(OPTIMIZED)
                 .setUseParquetColumnNames(useParquetColumnNames);
         return config;
     }

@@ -1,0 +1,19 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        final aggregation over (acctbal, address, comment_4, custkey_3, name, name_7, phone)
+            local exchange (GATHER, SINGLE, [])
+                partial aggregation over (acctbal, address, comment_4, custkey_3, name, name_7, phone)
+                    join (INNER, PARTITIONED):
+                        remote exchange (REPARTITION, HASH, ["custkey_3"])
+                            join (INNER, REPLICATED):
+                                scan tpch:customer:sf3000.0
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPLICATE, BROADCAST, [])
+                                        scan tpch:nation:sf3000.0
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, ["custkey"])
+                                join (INNER, REPLICATED):
+                                    scan tpch:lineitem:sf3000.0
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            scan tpch:orders:sf3000.0

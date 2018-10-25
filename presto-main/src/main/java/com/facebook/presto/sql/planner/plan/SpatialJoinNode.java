@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -67,6 +68,16 @@ public class SpatialJoinNode
     private final PlanNode right;
     private final List<Symbol> outputSymbols;
     private final Expression filter;
+    private final Optional<Symbol> leftPartitionSymbol;
+    private final Optional<Symbol> rightPartitionSymbol;
+    private final Optional<String> kdbTree;
+    private final DistributionType distributionType;
+
+    public enum DistributionType
+    {
+        PARTITIONED,
+        REPLICATED
+    }
 
     @JsonCreator
     public SpatialJoinNode(
@@ -75,7 +86,10 @@ public class SpatialJoinNode
             @JsonProperty("left") PlanNode left,
             @JsonProperty("right") PlanNode right,
             @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
-            @JsonProperty("filter") Expression filter)
+            @JsonProperty("filter") Expression filter,
+            @JsonProperty("leftPartitionSymbol") Optional<Symbol> leftPartitionSymbol,
+            @JsonProperty("rightPartitionSymbol") Optional<Symbol> rightPartitionSymbol,
+            @JsonProperty("kdbTree") Optional<String> kdbTree)
     {
         super(id);
 
@@ -84,6 +98,9 @@ public class SpatialJoinNode
         this.right = requireNonNull(right, "right is null");
         this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputSymbols, "outputSymbols is null"));
         this.filter = requireNonNull(filter, "filter is null");
+        this.leftPartitionSymbol = requireNonNull(leftPartitionSymbol, "leftPartitionSymbol is null");
+        this.rightPartitionSymbol = requireNonNull(rightPartitionSymbol, "rightPartitionSymbol is null");
+        this.kdbTree = requireNonNull(kdbTree, "kdbTree is null");
 
         Set<Symbol> inputSymbols = ImmutableSet.<Symbol>builder()
                 .addAll(left.getOutputSymbols())
@@ -91,6 +108,18 @@ public class SpatialJoinNode
                 .build();
 
         checkArgument(inputSymbols.containsAll(outputSymbols), "Left and right join inputs do not contain all output symbols");
+        if (kdbTree.isPresent()) {
+            checkArgument(leftPartitionSymbol.isPresent(), "Left partition symbol is missing");
+            checkArgument(rightPartitionSymbol.isPresent(), "Right partition symbol is missing");
+            checkArgument(left.getOutputSymbols().contains(leftPartitionSymbol.get()), "Left join input does not contain left partition symbol");
+            checkArgument(right.getOutputSymbols().contains(rightPartitionSymbol.get()), "Right join input does not contain right partition symbol");
+            this.distributionType = DistributionType.PARTITIONED;
+        }
+        else {
+            checkArgument(!leftPartitionSymbol.isPresent(), "KDB tree is missing");
+            checkArgument(!rightPartitionSymbol.isPresent(), "KDB tree is missing");
+            this.distributionType = DistributionType.REPLICATED;
+        }
     }
 
     @JsonProperty("type")
@@ -117,6 +146,18 @@ public class SpatialJoinNode
         return filter;
     }
 
+    @JsonProperty("leftPartitionSymbol")
+    public Optional<Symbol> getLeftPartitionSymbol()
+    {
+        return leftPartitionSymbol;
+    }
+
+    @JsonProperty("rightPartitionSymbol")
+    public Optional<Symbol> getRightPartitionSymbol()
+    {
+        return rightPartitionSymbol;
+    }
+
     @Override
     public List<PlanNode> getSources()
     {
@@ -130,6 +171,18 @@ public class SpatialJoinNode
         return outputSymbols;
     }
 
+    @JsonProperty("distributionType")
+    public DistributionType getDistributionType()
+    {
+        return distributionType;
+    }
+
+    @JsonProperty("kdbTree")
+    public Optional<String> getKdbTree()
+    {
+        return kdbTree;
+    }
+
     @Override
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
@@ -140,6 +193,6 @@ public class SpatialJoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new SpatialJoinNode(getId(), type, newChildren.get(0), newChildren.get(1), outputSymbols, filter);
+        return new SpatialJoinNode(getId(), type, newChildren.get(0), newChildren.get(1), outputSymbols, filter, leftPartitionSymbol, rightPartitionSymbol, kdbTree);
     }
 }

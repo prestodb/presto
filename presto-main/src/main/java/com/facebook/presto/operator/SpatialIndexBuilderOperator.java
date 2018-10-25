@@ -14,6 +14,8 @@
 package com.facebook.presto.operator;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
+import com.facebook.presto.geospatial.KdbTreeUtils;
+import com.facebook.presto.geospatial.Rectangle;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
@@ -22,7 +24,9 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 
@@ -48,9 +52,11 @@ public class SpatialIndexBuilderOperator
         private final List<Integer> outputChannels;
         private final int indexChannel;
         private final Optional<Integer> radiusChannel;
+        private final Optional<Integer> partitionChannel;
         private final SpatialPredicate spatialRelationshipTest;
         private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
         private final PagesIndex.Factory pagesIndexFactory;
+        private final Map<Integer, Rectangle> spatialPartitions = new HashMap<>();
 
         private final int expectedPositions;
 
@@ -63,7 +69,9 @@ public class SpatialIndexBuilderOperator
                 List<Integer> outputChannels,
                 int indexChannel,
                 Optional<Integer> radiusChannel,
+                Optional<Integer> partitionChannel,
                 SpatialPredicate spatialRelationshipTest,
+                Optional<String> kdbTreeJson,
                 Optional<JoinFilterFunctionFactory> filterFunctionFactory,
                 int expectedPositions,
                 PagesIndex.Factory pagesIndexFactory)
@@ -79,10 +87,12 @@ public class SpatialIndexBuilderOperator
 
             this.indexChannel = indexChannel;
             this.radiusChannel = radiusChannel;
+            this.partitionChannel = requireNonNull(partitionChannel, "partitionChannel is null");
             this.spatialRelationshipTest = spatialRelationshipTest;
             this.filterFunctionFactory = requireNonNull(filterFunctionFactory, "filterFunctionFactory is null");
             this.pagesIndexFactory = pagesIndexFactory;
             this.expectedPositions = expectedPositions;
+            kdbTreeJson.ifPresent(json -> this.spatialPartitions.putAll(KdbTreeUtils.fromJson(json).getLeaves()));
         }
 
         public PagesSpatialIndexFactory getPagesSpatialIndexFactory()
@@ -101,10 +111,12 @@ public class SpatialIndexBuilderOperator
                     outputChannels,
                     indexChannel,
                     radiusChannel,
+                    partitionChannel,
                     spatialRelationshipTest,
                     filterFunctionFactory,
                     expectedPositions,
-                    pagesIndexFactory);
+                    pagesIndexFactory,
+                    spatialPartitions);
         }
 
         @Override
@@ -127,8 +139,10 @@ public class SpatialIndexBuilderOperator
     private final List<Integer> outputChannels;
     private final int indexChannel;
     private final Optional<Integer> radiusChannel;
+    private final Optional<Integer> partitionChannel;
     private final SpatialPredicate spatialRelationshipTest;
     private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
+    private final Map<Integer, Rectangle> partitions;
 
     private final PagesIndex index;
     private ListenableFuture<?> indexNotNeeded;
@@ -142,10 +156,12 @@ public class SpatialIndexBuilderOperator
             List<Integer> outputChannels,
             int indexChannel,
             Optional<Integer> radiusChannel,
+            Optional<Integer> partitionChannel,
             SpatialPredicate spatialRelationshipTest,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             int expectedPositions,
-            PagesIndex.Factory pagesIndexFactory)
+            PagesIndex.Factory pagesIndexFactory,
+            Map<Integer, Rectangle> partitions)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
@@ -158,6 +174,9 @@ public class SpatialIndexBuilderOperator
         this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
         this.indexChannel = indexChannel;
         this.radiusChannel = radiusChannel;
+        this.partitionChannel = requireNonNull(partitionChannel, "partitionChannel is null");
+
+        this.partitions = requireNonNull(partitions, "partitions is null");
     }
 
     @Override
@@ -211,7 +230,7 @@ public class SpatialIndexBuilderOperator
         }
 
         finishing = true;
-        PagesSpatialIndexSupplier spatialIndex = index.createPagesSpatialIndex(operatorContext.getSession(), indexChannel, radiusChannel, spatialRelationshipTest, filterFunctionFactory, outputChannels);
+        PagesSpatialIndexSupplier spatialIndex = index.createPagesSpatialIndex(operatorContext.getSession(), indexChannel, radiusChannel, partitionChannel, spatialRelationshipTest, filterFunctionFactory, outputChannels, partitions);
         localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes() + spatialIndex.getEstimatedSize().toBytes());
         indexNotNeeded = pagesSpatialIndexFactory.lendPagesSpatialIndex(spatialIndex);
     }

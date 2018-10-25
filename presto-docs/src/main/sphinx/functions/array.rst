@@ -62,7 +62,7 @@ Array Functions
     Sorts and returns the array ``x``. The elements of ``x`` must be orderable.
     Null elements will be placed at the end of the returned array.
 
-.. function:: array_sort(array<T>, function<T,T,int>) -> array<T>
+.. function:: array_sort(array(T), function(T,T,int)) -> array(T)
 
     Sorts and returns the ``array`` based on the given comparator ``function``. The comparator will take
     two nullable arguments representing two nullable elements of the ``array``. It returns -1, 0, or 1
@@ -111,13 +111,13 @@ Array Functions
 
     Returns true if the array ``x`` contains the ``element``.
 
-.. function:: element_at(array<E>, index) -> E
+.. function:: element_at(array(E), index) -> E
 
     Returns element of ``array`` at given ``index``.
     If ``index`` > 0, this function provides the same functionality as the SQL-standard subscript operator (``[]``).
     If ``index`` < 0, ``element_at`` accesses elements from the last to the first.
 
-.. function:: filter(array<T>, function<T,boolean>) -> array<T>
+.. function:: filter(array(T), function(T,boolean)) -> array(T)
 
     Constructs an array from those elements of ``array`` for which ``function`` returns true::
 
@@ -129,7 +129,7 @@ Array Functions
 
     Flattens an ``array(array(T))`` to an ``array(T)`` by concatenating the contained arrays.
 
-.. function:: reduce(array<T>, initialState S, inputFunction<S,T,S>, outputFunction<S,R>) -> R
+.. function:: reduce(array(T), initialState S, inputFunction(S,T,S), outputFunction(S,R)) -> R
 
     Returns a single value reduced from ``array``. ``inputFunction`` will
     be invoked for each element in ``array`` in order. In addition to taking
@@ -158,26 +158,26 @@ Array Functions
 
     Returns an array which has the reversed order of array ``x``.
 
-.. function:: sequence(start, stop) -> array<bigint>
+.. function:: sequence(start, stop) -> array(bigint)
 
     Generate a sequence of integers from ``start`` to ``stop``, incrementing
     by ``1`` if ``start`` is less than or equal to ``stop``, otherwise ``-1``.
 
-.. function:: sequence(start, stop, step) -> array<bigint>
+.. function:: sequence(start, stop, step) -> array(bigint)
 
     Generate a sequence of integers from ``start`` to ``stop``, incrementing by ``step``.
 
-.. function:: sequence(start, stop) -> array<date>
+.. function:: sequence(start, stop) -> array(date)
 
     Generate a sequence of dates from ``start`` date to ``stop`` date, incrementing
     by ``1`` day if ``start`` date is less than or equal to ``stop`` date, otherwise ``-1`` day.
 
-.. function:: sequence(start, stop, step) -> array<date>
+.. function:: sequence(start, stop, step) -> array(date)
 
     Generate a sequence of dates from ``start`` to ``stop``, incrementing by ``step``.
     The type of ``step`` can be either ``INTERVAL DAY TO SECOND`` or ``INTERVAL YEAR TO MONTH``.
 
-.. function:: sequence(start, stop, step) -> array<timestamp>
+.. function:: sequence(start, stop, step) -> array(timestamp)
 
     Generate a sequence of timestamps from ``start`` to ``stop``, incrementing by ``step``.
     The type of ``step`` can be either ``INTERVAL DAY TO SECOND`` or ``INTERVAL YEAR TO MONTH``.
@@ -191,7 +191,7 @@ Array Functions
     Subsets array ``x`` starting from index ``start`` (or starting from the end
     if ``start`` is negative) with a length of ``length``.
 
-.. function:: transform(array<T>, function<T,U>) -> array<U>
+.. function:: transform(array(T), function(T,U)) -> array(U)
 
     Returns an array that is the result of applying ``function`` to each element of ``array``::
 
@@ -201,7 +201,7 @@ Array Functions
         SELECT transform(ARRAY ['x', 'abc', 'z'], x -> x || '0'); -- ['x0', 'abc0', 'z0']
         SELECT transform(ARRAY [ARRAY [1, NULL, 2], ARRAY[3, NULL]], a -> filter(a, x -> x IS NOT NULL)); -- [[1, 2], [3]]
 
-.. function:: zip(array1, array2[, ...]) -> array<row>
+.. function:: zip(array1, array2[, ...]) -> array(row)
 
     Merges the given arrays, element-wise, into a single array of rows. The M-th element of
     the N-th argument will be the N-th field of the M-th output element.
@@ -209,7 +209,7 @@ Array Functions
 
         SELECT zip(ARRAY[1, 2], ARRAY['1b', null, '3b']); -- [ROW(1, '1b'), ROW(2, null), ROW(null, '3b')]
 
-.. function:: zip_with(array<T>, array<U>, function<T,U,R>) -> array<R>
+.. function:: zip_with(array(T), array(U), function(T,U,R)) -> array(R)
 
     Merges the two given arrays, element-wise, into a single array using ``function``.
     If one array is shorter, nulls are appended at the end to match the length of the longer array, before applying ``function``::

@@ -385,6 +385,7 @@ class Query
                             .setScheduled(false)
                             .build(),
                     null,
+                    ImmutableList.of(),
                     null,
                     null);
 
@@ -415,7 +416,7 @@ class Query
                 }
 
                 Page page = serde.deserialize(serializedPage);
-                bytes += page.getSizeInBytes();
+                bytes += page.getLogicalSizeInBytes();
                 rows += page.getPositionCount();
                 pages.add(new RowIterable(session.toConnectorSession(), types, page));
             }
@@ -487,6 +488,7 @@ class Query
                 data,
                 toStatementStats(queryInfo),
                 toQueryError(queryInfo),
+                queryInfo.getWarnings(),
                 queryInfo.getUpdateType(),
                 updateCount);
 

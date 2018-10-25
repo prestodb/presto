@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.query;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
@@ -72,7 +73,7 @@ class QueryAssertions
             Consumer<Plan> planValidator)
     {
         assertQuery(actual, expected);
-        Plan plan = runner.createPlan(runner.getDefaultSession(), actual);
+        Plan plan = runner.createPlan(runner.getDefaultSession(), actual, WarningCollector.NOOP);
         PlanAssert.assertPlan(runner.getDefaultSession(), runner.getMetadata(), runner.getStatsCalculator(), plan, pattern);
         planValidator.accept(plan);
     }

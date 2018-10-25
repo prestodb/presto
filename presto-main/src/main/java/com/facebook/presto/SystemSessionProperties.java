@@ -78,6 +78,7 @@ public final class SystemSessionProperties
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
     public static final String PLAN_WITH_TABLE_NODE_PARTITIONING = "plan_with_table_node_partitioning";
     public static final String SPATIAL_JOIN = "spatial_join";
+    public static final String SPATIAL_PARTITIONING_TABLE_NAME = "spatial_partitioning_table_name";
     public static final String COLOCATED_JOIN = "colocated_join";
     public static final String CONCURRENT_LIFESPANS_PER_NODE = "concurrent_lifespans_per_task";
     public static final String REORDER_JOINS = "reorder_joins";
@@ -365,6 +366,11 @@ public final class SystemSessionProperties
                         SPATIAL_JOIN,
                         "Use spatial index for spatial join when possible",
                         featuresConfig.isSpatialJoinsEnabled(),
+                        false),
+                stringProperty(
+                        SPATIAL_PARTITIONING_TABLE_NAME,
+                        "Name of the table containing spatial partitioning scheme",
+                        null,
                         false),
                 integerProperty(
                         CONCURRENT_LIFESPANS_PER_NODE,
@@ -680,6 +686,11 @@ public final class SystemSessionProperties
     public static boolean isSpatialJoinEnabled(Session session)
     {
         return session.getSystemProperty(SPATIAL_JOIN, Boolean.class);
+    }
+
+    public static Optional<String> getSpatialPartitioningTableName(Session session)
+    {
+        return Optional.ofNullable(session.getSystemProperty(SPATIAL_PARTITIONING_TABLE_NAME, String.class));
     }
 
     public static OptionalInt getConcurrentLifespansPerNode(Session session)

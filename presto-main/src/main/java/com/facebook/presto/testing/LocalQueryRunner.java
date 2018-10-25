@@ -47,6 +47,8 @@ import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.PrepareTask;
 import com.facebook.presto.execution.QueryManagerConfig;
+import com.facebook.presto.execution.QueryPreparer;
+import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
 import com.facebook.presto.execution.RenameColumnTask;
 import com.facebook.presto.execution.RenameTableTask;
 import com.facebook.presto.execution.ResetSessionTask;
@@ -59,6 +61,7 @@ import com.facebook.presto.execution.resourceGroups.NoOpResourceGroupManager;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.metadata.CatalogManager;
@@ -86,9 +89,9 @@ import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.StageExecutionStrategy;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
-import com.facebook.presto.server.NoOpSessionSupplier;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.PluginManagerConfig;
+import com.facebook.presto.server.SessionPropertyDefaults;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
@@ -136,8 +139,6 @@ import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
-import com.facebook.presto.sql.tree.Execute;
-import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameTable;
@@ -180,8 +181,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 
 import static com.facebook.presto.cost.StatsCalculatorModule.createNewStatsCalculator;
-import static com.facebook.presto.execution.SqlQueryManager.unwrapExecuteStatement;
-import static com.facebook.presto.execution.SqlQueryManager.validateParameters;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -197,7 +196,6 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -355,7 +353,7 @@ public class LocalQueryRunner
                 new PasswordAuthenticatorManager(),
                 new EventListenerManager(),
                 blockEncodingManager,
-                new NoOpSessionSupplier(),
+                new SessionPropertyDefaults(nodeInfo),
                 typeRegistry);
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory);
@@ -662,7 +660,7 @@ public class LocalQueryRunner
 
     public List<Driver> createDrivers(Session session, @Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
     {
-        Plan plan = createPlan(session, sql);
+        Plan plan = createPlan(session, sql, WarningCollector.NOOP);
 
         if (printPlan) {
             System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionRegistry(), plan.getStatsAndCosts(), session, 0, false));
@@ -766,23 +764,23 @@ public class LocalQueryRunner
     }
 
     @Override
-    public Plan createPlan(Session session, @Language("SQL") String sql)
+    public Plan createPlan(Session session, @Language("SQL") String sql, WarningCollector warningCollector)
     {
-        return createPlan(session, sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);
+        return createPlan(session, sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, warningCollector);
     }
 
-    public Plan createPlan(Session session, @Language("SQL") String sql, LogicalPlanner.Stage stage)
+    public Plan createPlan(Session session, @Language("SQL") String sql, LogicalPlanner.Stage stage, WarningCollector warningCollector)
     {
-        return createPlan(session, sql, stage, true);
+        return createPlan(session, sql, stage, true, warningCollector);
     }
 
-    public Plan createPlan(Session session, @Language("SQL") String sql, LogicalPlanner.Stage stage, boolean forceSingleNode)
+    public Plan createPlan(Session session, @Language("SQL") String sql, LogicalPlanner.Stage stage, boolean forceSingleNode, WarningCollector warningCollector)
     {
-        Statement statement = unwrapExecuteStatement(sqlParser.createStatement(sql, createParsingOptions(session)), sqlParser, session);
+        PreparedQuery preparedQuery = new QueryPreparer(sqlParser).prepareQuery(session, sql);
 
-        assertFormattedSql(sqlParser, createParsingOptions(session), statement);
+        assertFormattedSql(sqlParser, createParsingOptions(session), preparedQuery.getStatement());
 
-        return createPlan(session, sql, getPlanOptimizers(forceSingleNode), stage);
+        return createPlan(session, sql, getPlanOptimizers(forceSingleNode), stage, warningCollector);
     }
 
     public List<PlanOptimizer> getPlanOptimizers(boolean forceSingleNode)
@@ -796,29 +794,24 @@ public class LocalQueryRunner
                 featuresConfig,
                 forceSingleNode,
                 new MBeanExporter(new TestingMBeanServer()),
+                splitManager,
+                pageSourceManager,
                 statsCalculator,
                 costCalculator,
                 estimatedExchangesCostCalculator,
                 new CostComparator(featuresConfig)).get();
     }
 
-    public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers)
+    public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, WarningCollector warningCollector)
     {
-        return createPlan(session, sql, optimizers, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);
+        return createPlan(session, sql, optimizers, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, warningCollector);
     }
 
-    public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage)
+    public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage, WarningCollector warningCollector)
     {
-        Statement wrapped = sqlParser.createStatement(sql, createParsingOptions(session));
-        Statement statement = unwrapExecuteStatement(wrapped, sqlParser, session);
+        PreparedQuery preparedQuery = new QueryPreparer(sqlParser).prepareQuery(session, sql);
 
-        List<Expression> parameters = emptyList();
-        if (wrapped instanceof Execute) {
-            parameters = ((Execute) wrapped).getParameters();
-        }
-        validateParameters(statement, parameters);
-
-        assertFormattedSql(sqlParser, createParsingOptions(session), statement);
+        assertFormattedSql(sqlParser, createParsingOptions(session), preparedQuery.getStatement());
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
@@ -832,11 +825,11 @@ public class LocalQueryRunner
                 statsCalculator,
                 costCalculator,
                 dataDefinitionTask);
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), parameters);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), preparedQuery.getParameters(), warningCollector);
 
-        LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, new PlanSanityChecker(true), idAllocator, metadata, sqlParser, statsCalculator, costCalculator);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, new PlanSanityChecker(true), idAllocator, metadata, sqlParser, statsCalculator, costCalculator, warningCollector);
 
-        Analysis analysis = analyzer.analyze(statement);
+        Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
         return logicalPlanner.plan(analysis, stage);
     }
 

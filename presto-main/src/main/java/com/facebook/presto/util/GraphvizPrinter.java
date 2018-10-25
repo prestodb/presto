@@ -42,6 +42,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -463,6 +464,17 @@ public final class GraphvizPrinter
 
             node.getSource().accept(this, context);
             node.getFilteringSource().accept(this, context);
+
+            return null;
+        }
+
+        @Override
+        public Void visitSpatialJoin(SpatialJoinNode node, Void context)
+        {
+            printNode(node, node.getType().getJoinLabel(), node.getFilter().toString(), NODE_COLORS.get(NodeType.JOIN));
+
+            node.getLeft().accept(this, context);
+            node.getRight().accept(this, context);
 
             return null;
         }

@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.Block;
@@ -488,7 +489,7 @@ public final class DomainTranslator
 
         private Map<NodeRef<Expression>, Type> analyzeExpression(Expression expression)
         {
-            return ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyList() /* parameters already replaced */);
+            return ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyList(), WarningCollector.NOOP);
         }
 
         private static ExtractionResult createComparisonExtractionResult(ComparisonExpression.Operator comparisonOperator, Symbol column, Type type, @Nullable Object value, boolean complement)
@@ -758,7 +759,7 @@ public final class DomainTranslator
 
     private static Type typeOf(Expression expression, Session session, Metadata metadata, TypeProvider types)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyList() /* parameters already replaced */);
+        Map<NodeRef<Expression>, Type> expressionTypes = ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyList(), WarningCollector.NOOP);
         return expressionTypes.get(NodeRef.of(expression));
     }
 

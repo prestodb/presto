@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.ColumnNaming;
 import com.facebook.presto.tpch.TpchConnectorFactory;
@@ -118,7 +119,7 @@ public class BenchmarkPlanner
         return benchmarkData.queryRunner.inTransaction(transactionSession -> {
             LogicalPlanner.Stage stage = LogicalPlanner.Stage.valueOf(benchmarkData.stage.toUpperCase());
             return benchmarkData.queries.stream()
-                    .map(query -> benchmarkData.queryRunner.createPlan(transactionSession, query, stage, false))
+                    .map(query -> benchmarkData.queryRunner.createPlan(transactionSession, query, stage, false, WarningCollector.NOOP))
                     .collect(toImmutableList());
         });
     }

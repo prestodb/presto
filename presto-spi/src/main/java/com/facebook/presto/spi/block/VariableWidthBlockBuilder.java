@@ -157,7 +157,7 @@ public class VariableWidthBlockBuilder
                 newValueIsNull[i] = true;
             }
             else {
-                newSlice.appendBytes(sliceOutput.getUnderlyingSlice().getBytes(getPositionOffset(position), getSliceLength(position)));
+                newSlice.writeBytes(sliceOutput.getUnderlyingSlice(), getPositionOffset(position), getSliceLength(position));
             }
             newOffsets[i + 1] = newSlice.size();
         }

@@ -41,6 +41,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.util.Failures.checkCondition;
@@ -340,6 +341,57 @@ public final class Session
                 systemProperties,
                 connectorProperties.build(),
                 ImmutableMap.of(),
+                sessionPropertyManager,
+                preparedStatements);
+    }
+
+    public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults)
+    {
+        requireNonNull(systemPropertyDefaults, "systemPropertyDefaults is null");
+        requireNonNull(catalogPropertyDefaults, "catalogPropertyDefaults is null");
+
+        // to remove this check properties must be authenticated and validated as in beginTransactionId
+        checkState(
+                !this.transactionId.isPresent() && this.connectorProperties.isEmpty(),
+                "Session properties cannot be overridden once a transaction is active");
+
+        Map<String, String> systemProperties = new HashMap<>();
+        systemProperties.putAll(systemPropertyDefaults);
+        systemProperties.putAll(this.systemProperties);
+
+        Map<String, Map<String, String>> connectorProperties = catalogPropertyDefaults.entrySet().stream()
+                .map(entry -> Maps.immutableEntry(entry.getKey(), new HashMap<>(entry.getValue())))
+                .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+        for (Entry<String, Map<String, String>> catalogProperties : this.unprocessedCatalogProperties.entrySet()) {
+            String catalog = catalogProperties.getKey();
+            for (Entry<String, String> entry : catalogProperties.getValue().entrySet()) {
+                connectorProperties.computeIfAbsent(catalog, id -> new HashMap<>())
+                        .put(entry.getKey(), entry.getValue());
+            }
+        }
+
+        return new Session(
+                queryId,
+                transactionId,
+                clientTransactionSupport,
+                identity,
+                source,
+                catalog,
+                schema,
+                path,
+                traceToken,
+                timeZoneKey,
+                locale,
+                remoteUserAddress,
+                userAgent,
+                clientInfo,
+                clientTags,
+                clientCapabilities,
+                resourceEstimates,
+                startTime,
+                systemProperties,
+                ImmutableMap.of(),
+                connectorProperties,
                 sessionPropertyManager,
                 preparedStatements);
     }

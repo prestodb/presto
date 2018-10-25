@@ -15,7 +15,7 @@ package com.facebook.presto.hive.parquet.predicate;
 
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveType;
-import com.facebook.presto.hive.parquet.RichColumnDescriptor;
+import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.ArrayType;
@@ -39,9 +39,9 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getDescriptors;
-import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.getParquetTupleDomain;
-import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.isOnlyDictionaryEncodingPages;
+import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.getParquetTupleDomain;
+import static com.facebook.presto.parquet.ParquetTypeUtils.getDescriptors;
+import static com.facebook.presto.parquet.predicate.PredicateUtils.isOnlyDictionaryEncodingPages;
 import static com.facebook.presto.spi.block.MethodHandleUtil.methodHandle;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;

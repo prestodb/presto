@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.sql.planner.OptimizerStatsRecorder;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -40,13 +41,14 @@ public final class StatsRecordingPlanOptimizer
             Session session,
             TypeProvider types,
             SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator)
+            PlanNodeIdAllocator idAllocator,
+            WarningCollector warningCollector)
     {
         PlanNode result;
         long duration;
         try {
             long start = System.nanoTime();
-            result = delegate.optimize(plan, session, types, symbolAllocator, idAllocator);
+            result = delegate.optimize(plan, session, types, symbolAllocator, idAllocator, warningCollector);
             duration = System.nanoTime() - start;
         }
         catch (RuntimeException e) {

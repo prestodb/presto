@@ -19,6 +19,7 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.Metadata;
@@ -29,6 +30,8 @@ import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.split.PageSourceManager;
+import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Plan;
@@ -241,6 +244,18 @@ public class DistributedQueryRunner
     }
 
     @Override
+    public SplitManager getSplitManager()
+    {
+        return coordinator.getSplitManager();
+    }
+
+    @Override
+    public PageSourceManager getPageSourceManager()
+    {
+        return coordinator.getPageSourceManager();
+    }
+
+    @Override
     public NodePartitioningManager getNodePartitioningManager()
     {
         return coordinator.getNodePartitioningManager();
@@ -381,7 +396,7 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public Plan createPlan(Session session, String sql)
+    public Plan createPlan(Session session, String sql, WarningCollector warningCollector)
     {
         QueryId queryId = executeWithQueryId(session, sql).getQueryId();
         Plan queryPlan = getQueryPlan(queryId);

@@ -23,6 +23,8 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.split.PageSourceManager;
+import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.testing.MaterializedResult;
@@ -132,6 +134,18 @@ public final class StandaloneQueryRunner
     public Metadata getMetadata()
     {
         return server.getMetadata();
+    }
+
+    @Override
+    public SplitManager getSplitManager()
+    {
+        return server.getSplitManager();
+    }
+
+    @Override
+    public PageSourceManager getPageSourceManager()
+    {
+        return server.getPageSourceManager();
     }
 
     @Override

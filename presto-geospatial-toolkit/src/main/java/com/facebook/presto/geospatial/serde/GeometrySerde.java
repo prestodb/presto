@@ -278,10 +278,7 @@ public class GeometrySerde
     {
         requireNonNull(shape, "shape is null");
         BasicSliceInput input = shape.getInput();
-
-        if (input.available() == 0) {
-            return null;
-        }
+        verify(input.available() > 0);
 
         int length = input.available() - 1;
         GeometrySerializationType type = GeometrySerializationType.getForCode(input.readByte());

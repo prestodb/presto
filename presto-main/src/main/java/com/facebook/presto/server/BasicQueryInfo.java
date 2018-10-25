@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -27,6 +28,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -40,6 +42,7 @@ public class BasicQueryInfo
 {
     private final QueryId queryId;
     private final SessionRepresentation session;
+    private final Optional<ResourceGroupId> resourceGroupId;
     private final QueryState state;
     private final MemoryPoolId memoryPool;
     private final boolean scheduled;
@@ -53,6 +56,7 @@ public class BasicQueryInfo
     public BasicQueryInfo(
             @JsonProperty("queryId") QueryId queryId,
             @JsonProperty("session") SessionRepresentation session,
+            @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId,
             @JsonProperty("state") QueryState state,
             @JsonProperty("memoryPool") MemoryPoolId memoryPool,
             @JsonProperty("scheduled") boolean scheduled,
@@ -64,6 +68,7 @@ public class BasicQueryInfo
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.session = requireNonNull(session, "session is null");
+        this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId is null");
         this.state = requireNonNull(state, "state is null");
         this.memoryPool = memoryPool;
         this.errorType = errorType;
@@ -78,6 +83,7 @@ public class BasicQueryInfo
     {
         this(queryInfo.getQueryId(),
                 queryInfo.getSession(),
+                queryInfo.getResourceGroupId(),
                 queryInfo.getState(),
                 queryInfo.getMemoryPool(),
                 queryInfo.isScheduled(),
@@ -98,6 +104,12 @@ public class BasicQueryInfo
     public SessionRepresentation getSession()
     {
         return session;
+    }
+
+    @JsonProperty
+    public Optional<ResourceGroupId> getResourceGroupId()
+    {
+        return resourceGroupId;
     }
 
     @JsonProperty

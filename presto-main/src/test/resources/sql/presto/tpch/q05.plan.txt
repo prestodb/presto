@@ -1,0 +1,29 @@
+remote exchange (GATHER, SINGLE, [])
+    local exchange (GATHER, UNKNOWN, [])
+        remote exchange (REPARTITION, ROUND_ROBIN, [])
+            final aggregation over (name_15)
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (REPARTITION, HASH, ["name_15"])
+                        partial aggregation over (name_15)
+                            join (INNER, REPLICATED):
+                                join (INNER, REPLICATED):
+                                    scan tpch:lineitem:sf3000.0
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            join (INNER, PARTITIONED):
+                                                remote exchange (REPARTITION, HASH, ["custkey_0"])
+                                                    scan tpch:orders:sf3000.0
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPARTITION, HASH, ["custkey"])
+                                                        join (INNER, REPLICATED):
+                                                            scan tpch:customer:sf3000.0
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                    join (INNER, REPLICATED):
+                                                                        scan tpch:nation:sf3000.0
+                                                                        local exchange (GATHER, SINGLE, [])
+                                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                                scan tpch:region:sf3000.0
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPLICATE, BROADCAST, [])
+                                        scan tpch:supplier:sf3000.0

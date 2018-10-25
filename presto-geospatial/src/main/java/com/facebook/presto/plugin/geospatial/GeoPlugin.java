@@ -25,6 +25,7 @@ import java.util.Set;
 
 import static com.facebook.presto.plugin.geospatial.BingTileType.BING_TILE;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
+import static com.facebook.presto.plugin.geospatial.KdbTreeType.KDB_TREE;
 
 public class GeoPlugin
         implements Plugin
@@ -32,7 +33,7 @@ public class GeoPlugin
     @Override
     public Iterable<Type> getTypes()
     {
-        return ImmutableList.of(GEOMETRY, BING_TILE);
+        return ImmutableList.of(GEOMETRY, BING_TILE, KDB_TREE);
     }
 
     @Override
@@ -45,6 +46,9 @@ public class GeoPlugin
                 .add(BingTileCoordinatesFunction.class)
                 .add(ConvexHullAggregation.class)
                 .add(GeometryUnionAgg.class)
+                .add(KdbTreeCasts.class)
+                .add(SpatialPartitioningAggregateFunction.class)
+                .add(SpatialPartitioningInternalAggregateFunction.class)
                 .build();
     }
 }

@@ -17,6 +17,7 @@ import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.BasicQueryStats;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -26,6 +27,7 @@ import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Optional;
 import java.util.OptionalDouble;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -69,6 +71,7 @@ public class TestClusterMemoryLeakDetector
         return new BasicQueryInfo(
                 new QueryId(queryId),
                 TEST_SESSION.toSessionRepresentation(),
+                Optional.of(new ResourceGroupId("global")),
                 state,
                 GENERAL_POOL,
                 true,

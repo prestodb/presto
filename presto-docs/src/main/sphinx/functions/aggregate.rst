@@ -123,20 +123,20 @@ Bitwise Aggregate Functions
 Map Aggregate Functions
 -----------------------
 
-.. function:: histogram(x) -> map<K,bigint>
+.. function:: histogram(x) -> map(K,bigint)
 
     Returns a map containing the count of the number of times each input value occurs.
 
-.. function:: map_agg(key, value) -> map<K,V>
+.. function:: map_agg(key, value) -> map(K,V)
 
     Returns a map created from the input ``key`` / ``value`` pairs.
 
-.. function:: map_union(x<K,V>) -> map<K,V>
+.. function:: map_union(x(K,V)) -> map(K,V)
 
    Returns the union of all the input maps. If a key is found in multiple
    input maps, that key's value in the resulting map comes from an arbitrary input map.
 
-.. function:: multimap_agg(key, value) -> map<K,array<V>>
+.. function:: multimap_agg(key, value) -> map(K,array(V))
 
     Returns a multimap created from the input ``key`` / ``value`` pairs.
     Each key can be associated with multiple values.
@@ -205,6 +205,16 @@ Approximate Aggregate Functions
     effectively a replication count for the value ``x`` in the percentile set.
     Each element of the array must be between zero and one, and the array must
     be constant for all input rows.
+
+.. function:: approx_set(x) -> HyperLogLog
+    :noindex:
+
+    See :doc:`hyperloglog`.
+
+.. function:: merge(x) -> HyperLogLog
+    :noindex:
+
+    See :doc:`hyperloglog`.
 
 .. function:: numeric_histogram(buckets, value, weight) -> map<double, double>
 

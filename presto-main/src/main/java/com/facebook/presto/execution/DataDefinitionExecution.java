@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
@@ -32,6 +33,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -113,6 +115,30 @@ public class DataDefinitionExecution<T extends Statement>
     public DataSize getTotalMemoryReservation()
     {
         return new DataSize(0, BYTE);
+    }
+
+    @Override
+    public DateTime getCreateTime()
+    {
+        return stateMachine.getCreateTime();
+    }
+
+    @Override
+    public Optional<DateTime> getExecutionStartTime()
+    {
+        return stateMachine.getExecutionStartTime();
+    }
+
+    @Override
+    public DateTime getLastHeartbeat()
+    {
+        return stateMachine.getLastHeartbeat();
+    }
+
+    @Override
+    public Optional<DateTime> getEndTime()
+    {
+        return stateMachine.getEndTime();
     }
 
     @Override
@@ -230,11 +256,7 @@ public class DataDefinitionExecution<T extends Statement>
     @Override
     public QueryInfo getQueryInfo()
     {
-        Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
-        if (finalQueryInfo.isPresent()) {
-            return finalQueryInfo.get();
-        }
-        return stateMachine.updateQueryInfo(Optional.empty());
+        return stateMachine.getFinalQueryInfo().orElseGet(() -> stateMachine.updateQueryInfo(Optional.empty()));
     }
 
     @Override
@@ -306,14 +328,15 @@ public class DataDefinitionExecution<T extends Statement>
                 String query,
                 Session session,
                 Statement statement,
-                List<Expression> parameters)
+                List<Expression> parameters,
+                WarningCollector warningCollector)
         {
             URI self = locationFactory.createQueryLocation(queryId);
 
             DataDefinitionTask<Statement> task = getTask(statement);
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
 
-            QueryStateMachine stateMachine = QueryStateMachine.begin(queryId, query, session, self, task.isTransactionControl(), transactionManager, accessControl, executor, metadata);
+            QueryStateMachine stateMachine = QueryStateMachine.begin(queryId, query, session, self, task.isTransactionControl(), transactionManager, accessControl, executor, metadata, warningCollector);
             stateMachine.setUpdateType(task.getName());
             return new DataDefinitionExecution<>(task, statement, transactionManager, metadata, accessControl, stateMachine, parameters);
         }

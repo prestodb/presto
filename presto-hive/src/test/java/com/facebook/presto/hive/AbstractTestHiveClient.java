@@ -35,7 +35,6 @@ import com.facebook.presto.hive.metastore.thrift.HiveCluster;
 import com.facebook.presto.hive.metastore.thrift.TestingHiveCluster;
 import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastore;
 import com.facebook.presto.hive.orc.OrcPageSource;
-import com.facebook.presto.hive.parquet.ParquetHiveRecordCursor;
 import com.facebook.presto.hive.parquet.ParquetPageSource;
 import com.facebook.presto.hive.rcfile.RcFilePageSource;
 import com.facebook.presto.metadata.MetadataManager;
@@ -2690,18 +2689,7 @@ public abstract class AbstractTestHiveClient
 
         List<PartitionWithStatistics> partitions = ImmutableList.of(firstPartitionName, secondPartitionName)
                 .stream()
-                .map(partitionName -> new PartitionWithStatistics(
-                        Partition.builder()
-                                .setDatabaseName(tableName.getSchemaName())
-                                .setTableName(tableName.getTableName())
-                                .setColumns(table.getDataColumns())
-                                .setValues(toPartitionValues(partitionName))
-                                .withStorage(storage -> storage
-                                        .setStorageFormat(fromHiveStorageFormat(HiveStorageFormat.ORC))
-                                        .setLocation(partitionTargetPath(tableName, partitionName)))
-                                .build(),
-                        partitionName,
-                        PartitionStatistics.empty()))
+                .map(partitionName -> new PartitionWithStatistics(createDummyPartition(table, partitionName), partitionName, PartitionStatistics.empty()))
                 .collect(toImmutableList());
         metastoreClient.addPartitions(tableName.getSchemaName(), tableName.getTableName(), partitions);
         metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), firstPartitionName, currentStatistics -> EMPTY_TABLE_STATISTICS);
@@ -2783,15 +2771,7 @@ public abstract class AbstractTestHiveClient
             List<String> partitionValues = ImmutableList.of("2016-01-01");
             String partitionName = makePartName(ImmutableList.of("ds"), partitionValues);
 
-            Partition partition = Partition.builder()
-                    .setDatabaseName(tableName.getSchemaName())
-                    .setTableName(tableName.getTableName())
-                    .setColumns(table.getDataColumns())
-                    .setValues(partitionValues)
-                    .withStorage(storage -> storage
-                            .setStorageFormat(fromHiveStorageFormat(ORC))
-                            .setLocation(partitionTargetPath(tableName, partitionName)))
-                    .build();
+            Partition partition = createDummyPartition(table, partitionName);
 
             // create partition with stats for all columns
             metastoreClient.addPartitions(tableName.getSchemaName(), tableName.getTableName(), ImmutableList.of(new PartitionWithStatistics(partition, partitionName, statsForAllColumns1)));
@@ -2837,6 +2817,22 @@ public abstract class AbstractTestHiveClient
         finally {
             dropTable(tableName);
         }
+    }
+
+    protected Partition createDummyPartition(Table table, String partitionName)
+    {
+        return Partition.builder()
+                .setDatabaseName(table.getDatabaseName())
+                .setTableName(table.getTableName())
+                .setColumns(table.getDataColumns())
+                .setValues(toPartitionValues(partitionName))
+                .withStorage(storage -> storage
+                        .setStorageFormat(fromHiveStorageFormat(HiveStorageFormat.ORC))
+                        .setLocation(partitionTargetPath(new SchemaTableName(table.getDatabaseName(), table.getTableName()), partitionName)))
+                .setParameters(ImmutableMap.of(
+                        PRESTO_VERSION_NAME, "testversion",
+                        PRESTO_QUERY_ID_NAME, "20180101_123456_00001_x1y2z"))
+                .build();
     }
 
     protected String partitionTargetPath(SchemaTableName schemaTableName, String partitionName)
@@ -4108,10 +4104,6 @@ public abstract class AbstractTestHiveClient
 
     private static Class<? extends RecordCursor> recordCursorType(HiveStorageFormat hiveStorageFormat)
     {
-        switch (hiveStorageFormat) {
-            case PARQUET:
-                return ParquetHiveRecordCursor.class;
-        }
         return GenericHiveRecordCursor.class;
     }
 

@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
@@ -45,10 +46,11 @@ public final class StatementRewrite
             Optional<QueryExplainer> queryExplainer,
             Statement node,
             List<Expression> parameters,
-            AccessControl accessControl)
+            AccessControl accessControl,
+            WarningCollector warningCollector)
     {
         for (Rewrite rewrite : REWRITES) {
-            node = requireNonNull(rewrite.rewrite(session, metadata, parser, queryExplainer, node, parameters, accessControl), "Statement rewrite returned null");
+            node = requireNonNull(rewrite.rewrite(session, metadata, parser, queryExplainer, node, parameters, accessControl, warningCollector), "Statement rewrite returned null");
         }
         return node;
     }
@@ -62,6 +64,7 @@ public final class StatementRewrite
                 Optional<QueryExplainer> queryExplainer,
                 Statement node,
                 List<Expression> parameters,
-                AccessControl accessControl);
+                AccessControl accessControl,
+                WarningCollector warningCollector);
     }
 }

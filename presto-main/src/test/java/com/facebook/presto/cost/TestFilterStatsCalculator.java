@@ -243,9 +243,9 @@ public class TestFilterStatsCalculator
     public void testUnsupportedExpression()
     {
         assertExpression("sin(x)")
-                .outputRowsCount(900);
+                .outputRowsCountUnknown();
         assertExpression("x = sin(x)")
-                .outputRowsCount(900);
+                .outputRowsCountUnknown();
     }
 
     @Test
@@ -286,12 +286,7 @@ public class TestFilterStatsCalculator
 
         // both arguments unknown
         assertExpression("json_array_contains(JSON '[11]', x) AND json_array_contains(JSON '[13]', x)")
-                .outputRowsCount(900)
-                .symbolStats(new Symbol("x"), symbolAssert ->
-                        symbolAssert.lowValue(-10)
-                                .highValue(10)
-                                .distinctValuesCount(40)
-                                .nullsFraction(0.25));
+                .outputRowsCountUnknown();
 
         assertExpression("'a' IN ('b', 'c') AND unknownRange = 3e0")
                 .outputRowsCount(0);
@@ -310,16 +305,6 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.4)) // FIXME - nulls shouldn't be restored
                 .symbolStats(new Symbol("y"), symbolAssert -> symbolAssert.isEqualTo(yStats));
 
-        assertExpression("NOT(json_array_contains(JSON '[]', x))")
-                .outputRowsCount(900)
-                .symbolStats(new Symbol("x"), symbolAssert ->
-                        symbolAssert.averageRowSize(4.0)
-                                .lowValue(-10.0)
-                                .highValue(10.0)
-                                .distinctValuesCount(40.0)
-                                .nullsFraction(0.25))
-                .symbolStats(new Symbol("y"), symbolAssert -> symbolAssert.isEqualTo(yStats));
-
         assertExpression("NOT(x IS NULL)")
                 .outputRowsCount(750)
                 .symbolStats(new Symbol("x"), symbolAssert ->
@@ -329,6 +314,9 @@ public class TestFilterStatsCalculator
                                 .distinctValuesCount(40.0)
                                 .nullsFraction(0))
                 .symbolStats(new Symbol("y"), symbolAssert -> symbolAssert.isEqualTo(yStats));
+
+        assertExpression("NOT(json_array_contains(JSON '[]', x))")
+                .outputRowsCountUnknown();
     }
 
     @Test

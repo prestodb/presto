@@ -156,12 +156,17 @@ public class NodePartitioningManager
         checkArgument(splitBucketFunction != null, "No partitioning %s", partitioningHandle);
 
         return new NodePartitionMap(nodeToPartition.inverse(), bucketToPartition, split -> {
-            // Assign EmptySplit to bucket 0.
-            // More details about EmptySplit can be found in SourcePartitionedScheduler.
+            int bucket;
             if (split.getConnectorSplit() instanceof EmptySplit) {
-                return 0;
+                bucket = split.getLifespan().isTaskWide() ? 0 : split.getLifespan().getId();
             }
-            return splitBucketFunction.applyAsInt(split.getConnectorSplit());
+            else {
+                bucket = splitBucketFunction.applyAsInt(split.getConnectorSplit());
+            }
+            if (!split.getLifespan().isTaskWide()) {
+                checkArgument(split.getLifespan().getId() == bucket);
+            }
+            return bucket;
         });
     }
 }

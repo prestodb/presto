@@ -127,7 +127,7 @@ public class FixedWidthBlockBuilder
             if (hasNullValue) {
                 newValueIsNull.appendByte(valueIsNull.getUnderlyingSlice().getByte(position));
             }
-            newSlice.appendBytes(getRawSlice().getBytes(position * fixedSize, fixedSize));
+            newSlice.writeBytes(getRawSlice(), position * fixedSize, fixedSize);
         }
         return new FixedWidthBlock(fixedSize, length, newSlice.slice(), newValueIsNull == null ? null : newValueIsNull.slice());
     }

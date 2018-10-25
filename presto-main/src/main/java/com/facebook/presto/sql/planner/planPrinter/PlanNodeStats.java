@@ -38,7 +38,8 @@ public class PlanNodeStats
 {
     private final PlanNodeId planNodeId;
 
-    private final Duration planNodeWallTime;
+    private final Duration planNodeScheduledTime;
+    private final Duration planNodeCpuTime;
     private final long planNodeInputPositions;
     private final DataSize planNodeInputDataSize;
     private final long planNodeOutputPositions;
@@ -50,7 +51,8 @@ public class PlanNodeStats
 
     PlanNodeStats(
             PlanNodeId planNodeId,
-            Duration planNodeWallTime,
+            Duration planNodeScheduledTime,
+            Duration planNodeCpuTime,
             long planNodeInputPositions,
             DataSize planNodeInputDataSize,
             long planNodeOutputPositions,
@@ -61,7 +63,8 @@ public class PlanNodeStats
     {
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
 
-        this.planNodeWallTime = requireNonNull(planNodeWallTime, "planNodeWallTime is null");
+        this.planNodeScheduledTime = requireNonNull(planNodeScheduledTime, "planNodeScheduledTime is null");
+        this.planNodeCpuTime = requireNonNull(planNodeCpuTime, "planNodeCpuTime is null");
         this.planNodeInputPositions = planNodeInputPositions;
         this.planNodeInputDataSize = planNodeInputDataSize;
         this.planNodeOutputPositions = planNodeOutputPositions;
@@ -85,9 +88,14 @@ public class PlanNodeStats
         return planNodeId;
     }
 
-    public Duration getPlanNodeWallTime()
+    public Duration getPlanNodeScheduledTime()
     {
-        return planNodeWallTime;
+        return planNodeScheduledTime;
+    }
+
+    public Duration getPlanNodeCpuTime()
+    {
+        return planNodeCpuTime;
     }
 
     public Set<String> getOperatorTypes()
@@ -190,7 +198,8 @@ public class PlanNodeStats
 
         return new PlanNodeStats(
                 planNodeId,
-                new Duration(planNodeWallTime.toMillis() + other.getPlanNodeWallTime().toMillis(), MILLISECONDS),
+                new Duration(planNodeScheduledTime.toMillis() + other.getPlanNodeScheduledTime().toMillis(), MILLISECONDS),
+                new Duration(planNodeCpuTime.toMillis() + other.getPlanNodeCpuTime().toMillis(), MILLISECONDS),
                 planNodeInputPositions, planNodeInputDataSize,
                 planNodeOutputPositions, planNodeOutputDataSize,
                 operatorInputStats,

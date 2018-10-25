@@ -44,12 +44,12 @@ import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 public class QueryStateInfoResource
 {
     private final QueryManager queryManager;
-    private final ResourceGroupManager resourceGroupManager;
+    private final ResourceGroupManager<?> resourceGroupManager;
 
     @Inject
     public QueryStateInfoResource(
             QueryManager queryManager,
-            ResourceGroupManager resourceGroupManager)
+            ResourceGroupManager<?> resourceGroupManager)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
