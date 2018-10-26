@@ -29,6 +29,7 @@ import static com.facebook.presto.SequencePageBuilder.createSequencePage;
 import static com.facebook.presto.SequencePageBuilder.createSequencePageWithDictionaryBlocks;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
+import static com.facebook.presto.operator.project.PageProcessor.MAX_BATCH_SIZE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.relational.Expressions.field;
@@ -41,7 +42,7 @@ public class TestColumnarPageProcessor
     private final List<Type> types = ImmutableList.of(BIGINT, VARCHAR);
     private final MetadataManager metadata = createTestMetadataManager();
     private final PageProcessor processor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
-            .compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, types.get(0)), field(1, types.get(1)))).get();
+            .compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, types.get(0)), field(1, types.get(1))), MAX_BATCH_SIZE).get();
 
     @Test
     public void testProcess()

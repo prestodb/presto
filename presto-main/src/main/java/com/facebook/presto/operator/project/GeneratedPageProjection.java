@@ -69,7 +69,7 @@ public class GeneratedPageProjection
     {
         blockBuilder = blockBuilder.newBlockBuilderLike(null);
         try {
-            return (Work<Block>) pageProjectionWorkFactory.invoke(blockBuilder, session, yieldSignal, page, selectedPositions);
+            return (Work<Block>) pageProjectionWorkFactory.invoke(blockBuilder, session, page, selectedPositions);
         }
         catch (Throwable e) {
             throw new RuntimeException(e);
