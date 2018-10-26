@@ -23,6 +23,7 @@ import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.DictionaryId;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.ExpressionProfiler;
 
 import javax.annotation.Nullable;
 
@@ -70,9 +71,9 @@ public class DictionaryAwarePageProjection
     }
 
     @Override
-    public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+    public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions, ExpressionProfiler expressionProfiler)
     {
-        return new DictionaryAwarePageProjectionWork(session, yieldSignal, page, selectedPositions);
+        return new DictionaryAwarePageProjectionWork(session, yieldSignal, page, selectedPositions, expressionProfiler);
     }
 
     private class DictionaryAwarePageProjectionWork
@@ -82,6 +83,7 @@ public class DictionaryAwarePageProjection
         private final DriverYieldSignal yieldSignal;
         private final Block block;
         private final SelectedPositions selectedPositions;
+        private final ExpressionProfiler expressionProfiler;
 
         private Block result;
         // if the block is RLE or dictionary block, we may use dictionary processing
@@ -89,10 +91,11 @@ public class DictionaryAwarePageProjection
         // always prepare to fall back to a general block in case the dictionary does not apply or fails
         private Work<Block> fallbackProcessingProjectionWork;
 
-        public DictionaryAwarePageProjectionWork(@Nullable ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+        public DictionaryAwarePageProjectionWork(@Nullable ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions, ExpressionProfiler expressionProfiler)
         {
             this.session = session;
             this.yieldSignal = requireNonNull(yieldSignal, "yieldSignal is null");
+            this.expressionProfiler = requireNonNull(expressionProfiler, "expressionProfiler is null");
 
             Block block = requireNonNull(page, "page is null").getBlock(0).getLoadedBlock();
             this.block = block;
@@ -171,7 +174,7 @@ public class DictionaryAwarePageProjection
             // there is no dictionary handling or dictionary handling failed; fall back to general projection
             verify(dictionaryProcessingProjectionWork == null);
             verify(fallbackProcessingProjectionWork == null);
-            fallbackProcessingProjectionWork = projection.project(session, yieldSignal, new Page(block), selectedPositions);
+            fallbackProcessingProjectionWork = projection.project(session, yieldSignal, new Page(block), selectedPositions, expressionProfiler);
             if (fallbackProcessingProjectionWork.process()) {
                 result = fallbackProcessingProjectionWork.getResult();
                 return true;
@@ -210,7 +213,7 @@ public class DictionaryAwarePageProjection
             lastOutputDictionary = Optional.empty();
 
             if (shouldProcessDictionary) {
-                return projection.project(session, yieldSignal, new Page(lastInputDictionary), SelectedPositions.positionsRange(0, lastInputDictionary.getPositionCount()));
+                return projection.project(session, yieldSignal, new Page(lastInputDictionary), SelectedPositions.positionsRange(0, lastInputDictionary.getPositionCount()), expressionProfiler);
             }
             return null;
         }

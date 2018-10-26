@@ -23,6 +23,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.ExpressionProfiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.google.common.collect.ImmutableMap;
@@ -218,7 +219,8 @@ public class TestInterpretedPageProjectionFunction
                 TEST_SESSION.toConnectorSession(),
                 yieldSignal,
                 new Page(positions.length, blocks),
-                positionsList(positions, 0, positions.length));
+                positionsList(positions, 0, positions.length),
+                new ExpressionProfiler());
 
         Block block;
         // Get nothing for the first position.length compute due to yield
@@ -248,7 +250,8 @@ public class TestInterpretedPageProjectionFunction
                 TEST_SESSION.toConnectorSession(),
                 new DriverYieldSignal(),
                 new Page(positions.length, blocks),
-                positionsList(positions, 0, positions.length));
+                positionsList(positions, 0, positions.length),
+                new ExpressionProfiler());
         assertTrue(work.process());
         block = work.getResult();
 

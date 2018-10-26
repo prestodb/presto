@@ -24,6 +24,7 @@ import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.LongArrayBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.ExpressionProfiler;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -219,7 +220,7 @@ public class TestDictionaryAwarePageProjection
     private static void testProjectRange(Block block, Class<? extends Block> expectedResultType, DictionaryAwarePageProjection projection, boolean forceYield)
     {
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
-        Work<Block> work = projection.project(null, yieldSignal, new Page(block), SelectedPositions.positionsRange(5, 10));
+        Work<Block> work = projection.project(null, yieldSignal, new Page(block), SelectedPositions.positionsRange(5, 10), new ExpressionProfiler());
         Block result;
         if (forceYield) {
             result = projectWithYield(work, yieldSignal);
@@ -239,7 +240,7 @@ public class TestDictionaryAwarePageProjection
     {
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
         int[] positions = {0, 2, 4, 6, 8, 10};
-        Work<Block> work = projection.project(null, yieldSignal, new Page(block), SelectedPositions.positionsList(positions, 0, positions.length));
+        Work<Block> work = projection.project(null, yieldSignal, new Page(block), SelectedPositions.positionsList(positions, 0, positions.length), new ExpressionProfiler());
         Block result;
         if (forceYield) {
             result = projectWithYield(work, yieldSignal);
@@ -258,7 +259,7 @@ public class TestDictionaryAwarePageProjection
     private static void testProjectFastReturnIgnoreYield(Block block, DictionaryAwarePageProjection projection)
     {
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
-        Work<Block> work = projection.project(null, yieldSignal, new Page(block), SelectedPositions.positionsRange(5, 10));
+        Work<Block> work = projection.project(null, yieldSignal, new Page(block), SelectedPositions.positionsRange(5, 10), new ExpressionProfiler());
         yieldSignal.setWithDelay(1, executor);
         yieldSignal.forceYieldForTesting();
 
@@ -308,7 +309,7 @@ public class TestDictionaryAwarePageProjection
         }
 
         @Override
-        public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+        public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions, ExpressionProfiler expressionProfiler)
         {
             return new TestPageProjectionWork(yieldSignal, page, selectedPositions);
         }

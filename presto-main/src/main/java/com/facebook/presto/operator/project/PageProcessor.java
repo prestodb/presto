@@ -22,6 +22,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.DictionaryId;
 import com.facebook.presto.spi.block.LazyBlock;
+import com.facebook.presto.sql.gen.ExpressionProfiler;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import io.airlift.slice.SizeOf;
@@ -49,14 +50,17 @@ public class PageProcessor
     static final int MAX_PAGE_SIZE_IN_BYTES = 4 * 1024 * 1024;
     static final int MIN_PAGE_SIZE_IN_BYTES = 1024 * 1024;
 
+    private final ExpressionProfiler expressionProfiler;
     private final DictionarySourceIdFunction dictionarySourceIdFunction = new DictionarySourceIdFunction();
     private final Optional<PageFilter> filter;
     private final List<PageProjection> projections;
 
     private int projectBatchSize = MAX_BATCH_SIZE;
 
-    public PageProcessor(Optional<PageFilter> filter, List<? extends PageProjection> projections)
+    @VisibleForTesting
+    public PageProcessor(Optional<PageFilter> filter, List<? extends PageProjection> projections, Optional<ExpressionProfiler> expressionProfiler)
     {
+        this.expressionProfiler = expressionProfiler.orElse(new ExpressionProfiler());
         this.filter = requireNonNull(filter, "filter is null")
                 .map(pageFilter -> {
                     if (pageFilter.getInputChannels().size() == 1 && pageFilter.isDeterministic()) {
@@ -72,6 +76,11 @@ public class PageProcessor
                     return projection;
                 })
                 .collect(toImmutableList());
+    }
+
+    public PageProcessor(Optional<PageFilter> filter, List<? extends PageProjection> projections)
+    {
+        this(filter, projections, Optional.empty());
     }
 
     public PageProcessorOutput process(ConnectorSession session, DriverYieldSignal yieldSignal, Page page)
@@ -273,7 +282,7 @@ public class PageProcessor
                 }
                 else {
                     if (pageProjectWork == null) {
-                        pageProjectWork = projection.project(session, yieldSignal, projection.getInputChannels().getInputChannels(page), positionsBatch);
+                        pageProjectWork = projection.project(session, yieldSignal, projection.getInputChannels().getInputChannels(page), positionsBatch, expressionProfiler);
                     }
                     if (!pageProjectWork.process()) {
                         return ProcessBatchResult.processBatchYield();
