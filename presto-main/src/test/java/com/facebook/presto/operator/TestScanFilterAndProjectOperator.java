@@ -57,6 +57,7 @@ import static com.facebook.presto.metadata.MetadataManager.createTestMetadataMan
 import static com.facebook.presto.metadata.Signature.internalScalarFunction;
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
+import static com.facebook.presto.operator.project.PageProcessor.MAX_BATCH_SIZE;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -267,7 +268,7 @@ public class TestScanFilterAndProjectOperator
             projections.add(call(internalScalarFunction("generic_long_page_col" + i, BIGINT.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature())), BIGINT, field(0, BIGINT)));
         }
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections.build(), "key");
-        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections.build());
+        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections.build(), MAX_BATCH_SIZE);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
@@ -285,20 +286,25 @@ public class TestScanFilterAndProjectOperator
         operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
         operator.noMoreSplits();
 
-        // yield for every cell: 20 X 1000 times
-        // currently we enforce a yield check for every position; free feel to adjust the number if the behavior changes
-        for (int i = 0; i < totalRows * totalColumns; i++) {
+        // In the below loop we yield for every cell: 20 X 1000 times
+        // Currently we don't check for the yield signal in the generated projection loop, we only check for the yield signal
+        // in the PageProcessor.PositionsPageProcessorIterator::computeNext() method. Therefore, after 20 calls we will have
+        // exactly 20 blocks (one for each column) and the PageProcessor will be able to create a Page out of it.
+        for (int i = 1; i <= totalRows * totalColumns; i++) {
             driverContext.getYieldSignal().setWithDelay(SECONDS.toNanos(1000), driverContext.getYieldExecutor());
-            assertNull(operator.getOutput());
+            Page page = operator.getOutput();
+            if (i == totalColumns) {
+                assertNotNull(page);
+                assertEquals(page.getPositionCount(), totalRows);
+                assertEquals(page.getChannelCount(), totalColumns);
+                for (int j = 0; j < totalColumns; j++) {
+                    assertEquals(toValues(BIGINT, page.getBlock(j)), toValues(BIGINT, input.getBlock(0)));
+                }
+            }
+            else {
+                assertNull(page);
+            }
             driverContext.getYieldSignal().reset();
-        }
-
-        // the last call will return the whole page
-        Page output = operator.getOutput();
-        assertEquals(output.getPositionCount(), totalRows);
-        assertEquals(output.getChannelCount(), totalColumns);
-        for (int i = 0; i < totalColumns; i++) {
-            assertEquals(toValues(BIGINT, output.getBlock(i)), toValues(BIGINT, input.getBlock(0)));
         }
     }
 

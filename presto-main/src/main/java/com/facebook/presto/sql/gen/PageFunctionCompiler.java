@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.project.ConstantPageProjection;
 import com.facebook.presto.operator.project.GeneratedPageProjection;
@@ -202,7 +201,7 @@ public class PageFunctionCompiler
                 result.getRewrittenExpression(),
                 determinismEvaluator.isDeterministic(result.getRewrittenExpression()),
                 result.getInputChannels(),
-                constructorMethodHandle(pageProjectionWorkClass, BlockBuilder.class, ConnectorSession.class, DriverYieldSignal.class, Page.class, SelectedPositions.class));
+                constructorMethodHandle(pageProjectionWorkClass, BlockBuilder.class, ConnectorSession.class, Page.class, SelectedPositions.class));
     }
 
     private static ParameterizedType generateProjectionWorkClassName(Optional<String> classNameSuffix)
@@ -220,7 +219,6 @@ public class PageFunctionCompiler
 
         FieldDefinition blockBuilderField = classDefinition.declareField(a(PRIVATE), "blockBuilder", BlockBuilder.class);
         FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE), "session", ConnectorSession.class);
-        FieldDefinition yieldSignalField = classDefinition.declareField(a(PRIVATE), "yieldSignal", DriverYieldSignal.class);
         FieldDefinition pageField = classDefinition.declareField(a(PRIVATE), "page", Page.class);
         FieldDefinition selectedPositionsField = classDefinition.declareField(a(PRIVATE), "selectedPositions", SelectedPositions.class);
         FieldDefinition nextIndexOrPositionField = classDefinition.declareField(a(PRIVATE), "nextIndexOrPosition", int.class);
@@ -229,7 +227,7 @@ public class PageFunctionCompiler
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
         // process
-        generateProcessMethod(classDefinition, blockBuilderField, sessionField, yieldSignalField, pageField, selectedPositionsField, nextIndexOrPositionField, resultField);
+        generateProcessMethod(classDefinition, blockBuilderField, sessionField, pageField, selectedPositionsField, nextIndexOrPositionField, resultField);
 
         // getResult
         MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "getResult", type(Object.class), ImmutableList.of());
@@ -242,11 +240,10 @@ public class PageFunctionCompiler
         // constructor
         Parameter blockBuilder = arg("blockBuilder", BlockBuilder.class);
         Parameter session = arg("session", ConnectorSession.class);
-        Parameter yieldSignal = arg("yieldSignal", DriverYieldSignal.class);
         Parameter page = arg("page", Page.class);
         Parameter selectedPositions = arg("selectedPositions", SelectedPositions.class);
 
-        MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), blockBuilder, session, yieldSignal, page, selectedPositions);
+        MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), blockBuilder, session, page, selectedPositions);
 
         BytecodeBlock body = constructorDefinition.getBody();
         Variable thisVariable = constructorDefinition.getThis();
@@ -256,7 +253,6 @@ public class PageFunctionCompiler
                 .invokeConstructor(Object.class)
                 .append(thisVariable.setField(blockBuilderField, blockBuilder))
                 .append(thisVariable.setField(sessionField, session))
-                .append(thisVariable.setField(yieldSignalField, yieldSignal))
                 .append(thisVariable.setField(pageField, page))
                 .append(thisVariable.setField(selectedPositionsField, selectedPositions))
                 .append(thisVariable.setField(nextIndexOrPositionField, selectedPositions.invoke("getOffset", int.class)))
@@ -272,7 +268,6 @@ public class PageFunctionCompiler
             ClassDefinition classDefinition,
             FieldDefinition blockBuilder,
             FieldDefinition session,
-            FieldDefinition yieldSignal,
             FieldDefinition page,
             FieldDefinition selectedPositions,
             FieldDefinition nextIndexOrPosition,
@@ -300,16 +295,14 @@ public class PageFunctionCompiler
                         .condition(lessThan(index, to))
                         .update(index.increment())
                         .body(new BytecodeBlock()
-                                .append(thisVariable.invoke("evaluate", void.class, thisVariable.getField(session), thisVariable.getField(page), positions.getElement(index)))
-                                .append(generateCheckYieldBlock(thisVariable, index, yieldSignal, nextIndexOrPosition)))));
+                                .append(thisVariable.invoke("evaluate", void.class, thisVariable.getField(session), thisVariable.getField(page), positions.getElement(index))))));
 
         ifStatement.ifFalse(new ForLoop("range based loop")
                 .initialize(index.set(from))
                 .condition(lessThan(index, to))
                 .update(index.increment())
                 .body(new BytecodeBlock()
-                        .append(thisVariable.invoke("evaluate", void.class, thisVariable.getField(session), thisVariable.getField(page), index))
-                        .append(generateCheckYieldBlock(thisVariable, index, yieldSignal, nextIndexOrPosition))));
+                        .append(thisVariable.invoke("evaluate", void.class, thisVariable.getField(session), thisVariable.getField(page), index))));
 
         body.comment("result = this.blockBuilder.build(); return true;")
                 .append(thisVariable.setField(result, thisVariable.getField(blockBuilder).invoke("build", Block.class)))
@@ -317,20 +310,6 @@ public class PageFunctionCompiler
                 .retBoolean();
 
         return method;
-    }
-
-    private static BytecodeBlock generateCheckYieldBlock(Variable thisVariable, Variable index, FieldDefinition yieldSignal, FieldDefinition nextIndexOrPosition)
-    {
-        return new BytecodeBlock()
-                .comment("if (yieldSignal.isSet())")
-                .append(new IfStatement()
-                        .condition(thisVariable.getField(yieldSignal).invoke("isSet", boolean.class))
-                        .ifTrue(new BytecodeBlock()
-                                .comment("nextIndexOrPosition = index + 1;")
-                                .append(thisVariable.setField(nextIndexOrPosition, add(index, constantInt(1))))
-                                .comment("return false;")
-                                .push(false)
-                                .retBoolean()));
     }
 
     private MethodDefinition generateEvaluateMethod(
