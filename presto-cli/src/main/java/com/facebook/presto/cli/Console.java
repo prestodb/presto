@@ -351,9 +351,7 @@ public class Console
             if (!query.getSetRoles().isEmpty()) {
                 Map<String, SelectedRole> roles = new HashMap<>(session.getRoles());
                 roles.putAll(query.getSetRoles());
-                session = ClientSession.builder(session)
-                        .withRoles(roles)
-                        .build();
+                builder = builder.withRoles(roles);
             }
 
             // update prepared statements if present
