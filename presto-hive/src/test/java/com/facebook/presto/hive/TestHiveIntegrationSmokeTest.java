@@ -2550,6 +2550,17 @@ public class TestHiveIntegrationSmokeTest
                             "RIGHT JOIN\n" +
                             "  (SELECT * FROM test_grouped_joinN where mod(keyN, 3) = 0)\n" +
                             "ON key1 = keyN";
+            // The preceding test case, which then feeds into another join
+            @Language("SQL") String chainedSharedBuildOuterJoin =
+                    "SELECT key1, value1, keyN, valueN, key3, value3\n" +
+                            "FROM\n" +
+                            "  (SELECT key1, arbitrary(value1) value1 FROM test_grouped_join1 where mod(key1, 2) = 0 group by key1)\n" +
+                            "RIGHT JOIN\n" +
+                            "  (SELECT * FROM test_grouped_joinN where mod(keyN, 3) = 0)\n" +
+                            "ON key1 = keyN\n" +
+                            "FULL JOIN\n" +
+                            "  (SELECT * FROM test_grouped_join3 where mod(key3, 5) = 0)\n" +
+                            "ON keyN = key3";
             @Language("SQL") String expectedChainedOuterJoinResult = "SELECT\n" +
                     "  CASE WHEN mod(orderkey, 2 * 3) = 0 THEN orderkey END,\n" +
                     "  CASE WHEN mod(orderkey, 2 * 3) = 0 THEN comment END,\n" +
@@ -2573,6 +2584,7 @@ public class TestHiveIntegrationSmokeTest
             assertQuery(notColocated, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult);
             assertQuery(colocatedAllGroupsAtOnce, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult);
             assertQuery(colocatedOneGroupAtATime, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult);
+            assertQuery(colocatedOneGroupAtATime, chainedSharedBuildOuterJoin, expectedChainedOuterJoinResult);
 
             //
             // Filter out all or majority of splits

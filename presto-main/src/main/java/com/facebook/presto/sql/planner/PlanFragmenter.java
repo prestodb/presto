@@ -448,6 +448,29 @@ public class PlanFragmenter
                 return GroupedExecutionProperties.notCapable();
             }
 
+            if ((node.getType() == JoinNode.Type.RIGHT || node.getType() == JoinNode.Type.FULL) && !right.currentNodeCapable) {
+                // For a plan like this, if the fragment participates in grouped execution,
+                // the LookupOuterOperator corresponding to the RJoin will not work execute properly.
+                //
+                // * The operator has to execute as not-grouped because it can only look at the "used" flags in
+                //   join build after all probe has finished.
+                // * The operator has to execute as grouped the subsequent LJoin expects that incoming
+                //   operators are grouped. Otherwise, the LJoin won't be able to throw out the build side
+                //   for each group as soon as the group completes.
+                //
+                //       LJoin
+                //       /   \
+                //   RJoin   Scan
+                //   /   \
+                // Scan Remote
+                //
+                // TODO:
+                // The RJoin can still execute as grouped if there is no subsequent operator that depends
+                // on the RJoin being executed in a grouped manner. However, this is not currently implemented.
+                // Support for this scenario is already implemented in the execution side.
+                return GroupedExecutionProperties.notCapable();
+            }
+
             switch (node.getDistributionType().get()) {
                 case REPLICATED:
                     // Broadcast join maintains partitioning for the left side.
