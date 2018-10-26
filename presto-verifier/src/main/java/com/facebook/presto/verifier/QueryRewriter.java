@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SimpleTimeLimiter;
 import com.google.common.util.concurrent.TimeLimiter;
+import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.units.Duration;
 
 import java.sql.Connection;
@@ -222,6 +223,9 @@ public class QueryRewriter
                     int type = metaData.getColumnType(i);
                     columns.add(new Column(name, APPROXIMATE_TYPES.contains(type)));
                 }
+            }
+            catch (UncheckedTimeoutException e) {
+                throw new SQLException("SQL statement execution timed out", e);
             }
             finally {
                 executor.shutdownNow();
