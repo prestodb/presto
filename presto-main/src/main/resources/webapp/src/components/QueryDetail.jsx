@@ -1013,6 +1013,35 @@ export class QueryDetail extends React.Component {
         return renderedEstimates;
     }
 
+    renderWarningInfo() {
+        const query = this.state.query;
+        if (query.warnings.length > 0) {
+            return (
+                <div className="row">
+                    <div className="col-xs-12">
+                        <h3>Warnings</h3>
+                        <hr className="h3-hr"/>
+                        <table className="table" id="warnings-table">
+                            {query.warnings.map((warning) =>
+                                <tr>
+                                    <td>
+                                        {warning.warningCode.name}
+                                    </td>
+                                    <td>
+                                        {warning.message}
+                                    </td>
+                                </tr>
+                            )}
+                        </table>
+                    </div>
+                </div>
+            );
+        }
+        else {
+            return null;
+        }
+    }
+
     renderFailureInfo() {
         const query = this.state.query;
         if (query.failureInfo) {
@@ -1448,6 +1477,7 @@ export class QueryDetail extends React.Component {
                         </div>
                     </div>
                 </div>
+                {this.renderWarningInfo()}
                 {this.renderFailureInfo()}
                 <div className="row">
                     <div className="col-xs-12">
