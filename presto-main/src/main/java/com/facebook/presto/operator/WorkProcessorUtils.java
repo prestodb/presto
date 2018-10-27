@@ -345,13 +345,14 @@ public final class WorkProcessorUtils
 
     private static class ElementAndProcessor<T>
     {
+        @Nullable
         final T element;
         final WorkProcessor<T> processor;
 
         ElementAndProcessor(T element, WorkProcessor<T> processor)
         {
             this.element = element;
-            this.processor = processor;
+            this.processor = requireNonNull(processor, "processor is null");
         }
 
         T getElement()
