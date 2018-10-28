@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.security;
 
+import com.facebook.presto.plugin.base.security.ForwardingSystemAccessControl;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
@@ -22,6 +24,8 @@ import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 
 import java.nio.file.Paths;
 import java.security.Principal;
@@ -33,14 +37,21 @@ import java.util.regex.Pattern;
 
 import static com.facebook.presto.plugin.base.JsonUtils.parseJson;
 import static com.facebook.presto.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
+import static com.facebook.presto.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
+import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Suppliers.memoizeWithExpiration;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class FileBasedSystemAccessControl
         implements SystemAccessControl
 {
+    private static final Logger log = Logger.get(FileBasedSystemAccessControl.class);
+
     public static final String NAME = "file";
 
     private final List<CatalogAccessControlRule> catalogRules;
@@ -69,6 +80,37 @@ public class FileBasedSystemAccessControl
             String configFileName = config.get(SECURITY_CONFIG_FILE);
             checkState(configFileName != null, "Security configuration must contain the '%s' property", SECURITY_CONFIG_FILE);
 
+            if (config.containsKey(SECURITY_REFRESH_PERIOD)) {
+                Duration refreshPeriod;
+                try {
+                    refreshPeriod = Duration.valueOf(config.get(SECURITY_REFRESH_PERIOD));
+                }
+                catch (IllegalArgumentException e) {
+                    throw invalidRefreshPeriodException(config, configFileName);
+                }
+                if (refreshPeriod.toMillis() == 0) {
+                    throw invalidRefreshPeriodException(config, configFileName);
+                }
+                return ForwardingSystemAccessControl.of(memoizeWithExpiration(
+                        () -> {
+                            log.info("Refreshing system access control from %s", configFileName);
+                            return create(configFileName);
+                        },
+                        refreshPeriod.toMillis(),
+                        MILLISECONDS));
+            }
+            return create(configFileName);
+        }
+
+        private PrestoException invalidRefreshPeriodException(Map<String, String> config, String configFileName)
+        {
+            return new PrestoException(
+                    CONFIGURATION_INVALID,
+                    format("Invalid duration value '%s' for property '%s' in '%s'", config.get(SECURITY_REFRESH_PERIOD), SECURITY_REFRESH_PERIOD, configFileName));
+        }
+
+        private SystemAccessControl create(String configFileName)
+        {
             FileBasedSystemAccessControlRules rules = parseJson(Paths.get(configFileName), FileBasedSystemAccessControlRules.class);
 
             ImmutableList.Builder<CatalogAccessControlRule> catalogRulesBuilder = ImmutableList.builder();
