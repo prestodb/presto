@@ -29,7 +29,7 @@ import javax.security.auth.kerberos.KerberosPrincipal;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.security.FileBasedSystemAccessControl.Factory.CONFIG_FILE_NAME;
+import static com.facebook.presto.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
 import static com.facebook.presto.spi.security.Privilege.SELECT;
 import static com.facebook.presto.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -213,6 +213,6 @@ public class TestFileBasedSystemAccessControl
 
     private SystemAccessControl parse(String path)
     {
-        return new FileBasedSystemAccessControl.Factory().create(ImmutableMap.of(CONFIG_FILE_NAME, path));
+        return new FileBasedSystemAccessControl.Factory().create(ImmutableMap.of(SECURITY_CONFIG_FILE, path));
     }
 }

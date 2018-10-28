@@ -38,6 +38,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
 import static com.google.common.base.Preconditions.checkState;
@@ -61,8 +62,6 @@ public class FileBasedSystemAccessControl
     public static class Factory
             implements SystemAccessControlFactory
     {
-        static final String CONFIG_FILE_NAME = "security.config-file";
-
         @Override
         public String getName()
         {
@@ -74,10 +73,8 @@ public class FileBasedSystemAccessControl
         {
             requireNonNull(config, "config is null");
 
-            String configFileName = config.get(CONFIG_FILE_NAME);
-            checkState(
-                    configFileName != null,
-                    "Security configuration must contain the '%s' property", CONFIG_FILE_NAME);
+            String configFileName = config.get(SECURITY_CONFIG_FILE);
+            checkState(configFileName != null, "Security configuration must contain the '%s' property", SECURITY_CONFIG_FILE);
 
             try {
                 Path path = Paths.get(configFileName);
