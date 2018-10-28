@@ -19,6 +19,8 @@ import javax.validation.constraints.NotNull;
 
 public class FileBasedAccessControlConfig
 {
+    public static final String SECURITY_CONFIG_FILE = "security.config-file";
+
     private String configFile;
 
     @NotNull
@@ -27,7 +29,7 @@ public class FileBasedAccessControlConfig
         return configFile;
     }
 
-    @Config("security.config-file")
+    @Config(SECURITY_CONFIG_FILE)
     public FileBasedAccessControlConfig setConfigFile(String configFile)
     {
         this.configFile = configFile;
