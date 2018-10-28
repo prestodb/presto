@@ -23,7 +23,6 @@ import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import java.nio.file.InvalidPathException;
 import java.nio.file.Paths;
 import java.security.Principal;
 import java.util.List;
@@ -70,24 +69,19 @@ public class FileBasedSystemAccessControl
             String configFileName = config.get(SECURITY_CONFIG_FILE);
             checkState(configFileName != null, "Security configuration must contain the '%s' property", SECURITY_CONFIG_FILE);
 
-            try {
-                FileBasedSystemAccessControlRules rules = parseJson(Paths.get(configFileName), FileBasedSystemAccessControlRules.class);
+            FileBasedSystemAccessControlRules rules = parseJson(Paths.get(configFileName), FileBasedSystemAccessControlRules.class);
 
-                ImmutableList.Builder<CatalogAccessControlRule> catalogRulesBuilder = ImmutableList.builder();
-                catalogRulesBuilder.addAll(rules.getCatalogRules());
+            ImmutableList.Builder<CatalogAccessControlRule> catalogRulesBuilder = ImmutableList.builder();
+            catalogRulesBuilder.addAll(rules.getCatalogRules());
 
-                // Hack to allow Presto Admin to access the "system" catalog for retrieving server status.
-                // todo Change userRegex from ".*" to one particular user that Presto Admin will be restricted to run as
-                catalogRulesBuilder.add(new CatalogAccessControlRule(
-                        true,
-                        Optional.of(Pattern.compile(".*")),
-                        Optional.of(Pattern.compile("system"))));
+            // Hack to allow Presto Admin to access the "system" catalog for retrieving server status.
+            // todo Change userRegex from ".*" to one particular user that Presto Admin will be restricted to run as
+            catalogRulesBuilder.add(new CatalogAccessControlRule(
+                    true,
+                    Optional.of(Pattern.compile(".*")),
+                    Optional.of(Pattern.compile("system"))));
 
-                return new FileBasedSystemAccessControl(catalogRulesBuilder.build(), rules.getPrincipalUserMatchRules());
-            }
-            catch (SecurityException | InvalidPathException e) {
-                throw new RuntimeException(e);
-            }
+            return new FileBasedSystemAccessControl(catalogRulesBuilder.build(), rules.getPrincipalUserMatchRules());
         }
     }
 
