@@ -33,7 +33,6 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
 import static com.facebook.presto.tests.TestGroups.AVRO;
-import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.JDBC;
 import static com.facebook.presto.tests.TestGroups.POST_HIVE_1_0_1;
 import static com.facebook.presto.tests.TestGroups.SKIP_ON_CDH;
@@ -127,7 +126,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(TextRequirements.class)
-    @Test(groups = {HIVE_CONNECTOR, SMOKE})
+    @Test(groups = {SMOKE})
     public void testSelectAllDatatypesTextFile()
     {
         String tableName = ALL_HIVE_SIMPLE_TYPES_TEXTFILE.getName();
@@ -156,7 +155,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(OrcRequirements.class)
-    @Test(groups = {HIVE_CONNECTOR, JDBC})
+    @Test(groups = {JDBC})
     public void testSelectAllDatatypesOrc()
     {
         String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_ORC).getNameInDatabase();
@@ -187,7 +186,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(RcfileRequirements.class)
-    @Test(groups = {HIVE_CONNECTOR, JDBC})
+    @Test(groups = {JDBC})
     public void testSelectAllDatatypesRcfile()
     {
         String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_RCFILE).getNameInDatabase();
@@ -218,7 +217,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(AvroRequirements.class)
-    @Test(groups = {HIVE_CONNECTOR, JDBC, SKIP_ON_CDH, AVRO})
+    @Test(groups = {JDBC, SKIP_ON_CDH, AVRO})
     public void testSelectAllDatatypesAvro()
     {
         String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_AVRO).getNameInDatabase();
@@ -348,7 +347,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(ParquetRequirements.class)
-    @Test(groups = {HIVE_CONNECTOR, POST_HIVE_1_0_1})
+    @Test(groups = {POST_HIVE_1_0_1})
     public void testSelectAllDatatypesParquetFile()
     {
         String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_PARQUET).getNameInDatabase();

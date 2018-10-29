@@ -28,7 +28,6 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.SKIP_ON_CDH;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
 import static com.facebook.presto.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
@@ -171,7 +170,7 @@ public class TestHiveTableStatistics
         }
     }
 
-    @Test(groups = {HIVE_CONNECTOR})
+    @Test
     @Requires(UnpartitionedNationTable.class)
     public void testStatisticsForUnpartitionedTable()
     {
@@ -211,7 +210,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 25.0, null, null));
     }
 
-    @Test(groups = {HIVE_CONNECTOR})
+    @Test
     @Requires(NationPartitionedByBigintTable.class)
     public void testStatisticsForTablePartitionedByBigint()
     {
@@ -338,7 +337,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 5.0, null, null));
     }
 
-    @Test(groups = {HIVE_CONNECTOR})
+    @Test
     @Requires(NationPartitionedByVarcharTable.class)
     public void testStatisticsForTablePartitionedByVarchar()
     {
@@ -466,7 +465,7 @@ public class TestHiveTableStatistics
     }
 
     // This covers also stats calculation for unpartitioned table
-    @Test(groups = {HIVE_CONNECTOR, SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
+    @Test(groups = {SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
     @Requires(AllTypesTable.class)
     public void testStatisticsForAllDataTypes()
     {
@@ -514,7 +513,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 2.0, null, null));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
+    @Test(groups = {SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
     @Requires(AllTypesTable.class)
     public void testStatisticsForAllDataTypesNoData()
     {
@@ -561,7 +560,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 0.0, null, null));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
+    @Test(groups = {SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
     @Requires(AllTypesTable.class)
     public void testStatisticsForAllDataTypesOnlyNulls()
     {
