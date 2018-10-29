@@ -60,22 +60,19 @@ statement
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
     | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
     | CREATE ROLE name=identifier
-        (WITH ADMIN grantor)?
-        (IN catalog=identifier)?                                       #createRole
-    | DROP ROLE name=identifier (IN catalog=identifier)?               #dropRole
+        (WITH ADMIN grantor)?                                          #createRole
+    | DROP ROLE name=identifier                                        #dropRole
     | GRANT
         roles
         TO principal (',' principal)*
         (WITH ADMIN OPTION)?
-        (GRANTED BY grantor)?
-        (IN catalog=identifier)?                                       #grantRoles
+        (GRANTED BY grantor)?                                          #grantRoles
     | REVOKE
         (ADMIN OPTION FOR)?
         roles
         FROM principal (',' principal)*
-        (GRANTED BY grantor)?
-        (IN catalog=identifier)?                                       #revokeRoles
-    | SET ROLE (ALL | NONE | role=identifier) (IN catalog=identifier)? #setRole
+        (GRANTED BY grantor)?                                          #revokeRoles
+    | SET ROLE (ALL | NONE | role=identifier)                          #setRole
     | GRANT
         (privilege (',' privilege)* | ALL PRIVILEGES)
         ON TABLE? qualifiedName TO grantee=principal

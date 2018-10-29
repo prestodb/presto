@@ -44,8 +44,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -100,9 +100,9 @@ public class TestSetRoleTask
     public void testSetRole()
             throws Exception
     {
-        assertSetRole("SET ROLE ALL IN foo", ImmutableMap.of(CATALOG_NAME, new SelectedRole(SelectedRole.Type.ALL, Optional.empty())));
-        assertSetRole("SET ROLE NONE IN foo", ImmutableMap.of(CATALOG_NAME, new SelectedRole(SelectedRole.Type.NONE, Optional.empty())));
-        assertSetRole("SET ROLE bar IN foo", ImmutableMap.of(CATALOG_NAME, new SelectedRole(SelectedRole.Type.ROLE, Optional.of("bar"))));
+        assertSetRole("SET ROLE ALL", ImmutableMap.of(CATALOG_NAME, new SelectedRole(SelectedRole.Type.ALL, Optional.empty())));
+        assertSetRole("SET ROLE NONE", ImmutableMap.of(CATALOG_NAME, new SelectedRole(SelectedRole.Type.NONE, Optional.empty())));
+        assertSetRole("SET ROLE bar", ImmutableMap.of(CATALOG_NAME, new SelectedRole(SelectedRole.Type.ROLE, Optional.of("bar"))));
     }
 
     private void assertSetRole(String statement, Map<String, SelectedRole> expected)
@@ -111,7 +111,9 @@ public class TestSetRoleTask
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 new QueryId("query"),
                 statement,
-                TEST_SESSION,
+                testSessionBuilder()
+                        .setCatalog(CATALOG_NAME)
+                        .build(),
                 URI.create("fake://uri"),
                 false,
                 transactionManager,

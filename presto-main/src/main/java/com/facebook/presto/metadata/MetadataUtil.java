@@ -98,16 +98,12 @@ public final class MetadataUtil
         return null;
     }
 
-    public static String createCatalogName(Session session, Node node, Optional<String> catalog)
+    public static String createCatalogName(Session session, Node node)
     {
-        if (catalog.isPresent()) {
-            return catalog.get();
-        }
-
         Optional<String> sessionCatalog = session.getCatalog();
 
         if (!sessionCatalog.isPresent()) {
-            throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
+            throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Session catalog must be set");
         }
 
         return sessionCatalog.get();

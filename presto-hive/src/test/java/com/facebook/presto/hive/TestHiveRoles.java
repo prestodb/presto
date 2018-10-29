@@ -60,8 +60,7 @@ public class TestHiveRoles
     {
         executeFromAdmin("CREATE ROLE role1");
         assertEquals(listRoles(), ImmutableSet.of("role1"));
-        executeFromAdmin("CREATE ROLE role2 IN hive");
-        assertEquals(listRoles(), ImmutableSet.of("role1", "role2"));
+        assertEquals(listRoles(), ImmutableSet.of("role1"));
     }
 
     @Test
@@ -100,11 +99,8 @@ public class TestHiveRoles
             throws Exception
     {
         executeFromAdmin("CREATE ROLE role1");
-        executeFromAdmin("CREATE ROLE role2");
-        assertEquals(listRoles(), ImmutableSet.of("role1", "role2"));
-        executeFromAdmin("DROP ROLE role2");
         assertEquals(listRoles(), ImmutableSet.of("role1"));
-        executeFromAdmin("DROP ROLE role1 IN hive");
+        executeFromAdmin("DROP ROLE role1");
         assertEquals(listRoles(), ImmutableSet.of());
     }
 
