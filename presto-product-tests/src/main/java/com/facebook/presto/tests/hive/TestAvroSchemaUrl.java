@@ -25,7 +25,6 @@ import org.testng.annotations.Test;
 import java.io.InputStream;
 
 import static com.facebook.presto.tests.TestGroups.AVRO;
-import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
 import static com.facebook.presto.tests.utils.QueryExecutors.onPresto;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
@@ -65,7 +64,7 @@ public class TestAvroSchemaUrl
         };
     }
 
-    @Test(dataProvider = "avroSchemaLocations", groups = {AVRO, HIVE_CONNECTOR})
+    @Test(dataProvider = "avroSchemaLocations", groups = {AVRO})
     public void testHiveCreatedTable(String schemaLocation)
     {
         onHive().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_hive");
@@ -85,7 +84,7 @@ public class TestAvroSchemaUrl
         onHive().executeQuery("DROP TABLE test_avro_schema_url_hive");
     }
 
-    @Test(dataProvider = "avroSchemaLocations", groups = {AVRO, HIVE_CONNECTOR})
+    @Test(dataProvider = "avroSchemaLocations", groups = {AVRO})
     public void testPrestoCreatedTable(String schemaLocation)
     {
         onPresto().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_presto");

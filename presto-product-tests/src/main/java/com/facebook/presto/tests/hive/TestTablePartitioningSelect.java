@@ -29,7 +29,6 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static io.prestodb.tempto.Requirements.allOf;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
@@ -90,7 +89,7 @@ public class TestTablePartitioningSelect
                 mutableTable(SINGLE_INT_COLUMN_PARTITIONED_AVRO, TABLE_NAME, LOADED));
     }
 
-    @Test(groups = {HIVE_CONNECTOR})
+    @Test
     public void testSelectPartitionedHiveTableDifferentFormats()
     {
         String tableNameInDatabase = tablesState.get(TABLE_NAME).getNameInDatabase();
