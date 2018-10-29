@@ -46,6 +46,7 @@ public class OperatorStats
     private final long addInputCalls;
     private final Duration addInputWall;
     private final Duration addInputCpu;
+    private final DataSize rawInputDataSize;
     private final DataSize inputDataSize;
     private final long inputPositions;
     private final double sumSquaredInputPositions;
@@ -88,6 +89,7 @@ public class OperatorStats
             @JsonProperty("addInputCalls") long addInputCalls,
             @JsonProperty("addInputWall") Duration addInputWall,
             @JsonProperty("addInputCpu") Duration addInputCpu,
+            @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
             @JsonProperty("inputDataSize") DataSize inputDataSize,
             @JsonProperty("inputPositions") long inputPositions,
             @JsonProperty("sumSquaredInputPositions") double sumSquaredInputPositions,
@@ -130,6 +132,7 @@ public class OperatorStats
         this.addInputCalls = addInputCalls;
         this.addInputWall = requireNonNull(addInputWall, "addInputWall is null");
         this.addInputCpu = requireNonNull(addInputCpu, "addInputCpu is null");
+        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
         this.inputDataSize = requireNonNull(inputDataSize, "inputDataSize is null");
         checkArgument(inputPositions >= 0, "inputPositions is negative");
         this.inputPositions = inputPositions;
@@ -215,6 +218,12 @@ public class OperatorStats
     public Duration getAddInputCpu()
     {
         return addInputCpu;
+    }
+
+    @JsonProperty
+    public DataSize getRawInputDataSize()
+    {
+        return rawInputDataSize;
     }
 
     @JsonProperty
@@ -356,6 +365,7 @@ public class OperatorStats
         long addInputCalls = this.addInputCalls;
         long addInputWall = this.addInputWall.roundTo(NANOSECONDS);
         long addInputCpu = this.addInputCpu.roundTo(NANOSECONDS);
+        long rawInputDataSize = this.rawInputDataSize.toBytes();
         long inputDataSize = this.inputDataSize.toBytes();
         long inputPositions = this.inputPositions;
         double sumSquaredInputPositions = this.sumSquaredInputPositions;
@@ -392,6 +402,7 @@ public class OperatorStats
             addInputCalls += operator.getAddInputCalls();
             addInputWall += operator.getAddInputWall().roundTo(NANOSECONDS);
             addInputCpu += operator.getAddInputCpu().roundTo(NANOSECONDS);
+            rawInputDataSize += operator.getRawInputDataSize().toBytes();
             inputDataSize += operator.getInputDataSize().toBytes();
             inputPositions += operator.getInputPositions();
             sumSquaredInputPositions += operator.getSumSquaredInputPositions();
@@ -440,6 +451,7 @@ public class OperatorStats
                 addInputCalls,
                 new Duration(addInputWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                succinctBytes(rawInputDataSize),
                 succinctBytes(inputDataSize),
                 inputPositions,
                 sumSquaredInputPositions,
@@ -498,6 +510,7 @@ public class OperatorStats
                 addInputCalls,
                 addInputWall,
                 addInputCpu,
+                rawInputDataSize,
                 inputDataSize,
                 inputPositions,
                 sumSquaredInputPositions,
