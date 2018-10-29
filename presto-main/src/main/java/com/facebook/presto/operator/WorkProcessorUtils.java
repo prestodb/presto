@@ -137,7 +137,7 @@ public final class WorkProcessorUtils
                     }
 
                     if (processorIterator.hasNext()) {
-                        processor = processorIterator.next();
+                        processor = requireNonNull(processorIterator.next());
                         continue;
                     }
 
@@ -345,8 +345,7 @@ public final class WorkProcessorUtils
 
     private static class ElementAndProcessor<T>
     {
-        @Nullable
-        final T element;
+        @Nullable final T element;
         final WorkProcessor<T> processor;
 
         ElementAndProcessor(T element, WorkProcessor<T> processor)
