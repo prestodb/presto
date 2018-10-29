@@ -428,7 +428,7 @@ public abstract class AbstractTestHiveClient
                             }).collect(toList()))
                     .build();
 
-    protected Set<HiveStorageFormat> createTableFormats = difference(ImmutableSet.copyOf(HiveStorageFormat.values()), ImmutableSet.of(AVRO));
+    protected Set<HiveStorageFormat> createTableFormats = ImmutableSet.copyOf(HiveStorageFormat.values());
 
     private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
 
@@ -1929,6 +1929,13 @@ public abstract class AbstractTestHiveClient
                 assertEquals(e.getErrorCode(), HIVE_INVALID_PARTITION_VALUE.toErrorCode());
             }
         }
+    }
+
+    @Test
+    public void testTypesAvro()
+            throws Exception
+    {
+        assertGetRecords("presto_test_types_avro", AVRO);
     }
 
     @Test
