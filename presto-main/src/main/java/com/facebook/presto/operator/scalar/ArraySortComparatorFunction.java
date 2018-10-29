@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.Description;
@@ -159,7 +160,14 @@ public final class ArraySortComparatorFunction
 
     private void sortPositions(int arrayLength, Comparator<Integer> comparator)
     {
-        positions.subList(0, arrayLength).sort(comparator);
+        List<Integer> list = positions.subList(0, arrayLength);
+
+        try {
+            list.sort(comparator);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Lambda comparator violates the comparator contract", e);
+        }
     }
 
     private Block computeResultBlock(Type type, Block block, int arrayLength)
