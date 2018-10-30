@@ -74,7 +74,6 @@ import static com.facebook.presto.memory.LocalMemoryManager.SYSTEM_POOL;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -112,9 +111,6 @@ public class ClusterMemoryManager
     private final AtomicLong clusterMemoryBytes = new AtomicLong();
     private final AtomicLong queriesKilledDueToOutOfMemory = new AtomicLong();
     private final boolean isWorkScheduledOnCoordinator;
-
-    private final Map<QueryId, Long> preAllocations = new HashMap<>();
-    private final Map<QueryId, Long> preAllocationsConsumed = new HashMap<>();
 
     @GuardedBy("this")
     private final Map<String, RemoteNodeMemory> nodes = new HashMap<>();
@@ -226,8 +222,6 @@ public class ClusterMemoryManager
             lastTimeNotOutOfMemory = System.nanoTime();
         }
 
-        preAllocationsConsumed.clear();
-
         boolean queryKilled = false;
         long totalUserMemoryBytes = 0L;
         long totalMemoryBytes = 0L;
@@ -257,10 +251,6 @@ public class ClusterMemoryManager
                     query.fail(exceededGlobalTotalLimit(succinctBytes(totalMemoryLimit)));
                     queryKilled = true;
                 }
-            }
-
-            if (preAllocations.containsKey(query.getQueryId())) {
-                preAllocationsConsumed.put(query.getQueryId(), userMemoryReservation);
             }
 
             totalUserMemoryBytes += userMemoryReservation;
@@ -373,43 +363,6 @@ public class ClusterMemoryManager
             nodeDescription.append('\n');
         }
         log.info(nodeDescription.toString());
-    }
-
-    public synchronized boolean preAllocateQueryMemory(QueryId queryId, long requiredBytes)
-    {
-        if (requiredBytes > maxQueryMemory.toBytes()) {
-            throw new PrestoException(EXCEEDED_GLOBAL_MEMORY_LIMIT, format("Cannot pre-allocate user memory, exceeds maximum limit %s", maxQueryMemory));
-        }
-
-        ClusterMemoryPool generalPool = pools.get(GENERAL_POOL);
-        ClusterMemoryPool reservedPool = pools.get(RESERVED_POOL);
-        if (generalPool.getBlockedNodes() > 0 || (reservedPool != null && reservedPool.getAssignedQueries() > 0)) {
-            return false;
-        }
-
-        long totalPreAllocation = preAllocations.values().stream()
-                .mapToLong(Long::longValue)
-                .sum();
-
-        long totalPreAllocationConsumed = preAllocationsConsumed.values().stream()
-                .mapToLong(Long::longValue)
-                .sum();
-
-        if (generalPool.getFreeDistributedBytes() - (totalPreAllocation - totalPreAllocationConsumed) >= requiredBytes) {
-            preAllocations.put(queryId, requiredBytes);
-            return true;
-        }
-
-        return false;
-    }
-
-    public synchronized void removePreAllocation(QueryId queryId)
-    {
-        preAllocations.remove(queryId);
-        MemoryPoolInfo info = pools.get(GENERAL_POOL).getInfo();
-        for (Consumer<MemoryPoolInfo> listener : changeListeners.get(GENERAL_POOL)) {
-            listenerExecutor.execute(() -> listener.accept(info));
-        }
     }
 
     @VisibleForTesting

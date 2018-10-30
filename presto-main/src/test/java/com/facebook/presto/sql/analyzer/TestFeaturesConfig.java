@@ -38,7 +38,6 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDe
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -105,8 +104,7 @@ public class TestFeaturesConfig
                 .setMultimapAggGroupImplementation(MultimapAggGroupImplementation.NEW)
                 .setDistributedSortEnabled(true)
                 .setMaxGroupingSets(2048)
-                .setLegacyUnnestArrayRows(false)
-                .setPreAllocateMemoryThreshold(succinctBytes(0)));
+                .setLegacyUnnestArrayRows(false));
     }
 
     @Test
@@ -171,7 +169,6 @@ public class TestFeaturesConfig
                 .put("distributed-sort", "false")
                 .put("analyzer.max-grouping-sets", "2047")
                 .put("deprecated.legacy-unnest-array-rows", "true")
-                .put("experimental.preallocate-memory-threshold", "5TB")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -232,8 +229,7 @@ public class TestFeaturesConfig
                 .setMultimapAggGroupImplementation(MultimapAggGroupImplementation.LEGACY)
                 .setDistributedSortEnabled(false)
                 .setMaxGroupingSets(2047)
-                .setLegacyUnnestArrayRows(true)
-                .setPreAllocateMemoryThreshold(DataSize.valueOf("5TB"));
+                .setLegacyUnnestArrayRows(true);
         assertFullMapping(properties, expected);
     }
 
