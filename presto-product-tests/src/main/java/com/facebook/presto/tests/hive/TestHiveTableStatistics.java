@@ -91,7 +91,6 @@ public class TestHiveTableStatistics
     private static final HiveTableDefinition ALL_TYPES_TABLE = HiveTableDefinition.like(ALL_HIVE_SIMPLE_TYPES_TEXTFILE)
             .setDataSource(InlineDataSource.createStringDataSource(
                     "all_analyzable_types",
-                    "",
                     "121|32761|2147483641|9223372036854775801|123.341|234.561|344.671|345.671|2015-05-10 12:15:31.123456|2015-05-09|ela ma kota|ela ma kot|ela ma    |false|cGllcyBiaW5hcm55|\n" +
                             "127|32767|2147483647|9223372036854775807|123.345|235.567|345.678|345.678|2015-05-10 12:15:35.123456|2015-06-10|ala ma kota|ala ma kot|ala ma    |true|a290IGJpbmFybnk=|\n"))
             .build();
@@ -99,7 +98,6 @@ public class TestHiveTableStatistics
     private static final HiveTableDefinition ALL_TYPES_ALL_NULL_TABLE = HiveTableDefinition.like(ALL_HIVE_SIMPLE_TYPES_TEXTFILE)
             .setDataSource(InlineDataSource.createStringDataSource(
                     "all_analyzable_types_all_null",
-                    "",
                     "\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\n"))
             .build();
 

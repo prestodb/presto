@@ -19,7 +19,6 @@ import io.prestodb.tempto.fulfillment.table.hive.HiveTableDefinition;
 
 import java.util.Locale;
 import java.util.Optional;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
 import static io.prestodb.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
@@ -131,7 +130,7 @@ public final class AllSimpleTypesTableDefinitions
 
     private static HiveDataSource getTextFileDataSource()
     {
-        return createResourceDataSource(format(tableNameFormat, "textfile"), String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "com/facebook/presto/tests/hive/data/all_types/data.textfile");
+        return createResourceDataSource(format(tableNameFormat, "textfile"), "com/facebook/presto/tests/hive/data/all_types/data.textfile");
     }
 
     public static void populateDataToHiveTable(String tableName)
