@@ -30,7 +30,6 @@ import javax.inject.Inject;
 
 import java.math.RoundingMode;
 import java.util.Optional;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.tests.TestGroups.HIVE_PARTITIONING;
@@ -77,8 +76,8 @@ public class TestHivePartitionsTable
                 "PARTITIONED BY (part_col INT) " +
                 "STORED AS ORC";
 
-        HiveDataSource dataSource = createResourceDataSource(PARTITIONED_TABLE, String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "com/facebook/presto/tests/hive/data/single_int_column/data.orc");
-        HiveDataSource invalidData = createStringDataSource(PARTITIONED_TABLE, String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "INVALID DATA");
+        HiveDataSource dataSource = createResourceDataSource(PARTITIONED_TABLE, "com/facebook/presto/tests/hive/data/single_int_column/data.orc");
+        HiveDataSource invalidData = createStringDataSource(PARTITIONED_TABLE, "INVALID DATA");
         return HiveTableDefinition.builder(PARTITIONED_TABLE)
                 .setCreateTableDDLTemplate(createTableDdl)
                 .addPartition("part_col = 1", invalidData)

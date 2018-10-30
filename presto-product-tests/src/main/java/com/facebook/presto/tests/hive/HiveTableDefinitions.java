@@ -20,8 +20,6 @@ import static java.lang.String.format;
 
 public class HiveTableDefinitions
 {
-    private static final String DATA_REVISION = "1";
-
     private static final String NATION_PARTITIONED_BY_REGIONKEY_TABLE_NAME = "nation_partitioned_by_regionkey";
 
     public static final int NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT = 5;
@@ -39,19 +37,16 @@ public class HiveTableDefinitions
                             "p_regionkey=1",
                             createResourceDataSource(
                                     NATION_PARTITIONED_BY_REGIONKEY_TABLE_NAME,
-                                    DATA_REVISION,
                                     partitionDataFileResource("bigint", "1")))
                     .addPartition(
                             "p_regionkey=2",
                             createResourceDataSource(
                                     NATION_PARTITIONED_BY_REGIONKEY_TABLE_NAME,
-                                    DATA_REVISION,
                                     partitionDataFileResource("bigint", "2")))
                     .addPartition(
                             "p_regionkey=3",
                             createResourceDataSource(
                                     NATION_PARTITIONED_BY_REGIONKEY_TABLE_NAME,
-                                    DATA_REVISION,
                                     partitionDataFileResource("bigint", "3")))
                     .build();
 
@@ -68,19 +63,16 @@ public class HiveTableDefinitions
                             "p_regionkey='AMERICA'",
                             createResourceDataSource(
                                     NATION_PARTITIONED_BY_REGIONKEY_TABLE_NAME,
-                                    DATA_REVISION,
                                     partitionDataFileResource("varchar", "america")))
                     .addPartition(
                             "p_regionkey='ASIA'",
                             createResourceDataSource(
                                     NATION_PARTITIONED_BY_REGIONKEY_TABLE_NAME,
-                                    DATA_REVISION,
                                     partitionDataFileResource("varchar", "asia")))
                     .addPartition(
                             "p_regionkey='EUROPE'",
                             createResourceDataSource(
                                     NATION_PARTITIONED_BY_REGIONKEY_TABLE_NAME,
-                                    DATA_REVISION,
                                     partitionDataFileResource("varchar", "europe")))
                     .build();
 
