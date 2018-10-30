@@ -425,7 +425,7 @@ public class PlanFragmenter
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
-            this.groupedExecutionForAggregation = SystemSessionProperties.isGroupedExecutionForJoinEnabled(session);
+            this.groupedExecutionForAggregation = SystemSessionProperties.isGroupedExecutionForAggregationEnabled(session);
         }
 
         @Override
