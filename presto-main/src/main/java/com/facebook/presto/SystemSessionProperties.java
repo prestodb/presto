@@ -572,7 +572,7 @@ public final class SystemSessionProperties
         return session.getSystemProperty(HASH_PARTITION_COUNT, Integer.class);
     }
 
-    public static boolean isGroupedExecutionForJoinEnabled(Session session)
+    public static boolean isGroupedExecutionForAggregationEnabled(Session session)
     {
         return session.getSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, Boolean.class);
     }
