@@ -133,11 +133,11 @@ Array Functions
 
     Returns ``n``-grams for the ``array``::
 
-        SELECT ngrams(ARRAY['foo', 'bar', 'baz', 'foo'], 2); --[['foo', 'bar'], ['bar', 'baz'], ['baz', 'foo']]
+        SELECT ngrams(ARRAY['foo', 'bar', 'baz', 'foo'], 2); -- [['foo', 'bar'], ['bar', 'baz'], ['baz', 'foo']]
         SELECT ngrams(ARRAY['foo', 'bar', 'baz', 'foo'], 3); -- [['foo', 'bar', 'baz'], ['bar', 'baz', 'foo']]
         SELECT ngrams(ARRAY['foo', 'bar', 'baz', 'foo'], 4); -- [['foo', 'bar', 'baz', 'foo']]
         SELECT ngrams(ARRAY['foo', 'bar', 'baz', 'foo'], 5); -- [['foo', 'bar', 'baz', 'foo']]
-        SELECT ngrams(ARRAY[1, 2, 3, 4], 2); --[[1, 2], [2, 3], [3, 4]]
+        SELECT ngrams(ARRAY[1, 2, 3, 4], 2); -- [[1, 2], [2, 3], [3, 4]]
 
 .. function:: reduce(array(T), initialState S, inputFunction(S,T,S), outputFunction(S,R)) -> R
 
