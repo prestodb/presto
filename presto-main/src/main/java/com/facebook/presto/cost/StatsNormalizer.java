@@ -94,7 +94,7 @@ public class StatsNormalizer
         double nullsFraction = symbolStats.getNullsFraction();
 
         if (!isNaN(distinctValuesCount)) {
-            Type type = requireNonNull(types.get(symbol), () -> "No stats for symbol " + symbol);
+            Type type = requireNonNull(types.get(symbol), () -> "type is missing for symbol: " + symbol);
             double maxDistinctValuesByLowHigh = maxDistinctValuesByLowHigh(symbolStats, type);
             if (distinctValuesCount > maxDistinctValuesByLowHigh) {
                 distinctValuesCount = maxDistinctValuesByLowHigh;
