@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Collections.emptyMap;
+import static java.util.Objects.requireNonNull;
 
 public class ConnectorTableMetadata
 {
@@ -41,15 +42,9 @@ public class ConnectorTableMetadata
 
     public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns, Map<String, Object> properties, Optional<String> comment)
     {
-        if (table == null) {
-            throw new NullPointerException("table is null or empty");
-        }
-        if (columns == null) {
-            throw new NullPointerException("columns is null");
-        }
-        if (comment == null) {
-            throw new NullPointerException("comment is null");
-        }
+        requireNonNull(table, "table is null");
+        requireNonNull(columns, "columns is null");
+        requireNonNull(comment, "comment is null");
 
         this.table = table;
         this.columns = Collections.unmodifiableList(new ArrayList<>(columns));
