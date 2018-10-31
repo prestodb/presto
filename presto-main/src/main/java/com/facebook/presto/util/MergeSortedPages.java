@@ -18,7 +18,8 @@ import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.PageWithPositionComparator;
 import com.facebook.presto.operator.WorkProcessor;
-import com.facebook.presto.operator.WorkProcessor.ProcessorState;
+import com.facebook.presto.operator.WorkProcessor.ProcessState;
+import com.facebook.presto.operator.WorkProcessor.TransformationState;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -108,7 +109,7 @@ public final class MergeSortedPages
                     boolean finished = !pageWithPositionOptional.isPresent();
                     if (finished && pageBuilder.isEmpty()) {
                         memoryContext.close();
-                        return ProcessorState.finished();
+                        return TransformationState.finished();
                     }
 
                     if (finished || pageBreakPredicate.test(pageBuilder, pageWithPositionOptional.get())) {
@@ -127,7 +128,7 @@ public final class MergeSortedPages
                             memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
                         }
 
-                        return ProcessorState.ofResult(page, !finished);
+                        return TransformationState.ofResult(page, !finished);
                     }
 
                     pageWithPositionOptional.get().appendTo(pageBuilder, outputChannels, outputTypes);
@@ -136,7 +137,7 @@ public final class MergeSortedPages
                         memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
                     }
 
-                    return ProcessorState.needsMoreData();
+                    return TransformationState.needsMoreData();
                 });
     }
 
@@ -151,14 +152,14 @@ public final class MergeSortedPages
                 int position;
 
                 @Override
-                public ProcessorState<PageWithPosition> process()
+                public ProcessState<PageWithPosition> process()
                 {
                     if (position >= page.getPositionCount()) {
                         memoryContext.close();
-                        return ProcessorState.finished();
+                        return ProcessState.finished();
                     }
 
-                    return ProcessorState.ofResult(new PageWithPosition(page, position++));
+                    return ProcessState.ofResult(new PageWithPosition(page, position++));
                 }
             });
         });

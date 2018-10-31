@@ -23,7 +23,7 @@ import com.facebook.presto.operator.TransformWork;
 import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.WorkProcessor;
-import com.facebook.presto.operator.WorkProcessor.ProcessorState;
+import com.facebook.presto.operator.WorkProcessor.ProcessState;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.spi.Page;
@@ -284,7 +284,7 @@ public class InMemoryHashAggregationBuilder
         final PageBuilder pageBuilder = new PageBuilder(buildTypes());
         return WorkProcessor.create(() -> {
             if (!groupIds.hasNext()) {
-                return ProcessorState.finished();
+                return ProcessState.finished();
             }
 
             pageBuilder.reset();
@@ -303,7 +303,7 @@ public class InMemoryHashAggregationBuilder
                 }
             }
 
-            return ProcessorState.ofResult(pageBuilder.build());
+            return ProcessState.ofResult(pageBuilder.build());
         });
     }
 
