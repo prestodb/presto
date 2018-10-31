@@ -23,12 +23,9 @@ import java.util.Optional;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 
-import static com.facebook.presto.operator.WorkProcessor.ProcessorState.Type.BLOCKED;
 import static com.facebook.presto.operator.WorkProcessor.ProcessorState.Type.FINISHED;
 import static com.facebook.presto.operator.WorkProcessor.ProcessorState.Type.NEEDS_MORE_DATA;
-import static com.facebook.presto.operator.WorkProcessor.ProcessorState.Type.RESULT;
 import static com.facebook.presto.operator.WorkProcessor.ProcessorState.Type.YIELD;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public interface WorkProcessor<T>
@@ -205,16 +202,12 @@ public interface WorkProcessor<T>
         private final Optional<T> result;
         private final Optional<ListenableFuture<?>> blocked;
 
-        ProcessorState(Type type, boolean needsMoreData, Optional<T> result, Optional<ListenableFuture<?>> blocked)
+        private ProcessorState(Type type, boolean needsMoreData, Optional<T> result, Optional<ListenableFuture<?>> blocked)
         {
             this.type = requireNonNull(type, "type is null");
             this.needsMoreData = needsMoreData;
             this.result = requireNonNull(result, "result is null");
             this.blocked = requireNonNull(blocked, "blocked is null");
-
-            checkArgument(!needsMoreData || type == NEEDS_MORE_DATA || type == RESULT);
-            checkArgument(!blocked.isPresent() || type == BLOCKED);
-            checkArgument(!result.isPresent() || type == RESULT);
         }
 
         @SuppressWarnings("unchecked")
