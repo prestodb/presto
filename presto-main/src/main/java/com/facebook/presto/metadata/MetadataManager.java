@@ -36,6 +36,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
@@ -1133,6 +1134,12 @@ public class MetadataManager
     public AnalyzePropertyManager getAnalyzePropertyManager()
     {
         return analyzePropertyManager;
+    }
+
+    @Override
+    public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, ConnectorId connectorId)
+    {
+        return getCatalogMetadata(session, connectorId).getConnectorCapabilities();
     }
 
     private ViewDefinition deserializeView(String data)

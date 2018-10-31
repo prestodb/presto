@@ -870,11 +870,16 @@ public final class SqlFormatter
 
         private String formatColumnDefinition(ColumnDefinition column)
         {
-            return formatExpression(column.getName(), parameters) + " " + column.getType() +
-                    column.getComment()
-                            .map(comment -> " COMMENT " + formatStringLiteral(comment))
-                            .orElse("") +
-                    formatPropertiesSingleLine(column.getProperties());
+            StringBuilder sb = new StringBuilder()
+                    .append(formatExpression(column.getName(), parameters))
+                    .append(" ").append(column.getType());
+            if (!column.isNullable()) {
+                sb.append(" NOT NULL");
+            }
+            column.getComment().ifPresent(comment ->
+                    sb.append(" COMMENT ").append(formatStringLiteral(comment)));
+            sb.append(formatPropertiesSingleLine(column.getProperties()));
+            return sb.toString();
         }
 
         private static String formatGrantor(GrantorSpecification grantor)

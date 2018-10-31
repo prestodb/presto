@@ -25,33 +25,44 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.TableElement;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
+import static com.google.common.collect.Sets.immutableEnumSet;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.emptySet;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -87,14 +98,15 @@ public class TestCreateTableTask
         metadata = new MockMetadata(typeManager,
                 tablePropertyManager,
                 columnPropertyManager,
-                testCatalog.getConnectorId());
+                testCatalog.getConnectorId(),
+                emptySet());
     }
 
     @Test
     public void testCreateTableNotExistsTrue()
     {
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"),
-                ImmutableList.of(new ColumnDefinition(identifier("a"), "BIGINT", emptyList(), Optional.empty())),
+                ImmutableList.of(new ColumnDefinition(identifier("a"), "BIGINT", true, emptyList(), Optional.empty())),
                 true,
                 ImmutableList.of(),
                 Optional.empty());
@@ -107,7 +119,7 @@ public class TestCreateTableTask
     public void testCreateTableNotExistsFalse()
     {
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"),
-                ImmutableList.of(new ColumnDefinition(identifier("a"), "BIGINT", emptyList(), Optional.empty())),
+                ImmutableList.of(new ColumnDefinition(identifier("a"), "BIGINT", true, emptyList(), Optional.empty())),
                 false,
                 ImmutableList.of(),
                 Optional.empty());
@@ -125,6 +137,51 @@ public class TestCreateTableTask
         assertEquals(metadata.getCreateTableCallCount(), 1);
     }
 
+    @Test
+    public void testCreateWithNotNullColumns()
+    {
+        metadata.setConnectorCapabilities(NOT_NULL_COLUMN_CONSTRAINT);
+        List<TableElement> inputColumns = ImmutableList.of(
+                new ColumnDefinition(identifier("a"), "DATE", true, emptyList(), Optional.empty()),
+                new ColumnDefinition(identifier("b"), "VARCHAR", false, emptyList(), Optional.empty()),
+                new ColumnDefinition(identifier("c"), "VARBINARY", false, emptyList(), Optional.empty()));
+        CreateTable statement = new CreateTable(QualifiedName.of("test_table"), inputColumns, true, ImmutableList.of(), Optional.empty());
+
+        getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList()));
+        assertEquals(metadata.getCreateTableCallCount(), 1);
+        List<ColumnMetadata> columns = metadata.getReceivedTableMetadata().get(0).getColumns();
+        assertEquals(columns.size(), 3);
+
+        assertEquals(columns.get(0).getName(), "a");
+        assertEquals(columns.get(0).getType().getDisplayName().toUpperCase(ENGLISH), "DATE");
+        assertTrue(columns.get(0).isNullable());
+
+        assertEquals(columns.get(1).getName(), "b");
+        assertEquals(columns.get(1).getType().getDisplayName().toUpperCase(ENGLISH), "VARCHAR");
+        assertFalse(columns.get(1).isNullable());
+
+        assertEquals(columns.get(2).getName(), "c");
+        assertEquals(columns.get(2).getType().getDisplayName().toUpperCase(ENGLISH), "VARBINARY");
+        assertFalse(columns.get(2).isNullable());
+    }
+
+    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = ".*does not support non-null column for column name 'b'")
+    public void testCreateWithUnsupportedConnectorThrowsWhenNotNull()
+    {
+        List<TableElement> inputColumns = ImmutableList.of(
+                new ColumnDefinition(identifier("a"), "DATE", true, emptyList(), Optional.empty()),
+                new ColumnDefinition(identifier("b"), "VARCHAR", false, emptyList(), Optional.empty()),
+                new ColumnDefinition(identifier("c"), "VARBINARY", false, emptyList(), Optional.empty()));
+        CreateTable statement = new CreateTable(
+                QualifiedName.of("test_table"),
+                inputColumns,
+                true,
+                ImmutableList.of(),
+                Optional.empty());
+
+        getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList()));
+    }
+
     private static class MockMetadata
             extends AbstractMockMetadata
     {
@@ -132,24 +189,27 @@ public class TestCreateTableTask
         private final TablePropertyManager tablePropertyManager;
         private final ColumnPropertyManager columnPropertyManager;
         private final ConnectorId catalogHandle;
-        private AtomicInteger createTableCallCount = new AtomicInteger();
+        private final List<ConnectorTableMetadata> tables = new CopyOnWriteArrayList<>();
+        private Set<ConnectorCapabilities> connectorCapabilities;
 
         public MockMetadata(
                 TypeManager typeManager,
                 TablePropertyManager tablePropertyManager,
                 ColumnPropertyManager columnPropertyManager,
-                ConnectorId catalogHandle)
+                ConnectorId catalogHandle,
+                Set<ConnectorCapabilities> connectorCapabilities)
         {
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
             this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
             this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
             this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
+            this.connectorCapabilities = requireNonNull(immutableEnumSet(connectorCapabilities), "connectorCapabilities is null");
         }
 
         @Override
         public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
         {
-            createTableCallCount.incrementAndGet();
+            tables.add(tableMetadata);
             if (!ignoreExisting) {
                 throw new PrestoException(ALREADY_EXISTS, "Table already exists");
             }
@@ -190,13 +250,29 @@ public class TestCreateTableTask
 
         public int getCreateTableCallCount()
         {
-            return createTableCallCount.get();
+            return tables.size();
+        }
+
+        public List<ConnectorTableMetadata> getReceivedTableMetadata()
+        {
+            return tables;
         }
 
         @Override
         public void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column)
         {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, ConnectorId catalogName)
+        {
+            return connectorCapabilities;
+        }
+
+        public void setConnectorCapabilities(ConnectorCapabilities... connectorCapabilities)
+        {
+            this.connectorCapabilities = immutableEnumSet(ImmutableList.copyOf(connectorCapabilities));
         }
     }
 }

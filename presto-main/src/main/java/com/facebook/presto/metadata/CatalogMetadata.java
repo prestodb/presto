@@ -15,13 +15,16 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.Sets.immutableEnumSet;
 import static java.util.Objects.requireNonNull;
 
 public class CatalogMetadata
@@ -39,6 +42,7 @@ public class CatalogMetadata
     private final ConnectorId systemTablesId;
     private final ConnectorMetadata systemTables;
     private final ConnectorTransactionHandle systemTablesTransactionHandle;
+    private final Set<ConnectorCapabilities> connectorCapabilities;
 
     public CatalogMetadata(
             ConnectorId connectorId,
@@ -49,7 +53,8 @@ public class CatalogMetadata
             ConnectorTransactionHandle informationSchemaTransactionHandle,
             ConnectorId systemTablesId,
             ConnectorMetadata systemTables,
-            ConnectorTransactionHandle systemTablesTransactionHandle)
+            ConnectorTransactionHandle systemTablesTransactionHandle,
+            Set<ConnectorCapabilities> connectorCapabilities)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -60,6 +65,7 @@ public class CatalogMetadata
         this.systemTablesId = requireNonNull(systemTablesId, "systemTablesId is null");
         this.systemTables = requireNonNull(systemTables, "systemTables is null");
         this.systemTablesTransactionHandle = requireNonNull(systemTablesTransactionHandle, "systemTablesTransactionHandle is null");
+        this.connectorCapabilities = immutableEnumSet(requireNonNull(connectorCapabilities, "connectorCapabilities is null"));
     }
 
     public ConnectorId getConnectorId()
@@ -116,6 +122,11 @@ public class CatalogMetadata
     public List<ConnectorId> listConnectorIds()
     {
         return ImmutableList.of(informationSchemaId, systemTablesId, connectorId);
+    }
+
+    public Set<ConnectorCapabilities> getConnectorCapabilities()
+    {
+        return connectorCapabilities;
     }
 
     @Override
