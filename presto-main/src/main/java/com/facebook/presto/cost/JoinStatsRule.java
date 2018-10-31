@@ -15,7 +15,6 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
@@ -31,10 +30,10 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
-import java.util.stream.IntStream;
 
 import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static com.facebook.presto.cost.SymbolStatsEstimate.buildFrom;
+import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -284,20 +283,16 @@ public class JoinStatsRule
         }
 
         // TODO: add support for non-equality conditions (e.g: <=, !=, >)
-        int numberOfFilterClauses = filter.map(
-                exression -> ExpressionUtils.extractConjuncts(exression).size())
-                .orElse(0);
+        int numberOfFilterClauses = filter.map(expression -> extractConjuncts(expression).size()).orElse(0);
 
         // Heuristics: select the most selective criteria for join complement clause.
         // Principals behind this heuristics is the same as in computeInnerJoinStats:
         // select "driving join clause" that reduces matched rows the most.
-        return IntStream.range(0, criteria.size())
-                .mapToObj(drivingClauseId -> {
-                    EquiJoinClause drivingClause = criteria.get(drivingClauseId);
-                    return calculateJoinComplementStats(leftStats, rightStats, drivingClause, criteria.size() - 1 + numberOfFilterClauses);
-                })
+        return criteria.stream()
+                .map(drivingClause -> calculateJoinComplementStats(leftStats, rightStats, drivingClause, criteria.size() - 1 + numberOfFilterClauses))
+                .filter(estimate -> !estimate.isOutputRowCountUnknown())
                 .max(comparingDouble(PlanNodeStatsEstimate::getOutputRowCount))
-                .get();
+                .orElse(PlanNodeStatsEstimate.unknown());
     }
 
     private PlanNodeStatsEstimate calculateJoinComplementStats(
@@ -354,37 +349,37 @@ public class JoinStatsRule
     @VisibleForTesting
     PlanNodeStatsEstimate addJoinComplementStats(
             PlanNodeStatsEstimate sourceStats,
-            PlanNodeStatsEstimate baseJoinStats,
+            PlanNodeStatsEstimate innerJoinStats,
             PlanNodeStatsEstimate joinComplementStats)
     {
-        double joinOutputRowCount = baseJoinStats.getOutputRowCount();
-        double joinComplementOutputRowCount = joinComplementStats.getOutputRowCount();
-        double totalRowCount = joinOutputRowCount + joinComplementOutputRowCount;
+        double innerJoinRowCount = innerJoinStats.getOutputRowCount();
+        double joinComplementRowCount = joinComplementStats.getOutputRowCount();
+        double outputRowCount = innerJoinRowCount + joinComplementRowCount;
 
-        PlanNodeStatsEstimate.Builder outputStats = PlanNodeStatsEstimate.buildFrom(baseJoinStats);
-        outputStats.setOutputRowCount(joinOutputRowCount + joinComplementOutputRowCount);
+        PlanNodeStatsEstimate.Builder outputStats = PlanNodeStatsEstimate.buildFrom(innerJoinStats);
+        outputStats.setOutputRowCount(outputRowCount);
 
         for (Symbol symbol : joinComplementStats.getSymbolsWithKnownStatistics()) {
-            SymbolStatsEstimate sourceSymbolStats = sourceStats.getSymbolStatistics(symbol);
-            SymbolStatsEstimate innerSymbolStats = baseJoinStats.getSymbolStatistics(symbol);
+            SymbolStatsEstimate leftSymbolStats = sourceStats.getSymbolStatistics(symbol);
+            SymbolStatsEstimate innerJoinSymbolStats = innerJoinStats.getSymbolStatistics(symbol);
             SymbolStatsEstimate joinComplementSymbolStats = joinComplementStats.getSymbolStatistics(symbol);
 
             // weighted average
-            double newNullsFraction = (innerSymbolStats.getNullsFraction() * joinOutputRowCount + joinComplementSymbolStats.getNullsFraction() * joinComplementOutputRowCount) / totalRowCount;
-            outputStats.addSymbolStatistics(symbol, SymbolStatsEstimate.buildFrom(innerSymbolStats)
+            double newNullsFraction = (innerJoinSymbolStats.getNullsFraction() * innerJoinRowCount + joinComplementSymbolStats.getNullsFraction() * joinComplementRowCount) / outputRowCount;
+            outputStats.addSymbolStatistics(symbol, SymbolStatsEstimate.buildFrom(innerJoinSymbolStats)
                     // in outer join low value, high value and NDVs of outer side columns are preserved
-                    .setLowValue(sourceSymbolStats.getLowValue())
-                    .setHighValue(sourceSymbolStats.getHighValue())
-                    .setDistinctValuesCount(sourceSymbolStats.getDistinctValuesCount())
+                    .setLowValue(leftSymbolStats.getLowValue())
+                    .setHighValue(leftSymbolStats.getHighValue())
+                    .setDistinctValuesCount(leftSymbolStats.getDistinctValuesCount())
                     .setNullsFraction(newNullsFraction)
                     .build());
         }
 
         // add nulls to columns that don't exist in right stats
-        for (Symbol symbol : difference(baseJoinStats.getSymbolsWithKnownStatistics(), joinComplementStats.getSymbolsWithKnownStatistics())) {
-            SymbolStatsEstimate innerSymbolStats = baseJoinStats.getSymbolStatistics(symbol);
-            double newNullsFraction = (innerSymbolStats.getNullsFraction() * joinOutputRowCount + joinComplementOutputRowCount) / totalRowCount;
-            outputStats.addSymbolStatistics(symbol, innerSymbolStats.mapNullsFraction(nullsFraction -> newNullsFraction));
+        for (Symbol symbol : difference(innerJoinStats.getSymbolsWithKnownStatistics(), joinComplementStats.getSymbolsWithKnownStatistics())) {
+            SymbolStatsEstimate innerJoinSymbolStats = innerJoinStats.getSymbolStatistics(symbol);
+            double newNullsFraction = (innerJoinSymbolStats.getNullsFraction() * innerJoinRowCount + joinComplementRowCount) / outputRowCount;
+            outputStats.addSymbolStatistics(symbol, innerJoinSymbolStats.mapNullsFraction(nullsFraction -> newNullsFraction));
         }
 
         return outputStats.build();
