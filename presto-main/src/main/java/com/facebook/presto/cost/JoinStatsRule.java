@@ -354,38 +354,38 @@ public class JoinStatsRule
 
     @VisibleForTesting
     PlanNodeStatsEstimate addJoinComplementStats(
-            PlanNodeStatsEstimate sourceStats,
-            PlanNodeStatsEstimate baseJoinStats,
+            PlanNodeStatsEstimate leftStats,
+            PlanNodeStatsEstimate innerJoinStats,
             PlanNodeStatsEstimate joinComplementStats)
     {
-        double joinOutputRowCount = baseJoinStats.getOutputRowCount();
-        double joinComplementOutputRowCount = joinComplementStats.getOutputRowCount();
-        double totalRowCount = joinOutputRowCount + joinComplementOutputRowCount;
+        double innerJoinRowCount = innerJoinStats.getOutputRowCount();
+        double joinComplementRowCount = joinComplementStats.getOutputRowCount();
+        double outputRowCount = innerJoinRowCount + joinComplementRowCount;
 
-        PlanNodeStatsEstimate.Builder outputStats = PlanNodeStatsEstimate.buildFrom(baseJoinStats);
-        outputStats.setOutputRowCount(joinOutputRowCount + joinComplementOutputRowCount);
+        PlanNodeStatsEstimate.Builder outputStats = PlanNodeStatsEstimate.buildFrom(innerJoinStats);
+        outputStats.setOutputRowCount(outputRowCount);
 
         for (Symbol symbol : joinComplementStats.getSymbolsWithKnownStatistics()) {
-            SymbolStatsEstimate sourceSymbolStats = sourceStats.getSymbolStatistics(symbol);
-            SymbolStatsEstimate innerSymbolStats = baseJoinStats.getSymbolStatistics(symbol);
+            SymbolStatsEstimate leftSymbolStats = leftStats.getSymbolStatistics(symbol);
+            SymbolStatsEstimate innerJoinSymbolStats = innerJoinStats.getSymbolStatistics(symbol);
             SymbolStatsEstimate joinComplementSymbolStats = joinComplementStats.getSymbolStatistics(symbol);
 
             // weighted average
-            double newNullsFraction = (innerSymbolStats.getNullsFraction() * joinOutputRowCount + joinComplementSymbolStats.getNullsFraction() * joinComplementOutputRowCount) / totalRowCount;
-            outputStats.addSymbolStatistics(symbol, SymbolStatsEstimate.buildFrom(innerSymbolStats)
+            double newNullsFraction = (innerJoinSymbolStats.getNullsFraction() * innerJoinRowCount + joinComplementSymbolStats.getNullsFraction() * joinComplementRowCount) / outputRowCount;
+            outputStats.addSymbolStatistics(symbol, SymbolStatsEstimate.buildFrom(innerJoinSymbolStats)
                     // in outer join low value, high value and NDVs of outer side columns are preserved
-                    .setLowValue(sourceSymbolStats.getLowValue())
-                    .setHighValue(sourceSymbolStats.getHighValue())
-                    .setDistinctValuesCount(sourceSymbolStats.getDistinctValuesCount())
+                    .setLowValue(leftSymbolStats.getLowValue())
+                    .setHighValue(leftSymbolStats.getHighValue())
+                    .setDistinctValuesCount(leftSymbolStats.getDistinctValuesCount())
                     .setNullsFraction(newNullsFraction)
                     .build());
         }
 
         // add nulls to columns that don't exist in right stats
-        for (Symbol symbol : difference(baseJoinStats.getSymbolsWithKnownStatistics(), joinComplementStats.getSymbolsWithKnownStatistics())) {
-            SymbolStatsEstimate innerSymbolStats = baseJoinStats.getSymbolStatistics(symbol);
-            double newNullsFraction = (innerSymbolStats.getNullsFraction() * joinOutputRowCount + joinComplementOutputRowCount) / totalRowCount;
-            outputStats.addSymbolStatistics(symbol, innerSymbolStats.mapNullsFraction(nullsFraction -> newNullsFraction));
+        for (Symbol symbol : difference(innerJoinStats.getSymbolsWithKnownStatistics(), joinComplementStats.getSymbolsWithKnownStatistics())) {
+            SymbolStatsEstimate innerJoinSymbolStats = innerJoinStats.getSymbolStatistics(symbol);
+            double newNullsFraction = (innerJoinSymbolStats.getNullsFraction() * innerJoinRowCount + joinComplementRowCount) / outputRowCount;
+            outputStats.addSymbolStatistics(symbol, innerJoinSymbolStats.mapNullsFraction(nullsFraction -> newNullsFraction));
         }
 
         return outputStats.build();
