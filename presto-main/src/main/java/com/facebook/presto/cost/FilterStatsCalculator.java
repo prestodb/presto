@@ -203,7 +203,7 @@ public class FilterStatsCalculator
             if (smallestKnownEstimate.isOutputRowCountUnknown()) {
                 return PlanNodeStatsEstimate.unknown();
             }
-            return normalizer.normalize(smallestKnownEstimate.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT), types);
+            return smallestKnownEstimate.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT);
         }
 
         private PlanNodeStatsEstimate estimateLogicalOr(Expression left, Expression right)
