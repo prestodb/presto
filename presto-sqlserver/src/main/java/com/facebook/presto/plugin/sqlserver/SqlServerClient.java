@@ -16,9 +16,12 @@ package com.facebook.presto.plugin.sqlserver;
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
+import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
-import com.facebook.presto.plugin.jdbc.JdbcOutputTableHandle;
+import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
+import com.google.common.base.Joiner;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 
 import javax.inject.Inject;
@@ -27,10 +30,13 @@ import java.sql.Connection;
 import java.sql.SQLException;
 
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static java.lang.String.format;
 
 public class SqlServerClient
         extends BaseJdbcClient
 {
+    private static final Joiner DOT_JOINER = Joiner.on(".");
+
     @Inject
     public SqlServerClient(JdbcConnectorId connectorId, BaseJdbcConfig config)
     {
@@ -38,25 +44,38 @@ public class SqlServerClient
     }
 
     @Override
-    public void commitCreateTable(JdbcOutputTableHandle handle)
+    protected void renameTable(String catalogName, SchemaTableName oldTable, SchemaTableName newTable)
     {
-        StringBuilder sql = new StringBuilder()
-                .append("sp_rename ")
-                .append(singleQuote(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()))
-                .append(", ")
-                .append(singleQuote(handle.getTableName()));
-
-        try (Connection connection = getConnection(handle)) {
-            execute(connection, sql.toString());
+        try (Connection connection = connectionFactory.openConnection()) {
+            String sql = format(
+                    "sp_rename %s, %s",
+                    singleQuote(catalogName, oldTable.getSchemaName(), oldTable.getTableName()),
+                    singleQuote(newTable.getTableName()));
+            execute(connection, sql);
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
         }
     }
 
-    private static String singleQuote(String catalog, String schema, String table)
+    @Override
+    public void renameColumn(JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
-        return singleQuote(catalog + "." + schema + "." + table);
+        try (Connection connection = connectionFactory.openConnection()) {
+            String sql = format(
+                    "sp_rename %s, %s, 'COLUMN'",
+                    singleQuote(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName(), jdbcColumn.getColumnName()),
+                    singleQuote(newColumnName));
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    private static String singleQuote(String... objects)
+    {
+        return singleQuote(DOT_JOINER.join(objects));
     }
 
     private static String singleQuote(String literal)

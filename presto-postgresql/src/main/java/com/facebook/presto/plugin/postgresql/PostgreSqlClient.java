@@ -17,7 +17,9 @@ import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
-import com.facebook.presto.plugin.jdbc.JdbcOutputTableHandle;
+import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.Type;
 import org.postgresql.Driver;
 
@@ -29,33 +31,20 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static java.lang.String.format;
 
 public class PostgreSqlClient
         extends BaseJdbcClient
 {
+    private static final String DUPLICATE_TABLE_SQLSTATE = "42P07";
+
     @Inject
     public PostgreSqlClient(JdbcConnectorId connectorId, BaseJdbcConfig config)
     {
         super(connectorId, config, "\"", new DriverConnectionFactory(new Driver(), config));
-    }
-
-    @Override
-    public void commitCreateTable(JdbcOutputTableHandle handle)
-    {
-        // PostgreSQL does not allow qualifying the target of a rename
-        StringBuilder sql = new StringBuilder()
-                .append("ALTER TABLE ")
-                .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()))
-                .append(" RENAME TO ")
-                .append(quoted(handle.getTableName()));
-
-        try (Connection connection = getConnection(handle)) {
-            execute(connection, sql.toString());
-        }
-        catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Override
@@ -89,5 +78,35 @@ public class PostgreSqlClient
         }
 
         return super.toSqlType(type);
+    }
+
+    @Override
+    public void createTable(ConnectorTableMetadata tableMetadata)
+    {
+        try {
+            createTable(tableMetadata, tableMetadata.getTable().getTableName());
+        }
+        catch (SQLException e) {
+            if (DUPLICATE_TABLE_SQLSTATE.equals(e.getSQLState())) {
+                throw new PrestoException(ALREADY_EXISTS, e);
+            }
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    protected void renameTable(String catalogName, SchemaTableName oldTable, SchemaTableName newTable)
+    {
+        // PostgreSQL does not allow qualifying the target of a rename
+        try (Connection connection = connectionFactory.openConnection()) {
+            String sql = format(
+                    "ALTER TABLE %s RENAME TO %s",
+                    quoted(catalogName, oldTable.getSchemaName(), oldTable.getTableName()),
+                    quoted(newTable.getTableName()));
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
     }
 }

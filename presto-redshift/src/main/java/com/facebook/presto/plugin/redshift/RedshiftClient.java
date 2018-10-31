@@ -17,8 +17,8 @@ import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
-import com.facebook.presto.plugin.jdbc.JdbcOutputTableHandle;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
 import org.postgresql.Driver;
 
 import javax.inject.Inject;
@@ -28,6 +28,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static java.lang.String.format;
 
 public class RedshiftClient
         extends BaseJdbcClient
@@ -39,24 +40,6 @@ public class RedshiftClient
     }
 
     @Override
-    public void commitCreateTable(JdbcOutputTableHandle handle)
-    {
-        // Redshift does not allow qualifying the target of a rename
-        StringBuilder sql = new StringBuilder()
-                .append("ALTER TABLE ")
-                .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()))
-                .append(" RENAME TO ")
-                .append(quoted(handle.getTableName()));
-
-        try (Connection connection = getConnection(handle)) {
-            execute(connection, sql.toString());
-        }
-        catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
-        }
-    }
-
-    @Override
     public PreparedStatement getPreparedStatement(Connection connection, String sql)
             throws SQLException
     {
@@ -64,5 +47,21 @@ public class RedshiftClient
         PreparedStatement statement = connection.prepareStatement(sql);
         statement.setFetchSize(1000);
         return statement;
+    }
+
+    @Override
+    protected void renameTable(String catalogName, SchemaTableName oldTable, SchemaTableName newTable)
+    {
+        // Redshift does not allow qualifying the target of a rename
+        try (Connection connection = connectionFactory.openConnection()) {
+            String sql = format(
+                    "ALTER TABLE %s RENAME TO %s",
+                    quoted(catalogName, oldTable.getSchemaName(), oldTable.getTableName()),
+                    quoted(newTable.getTableName()));
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
     }
 }

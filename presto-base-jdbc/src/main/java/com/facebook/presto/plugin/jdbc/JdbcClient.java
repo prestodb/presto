@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -61,6 +62,16 @@ public interface JdbcClient
 
     PreparedStatement buildSql(Connection connection, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
             throws SQLException;
+
+    void addColumn(JdbcTableHandle handle, ColumnMetadata column);
+
+    void dropColumn(JdbcTableHandle handle, JdbcColumnHandle column);
+
+    void renameColumn(JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName);
+
+    void renameTable(JdbcTableHandle handle, SchemaTableName newTableName);
+
+    void createTable(ConnectorTableMetadata tableMetadata);
 
     JdbcOutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata);
 
