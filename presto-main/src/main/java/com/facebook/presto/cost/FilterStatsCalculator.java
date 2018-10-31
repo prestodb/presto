@@ -160,7 +160,11 @@ public class FilterStatsCalculator
             if (node.getValue() instanceof IsNullPredicate) {
                 return process(new IsNotNullPredicate(((IsNullPredicate) node.getValue()).getValue()));
             }
-            return differenceInStats(input, process(node.getValue()));
+            PlanNodeStatsEstimate sourceStats = process(node.getValue());
+            if (sourceStats.isOutputRowCountUnknown()) {
+                return PlanNodeStatsEstimate.unknown();
+            }
+            return differenceInStats(input, sourceStats);
         }
 
         @Override
