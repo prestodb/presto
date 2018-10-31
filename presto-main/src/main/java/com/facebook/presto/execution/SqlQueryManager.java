@@ -40,6 +40,7 @@ import com.facebook.presto.sql.SqlEnvironmentConfig;
 import com.facebook.presto.sql.SqlPath;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.version.EmbedVersion;
 import com.google.common.collect.Ordering;
@@ -414,8 +415,19 @@ public class SqlQueryManager
             }
             QUERY_STATE_LOG.debug(e, "Query %s failed", session.getQueryId());
 
+            TransactionId transactionId;
+
+            if (session.getTransactionId().isPresent()) {
+                transactionId = session.getTransactionId().get();
+            }
+            else {
+                transactionId = transactionManager.beginTransaction(false);
+                // resolve the catalog session properties in the error path.
+                session = session.beginTransactionId(transactionId, transactionManager, accessControl);
+            }
+
             // query failure fails the transaction
-            session.getTransactionId().ifPresent(transactionManager::fail);
+            transactionManager.fail(transactionId);
 
             QueryExecution execution = new FailedQueryExecution(
                     session,
