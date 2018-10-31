@@ -41,7 +41,7 @@ public class TypeSignature
 
     private static final Pattern IDENTIFIER_PATTERN = Pattern.compile("[a-zA-Z_]([a-zA-Z0-9_:@])*");
     private static final Map<String, String> BASE_NAME_ALIAS_TO_CANONICAL =
-            new TreeMap<String, String>(String.CASE_INSENSITIVE_ORDER);
+            new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
     private static final Set<String> SIMPLE_TYPE_WITH_SPACES =
             new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
 
