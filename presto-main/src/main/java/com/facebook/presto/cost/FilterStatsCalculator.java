@@ -160,7 +160,11 @@ public class FilterStatsCalculator
             if (node.getValue() instanceof IsNullPredicate) {
                 return process(new IsNotNullPredicate(((IsNullPredicate) node.getValue()).getValue()));
             }
-            return differenceInStats(input, process(node.getValue()));
+            PlanNodeStatsEstimate sourceStats = process(node.getValue());
+            if (sourceStats.isOutputRowCountUnknown()) {
+                return PlanNodeStatsEstimate.unknown();
+            }
+            return differenceInStats(input, sourceStats);
         }
 
         @Override
@@ -223,6 +227,9 @@ public class FilterStatsCalculator
                 return PlanNodeStatsEstimate.unknown();
             }
             PlanNodeStatsEstimate sumEstimate = addStatsAndSumDistinctValues(leftEstimate, rightEstimate);
+            if (sumEstimate.isOutputRowCountUnknown()) {
+                return PlanNodeStatsEstimate.unknown();
+            }
             return differenceInNonRangeStats(sumEstimate, logicalAndEstimate);
         }
 
