@@ -111,13 +111,15 @@ public class FixedLifespanScheduler
     {
         checkState(initialScheduled);
 
+        SettableFuture<?> newDriverGroupReady;
         synchronized (this) {
             for (Lifespan newlyCompletedDriverGroup : newlyCompletedDriverGroups) {
                 checkArgument(!newlyCompletedDriverGroup.isTaskWide());
                 recentlyCompletedDriverGroups.add(newlyCompletedDriverGroup);
             }
-            newDriverGroupReady.set(null);
+            newDriverGroupReady = this.newDriverGroupReady;
         }
+        newDriverGroupReady.set(null);
     }
 
     public SettableFuture schedule(SourceScheduler scheduler)
