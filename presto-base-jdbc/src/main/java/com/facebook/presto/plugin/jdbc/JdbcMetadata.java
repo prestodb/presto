@@ -175,6 +175,12 @@ public class JdbcMetadata
     }
 
     @Override
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+    {
+        jdbcClient.createTable(tableMetadata);
+    }
+
+    @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         JdbcOutputTableHandle handle = (JdbcOutputTableHandle) tableHandle;
@@ -212,6 +218,36 @@ public class JdbcMetadata
         JdbcOutputTableHandle jdbcInsertHandle = (JdbcOutputTableHandle) tableHandle;
         jdbcClient.finishInsertTable(jdbcInsertHandle);
         return Optional.empty();
+    }
+
+    @Override
+    public void addColumn(ConnectorSession session, ConnectorTableHandle table, ColumnMetadata columnMetadata)
+    {
+        JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+        jdbcClient.addColumn(tableHandle, columnMetadata);
+    }
+
+    @Override
+    public void dropColumn(ConnectorSession session, ConnectorTableHandle table, ColumnHandle column)
+    {
+        JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+        JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
+        jdbcClient.dropColumn(tableHandle, columnHandle);
+    }
+
+    @Override
+    public void renameColumn(ConnectorSession session, ConnectorTableHandle table, ColumnHandle column, String target)
+    {
+        JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+        JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
+        jdbcClient.renameColumn(tableHandle, columnHandle, target);
+    }
+
+    @Override
+    public void renameTable(ConnectorSession session, ConnectorTableHandle table, SchemaTableName newTableName)
+    {
+        JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+        jdbcClient.renameTable(tableHandle, newTableName);
     }
 
     @Override

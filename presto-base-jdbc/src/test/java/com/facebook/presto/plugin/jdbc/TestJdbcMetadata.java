@@ -176,15 +176,38 @@ public class TestJdbcMetadata
                 new ColumnMetadata("text", VARCHAR));
     }
 
-    @Test(expectedExceptions = PrestoException.class)
-    public void testCreateTable()
+    @Test
+    public void testCreateAndAlterTable()
     {
-        metadata.createTable(
-                SESSION,
-                new ConnectorTableMetadata(
-                        new SchemaTableName("example", "foo"),
-                        ImmutableList.of(new ColumnMetadata("text", VARCHAR))),
-                false);
+        SchemaTableName table = new SchemaTableName("example", "foo");
+        metadata.createTable(SESSION, new ConnectorTableMetadata(table, ImmutableList.of(new ColumnMetadata("text", VARCHAR))), false);
+
+        JdbcTableHandle handle = metadata.getTableHandle(SESSION, table);
+
+        ConnectorTableMetadata layout = metadata.getTableMetadata(SESSION, handle);
+        assertEquals(layout.getTable(), table);
+        assertEquals(layout.getColumns().size(), 1);
+        assertEquals(layout.getColumns().get(0), new ColumnMetadata("text", VARCHAR));
+
+        metadata.addColumn(SESSION, handle, new ColumnMetadata("x", VARCHAR));
+        layout = metadata.getTableMetadata(SESSION, handle);
+        assertEquals(layout.getColumns().size(), 2);
+        assertEquals(layout.getColumns().get(0), new ColumnMetadata("text", VARCHAR));
+        assertEquals(layout.getColumns().get(1), new ColumnMetadata("x", VARCHAR));
+
+        JdbcColumnHandle columnHandle = new JdbcColumnHandle(CONNECTOR_ID, "x", JDBC_VARCHAR, VARCHAR);
+        metadata.dropColumn(SESSION, handle, columnHandle);
+        layout = metadata.getTableMetadata(SESSION, handle);
+        assertEquals(layout.getColumns().size(), 1);
+        assertEquals(layout.getColumns().get(0), new ColumnMetadata("text", VARCHAR));
+
+        SchemaTableName newTableName = new SchemaTableName("example", "bar");
+        metadata.renameTable(SESSION, handle, newTableName);
+        handle = metadata.getTableHandle(SESSION, newTableName);
+        layout = metadata.getTableMetadata(SESSION, handle);
+        assertEquals(layout.getTable(), newTableName);
+        assertEquals(layout.getColumns().size(), 1);
+        assertEquals(layout.getColumns().get(0), new ColumnMetadata("text", VARCHAR));
     }
 
     @Test

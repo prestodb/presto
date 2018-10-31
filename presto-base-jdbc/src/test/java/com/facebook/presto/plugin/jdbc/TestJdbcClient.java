@@ -13,13 +13,19 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.DoubleType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import java.util.List;
 
 import static com.facebook.presto.plugin.jdbc.TestingDatabase.CONNECTOR_ID;
 import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
@@ -33,6 +39,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.Locale.ENGLISH;
+import static java.util.UUID.randomUUID;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -109,5 +116,57 @@ public class TestJdbcClient
                 new JdbcColumnHandle(CONNECTOR_ID, "COL2", JDBC_DOUBLE, DOUBLE),
                 new JdbcColumnHandle(CONNECTOR_ID, "COL3", JDBC_DOUBLE, DOUBLE),
                 new JdbcColumnHandle(CONNECTOR_ID, "COL4", JDBC_REAL, REAL)));
+    }
+
+    @Test
+    public void testCreateTable()
+    {
+        String tableName = randomUUID().toString().toUpperCase(ENGLISH);
+        SchemaTableName schemaTableName = new SchemaTableName("example", tableName);
+        List<ColumnMetadata> expectedColumns = ImmutableList.of(new ColumnMetadata("columnA", BigintType.BIGINT, null, null, false));
+
+        jdbcClient.createTable(new ConnectorTableMetadata(schemaTableName, expectedColumns));
+
+        JdbcTableHandle tableHandle = jdbcClient.getTableHandle(schemaTableName);
+
+        try {
+            assertEquals(tableHandle.getTableName(), tableName);
+            assertEquals(jdbcClient.getColumns(session, tableHandle), ImmutableList.of(
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT)));
+        }
+        finally {
+            jdbcClient.dropTable(tableHandle);
+        }
+    }
+
+    @Test
+    public void testAlterColumns()
+    {
+        String tableName = randomUUID().toString().toUpperCase(ENGLISH);
+        SchemaTableName schemaTableName = new SchemaTableName("example", tableName);
+        List<ColumnMetadata> expectedColumns = ImmutableList.of(
+                new ColumnMetadata("columnA", BigintType.BIGINT, null, null, false));
+
+        jdbcClient.createTable(new ConnectorTableMetadata(schemaTableName, expectedColumns));
+
+        JdbcTableHandle tableHandle = jdbcClient.getTableHandle(schemaTableName);
+
+        try {
+            assertEquals(tableHandle.getTableName(), tableName);
+            assertEquals(jdbcClient.getColumns(session, tableHandle), ImmutableList.of(
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT)));
+
+            jdbcClient.addColumn(tableHandle, new ColumnMetadata("columnB", DoubleType.DOUBLE, null, null, false));
+            assertEquals(jdbcClient.getColumns(session, tableHandle), ImmutableList.of(
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT),
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNB", JDBC_DOUBLE, DoubleType.DOUBLE)));
+
+            jdbcClient.dropColumn(tableHandle, new JdbcColumnHandle(CONNECTOR_ID, "COLUMNB", JDBC_DOUBLE, DoubleType.DOUBLE));
+            assertEquals(jdbcClient.getColumns(session, tableHandle), ImmutableList.of(
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT)));
+        }
+        finally {
+            jdbcClient.dropTable(tableHandle);
+        }
     }
 }
