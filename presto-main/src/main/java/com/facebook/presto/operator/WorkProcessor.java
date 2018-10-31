@@ -66,7 +66,7 @@ public interface WorkProcessor<T>
      */
     default WorkProcessor<T> yielding(BooleanSupplier yieldSignal)
     {
-        return WorkProcessorUtils.yield(this, yieldSignal);
+        return WorkProcessorUtils.yielding(this, yieldSignal);
     }
 
     default <R> WorkProcessor<R> flatMap(Function<T, WorkProcessor<R>> mapper)

@@ -153,7 +153,7 @@ public final class WorkProcessorUtils
         });
     }
 
-    static <T> WorkProcessor<T> yield(WorkProcessor<T> processor, BooleanSupplier yieldSignal)
+    static <T> WorkProcessor<T> yielding(WorkProcessor<T> processor, BooleanSupplier yieldSignal)
     {
         return processor.transform(new YieldingTransformation<>(yieldSignal));
     }
