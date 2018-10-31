@@ -53,6 +53,7 @@ import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.rejecti
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.waitForCompleteQueryCount;
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.waitForRunningQueryCount;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.testing.Assertions.assertContains;
@@ -320,6 +321,36 @@ public class TestQueuesDb
     {
         assertResourceGroupWithClientTags(ImmutableSet.of("tag1"), createResourceGroupId("global", "bi-user"));
         assertResourceGroupWithClientTags(ImmutableSet.of("tag1", "tag2"), createResourceGroupId("global", "user-user", "adhoc-user"));
+    }
+
+    @Test
+    public void testNonLeafGroup()
+            throws Exception
+    {
+        Session session = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema("sf100000")
+                .setSource("non-leaf")
+                .build();
+        QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
+        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
+        DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
+        int originalSize = getSelectors(queryRunner).size();
+        // Add a selector for a non leaf group
+        dao.insertSelector(3, 100, "user.*", "(?i).*non-leaf.*", null, null, null);
+        dbConfigurationManager.load();
+        while (getSelectors(queryRunner).size() != originalSize + 1) {
+            MILLISECONDS.sleep(500);
+        }
+        // Submit query with side effect of creating resource groups
+        QueryId firstDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
+        cancelQuery(queryRunner, firstDashboardQuery);
+        waitForQueryState(queryRunner, firstDashboardQuery, FAILED);
+        // Submit a query to a non-leaf resource group
+        QueryId invalidResourceGroupQuery = createQuery(queryRunner, session, LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, invalidResourceGroupQuery, FAILED);
+        assertEquals(queryRunner.getQueryInfo(invalidResourceGroupQuery).getErrorCode(), INVALID_RESOURCE_GROUP.toErrorCode());
     }
 
     private void assertResourceGroupWithClientTags(Set<String> clientTags, ResourceGroupId expectedResourceGroup)
