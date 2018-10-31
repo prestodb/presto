@@ -367,9 +367,7 @@ public class PropertyDerivations
         @Override
         public ActualProperties visitTableFinish(TableFinishNode node, List<ActualProperties> inputProperties)
         {
-            return ActualProperties.builder()
-                    .global(coordinatorSingleStreamPartition())
-                    .build();
+            return Iterables.getOnlyElement(inputProperties);
         }
 
         @Override
