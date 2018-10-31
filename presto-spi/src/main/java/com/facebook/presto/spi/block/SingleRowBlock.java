@@ -73,8 +73,8 @@ public class SingleRowBlock
     @Override
     public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
-        for (int i = 0; i < fieldBlocks.length; i++) {
-            consumer.accept(fieldBlocks[i], fieldBlocks[i].getRetainedSizeInBytes());
+        for (Block fieldBlock : fieldBlocks) {
+            consumer.accept(fieldBlock, fieldBlock.getRetainedSizeInBytes());
         }
         consumer.accept(this, (long) INSTANCE_SIZE);
     }
