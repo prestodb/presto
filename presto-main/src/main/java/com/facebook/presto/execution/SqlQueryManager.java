@@ -437,7 +437,12 @@ public class SqlQueryManager
         }
 
         // start the query in the background
-        resourceGroupManager.submit(preparedQuery.getStatement(), queryExecution, selectionContext, queryExecutor);
+        try {
+            resourceGroupManager.submit(preparedQuery.getStatement(), queryExecution, selectionContext, queryExecutor);
+        }
+        catch (Throwable e) {
+            failQuery(queryId, e);
+        }
     }
 
     @Override
