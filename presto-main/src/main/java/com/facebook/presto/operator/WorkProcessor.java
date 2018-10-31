@@ -187,9 +187,9 @@ public interface WorkProcessor<T>
     @Immutable
     final class ProcessorState<T>
     {
-        private static final ProcessorState NEEDS_MORE_DATE_STATE = new ProcessorState<>(NEEDS_MORE_DATA, true, Optional.empty(), Optional.empty());
-        private static final ProcessorState YIELD_STATE = new ProcessorState<>(YIELD, false, Optional.empty(), Optional.empty());
-        private static final ProcessorState FINISHED_STATE = new ProcessorState<>(FINISHED, false, Optional.empty(), Optional.empty());
+        private static final ProcessorState<?> NEEDS_MORE_DATE_STATE = new ProcessorState<>(NEEDS_MORE_DATA, true, Optional.empty(), Optional.empty());
+        private static final ProcessorState<?> YIELD_STATE = new ProcessorState<>(YIELD, false, Optional.empty(), Optional.empty());
+        private static final ProcessorState<?> FINISHED_STATE = new ProcessorState<>(FINISHED, false, Optional.empty(), Optional.empty());
 
         enum Type
         {
@@ -217,9 +217,10 @@ public interface WorkProcessor<T>
             checkArgument(!result.isPresent() || type == RESULT);
         }
 
+        @SuppressWarnings("unchecked")
         public static <T> ProcessorState<T> needsMoreData()
         {
-            return NEEDS_MORE_DATE_STATE;
+            return (ProcessorState<T>) NEEDS_MORE_DATE_STATE;
         }
 
         public static <T> ProcessorState<T> blocked(ListenableFuture<?> blocked)
@@ -227,9 +228,10 @@ public interface WorkProcessor<T>
             return new ProcessorState<>(Type.BLOCKED, false, Optional.empty(), Optional.of(blocked));
         }
 
+        @SuppressWarnings("unchecked")
         public static <T> ProcessorState<T> yield()
         {
-            return YIELD_STATE;
+            return (ProcessorState<T>) YIELD_STATE;
         }
 
         public static <T> ProcessorState<T> ofResult(T result)
@@ -242,9 +244,10 @@ public interface WorkProcessor<T>
             return new ProcessorState<>(Type.RESULT, needsMoreData, Optional.of(result), Optional.empty());
         }
 
+        @SuppressWarnings("unchecked")
         public static <T> ProcessorState<T> finished()
         {
-            return FINISHED_STATE;
+            return (ProcessorState<T>) FINISHED_STATE;
         }
 
         Type getType()
