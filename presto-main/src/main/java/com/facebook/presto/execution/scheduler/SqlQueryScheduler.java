@@ -344,7 +344,7 @@ public class SqlQueryScheduler
                         bucketNodeMap,
                         splitBatchSize,
                         getConcurrentLifespansPerNode(session),
-                        nodeScheduler.createNodeSelector(null),
+                        nodeScheduler.createNodeSelector(connectorId),
                         connectorPartitionHandles));
             }
             else {
