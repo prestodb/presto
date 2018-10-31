@@ -18,6 +18,7 @@ import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason;
 import com.facebook.presto.execution.scheduler.group.DynamicLifespanScheduler;
+import com.facebook.presto.execution.scheduler.group.FixedLifespanScheduler;
 import com.facebook.presto.execution.scheduler.group.LifespanScheduler;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.StageExecutionStrategy;
@@ -29,18 +30,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntList;
-import it.unimi.dsi.fastutil.ints.IntListIterator;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -55,7 +47,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -294,118 +285,6 @@ public class FixedSourcePartitionedScheduler
         public Node getNodeForBucket(int bucketId)
         {
             return bucketNodeMap.getAssignedNode(bucketId).get();
-        }
-    }
-
-    /**
-     * See {@link LifespanScheduler} about thread safety
-     */
-    private static class FixedLifespanScheduler
-            implements LifespanScheduler
-    {
-        private final Int2ObjectMap<Node> driverGroupToNodeMap;
-        private final Map<Node, IntListIterator> nodeToDriverGroupsMap;
-        private final List<ConnectorPartitionHandle> partitionHandles;
-        private final OptionalInt concurrentLifespansPerTask;
-
-        private boolean initialScheduled;
-        private SettableFuture<?> newDriverGroupReady = SettableFuture.create();
-        @GuardedBy("this")
-        private final List<Lifespan> recentlyCompletedDriverGroups = new ArrayList<>();
-        private int totalDriverGroupsScheduled;
-
-        public FixedLifespanScheduler(BucketNodeMap bucketNodeMap, List<ConnectorPartitionHandle> partitionHandles, OptionalInt concurrentLifespansPerTask)
-        {
-            checkArgument(!partitionHandles.equals(ImmutableList.of(NOT_PARTITIONED)));
-            checkArgument(partitionHandles.size() == bucketNodeMap.getBucketCount());
-
-            Map<Node, IntList> nodeToDriverGroupMap = new HashMap<>();
-            Int2ObjectMap<Node> driverGroupToNodeMap = new Int2ObjectOpenHashMap<>();
-            for (int bucket = 0; bucket < bucketNodeMap.getBucketCount(); bucket++) {
-                Node node = bucketNodeMap.getAssignedNode(bucket).get();
-                nodeToDriverGroupMap.computeIfAbsent(node, key -> new IntArrayList()).add(bucket);
-                driverGroupToNodeMap.put(bucket, node);
-            }
-
-            this.driverGroupToNodeMap = driverGroupToNodeMap;
-            this.nodeToDriverGroupsMap = nodeToDriverGroupMap.entrySet().stream()
-                    .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().iterator()));
-            this.partitionHandles = requireNonNull(partitionHandles, "partitionHandles is null");
-            if (concurrentLifespansPerTask.isPresent()) {
-                checkArgument(concurrentLifespansPerTask.getAsInt() >= 1, "concurrentLifespansPerTask must be great or equal to 1 if present");
-            }
-            this.concurrentLifespansPerTask = requireNonNull(concurrentLifespansPerTask, "concurrentLifespansPerTask is null");
-        }
-
-        public void scheduleInitial(SourceScheduler scheduler)
-        {
-            checkState(!initialScheduled);
-            initialScheduled = true;
-
-            for (Map.Entry<Node, IntListIterator> entry : nodeToDriverGroupsMap.entrySet()) {
-                IntListIterator driverGroupsIterator = entry.getValue();
-                int driverGroupsScheduled = 0;
-                while (driverGroupsIterator.hasNext()) {
-                    int driverGroupId = driverGroupsIterator.nextInt();
-                    scheduler.startLifespan(Lifespan.driverGroup(driverGroupId), partitionHandles.get(driverGroupId));
-
-                    totalDriverGroupsScheduled++;
-                    driverGroupsScheduled++;
-                    if (concurrentLifespansPerTask.isPresent() && driverGroupsScheduled == concurrentLifespansPerTask.getAsInt()) {
-                        break;
-                    }
-                }
-            }
-
-            verify(totalDriverGroupsScheduled <= driverGroupToNodeMap.size());
-            if (totalDriverGroupsScheduled == driverGroupToNodeMap.size()) {
-                scheduler.noMoreLifespans();
-            }
-        }
-
-        public void onLifespanFinished(Iterable<Lifespan> newlyCompletedDriverGroups)
-        {
-            checkState(initialScheduled);
-
-            synchronized (this) {
-                for (Lifespan newlyCompletedDriverGroup : newlyCompletedDriverGroups) {
-                    checkArgument(!newlyCompletedDriverGroup.isTaskWide());
-                    recentlyCompletedDriverGroups.add(newlyCompletedDriverGroup);
-                }
-                newDriverGroupReady.set(null);
-            }
-        }
-
-        public SettableFuture schedule(SourceScheduler scheduler)
-        {
-            // Return a new future even if newDriverGroupReady has not finished.
-            // Returning the same SettableFuture instance could lead to ListenableFuture retaining too many listener objects.
-
-            checkState(initialScheduled);
-
-            List<Lifespan> recentlyCompletedDriverGroups;
-            synchronized (this) {
-                recentlyCompletedDriverGroups = ImmutableList.copyOf(this.recentlyCompletedDriverGroups);
-                this.recentlyCompletedDriverGroups.clear();
-                newDriverGroupReady = SettableFuture.create();
-            }
-
-            for (Lifespan driverGroup : recentlyCompletedDriverGroups) {
-                IntListIterator driverGroupsIterator = nodeToDriverGroupsMap.get(driverGroupToNodeMap.get(driverGroup.getId()));
-                if (!driverGroupsIterator.hasNext()) {
-                    continue;
-                }
-                int driverGroupId = driverGroupsIterator.nextInt();
-                scheduler.startLifespan(Lifespan.driverGroup(driverGroupId), partitionHandles.get(driverGroupId));
-                totalDriverGroupsScheduled++;
-            }
-
-            verify(totalDriverGroupsScheduled <= driverGroupToNodeMap.size());
-            if (totalDriverGroupsScheduled == driverGroupToNodeMap.size()) {
-                scheduler.noMoreLifespans();
-            }
-
-            return newDriverGroupReady;
         }
     }
 
