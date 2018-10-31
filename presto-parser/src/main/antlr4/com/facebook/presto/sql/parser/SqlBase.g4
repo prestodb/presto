@@ -129,7 +129,7 @@ tableElement
     ;
 
 columnDefinition
-    : identifier type (COMMENT string)? (WITH properties)?
+    : identifier type (NOT NULL)? (COMMENT string)? (WITH properties)?
     ;
 
 likeClause

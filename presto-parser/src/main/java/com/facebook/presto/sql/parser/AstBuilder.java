@@ -1552,11 +1552,13 @@ class AstBuilder
             properties = visit(context.properties().property(), Property.class);
         }
 
+        boolean nullable = context.NOT() == null;
+
         return new ColumnDefinition(
                 getLocation(context),
                 (Identifier) visit(context.identifier()),
                 getType(context.type()),
-                properties,
+                nullable, properties,
                 comment);
     }
 

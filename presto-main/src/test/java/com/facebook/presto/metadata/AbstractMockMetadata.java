@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.GrantInfo;
@@ -511,6 +512,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public boolean catalogExists(Session session, String catalogName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, ConnectorId catalogName)
     {
         throw new UnsupportedOperationException();
     }

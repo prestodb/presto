@@ -412,15 +412,23 @@ public class InMemoryTransactionManager
             if (catalogMetadata == null) {
                 Catalog catalog = catalogsByConnectorId.get(connectorId);
                 verify(catalog != null, "Unknown connectorId: %s", connectorId);
+                Connector connector = catalog.getConnector(connectorId);
 
                 ConnectorTransactionMetadata metadata = createConnectorTransactionMetadata(catalog.getConnectorId(), catalog);
                 ConnectorTransactionMetadata informationSchema = createConnectorTransactionMetadata(catalog.getInformationSchemaId(), catalog);
                 ConnectorTransactionMetadata systemTables = createConnectorTransactionMetadata(catalog.getSystemTablesId(), catalog);
 
                 catalogMetadata = new CatalogMetadata(
-                        metadata.getConnectorId(), metadata.getConnectorMetadata(), metadata.getTransactionHandle(),
-                        informationSchema.getConnectorId(), informationSchema.getConnectorMetadata(), informationSchema.getTransactionHandle(),
-                        systemTables.getConnectorId(), systemTables.getConnectorMetadata(), systemTables.getTransactionHandle());
+                        metadata.getConnectorId(),
+                        metadata.getConnectorMetadata(),
+                        metadata.getTransactionHandle(),
+                        informationSchema.getConnectorId(),
+                        informationSchema.getConnectorMetadata(),
+                        informationSchema.getTransactionHandle(),
+                        systemTables.getConnectorId(),
+                        systemTables.getConnectorMetadata(),
+                        systemTables.getTransactionHandle(),
+                        connector.getCapabilities());
 
                 this.catalogMetadata.put(catalog.getConnectorId(), catalogMetadata);
                 this.catalogMetadata.put(catalog.getInformationSchemaId(), catalogMetadata);

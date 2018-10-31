@@ -48,6 +48,7 @@ import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectNam
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
@@ -118,6 +119,9 @@ public class CreateTableTask
                 if (columns.containsKey(name)) {
                     throw new SemanticException(DUPLICATE_COLUMN_NAME, column, "Column name '%s' specified more than once", column.getName());
                 }
+                if (!column.isNullable() && !metadata.getConnectorCapabilities(session, connectorId).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
+                    throw new SemanticException(NOT_SUPPORTED, column, "Catalog '%s' does not support non-null column for column name '%s'", connectorId.getCatalogName(), column.getName());
+                }
 
                 Map<String, Expression> sqlProperties = mapFromProperties(column.getProperties());
                 Map<String, Object> columnProperties = metadata.getColumnPropertyManager().getProperties(
@@ -128,7 +132,13 @@ public class CreateTableTask
                         metadata,
                         parameters);
 
-                columns.put(name, new ColumnMetadata(name, type, column.getComment().orElse(null), null, false, columnProperties));
+                columns.put(name, new ColumnMetadata(
+                        name,
+                        type,
+                        column.isNullable(), column.getComment().orElse(null),
+                        null,
+                        false,
+                        columnProperties));
             }
             else if (element instanceof LikeClause) {
                 LikeClause likeClause = (LikeClause) element;
