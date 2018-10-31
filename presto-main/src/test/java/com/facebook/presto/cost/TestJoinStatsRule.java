@@ -14,12 +14,15 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -35,6 +38,7 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static java.lang.Double.NaN;
 import static java.lang.Math.round;
+import static org.testng.Assert.assertEquals;
 
 public class TestJoinStatsRule
         extends BaseStatsCalculatorTest
@@ -87,6 +91,14 @@ public class TestJoinStatsRule
             new FilterStatsCalculator(METADATA, new ScalarStatsCalculator(METADATA), NORMALIZER),
             NORMALIZER,
             1.0);
+    private static final TypeProvider TYPES = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
+            .put(new Symbol(LEFT_JOIN_COLUMN), BIGINT)
+            .put(new Symbol(LEFT_JOIN_COLUMN_2), DOUBLE)
+            .put(new Symbol(RIGHT_JOIN_COLUMN), BIGINT)
+            .put(new Symbol(RIGHT_JOIN_COLUMN_2), DOUBLE)
+            .put(new Symbol(LEFT_OTHER_COLUMN), DOUBLE)
+            .put(new Symbol(RIGHT_OTHER_COLUMN), BIGINT)
+            .build());
 
     @Test
     public void testStatsForInnerJoin()
@@ -183,49 +195,64 @@ public class TestJoinStatsRule
     @Test
     public void testJoinComplementStats()
     {
-        PlanNodeStatsEstimate joinComplementStats = planNodeStats(LEFT_ROWS_COUNT * (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4),
+        PlanNodeStatsEstimate expected = planNodeStats(LEFT_ROWS_COUNT * (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4),
                 symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, LEFT_JOIN_COLUMN_NULLS / (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4), 5),
                 LEFT_OTHER_COLUMN_STATS);
-
-        assertThat(JOIN_STATS_RULE.calculateJoinComplementStats(
+        PlanNodeStatsEstimate actual = JOIN_STATS_RULE.calculateJoinComplementStats(
                 Optional.empty(),
-                ImmutableList.of(new JoinNode.EquiJoinClause(new Symbol(LEFT_JOIN_COLUMN), new Symbol(RIGHT_JOIN_COLUMN))),
-                LEFT_STATS, RIGHT_STATS)).equalTo(joinComplementStats);
+                ImmutableList.of(new EquiJoinClause(new Symbol(LEFT_JOIN_COLUMN), new Symbol(RIGHT_JOIN_COLUMN))),
+                LEFT_STATS,
+                RIGHT_STATS,
+                TYPES);
+        assertEquals(actual, expected);
     }
 
     @Test
     public void testRightJoinComplementStats()
     {
-        PlanNodeStatsEstimate joinComplementStats = planNodeStats(RIGHT_ROWS_COUNT * RIGHT_JOIN_COLUMN_NULLS,
-                symbolStatistics(RIGHT_JOIN_COLUMN, NaN, NaN, 1.0, 0),
-                RIGHT_OTHER_COLUMN_STATS);
-
-        assertThat(JOIN_STATS_RULE.calculateJoinComplementStats(
+        PlanNodeStatsEstimate expected = NORMALIZER.normalize(
+                planNodeStats(
+                        RIGHT_ROWS_COUNT * RIGHT_JOIN_COLUMN_NULLS,
+                        symbolStatistics(RIGHT_JOIN_COLUMN, NaN, NaN, 1.0, 0),
+                        RIGHT_OTHER_COLUMN_STATS),
+                TYPES);
+        PlanNodeStatsEstimate actual = JOIN_STATS_RULE.calculateJoinComplementStats(
                 Optional.empty(),
-                ImmutableList.of(new JoinNode.EquiJoinClause(new Symbol(RIGHT_JOIN_COLUMN), new Symbol(LEFT_JOIN_COLUMN))),
-                RIGHT_STATS, LEFT_STATS)).equalTo(joinComplementStats);
+                ImmutableList.of(new EquiJoinClause(new Symbol(RIGHT_JOIN_COLUMN), new Symbol(LEFT_JOIN_COLUMN))),
+                RIGHT_STATS,
+                LEFT_STATS,
+                TYPES);
+        assertEquals(actual, expected);
     }
 
     @Test
     public void testLeftJoinComplementStatsWithNoClauses()
     {
-        assertThat(JOIN_STATS_RULE.calculateJoinComplementStats(
+        PlanNodeStatsEstimate expected = NORMALIZER.normalize(LEFT_STATS.mapOutputRowCount(rowCount -> 0.0), TYPES);
+        PlanNodeStatsEstimate actual = JOIN_STATS_RULE.calculateJoinComplementStats(
                 Optional.empty(),
                 ImmutableList.of(),
-                LEFT_STATS, RIGHT_STATS)).equalTo(LEFT_STATS.mapOutputRowCount(rowCount -> 0.0));
+                LEFT_STATS,
+                RIGHT_STATS,
+                TYPES);
+        assertEquals(actual, expected);
     }
 
     @Test
     public void testLeftJoinComplementStatsWithMultipleClauses()
     {
-        PlanNodeStatsEstimate joinComplementStats = planNodeStats(LEFT_ROWS_COUNT * (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4),
+        PlanNodeStatsEstimate expected = planNodeStats(
+                LEFT_ROWS_COUNT * (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4),
                 symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, LEFT_JOIN_COLUMN_NULLS / (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4), 5),
-                LEFT_OTHER_COLUMN_STATS).mapOutputRowCount(rowCount -> rowCount / UNKNOWN_FILTER_COEFFICIENT);
-
-        assertThat(JOIN_STATS_RULE.calculateJoinComplementStats(
+                LEFT_OTHER_COLUMN_STATS)
+                .mapOutputRowCount(rowCount -> rowCount / UNKNOWN_FILTER_COEFFICIENT);
+        PlanNodeStatsEstimate actual = JOIN_STATS_RULE.calculateJoinComplementStats(
                 Optional.empty(),
-                ImmutableList.of(new JoinNode.EquiJoinClause(new Symbol(LEFT_JOIN_COLUMN), new Symbol(RIGHT_JOIN_COLUMN)), new JoinNode.EquiJoinClause(new Symbol(LEFT_OTHER_COLUMN), new Symbol(RIGHT_OTHER_COLUMN))),
-                LEFT_STATS, RIGHT_STATS)).equalTo(joinComplementStats);
+                ImmutableList.of(new EquiJoinClause(new Symbol(LEFT_JOIN_COLUMN), new Symbol(RIGHT_JOIN_COLUMN)), new EquiJoinClause(new Symbol(LEFT_OTHER_COLUMN), new Symbol(RIGHT_OTHER_COLUMN))),
+                LEFT_STATS,
+                RIGHT_STATS,
+                TYPES);
+        assertEquals(actual, expected);
     }
 
     @Test
