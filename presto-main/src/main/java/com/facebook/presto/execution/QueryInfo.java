@@ -344,7 +344,7 @@ public class QueryInfo
     @JsonProperty
     public boolean isFinalQueryInfo()
     {
-        return state.isDone() && getAllStages(outputStage).stream().allMatch(StageInfo::isFinalStageInfo);
+        return state.equals(QueryState.FAILED) || state.isDone() && getAllStages(outputStage).stream().allMatch(StageInfo::isFinalStageInfo);
     }
 
     @JsonProperty
