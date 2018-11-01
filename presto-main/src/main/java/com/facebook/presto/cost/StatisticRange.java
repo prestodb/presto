@@ -15,6 +15,7 @@ package com.facebook.presto.cost;
 
 import java.util.Objects;
 
+import static com.facebook.presto.util.MoreMath.roundToDouble;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Double.NaN;
@@ -53,8 +54,8 @@ public class StatisticRange
         this.low = low;
         this.high = high;
 
-        checkArgument(distinctValues >= 0 || isNaN(distinctValues), "Distinct values count should be non-negative, got: %s", distinctValues);
-        this.distinctValues = distinctValues;
+        checkArgument((isFinite(distinctValues) && distinctValues >= 0) || isNaN(distinctValues), "distinctValues must be a finite non-negative or NaN, got: %s", distinctValues);
+        this.distinctValues = roundToDouble(distinctValues);
     }
 
     public static StatisticRange empty()

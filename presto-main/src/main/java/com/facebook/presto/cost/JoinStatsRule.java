@@ -37,6 +37,7 @@ import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEF
 import static com.facebook.presto.cost.SymbolStatsEstimate.buildFrom;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static com.facebook.presto.util.MoreMath.roundToDouble;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.difference;
@@ -313,7 +314,7 @@ public class JoinStatsRule
 
         // TODO: use range methods when they have defined (and consistent) semantics
         double leftNDV = leftColumnStats.getDistinctValuesCount();
-        double matchingRightNDV = rightColumnStats.getDistinctValuesCount() * unmatchedJoinComplementNdvsCoefficient;
+        double matchingRightNDV = roundToDouble(rightColumnStats.getDistinctValuesCount() * unmatchedJoinComplementNdvsCoefficient);
 
         if (leftNDV > matchingRightNDV) {
             // Assume "excessive" left NDVs and left null rows are unmatched.

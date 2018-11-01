@@ -243,7 +243,7 @@ public class TestComparisonStatsCalculator
 
         // Literal on the edge of symbol range
         assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("x"), new DoubleLiteral("10.0")))
-                .outputRowsCount(18.75) // all rows minus nulls divided by distinct values count
+                .outputRowsCount(19) // all rows minus nulls divided by distinct values count
                 .symbolStats("x", symbolAssert -> {
                     symbolAssert.averageRowSize(4.0)
                             .distinctValuesCount(1.0)
@@ -328,7 +328,7 @@ public class TestComparisonStatsCalculator
 
         // Literal on the edge of symbol range
         assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("x"), new DoubleLiteral("10.0")))
-                .outputRowsCount(731.25) // all rows minus nulls multiplied by ((distinct values - 1) / distinct values)
+                .outputRowsCount(731) // all rows minus nulls multiplied by ((distinct values - 1) / distinct values)
                 .symbolStats("x", symbolAssert -> {
                     symbolAssert.averageRowSize(4.0)
                             .distinctValuesCount(39.0)
@@ -425,7 +425,7 @@ public class TestComparisonStatsCalculator
 
         // Literal on the edge of symbol range (whole range excluded)
         assertCalculate(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral("-10.0")))
-                .outputRowsCount(18.75) // all rows minus nulls divided by NDV (one value from edge is included as approximation)
+                .outputRowsCount(19) // all rows minus nulls divided by NDV (one value from edge is included as approximation)
                 .symbolStats("x", symbolAssert -> {
                     symbolAssert.averageRowSize(4.0)
                             .distinctValuesCount(1.0)
@@ -460,7 +460,7 @@ public class TestComparisonStatsCalculator
                 .outputRowsCount(225.0) // all rows minus nulls times range coverage (25% - heuristic)
                 .symbolStats("rightOpen", symbolAssert -> {
                     symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(12.5) //(25% heuristic)
+                            .distinctValuesCount(13) //(25% heuristic)
                             .lowValue(-15.0)
                             .highValue(0.0)
                             .nullsFraction(0.0);
@@ -510,7 +510,7 @@ public class TestComparisonStatsCalculator
 
         // Literal on the edge of symbol range (whole range excluded)
         assertCalculate(new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new DoubleLiteral("10.0")))
-                .outputRowsCount(18.75) // all rows minus nulls divided by NDV (one value from edge is included as approximation)
+                .outputRowsCount(19) // all rows minus nulls divided by NDV (one value from edge is included as approximation)
                 .symbolStats("x", symbolAssert -> {
                     symbolAssert.averageRowSize(4.0)
                             .distinctValuesCount(1.0)
@@ -534,7 +534,7 @@ public class TestComparisonStatsCalculator
                 .outputRowsCount(225.0) // all rows minus nulls times range coverage (25% - heuristic)
                 .symbolStats("leftOpen", symbolAssert -> {
                     symbolAssert.averageRowSize(4.0)
-                            .distinctValuesCount(12.5) //(25% heuristic)
+                            .distinctValuesCount(13) //(25% heuristic)
                             .lowValue(0.0)
                             .highValue(15.0)
                             .nullsFraction(0.0);
@@ -573,7 +573,7 @@ public class TestComparisonStatsCalculator
     {
         // z's stats should be unchanged when not involved, except NDV capping to row count
         // Equal ranges
-        double rowCount = 2.7;
+        double rowCount = 3;
         assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("u"), new SymbolReference("w")))
                 .outputRowsCount(rowCount)
                 .symbolStats("u", equalTo(capNDV(zeroNullsFraction(uStats), rowCount)))
@@ -581,61 +581,61 @@ public class TestComparisonStatsCalculator
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
 
         // One symbol's range is within the other's
-        rowCount = 9.375;
+        rowCount = 9;
         assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("x"), new SymbolReference("y")))
                 .outputRowsCount(rowCount)
                 .symbolStats("x", symbolAssert -> {
                     symbolAssert.averageRowSize(4)
                             .lowValue(0)
                             .highValue(5)
-                            .distinctValuesCount(9.375 /* min(rowCount, ndv in intersection */)
+                            .distinctValuesCount(9 /* min(rowCount, ndv in intersection */)
                             .nullsFraction(0);
                 })
                 .symbolStats("y", symbolAssert -> {
                     symbolAssert.averageRowSize(4)
                             .lowValue(0)
                             .highValue(5)
-                            .distinctValuesCount(9.375 /* min(rowCount, ndv in intersection */)
+                            .distinctValuesCount(9 /* min(rowCount, ndv in intersection */)
                             .nullsFraction(0);
                 })
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
 
         // Partially overlapping ranges
-        rowCount = 16.875;
+        rowCount = 17;
         assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("x"), new SymbolReference("w")))
                 .outputRowsCount(rowCount)
                 .symbolStats("x", symbolAssert -> {
                     symbolAssert.averageRowSize(6)
                             .lowValue(0)
                             .highValue(10)
-                            .distinctValuesCount(16.875 /* min(rowCount, ndv in intersection */)
+                            .distinctValuesCount(17 /* min(rowCount, ndv in intersection */)
                             .nullsFraction(0);
                 })
                 .symbolStats("w", symbolAssert -> {
                     symbolAssert.averageRowSize(6)
                             .lowValue(0)
                             .highValue(10)
-                            .distinctValuesCount(16.875 /* min(rowCount, ndv in intersection */)
+                            .distinctValuesCount(17 /* min(rowCount, ndv in intersection */)
                             .nullsFraction(0);
                 })
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
 
         // None of the ranges is included in the other, and one symbol has much higher cardinality, so that it has bigger NDV in intersect than the other in total
-        rowCount = 2.25;
+        rowCount = 2;
         assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("x"), new SymbolReference("u")))
                 .outputRowsCount(rowCount)
                 .symbolStats("x", symbolAssert -> {
                     symbolAssert.averageRowSize(6)
                             .lowValue(0)
                             .highValue(10)
-                            .distinctValuesCount(2.25 /* min(rowCount, ndv in intersection */)
+                            .distinctValuesCount(2 /* min(rowCount, ndv in intersection */)
                             .nullsFraction(0);
                 })
                 .symbolStats("u", symbolAssert -> {
                     symbolAssert.averageRowSize(6)
                             .lowValue(0)
                             .highValue(10)
-                            .distinctValuesCount(2.25 /* min(rowCount, ndv in intersection */)
+                            .distinctValuesCount(2 /* min(rowCount, ndv in intersection */)
                             .nullsFraction(0);
                 })
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
@@ -645,7 +645,7 @@ public class TestComparisonStatsCalculator
     public void symbolToSymbolNotEqual()
     {
         // Equal ranges
-        double rowCount = 807.3;
+        double rowCount = 807;
         assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("u"), new SymbolReference("w")))
                 .outputRowsCount(rowCount)
                 .symbolStats("u", equalTo(capNDV(zeroNullsFraction(uStats), rowCount)))
@@ -653,7 +653,7 @@ public class TestComparisonStatsCalculator
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
 
         // One symbol's range is within the other's
-        rowCount = 365.625;
+        rowCount = 366;
         assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("x"), new SymbolReference("y")))
                 .outputRowsCount(rowCount)
                 .symbolStats("x", equalTo(capNDV(zeroNullsFraction(xStats), rowCount)))
@@ -661,7 +661,7 @@ public class TestComparisonStatsCalculator
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
 
         // Partially overlapping ranges
-        rowCount = 658.125;
+        rowCount = 658;
         assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("x"), new SymbolReference("w")))
                 .outputRowsCount(rowCount)
                 .symbolStats("x", equalTo(capNDV(zeroNullsFraction(xStats), rowCount)))
@@ -669,7 +669,7 @@ public class TestComparisonStatsCalculator
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
 
         // None of the ranges is included in the other, and one symbol has much higher cardinality, so that it has bigger NDV in intersect than the other in total
-        rowCount = 672.75;
+        rowCount = 673;
         assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("x"), new SymbolReference("u")))
                 .outputRowsCount(rowCount)
                 .symbolStats("x", equalTo(capNDV(zeroNullsFraction(xStats), rowCount)))
@@ -680,14 +680,14 @@ public class TestComparisonStatsCalculator
     @Test
     public void symbolToCastExpressionNotEqual()
     {
-        double rowCount = 807.3;
+        double rowCount = 807;
         assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("u"), new Cast(new SymbolReference("w"), BIGINT)))
                 .outputRowsCount(rowCount)
                 .symbolStats("u", equalTo(capNDV(zeroNullsFraction(uStats), rowCount)))
                 .symbolStats("w", equalTo(capNDV(wStats, rowCount)))
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
 
-        rowCount = 897.0;
+        rowCount = 897;
         assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("u"), new Cast(new LongLiteral("10"), BIGINT)))
                 .outputRowsCount(rowCount)
                 .symbolStats("u", equalTo(capNDV(updateNDV(zeroNullsFraction(uStats), -1), rowCount)))

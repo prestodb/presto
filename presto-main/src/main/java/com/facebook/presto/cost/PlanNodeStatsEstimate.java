@@ -31,9 +31,11 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.util.MoreMath.firstNonNaN;
+import static com.facebook.presto.util.MoreMath.roundToDouble;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Double.NaN;
+import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 import static java.util.Objects.requireNonNull;
 
@@ -60,8 +62,8 @@ public class PlanNodeStatsEstimate
 
     private PlanNodeStatsEstimate(double outputRowCount, PMap<Symbol, SymbolStatsEstimate> symbolStatistics)
     {
-        checkArgument(isNaN(outputRowCount) || outputRowCount >= 0, "outputRowCount cannot be negative");
-        this.outputRowCount = outputRowCount;
+        checkArgument((isFinite(outputRowCount) && outputRowCount >= 0) || isNaN(outputRowCount), "outputRowCount must be finite and non-negative or NaN, got: %s", outputRowCount);
+        this.outputRowCount = roundToDouble(outputRowCount);
         this.symbolStatistics = symbolStatistics;
     }
 

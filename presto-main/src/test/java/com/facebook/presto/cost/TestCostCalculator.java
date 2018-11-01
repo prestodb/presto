@@ -305,17 +305,17 @@ public class TestCostCalculator
 
         assertCost(aggregation, costs, stats, types)
                 .cpu(6000 * IS_NULL_OVERHEAD + 6000)
-                .memory(13 * IS_NULL_OVERHEAD)
+                .memory(16 * IS_NULL_OVERHEAD)
                 .network(0);
 
         assertCostEstimatedExchanges(aggregation, costs, stats, types)
                 .cpu((6000 + 6000 + 6000) * IS_NULL_OVERHEAD + 6000)
-                .memory(13 * IS_NULL_OVERHEAD)
+                .memory(16 * IS_NULL_OVERHEAD)
                 .network(6000 * IS_NULL_OVERHEAD);
 
         assertCostFragmentedPlan(aggregation, costs, stats, types)
                 .cpu(6000 + 6000 * IS_NULL_OVERHEAD)
-                .memory(13 * IS_NULL_OVERHEAD)
+                .memory(16 * IS_NULL_OVERHEAD)
                 .network(0 * IS_NULL_OVERHEAD);
 
         assertCostHasUnknownComponentsForUnknownStats(aggregation, types);

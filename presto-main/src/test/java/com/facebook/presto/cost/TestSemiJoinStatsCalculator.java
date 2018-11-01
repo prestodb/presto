@@ -24,6 +24,7 @@ import static com.facebook.presto.cost.SemiJoinStatsCalculator.computeSemiJoin;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
+import static java.lang.Math.round;
 
 public class TestSemiJoinStatsCalculator
 {
@@ -143,7 +144,7 @@ public class TestSemiJoinStatsCalculator
                         .distinctValuesCount(wStats.getDistinctValuesCount()))
                 .symbolStats(w, stats -> stats.isEqualTo(wStats))
                 .symbolStats(z, stats -> stats.isEqualTo(zStats))
-                .outputRowsCount(inputStatistics.getOutputRowCount() * xStats.getValuesFraction() * (wStats.getDistinctValuesCount() / xStats.getDistinctValuesCount()));
+                .outputRowsCount(round(inputStatistics.getOutputRowCount() * xStats.getValuesFraction() * (wStats.getDistinctValuesCount() / xStats.getDistinctValuesCount())));
 
         // overlapping ranges, nothing filtered out
         assertThat(computeSemiJoin(inputStatistics, inputStatistics, x, u))

@@ -15,7 +15,11 @@ package com.facebook.presto.util;
 
 import java.util.stream.DoubleStream;
 
+import static com.google.common.base.Verify.verify;
+import static com.google.common.math.DoubleMath.isMathematicalInteger;
+import static com.google.common.math.DoubleMath.roundToBigInteger;
 import static java.lang.Double.isNaN;
+import static java.math.RoundingMode.HALF_UP;
 
 public final class MoreMath
 {
@@ -109,5 +113,15 @@ public final class MoreMath
             }
         }
         throw new IllegalArgumentException("All values are NaN");
+    }
+
+    public static double roundToDouble(double value)
+    {
+        if (isNaN(value) || isMathematicalInteger(value)) {
+            return value;
+        }
+        double result = roundToBigInteger(value, HALF_UP).doubleValue();
+        verify(isMathematicalInteger(result));
+        return result;
     }
 }

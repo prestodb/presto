@@ -117,12 +117,12 @@ public class TestUnionStatsRule
                         .symbolStats("o2", assertion -> assertion
                                 .lowValue(0)
                                 .highValue(7)
-                                .distinctValuesCount(6.4)
+                                .distinctValuesCount(6)
                                 .nullsFractionUnknown())
                         .symbolStats("o3", assertion -> assertion
                                 .lowValueUnknown()
                                 .highValueUnknown()
-                                .distinctValuesCount(8.5)
+                                .distinctValuesCount(9)
                                 .nullsFraction(0.1666667))
                         .symbolStats("o4", assertion -> assertion
                                 .lowValue(10)
