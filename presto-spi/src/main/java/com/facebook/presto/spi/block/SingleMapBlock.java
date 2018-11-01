@@ -24,6 +24,7 @@ import java.util.function.BiConsumer;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.block.AbstractMapBlock.HASH_MULTIPLIER;
+import static com.facebook.presto.spi.block.MapBlockBuilder.computePosition;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static java.lang.String.format;
@@ -153,9 +154,9 @@ public class SingleMapBlock
 
         int hashTableOffset = offset / 2 * HASH_MULTIPLIER;
         int hashTableSize = positionCount / 2 * HASH_MULTIPLIER;
-        int hash = (int) Math.floorMod(hashCode, hashTableSize);
+        int position = computePosition(hashCode, hashTableSize);
         while (true) {
-            int keyPosition = hashTable[hashTableOffset + hash];
+            int keyPosition = hashTable[hashTableOffset + position];
             if (keyPosition == -1) {
                 return -1;
             }
@@ -171,9 +172,9 @@ public class SingleMapBlock
             if (match) {
                 return keyPosition * 2 + 1;
             }
-            hash++;
-            if (hash == hashTableSize) {
-                hash = 0;
+            position++;
+            if (position == hashTableSize) {
+                position = 0;
             }
         }
     }
@@ -200,9 +201,9 @@ public class SingleMapBlock
 
         int hashTableOffset = offset / 2 * HASH_MULTIPLIER;
         int hashTableSize = positionCount / 2 * HASH_MULTIPLIER;
-        int hash = (int) Math.floorMod(hashCode, hashTableSize);
+        int position = computePosition(hashCode, hashTableSize);
         while (true) {
-            int keyPosition = hashTable[hashTableOffset + hash];
+            int keyPosition = hashTable[hashTableOffset + position];
             if (keyPosition == -1) {
                 return -1;
             }
@@ -218,9 +219,9 @@ public class SingleMapBlock
             if (match) {
                 return keyPosition * 2 + 1;
             }
-            hash++;
-            if (hash == hashTableSize) {
-                hash = 0;
+            position++;
+            if (position == hashTableSize) {
+                position = 0;
             }
         }
     }
@@ -244,9 +245,9 @@ public class SingleMapBlock
 
         int hashTableOffset = offset / 2 * HASH_MULTIPLIER;
         int hashTableSize = positionCount / 2 * HASH_MULTIPLIER;
-        int hash = (int) Math.floorMod(hashCode, hashTableSize);
+        int position = computePosition(hashCode, hashTableSize);
         while (true) {
-            int keyPosition = hashTable[hashTableOffset + hash];
+            int keyPosition = hashTable[hashTableOffset + position];
             if (keyPosition == -1) {
                 return -1;
             }
@@ -262,9 +263,9 @@ public class SingleMapBlock
             if (match) {
                 return keyPosition * 2 + 1;
             }
-            hash++;
-            if (hash == hashTableSize) {
-                hash = 0;
+            position++;
+            if (position == hashTableSize) {
+                position = 0;
             }
         }
     }
@@ -288,9 +289,9 @@ public class SingleMapBlock
 
         int hashTableOffset = offset / 2 * HASH_MULTIPLIER;
         int hashTableSize = positionCount / 2 * HASH_MULTIPLIER;
-        int hash = (int) Math.floorMod(hashCode, hashTableSize);
+        int position = computePosition(hashCode, hashTableSize);
         while (true) {
-            int keyPosition = hashTable[hashTableOffset + hash];
+            int keyPosition = hashTable[hashTableOffset + position];
             if (keyPosition == -1) {
                 return -1;
             }
@@ -306,9 +307,9 @@ public class SingleMapBlock
             if (match) {
                 return keyPosition * 2 + 1;
             }
-            hash++;
-            if (hash == hashTableSize) {
-                hash = 0;
+            position++;
+            if (position == hashTableSize) {
+                position = 0;
             }
         }
     }
@@ -332,9 +333,9 @@ public class SingleMapBlock
 
         int hashTableOffset = offset / 2 * HASH_MULTIPLIER;
         int hashTableSize = positionCount / 2 * HASH_MULTIPLIER;
-        int hash = (int) Math.floorMod(hashCode, hashTableSize);
+        int position = computePosition(hashCode, hashTableSize);
         while (true) {
-            int keyPosition = hashTable[hashTableOffset + hash];
+            int keyPosition = hashTable[hashTableOffset + position];
             if (keyPosition == -1) {
                 return -1;
             }
@@ -350,9 +351,9 @@ public class SingleMapBlock
             if (match) {
                 return keyPosition * 2 + 1;
             }
-            hash++;
-            if (hash == hashTableSize) {
-                hash = 0;
+            position++;
+            if (position == hashTableSize) {
+                position = 0;
             }
         }
     }
@@ -376,9 +377,9 @@ public class SingleMapBlock
 
         int hashTableOffset = offset / 2 * HASH_MULTIPLIER;
         int hashTableSize = positionCount / 2 * HASH_MULTIPLIER;
-        int hash = (int) Math.floorMod(hashCode, hashTableSize);
+        int position = computePosition(hashCode, hashTableSize);
         while (true) {
-            int keyPosition = hashTable[hashTableOffset + hash];
+            int keyPosition = hashTable[hashTableOffset + position];
             if (keyPosition == -1) {
                 return -1;
             }
@@ -394,9 +395,9 @@ public class SingleMapBlock
             if (match) {
                 return keyPosition * 2 + 1;
             }
-            hash++;
-            if (hash == hashTableSize) {
-                hash = 0;
+            position++;
+            if (position == hashTableSize) {
+                position = 0;
             }
         }
     }
