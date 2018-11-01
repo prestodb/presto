@@ -372,8 +372,15 @@ public class SourcePartitionedScheduler
             return new ScheduleResult(false, overallNewTasks.build(), overallSplitAssignmentCount);
         }
 
-        // Only try to finalize task creation when scheduling would block
-        overallNewTasks.addAll(finalizeTaskCreationIfNecessary());
+        if (anyBlockedOnPlacements) {
+            // This prevents potential deadlock on the probe side of broadcast join,
+            // when both probe and builder size are large.
+            //
+            // When a deadlock happens, output buffer on the builder source stage cannot be purged before probe
+            // side task schedule finished. In the meantime the probe side split cannot be consumed
+            // since builder side hash table construction is not finished.
+            overallNewTasks.addAll(finalizeTaskCreationIfNecessary());
+        }
 
         ScheduleResult.BlockedReason blockedReason;
         if (anyBlockedOnNextSplitBatch) {
