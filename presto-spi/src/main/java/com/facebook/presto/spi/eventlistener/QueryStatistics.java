@@ -24,6 +24,7 @@ public class QueryStatistics
     private final Duration cpuTime;
     private final Duration wallTime;
     private final Duration queuedTime;
+    private final Duration elapsedTime;
     private final Optional<Duration> analysisTime;
     private final Optional<Duration> distributedPlanningTime;
 
@@ -35,13 +36,16 @@ public class QueryStatistics
     private final long totalRows;
     private final long outputBytes;
     private final long outputRows;
-    private final long writtenBytes;
-    private final long writtenRows;
+    private final long logicalWrittenBytes;
+    private final long logicalWrittenRows;
+    private final long physicalWrittenBytes;
 
     private final double cumulativeMemory;
 
     private final List<StageGcStatistics> stageGcStatistics;
 
+    private final int totalDrivers;
+    private final int totalTasks;
     private final int completedSplits;
     private final boolean complete;
 
@@ -62,14 +66,18 @@ public class QueryStatistics
             long totalRows,
             long outputBytes,
             long outputRows,
-            long writtenBytes,
-            long writtenRows,
+            long logicalWrittenBytes,
+            long logicalWrittenRows,
             double cumulativeMemory,
             List<StageGcStatistics> stageGcStatistics,
             int completedSplits,
             boolean complete,
             List<StageCpuDistribution> cpuTimeDistribution,
-            List<String> operatorSummaries)
+            List<String> operatorSummaries,
+            Duration elapsedTime,
+            int totalDrivers,
+            int totalTasks,
+            long physicalWrittenBytes)
     {
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
         this.wallTime = requireNonNull(wallTime, "wallTime is null");
@@ -83,14 +91,18 @@ public class QueryStatistics
         this.totalRows = totalRows;
         this.outputBytes = outputBytes;
         this.outputRows = outputRows;
-        this.writtenBytes = writtenBytes;
-        this.writtenRows = writtenRows;
+        this.logicalWrittenBytes = logicalWrittenBytes;
+        this.logicalWrittenRows = logicalWrittenRows;
         this.cumulativeMemory = cumulativeMemory;
         this.stageGcStatistics = requireNonNull(stageGcStatistics, "stageGcStatistics is null");
         this.completedSplits = completedSplits;
         this.complete = complete;
         this.cpuTimeDistribution = requireNonNull(cpuTimeDistribution, "cpuTimeDistribution is null");
         this.operatorSummaries = requireNonNull(operatorSummaries, "operatorSummaries is null");
+        this.elapsedTime = elapsedTime;
+        this.totalDrivers = totalDrivers;
+        this.totalTasks = totalTasks;
+        this.physicalWrittenBytes = physicalWrittenBytes;
     }
 
     public Duration getCpuTime()
@@ -155,12 +167,12 @@ public class QueryStatistics
 
     public long getWrittenBytes()
     {
-        return writtenBytes;
+        return logicalWrittenBytes;
     }
 
     public long getWrittenRows()
     {
-        return writtenRows;
+        return logicalWrittenRows;
     }
 
     public double getCumulativeMemory()
@@ -191,5 +203,40 @@ public class QueryStatistics
     public List<String> getOperatorSummaries()
     {
         return operatorSummaries;
+    }
+
+    public Duration getElapsedTime()
+    {
+        return elapsedTime;
+    }
+
+    public long getPeakTaskTotalMemory()
+    {
+        return peakTaskTotalMemory;
+    }
+
+    public long getLogicalWrittenBytes()
+    {
+        return logicalWrittenBytes;
+    }
+
+    public long getLogicalWrittenRows()
+    {
+        return logicalWrittenRows;
+    }
+
+    public long getPhysicalWrittenBytes()
+    {
+        return physicalWrittenBytes;
+    }
+
+    public int getTotalDrivers()
+    {
+        return totalDrivers;
+    }
+
+    public int getTotalTasks()
+    {
+        return totalTasks;
     }
 }
