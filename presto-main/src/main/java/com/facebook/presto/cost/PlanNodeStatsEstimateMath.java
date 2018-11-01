@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.cost;
 
-import java.util.stream.Stream;
+import static java.util.stream.Stream.concat;
 
 public class PlanNodeStatsEstimateMath
 {
@@ -43,10 +43,14 @@ public class PlanNodeStatsEstimateMath
 
     private static PlanNodeStatsEstimate addStats(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right, RangeAdditionStrategy strategy)
     {
+        if (left.isOutputRowCountUnknown() || right.isOutputRowCountUnknown()) {
+            return PlanNodeStatsEstimate.unknown();
+        }
+
         PlanNodeStatsEstimate.Builder statsBuilder = PlanNodeStatsEstimate.builder();
         double newRowCount = left.getOutputRowCount() + right.getOutputRowCount();
 
-        Stream.concat(left.getSymbolsWithKnownStatistics().stream(), right.getSymbolsWithKnownStatistics().stream())
+        concat(left.getSymbolsWithKnownStatistics().stream(), right.getSymbolsWithKnownStatistics().stream())
                 .distinct()
                 .forEach(symbol -> {
                     statsBuilder.addSymbolStatistics(symbol,
@@ -72,12 +76,15 @@ public class PlanNodeStatsEstimateMath
         double nullsCountLeft = leftStats.getNullsFraction() * leftRows;
         double totalSizeLeft = (leftRows - nullsCountLeft) * leftStats.getAverageRowSize();
         double totalSizeRight = (rightRows - nullsCountRight) * rightStats.getAverageRowSize();
-        double newNullsFraction = (nullsCountLeft + nullsCountRight) / newRowCount;
+        double newNullsFraction = newRowCount == 0 ? 1.0 : ((nullsCountLeft + nullsCountRight) / newRowCount);
         double newNonNullsRowCount = newRowCount * (1.0 - newNullsFraction);
+
+        // FIXME, weights to average. left and right should be equal in most cases anyway
+        double newAverageRowSize = newNonNullsRowCount == 0 ? 0 : ((totalSizeLeft + totalSizeRight) / newNonNullsRowCount);
 
         return SymbolStatsEstimate.builder()
                 .setStatisticsRange(sum)
-                .setAverageRowSize((totalSizeLeft + totalSizeRight) / newNonNullsRowCount) // FIXME, weights to average. left and right should be equal in most cases anyway
+                .setAverageRowSize(newAverageRowSize)
                 .setNullsFraction(newNullsFraction)
                 .build();
     }
