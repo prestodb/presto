@@ -51,20 +51,20 @@ import java.util.OptionalDouble;
 
 import static com.facebook.presto.cost.ComparisonStatsCalculator.estimateExpressionToExpressionComparison;
 import static com.facebook.presto.cost.ComparisonStatsCalculator.estimateExpressionToLiteralComparison;
-import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndSumDistinctValues;
-import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.differenceInNonRangeStats;
-import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.differenceInStats;
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.ExpressionUtils.and;
+import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
+import static java.lang.Double.max;
 import static java.lang.Double.min;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -160,11 +160,86 @@ public class FilterStatsCalculator
             if (node.getValue() instanceof IsNullPredicate) {
                 return process(new IsNotNullPredicate(((IsNullPredicate) node.getValue()).getValue()));
             }
-            PlanNodeStatsEstimate sourceStats = process(node.getValue());
-            if (sourceStats.isOutputRowCountUnknown()) {
+            PlanNodeStatsEstimate source = process(node.getValue());
+            if (source.isOutputRowCountUnknown()) {
                 return PlanNodeStatsEstimate.unknown();
             }
-            return differenceInStats(input, sourceStats);
+            double inputRowCount = input.getOutputRowCount();
+            double sourceRowsCount = source.getOutputRowCount();
+            double outputRowCount = inputRowCount - sourceRowsCount;
+            verify(outputRowCount >= 0, "outputRowCount must be greater than or equal to zero: %s", outputRowCount);
+
+            // everything will be filtered out after applying negation
+            if (outputRowCount == 0) {
+                return process(FALSE_LITERAL);
+            }
+
+            PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
+            result.setOutputRowCount(outputRowCount);
+
+            input.getSymbolsWithKnownStatistics().forEach(symbol -> {
+                SymbolStatsEstimate inputSymbolStats = input.getSymbolStatistics(symbol);
+                SymbolStatsEstimate sourceSymbolStats = source.getSymbolStatistics(symbol);
+
+                SymbolStatsEstimate.Builder newSymbolStats = SymbolStatsEstimate.builder();
+
+                // average row size should remain the same
+                newSymbolStats.setAverageRowSize(inputSymbolStats.getAverageRowSize());
+
+                double inputNullsCount = inputSymbolStats.getNullsFraction() * inputRowCount;
+                double sourceNullsCount = sourceSymbolStats.getNullsFraction() * sourceRowsCount;
+                double newNullsCount = inputNullsCount - sourceNullsCount;
+                verify(isNaN(newNullsCount) || newNullsCount >= 0, "newNullsCount must be greater or equal than zero: %s", newNullsCount);
+                newSymbolStats.setNullsFraction(min(newNullsCount, outputRowCount) / outputRowCount);
+
+                double inputDistinctValues = inputSymbolStats.getDistinctValuesCount();
+                double sourceDistinctValues = sourceSymbolStats.getDistinctValuesCount();
+
+                double newDistinctValuesCount = inputDistinctValues;
+                if (inputDistinctValues > 0 && sourceDistinctValues > 0) {
+                    double inputNonNullsCount = inputRowCount - inputNullsCount;
+                    double sourceNonNullsCount = sourceRowsCount - sourceNullsCount;
+                    double inputValuesPerDistinctValue = inputNonNullsCount / inputDistinctValues;
+                    double sourceValuesPerDistinctValue = sourceNonNullsCount / sourceDistinctValues;
+                    if (inputValuesPerDistinctValue <= sourceValuesPerDistinctValue) {
+                        newDistinctValuesCount = inputDistinctValues - sourceDistinctValues;
+                    }
+                }
+                verify(isNaN(newDistinctValuesCount) || newDistinctValuesCount >= 0, "newDistinctValuesCount must be greater or equal than zero: %s", newDistinctValuesCount);
+                newSymbolStats.setDistinctValuesCount(newDistinctValuesCount);
+
+                double inputLow = inputSymbolStats.getLowValue();
+                double inputHigh = inputSymbolStats.getHighValue();
+                double sourceLow = sourceSymbolStats.getLowValue();
+                double sourceHigh = sourceSymbolStats.getHighValue();
+
+                // empty range
+                if (isNaN(inputLow) || isNaN(inputHigh) || isNaN(sourceLow) || isNaN(sourceHigh)) {
+                    newSymbolStats.setHighValue(inputHigh);
+                    newSymbolStats.setLowValue(inputLow);
+                }
+                else {
+                    verify(inputLow <= sourceLow, "inputLow [%s] must be less than or equal to sourceLow [%s]", inputLow, sourceLow);
+                    verify(inputHigh >= sourceHigh, "inputHigh [%s] must be greater than or equal to sourceHigh [%s]", inputHigh, sourceHigh);
+
+                    double newLow = inputLow;
+                    double newHigh = inputHigh;
+
+                    if (inputLow == sourceLow && inputHigh != sourceHigh) {
+                        newLow = sourceHigh;
+                    }
+                    if (inputHigh == sourceHigh && inputLow != sourceLow) {
+                        newHigh = sourceLow;
+                    }
+
+                    newSymbolStats.setHighValue(newHigh);
+                    newSymbolStats.setLowValue(newLow);
+                }
+
+                result.addSymbolStatistics(symbol, newSymbolStats.build());
+            });
+
+            return result.build();
         }
 
         @Override
@@ -222,15 +297,61 @@ public class FilterStatsCalculator
                 return PlanNodeStatsEstimate.unknown();
             }
 
-            PlanNodeStatsEstimate logicalAndEstimate = new FilterExpressionStatsCalculatingVisitor(leftEstimate, session, types).process(right);
-            if (logicalAndEstimate.isOutputRowCountUnknown()) {
+            PlanNodeStatsEstimate andEstimate = new FilterExpressionStatsCalculatingVisitor(leftEstimate, session, types).process(right);
+            if (andEstimate.isOutputRowCountUnknown()) {
                 return PlanNodeStatsEstimate.unknown();
             }
-            PlanNodeStatsEstimate sumEstimate = addStatsAndSumDistinctValues(leftEstimate, rightEstimate);
-            if (sumEstimate.isOutputRowCountUnknown()) {
-                return PlanNodeStatsEstimate.unknown();
+
+            PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
+            double outputRowCount = min(leftEstimate.getOutputRowCount() + rightEstimate.getOutputRowCount() - andEstimate.getOutputRowCount(), input.getOutputRowCount());
+            verify(outputRowCount >= 0, "outputRowCount must be greater than or equal to zero: %s", outputRowCount);
+            result.setOutputRowCount(outputRowCount);
+
+            if (outputRowCount == 0) {
+                return process(FALSE_LITERAL);
             }
-            return differenceInNonRangeStats(sumEstimate, logicalAndEstimate);
+
+            input.getSymbolsWithKnownStatistics().forEach(symbol -> {
+                SymbolStatsEstimate inputSymbolStats = input.getSymbolStatistics(symbol);
+                SymbolStatsEstimate leftSymbolStats = leftEstimate.getSymbolStatistics(symbol);
+                SymbolStatsEstimate rightSymbolStats = rightEstimate.getSymbolStatistics(symbol);
+                SymbolStatsEstimate andSymbolStats = andEstimate.getSymbolStatistics(symbol);
+
+                SymbolStatsEstimate.Builder newSymbolStats = SymbolStatsEstimate.builder();
+
+                newSymbolStats.setAverageRowSize(inputSymbolStats.getAverageRowSize());
+
+                newSymbolStats.setLowValue(minNonNan(leftSymbolStats.getLowValue(), rightSymbolStats.getLowValue()));
+                newSymbolStats.setHighValue(maxNonNan(leftSymbolStats.getHighValue(), rightSymbolStats.getHighValue()));
+
+                double newDistinctValues = minNonNan(
+                        leftSymbolStats.getDistinctValuesCount() + rightSymbolStats.getDistinctValuesCount() - andSymbolStats.getDistinctValuesCount(),
+                        inputSymbolStats.getDistinctValuesCount());
+                newSymbolStats.setDistinctValuesCount(newDistinctValues);
+
+                double leftNumberOfNulls = leftSymbolStats.getNullsFraction() * leftEstimate.getOutputRowCount();
+                double rightNumberOfNulls = rightSymbolStats.getNullsFraction() * rightEstimate.getOutputRowCount();
+                double andNumberOfNulls = andSymbolStats.getNullsFraction() * andEstimate.getOutputRowCount();
+                double newNumberOfNulls = minNonNan(
+                        leftNumberOfNulls + rightNumberOfNulls - andNumberOfNulls,
+                        inputSymbolStats.getNullsFraction() * input.getOutputRowCount());
+                double newNullsFraction = min(newNumberOfNulls, outputRowCount) / outputRowCount;
+                newSymbolStats.setNullsFraction(newNullsFraction);
+
+                result.addSymbolStatistics(symbol, newSymbolStats.build());
+            });
+
+            return result.build();
+        }
+
+        private double minNonNan(double left, double right)
+        {
+            return isNaN(left) ? right : (isNaN(right) ? left : min(left, right));
+        }
+
+        private double maxNonNan(double left, double right)
+        {
+            return isNaN(left) ? right : (isNaN(right) ? left : max(left, right));
         }
 
         @Override
