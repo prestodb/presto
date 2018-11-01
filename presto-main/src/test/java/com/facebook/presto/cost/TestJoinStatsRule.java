@@ -34,6 +34,7 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static java.lang.Double.NaN;
+import static java.lang.Math.round;
 
 public class TestJoinStatsRule
         extends BaseStatsCalculatorTest
@@ -230,8 +231,8 @@ public class TestJoinStatsRule
     @Test
     public void testStatsForLeftAndRightJoin()
     {
-        double innerJoinRowCount = LEFT_ROWS_COUNT * RIGHT_ROWS_COUNT / LEFT_JOIN_COLUMN_NDV * LEFT_JOIN_COLUMN_NON_NULLS * RIGHT_JOIN_COLUMN_NON_NULLS;
-        double joinComplementRowCount = LEFT_ROWS_COUNT * (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4);
+        double innerJoinRowCount = round(LEFT_ROWS_COUNT * RIGHT_ROWS_COUNT / LEFT_JOIN_COLUMN_NDV * LEFT_JOIN_COLUMN_NON_NULLS * RIGHT_JOIN_COLUMN_NON_NULLS);
+        double joinComplementRowCount = round(LEFT_ROWS_COUNT * (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4));
         double joinComplementColumnNulls = LEFT_JOIN_COLUMN_NULLS / (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4);
         double totalRowCount = innerJoinRowCount + joinComplementRowCount;
 
@@ -263,10 +264,10 @@ public class TestJoinStatsRule
     @Test
     public void testStatsForFullJoin()
     {
-        double innerJoinRowCount = LEFT_ROWS_COUNT * RIGHT_ROWS_COUNT / LEFT_JOIN_COLUMN_NDV * LEFT_JOIN_COLUMN_NON_NULLS * RIGHT_JOIN_COLUMN_NON_NULLS;
-        double leftJoinComplementRowCount = LEFT_ROWS_COUNT * (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4);
+        double innerJoinRowCount = round(LEFT_ROWS_COUNT * RIGHT_ROWS_COUNT / LEFT_JOIN_COLUMN_NDV * LEFT_JOIN_COLUMN_NON_NULLS * RIGHT_JOIN_COLUMN_NON_NULLS);
+        double leftJoinComplementRowCount = round(LEFT_ROWS_COUNT * (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4));
         double leftJoinComplementColumnNulls = LEFT_JOIN_COLUMN_NULLS / (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4);
-        double rightJoinComplementRowCount = RIGHT_ROWS_COUNT * RIGHT_JOIN_COLUMN_NULLS;
+        double rightJoinComplementRowCount = round(RIGHT_ROWS_COUNT * RIGHT_JOIN_COLUMN_NULLS);
         double rightJoinComplementColumnNulls = 1.0;
         double totalRowCount = innerJoinRowCount + leftJoinComplementRowCount + rightJoinComplementRowCount;
 

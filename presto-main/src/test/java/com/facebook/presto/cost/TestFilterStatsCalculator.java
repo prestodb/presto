@@ -158,7 +158,7 @@ public class TestFilterStatsCalculator
     @Test
     public void testComparison()
     {
-        double lessThan3Rows = 487.5;
+        double lessThan3Rows = 488;
         assertExpression("x < 3e0")
                 .outputRowsCount(lessThan3Rows)
                 .symbolStats(new Symbol("x"), symbolAssert ->
@@ -174,7 +174,7 @@ public class TestFilterStatsCalculator
         for (String minusThree : ImmutableList.of("DECIMAL '-3'", "-3e0", "(4e0-7e0)", "CAST(-3 AS DECIMAL(7,3))"/*, "CAST('1' AS BIGINT) - 4"*/)) {
             for (String xEquals : ImmutableList.of("x = %s", "%s = x", "COALESCE(x * CAST(NULL AS BIGINT), x) = %s", "%s = CAST(x AS DOUBLE)")) {
                 assertExpression(format(xEquals, minusThree))
-                        .outputRowsCount(18.75)
+                        .outputRowsCount(19)
                         .symbolStats(new Symbol("x"), symbolAssert ->
                                 symbolAssert.averageRowSize(4.0)
                                         .lowValue(-3)
@@ -185,7 +185,7 @@ public class TestFilterStatsCalculator
 
             for (String xLessThan : ImmutableList.of("x < %s", "%s > x", "%s > CAST(x AS DOUBLE)")) {
                 assertExpression(format(xLessThan, minusThree))
-                        .outputRowsCount(262.5)
+                        .outputRowsCount(262)
                         .symbolStats(new Symbol("x"), symbolAssert ->
                                 symbolAssert.averageRowSize(4.0)
                                         .lowValue(-10)
@@ -209,7 +209,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         assertExpression("x = 0e0 OR x = DOUBLE '-7.5'")
-                .outputRowsCount(37.5)
+                .outputRowsCount(38)
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
                                 .lowValue(-7.5)
@@ -218,7 +218,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         assertExpression("x = 1e0 OR x = 3e0")
-                .outputRowsCount(37.5)
+                .outputRowsCount(38)
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
                                 .lowValue(1)
@@ -227,7 +227,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0));
 
         assertExpression("x = 1e0 OR 'a' = 'b' OR x = 3e0")
-                .outputRowsCount(37.5)
+                .outputRowsCount(38)
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
                                 .lowValue(1)
@@ -252,7 +252,7 @@ public class TestFilterStatsCalculator
     public void testAndStats()
     {
         assertExpression("x < 0e0 AND x > DOUBLE '-7.5'")
-                .outputRowsCount(281.25)
+                .outputRowsCount(281)
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
                                 .lowValue(-7.5)
@@ -268,7 +268,7 @@ public class TestFilterStatsCalculator
 
         // first argument unknown
         assertExpression("json_array_contains(JSON '[]', x) AND x < 0e0")
-                .outputRowsCount(337.5)
+                .outputRowsCount(338)
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.lowValue(-10)
                                 .highValue(0)
@@ -277,7 +277,7 @@ public class TestFilterStatsCalculator
 
         // second argument unknown
         assertExpression("x < 0e0 AND json_array_contains(JSON '[]', x)")
-                .outputRowsCount(337.5)
+                .outputRowsCount(338)
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.lowValue(-10)
                                 .highValue(0)
@@ -355,7 +355,7 @@ public class TestFilterStatsCalculator
     {
         // Only right side cut
         assertExpression("x BETWEEN 7.5e0 AND 12e0")
-                .outputRowsCount(93.75)
+                .outputRowsCount(94)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(5.0)
                                 .lowValue(7.5)
@@ -364,14 +364,14 @@ public class TestFilterStatsCalculator
 
         // Only left side cut
         assertExpression("x BETWEEN DOUBLE '-12' AND DOUBLE '-7.5'")
-                .outputRowsCount(93.75)
+                .outputRowsCount(94)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(5.0)
                                 .lowValue(-10)
                                 .highValue(-7.5)
                                 .nullsFraction(0.0));
         assertExpression("x BETWEEN -12e0 AND -7.5e0")
-                .outputRowsCount(93.75)
+                .outputRowsCount(94)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(5.0)
                                 .lowValue(-10)
@@ -380,7 +380,7 @@ public class TestFilterStatsCalculator
 
         // Both sides cut
         assertExpression("x BETWEEN DOUBLE '-2.5' AND 2.5e0")
-                .outputRowsCount(187.5)
+                .outputRowsCount(188)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(10.0)
                                 .lowValue(-2.5)
@@ -389,9 +389,9 @@ public class TestFilterStatsCalculator
 
         // Both sides cut unknownRange
         assertExpression("unknownRange BETWEEN 2.72e0 AND 3.14e0")
-                .outputRowsCount(112.5)
+                .outputRowsCount(113)
                 .symbolStats("unknownRange", symbolStats ->
-                        symbolStats.distinctValuesCount(6.25)
+                        symbolStats.distinctValuesCount(6)
                                 .lowValue(2.72)
                                 .highValue(3.14)
                                 .nullsFraction(0.0));
@@ -462,28 +462,28 @@ public class TestFilterStatsCalculator
     {
         // One value in range
         assertExpression("x IN (7.5e0)")
-                .outputRowsCount(18.75)
+                .outputRowsCount(19)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(1.0)
                                 .lowValue(7.5)
                                 .highValue(7.5)
                                 .nullsFraction(0.0));
         assertExpression("x IN (DOUBLE '-7.5')")
-                .outputRowsCount(18.75)
+                .outputRowsCount(19)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(1.0)
                                 .lowValue(-7.5)
                                 .highValue(-7.5)
                                 .nullsFraction(0.0));
         assertExpression("x IN (BIGINT '2' + 5.5e0)")
-                .outputRowsCount(18.75)
+                .outputRowsCount(19)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(1.0)
                                 .lowValue(7.5)
                                 .highValue(7.5)
                                 .nullsFraction(0.0));
         assertExpression("x IN (-7.5e0)")
-                .outputRowsCount(18.75)
+                .outputRowsCount(19)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(1.0)
                                 .lowValue(-7.5)
@@ -492,7 +492,7 @@ public class TestFilterStatsCalculator
 
         // Multiple values in range
         assertExpression("x IN (1.5e0, 2.5e0, 7.5e0)")
-                .outputRowsCount(56.25)
+                .outputRowsCount(57)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(3.0)
                                 .lowValue(1.5)
@@ -507,7 +507,7 @@ public class TestFilterStatsCalculator
 
         // Multiple values some in some out of range
         assertExpression("x IN (DOUBLE '-42', 1.5e0, 2.5e0, 7.5e0, 314e0)")
-                .outputRowsCount(56.25)
+                .outputRowsCount(57)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(3.0)
                                 .lowValue(1.5)

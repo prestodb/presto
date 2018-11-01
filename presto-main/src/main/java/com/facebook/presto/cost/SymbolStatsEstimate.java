@@ -19,11 +19,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 import java.util.function.Function;
 
+import static com.facebook.presto.util.MoreMath.roundToDouble;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
+import static java.lang.Double.isFinite;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static java.lang.String.format;
@@ -73,12 +75,12 @@ public class SymbolStatsEstimate
         boolean isEmptyRange = isNaN(lowValue) && isNaN(highValue);
         this.nullsFraction = isEmptyRange ? 1.0 : nullsFraction;
 
-        checkArgument(averageRowSize >= 0 || isNaN(averageRowSize), "Average row size should be non-negative or NaN, got: %s", averageRowSize);
+        checkArgument((isFinite(averageRowSize) && averageRowSize >= 0) || isNaN(averageRowSize), "averageRowSize must be finite and non-negative or NaN, got: %s", averageRowSize);
         this.averageRowSize = averageRowSize;
 
-        checkArgument(distinctValuesCount >= 0 || isNaN(distinctValuesCount), "Distinct values count should be non-negative, got: %s", distinctValuesCount);
+        checkArgument((isFinite(distinctValuesCount) && distinctValuesCount >= 0) || isNaN(distinctValuesCount), "distinctValuesCount must be finite and non-negative or NaN, got: %s", distinctValuesCount);
         // TODO normalize distinctValuesCount for an empty range (or validate it is already normalized)
-        this.distinctValuesCount = distinctValuesCount;
+        this.distinctValuesCount = roundToDouble(distinctValuesCount);
     }
 
     @JsonProperty
