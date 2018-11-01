@@ -153,7 +153,7 @@ class HiveSplitSource
                     }
 
                     @Override
-                    public <O> ListenableFuture<O> borrowBatchAsync(OptionalInt bucketNumber, int maxSize, Function<List<InternalHiveSplit>, BorrowResult<InternalHiveSplit, O>> function)
+                    public ListenableFuture<List<ConnectorSplit>> borrowBatchAsync(OptionalInt bucketNumber, int maxSize, Function<List<InternalHiveSplit>, BorrowResult<InternalHiveSplit, List<ConnectorSplit>>> function)
                     {
                         checkArgument(!bucketNumber.isPresent());
                         return queue.borrowBatchAsync(maxSize, function);
@@ -215,7 +215,7 @@ class HiveSplitSource
                     }
 
                     @Override
-                    public <O> ListenableFuture<O> borrowBatchAsync(OptionalInt bucketNumber, int maxSize, Function<List<InternalHiveSplit>, BorrowResult<InternalHiveSplit, O>> function)
+                    public ListenableFuture<List<ConnectorSplit>> borrowBatchAsync(OptionalInt bucketNumber, int maxSize, Function<List<InternalHiveSplit>, BorrowResult<InternalHiveSplit, List<ConnectorSplit>>> function)
                     {
                         // The call to borrowBatchAsync() is blocked until allSplitsLoaded is complete, which is set in finish(), then it would call borrowBatchAsync() again.
                         if (preloadSplitsForGroupedExecution && !finished.get()) {
@@ -497,7 +497,7 @@ class HiveSplitSource
     {
         ListenableFuture<?> offer(OptionalInt bucketNumber, InternalHiveSplit split);
 
-        <O> ListenableFuture<O> borrowBatchAsync(OptionalInt bucketNumber, int maxSize, Function<List<InternalHiveSplit>, BorrowResult<InternalHiveSplit, O>> function);
+        ListenableFuture<List<ConnectorSplit>> borrowBatchAsync(OptionalInt bucketNumber, int maxSize, Function<List<InternalHiveSplit>, BorrowResult<InternalHiveSplit, List<ConnectorSplit>>> function);
 
         void finish();
 
