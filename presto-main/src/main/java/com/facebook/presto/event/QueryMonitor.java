@@ -227,6 +227,7 @@ public class QueryMonitor
                                     queryStats.getOutputDataSize().toBytes(),
                                     queryStats.getOutputPositions(),
                                     queryStats.getLogicalWrittenDataSize().toBytes(),
+                                    queryStats.getPhysicalWrittenDataSize().toBytes(),
                                     queryStats.getWrittenPositions(),
                                     queryStats.getCumulativeUserMemory(),
                                     queryStats.getStageGcStatistics(),
@@ -236,8 +237,7 @@ public class QueryMonitor
                                     operatorSummaries.build(),
                                     ofMillis(queryStats.getElapsedTime().toMillis()),
                                     queryStats.getTotalDrivers(),
-                                    queryStats.getTotalTasks(),
-                                    queryStats.getPhysicalWrittenDataSize().toBytes()),
+                                    queryStats.getTotalTasks()),
                             new QueryContext(
                                     queryInfo.getSession().getUser(),
                                     queryInfo.getSession().getPrincipal(),

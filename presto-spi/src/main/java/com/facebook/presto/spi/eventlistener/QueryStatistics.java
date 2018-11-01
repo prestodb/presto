@@ -67,6 +67,7 @@ public class QueryStatistics
             long outputBytes,
             long outputRows,
             long logicalWrittenBytes,
+            long physicalWrittenBytes,
             long writtenRows,
             double cumulativeMemory,
             List<StageGcStatistics> stageGcStatistics,
@@ -76,8 +77,7 @@ public class QueryStatistics
             List<String> operatorSummaries,
             Duration elapsedTime,
             int totalDrivers,
-            int totalTasks,
-            long physicalWrittenBytes)
+            int totalTasks)
     {
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
         this.wallTime = requireNonNull(wallTime, "wallTime is null");
@@ -92,6 +92,7 @@ public class QueryStatistics
         this.outputBytes = outputBytes;
         this.outputRows = outputRows;
         this.logicalWrittenBytes = logicalWrittenBytes;
+        this.physicalWrittenBytes = physicalWrittenBytes;
         this.writtenRows = writtenRows;
         this.cumulativeMemory = cumulativeMemory;
         this.stageGcStatistics = requireNonNull(stageGcStatistics, "stageGcStatistics is null");
@@ -99,10 +100,9 @@ public class QueryStatistics
         this.complete = complete;
         this.cpuTimeDistribution = requireNonNull(cpuTimeDistribution, "cpuTimeDistribution is null");
         this.operatorSummaries = requireNonNull(operatorSummaries, "operatorSummaries is null");
-        this.elapsedTime = elapsedTime;
+        this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
         this.totalDrivers = totalDrivers;
         this.totalTasks = totalTasks;
-        this.physicalWrittenBytes = physicalWrittenBytes;
     }
 
     public Duration getCpuTime()
