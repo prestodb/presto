@@ -75,6 +75,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.facebook.presto.OutputBuffers.BufferType.PARTITIONED;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.NO_ACTIVE_DRIVER_GROUP;
 import static com.facebook.presto.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -138,9 +139,11 @@ public class TestSourcePartitionedScheduler
 
         ScheduleResult scheduleResult = scheduler.schedule();
 
-        assertTrue(scheduleResult.isFinished());
+        assertFalse(scheduleResult.isFinished());
         assertTrue(scheduleResult.getBlocked().isDone());
+        assertEquals(scheduleResult.getBlockedReason(), Optional.of(NO_ACTIVE_DRIVER_GROUP));
         assertEquals(scheduleResult.getNewTasks().size(), 1);
+        assertCleanupScheduleResult(scheduler.schedule());
 
         stage.abort();
     }
@@ -157,8 +160,10 @@ public class TestSourcePartitionedScheduler
         for (int i = 0; i < 60; i++) {
             ScheduleResult scheduleResult = scheduler.schedule();
 
+            assertFalse(scheduleResult.isFinished());
+
             // only finishes when last split is fetched
-            assertEquals(scheduleResult.isFinished(), i == 59);
+            assertEquals(scheduleResult.getBlockedReason(), i == 59 ? Optional.of(NO_ACTIVE_DRIVER_GROUP) : Optional.empty());
 
             // never blocks
             assertTrue(scheduleResult.getBlocked().isDone());
@@ -169,6 +174,7 @@ public class TestSourcePartitionedScheduler
 
             assertPartitionedSplitCount(stage, min(i + 1, 60));
         }
+        assertCleanupScheduleResult(scheduler.schedule());
 
         for (RemoteTask remoteTask : stage.getAllTasks()) {
             assertEquals(remoteTask.getPartitionedSplitCount(), 20);
@@ -189,8 +195,9 @@ public class TestSourcePartitionedScheduler
         for (int i = 0; i <= (60 / 7); i++) {
             ScheduleResult scheduleResult = scheduler.schedule();
 
+            assertFalse(scheduleResult.isFinished());
             // finishes when last split is fetched
-            assertEquals(scheduleResult.isFinished(), i == (60 / 7));
+            assertEquals(scheduleResult.getBlockedReason(), i == (60 / 7) ? Optional.of(NO_ACTIVE_DRIVER_GROUP) : Optional.empty());
 
             // never blocks
             assertTrue(scheduleResult.getBlocked().isDone());
@@ -201,6 +208,7 @@ public class TestSourcePartitionedScheduler
 
             assertPartitionedSplitCount(stage, min((i + 1) * 7, 60));
         }
+        assertCleanupScheduleResult(scheduler.schedule());
 
         for (RemoteTask remoteTask : stage.getAllTasks()) {
             assertEquals(remoteTask.getPartitionedSplitCount(), 20);
@@ -247,8 +255,9 @@ public class TestSourcePartitionedScheduler
         for (int i = 0; i < 20; i++) {
             ScheduleResult scheduleResult = scheduler.schedule();
 
+            assertFalse(scheduleResult.isFinished());
             // finishes when last split is fetched
-            assertEquals(scheduleResult.isFinished(), i == 19);
+            assertEquals(scheduleResult.getBlockedReason(), i == 19 ? Optional.of(NO_ACTIVE_DRIVER_GROUP) : Optional.empty());
 
             // does not block again
             assertTrue(scheduleResult.getBlocked().isDone());
@@ -260,6 +269,7 @@ public class TestSourcePartitionedScheduler
             // we dropped 20 splits so start at 40 and count to 60
             assertPartitionedSplitCount(stage, min(i + 41, 60));
         }
+        assertCleanupScheduleResult(scheduler.schedule());
 
         for (RemoteTask remoteTask : stage.getAllTasks()) {
             assertEquals(remoteTask.getPartitionedSplitCount(), 20);
@@ -282,8 +292,8 @@ public class TestSourcePartitionedScheduler
         ScheduleResult scheduleResult = scheduler.schedule();
         assertFalse(scheduleResult.isFinished());
         assertFalse(scheduleResult.getBlocked().isDone());
-        assertEquals(scheduleResult.getNewTasks().size(), 3);
-        assertEquals(stage.getAllTasks().size(), 3);
+        assertEquals(scheduleResult.getNewTasks().size(), 0);
+        assertEquals(stage.getAllTasks().size(), 0);
 
         queuedSplitSource.addSplits(1);
         assertTrue(scheduleResult.getBlocked().isDone());
@@ -332,13 +342,15 @@ public class TestSourcePartitionedScheduler
         StageScheduler firstScheduler = getSourcePartitionedScheduler(firstPlan, firstStage, nodeManager, nodeTaskMap, 200);
 
         ScheduleResult scheduleResult = firstScheduler.schedule();
-        assertTrue(scheduleResult.isFinished());
+        assertFalse(scheduleResult.isFinished());
         assertTrue(scheduleResult.getBlocked().isDone());
+        assertEquals(scheduleResult.getBlockedReason(), Optional.of(NO_ACTIVE_DRIVER_GROUP));
         assertEquals(scheduleResult.getNewTasks().size(), 3);
         assertEquals(firstStage.getAllTasks().size(), 3);
         for (RemoteTask remoteTask : firstStage.getAllTasks()) {
             assertEquals(remoteTask.getPartitionedSplitCount(), 5);
         }
+        assertCleanupScheduleResult(firstScheduler.schedule());
 
         // Add new node
         Node additionalNode = new PrestoNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN, false);
@@ -350,12 +362,14 @@ public class TestSourcePartitionedScheduler
         StageScheduler secondScheduler = getSourcePartitionedScheduler(secondPlan, secondStage, nodeManager, nodeTaskMap, 200);
 
         scheduleResult = secondScheduler.schedule();
-        assertTrue(scheduleResult.isFinished());
+        assertFalse(scheduleResult.isFinished());
         assertTrue(scheduleResult.getBlocked().isDone());
+        assertEquals(scheduleResult.getBlockedReason(), Optional.of(NO_ACTIVE_DRIVER_GROUP));
         assertEquals(scheduleResult.getNewTasks().size(), 1);
         assertEquals(secondStage.getAllTasks().size(), 1);
         RemoteTask task = secondStage.getAllTasks().get(0);
         assertEquals(task.getPartitionedSplitCount(), 5);
+        assertCleanupScheduleResult(secondScheduler.schedule());
 
         firstStage.abort();
         secondStage.abort();
@@ -372,13 +386,15 @@ public class TestSourcePartitionedScheduler
         StageScheduler firstScheduler = getSourcePartitionedScheduler(firstPlan, firstStage, nodeManager, nodeTaskMap, 200);
 
         ScheduleResult scheduleResult = firstScheduler.schedule();
-        assertTrue(scheduleResult.isFinished());
+        assertFalse(scheduleResult.isFinished());
         assertTrue(scheduleResult.getBlocked().isDone());
+        assertEquals(scheduleResult.getBlockedReason(), Optional.of(NO_ACTIVE_DRIVER_GROUP));
         assertEquals(scheduleResult.getNewTasks().size(), 3);
         assertEquals(firstStage.getAllTasks().size(), 3);
         for (RemoteTask remoteTask : firstStage.getAllTasks()) {
             assertEquals(remoteTask.getPartitionedSplitCount(), 20);
         }
+        assertCleanupScheduleResult(firstScheduler.schedule());
 
         // Schedule more splits in another query, which will block since all nodes are full
         StageExecutionPlan secondPlan = createPlan(createFixedSplitSource(5, TestingSplit::createRemoteSplit));
@@ -401,6 +417,14 @@ public class TestSourcePartitionedScheduler
     private static void assertPartitionedSplitCount(SqlStageExecution stage, int expectedPartitionedSplitCount)
     {
         assertEquals(stage.getAllTasks().stream().mapToInt(RemoteTask::getPartitionedSplitCount).sum(), expectedPartitionedSplitCount);
+    }
+
+    private static void assertCleanupScheduleResult(ScheduleResult scheduleResult)
+    {
+        assertTrue(scheduleResult.isFinished());
+        assertTrue(scheduleResult.getBlocked().isDone());
+        assertEquals(scheduleResult.getNewTasks().size(), 0);
+        assertEquals(scheduleResult.getSplitsScheduled(), 0);
     }
 
     private static StageScheduler getSourcePartitionedScheduler(
