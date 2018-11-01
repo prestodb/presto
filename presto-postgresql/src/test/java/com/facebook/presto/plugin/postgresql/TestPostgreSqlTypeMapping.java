@@ -274,7 +274,7 @@ public class TestPostgreSqlTypeMapping
         try {
             assertQuery(
                     "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'tpch' AND TABLE_NAME = 'test_unsupported_data_type'",
-                    "VALUES 'key'"); // no 'unsupported_column'
+                    "VALUES ('key'),('unsupported_column')"); // 'unsupported_column' is mapped to an unbounded varchar
         }
         finally {
             jdbcSqlExecutor.execute("DROP TABLE tpch.test_unsupported_data_type");
