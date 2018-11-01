@@ -128,10 +128,6 @@ public class TestPostgreSqlIntegrationSmokeTest
                 AutoCloseable ignore3 = withTable("tpch.no_columns", "()")) {
             assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()).contains("orders", "no_supported_columns", "supported_columns", "no_columns");
 
-            assertQueryFails("SELECT c FROM no_supported_columns", "Table 'tpch.no_supported_columns' not found");
-            assertQueryFails("SELECT * FROM no_supported_columns", "Table 'tpch.no_supported_columns' not found");
-            assertQueryFails("SELECT 'a' FROM no_supported_columns", "Table 'tpch.no_supported_columns' not found");
-
             assertQueryFails("SELECT c FROM no_columns", "Table 'tpch.no_columns' not found");
             assertQueryFails("SELECT * FROM no_columns", "Table 'tpch.no_columns' not found");
             assertQueryFails("SELECT 'a' FROM no_columns", "Table 'tpch.no_columns' not found");
@@ -140,7 +136,6 @@ public class TestPostgreSqlIntegrationSmokeTest
             assertQueryFails("SELECT * FROM non_existent", ".* Table .*tpch.non_existent.* does not exist");
             assertQueryFails("SELECT 'a' FROM non_existent", ".* Table .*tpch.non_existent.* does not exist");
 
-            assertQuery("SHOW COLUMNS FROM no_supported_columns", "SELECT 'nothing' WHERE false");
             assertQuery("SHOW COLUMNS FROM no_columns", "SELECT 'nothing' WHERE false");
 
             // Other tables should be visible in SHOW TABLES (the no_supported_columns might be included or might be not) and information_schema.tables
@@ -151,6 +146,7 @@ public class TestPostgreSqlIntegrationSmokeTest
 
             // Other tables should be introspectable with SHOW COLUMNS and information_schema.columns
             assertQuery("SHOW COLUMNS FROM supported_columns", "VALUES ('good', 'varchar(5)', '', '')");
+            assertQuery("SHOW COLUMNS FROM no_supported_columns", "VALUES ('c', 'varchar', '', '')");
 
             // Listing columns in all tables should not fail due to tables with no columns
             computeActual("SELECT column_name FROM information_schema.columns WHERE table_schema = 'tpch'");

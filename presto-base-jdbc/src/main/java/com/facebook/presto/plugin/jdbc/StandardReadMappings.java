@@ -199,7 +199,7 @@ public final class StandardReadMappings
                 int decimalDigits = type.getDecimalDigits();
                 int precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
                 if (precision > Decimals.MAX_PRECISION) {
-                    return Optional.empty();
+                    return Optional.of(varcharReadMapping(createUnboundedVarcharType()));
                 }
                 return Optional.of(decimalReadMapping(createDecimalType(precision, max(decimalDigits, 0))));
 
@@ -232,6 +232,6 @@ public final class StandardReadMappings
             case Types.TIMESTAMP:
                 return Optional.of(timestampReadMapping());
         }
-        return Optional.empty();
+        return Optional.of(varcharReadMapping(createUnboundedVarcharType()));
     }
 }

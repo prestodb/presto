@@ -266,8 +266,8 @@ public class TestMySqlTypeMapping
         jdbcSqlExecutor.execute(format("CREATE TABLE tpch.test_unsupported_data_type(supported_column varchar(5), unsupported_column %s)", databaseDataType));
         try {
             assertQuery(
-                    "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'tpch' AND TABLE_NAME = 'test_unsupported_data_type'",
-                    "VALUES 'supported_column'"); // no 'unsupported_column'
+                    "SELECT COLUMN_NAME,DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'tpch' AND TABLE_NAME = 'test_unsupported_data_type'",
+                    "VALUES ('supported_column','varchar(5)'),('unsupported_column','varchar')"); // 'unsupported_column' is mapped to an unbounded varchar
         }
         finally {
             jdbcSqlExecutor.execute("DROP TABLE tpch.test_unsupported_data_type");
