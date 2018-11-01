@@ -95,11 +95,6 @@ public class SymbolStatsEstimate
         return highValue;
     }
 
-    public boolean isRangeEmpty()
-    {
-        return isNaN(lowValue) && isNaN(highValue);
-    }
-
     @JsonProperty
     public double getNullsFraction()
     {
@@ -126,16 +121,6 @@ public class SymbolStatsEstimate
     public double getDistinctValuesCount()
     {
         return distinctValuesCount;
-    }
-
-    public SymbolStatsEstimate mapLowValue(Function<Double, Double> mappingFunction)
-    {
-        return buildFrom(this).setLowValue(mappingFunction.apply(lowValue)).build();
-    }
-
-    public SymbolStatsEstimate mapHighValue(Function<Double, Double> mappingFunction)
-    {
-        return buildFrom(this).setHighValue(mappingFunction.apply(highValue)).build();
     }
 
     public SymbolStatsEstimate mapNullsFraction(Function<Double, Double> mappingFunction)
