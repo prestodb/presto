@@ -316,12 +316,12 @@ public class DriverContext
         DataSize outputDataSize;
         long outputPositions;
         if (inputOperator != null) {
-            rawInputDataSize = inputOperator.getInputDataSize();
+            rawInputDataSize = inputOperator.getRawInputDataSize();
             rawInputPositions = inputOperator.getInputPositions();
             rawInputReadTime = inputOperator.getAddInputWall();
 
-            processedInputDataSize = inputOperator.getOutputDataSize();
-            processedInputPositions = inputOperator.getOutputPositions();
+            processedInputDataSize = inputOperator.getInputDataSize();
+            processedInputPositions = inputOperator.getInputPositions();
 
             OperatorStats outputOperator = requireNonNull(getLast(operators, null));
             outputDataSize = outputOperator.getOutputDataSize();
