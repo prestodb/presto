@@ -153,16 +153,21 @@ public class OperatorContext
         }
     }
 
-    public void recordProcessedInput(long sizeInBytes, long positions)
+    public void recordRawInput(long sizeInBytes)
     {
-        recordProcessedInput(sizeInBytes, positions, 0);
+        rawInputDataSize.update(sizeInBytes);
     }
 
-    public void recordProcessedInput(long sizeInBytes, long positions, long readNanos)
+    public void recordRawInputWithTiming(long sizeInBytes, long readNanos)
+    {
+        rawInputDataSize.update(sizeInBytes);
+        addInputTiming.record(readNanos, 0);
+    }
+
+    public void recordProcessedInput(long sizeInBytes, long positions)
     {
         inputDataSize.update(sizeInBytes);
         inputPositions.update(positions);
-        addInputTiming.record(readNanos, 0);
     }
 
     void recordGetOutput(OperationTimer operationTimer, Page page)
