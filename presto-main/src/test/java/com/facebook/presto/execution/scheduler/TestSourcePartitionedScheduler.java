@@ -282,8 +282,8 @@ public class TestSourcePartitionedScheduler
         ScheduleResult scheduleResult = scheduler.schedule();
         assertFalse(scheduleResult.isFinished());
         assertFalse(scheduleResult.getBlocked().isDone());
-        assertEquals(scheduleResult.getNewTasks().size(), 3);
-        assertEquals(stage.getAllTasks().size(), 3);
+        assertEquals(scheduleResult.getNewTasks().size(), 0);
+        assertEquals(stage.getAllTasks().size(), 0);
 
         queuedSplitSource.addSplits(1);
         assertTrue(scheduleResult.getBlocked().isDone());
