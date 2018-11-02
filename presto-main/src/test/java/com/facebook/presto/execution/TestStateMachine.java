@@ -46,6 +46,7 @@ public class TestStateMachine
 
     @Test
     public void testNullState()
+            throws Exception
     {
         try {
             new StateMachine<>("test", executor, null);
@@ -225,7 +226,15 @@ public class TestStateMachine
         ListenableFuture<State> futureChange = stateMachine.getStateChange(initialState);
 
         SettableFuture<State> listenerChange = SettableFuture.create();
-        stateMachine.addStateChangeListener(listenerChange::set);
+        Thread addingThread = Thread.currentThread();
+        stateMachine.addStateChangeListener(value -> {
+            if (Thread.currentThread() == addingThread) {
+                listenerChange.setException(new AssertionError("Listener was not called back on a different thread"));
+            }
+            else {
+                listenerChange.set(value);
+            }
+        });
 
         stateChange.run();
 
@@ -242,17 +251,28 @@ public class TestStateMachine
     }
 
     private static void assertNoStateChange(StateMachine<State> stateMachine, StateChanger stateChange)
+            throws Exception
     {
         State initialState = stateMachine.get();
         ListenableFuture<State> futureChange = stateMachine.getStateChange(initialState);
 
         SettableFuture<State> listenerChange = SettableFuture.create();
-        stateMachine.addStateChangeListener(listenerChange::set);
+        Thread addingThread = Thread.currentThread();
+        stateMachine.addStateChangeListener(value -> {
+            Thread callbackThread = Thread.currentThread();
+            if (callbackThread == addingThread) {
+                listenerChange.setException(new AssertionError("Listener was not called back on a different thread"));
+            }
+            else {
+                listenerChange.set(value);
+            }
+        });
 
-        // listeners should not be added if we are in a terminal state
+        // listeners should not be added if we are in a terminal state, but listener should fire
         boolean isTerminalState = stateMachine.isTerminalState(initialState);
         if (isTerminalState) {
             assertEquals(stateMachine.getStateChangeListeners(), ImmutableSet.of());
+            assertEquals(listenerChange.get(1, SECONDS), initialState);
         }
 
         stateChange.run();

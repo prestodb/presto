@@ -208,6 +208,7 @@ public class StateMachine<T>
         checkState(!Thread.holdsLock(lock), "Can not fire state change event while holding the lock");
         requireNonNull(newState, "newState is null");
 
+        // always fire listener callbacks from a different thread
         safeExecute(() -> {
             checkState(!Thread.holdsLock(lock), "Can not notify while holding the lock");
             try {
@@ -217,14 +218,19 @@ public class StateMachine<T>
                 log.error(e, "Error setting future state for %s", name);
             }
             for (StateChangeListener<T> stateChangeListener : stateChangeListeners) {
-                try {
-                    stateChangeListener.stateChanged(newState);
-                }
-                catch (Throwable e) {
-                    log.error(e, "Error notifying state change listener for %s", name);
-                }
+                fireStateChangedListener(newState, stateChangeListener);
             }
         });
+    }
+
+    private void fireStateChangedListener(T newState, StateChangeListener<T> stateChangeListener)
+    {
+        try {
+            stateChangeListener.stateChanged(newState);
+        }
+        catch (Throwable e) {
+            log.error(e, "Error notifying state change listener for %s", name);
+        }
     }
 
     /**
@@ -262,9 +268,10 @@ public class StateMachine<T>
 
         // state machine will never transition from a terminal state, so fire state change immediately
         if (inTerminalState) {
+            // always fire listener callbacks from a different thread
             // the direct access of state is ok here, because we always want to notify listeners of the most recent value
             //noinspection FieldAccessNotGuarded
-            stateChangeListener.stateChanged(state);
+            safeExecute(() -> stateChangeListener.stateChanged(state));
         }
     }
 
