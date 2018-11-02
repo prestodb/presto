@@ -251,8 +251,7 @@ public class MockRemoteTaskFactory
                     outputBuffer.getInfo(),
                     ImmutableSet.of(),
                     taskContext.getTaskStats(),
-                    true,
-                    false);
+                    true);
         }
 
         @Override
