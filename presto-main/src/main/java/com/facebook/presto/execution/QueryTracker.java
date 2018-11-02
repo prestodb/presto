@@ -248,6 +248,22 @@ public class QueryTracker<T extends TrackedQuery>
     {
         for (T query : queries.values()) {
             try {
+                // getQueryInfo has a side effect. It sets the final query info if all the stageInfo's are final.
+                //
+                // Setting final query info is required to have the finalQueryInfoListener triggered.
+                // The code that places the query into the eviction queue is the finalQueryInfoListener (see SqlQueryManager#createQueryInternal).
+                //
+                // This fix is a workaround, and must be removed once the better fix is provided.
+                //
+                // If query is failed with SqlQueryExecution#fail or with SqlQueryExecution#cancelQuery the final query info must be
+                // set when all the query stages respond with the final stage info.
+                //
+                // Currently the callback registered on all the stages in the SqlQueryScheduler's constructor doesn't set the final query info,
+                // as due to the race, the stageInfo's in the moment of processing that callback are not final.
+                if (query instanceof QueryExecution) {
+                    QueryExecution execution = (QueryExecution) query;
+                    execution.getQueryInfo();
+                }
                 if (query.isDone()) {
                     continue;
                 }
