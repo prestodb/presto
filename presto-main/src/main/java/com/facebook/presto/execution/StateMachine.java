@@ -86,6 +86,8 @@ public class StateMachine<T>
         this.terminalStates = ImmutableSet.copyOf(requireNonNull(terminalStates, "terminalStates is null"));
     }
 
+    // state changes are atomic and state is volatile, so a direct read is safe here
+    @SuppressWarnings("FieldAccessNotGuarded")
     public T get()
     {
         return state;
@@ -235,7 +237,7 @@ public class StateMachine<T>
 
         synchronized (lock) {
             // return a completed future if the state has already changed, or we are in a terminal state
-            if (isPossibleStateChange(currentState)) {
+            if (!state.equals(currentState) || isTerminalState(state)) {
                 return immediateFuture(state);
             }
 
@@ -260,13 +262,10 @@ public class StateMachine<T>
 
         // state machine will never transition from a terminal state, so fire state change immediately
         if (inTerminalState) {
+            // the direct access of state is ok here, because we always want to notify listeners of the most recent value
+            //noinspection FieldAccessNotGuarded
             stateChangeListener.stateChanged(state);
         }
-    }
-
-    private boolean isPossibleStateChange(T currentState)
-    {
-        return !state.equals(currentState) || isTerminalState(state);
     }
 
     @VisibleForTesting
@@ -276,9 +275,11 @@ public class StateMachine<T>
     }
 
     @VisibleForTesting
-    synchronized List<StateChangeListener<T>> getStateChangeListeners()
+    List<StateChangeListener<T>> getStateChangeListeners()
     {
-        return ImmutableList.copyOf(stateChangeListeners);
+        synchronized (lock) {
+            return ImmutableList.copyOf(stateChangeListeners);
+        }
     }
 
     public interface StateChangeListener<T>

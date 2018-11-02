@@ -51,7 +51,7 @@ public class TestStateMachine
             new StateMachine<>("test", executor, null);
             fail("expected a NullPointerException");
         }
-        catch (NullPointerException exception) {
+        catch (NullPointerException ignored) {
         }
 
         StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST);
@@ -61,7 +61,7 @@ public class TestStateMachine
                 stateMachine.set(null);
                 fail("expected a NullPointerException");
             }
-            catch (NullPointerException exception) {
+            catch (NullPointerException expected) {
             }
         });
 
@@ -70,7 +70,7 @@ public class TestStateMachine
                 stateMachine.compareAndSet(State.BREAKFAST, null);
                 fail("expected a NullPointerException");
             }
-            catch (NullPointerException exception) {
+            catch (NullPointerException expected) {
             }
         });
 
@@ -79,7 +79,7 @@ public class TestStateMachine
                 stateMachine.compareAndSet(State.LUNCH, null);
                 fail("expected a NullPointerException");
             }
-            catch (NullPointerException exception) {
+            catch (NullPointerException expected) {
             }
         });
 
@@ -88,7 +88,7 @@ public class TestStateMachine
                 stateMachine.setIf(null, currentState -> true);
                 fail("expected a NullPointerException");
             }
-            catch (NullPointerException exception) {
+            catch (NullPointerException expected) {
             }
         });
 
@@ -97,7 +97,7 @@ public class TestStateMachine
                 stateMachine.setIf(null, currentState -> false);
                 fail("expected a NullPointerException");
             }
-            catch (NullPointerException exception) {
+            catch (NullPointerException expected) {
             }
         });
     }
@@ -218,7 +218,7 @@ public class TestStateMachine
         assertNoStateChange(stateMachine, () -> stateMachine.setIf(State.DINNER, currentState -> true));
     }
 
-    private void assertStateChange(StateMachine<State> stateMachine, StateChanger stateChange, State expectedState)
+    private static void assertStateChange(StateMachine<State> stateMachine, StateChanger stateChange, State expectedState)
             throws Exception
     {
         State initialState = stateMachine.get();
@@ -241,7 +241,7 @@ public class TestStateMachine
         }
     }
 
-    private void assertNoStateChange(StateMachine<State> stateMachine, StateChanger stateChange)
+    private static void assertNoStateChange(StateMachine<State> stateMachine, StateChanger stateChange)
     {
         State initialState = stateMachine.get();
         ListenableFuture<State> futureChange = stateMachine.getStateChange(initialState);
