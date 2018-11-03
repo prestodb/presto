@@ -23,6 +23,8 @@ const QUERY_THREADS = "Running Queries";
 
 const ALL_THREAD_STATE = "ALL";
 const THREAD_STATES = [ALL_THREAD_STATE, "RUNNABLE", "BLOCKED", "WAITING", "TIMED_WAITING", "NEW", "TERMINATED"];
+const QUERY_THREAD_REGEX = new RegExp(/([0-9])*_([0-9])*_([0-9])*_.*?\.([0-9])*\.([0-9])*-([0-9])*-([0-9])*/);
+const THREAD_GROUP_REGEXP = new RegExp(/(.*?)-[0-9]+/);
 
 export class WorkerThreadList extends React.Component {
     constructor(props) {
@@ -45,7 +47,7 @@ export class WorkerThreadList extends React.Component {
         const nodeId = getFirstParameter(window.location.search);
         $.get('/v1/worker/' + nodeId + '/thread', function (threads) {
             this.setState({
-                threads: this.processThreads(threads),
+                threads: WorkerThreadList.processThreads(threads),
                 snapshotTime: new Date(),
                 initialized: true,
             });
@@ -61,34 +63,24 @@ export class WorkerThreadList extends React.Component {
         new Clipboard('.copy-button');
     }
 
-    spliceThreadsByRegex(threads, regex) {
-        return [threads.filter(t => t.name.match(regex) !== null), threads.filter(t => t.name.match(regex) === null)];
-    }
-
-    processThreads(threads) {
+    static processThreads(threads) {
         const result = {};
 
         result[ALL_THREADS] = threads;
 
-        // first, pull out threads that are running queries
-        let [matched, remaining] = this.spliceThreadsByRegex(threads, /([0-9])*_([0-9])*_([0-9])*_.*?\.([0-9])*\.([0-9])*-([0-9])*-([0-9])*/);
-        result[QUERY_THREADS] = matched;
+        for (let i = 0; i < threads.length; i++) {
+            const thread = threads[i];
+            if (thread.name.match(QUERY_THREAD_REGEX)) {
+                result[QUERY_THREADS].push(thread)
+            }
 
-        if (matched.length !== 0) {
-            this.setState({
-                selectedGroup: QUERY_THREADS
-            })
-        }
-
-        while (remaining.length > 0) {
-            const match = /(.*?)-[0-9]+/.exec(remaining[0].name);
-
-            if (match === null) {
-                [result[remaining[0].name], remaining] = this.spliceThreadsByRegex(remaining, remaining[0].name);
+            const match = THREAD_GROUP_REGEXP.exec(thread.name);
+            if (!match) {
+                result[thread.name].push(thread);
             }
             else {
                 const [, namePrefix, ...ignored] = match;
-                [result[namePrefix], remaining] = this.spliceThreadsByRegex(remaining, namePrefix + "-[0-9]+");
+                result[namePrefix].push(thread);
             }
         }
 
