@@ -80,6 +80,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
@@ -201,6 +202,8 @@ import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 public class HiveMetadata
         implements TransactionalMetadata
 {
+    private static final Logger log = Logger.get(HiveMetadata.class);
+
     public static final String PRESTO_VERSION_NAME = "presto_version";
     public static final String PRESTO_QUERY_ID_NAME = "presto_query_id";
     public static final String TABLE_COMMENT = "comment";
@@ -407,6 +410,7 @@ public class HiveMetadata
             properties.put(STORAGE_FORMAT_PROPERTY, format);
         }
         catch (PrestoException ignored) {
+            log.warn("Storage Format Error: %s", ignored.getMessage());
             // todo fail if format is not known
         }
 
@@ -1727,9 +1731,14 @@ public class HiveMetadata
     private static HiveStorageFormat extractHiveStorageFormat(Table table)
     {
         StorageFormat storageFormat = table.getStorage().getStorageFormat();
-        String outputFormat = storageFormat.getOutputFormat();
+        String outputFormat;
+        try {
+            outputFormat = storageFormat.getOutputFormat();
+        }
+        catch (IllegalStateException e) {
+            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Illegal output format for table %s: %s", table.getTableName(), e.getMessage()));
+        }
         String serde = storageFormat.getSerDe();
-
         for (HiveStorageFormat format : HiveStorageFormat.values()) {
             if (format.getOutputFormat().equals(outputFormat) && format.getSerDe().equals(serde)) {
                 return format;
