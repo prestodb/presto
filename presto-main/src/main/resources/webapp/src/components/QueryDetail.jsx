@@ -523,7 +523,7 @@ class StageDetail extends React.Component {
                                 </table>
                             </td>
                             <td className="expand-charts-container">
-                                <a onClick={this.toggleExpanded} className="expand-charts-button">
+                                <a onClick={this.toggleExpanded.bind(this)} className="expand-charts-button">
                                     <span className={"glyphicon " + this.getExpandedIcon()} style={GLYPHICON_HIGHLIGHT} data-toggle="tooltip" data-placement="top" title="More"/>
                                 </a>
                             </td>
