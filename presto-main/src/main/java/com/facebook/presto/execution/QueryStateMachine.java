@@ -301,7 +301,7 @@ public class QueryStateMachine
 
         Duration elapsedTime;
         if (endNanos.get() != 0) {
-            elapsedTime = new Duration(endNanos.get() - createNanos, NANOSECONDS);
+            elapsedTime = succinctNanos(endNanos.get() - createNanos);
         }
         else {
             elapsedTime = nanosSince(createNanos);
@@ -315,14 +315,14 @@ public class QueryStateMachine
             }
         }
 
-        Duration queuedTime = this.queuedTime.get();
-
-        Duration executionTime = new Duration(0, NANOSECONDS);
         // if queue time is not set, the query is still queued
-        if (queuedTime != null) {
-            long executionNanos = (long) elapsedTime.getValue(NANOSECONDS) - (long) queuedTime.getValue(NANOSECONDS);
-            executionTime = succinctNanos(Math.max(0, executionNanos));
+        Duration queuedTime = this.queuedTime.get();
+        if (queuedTime == null) {
+            queuedTime = elapsedTime;
         }
+
+        // execution time is elapsedTime minus queuedTime
+        Duration executionTime = succinctNanos((long) Math.max(0, elapsedTime.getValue(NANOSECONDS) - queuedTime.getValue(NANOSECONDS)));
 
         BasicStageStats stageStats = rootStage.orElse(EMPTY_STAGE_STATS);
         BasicQueryStats queryStats = new BasicQueryStats(
@@ -387,7 +387,8 @@ public class QueryStateMachine
         boolean completeInfo = getAllStages(rootStage).stream().allMatch(StageInfo::isCompleteInfo);
         boolean isScheduled = isScheduled(rootStage);
 
-        return new QueryInfo(queryId,
+        return new QueryInfo(
+                queryId,
                 session.toSessionRepresentation(),
                 state,
                 memoryPool.get().getId(),
@@ -420,7 +421,7 @@ public class QueryStateMachine
     {
         Duration elapsedTime;
         if (endNanos.get() != 0) {
-            elapsedTime = new Duration(endNanos.get() - createNanos, NANOSECONDS);
+            elapsedTime = succinctNanos(endNanos.get() - createNanos);
         }
         else {
             elapsedTime = nanosSince(createNanos);
@@ -700,7 +701,7 @@ public class QueryStateMachine
     {
         queuedTime.compareAndSet(null, nanosSince(createNanos).convertToMostSuccinctTimeUnit());
         resourceWaitingStartNanos.compareAndSet(null, tickerNanos());
-        return queryState.compareAndSet(QUEUED, WAITING_FOR_RESOURCES);
+        return queryState.setIf(WAITING_FOR_RESOURCES, currentState -> currentState.ordinal() < WAITING_FOR_RESOURCES.ordinal());
     }
 
     public boolean transitionToPlanning()
@@ -709,7 +710,7 @@ public class QueryStateMachine
         resourceWaitingStartNanos.compareAndSet(null, tickerNanos());
         resourceWaitingTime.compareAndSet(null, nanosSince(resourceWaitingStartNanos.get()).convertToMostSuccinctTimeUnit());
         totalPlanningStartNanos.compareAndSet(null, tickerNanos());
-        return queryState.setIf(PLANNING, currentState -> currentState == QUEUED || currentState == WAITING_FOR_RESOURCES);
+        return queryState.setIf(PLANNING, currentState -> currentState.ordinal() < PLANNING.ordinal());
     }
 
     public boolean transitionToStarting()
@@ -720,7 +721,7 @@ public class QueryStateMachine
         totalPlanningStartNanos.compareAndSet(null, tickerNanos());
         totalPlanningTime.compareAndSet(null, nanosSince(totalPlanningStartNanos.get()));
 
-        return queryState.setIf(STARTING, currentState -> currentState == QUEUED || currentState == PLANNING);
+        return queryState.setIf(STARTING, currentState -> currentState.ordinal() < STARTING.ordinal());
     }
 
     public boolean transitionToRunning()
@@ -732,7 +733,7 @@ public class QueryStateMachine
         totalPlanningTime.compareAndSet(null, nanosSince(totalPlanningStartNanos.get()));
         executionStartTime.compareAndSet(null, DateTime.now());
 
-        return queryState.setIf(RUNNING, currentState -> currentState != RUNNING && currentState != FINISHING && !currentState.isDone());
+        return queryState.setIf(RUNNING, currentState -> currentState.ordinal() < RUNNING.ordinal());
     }
 
     public boolean transitionToFinishing()
