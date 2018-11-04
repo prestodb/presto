@@ -11,6 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+//@flow
+
+import * as dagreD3 from "dagre-d3";
+import * as d3 from "d3";
 
 // Query display
 // =============
@@ -31,7 +35,7 @@ const STATE_COLOR_MAP = {
     UNKNOWN_ERROR: '#943524'
 };
 
-export function getQueryStateColor(query)
+export function getQueryStateColor(query: any): string
 {
     switch (query.state) {
         case "QUEUED":
@@ -66,7 +70,7 @@ export function getQueryStateColor(query)
     }
 }
 
-export function getStageStateColor(stage)
+export function getStageStateColor(stage: any): string
 {
     switch (stage.state) {
         case "PLANNED":
@@ -93,7 +97,7 @@ export function getStageStateColor(stage)
 
 // This relies on the fact that BasicQueryInfo and QueryInfo have all the fields
 // necessary to compute this string, and that these fields are consistently named.
-export function getHumanReadableState(query)
+export function getHumanReadableState(query: any): string
 {
     if (query.state === "RUNNING") {
         let title = "RUNNING";
@@ -134,7 +138,7 @@ export function getHumanReadableState(query)
     return query.state;
 }
 
-export function getProgressBarPercentage(query)
+export function getProgressBarPercentage(query: any): number
 {
     const progress = query.queryStats.progressPercentage;
 
@@ -146,7 +150,7 @@ export function getProgressBarPercentage(query)
     return Math.round(progress);
 }
 
-export function getProgressBarTitle(query)
+export function getProgressBarTitle(query: any): string
 {
     if (query.queryStats.progressPercentage && query.state === "RUNNING") {
         return getHumanReadableState(query) + " (" + getProgressBarPercentage(query) + "%)"
@@ -155,7 +159,7 @@ export function getProgressBarTitle(query)
     return getHumanReadableState(query)
 }
 
-export function isQueryEnded(query)
+export function isQueryEnded(query: any): boolean
 {
     return ["FINISHED", "FAILED", "CANCELED"].indexOf(query.state) > -1;
 }
@@ -168,14 +172,14 @@ const MAX_HISTORY = 60 * 5;
 // alpha param of exponentially weighted moving average. picked arbitrarily - lower values means more smoothness
 const MOVING_AVERAGE_ALPHA = 0.2;
 
-export function addToHistory (value, valuesArray) {
+export function addToHistory (value: number, valuesArray: number[]): number[] {
     if (valuesArray.length === 0) {
         return valuesArray.concat([value]);
     }
     return valuesArray.concat([value]).slice(Math.max(valuesArray.length - MAX_HISTORY, 0));
 }
 
-export function addExponentiallyWeightedToHistory (value, valuesArray) {
+export function addExponentiallyWeightedToHistory (value: number, valuesArray: number[]): number[] {
     if (valuesArray.length === 0) {
         return valuesArray.concat([value]);
     }
@@ -198,7 +202,7 @@ export function initializeGraph()
         .setDefaultEdgeLabel(function () { return {}; });
 }
 
-export function initializeSvg(selector)
+export function initializeSvg(selector: any)
 {
     const svg = d3.select(selector);
     svg.append("g");
@@ -206,7 +210,7 @@ export function initializeSvg(selector)
     return svg;
 }
 
-export function computeSources(nodeInfo)
+export function computeSources(nodeInfo: any)
 {
     let sources = [];
     let remoteSources = []; // TODO: put remoteSources in node-specific section
@@ -267,7 +271,7 @@ export function computeSources(nodeInfo)
 // Utility functions
 // =================
 
-export function truncateString(inputString, length) {
+export function truncateString(inputString: string, length: number): string {
     if (inputString && inputString.length > length) {
         return inputString.substring(0, length) + "...";
     }
@@ -275,19 +279,19 @@ export function truncateString(inputString, length) {
     return inputString;
 }
 
-export function getStageNumber(stageId) {
+export function getStageNumber(stageId: string): number {
     return Number.parseInt(stageId.slice(stageId.indexOf('.') + 1, stageId.length))
 }
 
-export function getTaskIdSuffix(taskId) {
+export function getTaskIdSuffix(taskId: string): string {
     return taskId.slice(taskId.indexOf('.') + 1, taskId.length)
 }
 
-export function getTaskNumber(taskId) {
+export function getTaskNumber(taskId: string): number {
     return Number.parseInt(getTaskIdSuffix(getTaskIdSuffix(taskId)));
 }
 
-export function getFirstParameter(searchString) {
+export function getFirstParameter(searchString: string): string {
     const searchText = searchString.substring(1);
 
     if (searchText.indexOf('&') !== -1) {
@@ -297,7 +301,7 @@ export function getFirstParameter(searchString) {
     return searchText;
 }
 
-export function getHostname(url) {
+export function getHostname(url: string): string {
     let hostname = new URL(url).hostname;
     if ((hostname.charAt(0) === '[') && (hostname.charAt(hostname.length - 1) === ']')) {
         hostname = hostname.substr(1, hostname.length - 2);
@@ -305,33 +309,33 @@ export function getHostname(url) {
     return hostname;
 }
 
-export function getPort(url) {
+export function getPort(url: string): string {
     return new URL(url).port;
 }
 
-export function getHostAndPort(urlStr) {
+export function getHostAndPort(urlStr: string): string {
     const url = new URL(urlStr);
     return url.hostname + ":" + url.port;
 }
 
-export function computeRate(count, ms) {
+export function computeRate(count: number, ms: number): number {
     if (ms === 0) {
         return 0;
     }
     return (count / ms) * 1000.0;
 }
 
-export function precisionRound(n) {
+export function precisionRound(n: number): string {
     if (n < 10) {
         return n.toFixed(2);
     }
     if (n < 100) {
         return n.toFixed(1);
     }
-    return Math.round(n);
+    return Math.round(n).toString();
 }
 
-export function formatDuration(duration) {
+export function formatDuration(duration: number): string {
     let unit = "ms";
     if (duration > 1000) {
         duration /= 1000;
@@ -356,7 +360,7 @@ export function formatDuration(duration) {
     return precisionRound(duration) + unit;
 }
 
-export function formatCount(count) {
+export function formatCount(count: number): string {
     let unit = "";
     if (count > 1000) {
         count /= 1000;
@@ -381,15 +385,15 @@ export function formatCount(count) {
     return precisionRound(count) + unit;
 }
 
-export function formatDataSizeBytes(size) {
+export function formatDataSizeBytes(size: number): string {
     return formatDataSizeMinUnit(size, "");
 }
 
-export function formatDataSize(size) {
+export function formatDataSize(size: number): string {
     return formatDataSizeMinUnit(size, "B");
 }
 
-function formatDataSizeMinUnit(size, minUnit) {
+function formatDataSizeMinUnit(size: number, minUnit: string): string {
     let unit = minUnit;
     if (size === 0) {
         return "0" + unit;
@@ -417,7 +421,7 @@ function formatDataSizeMinUnit(size, minUnit) {
     return precisionRound(size) + unit;
 }
 
-export function parseDataSize(value) {
+export function parseDataSize(value: string): ?number {
     const DATA_SIZE_PATTERN = /^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*$/;
     const match = DATA_SIZE_PATTERN.exec(value);
     if (match === null) {
@@ -442,7 +446,7 @@ export function parseDataSize(value) {
     }
 }
 
-export function parseDuration(value) {
+export function parseDuration(value: string): ?number {
     const DURATION_PATTERN = /^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*$/;
 
     const match = DURATION_PATTERN.exec(value);
@@ -470,13 +474,13 @@ export function parseDuration(value) {
     }
 }
 
-export function formatShortTime(date) {
+export function formatShortTime(date: Date): string {
     const hours = (date.getHours() % 12) || 12;
     const minutes = (date.getMinutes() < 10 ? "0" : "") + date.getMinutes();
     return hours + ":" + minutes + (date.getHours() >= 12 ? "pm" : "am");
 }
 
-export function formatShortDateTime(date) {
+export function formatShortDateTime(date: Date): string {
     const year = date.getFullYear();
     const month = "" + (date.getMonth() + 1);
     const dayOfMonth = "" + date.getDate();
