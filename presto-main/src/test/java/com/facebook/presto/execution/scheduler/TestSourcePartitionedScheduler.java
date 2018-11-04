@@ -138,9 +138,8 @@ public class TestSourcePartitionedScheduler
 
         ScheduleResult scheduleResult = scheduler.schedule();
 
-        assertTrue(scheduleResult.isFinished());
-        assertTrue(scheduleResult.getBlocked().isDone());
         assertEquals(scheduleResult.getNewTasks().size(), 1);
+        assertEffectivelyFinished(scheduleResult, scheduler);
 
         stage.abort();
     }
@@ -158,7 +157,12 @@ public class TestSourcePartitionedScheduler
             ScheduleResult scheduleResult = scheduler.schedule();
 
             // only finishes when last split is fetched
-            assertEquals(scheduleResult.isFinished(), i == 59);
+            if (i == 59) {
+                assertEffectivelyFinished(scheduleResult, scheduler);
+            }
+            else {
+                assertFalse(scheduleResult.isFinished());
+            }
 
             // never blocks
             assertTrue(scheduleResult.getBlocked().isDone());
@@ -190,7 +194,12 @@ public class TestSourcePartitionedScheduler
             ScheduleResult scheduleResult = scheduler.schedule();
 
             // finishes when last split is fetched
-            assertEquals(scheduleResult.isFinished(), i == (60 / 7));
+            if (i == (60 / 7)) {
+                assertEffectivelyFinished(scheduleResult, scheduler);
+            }
+            else {
+                assertFalse(scheduleResult.isFinished());
+            }
 
             // never blocks
             assertTrue(scheduleResult.getBlocked().isDone());
@@ -248,7 +257,12 @@ public class TestSourcePartitionedScheduler
             ScheduleResult scheduleResult = scheduler.schedule();
 
             // finishes when last split is fetched
-            assertEquals(scheduleResult.isFinished(), i == 19);
+            if (i == 19) {
+                assertEffectivelyFinished(scheduleResult, scheduler);
+            }
+            else {
+                assertFalse(scheduleResult.isFinished());
+            }
 
             // does not block again
             assertTrue(scheduleResult.getBlocked().isDone());
@@ -332,7 +346,7 @@ public class TestSourcePartitionedScheduler
         StageScheduler firstScheduler = getSourcePartitionedScheduler(firstPlan, firstStage, nodeManager, nodeTaskMap, 200);
 
         ScheduleResult scheduleResult = firstScheduler.schedule();
-        assertTrue(scheduleResult.isFinished());
+        assertEffectivelyFinished(scheduleResult, firstScheduler);
         assertTrue(scheduleResult.getBlocked().isDone());
         assertEquals(scheduleResult.getNewTasks().size(), 3);
         assertEquals(firstStage.getAllTasks().size(), 3);
@@ -350,7 +364,7 @@ public class TestSourcePartitionedScheduler
         StageScheduler secondScheduler = getSourcePartitionedScheduler(secondPlan, secondStage, nodeManager, nodeTaskMap, 200);
 
         scheduleResult = secondScheduler.schedule();
-        assertTrue(scheduleResult.isFinished());
+        assertEffectivelyFinished(scheduleResult, secondScheduler);
         assertTrue(scheduleResult.getBlocked().isDone());
         assertEquals(scheduleResult.getNewTasks().size(), 1);
         assertEquals(secondStage.getAllTasks().size(), 1);
@@ -372,7 +386,7 @@ public class TestSourcePartitionedScheduler
         StageScheduler firstScheduler = getSourcePartitionedScheduler(firstPlan, firstStage, nodeManager, nodeTaskMap, 200);
 
         ScheduleResult scheduleResult = firstScheduler.schedule();
-        assertTrue(scheduleResult.isFinished());
+        assertEffectivelyFinished(scheduleResult, firstScheduler);
         assertTrue(scheduleResult.getBlocked().isDone());
         assertEquals(scheduleResult.getNewTasks().size(), 3);
         assertEquals(firstStage.getAllTasks().size(), 3);
@@ -401,6 +415,21 @@ public class TestSourcePartitionedScheduler
     private static void assertPartitionedSplitCount(SqlStageExecution stage, int expectedPartitionedSplitCount)
     {
         assertEquals(stage.getAllTasks().stream().mapToInt(RemoteTask::getPartitionedSplitCount).sum(), expectedPartitionedSplitCount);
+    }
+
+    private static void assertEffectivelyFinished(ScheduleResult scheduleResult, StageScheduler scheduler)
+    {
+        if (scheduleResult.isFinished()) {
+            assertTrue(scheduleResult.getBlocked().isDone());
+            return;
+        }
+
+        assertTrue(scheduleResult.getBlocked().isDone());
+        ScheduleResult nextScheduleResult = scheduler.schedule();
+        assertTrue(nextScheduleResult.isFinished());
+        assertTrue(nextScheduleResult.getBlocked().isDone());
+        assertEquals(nextScheduleResult.getNewTasks().size(), 0);
+        assertEquals(nextScheduleResult.getSplitsScheduled(), 0);
     }
 
     private static StageScheduler getSourcePartitionedScheduler(
