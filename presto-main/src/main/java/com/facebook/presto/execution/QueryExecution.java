@@ -14,23 +14,20 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
 import com.facebook.presto.execution.QueryTracker.TrackedQuery;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -44,8 +41,6 @@ public interface QueryExecution
     ListenableFuture<QueryState> getStateChange(QueryState currentState);
 
     void addOutputInfoListener(Consumer<QueryOutputInfo> listener);
-
-    Optional<ResourceGroupId> getResourceGroup();
 
     Plan getQueryPlan();
 
@@ -65,7 +60,7 @@ public interface QueryExecution
 
     interface QueryExecutionFactory<T extends QueryExecution>
     {
-        T createQueryExecution(QueryId queryId, String query, Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector);
+        T createQueryExecution(String query, Session session, PreparedQuery preparedQuery, ResourceGroupId resourceGroup, WarningCollector warningCollector);
     }
 
     /**

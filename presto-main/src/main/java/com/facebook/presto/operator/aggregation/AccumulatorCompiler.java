@@ -148,8 +148,8 @@ public class AccumulatorCompiler
                 definition,
                 callSiteBinder,
                 stateDescriptors.stream()
-                    .map(stateDescriptor -> stateDescriptor.getSerializer().getSerializedType())
-                    .collect(toImmutableList()));
+                        .map(stateDescriptor -> stateDescriptor.getSerializer().getSerializedType())
+                        .collect(toImmutableList()));
 
         generateGetFinalType(definition, callSiteBinder, metadata.getOutputType());
 

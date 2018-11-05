@@ -15,8 +15,12 @@ package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.PrivilegeInfo;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.Arrays;
 import java.util.Objects;
@@ -31,6 +35,7 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Locale.ENGLISH;
 
+@Immutable
 public class HivePrivilegeInfo
 {
     public enum HivePrivilege
@@ -41,17 +46,22 @@ public class HivePrivilegeInfo
     private final HivePrivilege hivePrivilege;
     private final boolean grantOption;
 
-    public HivePrivilegeInfo(HivePrivilege hivePrivilege, boolean grantOption)
+    @JsonCreator
+    public HivePrivilegeInfo(
+            @JsonProperty("hivePrivilege") HivePrivilege hivePrivilege,
+            @JsonProperty("grantOption") boolean grantOption)
     {
         this.hivePrivilege = hivePrivilege;
         this.grantOption = grantOption;
     }
 
+    @JsonProperty
     public HivePrivilege getHivePrivilege()
     {
         return hivePrivilege;
     }
 
+    @JsonProperty
     public boolean isGrantOption()
     {
         return grantOption;

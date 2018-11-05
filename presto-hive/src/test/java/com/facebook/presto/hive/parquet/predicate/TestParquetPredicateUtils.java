@@ -175,8 +175,8 @@ public class TestParquetPredicateUtils
         MessageType fileSchema = new MessageType("hive_schema",
                 new GroupType(OPTIONAL, "my_map",
                         new GroupType(REPEATED, "map",
-                            new PrimitiveType(REQUIRED, INT32, "key"),
-                            new PrimitiveType(OPTIONAL, INT32, "value"))));
+                                new PrimitiveType(REQUIRED, INT32, "key"),
+                                new PrimitiveType(OPTIONAL, INT32, "value"))));
 
         Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
         TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain);

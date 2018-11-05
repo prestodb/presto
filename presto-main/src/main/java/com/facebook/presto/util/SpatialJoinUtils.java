@@ -44,7 +44,7 @@ public class SpatialJoinUtils
      * Returns a subset of conjuncts matching one of the following shapes:
      * - ST_Contains(...)
      * - ST_Intersects(...)
-     *
+     * <p>
      * Doesn't check or guarantee anything about function arguments.
      */
     public static List<FunctionCall> extractSupportedSpatialFunctions(Expression filterExpression)
@@ -68,7 +68,7 @@ public class SpatialJoinUtils
      * - ST_Distance(...) < ...
      * - ... >= ST_Distance(...)
      * - ... > ST_Distance(...)
-     *
+     * <p>
      * Doesn't check or guarantee anything about ST_Distance functions arguments
      * or the other side of the comparison.
      */

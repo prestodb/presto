@@ -24,7 +24,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Estimated resource usage for a query.
- *
+ * <p>
  * This class is under active development and should be considered beta.
  */
 public final class ResourceEstimates

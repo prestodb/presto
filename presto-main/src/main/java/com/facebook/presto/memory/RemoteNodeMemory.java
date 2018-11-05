@@ -41,8 +41,6 @@ import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
-import static java.util.Optional.empty;
-import static java.util.Optional.ofNullable;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 
@@ -56,7 +54,7 @@ public class RemoteNodeMemory
     private final URI memoryInfoUri;
     private final JsonCodec<MemoryInfo> memoryInfoCodec;
     private final JsonCodec<MemoryPoolAssignmentsRequest> assignmentsRequestJsonCodec;
-    private final AtomicReference<Optional<MemoryInfo>> memoryInfo = new AtomicReference<>(empty());
+    private final AtomicReference<Optional<MemoryInfo>> memoryInfo = new AtomicReference<>(Optional.empty());
     private final AtomicReference<Future<?>> future = new AtomicReference<>();
     private final AtomicLong lastUpdateNanos = new AtomicLong();
     private final AtomicLong lastWarningLogged = new AtomicLong();
@@ -119,7 +117,7 @@ public class RemoteNodeMemory
                     long version = currentAssignmentVersion.get();
                     if (result != null) {
                         if (result.hasValue()) {
-                            memoryInfo.set(ofNullable(result.getValue()));
+                            memoryInfo.set(Optional.ofNullable(result.getValue()));
                         }
                         if (result.getStatusCode() != OK.code()) {
                             log.warn("Error fetching memory info from %s returned status %d: %s", memoryInfoUri, result.getStatusCode(), result.getStatusMessage());

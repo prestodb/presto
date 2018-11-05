@@ -18,11 +18,17 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import javax.annotation.concurrent.Immutable;
+
+import java.util.Objects;
+
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_LAST;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class SortingColumn
 {
     public enum Order
@@ -87,5 +93,35 @@ public class SortingColumn
     public static SortingColumn fromMetastoreApiOrder(org.apache.hadoop.hive.metastore.api.Order order, String tablePartitionName)
     {
         return new SortingColumn(order.getCol(), Order.fromMetastoreApiOrder(order.getOrder(), tablePartitionName));
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("columnName", columnName)
+                .add("order", order)
+                .toString();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        SortingColumn that = (SortingColumn) o;
+        return Objects.equals(columnName, that.columnName) &&
+                order == that.order;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(columnName, order);
     }
 }

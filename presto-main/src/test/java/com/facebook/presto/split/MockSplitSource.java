@@ -43,6 +43,7 @@ public class MockSplitSource
 {
     private static final Split SPLIT = new Split(new ConnectorId("test"), new ConnectorTransactionHandle() {}, new MockConnectorSplit());
     private static final SettableFuture<List<Split>> COMPLETED_FUTURE = SettableFuture.create();
+
     static {
         COMPLETED_FUTURE.set(null);
     }

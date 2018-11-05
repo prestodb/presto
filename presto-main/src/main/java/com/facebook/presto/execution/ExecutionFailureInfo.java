@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
-import javax.validation.constraints.NotNull;
 
 import java.util.List;
 import java.util.regex.Matcher;
@@ -72,7 +71,6 @@ public class ExecutionFailureInfo
         this.remoteHost = remoteHost;
     }
 
-    @NotNull
     @JsonProperty
     public String getType()
     {
@@ -93,14 +91,12 @@ public class ExecutionFailureInfo
         return cause;
     }
 
-    @NotNull
     @JsonProperty
     public List<ExecutionFailureInfo> getSuppressed()
     {
         return suppressed;
     }
 
-    @NotNull
     @JsonProperty
     public List<String> getStack()
     {

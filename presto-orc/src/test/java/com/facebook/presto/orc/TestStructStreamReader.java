@@ -77,7 +77,8 @@ public class TestStructStreamReader
     }
 
     @AfterMethod
-    public void tearDown() throws IOException
+    public void tearDown()
+            throws IOException
     {
         tempFile.close();
     }
@@ -86,7 +87,8 @@ public class TestStructStreamReader
      * Reader and writer have the same fields. Checks that fields are read in correctly
      */
     @Test
-    public void testValuesAreReadInCorrectly() throws IOException
+    public void testValuesAreReadInCorrectly()
+            throws IOException
     {
         List<String> readerFields = new ArrayList<>(Arrays.asList("field_a", "field_b", "field_c"));
         List<String> writerFields = new ArrayList<>(Arrays.asList("field_a", "field_b", "field_c"));
@@ -108,7 +110,8 @@ public class TestStructStreamReader
      * The writer has fields with upper case characters, reader has same names downcased.
      */
     @Test
-    public void testReaderLowerCasesFieldNamesFromStream() throws IOException
+    public void testReaderLowerCasesFieldNamesFromStream()
+            throws IOException
     {
         List<String> readerFields = new ArrayList<>(Arrays.asList("field_a", "field_b", "field_c"));
         List<String> writerFields = new ArrayList<>(Arrays.asList("field_A", "field_B", "field_C"));
@@ -130,7 +133,8 @@ public class TestStructStreamReader
      * Reader has fields with upper case characters, writer has same names downcased.
      */
     @Test
-    public void testReaderLowerCasesFieldNamesFromType() throws IOException
+    public void testReaderLowerCasesFieldNamesFromType()
+            throws IOException
     {
         List<String> readerFields = new ArrayList<>(Arrays.asList("field_A", "field_B", "field_C"));
         List<String> writerFields = new ArrayList<>(Arrays.asList("field_a", "field_b", "field_c"));
@@ -150,7 +154,8 @@ public class TestStructStreamReader
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp =
             "Missing struct field name in type row\\(varchar,varchar,varchar\\)")
-    public void testThrowsExceptionWhenFieldNameMissing() throws IOException
+    public void testThrowsExceptionWhenFieldNameMissing()
+            throws IOException
     {
         List<String> readerFields = new ArrayList<>(Arrays.asList("field_a", "field_b", "field_c"));
         List<String> writerFields = new ArrayList<>(Arrays.asList("field_a", "field_b", "field_c"));
@@ -166,7 +171,8 @@ public class TestStructStreamReader
      * The reader has a field that is missing from the ORC file
      */
     @Test
-    public void testExtraFieldsInReader() throws IOException
+    public void testExtraFieldsInReader()
+            throws IOException
     {
         List<String> readerFields = new ArrayList<>(Arrays.asList("field_a", "field_b", "field_c"));
 
@@ -190,7 +196,8 @@ public class TestStructStreamReader
      * The ORC file has a field that is missing from the reader
      */
     @Test
-    public void testExtraFieldsInWriter() throws IOException
+    public void testExtraFieldsInWriter()
+            throws IOException
     {
         // field_b is missing
         List<String> readerFields = new ArrayList<>(Arrays.asList("field_a", "field_c"));
@@ -208,14 +215,26 @@ public class TestStructStreamReader
         assertEquals(actual.get(1), "field_c_value");
     }
 
-    private void write(TempFile tempFile, Type writerType, List<String> data) throws IOException
+    private void write(TempFile tempFile, Type writerType, List<String> data)
+            throws IOException
     {
         OrcWriter writer = new OrcWriter(
-                new OutputStreamOrcDataSink(
-                        new FileOutputStream(tempFile.getFile())), ImmutableList.of(STRUCT_COL_NAME), ImmutableList.of(writerType), ORC, NONE,
-                           new OrcWriterOptions().withStripeMinSize(new DataSize(0, MEGABYTE)).withStripeMaxSize(new DataSize(32, MEGABYTE)).withStripeMaxRowCount(ORC_STRIPE_SIZE)
-                                   .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE).withDictionaryMaxMemory(new DataSize(32, MEGABYTE)),
-                ImmutableMap.of(), HIVE_STORAGE_TIME_ZONE, true, BOTH, new OrcWriterStats());
+                new OutputStreamOrcDataSink(new FileOutputStream(tempFile.getFile())),
+                ImmutableList.of(STRUCT_COL_NAME),
+                ImmutableList.of(writerType),
+                ORC,
+                NONE,
+                new OrcWriterOptions()
+                        .withStripeMinSize(new DataSize(0, MEGABYTE))
+                        .withStripeMaxSize(new DataSize(32, MEGABYTE))
+                        .withStripeMaxRowCount(ORC_STRIPE_SIZE)
+                        .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
+                        .withDictionaryMaxMemory(new DataSize(32, MEGABYTE)),
+                ImmutableMap.of(),
+                HIVE_STORAGE_TIME_ZONE,
+                true,
+                BOTH,
+                new OrcWriterStats());
 
         // write down some data with unsorted streams
         Block[] fieldBlocks = new Block[data.size()];
@@ -239,7 +258,8 @@ public class TestStructStreamReader
         writer.close();
     }
 
-    private RowBlock read(TempFile tempFile, Type readerType) throws IOException
+    private RowBlock read(TempFile tempFile, Type readerType)
+            throws IOException
     {
         DataSize dataSize = new DataSize(1, MEGABYTE);
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), dataSize, dataSize, dataSize, true);

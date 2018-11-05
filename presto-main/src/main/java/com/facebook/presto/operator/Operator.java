@@ -56,11 +56,14 @@ public interface Operator
      * As soon as memory is revoked returned future should be marked as done.
      * <p>
      * Spawned threads can not modify OperatorContext because it's not thread safe.
-     * For this purpose use implement finishMemoryRevoke
+     * For this purpose implement {@link #finishMemoryRevoke()}
      * <p>
-     * After startMemoryRevoke is called on Operator the Driver is disallowed to call any
-     * processing methods on it (finish/isFinished/isBlocked/needsInput/addInput/getOutput) until
-     * finishMemoryRevoke is called.
+     * Since memory revoking signal is delivered asynchronously to the Operator, implementation
+     * must gracefully handle the case when there no longer is any revocable memory allocated.
+     * <p>
+     * After this method is called on Operator the Driver is disallowed to call any
+     * processing methods on it (isBlocked/needsInput/addInput/getOutput) until
+     * {@link #finishMemoryRevoke()} is called.
      */
     default ListenableFuture<?> startMemoryRevoke()
     {

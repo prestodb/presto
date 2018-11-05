@@ -40,8 +40,6 @@ import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
-import static java.util.Optional.empty;
-import static java.util.Optional.ofNullable;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 
@@ -52,7 +50,7 @@ public class RemoteNodeState
 
     private final HttpClient httpClient;
     private final URI stateInfoUri;
-    private final AtomicReference<Optional<NodeState>> nodeState = new AtomicReference<>(empty());
+    private final AtomicReference<Optional<NodeState>> nodeState = new AtomicReference<>(Optional.empty());
     private final AtomicReference<Future<?>> future = new AtomicReference<>();
     private final AtomicLong lastUpdateNanos = new AtomicLong();
     private final AtomicLong lastWarningLogged = new AtomicLong();
@@ -94,7 +92,7 @@ public class RemoteNodeState
                     future.compareAndSet(responseFuture, null);
                     if (result != null) {
                         if (result.hasValue()) {
-                            nodeState.set(ofNullable(result.getValue()));
+                            nodeState.set(Optional.ofNullable(result.getValue()));
                         }
                         if (result.getStatusCode() != OK.code()) {
                             log.warn("Error fetching node state from %s returned status %d: %s", stateInfoUri, result.getStatusCode(), result.getStatusMessage());

@@ -24,6 +24,7 @@ public class TestingEnvironment
     private TestingEnvironment() {}
 
     public static final TypeManager TYPE_MANAGER = new TypeRegistry();
+
     static {
         // wire TYPE_MANAGER with function registry
         new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());

@@ -24,7 +24,6 @@ import com.facebook.presto.plugin.geospatial.GeoPlugin;
 import com.facebook.presto.plugin.geospatial.GeometryType;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
 import io.airlift.slice.Slice;
 import org.testng.annotations.BeforeClass;
 
@@ -36,6 +35,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 
 public abstract class AbstractTestGeoAggregationFunctions
         extends AbstractTestFunctions
@@ -53,10 +53,11 @@ public abstract class AbstractTestGeoAggregationFunctions
         function = functionAssertions
                 .getMetadata()
                 .getFunctionRegistry()
-                .getAggregateFunctionImplementation(new Signature(getFunctionName(),
-                                                    FunctionKind.AGGREGATE,
-                TypeSignature.parseTypeSignature(GeometryType.GEOMETRY_TYPE_NAME),
-                TypeSignature.parseTypeSignature(GeometryType.GEOMETRY_TYPE_NAME)));
+                .getAggregateFunctionImplementation(new Signature(
+                        getFunctionName(),
+                        FunctionKind.AGGREGATE,
+                        parseTypeSignature(GeometryType.GEOMETRY_TYPE_NAME),
+                        parseTypeSignature(GeometryType.GEOMETRY_TYPE_NAME)));
     }
 
     protected void assertAggregatedGeometries(String testDescription, String expectedWkt, String... wkts)

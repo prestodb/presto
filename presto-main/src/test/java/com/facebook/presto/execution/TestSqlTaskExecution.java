@@ -122,7 +122,7 @@ public class TestSqlTaskExecution
     @DataProvider
     public static Object[][] executionStrategies()
     {
-        return new Object[][]{{UNGROUPED_EXECUTION}, {GROUPED_EXECUTION}};
+        return new Object[][] {{UNGROUPED_EXECUTION}, {GROUPED_EXECUTION}};
     }
 
     @Test(dataProvider = "executionStrategies", timeOut = 20_000)
@@ -700,6 +700,8 @@ public class TestSqlTaskExecution
     public static class Pauser
     {
         private volatile SettableFuture<?> future = SettableFuture.create();
+
+        public Pauser()
         {
             future.set(null);
         }

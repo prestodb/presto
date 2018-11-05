@@ -129,7 +129,7 @@ public abstract class TestDateBase
     {
         assertFunction("cast(DATE '2001-1-22' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(2001, 1, 22, 0, 0, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, session));
+                sqlTimestampOf(2001, 1, 22, 0, 0, 0, 0, session));
     }
 
     @Test

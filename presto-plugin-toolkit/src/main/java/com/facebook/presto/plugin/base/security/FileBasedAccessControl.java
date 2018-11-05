@@ -20,20 +20,16 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.ObjectMapperProvider;
 
 import javax.inject.Inject;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.plugin.base.JsonUtils.parseJson;
 import static com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege.DELETE;
 import static com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege.GRANT_SELECT;
 import static com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege.INSERT;
@@ -56,7 +52,6 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameS
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
-import static java.lang.String.format;
 
 public class FileBasedAccessControl
         implements ConnectorAccessControl
@@ -69,26 +64,12 @@ public class FileBasedAccessControl
 
     @Inject
     public FileBasedAccessControl(FileBasedAccessControlConfig config)
-            throws IOException
     {
-        AccessControlRules rules = parse(Files.readAllBytes(Paths.get(config.getConfigFile())));
+        AccessControlRules rules = parseJson(Paths.get(config.getConfigFile()), AccessControlRules.class);
 
         this.schemaRules = rules.getSchemaRules();
         this.tableRules = rules.getTableRules();
         this.sessionPropertyRules = rules.getSessionPropertyRules();
-    }
-
-    private static AccessControlRules parse(byte[] json)
-    {
-        ObjectMapper mapper = new ObjectMapperProvider().get()
-                .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
-        Class<AccessControlRules> javaType = AccessControlRules.class;
-        try {
-            return mapper.readValue(json, javaType);
-        }
-        catch (IOException e) {
-            throw new IllegalArgumentException(format("Invalid JSON string for %s", javaType), e);
-        }
     }
 
     @Override

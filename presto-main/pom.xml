@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.213-SNAPSHOT</version>
+        <version>0.214-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-main</artifactId>
@@ -381,6 +381,10 @@
             <groupId>io.airlift</groupId>
             <artifactId>jaxrs-testing</artifactId>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-plugin-toolkit</artifactId>
         </dependency>
     </dependencies>
 

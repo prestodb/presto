@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.exchange;
 
 import com.facebook.presto.operator.WorkProcessor;
+import com.facebook.presto.operator.WorkProcessor.ProcessState;
 import com.facebook.presto.spi.Page;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -28,10 +29,6 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.operator.WorkProcessor.ProcessorState.blocked;
-import static com.facebook.presto.operator.WorkProcessor.ProcessorState.finished;
-import static com.facebook.presto.operator.WorkProcessor.ProcessorState.ofResult;
-import static com.facebook.presto.operator.WorkProcessor.ProcessorState.yield;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -106,18 +103,18 @@ public class LocalExchangeSource
             Page page = removePage();
             if (page == null) {
                 if (isFinished()) {
-                    return finished();
+                    return ProcessState.finished();
                 }
 
                 ListenableFuture<?> blocked = waitForReading();
                 if (!blocked.isDone()) {
-                    return blocked(blocked);
+                    return ProcessState.blocked(blocked);
                 }
 
-                return yield();
+                return ProcessState.yield();
             }
 
-            return ofResult(page);
+            return ProcessState.ofResult(page);
         });
     }
 

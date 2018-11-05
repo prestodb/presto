@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>83</version>
+        <version>86</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.213-SNAPSHOT</version>
+    <version>0.214-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -51,12 +51,18 @@
         <dep.okhttp.version>3.9.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.drift.version>1.14</dep.drift.version>
-        <dep.tempto.version>1.49</dep.tempto.version>
+        <dep.tempto.version>1.50</dep.tempto.version>
         <dep.testng.version>6.10</dep.testng.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
 
-        <!-- use a fractional hour timezone offset for tests -->
-        <air.test.timezone>Asia/Katmandu</air.test.timezone>
+        <!--
+          America/Bahia_Banderas has:
+           - offset change since 1970 (offset Jan 1970: -08:00, offset Jan 2018: -06:00)
+           - DST (e.g. at 2017-04-02 02:00:00 clocks turned forward 1 hour; 2017-10-29 02:00:00 clocks turned backward 1 hour)
+           - has forward offset change on first day of epoch (1970-01-01 00:00:00 clocks turned forward 1 hour)
+           - had forward change at midnight (1970-01-01 00:00:00 clocks turned forward 1 hour)
+          -->
+        <air.test.timezone>America/Bahia_Banderas</air.test.timezone>
         <air.test.parallel>methods</air.test.parallel>
         <air.test.thread-count>2</air.test.thread-count>
         <air.test.jvmsize>2g</air.test.jvmsize>
@@ -400,7 +406,7 @@
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>1.2.0-2</version>
+                <version>1.2.2-2</version>
             </dependency>
 
             <dependency>

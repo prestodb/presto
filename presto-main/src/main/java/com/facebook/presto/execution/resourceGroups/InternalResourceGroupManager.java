@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.presto.execution.QueryExecution;
+import com.facebook.presto.execution.ManagedQueryExecution;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
 import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.spi.PrestoException;
@@ -107,7 +107,7 @@ public final class InternalResourceGroupManager<C>
     }
 
     @Override
-    public void submit(Statement statement, QueryExecution queryExecution, SelectionContext<C> selectionContext, Executor executor)
+    public void submit(Statement statement, ManagedQueryExecution queryExecution, SelectionContext<C> selectionContext, Executor executor)
     {
         checkState(configurationManager.get() != null, "configurationManager not set");
         createGroupIfNecessary(selectionContext, executor);

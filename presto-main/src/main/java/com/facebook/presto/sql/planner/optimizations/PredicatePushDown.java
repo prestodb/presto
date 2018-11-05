@@ -336,7 +336,18 @@ public class PredicatePushDown
         @Override
         public PlanNode visitFilter(FilterNode node, RewriteContext<Expression> context)
         {
-            return context.rewrite(node.getSource(), combineConjuncts(node.getPredicate(), context.get()));
+            PlanNode rewrittenPlan = context.rewrite(node.getSource(), combineConjuncts(node.getPredicate(), context.get()));
+            if (!(rewrittenPlan instanceof FilterNode)) {
+                return rewrittenPlan;
+            }
+
+            FilterNode rewrittenFilterNode = (FilterNode) rewrittenPlan;
+            if (!areExpressionsEquivalent(rewrittenFilterNode.getPredicate(), node.getPredicate())
+                    || node.getSource() != rewrittenFilterNode.getSource()) {
+                return rewrittenPlan;
+            }
+
+            return node;
         }
 
         @Override
@@ -410,63 +421,68 @@ public class PredicatePushDown
             PlanNode rightSource = context.rewrite(node.getRight(), rightPredicate);
 
             PlanNode output = node;
+
+            // Create identity projections for all existing symbols
+            Assignments.Builder leftProjections = Assignments.builder();
+            leftProjections.putAll(node.getLeft()
+                    .getOutputSymbols().stream()
+                    .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
+
+            Assignments.Builder rightProjections = Assignments.builder();
+            rightProjections.putAll(node.getRight()
+                    .getOutputSymbols().stream()
+                    .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
+
+            // Create new projections for the new join clauses
+            List<JoinNode.EquiJoinClause> equiJoinClauses = new ArrayList<>();
+            ImmutableList.Builder<Expression> joinFilterBuilder = ImmutableList.builder();
+            for (Expression conjunct : extractConjuncts(newJoinPredicate)) {
+                if (joinEqualityExpression(node.getLeft().getOutputSymbols()).test(conjunct)) {
+                    ComparisonExpression equality = (ComparisonExpression) conjunct;
+
+                    boolean alignedComparison = Iterables.all(SymbolsExtractor.extractUnique(equality.getLeft()), in(node.getLeft().getOutputSymbols()));
+                    Expression leftExpression = (alignedComparison) ? equality.getLeft() : equality.getRight();
+                    Expression rightExpression = (alignedComparison) ? equality.getRight() : equality.getLeft();
+
+                    Symbol leftSymbol = symbolForExpression(leftExpression);
+                    if (!node.getLeft().getOutputSymbols().contains(leftSymbol)) {
+                        leftProjections.put(leftSymbol, leftExpression);
+                    }
+
+                    Symbol rightSymbol = symbolForExpression(rightExpression);
+                    if (!node.getRight().getOutputSymbols().contains(rightSymbol)) {
+                        rightProjections.put(rightSymbol, rightExpression);
+                    }
+
+                    equiJoinClauses.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
+                }
+                else {
+                    joinFilterBuilder.add(conjunct);
+                }
+            }
+
+            Optional<Expression> newJoinFilter = Optional.of(combineConjuncts(joinFilterBuilder.build()));
+            if (newJoinFilter.get() == TRUE_LITERAL) {
+                newJoinFilter = Optional.empty();
+            }
+
+            if (node.getType() == INNER && newJoinFilter.isPresent() && equiJoinClauses.isEmpty()) {
+                // if we do not have any equi conjunct we do not pushdown non-equality condition into
+                // inner join, so we plan execution as nested-loops-join followed by filter instead
+                // hash join.
+                // todo: remove the code when we have support for filter function in nested loop join
+                postJoinPredicate = combineConjuncts(postJoinPredicate, newJoinFilter.get());
+                newJoinFilter = Optional.empty();
+            }
+
+            boolean filtersEquivalent =
+                    newJoinFilter.isPresent() == node.getFilter().isPresent() &&
+                            (!newJoinFilter.isPresent() || areExpressionsEquivalent(newJoinFilter.get(), node.getFilter().get()));
+
             if (leftSource != node.getLeft() ||
                     rightSource != node.getRight() ||
-                    !expressionEquivalence.areExpressionsEquivalent(session, newJoinPredicate, joinPredicate, types) ||
-                    node.getCriteria().isEmpty()) {
-                // Create identity projections for all existing symbols
-                Assignments.Builder leftProjections = Assignments.builder();
-                leftProjections.putAll(node.getLeft()
-                        .getOutputSymbols().stream()
-                        .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
-
-                Assignments.Builder rightProjections = Assignments.builder();
-                rightProjections.putAll(node.getRight()
-                        .getOutputSymbols().stream()
-                        .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
-
-                // Create new projections for the new join clauses
-                List<JoinNode.EquiJoinClause> equiJoinClauses = new ArrayList<>();
-                ImmutableList.Builder<Expression> joinFilterBuilder = ImmutableList.builder();
-                for (Expression conjunct : extractConjuncts(newJoinPredicate)) {
-                    if (joinEqualityExpression(node.getLeft().getOutputSymbols()).test(conjunct)) {
-                        ComparisonExpression equality = (ComparisonExpression) conjunct;
-
-                        boolean alignedComparison = Iterables.all(SymbolsExtractor.extractUnique(equality.getLeft()), in(node.getLeft().getOutputSymbols()));
-                        Expression leftExpression = (alignedComparison) ? equality.getLeft() : equality.getRight();
-                        Expression rightExpression = (alignedComparison) ? equality.getRight() : equality.getLeft();
-
-                        Symbol leftSymbol = symbolForExpression(leftExpression);
-                        if (!node.getLeft().getOutputSymbols().contains(leftSymbol)) {
-                            leftProjections.put(leftSymbol, leftExpression);
-                        }
-
-                        Symbol rightSymbol = symbolForExpression(rightExpression);
-                        if (!node.getRight().getOutputSymbols().contains(rightSymbol)) {
-                            rightProjections.put(rightSymbol, rightExpression);
-                        }
-
-                        equiJoinClauses.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
-                    }
-                    else {
-                        joinFilterBuilder.add(conjunct);
-                    }
-                }
-
-                Optional<Expression> newJoinFilter = Optional.of(combineConjuncts(joinFilterBuilder.build()));
-                if (newJoinFilter.get() == TRUE_LITERAL) {
-                    newJoinFilter = Optional.empty();
-                }
-
-                if (node.getType() == INNER && newJoinFilter.isPresent() && equiJoinClauses.isEmpty()) {
-                    // if we do not have any equi conjunct we do not pushdown non-equality condition into
-                    // inner join, so we plan execution as nested-loops-join followed by filter instead
-                    // hash join.
-                    // todo: remove the code when we have support for filter function in nested loop join
-                    postJoinPredicate = combineConjuncts(postJoinPredicate, newJoinFilter.get());
-                    newJoinFilter = Optional.empty();
-                }
-
+                    !filtersEquivalent ||
+                    !ImmutableSet.copyOf(equiJoinClauses).equals(ImmutableSet.copyOf(node.getCriteria()))) {
                 leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
                 rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
 
@@ -490,7 +506,10 @@ public class PredicatePushDown
                 output = new FilterNode(idAllocator.getNextId(), output, postJoinPredicate);
             }
 
-            output = new ProjectNode(idAllocator.getNextId(), output, Assignments.identity(node.getOutputSymbols()));
+            if (!node.getOutputSymbols().equals(output.getOutputSymbols())) {
+                output = new ProjectNode(idAllocator.getNextId(), output, Assignments.identity(node.getOutputSymbols()));
+            }
+
             return output;
         }
 
@@ -551,7 +570,7 @@ public class PredicatePushDown
             PlanNode output = node;
             if (leftSource != node.getLeft() ||
                     rightSource != node.getRight() ||
-                    !expressionEquivalence.areExpressionsEquivalent(session, newJoinPredicate, joinPredicate, types)) {
+                    !areExpressionsEquivalent(newJoinPredicate, joinPredicate)) {
                 // Create identity projections for all existing symbols
                 Assignments.Builder leftProjections = Assignments.builder();
                 leftProjections.putAll(node.getLeft()
@@ -911,6 +930,11 @@ public class PredicatePushDown
                     WarningCollector.NOOP);
             ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
             return literalEncoder.toExpression(optimizer.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(NodeRef.of(expression)));
+        }
+
+        private boolean areExpressionsEquivalent(Expression leftExpression, Expression rightExpression)
+        {
+            return expressionEquivalence.areExpressionsEquivalent(session, leftExpression, rightExpression, types);
         }
 
         /**

@@ -339,7 +339,7 @@ public class TestingPrestoServer
     public ConnectorId createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
         ConnectorId connectorId = connectorManager.createConnection(catalogName, connectorName, properties);
-        updateConnectorIdAnnouncement(announcer, connectorId);
+        updateConnectorIdAnnouncement(announcer, connectorId, nodeManager);
         return connectorId;
     }
 
@@ -468,7 +468,7 @@ public class TestingPrestoServer
         return injector.getInstance(key);
     }
 
-    private static void updateConnectorIdAnnouncement(Announcer announcer, ConnectorId connectorId)
+    private static void updateConnectorIdAnnouncement(Announcer announcer, ConnectorId connectorId, InternalNodeManager nodeManager)
     {
         //
         // This code was copied from PrestoServer, and is a hack that should be removed when the connectorId property is removed
@@ -488,6 +488,8 @@ public class TestingPrestoServer
         announcer.removeServiceAnnouncement(announcement.getId());
         announcer.addServiceAnnouncement(serviceAnnouncement(announcement.getType()).addProperties(properties).build());
         announcer.forceAnnounce();
+
+        nodeManager.refreshNodes();
     }
 
     private static ServiceAnnouncement getPrestoAnnouncement(Set<ServiceAnnouncement> announcements)

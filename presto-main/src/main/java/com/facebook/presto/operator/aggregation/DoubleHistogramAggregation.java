@@ -25,8 +25,6 @@ import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.DoubleType;
 
-import javax.validation.constraints.NotNull;
-
 import java.util.Map;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -48,7 +46,6 @@ public final class DoubleHistogramAggregation
     public interface State
             extends AccumulatorState
     {
-        @NotNull
         NumericHistogram get();
 
         void set(NumericHistogram value);

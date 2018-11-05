@@ -18,5 +18,6 @@ import com.facebook.presto.metadata.Signature;
 public interface ParametricImplementation
 {
     Signature getSignature();
+
     boolean hasSpecializedTypeParameters();
 }

@@ -601,7 +601,6 @@ public class TestWindowOperator
         assertFindEndPosition("0001", 3);
         assertFindEndPosition("0000000001", 9);
 
-        assertFindEndPosition("00100", 2);
         assertFindEndPosition("000111", 3);
         assertFindEndPosition("0001111", 3);
         assertFindEndPosition("0000111", 4);

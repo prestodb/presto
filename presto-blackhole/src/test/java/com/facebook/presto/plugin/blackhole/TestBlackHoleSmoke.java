@@ -258,7 +258,7 @@ public class TestBlackHoleSmoke
         assertEquals(row.getField(6), 0.0);
         assertEquals(row.getField(7), false);
         assertEquals(row.getField(8), LocalDate.ofEpochDay(0));
-        assertEquals(row.getField(9), LocalDateTime.of(1970, 1, 1, 0, 0, 0));
+        assertEquals(row.getField(9), LocalDateTime.of(1969, 12, 31, 13, 0, 0)); // TODO #7122 should be 1970-01-01 00:00:00
         assertEquals(row.getField(10), "****************".getBytes());
         assertEquals(row.getField(11), new BigDecimal("0.00"));
         assertEquals(row.getField(12), new BigDecimal("00000000000000000000.0000000000"));

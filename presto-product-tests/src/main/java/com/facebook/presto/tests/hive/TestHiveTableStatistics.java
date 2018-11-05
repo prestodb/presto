@@ -28,7 +28,6 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.SKIP_ON_CDH;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
 import static com.facebook.presto.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
@@ -92,7 +91,6 @@ public class TestHiveTableStatistics
     private static final HiveTableDefinition ALL_TYPES_TABLE = HiveTableDefinition.like(ALL_HIVE_SIMPLE_TYPES_TEXTFILE)
             .setDataSource(InlineDataSource.createStringDataSource(
                     "all_analyzable_types",
-                    "",
                     "121|32761|2147483641|9223372036854775801|123.341|234.561|344.671|345.671|2015-05-10 12:15:31.123456|2015-05-09|ela ma kota|ela ma kot|ela ma    |false|cGllcyBiaW5hcm55|\n" +
                             "127|32767|2147483647|9223372036854775807|123.345|235.567|345.678|345.678|2015-05-10 12:15:35.123456|2015-06-10|ala ma kota|ala ma kot|ala ma    |true|a290IGJpbmFybnk=|\n"))
             .build();
@@ -100,7 +98,6 @@ public class TestHiveTableStatistics
     private static final HiveTableDefinition ALL_TYPES_ALL_NULL_TABLE = HiveTableDefinition.like(ALL_HIVE_SIMPLE_TYPES_TEXTFILE)
             .setDataSource(InlineDataSource.createStringDataSource(
                     "all_analyzable_types_all_null",
-                    "",
                     "\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\\N|\n"))
             .build();
 
@@ -171,7 +168,7 @@ public class TestHiveTableStatistics
         }
     }
 
-    @Test(groups = {HIVE_CONNECTOR})
+    @Test
     @Requires(UnpartitionedNationTable.class)
     public void testStatisticsForUnpartitionedTable()
     {
@@ -211,7 +208,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 25.0, null, null));
     }
 
-    @Test(groups = {HIVE_CONNECTOR})
+    @Test
     @Requires(NationPartitionedByBigintTable.class)
     public void testStatisticsForTablePartitionedByBigint()
     {
@@ -338,7 +335,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 5.0, null, null));
     }
 
-    @Test(groups = {HIVE_CONNECTOR})
+    @Test
     @Requires(NationPartitionedByVarcharTable.class)
     public void testStatisticsForTablePartitionedByVarchar()
     {
@@ -466,7 +463,7 @@ public class TestHiveTableStatistics
     }
 
     // This covers also stats calculation for unpartitioned table
-    @Test(groups = {HIVE_CONNECTOR, SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
+    @Test(groups = {SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
     @Requires(AllTypesTable.class)
     public void testStatisticsForAllDataTypes()
     {
@@ -514,7 +511,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 2.0, null, null));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
+    @Test(groups = {SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
     @Requires(AllTypesTable.class)
     public void testStatisticsForAllDataTypesNoData()
     {
@@ -561,7 +558,7 @@ public class TestHiveTableStatistics
                 row(null, null, null, null, 0.0, null, null));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
+    @Test(groups = {SKIP_ON_CDH}) // skip on cdh due to no support for date column and stats
     @Requires(AllTypesTable.class)
     public void testStatisticsForAllDataTypesOnlyNulls()
     {

@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 
-import javax.annotation.Nonnull;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -87,7 +86,6 @@ public class StateMachine<T>
         this.terminalStates = ImmutableSet.copyOf(requireNonNull(terminalStates, "terminalStates is null"));
     }
 
-    @Nonnull
     public T get()
     {
         return state;
@@ -99,7 +97,6 @@ public class StateMachine<T>
      *
      * @return the old state
      */
-    @Nonnull
     public T set(T newState)
     {
         checkState(!Thread.holdsLock(lock), "Can not set state while holding the lock");

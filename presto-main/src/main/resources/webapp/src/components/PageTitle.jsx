@@ -92,7 +92,7 @@ export class PageTitle extends React.Component {
                                 <tbody>
                                 <tr>
                                     <td>
-                                        <a href="/"><img src="assets/logo.png"/></a>
+                                        <a href="/ui/"><img src="assets/logo.png"/></a>
                                     </td>
                                     <td>
                                         <span className="navbar-brand">{this.props.title}</span>

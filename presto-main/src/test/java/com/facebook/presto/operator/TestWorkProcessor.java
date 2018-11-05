@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.WorkProcessor.ProcessorState;
+import com.facebook.presto.operator.WorkProcessor.ProcessState;
+import com.facebook.presto.operator.WorkProcessor.TransformationState;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.SettableFuture;
 import org.testng.annotations.Test;
@@ -22,6 +23,7 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.operator.WorkProcessorAssertion.assertBlocks;
 import static com.facebook.presto.operator.WorkProcessorAssertion.assertFinishes;
@@ -39,9 +41,9 @@ public class TestWorkProcessor
     public void testIterator()
     {
         WorkProcessor<Integer> processor = processorFrom(ImmutableList.of(
-                ProcessorState.ofResult(1),
-                ProcessorState.ofResult(2),
-                ProcessorState.finished()));
+                ProcessState.ofResult(1),
+                ProcessState.ofResult(2),
+                ProcessState.finished()));
 
         Iterator<Integer> iterator = processor.iterator();
         assertTrue(iterator.hasNext());
@@ -55,7 +57,7 @@ public class TestWorkProcessor
     public void testIteratorFailsWhenWorkProcessorHasYielded()
     {
         // iterator should fail if underlying work has yielded
-        WorkProcessor<Integer> processor = processorFrom(ImmutableList.of(ProcessorState.yield()));
+        WorkProcessor<Integer> processor = processorFrom(ImmutableList.of(ProcessState.yield()));
         Iterator<Integer> iterator = processor.iterator();
         iterator.hasNext();
     }
@@ -64,7 +66,7 @@ public class TestWorkProcessor
     public void testIteratorFailsWhenWorkProcessorIsBlocked()
     {
         // iterator should fail if underlying work is blocked
-        WorkProcessor<Integer> processor = processorFrom(ImmutableList.of(ProcessorState.blocked(SettableFuture.create())));
+        WorkProcessor<Integer> processor = processorFrom(ImmutableList.of(ProcessState.blocked(SettableFuture.create())));
         Iterator<Integer> iterator = processor.iterator();
         iterator.hasNext();
     }
@@ -72,19 +74,19 @@ public class TestWorkProcessor
     @Test(timeOut = 5000)
     public void testMergeSorted()
     {
-        List<ProcessorState<Integer>> firstStream = ImmutableList.of(
-                ProcessorState.ofResult(1),
-                ProcessorState.ofResult(3),
-                ProcessorState.yield(),
-                ProcessorState.ofResult(5),
-                ProcessorState.finished());
+        List<ProcessState<Integer>> firstStream = ImmutableList.of(
+                ProcessState.ofResult(1),
+                ProcessState.ofResult(3),
+                ProcessState.yield(),
+                ProcessState.ofResult(5),
+                ProcessState.finished());
 
         SettableFuture<?> secondFuture = SettableFuture.create();
-        List<ProcessorState<Integer>> secondStream = ImmutableList.of(
-                ProcessorState.ofResult(2),
-                ProcessorState.ofResult(4),
-                ProcessorState.blocked(secondFuture),
-                ProcessorState.finished());
+        List<ProcessState<Integer>> secondStream = ImmutableList.of(
+                ProcessState.ofResult(2),
+                ProcessState.ofResult(4),
+                ProcessState.blocked(secondFuture),
+                ProcessState.finished());
 
         WorkProcessor<Integer> mergedStream = WorkProcessorUtils.mergeSorted(
                 ImmutableList.of(processorFrom(firstStream), processorFrom(secondStream)),
@@ -122,15 +124,15 @@ public class TestWorkProcessor
     public void testMergeSortedEmptyStreams()
     {
         SettableFuture<?> firstFuture = SettableFuture.create();
-        List<ProcessorState<Integer>> firstStream = ImmutableList.of(
-                ProcessorState.blocked(firstFuture),
-                ProcessorState.yield(),
-                ProcessorState.finished());
+        List<ProcessState<Integer>> firstStream = ImmutableList.of(
+                ProcessState.blocked(firstFuture),
+                ProcessState.yield(),
+                ProcessState.finished());
 
         SettableFuture<?> secondFuture = SettableFuture.create();
-        List<ProcessorState<Integer>> secondStream = ImmutableList.of(
-                ProcessorState.blocked(secondFuture),
-                ProcessorState.finished());
+        List<ProcessState<Integer>> secondStream = ImmutableList.of(
+                ProcessState.blocked(secondFuture),
+                ProcessState.finished());
 
         WorkProcessor<Integer> mergedStream = WorkProcessorUtils.mergeSorted(
                 ImmutableList.of(processorFrom(firstStream), processorFrom(secondStream)),
@@ -161,11 +163,11 @@ public class TestWorkProcessor
     @Test(timeOut = 5000)
     public void testMergeSortedEmptyStreamsWithFinishedOnly()
     {
-        List<ProcessorState<Integer>> firstStream = ImmutableList.of(
-                ProcessorState.finished());
+        List<ProcessState<Integer>> firstStream = ImmutableList.of(
+                ProcessState.finished());
 
-        List<ProcessorState<Integer>> secondStream = ImmutableList.of(
-                ProcessorState.finished());
+        List<ProcessState<Integer>> secondStream = ImmutableList.of(
+                ProcessState.finished());
 
         WorkProcessor<Integer> mergedStream = WorkProcessorUtils.mergeSorted(
                 ImmutableList.of(processorFrom(firstStream), processorFrom(secondStream)),
@@ -179,12 +181,52 @@ public class TestWorkProcessor
     }
 
     @Test(timeOut = 5000)
+    public void testYield()
+    {
+        SettableFuture<?> future = SettableFuture.create();
+
+        List<ProcessState<Integer>> baseScenario = ImmutableList.of(
+                ProcessState.ofResult(1),
+                ProcessState.ofResult(2),
+                ProcessState.blocked(future),
+                ProcessState.ofResult(3),
+                ProcessState.ofResult(4),
+                ProcessState.finished());
+
+        AtomicBoolean yieldSignal = new AtomicBoolean();
+        WorkProcessor<Integer> processor = processorFrom(baseScenario)
+                .yielding(yieldSignal::get);
+
+        // no yield, process normally
+        assertResult(processor, 1);
+
+        yieldSignal.set(true);
+        assertYields(processor);
+
+        // processor should progress since it yielded last time
+        assertResult(processor, 2);
+
+        // base scenario future blocks
+        assertBlocks(processor);
+        assertUnblocks(processor, future);
+
+        // yield signal is still set
+        assertYields(processor);
+
+        // continue to process normally
+        yieldSignal.set(false);
+        assertResult(processor, 3);
+        assertResult(processor, 4);
+        assertFinishes(processor);
+    }
+
+    @Test(timeOut = 5000)
     public void testFlatMap()
     {
-        List<ProcessorState<Integer>> baseScenario = ImmutableList.of(
-                ProcessorState.ofResult(1),
-                ProcessorState.ofResult(2),
-                ProcessorState.finished());
+        List<ProcessState<Integer>> baseScenario = ImmutableList.of(
+                ProcessState.ofResult(1),
+                ProcessState.ofResult(2),
+                ProcessState.finished());
 
         WorkProcessor<Double> processor = processorFrom(baseScenario)
                 .flatMap(element -> WorkProcessor.fromIterable(ImmutableList.of((Double) 2. * element, (Double) 3. * element)));
@@ -199,10 +241,10 @@ public class TestWorkProcessor
     @Test(timeOut = 5000)
     public void testMap()
     {
-        List<ProcessorState<Integer>> baseScenario = ImmutableList.of(
-                ProcessorState.ofResult(1),
-                ProcessorState.ofResult(2),
-                ProcessorState.finished());
+        List<ProcessState<Integer>> baseScenario = ImmutableList.of(
+                ProcessState.ofResult(1),
+                ProcessState.ofResult(2),
+                ProcessState.finished());
 
         WorkProcessor<Double> processor = processorFrom(baseScenario)
                 .map(element -> 2. * element);
@@ -216,42 +258,42 @@ public class TestWorkProcessor
     public void testFlatTransform()
     {
         SettableFuture<?> baseFuture = SettableFuture.create();
-        List<ProcessorState<Double>> baseScenario = ImmutableList.of(
-                ProcessorState.ofResult(1.0),
-                ProcessorState.blocked(baseFuture),
-                ProcessorState.ofResult(2.0),
-                ProcessorState.yield(),
-                ProcessorState.ofResult(3.0),
-                ProcessorState.ofResult(4.0),
-                ProcessorState.finished());
+        List<ProcessState<Double>> baseScenario = ImmutableList.of(
+                ProcessState.ofResult(1.0),
+                ProcessState.blocked(baseFuture),
+                ProcessState.ofResult(2.0),
+                ProcessState.yield(),
+                ProcessState.ofResult(3.0),
+                ProcessState.ofResult(4.0),
+                ProcessState.finished());
 
         SettableFuture<?> mappedFuture1 = SettableFuture.create();
-        List<ProcessorState<Integer>> mappedScenario1 = ImmutableList.of(
-                ProcessorState.ofResult(1),
-                ProcessorState.yield(),
-                ProcessorState.blocked(mappedFuture1),
-                ProcessorState.ofResult(2),
-                ProcessorState.finished());
+        List<ProcessState<Integer>> mappedScenario1 = ImmutableList.of(
+                ProcessState.ofResult(1),
+                ProcessState.yield(),
+                ProcessState.blocked(mappedFuture1),
+                ProcessState.ofResult(2),
+                ProcessState.finished());
 
-        List<ProcessorState<Integer>> mappedScenario2 = ImmutableList.of(ProcessorState.finished());
+        List<ProcessState<Integer>> mappedScenario2 = ImmutableList.of(ProcessState.finished());
 
         SettableFuture<?> mappedFuture3 = SettableFuture.create();
-        List<ProcessorState<Integer>> mappedScenario3 = ImmutableList.of(
-                ProcessorState.blocked(mappedFuture3),
-                ProcessorState.finished());
+        List<ProcessState<Integer>> mappedScenario3 = ImmutableList.of(
+                ProcessState.blocked(mappedFuture3),
+                ProcessState.finished());
 
-        List<ProcessorState<Integer>> mappedScenario4 = ImmutableList.of(
-                ProcessorState.ofResult(3),
-                ProcessorState.finished());
+        List<ProcessState<Integer>> mappedScenario4 = ImmutableList.of(
+                ProcessState.ofResult(3),
+                ProcessState.finished());
 
         SettableFuture<?> transformationFuture = SettableFuture.create();
         List<Transform<Double, WorkProcessor<Integer>>> transformationScenario = ImmutableList.of(
-                Transform.of(Optional.of(1.0), ProcessorState.ofResult(processorFrom(mappedScenario1), false)),
-                Transform.of(Optional.of(1.0), ProcessorState.ofResult(processorFrom(mappedScenario2), false)),
-                Transform.of(Optional.of(1.0), ProcessorState.ofResult(processorFrom(mappedScenario3))),
-                Transform.of(Optional.of(2.0), ProcessorState.blocked(transformationFuture)),
-                Transform.of(Optional.of(2.0), ProcessorState.ofResult(processorFrom(mappedScenario4))),
-                Transform.of(Optional.of(3.0), ProcessorState.finished()));
+                Transform.of(Optional.of(1.0), TransformationState.ofResult(processorFrom(mappedScenario1), false)),
+                Transform.of(Optional.of(1.0), TransformationState.ofResult(processorFrom(mappedScenario2), false)),
+                Transform.of(Optional.of(1.0), TransformationState.ofResult(processorFrom(mappedScenario3))),
+                Transform.of(Optional.of(2.0), TransformationState.blocked(transformationFuture)),
+                Transform.of(Optional.of(2.0), TransformationState.ofResult(processorFrom(mappedScenario4))),
+                Transform.of(Optional.of(3.0), TransformationState.finished()));
 
         WorkProcessor<Integer> processor = processorFrom(baseScenario)
                 .flatTransform(transformationFrom(transformationScenario));
@@ -303,24 +345,24 @@ public class TestWorkProcessor
     public void testTransform()
     {
         SettableFuture<?> baseFuture = SettableFuture.create();
-        List<ProcessorState<Integer>> baseScenario = ImmutableList.of(
-                ProcessorState.ofResult(1),
-                ProcessorState.yield(),
-                ProcessorState.blocked(baseFuture),
-                ProcessorState.ofResult(2),
-                ProcessorState.ofResult(3),
-                ProcessorState.finished());
+        List<ProcessState<Integer>> baseScenario = ImmutableList.of(
+                ProcessState.ofResult(1),
+                ProcessState.yield(),
+                ProcessState.blocked(baseFuture),
+                ProcessState.ofResult(2),
+                ProcessState.ofResult(3),
+                ProcessState.finished());
 
         SettableFuture<?> transformationFuture = SettableFuture.create();
         List<Transform<Integer, String>> transformationScenario = ImmutableList.of(
-                Transform.of(Optional.of(1), ProcessorState.needsMoreData()),
-                Transform.of(Optional.of(2), ProcessorState.ofResult("foo")),
-                Transform.of(Optional.of(3), ProcessorState.blocked(transformationFuture)),
-                Transform.of(Optional.of(3), ProcessorState.yield()),
-                Transform.of(Optional.of(3), ProcessorState.ofResult("bar", false)),
-                Transform.of(Optional.of(3), ProcessorState.ofResult("zoo", true)),
-                Transform.of(Optional.empty(), ProcessorState.ofResult("car", false)),
-                Transform.of(Optional.empty(), ProcessorState.finished()));
+                Transform.of(Optional.of(1), TransformationState.needsMoreData()),
+                Transform.of(Optional.of(2), TransformationState.ofResult("foo")),
+                Transform.of(Optional.of(3), TransformationState.blocked(transformationFuture)),
+                Transform.of(Optional.of(3), TransformationState.yield()),
+                Transform.of(Optional.of(3), TransformationState.ofResult("bar", false)),
+                Transform.of(Optional.of(3), TransformationState.ofResult("zoo", true)),
+                Transform.of(Optional.empty(), TransformationState.ofResult("car", false)),
+                Transform.of(Optional.empty(), TransformationState.finished()));
 
         WorkProcessor<String> processor = processorFrom(baseScenario)
                 .transform(transformationFrom(transformationScenario));
@@ -367,13 +409,13 @@ public class TestWorkProcessor
     public void testCreateFrom()
     {
         SettableFuture<?> future = SettableFuture.create();
-        List<ProcessorState<Integer>> scenario = ImmutableList.of(
-                ProcessorState.yield(),
-                ProcessorState.ofResult(1),
-                ProcessorState.blocked(future),
-                ProcessorState.yield(),
-                ProcessorState.ofResult(2),
-                ProcessorState.finished());
+        List<ProcessState<Integer>> scenario = ImmutableList.of(
+                ProcessState.yield(),
+                ProcessState.ofResult(1),
+                ProcessState.blocked(future),
+                ProcessState.yield(),
+                ProcessState.ofResult(2),
+                ProcessState.finished());
         WorkProcessor<Integer> processor = processorFrom(scenario);
 
         // before
@@ -398,14 +440,14 @@ public class TestWorkProcessor
         };
     }
 
-    private static <T> WorkProcessor<T> processorFrom(List<ProcessorState<T>> states)
+    private static <T> WorkProcessor<T> processorFrom(List<ProcessState<T>> states)
     {
         return WorkProcessorUtils.create(processFrom(states));
     }
 
-    private static <T> WorkProcessor.Process<T> processFrom(List<ProcessorState<T>> states)
+    private static <T> WorkProcessor.Process<T> processFrom(List<ProcessState<T>> states)
     {
-        Iterator<ProcessorState<T>> iterator = states.iterator();
+        Iterator<ProcessState<T>> iterator = states.iterator();
         return () -> {
             assertTrue(iterator.hasNext());
             return iterator.next();
@@ -415,20 +457,20 @@ public class TestWorkProcessor
     private static class Transform<T, R>
     {
         final Optional<T> from;
-        final ProcessorState<R> to;
+        final TransformationState<R> to;
 
-        Transform(Optional<T> from, ProcessorState<R> to)
+        Transform(Optional<T> from, TransformationState<R> to)
         {
             this.from = requireNonNull(from);
             this.to = requireNonNull(to);
         }
 
-        static <T, R> Transform<T, R> of(Optional<T> from, ProcessorState<R> to)
+        static <T, R> Transform<T, R> of(Optional<T> from, TransformationState<R> to)
         {
             return new Transform<>(from, to);
         }
 
-        ProcessorState<R> transform(Optional<T> from)
+        TransformationState<R> transform(Optional<T> from)
         {
             assertEquals(from, this.from);
             return to;

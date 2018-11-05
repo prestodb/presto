@@ -40,7 +40,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.tests.TestGroups.HIVE_COERCION;
-import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.JDBC;
 import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingPrestoJdbcDriver;
 import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingTeradataJdbcDriver;
@@ -190,42 +189,42 @@ public class TestHiveCoercion
     }
 
     @Requires(TextRequirements.class)
-    @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR, JDBC})
+    @Test(groups = {HIVE_COERCION, JDBC})
     public void testHiveCoercionTextFile()
     {
         doTestHiveCoercion(HIVE_COERCION_TEXTFILE);
     }
 
     @Requires(OrcRequirements.class)
-    @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR, JDBC})
+    @Test(groups = {HIVE_COERCION, JDBC})
     public void testHiveCoercionOrc()
     {
         doTestHiveCoercion(HIVE_COERCION_ORC);
     }
 
     @Requires(RcTextRequirements.class)
-    @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR, JDBC})
+    @Test(groups = {HIVE_COERCION, JDBC})
     public void testHiveCoercionRcText()
     {
         doTestHiveCoercion(HIVE_COERCION_RCTEXT);
     }
 
     @Requires(RcBinaryRequirements.class)
-    @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR, JDBC})
+    @Test(groups = {HIVE_COERCION, JDBC})
     public void testHiveCoercionRcBinary()
     {
         doTestHiveCoercion(HIVE_COERCION_RCBINARY);
     }
 
     @Requires(ParquetRequirements.class)
-    @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR, JDBC})
+    @Test(groups = {HIVE_COERCION, JDBC})
     public void testHiveCoercionParquet()
     {
         doTestHiveCoercion(HIVE_COERCION_PARQUET);
     }
 
     @Requires(AvroRequirements.class)
-    @Test(groups = {HIVE_COERCION, HIVE_CONNECTOR, JDBC})
+    @Test(groups = {HIVE_COERCION, JDBC})
     public void testHiveCoercionAvro()
     {
         String tableName = mutableTableInstanceOf(HIVE_COERCION_AVRO).getNameInDatabase();
@@ -283,32 +282,32 @@ public class TestHiveCoercion
         Connection connection = defaultQueryExecutor().getConnection();
         if (usingPrestoJdbcDriver(connection)) {
             expectedRows = ImmutableList.of(
-                        row(
-                                -1,
-                                2,
-                                -3L,
-                                100,
-                                -101L,
-                                2323L,
-                                "12345",
-                                0.5,
-                                asMap("keep", "as is", "ti2si", (short) -1, "si2int", 100, "int2bi", 2323L, "bi2vc", "12345"),
-                                ImmutableList.of(asMap("ti2int", 2, "si2bi", -101L, "bi2vc", "12345")),
-                                asMap(2, asMap("ti2bi", -3L, "int2bi", 2323L, "float2double", 0.5, "add", null)),
-                                1),
-                        row(
-                                1,
-                                -2,
-                                null,
-                                -100,
-                                101L,
-                                -2323L,
-                                "-12345",
-                                -1.5,
-                                asMap("keep", null, "ti2si", (short) 1, "si2int", -100, "int2bi", -2323L, "bi2vc", "-12345"),
-                                ImmutableList.of(asMap("ti2int", -2, "si2bi", 101L, "bi2vc", "-12345")),
-                                ImmutableMap.of(-2, asMap("ti2bi", null, "int2bi", -2323L, "float2double", -1.5, "add", null)),
-                                1));
+                    row(
+                            -1,
+                            2,
+                            -3L,
+                            100,
+                            -101L,
+                            2323L,
+                            "12345",
+                            0.5,
+                            asMap("keep", "as is", "ti2si", (short) -1, "si2int", 100, "int2bi", 2323L, "bi2vc", "12345"),
+                            ImmutableList.of(asMap("ti2int", 2, "si2bi", -101L, "bi2vc", "12345")),
+                            asMap(2, asMap("ti2bi", -3L, "int2bi", 2323L, "float2double", 0.5, "add", null)),
+                            1),
+                    row(
+                            1,
+                            -2,
+                            null,
+                            -100,
+                            101L,
+                            -2323L,
+                            "-12345",
+                            -1.5,
+                            asMap("keep", null, "ti2si", (short) 1, "si2int", -100, "int2bi", -2323L, "bi2vc", "-12345"),
+                            ImmutableList.of(asMap("ti2int", -2, "si2bi", 101L, "bi2vc", "-12345")),
+                            ImmutableMap.of(-2, asMap("ti2bi", null, "int2bi", -2323L, "float2double", -1.5, "add", null)),
+                            1));
         }
         else if (usingTeradataJdbcDriver(connection)) {
             expectedRows = ImmutableList.of(

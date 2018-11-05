@@ -24,7 +24,6 @@ import io.prestodb.tempto.fulfillment.table.hive.HiveTableDefinition;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tests.TestGroups.BIG_QUERY;
-import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
@@ -61,7 +60,7 @@ public class TestHiveBucketedTables
                 immutableTable(NATION));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, BIG_QUERY})
+    @Test(groups = {BIG_QUERY})
     public void testIgnorePartitionBucketingIfNotBucketed()
     {
         String tableName = mutableTablesState().get(BUCKETED_PARTITIONED_NATION).getNameInDatabase();

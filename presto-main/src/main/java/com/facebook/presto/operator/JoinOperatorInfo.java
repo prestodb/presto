@@ -77,7 +77,9 @@ public class JoinOperatorInfo
         return logHistogramOutput;
     }
 
-    /** Estimated number of positions in on the build side */
+    /**
+     * Estimated number of positions in on the build side
+     */
     @JsonProperty
     public Optional<Long> getLookupSourcePositions()
     {

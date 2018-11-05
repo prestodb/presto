@@ -72,6 +72,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionT
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionInterpreter;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -374,7 +375,7 @@ public class TestExpressionInterpreter
     @Test
     public void testExtract()
     {
-        DateTime dateTime = new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC);
+        DateTime dateTime = new DateTime(2001, 8, 22, 3, 4, 5, 321, getDateTimeZone(TEST_SESSION.getTimeZoneKey()));
         double seconds = dateTime.getMillis() / 1000.0;
 
         assertOptimizedEquals("extract (YEAR from from_unixtime(" + seconds + "))", "2001");
@@ -394,10 +395,10 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("extract (QUARTER from bound_timestamp)", "3");
         assertOptimizedEquals("extract (MONTH from bound_timestamp)", "8");
         assertOptimizedEquals("extract (WEEK from bound_timestamp)", "34");
-        assertOptimizedEquals("extract (DOW from bound_timestamp)", "3");
-        assertOptimizedEquals("extract (DOY from bound_timestamp)", "234");
-        assertOptimizedEquals("extract (DAY from bound_timestamp)", "22");
-        assertOptimizedEquals("extract (HOUR from bound_timestamp)", "3");
+        assertOptimizedEquals("extract (DOW from bound_timestamp)", "2");
+        assertOptimizedEquals("extract (DOY from bound_timestamp)", "233");
+        assertOptimizedEquals("extract (DAY from bound_timestamp)", "21");
+        assertOptimizedEquals("extract (HOUR from bound_timestamp)", "16");
         assertOptimizedEquals("extract (MINUTE from bound_timestamp)", "4");
         assertOptimizedEquals("extract (SECOND from bound_timestamp)", "5");
         // todo reenable when cast as timestamp with time zone is implemented

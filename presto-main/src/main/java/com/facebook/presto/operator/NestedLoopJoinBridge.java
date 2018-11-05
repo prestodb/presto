@@ -18,7 +18,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
-public interface NestedLoopJoinPagesBridge
+public interface NestedLoopJoinBridge
         extends JoinBridge
 {
     ListenableFuture<NestedLoopJoinPages> getPagesFuture();

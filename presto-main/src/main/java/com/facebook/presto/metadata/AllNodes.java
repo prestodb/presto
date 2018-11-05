@@ -25,12 +25,14 @@ public class AllNodes
     private final Set<Node> activeNodes;
     private final Set<Node> inactiveNodes;
     private final Set<Node> shuttingDownNodes;
+    private final Set<Node> activeCoordinators;
 
-    public AllNodes(Set<Node> activeNodes, Set<Node> inactiveNodes, Set<Node> shuttingDownNodes)
+    public AllNodes(Set<Node> activeNodes, Set<Node> inactiveNodes, Set<Node> shuttingDownNodes, Set<Node> activeCoordinators)
     {
         this.activeNodes = ImmutableSet.copyOf(requireNonNull(activeNodes, "activeNodes is null"));
         this.inactiveNodes = ImmutableSet.copyOf(requireNonNull(inactiveNodes, "inactiveNodes is null"));
         this.shuttingDownNodes = ImmutableSet.copyOf(requireNonNull(shuttingDownNodes, "shuttingDownNodes is null"));
+        this.activeCoordinators = ImmutableSet.copyOf(requireNonNull(activeCoordinators, "activeCoordinators is null"));
     }
 
     public Set<Node> getActiveNodes()
@@ -46,5 +48,10 @@ public class AllNodes
     public Set<Node> getShuttingDownNodes()
     {
         return shuttingDownNodes;
+    }
+
+    public Set<Node> getActiveCoordinators()
+    {
+        return activeCoordinators;
     }
 }

@@ -442,8 +442,8 @@ public class AggregationImplementation
                             inputFunction,
                             annotation,
                             typeParameters.stream()
-                                .map(TypeParameter::value)
-                                .collect(toImmutableSet()),
+                                    .map(TypeParameter::value)
+                                    .collect(toImmutableSet()),
                             literalParameters);
                     builder.add(createDependency(annotation, literalParameters));
                 });

@@ -331,8 +331,6 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableList.of(
-                                new com.facebook.presto.sql.planner.optimizations.TransformCorrelatedSingleRowSubqueryToProject()),
                         ImmutableSet.of(
                                 new InlineProjections(),
                                 new RemoveRedundantIdentityProjections(),
@@ -363,6 +361,7 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new SimplifyCountOverConstant())),
+                new LimitPushDown(), // Run LimitPushDown before WindowFilterPushDown
                 new WindowFilterPushDown(metadata), // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
                 new IterativeOptimizer(
                         ruleStats,

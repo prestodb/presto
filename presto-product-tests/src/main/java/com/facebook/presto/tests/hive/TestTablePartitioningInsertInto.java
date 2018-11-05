@@ -19,7 +19,6 @@ import io.prestodb.tempto.configuration.Configuration;
 import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.SMOKE;
 import static com.facebook.presto.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
 import static com.facebook.presto.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT;
@@ -45,7 +44,7 @@ public class TestTablePartitioningInsertInto
                 mutableTable(NATION, TARGET_NATION_NAME, CREATED));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, SMOKE})
+    @Test(groups = {SMOKE})
     public void selectFromPartitionedNation()
             throws Exception
     {

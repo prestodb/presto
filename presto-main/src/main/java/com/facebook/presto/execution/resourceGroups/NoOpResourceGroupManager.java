@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.presto.execution.QueryExecution;
+import com.facebook.presto.execution.ManagedQueryExecution;
 import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -31,7 +31,7 @@ public final class NoOpResourceGroupManager
         implements ResourceGroupManager<Void>
 {
     @Override
-    public void submit(Statement statement, QueryExecution queryExecution, SelectionContext<Void> selectionContext, Executor executor)
+    public void submit(Statement statement, ManagedQueryExecution queryExecution, SelectionContext<Void> selectionContext, Executor executor)
     {
         throw new UnsupportedOperationException();
     }

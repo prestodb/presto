@@ -28,14 +28,38 @@ public class TestTimestampLegacy
     public void testCastFromSlice()
     {
         super.testCastFromSlice();
-        assertFunction("cast('2001-1-22 03:04:05.321 +07:09' as timestamp)", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, WEIRD_ZONE, TIME_ZONE_KEY, session));
-        assertFunction("cast('2001-1-22 03:04:05 +07:09' as timestamp)", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 3, 4, 5, 0, WEIRD_ZONE, TIME_ZONE_KEY, session));
-        assertFunction("cast('2001-1-22 03:04 +07:09' as timestamp)", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 3, 4, 0, 0, WEIRD_ZONE, TIME_ZONE_KEY, session));
-        assertFunction("cast('2001-1-22 +07:09' as timestamp)", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 0, 0, 0, 0, WEIRD_ZONE, TIME_ZONE_KEY, session));
+        assertFunction(
+                "cast('2001-1-22 03:04:05.321 +07:09' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(2001, 1, 21, 8, 55, 5, 321, session));
+        assertFunction(
+                "cast('2001-1-22 03:04:05 +07:09' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(2001, 1, 21, 8, 55, 5, 0, session));
+        assertFunction(
+                "cast('2001-1-22 03:04 +07:09' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(2001, 1, 21, 8, 55, 0, 0, session));
+        assertFunction(
+                "cast('2001-1-22 +07:09' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(2001, 1, 21, 5, 51, 0, 0, session));
 
-        assertFunction("cast('2001-1-22 03:04:05.321 Asia/Oral' as timestamp)", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 3, 4, 5, 321, ORAL_ZONE, TIME_ZONE_KEY, session));
-        assertFunction("cast('2001-1-22 03:04:05 Asia/Oral' as timestamp)", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 3, 4, 5, 0, ORAL_ZONE, TIME_ZONE_KEY, session));
-        assertFunction("cast('2001-1-22 03:04 Asia/Oral' as timestamp)", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 3, 4, 0, 0, ORAL_ZONE, TIME_ZONE_KEY, session));
-        assertFunction("cast('2001-1-22 Asia/Oral' as timestamp)", TIMESTAMP, sqlTimestampOf(2001, 1, 22, 0, 0, 0, 0, ORAL_ZONE, TIME_ZONE_KEY, session));
+        assertFunction(
+                "cast('2001-1-22 03:04:05.321 Asia/Oral' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(2001, 1, 21, 12, 4, 5, 321, session));
+        assertFunction(
+                "cast('2001-1-22 03:04:05 Asia/Oral' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(2001, 1, 21, 12, 4, 5, 0, session));
+        assertFunction(
+                "cast('2001-1-22 03:04 Asia/Oral' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(2001, 1, 21, 12, 4, 0, 0, session));
+        assertFunction(
+                "cast('2001-1-22 Asia/Oral' as timestamp)",
+                TIMESTAMP,
+                sqlTimestampOf(2001, 1, 21, 9, 0, 0, 0, session));
     }
 }

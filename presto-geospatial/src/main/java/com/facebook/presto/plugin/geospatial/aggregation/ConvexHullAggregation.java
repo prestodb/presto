@@ -44,6 +44,7 @@ import static java.lang.String.format;
 public class ConvexHullAggregation
 {
     private static final Joiner OR_JOINER = Joiner.on(" or ");
+
     private ConvexHullAggregation() {}
 
     @InputFunction

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
-import com.facebook.presto.spi.PrestoException;
 import io.airlift.units.Duration;
+import org.apache.thrift.TException;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -48,6 +48,7 @@ public class TestStaticHiveCluster
 
     @Test
     public void testDefaultHiveMetastore()
+             throws TException
     {
         HiveCluster cluster = createHiveCluster(CONFIG_WITH_FALLBACK, singletonList(DEFAULT_CLIENT));
         assertEquals(cluster.createMetastoreClient(), DEFAULT_CLIENT);
@@ -55,6 +56,7 @@ public class TestStaticHiveCluster
 
     @Test
     public void testFallbackHiveMetastore()
+             throws TException
     {
         HiveCluster cluster = createHiveCluster(CONFIG_WITH_FALLBACK, asList(null, null, FALLBACK_CLIENT));
         assertEquals(cluster.createMetastoreClient(), FALLBACK_CLIENT);
@@ -76,6 +78,7 @@ public class TestStaticHiveCluster
 
     @Test
     public void testFallbackHiveMetastoreWithHiveUser()
+            throws TException
     {
         HiveCluster cluster = createHiveCluster(CONFIG_WITH_FALLBACK_WITH_USER, asList(null, null, FALLBACK_CLIENT));
         assertEquals(cluster.createMetastoreClient(), FALLBACK_CLIENT);
@@ -94,7 +97,7 @@ public class TestStaticHiveCluster
             cluster.createMetastoreClient();
             fail("expected exception");
         }
-        catch (PrestoException e) {
+        catch (TException e) {
             assertContains(e.getMessage(), message);
         }
     }

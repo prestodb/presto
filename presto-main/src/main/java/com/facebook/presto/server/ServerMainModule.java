@@ -23,6 +23,7 @@ import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
 import com.facebook.presto.event.SplitMonitor;
+import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.MemoryRevokingScheduler;
@@ -71,6 +72,7 @@ import com.facebook.presto.operator.ExchangeClientFactory;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.LookupJoinOperators;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
@@ -299,6 +301,8 @@ public class ServerMainModule
         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
         jsonCodecBinder(binder).bindJsonCodec(StageInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(OperatorStats.class);
+        jsonCodecBinder(binder).bindJsonCodec(ExecutionFailureInfo.class);
         jaxrsBinder(binder).bind(PagesResponseWriter.class);
 
         // exchange client

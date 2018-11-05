@@ -24,6 +24,7 @@ import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.event.QueryMonitorConfig;
 import com.facebook.presto.execution.AddColumnTask;
 import com.facebook.presto.execution.CallTask;
+import com.facebook.presto.execution.ClusterSizeMonitor;
 import com.facebook.presto.execution.CommitTask;
 import com.facebook.presto.execution.CreateSchemaTask;
 import com.facebook.presto.execution.CreateTableTask;
@@ -217,6 +218,9 @@ public class CoordinatorModule
         bindLowMemoryKiller(LowMemoryKillerPolicy.TOTAL_RESERVATION, TotalReservationLowMemoryKiller.class);
         bindLowMemoryKiller(LowMemoryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES, TotalReservationOnBlockedNodesLowMemoryKiller.class);
         newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
+
+        // node monitor
+        binder.bind(ClusterSizeMonitor.class).in(Scopes.SINGLETON);
 
         // statistics calculator
         binder.install(new StatsCalculatorModule());

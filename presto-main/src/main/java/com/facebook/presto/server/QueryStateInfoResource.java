@@ -75,7 +75,7 @@ public class QueryStateInfoResource
 
     private QueryStateInfo getQueryStateInfo(BasicQueryInfo queryInfo)
     {
-        Optional<ResourceGroupId> groupId = queryManager.getQueryResourceGroup(queryInfo.getQueryId());
+        Optional<ResourceGroupId> groupId = queryInfo.getResourceGroupId();
         if (queryInfo.getState() == QUEUED) {
             return createQueuedQueryStateInfo(
                     queryInfo,

@@ -23,6 +23,7 @@ import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.AmazonS3EncryptionClient;
 import com.amazonaws.services.s3.S3ClientOptions;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
+import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.EncryptionMaterials;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
 import com.facebook.presto.hive.s3.PrestoS3FileSystem.UnrecoverableS3OperationException;
@@ -44,6 +45,7 @@ import java.nio.file.Paths;
 import java.util.Map;
 
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ACCESS_KEY;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ACL_TYPE;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_CREDENTIALS_PROVIDER;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ENCRYPTION_MATERIALS_PROVIDER;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ENDPOINT;
@@ -530,5 +532,42 @@ public class TestPrestoS3FileSystem
 
         @Override
         public void refresh() {}
+    }
+
+    @Test
+    public void testDefaultAcl()
+            throws Exception
+    {
+        Configuration config = new Configuration();
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            MockAmazonS3 s3 = new MockAmazonS3();
+            String expectedBucketName = "test-bucket";
+            fs.initialize(new URI("s3n://" + expectedBucketName + "/"), config);
+            fs.setS3Client(s3);
+            try (FSDataOutputStream stream = fs.create(new Path("s3n://test-bucket/test"))) {
+                // initiate an upload by creating a stream & closing it immediately
+            }
+            assertEquals(CannedAccessControlList.Private, s3.getAcl());
+        }
+    }
+
+    @Test
+    public void testFullBucketOwnerControlAcl()
+            throws Exception
+    {
+        Configuration config = new Configuration();
+        config.set(S3_ACL_TYPE, "BUCKET_OWNER_FULL_CONTROL");
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            MockAmazonS3 s3 = new MockAmazonS3();
+            String expectedBucketName = "test-bucket";
+            fs.initialize(new URI("s3n://" + expectedBucketName + "/"), config);
+            fs.setS3Client(s3);
+            try (FSDataOutputStream stream = fs.create(new Path("s3n://test-bucket/test"))) {
+                // initiate an upload by creating a stream & closing it immediately
+            }
+            assertEquals(CannedAccessControlList.BucketOwnerFullControl, s3.getAcl());
+        }
     }
 }

@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.WorkProcessor.ProcessorState;
+import com.facebook.presto.operator.WorkProcessor.ProcessState;
 import com.facebook.presto.operator.WorkProcessor.Transformation;
+import com.facebook.presto.operator.WorkProcessor.TransformationState;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -24,12 +25,9 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Optional;
 import java.util.PriorityQueue;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 
-import static com.facebook.presto.operator.WorkProcessor.ProcessorState.Type.BLOCKED;
-import static com.facebook.presto.operator.WorkProcessor.ProcessorState.Type.FINISHED;
-import static com.facebook.presto.operator.WorkProcessor.ProcessorState.Type.NEEDS_MORE_DATA;
-import static com.facebook.presto.operator.WorkProcessor.ProcessorState.Type.RESULT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Comparator.comparing;
@@ -68,9 +66,9 @@ public final class WorkProcessorUtils
             extends AbstractIterator<Optional<T>>
     {
         @Nullable
-        private WorkProcessor<T> processor;
+        WorkProcessor<T> processor;
 
-        private YieldingIterator(WorkProcessor<T> processor)
+        YieldingIterator(WorkProcessor<T> processor)
         {
             this.processor = requireNonNull(processor, "processorParameter is null");
         }
@@ -101,10 +99,10 @@ public final class WorkProcessorUtils
         requireNonNull(iterator, "iterator is null");
         return create(() -> {
             if (!iterator.hasNext()) {
-                return ProcessorState.finished();
+                return ProcessState.finished();
             }
 
-            return ProcessorState.ofResult(iterator.next());
+            return ProcessState.ofResult(iterator.next());
         });
     }
 
@@ -120,7 +118,7 @@ public final class WorkProcessorUtils
             WorkProcessor<T> processor = requireNonNull(processorIterator.next());
 
             @Override
-            public ProcessorState<T> process()
+            public ProcessState<T> process()
             {
                 while (true) {
                     if (processor.process()) {
@@ -129,27 +127,58 @@ public final class WorkProcessorUtils
                         }
                     }
                     else if (processor.isBlocked()) {
-                        return ProcessorState.blocked(processor.getBlockedFuture());
+                        return ProcessState.blocked(processor.getBlockedFuture());
                     }
                     else {
-                        return ProcessorState.yield();
+                        return ProcessState.yield();
                     }
 
                     if (processorIterator.hasNext()) {
-                        processor = processorIterator.next();
+                        processor = requireNonNull(processorIterator.next());
                         continue;
                     }
 
                     if (queue.isEmpty()) {
-                        return ProcessorState.finished();
+                        return ProcessState.finished();
                     }
 
                     ElementAndProcessor<T> elementAndProcessor = queue.poll();
                     processor = elementAndProcessor.getProcessor();
-                    return ProcessorState.ofResult(elementAndProcessor.getElement());
+                    return ProcessState.ofResult(elementAndProcessor.getElement());
                 }
             }
         });
+    }
+
+    static <T> WorkProcessor<T> yielding(WorkProcessor<T> processor, BooleanSupplier yieldSignal)
+    {
+        return processor.transform(new YieldingTransformation<>(yieldSignal));
+    }
+
+    private static class YieldingTransformation<T>
+            implements Transformation<T, T>
+    {
+        final BooleanSupplier yieldSignal;
+        boolean lastProcessYielded;
+
+        YieldingTransformation(BooleanSupplier yieldSignal)
+        {
+            this.yieldSignal = requireNonNull(yieldSignal, "yieldSignal is null");
+        }
+
+        @Override
+        public TransformationState<T> process(Optional<T> elementOptional)
+        {
+            if (!lastProcessYielded && yieldSignal.getAsBoolean()) {
+                lastProcessYielded = true;
+                return TransformationState.yield();
+            }
+            lastProcessYielded = false;
+
+            return elementOptional
+                    .map(TransformationState::ofResult)
+                    .orElseGet(TransformationState::finished);
+        }
     }
 
     static <T, R> WorkProcessor<R> flatMap(WorkProcessor<T> processor, Function<T, WorkProcessor<R>> mapper)
@@ -158,8 +187,8 @@ public final class WorkProcessorUtils
         requireNonNull(mapper, "mapper is null");
         return processor.flatTransform(elementOptional ->
                 elementOptional
-                        .map(element -> ProcessorState.ofResult(mapper.apply(element)))
-                        .orElse(ProcessorState.finished()));
+                        .map(element -> TransformationState.ofResult(mapper.apply(element)))
+                        .orElseGet(TransformationState::finished));
     }
 
     static <T, R> WorkProcessor<R> map(WorkProcessor<T> processor, Function<T, R> mapper)
@@ -168,8 +197,8 @@ public final class WorkProcessorUtils
         requireNonNull(mapper, "mapper is null");
         return processor.transform(elementOptional ->
                 elementOptional
-                        .map(element -> ProcessorState.ofResult(mapper.apply(element)))
-                        .orElse(ProcessorState.finished()));
+                        .map(element -> TransformationState.ofResult(mapper.apply(element)))
+                        .orElseGet(TransformationState::finished));
     }
 
     static <T, R> WorkProcessor<R> flatTransform(WorkProcessor<T> processor, Transformation<T, WorkProcessor<R>> transformation)
@@ -184,23 +213,23 @@ public final class WorkProcessorUtils
         requireNonNull(processor, "processor is null");
         return processor.transform(nestedProcessorOptional -> {
             if (!nestedProcessorOptional.isPresent()) {
-                return ProcessorState.finished();
+                return TransformationState.finished();
             }
 
             WorkProcessor<T> nestedProcessor = nestedProcessorOptional.get();
             if (nestedProcessor.process()) {
                 if (nestedProcessor.isFinished()) {
-                    return ProcessorState.needsMoreData();
+                    return TransformationState.needsMoreData();
                 }
 
-                return ProcessorState.ofResult(nestedProcessor.getResult(), false);
+                return TransformationState.ofResult(nestedProcessor.getResult(), false);
             }
 
             if (nestedProcessor.isBlocked()) {
-                return ProcessorState.blocked(nestedProcessor.getBlockedFuture());
+                return TransformationState.blocked(nestedProcessor.getBlockedFuture());
             }
 
-            return ProcessorState.yield();
+            return TransformationState.yield();
         });
     }
 
@@ -213,7 +242,7 @@ public final class WorkProcessorUtils
             Optional<T> element = Optional.empty();
 
             @Override
-            public ProcessorState<R> process()
+            public ProcessState<R> process()
             {
                 while (true) {
                     if (!element.isPresent() && !processor.isFinished()) {
@@ -223,14 +252,14 @@ public final class WorkProcessorUtils
                             }
                         }
                         else if (processor.isBlocked()) {
-                            return ProcessorState.blocked(processor.getBlockedFuture());
+                            return ProcessState.blocked(processor.getBlockedFuture());
                         }
                         else {
-                            return ProcessorState.yield();
+                            return ProcessState.yield();
                         }
                     }
 
-                    ProcessorState<R> state = requireNonNull(transformation.process(element), "state is null");
+                    TransformationState<R> state = requireNonNull(transformation.process(element), "state is null");
 
                     if (state.isNeedsMoreData()) {
                         checkState(!processor.isFinished(), "Cannot request more data when base processor is finished");
@@ -238,9 +267,18 @@ public final class WorkProcessorUtils
                         element = Optional.empty();
                     }
 
-                    if (state.getType() != NEEDS_MORE_DATA) {
-                        // passthrough transformation state if it doesn't require new data
-                        return state;
+                    // pass-through transformation state if it doesn't require new data
+                    switch (state.getType()) {
+                        case NEEDS_MORE_DATA:
+                            break;
+                        case BLOCKED:
+                            return ProcessState.blocked(state.getBlocked().get());
+                        case YIELD:
+                            return ProcessState.yield();
+                        case RESULT:
+                            return ProcessState.ofResult(state.getResult().get());
+                        case FINISHED:
+                            return ProcessState.finished();
                     }
                 }
             }
@@ -256,11 +294,11 @@ public final class WorkProcessorUtils
             implements WorkProcessor<T>
     {
         @Nullable
-        private WorkProcessor.Process<T> process;
+        WorkProcessor.Process<T> process;
         @Nullable
-        private ProcessorState<T> state;
+        ProcessState<T> state;
 
-        private ProcessWorkProcessor(WorkProcessor.Process<T> process)
+        ProcessWorkProcessor(WorkProcessor.Process<T> process)
         {
             this.process = requireNonNull(process, "process is null");
         }
@@ -275,51 +313,50 @@ public final class WorkProcessorUtils
                 return true;
             }
             state = requireNonNull(process.process());
-            checkState(state.getType() != NEEDS_MORE_DATA, "Unexpected state: NEEDS_MORE_DATA");
 
-            if (state.getType() == FINISHED) {
+            if (state.getType() == ProcessState.Type.FINISHED) {
                 process = null;
             }
 
-            return state.getType() == RESULT || state.getType() == FINISHED;
+            return state.getType() == ProcessState.Type.RESULT || state.getType() == ProcessState.Type.FINISHED;
         }
 
         @Override
         public boolean isBlocked()
         {
-            return state != null && state.getType() == BLOCKED && !state.getBlocked().get().isDone();
+            return state != null && state.getType() == ProcessState.Type.BLOCKED && !state.getBlocked().get().isDone();
         }
 
         @Override
         public ListenableFuture<?> getBlockedFuture()
         {
-            checkState(state != null && state.getType() == BLOCKED, "Must be blocked to get blocked future");
+            checkState(state != null && state.getType() == ProcessState.Type.BLOCKED, "Must be blocked to get blocked future");
             return state.getBlocked().get();
         }
 
         @Override
         public boolean isFinished()
         {
-            return state != null && state.getType() == FINISHED;
+            return state != null && state.getType() == ProcessState.Type.FINISHED;
         }
 
         @Override
         public T getResult()
         {
-            checkState(state != null && state.getType() == RESULT, "process() must return true and must not be finished");
+            checkState(state != null && state.getType() == ProcessState.Type.RESULT, "process() must return true and must not be finished");
             return state.getResult().get();
         }
     }
 
     private static class ElementAndProcessor<T>
     {
-        final T element;
+        @Nullable final T element;
         final WorkProcessor<T> processor;
 
         ElementAndProcessor(T element, WorkProcessor<T> processor)
         {
             this.element = element;
-            this.processor = processor;
+            this.processor = requireNonNull(processor, "processor is null");
         }
 
         T getElement()

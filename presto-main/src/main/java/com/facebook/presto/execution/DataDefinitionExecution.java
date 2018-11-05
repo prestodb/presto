@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
@@ -38,7 +39,6 @@ import org.joda.time.DateTime;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
-import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -271,18 +271,6 @@ public class DataDefinitionExecution<T extends Statement>
         return stateMachine.getQueryState();
     }
 
-    @Override
-    public Optional<ResourceGroupId> getResourceGroup()
-    {
-        return stateMachine.getResourceGroup();
-    }
-
-    @Override
-    public void setResourceGroup(ResourceGroupId resourceGroupId)
-    {
-        stateMachine.setResourceGroup(resourceGroupId);
-    }
-
     public List<Expression> getParameters()
     {
         return parameters;
@@ -315,36 +303,42 @@ public class DataDefinitionExecution<T extends Statement>
             this.tasks = requireNonNull(tasks, "tasks is null");
         }
 
-        public String explain(Statement statement, List<Expression> parameters)
-        {
-            DataDefinitionTask<Statement> task = getTask(statement);
-            checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
-            return task.explain(statement, parameters);
-        }
-
         @Override
         public DataDefinitionExecution<?> createQueryExecution(
-                QueryId queryId,
                 String query,
                 Session session,
-                Statement statement,
+                PreparedQuery preparedQuery,
+                ResourceGroupId resourceGroup,
+                WarningCollector warningCollector)
+        {
+            return createDataDefinitionExecution(query, session, resourceGroup, preparedQuery.getStatement(), preparedQuery.getParameters(), warningCollector);
+        }
+
+        private <T extends Statement> DataDefinitionExecution<T> createDataDefinitionExecution(
+                String query,
+                Session session,
+                ResourceGroupId resourceGroup,
+                T statement,
                 List<Expression> parameters,
                 WarningCollector warningCollector)
         {
-            URI self = locationFactory.createQueryLocation(queryId);
-
-            DataDefinitionTask<Statement> task = getTask(statement);
+            @SuppressWarnings("unchecked")
+            DataDefinitionTask<T> task = (DataDefinitionTask<T>) tasks.get(statement.getClass());
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
 
-            QueryStateMachine stateMachine = QueryStateMachine.begin(queryId, query, session, self, task.isTransactionControl(), transactionManager, accessControl, executor, metadata, warningCollector);
+            QueryStateMachine stateMachine = QueryStateMachine.begin(
+                    query,
+                    session,
+                    locationFactory.createQueryLocation(session.getQueryId()),
+                    resourceGroup,
+                    task.isTransactionControl(),
+                    transactionManager,
+                    accessControl,
+                    executor,
+                    metadata,
+                    warningCollector);
             stateMachine.setUpdateType(task.getName());
             return new DataDefinitionExecution<>(task, statement, transactionManager, metadata, accessControl, stateMachine, parameters);
-        }
-
-        @SuppressWarnings("unchecked")
-        private <T extends Statement> DataDefinitionTask<T> getTask(T statement)
-        {
-            return (DataDefinitionTask<T>) tasks.get(statement.getClass());
         }
     }
 }

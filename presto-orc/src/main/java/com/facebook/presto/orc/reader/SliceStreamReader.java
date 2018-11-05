@@ -37,6 +37,7 @@ import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_DIRECT;
 import static com.facebook.presto.spi.type.Chars.byteCountWithoutTrailingSpace;
 import static com.facebook.presto.spi.type.Chars.isCharType;
+import static com.facebook.presto.spi.type.VarbinaryType.isVarbinaryType;
 import static com.facebook.presto.spi.type.Varchars.byteCount;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -105,20 +106,31 @@ public class SliceStreamReader
                 .toString();
     }
 
-    public static int computeTruncatedLength(Slice slice, int offset, int length, Type type)
+    public static int getMaxCodePointCount(Type type)
     {
-        // calculate truncated length
-        int truncatedLength = length;
         if (isVarcharType(type)) {
             VarcharType varcharType = (VarcharType) type;
-            int codePointCount = varcharType.isUnbounded() ? length : varcharType.getLengthSafe();
-            truncatedLength = byteCount(slice, offset, length, codePointCount);
+            return varcharType.isUnbounded() ? -1 : varcharType.getLengthSafe();
         }
-        else if (isCharType(type)) {
+        if (isCharType(type)) {
+            return ((CharType) type).getLength();
+        }
+        if (isVarbinaryType(type)) {
+            return -1;
+        }
+        throw new IllegalArgumentException("Unsupported encoding " + type.getDisplayName());
+    }
+
+    public static int computeTruncatedLength(Slice slice, int offset, int length, int maxCodePointCount, boolean isCharType)
+    {
+        if (isCharType) {
             // truncate the characters and then remove the trailing white spaces
-            truncatedLength = byteCountWithoutTrailingSpace(slice, offset, length, ((CharType) type).getLength());
+            return byteCountWithoutTrailingSpace(slice, offset, length, maxCodePointCount);
         }
-        return truncatedLength;
+        if (maxCodePointCount >= 0 && length > maxCodePointCount) {
+            return byteCount(slice, offset, length, maxCodePointCount);
+        }
+        return length;
     }
 
     @Override

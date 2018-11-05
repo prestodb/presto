@@ -475,14 +475,14 @@ public class TestNestedLoopJoinOperator
 
         ValuesOperatorFactory valuesOperatorFactory = new ValuesOperatorFactory(0, new PlanNodeId("test"), buildPages.build());
 
-        JoinBridgeManager<NestedLoopJoinPagesBridge> nestedLoopJoinPagesBridgeManager = new JoinBridgeManager<>(
+        JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager = new JoinBridgeManager<>(
                 false,
                 PipelineExecutionStrategy.UNGROUPED_EXECUTION,
                 PipelineExecutionStrategy.UNGROUPED_EXECUTION,
                 lifespan -> new NestedLoopJoinPagesSupplier(),
                 buildPages.getTypes());
-        NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(1, new PlanNodeId("test"), nestedLoopJoinPagesBridgeManager);
-        NestedLoopJoinOperatorFactory joinOperatorFactory = new NestedLoopJoinOperatorFactory(3, new PlanNodeId("test"), nestedLoopJoinPagesBridgeManager);
+        NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(1, new PlanNodeId("test"), nestedLoopJoinBridgeManager);
+        NestedLoopJoinOperatorFactory joinOperatorFactory = new NestedLoopJoinOperatorFactory(3, new PlanNodeId("test"), nestedLoopJoinBridgeManager);
 
         Operator valuesOperator = valuesOperatorFactory.createOperator(driverContext);
         Operator nestedLoopBuildOperator = nestedLoopBuildOperatorFactory.createOperator(driverContext);

@@ -20,6 +20,7 @@ import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -81,12 +82,12 @@ public class TestShardMetadataRecordCursor
         this.metadata = new RaptorMetadata("raptor", dbi, createShardManager(dbi));
 
         // Create table
-        metadata.createTable(SESSION, tableMetadataBuilder(DEFAULT_TEST_ORDERS)
+        ConnectorTableMetadata table = tableMetadataBuilder(DEFAULT_TEST_ORDERS)
                 .column("orderkey", BIGINT)
                 .column("orderdate", DATE)
                 .property("temporal_column", "orderdate")
-                .build(),
-                false);
+                .build();
+        createTable(table);
     }
 
     @AfterMethod(alwaysRun = true)
@@ -154,16 +155,14 @@ public class TestShardMetadataRecordCursor
     public void testNoSchemaFilter()
     {
         // Create "orders" table in a different schema
-        metadata.createTable(SESSION, tableMetadataBuilder(new SchemaTableName("other", "orders"))
+        createTable(tableMetadataBuilder(new SchemaTableName("other", "orders"))
                 .column("orderkey", BIGINT)
-                .build(),
-                false);
+                .build());
 
         // Create another table that should not be selected
-        metadata.createTable(SESSION, tableMetadataBuilder(new SchemaTableName("schema1", "foo"))
+        createTable(tableMetadataBuilder(new SchemaTableName("schema1", "foo"))
                 .column("orderkey", BIGINT)
-                .build(),
-                false);
+                .build());
 
         TupleDomain<Integer> tupleDomain = TupleDomain.withColumnDomains(
                 ImmutableMap.<Integer, Domain>builder()
@@ -182,16 +181,14 @@ public class TestShardMetadataRecordCursor
     public void testNoTableFilter()
     {
         // Create "orders" table in a different schema
-        metadata.createTable(SESSION, tableMetadataBuilder(new SchemaTableName("test", "orders2"))
+        createTable(tableMetadataBuilder(new SchemaTableName("test", "orders2"))
                 .column("orderkey", BIGINT)
-                .build(),
-                false);
+                .build());
 
         // Create another table that should not be selected
-        metadata.createTable(SESSION, tableMetadataBuilder(new SchemaTableName("schema1", "foo"))
+        createTable(tableMetadataBuilder(new SchemaTableName("schema1", "foo"))
                 .column("orderkey", BIGINT)
-                .build(),
-                false);
+                .build());
 
         TupleDomain<Integer> tupleDomain = TupleDomain.withColumnDomains(
                 ImmutableMap.<Integer, Domain>builder()
@@ -204,6 +201,11 @@ public class TestShardMetadataRecordCursor
                 metadataDao.getTableInformation("test", "orders").getTableId(),
                 metadataDao.getTableInformation("test", "orders2").getTableId());
         assertEquals(actual, expected);
+    }
+
+    private void createTable(ConnectorTableMetadata table)
+    {
+        metadata.createTable(SESSION, table, false);
     }
 
     private static List<MaterializedRow> getMaterializedResults(RecordCursor cursor, List<ColumnMetadata> columns)

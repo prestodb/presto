@@ -28,10 +28,8 @@ import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.VariableWidthBlock;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
@@ -47,10 +45,13 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
 import static com.facebook.presto.orc.reader.SliceStreamReader.computeTruncatedLength;
+import static com.facebook.presto.orc.reader.SliceStreamReader.getMaxCodePointCount;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -68,44 +69,33 @@ public class SliceDictionaryStreamReader
     private int readOffset;
     private int nextBatchSize;
 
-    @Nonnull
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
     private BooleanInputStream presentStream;
     private boolean[] isNullVector = new boolean[0];
 
-    @Nonnull
     private InputStreamSource<ByteArrayInputStream> stripeDictionaryDataStreamSource = missingStreamSource(ByteArrayInputStream.class);
     private boolean stripeDictionaryOpen;
     private int stripeDictionarySize;
-    @Nonnull
     private int[] stripeDictionaryLength = new int[0];
-    @Nonnull
     private byte[] stripeDictionaryData = EMPTY_DICTIONARY_DATA;
-    @Nonnull
     private int[] stripeDictionaryOffsetVector = EMPTY_DICTIONARY_OFFSETS;
 
-    private VariableWidthBlock dictionaryBlock = new VariableWidthBlock(1, Slices.wrappedBuffer(EMPTY_DICTIONARY_DATA), EMPTY_DICTIONARY_OFFSETS, Optional.of(new boolean[]{true}));
+    private VariableWidthBlock dictionaryBlock = new VariableWidthBlock(1, wrappedBuffer(EMPTY_DICTIONARY_DATA), EMPTY_DICTIONARY_OFFSETS, Optional.of(new boolean[] {true}));
     private byte[] currentDictionaryData = EMPTY_DICTIONARY_DATA;
 
-    @Nonnull
     private InputStreamSource<LongInputStream> stripeDictionaryLengthStreamSource = missingStreamSource(LongInputStream.class);
 
-    @Nonnull
     private InputStreamSource<BooleanInputStream> inDictionaryStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
     private BooleanInputStream inDictionaryStream;
     private boolean[] inDictionaryVector = new boolean[0];
 
-    @Nonnull
     private InputStreamSource<ByteArrayInputStream> rowGroupDictionaryDataStreamSource = missingStreamSource(ByteArrayInputStream.class);
 
-    @Nonnull
     private InputStreamSource<RowGroupDictionaryLengthInputStream> rowGroupDictionaryLengthStreamSource = missingStreamSource(RowGroupDictionaryLengthInputStream.class);
-    @Nonnull
     private int[] rowGroupDictionaryLength = new int[0];
 
-    @Nonnull
     private InputStreamSource<LongInputStream> dataStreamSource = missingStreamSource(LongInputStream.class);
     @Nullable
     private LongInputStream dataStream;
@@ -214,7 +204,7 @@ public class SliceDictionaryStreamReader
             boolean[] isNullVector = new boolean[positionCount];
             isNullVector[positionCount - 1] = true;
             dictionaryOffsets[positionCount] = dictionaryOffsets[positionCount - 1];
-            dictionaryBlock = new VariableWidthBlock(positionCount, Slices.wrappedBuffer(dictionaryData), dictionaryOffsets, Optional.of(isNullVector));
+            dictionaryBlock = new VariableWidthBlock(positionCount, wrappedBuffer(dictionaryData), dictionaryOffsets, Optional.of(isNullVector));
             currentDictionaryData = dictionaryData;
         }
     }
@@ -308,7 +298,7 @@ public class SliceDictionaryStreamReader
             Type type)
             throws IOException
     {
-        Slice slice = Slices.wrappedBuffer(data);
+        Slice slice = wrappedBuffer(data);
 
         // initialize the offset if necessary;
         // otherwise, use the previous offset
@@ -323,12 +313,14 @@ public class SliceDictionaryStreamReader
             int length = dictionaryLengthVector[i];
 
             int truncatedLength;
+            int maxCodePointCount = getMaxCodePointCount(type);
+            boolean isCharType = isCharType(type);
             if (length > 0) {
                 // read data without truncation
                 dictionaryDataStream.next(data, offset, offset + length);
 
                 // adjust offsets with truncated length
-                truncatedLength = computeTruncatedLength(slice, offset, length, type);
+                truncatedLength = computeTruncatedLength(slice, offset, length, maxCodePointCount, isCharType);
                 verify(truncatedLength >= 0);
             }
             else {

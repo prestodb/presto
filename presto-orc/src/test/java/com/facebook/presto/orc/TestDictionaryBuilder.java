@@ -34,8 +34,8 @@ public class TestDictionaryBuilder
         Set<Integer> positions = new HashSet<>();
         DictionaryBuilder dictionaryBuilder = new DictionaryBuilder(64);
         for (int i = 0; i < 64; i++) {
-            positions.add(dictionaryBuilder.putIfAbsent(new TestHashCollisionBlock(1, wrappedBuffer(new byte[]{1}), new int[]{0, 1}, new boolean[]{false}), 0));
-            positions.add(dictionaryBuilder.putIfAbsent(new TestHashCollisionBlock(1, wrappedBuffer(new byte[]{2}), new int[]{0, 1}, new boolean[]{false}), 0));
+            positions.add(dictionaryBuilder.putIfAbsent(new TestHashCollisionBlock(1, wrappedBuffer(new byte[] {1}), new int[] {0, 1}, new boolean[] {false}), 0));
+            positions.add(dictionaryBuilder.putIfAbsent(new TestHashCollisionBlock(1, wrappedBuffer(new byte[] {2}), new int[] {0, 1}, new boolean[] {false}), 0));
         }
         assertEquals(positions, ImmutableSet.of(1, 2));
     }

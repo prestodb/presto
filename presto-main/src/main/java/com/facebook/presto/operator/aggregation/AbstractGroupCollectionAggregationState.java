@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Verify.verify;
+
 /**
  * Instances of this state use a single PageBuilder for all groups.
  */

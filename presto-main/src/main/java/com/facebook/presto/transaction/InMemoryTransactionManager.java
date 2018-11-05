@@ -249,7 +249,7 @@ public class InMemoryTransactionManager
     @Override
     public void trySetInactive(TransactionId transactionId)
     {
-        tryGetTransactionMetadata(transactionId).ifPresent(TransactionMetadata::setInActive);
+        tryGetTransactionMetadata(transactionId).ifPresent(TransactionMetadata::setInactive);
     }
 
     private TransactionMetadata getTransactionMetadata(TransactionId transactionId)
@@ -344,7 +344,7 @@ public class InMemoryTransactionManager
             idleStartTime.set(null);
         }
 
-        public void setInActive()
+        public void setInactive()
         {
             idleStartTime.set(System.nanoTime());
         }
