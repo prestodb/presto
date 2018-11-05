@@ -19,7 +19,7 @@ Compatibility
 Connector is compatible with all Apache Kudu versions starting from 1.0.
 
 If the connector uses features that are not available on the target server, an error will be returned.
-Apache Kudu 1.7.0 is currently used for testing.
+Apache Kudu 1.8.0 is currently used for testing.
 
 
 Configuration
