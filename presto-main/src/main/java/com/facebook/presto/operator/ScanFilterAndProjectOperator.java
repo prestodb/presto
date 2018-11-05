@@ -47,6 +47,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
@@ -94,7 +95,7 @@ public class ScanFilterAndProjectOperator
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.pageSourceMemoryContext = operatorContext.newLocalSystemMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
-        this.pageProcessorMemoryContext = operatorContext.newLocalSystemMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
+        this.pageProcessorMemoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
         this.outputMemoryContext = operatorContext.newLocalSystemMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
         this.mergingOutput = requireNonNull(mergingOutput, "mergingOutput is null");
 
@@ -293,7 +294,7 @@ public class ScanFilterAndProjectOperator
         }
 
         Page result = mergingOutput.getOutput();
-        outputMemoryContext.setBytes(mergingOutput.getRetainedSizeInBytes());
+        outputMemoryContext.setBytes(mergingOutput.getRetainedSizeInBytes() + pageProcessorMemoryContext.getBytes());
         return result;
     }
 
