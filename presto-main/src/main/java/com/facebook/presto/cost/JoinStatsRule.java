@@ -274,7 +274,7 @@ public class JoinStatsRule
             PlanNodeStatsEstimate rightStats,
             TypeProvider types)
     {
-        if (rightStats.getOutputRowCount() == 0) {
+        if (leftStats.getOutputRowCount() == 0 || rightStats.getOutputRowCount() == 0) {
             // no left side rows are matched
             return leftStats;
         }
@@ -359,8 +359,12 @@ public class JoinStatsRule
             PlanNodeStatsEstimate innerJoinStats,
             PlanNodeStatsEstimate joinComplementStats)
     {
-        double innerJoinRowCount = innerJoinStats.getOutputRowCount();
         double joinComplementRowCount = joinComplementStats.getOutputRowCount();
+        if (joinComplementRowCount == 0) {
+            return innerJoinStats;
+        }
+
+        double innerJoinRowCount = innerJoinStats.getOutputRowCount();
         double outputRowCount = innerJoinRowCount + joinComplementRowCount;
 
         PlanNodeStatsEstimate.Builder outputStats = PlanNodeStatsEstimate.buildFrom(innerJoinStats);
