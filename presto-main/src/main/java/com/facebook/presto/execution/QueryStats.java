@@ -47,8 +47,9 @@ public class QueryStats
 
     private final Duration elapsedTime;
     private final Duration queuedTime;
-    private final Duration executionTime;
     private final Duration resourceWaitingTime;
+    private final Duration dispatchingTime;
+    private final Duration executionTime;
     private final Duration analysisTime;
     private final Duration totalPlanningTime;
     private final Duration finishingTime;
@@ -111,6 +112,7 @@ public class QueryStats
             @JsonProperty("elapsedTime") Duration elapsedTime,
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("resourceWaitingTime") Duration resourceWaitingTime,
+            @JsonProperty("dispatchingTime") Duration dispatchingTime,
             @JsonProperty("executionTime") Duration executionTime,
             @JsonProperty("analysisTime") Duration analysisTime,
             @JsonProperty("totalPlanningTime") Duration totalPlanningTime,
@@ -172,6 +174,7 @@ public class QueryStats
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.resourceWaitingTime = requireNonNull(resourceWaitingTime, "resourceWaitingTime is null");
+        this.dispatchingTime = requireNonNull(dispatchingTime, "dispatchingTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
         this.analysisTime = requireNonNull(analysisTime, "analysisTime is null");
         this.totalPlanningTime = requireNonNull(totalPlanningTime, "totalPlanningTime is null");
@@ -252,6 +255,7 @@ public class QueryStats
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
                 0,
                 0,
                 0,
@@ -325,6 +329,12 @@ public class QueryStats
     public Duration getResourceWaitingTime()
     {
         return resourceWaitingTime;
+    }
+
+    @JsonProperty
+    public Duration getDispatchingTime()
+    {
+        return dispatchingTime;
     }
 
     @JsonProperty
