@@ -2,7 +2,7 @@ version: '2'
 services:
   kudu:
     hostname: kudu
-    image: 'usuresearch/kudu-docker-slim:release-v1.7.0-2'
+    image: 'usuresearch/kudu-docker-slim:release-v1.8.0-1'
     ports:
       - '18050:8050'
       - '18051:8051'
