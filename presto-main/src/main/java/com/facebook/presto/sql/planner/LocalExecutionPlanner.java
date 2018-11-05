@@ -223,6 +223,7 @@ import static com.facebook.presto.operator.TableFinishOperator.TableFinishOperat
 import static com.facebook.presto.operator.TableFinishOperator.TableFinisher;
 import static com.facebook.presto.operator.TableWriterOperator.FRAGMENT_CHANNEL;
 import static com.facebook.presto.operator.TableWriterOperator.ROW_COUNT_CHANNEL;
+import static com.facebook.presto.operator.TableWriterOperator.STATS_START_CHANNEL;
 import static com.facebook.presto.operator.TableWriterOperator.TableWriterOperatorFactory;
 import static com.facebook.presto.operator.UnnestOperator.UnnestOperatorFactory;
 import static com.facebook.presto.operator.WindowFunctionDefinition.window;
@@ -2165,7 +2166,7 @@ public class LocalExecutionPlanner
                             node.getId(),
                             aggregation.getAggregations(),
                             PARTIAL,
-                            2,
+                            STATS_START_CHANNEL,
                             outputMapping,
                             source,
                             context,
@@ -2185,7 +2186,7 @@ public class LocalExecutionPlanner
                         false,
                         new DataSize(0, BYTE),
                         context,
-                        2,
+                        STATS_START_CHANNEL,
                         outputMapping,
                         200,
                         // This aggregation must behave as INTERMEDIATE.

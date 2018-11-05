@@ -60,7 +60,7 @@ public class TableWriterOperator
 {
     public static final int ROW_COUNT_CHANNEL = 0;
     public static final int FRAGMENT_CHANNEL = 1;
-    private static final int WRITER_CHANNELS = 2;
+    public static final int STATS_START_CHANNEL = 2;
 
     public static class TableWriterOperatorFactory
             implements OperatorFactory
@@ -268,7 +268,7 @@ public class TableWriterOperator
         int positionCount = fragmentsPage.getPositionCount();
         Block[] outputBlocks = new Block[types.size()];
         for (int channel = 0; channel < types.size(); channel++) {
-            if (channel < WRITER_CHANNELS) {
+            if (channel < STATS_START_CHANNEL) {
                 outputBlocks[channel] = fragmentsPage.getBlock(channel);
             }
             else {
@@ -285,7 +285,7 @@ public class TableWriterOperator
         int positionCount = aggregationOutput.getPositionCount();
         Block[] outputBlocks = new Block[types.size()];
         for (int channel = 0; channel < types.size(); channel++) {
-            if (channel < WRITER_CHANNELS) {
+            if (channel < STATS_START_CHANNEL) {
                 outputBlocks[channel] = RunLengthEncodedBlock.create(types.get(channel), null, positionCount);
             }
             else {
