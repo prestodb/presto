@@ -7,9 +7,9 @@ local exchange (GATHER, SINGLE, [])
                         scan tpcds:customer:sf3000.0
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, ["ss_customer_sk"])
-                            final aggregation over (ca_address_sk, ca_city, ss_customer_sk, ss_ticket_number)
+                            final aggregation over (ca_city, ss_addr_sk, ss_customer_sk, ss_ticket_number)
                                 local exchange (GATHER, SINGLE, [])
-                                    partial aggregation over (ca_address_sk, ca_city, ss_customer_sk, ss_ticket_number)
+                                    partial aggregation over (ca_city, ss_addr_sk, ss_customer_sk, ss_ticket_number)
                                         join (INNER, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, ["ca_address_sk"])
                                                 scan tpcds:customer_address:sf3000.0

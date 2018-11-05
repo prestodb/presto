@@ -266,7 +266,7 @@ public class MapType
 
     /**
      * Create a map block directly without per element validations.
-     *
+     * <p>
      * Internal use by com.facebook.presto.spi.Block only.
      */
     public static Block createMapBlockInternal(

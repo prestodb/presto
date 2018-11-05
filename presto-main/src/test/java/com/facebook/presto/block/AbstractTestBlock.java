@@ -60,6 +60,7 @@ public abstract class AbstractTestBlock
 {
     private static final TypeManager TYPE_MANAGER = new TypeRegistry();
     private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new BlockEncodingManager(TYPE_MANAGER);
+
     static {
         // associate TYPE_MANAGER with a function registry
         new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());

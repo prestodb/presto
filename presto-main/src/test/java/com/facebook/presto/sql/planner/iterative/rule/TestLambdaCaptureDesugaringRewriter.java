@@ -42,13 +42,13 @@ public class TestLambdaCaptureDesugaringRewriter
         final SymbolAllocator allocator = new SymbolAllocator(symbols);
 
         assertEquals(rewrite(expression("x -> a + x"), allocator.getTypes(), allocator),
-                     new BindExpression(
-                             ImmutableList.of(expression("a")),
-                             new LambdaExpression(
-                                     Stream.of("a_0", "x")
-                                             .map(Identifier::new)
-                                             .map(LambdaArgumentDeclaration::new)
-                                             .collect(toList()),
-                                     expression("a_0 + x"))));
+                new BindExpression(
+                        ImmutableList.of(expression("a")),
+                        new LambdaExpression(
+                                Stream.of("a_0", "x")
+                                        .map(Identifier::new)
+                                        .map(LambdaArgumentDeclaration::new)
+                                        .collect(toList()),
+                                expression("a_0 + x"))));
     }
 }

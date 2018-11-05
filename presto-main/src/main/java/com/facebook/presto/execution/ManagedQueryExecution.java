@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
@@ -25,8 +24,6 @@ import java.util.Optional;
 
 public interface ManagedQueryExecution
 {
-    void setResourceGroup(ResourceGroupId resourceGroupId);
-
     void start();
 
     void fail(Throwable cause);

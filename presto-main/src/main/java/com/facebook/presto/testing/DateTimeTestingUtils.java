@@ -26,6 +26,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 
+import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.lang.Math.toIntExact;
 import static java.time.ZoneOffset.UTC;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -44,11 +45,19 @@ public final class DateTimeTestingUtils
             int minuteOfHour,
             int secondOfMinute,
             int millisOfSecond,
-            DateTimeZone baseZone,
-            TimeZoneKey timestampZone,
             Session session)
     {
-        return sqlTimestampOf(year, monthOfYear, dayOfMonth, hourOfDay, minuteOfHour, secondOfMinute, millisOfSecond, baseZone, timestampZone, session.toConnectorSession());
+        return sqlTimestampOf(
+                year,
+                monthOfYear,
+                dayOfMonth,
+                hourOfDay,
+                minuteOfHour,
+                secondOfMinute,
+                millisOfSecond,
+                getDateTimeZone(session.getTimeZoneKey()),
+                session.getTimeZoneKey(),
+                session.toConnectorSession());
     }
 
     public static SqlTimestamp sqlTimestampOf(
@@ -66,9 +75,7 @@ public final class DateTimeTestingUtils
         if (session.isLegacyTimestamp()) {
             return new SqlTimestamp(new DateTime(year, monthOfYear, dayOfMonth, hourOfDay, minuteOfHour, secondOfMinute, millisOfSecond, baseZone).getMillis(), timestampZone);
         }
-        else {
-            return new SqlTimestamp(new DateTime(year, monthOfYear, dayOfMonth, hourOfDay, minuteOfHour, secondOfMinute, millisOfSecond, DateTimeZone.UTC).getMillis());
-        }
+        return sqlTimestampOf(LocalDateTime.of(year, monthOfYear, dayOfMonth, hourOfDay, minuteOfHour, secondOfMinute, millisToNanos(millisOfSecond)));
     }
 
     /**
@@ -106,7 +113,7 @@ public final class DateTimeTestingUtils
             int millisOfSecond,
             Session session)
     {
-        LocalTime time = LocalTime.of(hourOfDay, minuteOfHour, secondOfMinute, toIntExact(MILLISECONDS.toNanos(millisOfSecond)));
+        LocalTime time = LocalTime.of(hourOfDay, minuteOfHour, secondOfMinute, millisToNanos(millisOfSecond));
         return sqlTimeOf(time, session);
     }
 
@@ -122,5 +129,10 @@ public final class DateTimeTestingUtils
             return new SqlTime(millisUtc, session.getTimeZoneKey());
         }
         return new SqlTime(NANOSECONDS.toMillis(time.toNanoOfDay()));
+    }
+
+    private static int millisToNanos(int millisOfSecond)
+    {
+        return toIntExact(MILLISECONDS.toNanos(millisOfSecond));
     }
 }

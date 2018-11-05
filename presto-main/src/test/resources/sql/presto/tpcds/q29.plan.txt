@@ -12,7 +12,7 @@ local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             scan tpcds:date_dim:sf3000.0
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["i_item_sk", "ss_customer_sk"])
+                                remote exchange (REPARTITION, HASH, ["i_item_sk", "sr_customer_sk"])
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
                                             join (INNER, PARTITIONED):

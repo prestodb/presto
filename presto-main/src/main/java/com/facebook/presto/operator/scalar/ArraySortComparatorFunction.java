@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.Description;
@@ -27,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
+import java.util.Comparator;
 import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -38,7 +40,6 @@ public final class ArraySortComparatorFunction
 {
     private final PageBuilder pageBuilder;
     private static final int INITIAL_LENGTH = 128;
-    private static final String COMPARATOR_RETURN_ERROR = "Lambda comparator must return either -1, 0, or 1";
     private List<Integer> positions = Ints.asList(new int[INITIAL_LENGTH]);
 
     @TypeParameter("T")
@@ -58,16 +59,11 @@ public final class ArraySortComparatorFunction
         int arrayLength = block.getPositionCount();
         initPositionsList(arrayLength);
 
-        positions.subList(0, arrayLength).sort((p1, p2) -> {
-            Long lambdaResult = function.apply(
-                    block.isNull(p1) ? null : type.getLong(block, p1),
-                    block.isNull(p2) ? null : type.getLong(block, p2));
-            checkCondition(
-                    lambdaResult != null && (lambdaResult == -1 || lambdaResult == 0 || lambdaResult == 1),
-                    INVALID_FUNCTION_ARGUMENT,
-                    COMPARATOR_RETURN_ERROR);
-            return lambdaResult.intValue();
-        });
+        Comparator<Integer> comparator = (x, y) -> comparatorResult(function.apply(
+                block.isNull(x) ? null : type.getLong(block, x),
+                block.isNull(y) ? null : type.getLong(block, y)));
+
+        sortPositions(arrayLength, comparator);
 
         return computeResultBlock(type, block, arrayLength);
     }
@@ -83,16 +79,11 @@ public final class ArraySortComparatorFunction
         int arrayLength = block.getPositionCount();
         initPositionsList(arrayLength);
 
-        positions.subList(0, arrayLength).sort((p1, p2) -> {
-            Long lambdaResult = function.apply(
-                    block.isNull(p1) ? null : type.getDouble(block, p1),
-                    block.isNull(p2) ? null : type.getDouble(block, p2));
-            checkCondition(
-                    lambdaResult != null && (lambdaResult == -1 || lambdaResult == 0 || lambdaResult == 1),
-                    INVALID_FUNCTION_ARGUMENT,
-                    COMPARATOR_RETURN_ERROR);
-            return lambdaResult.intValue();
-        });
+        Comparator<Integer> comparator = (x, y) -> comparatorResult(function.apply(
+                block.isNull(x) ? null : type.getDouble(block, x),
+                block.isNull(y) ? null : type.getDouble(block, y)));
+
+        sortPositions(arrayLength, comparator);
 
         return computeResultBlock(type, block, arrayLength);
     }
@@ -108,16 +99,11 @@ public final class ArraySortComparatorFunction
         int arrayLength = block.getPositionCount();
         initPositionsList(arrayLength);
 
-        positions.subList(0, arrayLength).sort((p1, p2) -> {
-            Long lambdaResult = function.apply(
-                    block.isNull(p1) ? null : type.getBoolean(block, p1),
-                    block.isNull(p2) ? null : type.getBoolean(block, p2));
-            checkCondition(
-                    lambdaResult != null && (lambdaResult == -1 || lambdaResult == 0 || lambdaResult == 1),
-                    INVALID_FUNCTION_ARGUMENT,
-                    COMPARATOR_RETURN_ERROR);
-            return lambdaResult.intValue();
-        });
+        Comparator<Integer> comparator = (x, y) -> comparatorResult(function.apply(
+                block.isNull(x) ? null : type.getBoolean(block, x),
+                block.isNull(y) ? null : type.getBoolean(block, y)));
+
+        sortPositions(arrayLength, comparator);
 
         return computeResultBlock(type, block, arrayLength);
     }
@@ -133,16 +119,11 @@ public final class ArraySortComparatorFunction
         int arrayLength = block.getPositionCount();
         initPositionsList(arrayLength);
 
-        positions.subList(0, arrayLength).sort((p1, p2) -> {
-            Long lambdaResult = function.apply(
-                    block.isNull(p1) ? null : type.getSlice(block, p1),
-                    block.isNull(p2) ? null : type.getSlice(block, p2));
-            checkCondition(
-                    lambdaResult != null && (lambdaResult == -1 || lambdaResult == 0 || lambdaResult == 1),
-                    INVALID_FUNCTION_ARGUMENT,
-                    COMPARATOR_RETURN_ERROR);
-            return lambdaResult.intValue();
-        });
+        Comparator<Integer> comparator = (x, y) -> comparatorResult(function.apply(
+                block.isNull(x) ? null : type.getSlice(block, x),
+                block.isNull(y) ? null : type.getSlice(block, y)));
+
+        sortPositions(arrayLength, comparator);
 
         return computeResultBlock(type, block, arrayLength);
     }
@@ -158,16 +139,11 @@ public final class ArraySortComparatorFunction
         int arrayLength = block.getPositionCount();
         initPositionsList(arrayLength);
 
-        positions.subList(0, arrayLength).sort((p1, p2) -> {
-            Long lambdaResult = function.apply(
-                    block.isNull(p1) ? null : (Block) type.getObject(block, p1),
-                    block.isNull(p2) ? null : (Block) type.getObject(block, p2));
-            checkCondition(
-                    lambdaResult != null && (lambdaResult == -1 || lambdaResult == 0 || lambdaResult == 1),
-                    INVALID_FUNCTION_ARGUMENT,
-                    COMPARATOR_RETURN_ERROR);
-            return lambdaResult.intValue();
-        });
+        Comparator<Integer> comparator = (x, y) -> comparatorResult(function.apply(
+                block.isNull(x) ? null : (Block) type.getObject(block, x),
+                block.isNull(y) ? null : (Block) type.getObject(block, y)));
+
+        sortPositions(arrayLength, comparator);
 
         return computeResultBlock(type, block, arrayLength);
     }
@@ -179,6 +155,18 @@ public final class ArraySortComparatorFunction
         }
         for (int i = 0; i < arrayLength; i++) {
             positions.set(i, i);
+        }
+    }
+
+    private void sortPositions(int arrayLength, Comparator<Integer> comparator)
+    {
+        List<Integer> list = positions.subList(0, arrayLength);
+
+        try {
+            list.sort(comparator);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Lambda comparator violates the comparator contract", e);
         }
     }
 
@@ -196,6 +184,15 @@ public final class ArraySortComparatorFunction
         pageBuilder.declarePositions(arrayLength);
 
         return blockBuilder.getRegion(blockBuilder.getPositionCount() - arrayLength, arrayLength);
+    }
+
+    private static int comparatorResult(Long result)
+    {
+        checkCondition(
+                (result != null) && ((result == -1) || (result == 0) || (result == 1)),
+                INVALID_FUNCTION_ARGUMENT,
+                "Lambda comparator must return either -1, 0, or 1");
+        return result.intValue();
     }
 
     @FunctionalInterface

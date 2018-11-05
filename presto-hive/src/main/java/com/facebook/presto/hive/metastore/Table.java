@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -137,15 +138,6 @@ public class Table
         return viewExpandedText;
     }
 
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("databaseName", databaseName)
-                .add("tableName", tableName)
-                .toString();
-    }
-
     public static Builder builder()
     {
         return new Builder();
@@ -154,6 +146,62 @@ public class Table
     public static Builder builder(Table table)
     {
         return new Builder(table);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("databaseName", databaseName)
+                .add("tableName", tableName)
+                .add("owner", owner)
+                .add("tableType", tableType)
+                .add("dataColumns", dataColumns)
+                .add("partitionColumns", partitionColumns)
+                .add("storage", storage)
+                .add("parameters", parameters)
+                .add("viewOriginalText", viewOriginalText)
+                .add("viewExpandedText", viewExpandedText)
+                .toString();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Table table = (Table) o;
+        return Objects.equals(databaseName, table.databaseName) &&
+                Objects.equals(tableName, table.tableName) &&
+                Objects.equals(owner, table.owner) &&
+                Objects.equals(tableType, table.tableType) &&
+                Objects.equals(dataColumns, table.dataColumns) &&
+                Objects.equals(partitionColumns, table.partitionColumns) &&
+                Objects.equals(storage, table.storage) &&
+                Objects.equals(parameters, table.parameters) &&
+                Objects.equals(viewOriginalText, table.viewOriginalText) &&
+                Objects.equals(viewExpandedText, table.viewExpandedText);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(
+                databaseName,
+                tableName,
+                owner,
+                tableType,
+                dataColumns,
+                partitionColumns,
+                storage,
+                parameters,
+                viewOriginalText,
+                viewExpandedText);
     }
 
     public static class Builder

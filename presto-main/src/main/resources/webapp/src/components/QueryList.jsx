@@ -469,7 +469,7 @@ export class QueryList extends React.Component {
             newSortOrder = SORT_ORDER.ASCENDING;
         }
 
-        const newDisplayedQueries = this.filterQueries(this.state.allQueries, this.state.stateFilters, this.state.searchString);
+        const newDisplayedQueries = this.filterQueries(this.state.allQueries, this.state.stateFilters, this.state.errorTypeFilters, this.state.searchString);
         this.sortAndLimitQueries(newDisplayedQueries, newSortType, newSortOrder, this.state.maxQueries);
 
         this.setState({

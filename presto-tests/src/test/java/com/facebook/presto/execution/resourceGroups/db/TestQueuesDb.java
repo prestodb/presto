@@ -258,23 +258,33 @@ public class TestQueuesDb
     public void testQueryExecutionTimeLimit()
             throws Exception
     {
-        Session session = testSessionBuilder()
-                .setCatalog("tpch")
-                .setSchema("sf100000")
-                .setSource("dashboard")
-                .setSystemProperty(QUERY_MAX_EXECUTION_TIME, "1ms")
-                .build();
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
         InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
         DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
-        QueryId firstQuery = createQuery(queryRunner, session, LONG_LASTING_QUERY);
+        QueryId firstQuery = createQuery(
+                queryRunner,
+                testSessionBuilder()
+                        .setCatalog("tpch")
+                        .setSchema("sf100000")
+                        .setSource("dashboard")
+                        .setSystemProperty(QUERY_MAX_EXECUTION_TIME, "1ms")
+                        .build(),
+                LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, firstQuery, FAILED);
         assertEquals(queryManager.getFullQueryInfo(firstQuery).getErrorCode(), EXCEEDED_TIME_LIMIT.toErrorCode());
         assertContains(queryManager.getFullQueryInfo(firstQuery).getFailureInfo().getMessage(), "Query exceeded the maximum execution time limit of 1.00ms");
         // set max running queries to 0 for the dashboard resource group so that new queries get queued immediately
         dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, null, 0, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         dbConfigurationManager.load();
-        QueryId secondQuery = createQuery(queryRunner, session, LONG_LASTING_QUERY);
+        QueryId secondQuery = createQuery(
+                queryRunner,
+                testSessionBuilder()
+                        .setCatalog("tpch")
+                        .setSchema("sf100000")
+                        .setSource("dashboard")
+                        .setSystemProperty(QUERY_MAX_EXECUTION_TIME, "1ms")
+                        .build(),
+                LONG_LASTING_QUERY);
         //this query should immediately get queued
         waitForQueryState(queryRunner, secondQuery, QUEUED);
         // after a 5s wait this query should still be QUEUED, not FAILED as the max execution time should be enforced after the query starts running

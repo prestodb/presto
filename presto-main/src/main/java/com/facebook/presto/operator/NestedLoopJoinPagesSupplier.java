@@ -23,7 +23,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
 public final class NestedLoopJoinPagesSupplier
-        implements NestedLoopJoinPagesBridge
+        implements NestedLoopJoinBridge
 {
     private final SettableFuture<NestedLoopJoinPages> pagesFuture = SettableFuture.create();
     private final SettableFuture<?> pagesNoLongerNeeded = SettableFuture.create();

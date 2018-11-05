@@ -18,7 +18,8 @@ import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.PageWithPositionComparator;
 import com.facebook.presto.operator.WorkProcessor;
-import com.facebook.presto.operator.WorkProcessor.ProcessorState;
+import com.facebook.presto.operator.WorkProcessor.ProcessState;
+import com.facebook.presto.operator.WorkProcessor.TransformationState;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -102,44 +103,42 @@ public final class MergeSortedPages
     {
         LocalMemoryContext memoryContext = aggregatedMemoryContext.newLocalMemoryContext(MergeSortedPages.class.getSimpleName());
         PageBuilder pageBuilder = new PageBuilder(outputTypes);
-        return pageWithPositions.transform(pageWithPositionOptional -> {
-            if (yieldSignal.isSet()) {
-                return ProcessorState.yield();
-            }
+        return pageWithPositions
+                .yielding(yieldSignal::isSet)
+                .transform(pageWithPositionOptional -> {
+                    boolean finished = !pageWithPositionOptional.isPresent();
+                    if (finished && pageBuilder.isEmpty()) {
+                        memoryContext.close();
+                        return TransformationState.finished();
+                    }
 
-            boolean finished = !pageWithPositionOptional.isPresent();
-            if (finished && pageBuilder.isEmpty()) {
-                memoryContext.close();
-                return ProcessorState.finished();
-            }
+                    if (finished || pageBreakPredicate.test(pageBuilder, pageWithPositionOptional.get())) {
+                        if (!updateMemoryAfterEveryPosition) {
+                            // update memory usage just before producing page to cap from top
+                            memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
+                        }
 
-            if (finished || pageBreakPredicate.test(pageBuilder, pageWithPositionOptional.get())) {
-                if (!updateMemoryAfterEveryPosition) {
-                    // update memory usage just before producing page to cap from top
-                    memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
-                }
+                        Page page = pageBuilder.build();
+                        pageBuilder.reset();
+                        if (!finished) {
+                            pageWithPositionOptional.get().appendTo(pageBuilder, outputChannels, outputTypes);
+                        }
 
-                Page page = pageBuilder.build();
-                pageBuilder.reset();
-                if (!finished) {
+                        if (updateMemoryAfterEveryPosition) {
+                            memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
+                        }
+
+                        return TransformationState.ofResult(page, !finished);
+                    }
+
                     pageWithPositionOptional.get().appendTo(pageBuilder, outputChannels, outputTypes);
-                }
 
-                if (updateMemoryAfterEveryPosition) {
-                    memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
-                }
+                    if (updateMemoryAfterEveryPosition) {
+                        memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
+                    }
 
-                return ProcessorState.ofResult(page, !finished);
-            }
-
-            pageWithPositionOptional.get().appendTo(pageBuilder, outputChannels, outputTypes);
-
-            if (updateMemoryAfterEveryPosition) {
-                memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
-            }
-
-            return ProcessorState.needsMoreData();
-        });
+                    return TransformationState.needsMoreData();
+                });
     }
 
     private static WorkProcessor<PageWithPosition> pageWithPositions(WorkProcessor<Page> pages, AggregatedMemoryContext aggregatedMemoryContext)
@@ -153,14 +152,14 @@ public final class MergeSortedPages
                 int position;
 
                 @Override
-                public ProcessorState<PageWithPosition> process()
+                public ProcessState<PageWithPosition> process()
                 {
                     if (position >= page.getPositionCount()) {
                         memoryContext.close();
-                        return ProcessorState.finished();
+                        return ProcessState.finished();
                     }
 
-                    return ProcessorState.ofResult(new PageWithPosition(page, position++));
+                    return ProcessState.ofResult(new PageWithPosition(page, position++));
                 }
             });
         });

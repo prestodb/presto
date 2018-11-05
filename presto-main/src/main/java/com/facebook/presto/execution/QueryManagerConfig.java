@@ -60,6 +60,9 @@ public class QueryManagerConfig
     private int initializationRequiredWorkers = 1;
     private Duration initializationTimeout = new Duration(5, TimeUnit.MINUTES);
 
+    private int requiredWorkers = 1;
+    private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
+
     @Min(1)
     public int getScheduleSplitBatchSize()
     {
@@ -328,6 +331,34 @@ public class QueryManagerConfig
     public QueryManagerConfig setInitializationTimeout(Duration initializationTimeout)
     {
         this.initializationTimeout = initializationTimeout;
+        return this;
+    }
+
+    @Min(1)
+    public int getRequiredWorkers()
+    {
+        return requiredWorkers;
+    }
+
+    @Config("query-manager.required-workers")
+    @ConfigDescription("Minimum number of active workers that must be available before a query will start")
+    public QueryManagerConfig setRequiredWorkers(int requiredWorkers)
+    {
+        this.requiredWorkers = requiredWorkers;
+        return this;
+    }
+
+    @NotNull
+    public Duration getRequiredWorkersMaxWait()
+    {
+        return requiredWorkersMaxWait;
+    }
+
+    @Config("query-manager.required-workers-max-wait")
+    @ConfigDescription("Maximum time to wait for minimum number of workers before the query is failed")
+    public QueryManagerConfig setRequiredWorkersMaxWait(Duration requiredWorkersMaxWait)
+    {
+        this.requiredWorkersMaxWait = requiredWorkersMaxWait;
         return this;
     }
 }

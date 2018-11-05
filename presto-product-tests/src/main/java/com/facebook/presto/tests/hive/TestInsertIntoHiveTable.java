@@ -26,7 +26,6 @@ import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
-import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.POST_HIVE_1_0_1;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
 import static io.prestodb.tempto.Requirements.compose;
@@ -74,7 +73,7 @@ public class TestInsertIntoHiveTable
                 .build();
     }
 
-    @Test(groups = {HIVE_CONNECTOR, POST_HIVE_1_0_1})
+    @Test(groups = {POST_HIVE_1_0_1})
     public void testInsertIntoValuesToHiveTableAllHiveSimpleTypes()
     {
         String tableNameInDatabase = mutableTablesState().get(TABLE_NAME).getNameInDatabase();
@@ -116,7 +115,7 @@ public class TestInsertIntoHiveTable
                         "kot binarny".getBytes()));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, POST_HIVE_1_0_1})
+    @Test(groups = {POST_HIVE_1_0_1})
     public void testInsertIntoSelectToHiveTableAllHiveSimpleTypes()
     {
         String tableNameInDatabase = mutableTablesState().get(TABLE_NAME).getNameInDatabase();
@@ -141,7 +140,7 @@ public class TestInsertIntoHiveTable
                         "kot binarny".getBytes()));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, POST_HIVE_1_0_1})
+    @Test(groups = {POST_HIVE_1_0_1})
     public void testInsertIntoPartitionedWithSerdePropety()
     {
         String tableNameInDatabase = mutableTablesState().get(PARTITIONED_TABLE_WITH_SERDE).getNameInDatabase();

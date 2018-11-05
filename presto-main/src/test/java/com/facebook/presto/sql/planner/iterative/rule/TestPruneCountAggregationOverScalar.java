@@ -119,9 +119,9 @@ public class TestPruneCountAggregationOverScalar
                                 .source(
                                         p.aggregation(aggregationBuilder -> {
                                             aggregationBuilder
-                                                                                .source(p.tableScan(ImmutableList.of(), ImmutableMap.of())).groupingSets(singleGroupingSet(ImmutableList.of(p.symbol("orderkey"))));
+                                                    .source(p.tableScan(ImmutableList.of(), ImmutableMap.of())).groupingSets(singleGroupingSet(ImmutableList.of(p.symbol("orderkey"))));
                                             aggregationBuilder
-                                                                                            .source(p.tableScan(ImmutableList.of(), ImmutableMap.of()));
+                                                    .source(p.tableScan(ImmutableList.of(), ImmutableMap.of()));
                                         }))))
                 .doesNotFire();
     }

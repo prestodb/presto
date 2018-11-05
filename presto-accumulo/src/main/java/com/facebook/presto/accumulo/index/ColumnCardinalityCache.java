@@ -39,7 +39,6 @@ import org.apache.accumulo.core.security.Authorizations;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.io.Text;
 
-import javax.annotation.Nonnull;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
@@ -334,7 +333,7 @@ public class ColumnCardinalityCache
          * @return The cardinality of the column, which would be zero if the value does not exist
          */
         @Override
-        public Long load(@Nonnull CacheKey key)
+        public Long load(CacheKey key)
                 throws Exception
         {
             LOG.debug("Loading a non-exact range from Accumulo: %s", key);
@@ -360,7 +359,7 @@ public class ColumnCardinalityCache
         }
 
         @Override
-        public Map<CacheKey, Long> loadAll(@Nonnull Iterable<? extends CacheKey> keys)
+        public Map<CacheKey, Long> loadAll(Iterable<? extends CacheKey> keys)
                 throws Exception
         {
             int size = Iterables.size(keys);

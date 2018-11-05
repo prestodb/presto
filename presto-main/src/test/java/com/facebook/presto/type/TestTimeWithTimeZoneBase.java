@@ -26,10 +26,8 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 
@@ -203,12 +201,7 @@ public abstract class TestTimeWithTimeZoneBase
     public abstract void testCastToTime();
 
     @Test
-    public void testCastToTimestamp()
-    {
-        assertFunction("cast(TIME '03:04:05.321 +07:09' as timestamp)",
-                TIMESTAMP,
-                sqlTimestampOf(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE, session.getTimeZoneKey(), session));
-    }
+    public abstract void testCastToTimestamp();
 
     @Test
     public void testCastToTimestampWithTimeZone()

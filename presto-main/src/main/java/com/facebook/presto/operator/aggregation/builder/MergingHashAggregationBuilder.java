@@ -16,8 +16,8 @@ package com.facebook.presto.operator.aggregation.builder;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.WorkProcessor;
-import com.facebook.presto.operator.WorkProcessor.ProcessorState;
 import com.facebook.presto.operator.WorkProcessor.Transformation;
+import com.facebook.presto.operator.WorkProcessor.TransformationState;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
@@ -90,7 +90,7 @@ public class MergingHashAggregationBuilder
             boolean reset = true;
             long memorySize;
 
-            public ProcessorState<WorkProcessor<Page>> process(Optional<Page> inputPageOptional)
+            public TransformationState<WorkProcessor<Page>> process(Optional<Page> inputPageOptional)
             {
                 if (reset) {
                     rebuildHashAggregationBuilder();
@@ -101,7 +101,7 @@ public class MergingHashAggregationBuilder
                 boolean inputFinished = !inputPageOptional.isPresent();
                 if (inputFinished && memorySize == 0) {
                     // no more pages and aggregation builder is empty
-                    return ProcessorState.finished();
+                    return TransformationState.finished();
                 }
 
                 if (!inputFinished) {
@@ -113,12 +113,14 @@ public class MergingHashAggregationBuilder
                     systemMemoryContext.setBytes(memorySize);
 
                     if (!shouldProduceOutput(memorySize)) {
-                        return ProcessorState.needsMoreData();
+                        return TransformationState.needsMoreData();
                     }
                 }
 
                 reset = true;
-                return ProcessorState.ofResult(hashAggregationBuilder.buildResult(), !inputFinished);
+                // we can produce output after every input page, because input pages do not have
+                // hash values that span multiple pages (guaranteed by MergeHashSort)
+                return TransformationState.ofResult(hashAggregationBuilder.buildResult(), !inputFinished);
             }
         });
     }

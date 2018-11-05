@@ -18,7 +18,9 @@ import com.facebook.presto.spi.InvocationConvention;
 public @interface Convention
 {
     InvocationConvention.InvocationArgumentConvention[] arguments();
+
     InvocationConvention.InvocationReturnConvention result();
+
     boolean session() default false;
 
     boolean $notSpecified() default false;

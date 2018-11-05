@@ -140,7 +140,7 @@ public interface Type
 
     /**
      * Are the values in the specified blocks at the specified positions equal?
-     *
+     * <p>
      * This method assumes input is not null.
      */
     boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition);

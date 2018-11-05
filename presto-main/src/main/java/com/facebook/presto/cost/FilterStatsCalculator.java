@@ -121,7 +121,7 @@ public class FilterStatsCalculator
                 session,
                 types,
                 emptyList(),
-                node -> new IllegalStateException("Expected node: %s" + node),
+                node -> new IllegalStateException("Unexpected node: %s" + node),
                 WarningCollector.NOOP,
                 false);
         expressionAnalyzer.analyze(expression, Scope.create());
@@ -410,7 +410,7 @@ public class FilterStatsCalculator
                 Symbol symbol = Symbol.from(expression);
                 return requireNonNull(input.getSymbolStatistics(symbol), () -> format("No statistics for symbol %s", symbol));
             }
-            return scalarStatsCalculator.calculate(expression, input, session);
+            return scalarStatsCalculator.calculate(expression, input, session, types);
         }
 
         private OptionalDouble doubleValueFromLiteral(Type type, Literal literal)

@@ -144,9 +144,11 @@ public class TestExampleMetadata
     @Test(expectedExceptions = PrestoException.class)
     public void testCreateTable()
     {
-        metadata.createTable(SESSION, new ConnectorTableMetadata(
-                new SchemaTableName("example", "foo"),
-                ImmutableList.of(new ColumnMetadata("text", createUnboundedVarcharType()))),
+        metadata.createTable(
+                SESSION,
+                new ConnectorTableMetadata(
+                        new SchemaTableName("example", "foo"),
+                        ImmutableList.of(new ColumnMetadata("text", createUnboundedVarcharType()))),
                 false);
     }
 

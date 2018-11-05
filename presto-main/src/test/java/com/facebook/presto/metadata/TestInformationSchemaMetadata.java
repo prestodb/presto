@@ -170,13 +170,13 @@ public class TestInformationSchemaMetadata
     private ConnectorSession createNewSession(TransactionId transactionId)
     {
         return testSessionBuilder()
-                    .setCatalog("test_catalog")
-                    .setSchema("information_schema")
-                    .setClientCapabilities(stream(ClientCapabilities.values())
-                            .map(ClientCapabilities::toString)
-                            .collect(toImmutableSet()))
-                    .setTransactionId(transactionId)
-                    .build()
+                .setCatalog("test_catalog")
+                .setSchema("information_schema")
+                .setClientCapabilities(stream(ClientCapabilities.values())
+                        .map(ClientCapabilities::toString)
+                        .collect(toImmutableSet()))
+                .setTransactionId(transactionId)
+                .build()
                 .toConnectorSession();
     }
 }

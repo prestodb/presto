@@ -96,6 +96,9 @@ public class PageSourceOperator
         completedBytes = endCompletedBytes;
         readTimeNanos = endReadTimeNanos;
 
+        // assure the page is in memory before handing to another operator
+        page = page.getLoadedPage();
+
         return page;
     }
 

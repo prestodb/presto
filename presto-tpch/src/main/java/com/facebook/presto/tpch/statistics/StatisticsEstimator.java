@@ -27,7 +27,6 @@ import static com.facebook.presto.tpch.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.util.Optional.empty;
 
 public class StatisticsEstimator
 {
@@ -42,7 +41,7 @@ public class StatisticsEstimator
     {
         String schemaName = "sf" + scaleFactor;
         if (columnValuesRestrictions.isEmpty()) {
-            return tableStatisticsDataRepository.load(schemaName, tpchTable, empty(), empty());
+            return tableStatisticsDataRepository.load(schemaName, tpchTable, Optional.empty(), Optional.empty());
         }
         else if (columnValuesRestrictions.values().stream().allMatch(List::isEmpty)) {
             return Optional.of(zeroStatistics(tpchTable));

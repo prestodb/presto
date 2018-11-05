@@ -102,6 +102,7 @@ public class QueryStateMachine
     private final String query;
     private final Session session;
     private final URI self;
+    private final Optional<ResourceGroupId> resourceGroup;
     private final TransactionManager transactionManager;
     private final Ticker ticker;
     private final Metadata metadata;
@@ -158,25 +159,24 @@ public class QueryStateMachine
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
 
-    private final AtomicReference<ResourceGroupId> resourceGroup = new AtomicReference<>();
-
     private final WarningCollector warningCollector;
 
     private QueryStateMachine(
-            QueryId queryId,
             String query,
             Session session,
             URI self,
+            Optional<ResourceGroupId> resourceGroup,
             TransactionManager transactionManager,
             Executor executor,
             Ticker ticker,
             Metadata metadata,
             WarningCollector warningCollector)
     {
-        this.queryId = requireNonNull(queryId, "queryId is null");
         this.query = requireNonNull(query, "query is null");
         this.session = requireNonNull(session, "session is null");
+        this.queryId = session.getQueryId();
         this.self = requireNonNull(self, "self is null");
+        this.resourceGroup = requireNonNull(resourceGroup, "resourceGroup is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.ticker = ticker;
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -192,10 +192,10 @@ public class QueryStateMachine
      * Created QueryStateMachines must be transitioned to terminal states to clean up resources.
      */
     public static QueryStateMachine begin(
-            QueryId queryId,
             String query,
             Session session,
             URI self,
+            ResourceGroupId resourceGroup,
             boolean transactionControl,
             TransactionManager transactionManager,
             AccessControl accessControl,
@@ -203,14 +203,25 @@ public class QueryStateMachine
             Metadata metadata,
             WarningCollector warningCollector)
     {
-        return beginWithTicker(queryId, query, session, self, transactionControl, transactionManager, accessControl, executor, Ticker.systemTicker(), metadata, warningCollector);
+        return beginWithTicker(
+                query,
+                session,
+                self,
+                resourceGroup,
+                transactionControl,
+                transactionManager,
+                accessControl,
+                executor,
+                Ticker.systemTicker(),
+                metadata,
+                warningCollector);
     }
 
     static QueryStateMachine beginWithTicker(
-            QueryId queryId,
             String query,
             Session session,
             URI self,
+            ResourceGroupId resourceGroup,
             boolean transactionControl,
             TransactionManager transactionManager,
             AccessControl accessControl,
@@ -226,33 +237,18 @@ public class QueryStateMachine
             session = session.beginTransactionId(transactionId, transactionManager, accessControl);
         }
 
-        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, transactionManager, executor, ticker, metadata, warningCollector);
-        queryStateMachine.addStateChangeListener(newState -> QUERY_STATE_LOG.debug("Query %s is %s", queryId, newState));
+        QueryStateMachine queryStateMachine = new QueryStateMachine(
+                query,
+                session,
+                self,
+                Optional.of(resourceGroup),
+                transactionManager,
+                executor,
+                ticker,
+                metadata,
+                warningCollector);
+        queryStateMachine.addStateChangeListener(newState -> QUERY_STATE_LOG.debug("Query %s is %s", queryStateMachine.getQueryId(), newState));
 
-        return queryStateMachine;
-    }
-
-    /**
-     * Create a QueryStateMachine that is already in a failed state.
-     */
-    public static QueryStateMachine failed(QueryId queryId, String query, Session session, URI self, TransactionManager transactionManager, Executor executor, Metadata metadata, Throwable throwable)
-    {
-        return failedWithTicker(queryId, query, session, self, transactionManager, executor, Ticker.systemTicker(), metadata, throwable);
-    }
-
-    private static QueryStateMachine failedWithTicker(
-            QueryId queryId,
-            String query,
-            Session session,
-            URI self,
-            TransactionManager transactionManager,
-            Executor executor,
-            Ticker ticker,
-            Metadata metadata,
-            Throwable throwable)
-    {
-        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, transactionManager, executor, ticker, metadata, WarningCollector.NOOP);
-        queryStateMachine.transitionToFailed(throwable);
         return queryStateMachine;
     }
 
@@ -293,17 +289,6 @@ public class QueryStateMachine
         peakUserMemory.updateAndGet(currentPeakValue -> Math.max(currentUserMemory.get(), currentPeakValue));
         peakTotalMemory.updateAndGet(currentPeakValue -> Math.max(currentTotalMemory.get(), currentPeakValue));
         peakTaskTotalMemory.accumulateAndGet(taskTotalMemoryInBytes, Math::max);
-    }
-
-    public void setResourceGroup(ResourceGroupId group)
-    {
-        requireNonNull(group, "group is null");
-        resourceGroup.compareAndSet(null, group);
-    }
-
-    public Optional<ResourceGroupId> getResourceGroup()
-    {
-        return Optional.ofNullable(resourceGroup.get());
     }
 
     public BasicQueryInfo getBasicQueryInfo(Optional<BasicStageStats> rootStage)
@@ -370,7 +355,7 @@ public class QueryStateMachine
         return new BasicQueryInfo(
                 queryId,
                 session.toSessionRepresentation(),
-                Optional.ofNullable(resourceGroup.get()),
+                resourceGroup,
                 state,
                 memoryPool.get().getId(),
                 stageStats.isScheduled(),
@@ -390,14 +375,6 @@ public class QueryStateMachine
         // never be visible.
         QueryState state = queryState.get();
 
-        Duration elapsedTime;
-        if (endNanos.get() != 0) {
-            elapsedTime = new Duration(endNanos.get() - createNanos, NANOSECONDS);
-        }
-        else {
-            elapsedTime = nanosSince(createNanos);
-        }
-
         ExecutionFailureInfo failureCause = null;
         ErrorCode errorCode = null;
         if (state == FAILED) {
@@ -405,6 +382,48 @@ public class QueryStateMachine
             if (failureCause != null) {
                 errorCode = failureCause.getErrorCode();
             }
+        }
+
+        boolean completeInfo = getAllStages(rootStage).stream().allMatch(StageInfo::isCompleteInfo);
+        boolean isScheduled = isScheduled(rootStage);
+
+        return new QueryInfo(queryId,
+                session.toSessionRepresentation(),
+                state,
+                memoryPool.get().getId(),
+                isScheduled,
+                self,
+                outputManager.getQueryOutputInfo().map(QueryOutputInfo::getColumnNames).orElse(ImmutableList.of()),
+                query,
+                getQueryStats(rootStage),
+                Optional.ofNullable(setCatalog.get()),
+                Optional.ofNullable(setSchema.get()),
+                Optional.ofNullable(setPath.get()),
+                setSessionProperties,
+                resetSessionProperties,
+                addedPreparedStatements,
+                deallocatedPreparedStatements,
+                Optional.ofNullable(startedTransactionId.get()),
+                clearTransactionId.get(),
+                updateType.get(),
+                rootStage,
+                failureCause,
+                errorCode,
+                warningCollector.getWarnings(),
+                inputs.get(),
+                output.get(),
+                completeInfo,
+                resourceGroup);
+    }
+
+    private QueryStats getQueryStats(Optional<StageInfo> rootStage)
+    {
+        Duration elapsedTime;
+        if (endNanos.get() != 0) {
+            elapsedTime = new Duration(endNanos.get() - createNanos, NANOSECONDS);
+        }
+        else {
+            elapsedTime = nanosSince(createNanos);
         }
 
         int totalTasks = 0;
@@ -491,7 +510,7 @@ public class QueryStateMachine
 
         boolean isScheduled = isScheduled(rootStage);
 
-        QueryStats queryStats = new QueryStats(
+        return new QueryStats(
                 createTime,
                 executionStartTime.get(),
                 lastHeartbeat.get(),
@@ -542,34 +561,6 @@ public class QueryStateMachine
                 stageGcStatistics.build(),
 
                 operatorStatsSummary.build());
-
-        return new QueryInfo(queryId,
-                session.toSessionRepresentation(),
-                state,
-                memoryPool.get().getId(),
-                isScheduled,
-                self,
-                outputManager.getQueryOutputInfo().map(QueryOutputInfo::getColumnNames).orElse(ImmutableList.of()),
-                query,
-                queryStats,
-                Optional.ofNullable(setCatalog.get()),
-                Optional.ofNullable(setSchema.get()),
-                Optional.ofNullable(setPath.get()),
-                setSessionProperties,
-                resetSessionProperties,
-                addedPreparedStatements,
-                deallocatedPreparedStatements,
-                Optional.ofNullable(startedTransactionId.get()),
-                clearTransactionId.get(),
-                updateType.get(),
-                rootStage,
-                failureCause,
-                errorCode,
-                warningCollector.getWarnings(),
-                inputs.get(),
-                output.get(),
-                completeInfo,
-                getResourceGroup());
     }
 
     public VersionedMemoryPoolId getMemoryPool()

@@ -596,7 +596,7 @@ public class AddExchanges
                 return rebaseAndDeriveProperties(node, child);
             }
 
-            if (!child.getProperties().isSingleNode() || !child.getProperties().isCoordinatorOnly()) {
+            if (!child.getProperties().isCoordinatorOnly()) {
                 child = withDerivedProperties(
                         gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
                         child.getProperties());

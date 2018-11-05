@@ -38,8 +38,8 @@ public class SingleRowBlockWriter
         super(rowIndex);
         this.fieldBlockBuilders = fieldBlockBuilders;
         long initialBlockBuilderSize = 0;
-        for (int i = 0; i < fieldBlockBuilders.length; i++) {
-            initialBlockBuilderSize += fieldBlockBuilders[i].getSizeInBytes();
+        for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
+            initialBlockBuilderSize += fieldBlockBuilder.getSizeInBytes();
         }
         this.initialBlockBuilderSize = initialBlockBuilderSize;
     }
@@ -72,8 +72,8 @@ public class SingleRowBlockWriter
     public long getSizeInBytes()
     {
         long currentBlockBuilderSize = 0;
-        for (int i = 0; i < fieldBlockBuilders.length; i++) {
-            currentBlockBuilderSize += fieldBlockBuilders[i].getSizeInBytes();
+        for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
+            currentBlockBuilderSize += fieldBlockBuilder.getSizeInBytes();
         }
         return currentBlockBuilderSize - initialBlockBuilderSize;
     }
@@ -82,8 +82,8 @@ public class SingleRowBlockWriter
     public long getRetainedSizeInBytes()
     {
         long size = INSTANCE_SIZE;
-        for (int i = 0; i < fieldBlockBuilders.length; i++) {
-            size += fieldBlockBuilders[i].getRetainedSizeInBytes();
+        for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
+            size += fieldBlockBuilder.getRetainedSizeInBytes();
         }
         return size;
     }
@@ -91,8 +91,8 @@ public class SingleRowBlockWriter
     @Override
     public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
-        for (int i = 0; i < fieldBlockBuilders.length; i++) {
-            consumer.accept(fieldBlockBuilders[i], fieldBlockBuilders[i].getRetainedSizeInBytes());
+        for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
+            consumer.accept(fieldBlockBuilder, fieldBlockBuilder.getRetainedSizeInBytes());
         }
         consumer.accept(this, (long) INSTANCE_SIZE);
     }

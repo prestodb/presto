@@ -124,6 +124,7 @@ public class DefaultQueryContext
     /**
      * Deadlock is possible for concurrent user and system allocations when updateSystemMemory()/updateUserMemory
      * calls queryMemoryContext.getUserMemory()/queryMemoryContext.getSystemMemory(), respectively.
+     *
      * @see this##updateSystemMemory(long) for details.
      */
     private synchronized ListenableFuture<?> updateUserMemory(String allocationTag, long delta)

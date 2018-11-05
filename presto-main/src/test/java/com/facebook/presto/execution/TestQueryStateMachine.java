@@ -23,8 +23,8 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Ticker;
@@ -68,7 +68,6 @@ import static org.testng.Assert.assertTrue;
 
 public class TestQueryStateMachine
 {
-    private static final QueryId QUERY_ID = new QueryId("query_id");
     private static final String QUERY = "sql";
     private static final URI LOCATION = URI.create("fake://fake-query");
     private static final SQLException FAILED_CAUSE = new SQLException("FAILED");
@@ -363,14 +362,14 @@ public class TestQueryStateMachine
 
     private static void assertState(QueryStateMachine stateMachine, QueryState expectedState, Exception expectedException)
     {
-        assertEquals(stateMachine.getQueryId(), QUERY_ID);
+        assertEquals(stateMachine.getQueryId(), TEST_SESSION.getQueryId());
         assertEqualSessionsWithoutTransactionId(stateMachine.getSession(), TEST_SESSION);
         assertSame(stateMachine.getMemoryPool(), MEMORY_POOL);
         assertEquals(stateMachine.getSetSessionProperties(), SET_SESSION_PROPERTIES);
         assertEquals(stateMachine.getResetSessionProperties(), RESET_SESSION_PROPERTIES);
 
         QueryInfo queryInfo = stateMachine.getQueryInfo(Optional.empty());
-        assertEquals(queryInfo.getQueryId(), QUERY_ID);
+        assertEquals(queryInfo.getQueryId(), TEST_SESSION.getQueryId());
         assertEquals(queryInfo.getSelf(), LOCATION);
         assertFalse(queryInfo.getOutputStage().isPresent());
         assertEquals(queryInfo.getQuery(), QUERY);
@@ -466,7 +465,18 @@ public class TestQueryStateMachine
         Metadata metadata = MetadataManager.createTestMetadataManager();
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControl accessControl = new AccessControlManager(transactionManager);
-        QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(QUERY_ID, QUERY, TEST_SESSION, LOCATION, false, transactionManager, accessControl, executor, ticker, metadata, WarningCollector.NOOP);
+        QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(
+                QUERY,
+                TEST_SESSION,
+                LOCATION,
+                new ResourceGroupId("test"),
+                false,
+                transactionManager,
+                accessControl,
+                executor,
+                ticker,
+                metadata,
+                WarningCollector.NOOP);
         stateMachine.setInputs(INPUTS);
         stateMachine.setOutput(OUTPUT);
         stateMachine.setColumns(OUTPUT_FIELD_NAMES, OUTPUT_FIELD_TYPES);

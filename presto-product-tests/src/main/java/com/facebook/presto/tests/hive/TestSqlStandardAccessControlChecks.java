@@ -19,7 +19,6 @@ import io.prestodb.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tests.TestGroups.AUTHORIZATION;
-import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static com.facebook.presto.tests.utils.QueryExecutors.connectToPresto;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
@@ -48,7 +47,7 @@ public class TestSqlStandardAccessControlChecks
         aliceExecutor.executeQuery(format("CREATE VIEW %s AS SELECT month, day FROM %s", viewName, tableName));
     }
 
-    @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlSelect()
     {
         assertThat(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
@@ -63,7 +62,7 @@ public class TestSqlStandardAccessControlChecks
         assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", viewName))).hasNoRows();
     }
 
-    @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlSelectFromPartitions()
     {
         assertThat(() -> bobExecutor.executeQuery(format("SELECT * FROM \"%s$partitions\"", tableName)))
@@ -73,7 +72,7 @@ public class TestSqlStandardAccessControlChecks
         assertThat(bobExecutor.executeQuery(format("SELECT * FROM \"%s$partitions\"", tableName))).hasNoRows();
     }
 
-    @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlInsert()
     {
         assertThat(() -> bobExecutor.executeQuery(format("INSERT INTO %s VALUES (3, 22)", tableName)))
@@ -84,7 +83,7 @@ public class TestSqlStandardAccessControlChecks
         assertThat(aliceExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasRowsCount(1);
     }
 
-    @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlDelete()
     {
         aliceExecutor.executeQuery(format("INSERT INTO %s VALUES (4, 13)", tableName));
@@ -97,7 +96,7 @@ public class TestSqlStandardAccessControlChecks
         assertThat(aliceExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
     }
 
-    @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlCreateTableAsSelect()
     {
         String createTableAsSelect = "bob_create_table_as_select";
@@ -112,7 +111,7 @@ public class TestSqlStandardAccessControlChecks
         bobExecutor.executeQuery("DROP TABLE " + createTableAsSelect);
     }
 
-    @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlDropTable()
     {
         assertThat(() -> bobExecutor.executeQuery(format("DROP TABLE %s", tableName)))
@@ -123,7 +122,7 @@ public class TestSqlStandardAccessControlChecks
                 .failsWithMessage("does not exist");
     }
 
-    @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlAlterTable()
     {
         assertThat(aliceExecutor.executeQuery(format("SHOW COLUMNS FROM %s", tableName))).hasRowsCount(2);
@@ -134,7 +133,7 @@ public class TestSqlStandardAccessControlChecks
         assertThat(aliceExecutor.executeQuery(format("SHOW COLUMNS FROM %s", tableName))).hasRowsCount(3);
     }
 
-    @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlCreateView()
     {
         String viewName = "bob_view";
@@ -173,7 +172,7 @@ public class TestSqlStandardAccessControlChecks
         bobExecutor.executeQuery("DROP VIEW " + viewName);
     }
 
-    @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlDropView()
     {
         String viewName = "alice_view_for_drop";

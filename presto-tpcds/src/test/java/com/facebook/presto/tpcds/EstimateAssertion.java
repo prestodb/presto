@@ -20,7 +20,6 @@ import io.airlift.slice.Slice;
 import java.util.Optional;
 
 import static java.lang.String.format;
-import static java.util.Optional.empty;
 import static org.testng.Assert.assertEquals;
 
 class EstimateAssertion
@@ -39,7 +38,7 @@ class EstimateAssertion
 
     private Optional<Double> toOptional(Estimate estimate)
     {
-        return estimate.isUnknown() ? empty() : Optional.of(estimate.getValue());
+        return estimate.isUnknown() ? Optional.empty() : Optional.of(estimate.getValue());
     }
 
     public void assertClose(Optional<?> actual, Optional<?> expected, String comparedValue)

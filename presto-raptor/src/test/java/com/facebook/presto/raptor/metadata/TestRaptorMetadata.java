@@ -155,8 +155,8 @@ public class TestRaptorMetadata
     {
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
         metadata.createTable(SESSION, buildTable(ImmutableMap.of(), tableMetadataBuilder(DEFAULT_TEST_ORDERS)
-                .column("orderkey", BIGINT)
-                .column("price", BIGINT)),
+                        .column("orderkey", BIGINT)
+                        .column("price", BIGINT)),
                 false);
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
         assertInstanceOf(tableHandle, RaptorTableHandle.class);

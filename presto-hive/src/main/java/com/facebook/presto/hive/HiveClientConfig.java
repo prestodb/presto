@@ -29,7 +29,6 @@ import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 import org.joda.time.DateTimeZone;
 
-import javax.annotation.Nonnull;
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Max;
@@ -41,6 +40,7 @@ import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
         "hive.file-system-cache-ttl",
@@ -139,6 +139,10 @@ public class HiveClientConfig
     private int partitionStatisticsSampleSize = 100;
     private boolean ignoreCorruptedStatistics;
     private boolean collectColumnStatisticsOnWrite;
+
+    private String recordingPath;
+    private boolean replay;
+    private Duration recordingDuration = new Duration(0, MINUTES);
 
     public int getMaxInitialSplits()
     {
@@ -464,7 +468,7 @@ public class HiveClientConfig
         return this;
     }
 
-    @Nonnull
+    @NotNull
     public List<String> getResourceConfigFiles()
     {
         return resourceConfigFiles;
@@ -1093,5 +1097,42 @@ public class HiveClientConfig
     {
         this.collectColumnStatisticsOnWrite = collectColumnStatisticsOnWrite;
         return this;
+    }
+
+    @Config("hive.metastore-recording-path")
+    public HiveClientConfig setRecordingPath(String recordingPath)
+    {
+        this.recordingPath = recordingPath;
+        return this;
+    }
+
+    public String getRecordingPath()
+    {
+        return recordingPath;
+    }
+
+    @Config("hive.replay-metastore-recording")
+    public HiveClientConfig setReplay(boolean replay)
+    {
+        this.replay = replay;
+        return this;
+    }
+
+    public boolean isReplay()
+    {
+        return replay;
+    }
+
+    @Config("hive.metastore-recoding-duration")
+    public HiveClientConfig setRecordingDuration(Duration recordingDuration)
+    {
+        this.recordingDuration = recordingDuration;
+        return this;
+    }
+
+    @NotNull
+    public Duration getRecordingDuration()
+    {
+        return recordingDuration;
     }
 }

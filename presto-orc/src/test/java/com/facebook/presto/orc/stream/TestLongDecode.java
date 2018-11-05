@@ -137,7 +137,8 @@ public class TestLongDecode
             }
             result |= (0x7f & b) << offset;
             offset += 7;
-        } while (b >= 0x80);
+        }
+        while (b >= 0x80);
         return result;
     }
 

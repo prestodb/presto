@@ -20,8 +20,10 @@ import com.google.common.collect.ImmutableMap;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -75,6 +77,42 @@ public class Storage
     public Map<String, String> getSerdeParameters()
     {
         return serdeParameters;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("skewed", skewed)
+                .add("storageFormat", storageFormat)
+                .add("location", location)
+                .add("bucketProperty", bucketProperty)
+                .add("serdeParameters", serdeParameters)
+                .toString();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Storage storage = (Storage) o;
+        return skewed == storage.skewed &&
+                Objects.equals(storageFormat, storage.storageFormat) &&
+                Objects.equals(location, storage.location) &&
+                Objects.equals(bucketProperty, storage.bucketProperty) &&
+                Objects.equals(serdeParameters, storage.serdeParameters);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(skewed, storageFormat, location, bucketProperty, serdeParameters);
     }
 
     public static Builder builder()

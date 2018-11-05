@@ -46,6 +46,7 @@ public class TestExpressionEquivalence
     @Test
     public void testEquivalent()
     {
+        assertEquivalent("CAST(null AS BIGINT)", "CAST(null as BIGINT)");
         assertEquivalent("a_bigint < b_double", "b_double > a_bigint");
         assertEquivalent("true", "true");
         assertEquivalent("4", "4");
@@ -116,6 +117,8 @@ public class TestExpressionEquivalence
     @Test
     public void testNotEquivalent()
     {
+        assertNotEquivalent("CAST(null AS BOOLEAN)", "false");
+        assertNotEquivalent("false", "CAST(null AS BOOLEAN)");
         assertNotEquivalent("true", "false");
         assertNotEquivalent("4", "5");
         assertNotEquivalent("4.4", "5.5");

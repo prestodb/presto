@@ -34,6 +34,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.util.Objects.requireNonNull;
 
 public class InMemoryRecordSet
         implements RecordSet
@@ -108,7 +109,7 @@ public class InMemoryRecordSet
         public boolean getBoolean(int field)
         {
             checkState(record != null, "no current record");
-            checkNotNull(record.get(field), "value is null");
+            requireNonNull(record.get(field), "value is null");
             return (Boolean) record.get(field);
         }
 
@@ -116,7 +117,7 @@ public class InMemoryRecordSet
         public long getLong(int field)
         {
             checkState(record != null, "no current record");
-            checkNotNull(record.get(field), "value is null");
+            requireNonNull(record.get(field), "value is null");
             return ((Number) record.get(field)).longValue();
         }
 
@@ -124,7 +125,7 @@ public class InMemoryRecordSet
         public double getDouble(int field)
         {
             checkState(record != null, "no current record");
-            checkNotNull(record.get(field), "value is null");
+            requireNonNull(record.get(field), "value is null");
             return (Double) record.get(field);
         }
 
@@ -133,7 +134,7 @@ public class InMemoryRecordSet
         {
             checkState(record != null, "no current record");
             Object value = record.get(field);
-            checkNotNull(value, "value is null");
+            requireNonNull(value, "value is null");
             if (value instanceof byte[]) {
                 return Slices.wrappedBuffer((byte[]) value);
             }
@@ -151,7 +152,7 @@ public class InMemoryRecordSet
         {
             checkState(record != null, "no current record");
             Object value = record.get(field);
-            checkNotNull(value, "value is null");
+            requireNonNull(value, "value is null");
             return value;
         }
 
@@ -194,14 +195,14 @@ public class InMemoryRecordSet
 
         private Builder(Collection<Type> types)
         {
-            checkNotNull(types, "types is null");
+            requireNonNull(types, "types is null");
             this.types = Collections.unmodifiableList(new ArrayList<>(types));
             checkArgument(!this.types.isEmpty(), "types is empty");
         }
 
         public Builder addRow(Object... values)
         {
-            checkNotNull(values, "values is null");
+            requireNonNull(values, "values is null");
             checkArgument(values.length == types.size(), "Expected %s values in row, but got %s values", types.size(), values.length);
             for (int i = 0; i < values.length; i++) {
                 Object value = values[i];
@@ -254,13 +255,6 @@ public class InMemoryRecordSet
     {
         if (!test) {
             throw new IllegalArgumentException(String.format(message, args));
-        }
-    }
-
-    private static void checkNotNull(Object value, String message)
-    {
-        if (value == null) {
-            throw new NullPointerException(message);
         }
     }
 

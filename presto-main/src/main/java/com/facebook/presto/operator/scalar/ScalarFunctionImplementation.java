@@ -54,7 +54,7 @@ public final class ScalarFunctionImplementation
             Optional<MethodHandle> instanceFactory,
             boolean deterministic)
     {
-        this (ImmutableList.of(new ScalarImplementationChoice(nullable, argumentProperties, methodHandle, instanceFactory)), deterministic);
+        this(ImmutableList.of(new ScalarImplementationChoice(nullable, argumentProperties, methodHandle, instanceFactory)), deterministic);
     }
 
     /**
@@ -64,7 +64,7 @@ public final class ScalarFunctionImplementation
      * The first choice is the default choice, which is the one used for legacy access methods.
      * The default choice must be usable under any context. (e.g. it must not use BLOCK_POSITION convention.)
      *
-     * @param choices  the list of choices, ordered from generic to specific
+     * @param choices the list of choices, ordered from generic to specific
      */
     public ScalarFunctionImplementation(List<ScalarImplementationChoice> choices, boolean deterministic)
     {

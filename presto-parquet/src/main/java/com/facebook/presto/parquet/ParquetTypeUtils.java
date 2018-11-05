@@ -46,7 +46,6 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Optional.empty;
 import static parquet.schema.OriginalType.DECIMAL;
 import static parquet.schema.Type.Repetition.REPEATED;
 
@@ -127,7 +126,7 @@ public final class ParquetTypeUtils
         checkArgument(path.size() >= 1, "Parquet nested path should have at least one component");
         int index = getPathIndex(columns, path);
         if (index == -1) {
-            return empty();
+            return Optional.empty();
         }
         PrimitiveColumnIO columnIO = columns.get(index);
         return Optional.of(new RichColumnDescriptor(columnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType()));

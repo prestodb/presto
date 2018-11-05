@@ -28,7 +28,6 @@ import static com.facebook.presto.tpch.TpchMetadata.schemaNameToScaleFactor;
 import static io.airlift.tpch.OrderColumn.ORDER_STATUS;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
-import static java.util.Optional.empty;
 
 /**
  * This is a tool used to record statistics for TPCH tables.
@@ -70,7 +69,7 @@ public class TpchStatisticsRecorder
 
     private <E extends TpchEntity> void computeAndOutputStatsFor(String schemaName, TpchTable<E> table)
     {
-        computeAndOutputStatsFor(schemaName, table, row -> true, empty(), empty());
+        computeAndOutputStatsFor(schemaName, table, row -> true, Optional.empty(), Optional.empty());
     }
 
     private <E extends TpchEntity> void computeAndOutputStatsFor(String schemaName, TpchTable<E> table, TpchColumn<E> partitionColumn, String partitionValue)

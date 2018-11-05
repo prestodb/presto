@@ -19,9 +19,11 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
+import static com.facebook.presto.spi.SchemaUtil.checkNotEmpty;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class ColumnMetadata
 {
@@ -49,15 +51,9 @@ public class ColumnMetadata
 
     public ColumnMetadata(String name, Type type, String comment, String extraInfo, boolean hidden, Map<String, Object> properties)
     {
-        if (name == null || name.isEmpty()) {
-            throw new NullPointerException("name is null or empty");
-        }
-        if (type == null) {
-            throw new NullPointerException("type is null");
-        }
-        if (properties == null) {
-            throw new NullPointerException("properties is null");
-        }
+        checkNotEmpty(name, "name");
+        requireNonNull(type, "type is null");
+        requireNonNull(properties, "properties is null");
 
         this.name = name.toLowerCase(ENGLISH);
         this.type = type;

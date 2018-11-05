@@ -13,23 +13,20 @@
  */
 package com.facebook.presto.security;
 
+import com.facebook.presto.plugin.base.security.ForwardingSystemAccessControl;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.InvalidPathException;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.Principal;
 import java.util.List;
@@ -38,15 +35,23 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.plugin.base.JsonUtils.parseJson;
+import static com.facebook.presto.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
+import static com.facebook.presto.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
+import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class FileBasedSystemAccessControl
         implements SystemAccessControl
 {
+    private static final Logger log = Logger.get(FileBasedSystemAccessControl.class);
+
     public static final String NAME = "file";
 
     private final List<CatalogAccessControlRule> catalogRules;
@@ -61,8 +66,6 @@ public class FileBasedSystemAccessControl
     public static class Factory
             implements SystemAccessControlFactory
     {
-        static final String CONFIG_FILE_NAME = "security.config-file";
-
         @Override
         public String getName()
         {
@@ -74,48 +77,53 @@ public class FileBasedSystemAccessControl
         {
             requireNonNull(config, "config is null");
 
-            String configFileName = config.get(CONFIG_FILE_NAME);
-            checkState(
-                    configFileName != null,
-                    "Security configuration must contain the '%s' property", CONFIG_FILE_NAME);
+            String configFileName = config.get(SECURITY_CONFIG_FILE);
+            checkState(configFileName != null, "Security configuration must contain the '%s' property", SECURITY_CONFIG_FILE);
 
-            try {
-                Path path = Paths.get(configFileName);
-                if (!path.isAbsolute()) {
-                    path = path.toAbsolutePath();
+            if (config.containsKey(SECURITY_REFRESH_PERIOD)) {
+                Duration refreshPeriod;
+                try {
+                    refreshPeriod = Duration.valueOf(config.get(SECURITY_REFRESH_PERIOD));
                 }
-                path.toFile().canRead();
-
-                FileBasedSystemAccessControlRules rules = parse(Files.readAllBytes(path));
-
-                ImmutableList.Builder<CatalogAccessControlRule> catalogRulesBuilder = ImmutableList.builder();
-                catalogRulesBuilder.addAll(rules.getCatalogRules());
-
-                // Hack to allow Presto Admin to access the "system" catalog for retrieving server status.
-                // todo Change userRegex from ".*" to one particular user that Presto Admin will be restricted to run as
-                catalogRulesBuilder.add(new CatalogAccessControlRule(
-                        true,
-                        Optional.of(Pattern.compile(".*")),
-                        Optional.of(Pattern.compile("system"))));
-
-                return new FileBasedSystemAccessControl(catalogRulesBuilder.build(), rules.getPrincipalUserMatchRules());
+                catch (IllegalArgumentException e) {
+                    throw invalidRefreshPeriodException(config, configFileName);
+                }
+                if (refreshPeriod.toMillis() == 0) {
+                    throw invalidRefreshPeriodException(config, configFileName);
+                }
+                return ForwardingSystemAccessControl.of(memoizeWithExpiration(
+                        () -> {
+                            log.info("Refreshing system access control from %s", configFileName);
+                            return create(configFileName);
+                        },
+                        refreshPeriod.toMillis(),
+                        MILLISECONDS));
             }
-            catch (SecurityException | IOException | InvalidPathException e) {
-                throw new RuntimeException(e);
-            }
+            return create(configFileName);
         }
-    }
 
-    private static FileBasedSystemAccessControlRules parse(byte[] json)
-    {
-        ObjectMapper mapper = new ObjectMapperProvider().get()
-                .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
-        Class<FileBasedSystemAccessControlRules> javaType = FileBasedSystemAccessControlRules.class;
-        try {
-            return mapper.readValue(json, javaType);
+        private PrestoException invalidRefreshPeriodException(Map<String, String> config, String configFileName)
+        {
+            return new PrestoException(
+                    CONFIGURATION_INVALID,
+                    format("Invalid duration value '%s' for property '%s' in '%s'", config.get(SECURITY_REFRESH_PERIOD), SECURITY_REFRESH_PERIOD, configFileName));
         }
-        catch (IOException e) {
-            throw new IllegalArgumentException(format("Invalid JSON string for %s", javaType), e);
+
+        private SystemAccessControl create(String configFileName)
+        {
+            FileBasedSystemAccessControlRules rules = parseJson(Paths.get(configFileName), FileBasedSystemAccessControlRules.class);
+
+            ImmutableList.Builder<CatalogAccessControlRule> catalogRulesBuilder = ImmutableList.builder();
+            catalogRulesBuilder.addAll(rules.getCatalogRules());
+
+            // Hack to allow Presto Admin to access the "system" catalog for retrieving server status.
+            // todo Change userRegex from ".*" to one particular user that Presto Admin will be restricted to run as
+            catalogRulesBuilder.add(new CatalogAccessControlRule(
+                    true,
+                    Optional.of(Pattern.compile(".*")),
+                    Optional.of(Pattern.compile("system"))));
+
+            return new FileBasedSystemAccessControl(catalogRulesBuilder.build(), rules.getPrincipalUserMatchRules());
         }
     }
 

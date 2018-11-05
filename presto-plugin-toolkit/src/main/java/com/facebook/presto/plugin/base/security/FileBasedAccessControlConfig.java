@@ -14,12 +14,18 @@
 package com.facebook.presto.plugin.base.security;
 
 import io.airlift.configuration.Config;
+import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.NotNull;
 
 public class FileBasedAccessControlConfig
 {
+    public static final String SECURITY_CONFIG_FILE = "security.config-file";
+    public static final String SECURITY_REFRESH_PERIOD = "security.refresh-period";
+
     private String configFile;
+    private Duration refreshPeriod;
 
     @NotNull
     public String getConfigFile()
@@ -27,10 +33,23 @@ public class FileBasedAccessControlConfig
         return configFile;
     }
 
-    @Config("security.config-file")
+    @Config(SECURITY_CONFIG_FILE)
     public FileBasedAccessControlConfig setConfigFile(String configFile)
     {
         this.configFile = configFile;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    public Duration getRefreshPeriod()
+    {
+        return refreshPeriod;
+    }
+
+    @Config(SECURITY_REFRESH_PERIOD)
+    public FileBasedAccessControlConfig setRefreshPeriod(Duration refreshPeriod)
+    {
+        this.refreshPeriod = refreshPeriod;
         return this;
     }
 }

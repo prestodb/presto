@@ -41,14 +41,14 @@ public class NestedLoopJoinOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final JoinBridgeManager<NestedLoopJoinPagesBridge> joinBridgeManager;
+        private final JoinBridgeManager<NestedLoopJoinBridge> joinBridgeManager;
         private boolean closed;
 
-        public NestedLoopJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, JoinBridgeManager<NestedLoopJoinPagesBridge> nestedLoopJoinPagesSupplierManager)
+        public NestedLoopJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.joinBridgeManager = nestedLoopJoinPagesSupplierManager;
+            this.joinBridgeManager = nestedLoopJoinBridgeManager;
             this.joinBridgeManager.incrementProbeFactoryCount();
         }
 
@@ -70,14 +70,14 @@ public class NestedLoopJoinOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            NestedLoopJoinPagesBridge nestedLoopJoinPagesBridge = joinBridgeManager.getJoinBridge(driverContext.getLifespan());
+            NestedLoopJoinBridge nestedLoopJoinBridge = joinBridgeManager.getJoinBridge(driverContext.getLifespan());
 
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, NestedLoopJoinOperator.class.getSimpleName());
 
             joinBridgeManager.probeOperatorCreated(driverContext.getLifespan());
             return new NestedLoopJoinOperator(
                     operatorContext,
-                    nestedLoopJoinPagesBridge,
+                    nestedLoopJoinBridge,
                     () -> joinBridgeManager.probeOperatorClosed(driverContext.getLifespan()));
         }
 
@@ -116,10 +116,10 @@ public class NestedLoopJoinOperator
     private boolean finishing;
     private boolean closed;
 
-    public NestedLoopJoinOperator(OperatorContext operatorContext, NestedLoopJoinPagesBridge buildPagesSupplier, Runnable afterClose)
+    private NestedLoopJoinOperator(OperatorContext operatorContext, NestedLoopJoinBridge joinBridge, Runnable afterClose)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.nestedLoopJoinPagesFuture = buildPagesSupplier.getPagesFuture();
+        this.nestedLoopJoinPagesFuture = joinBridge.getPagesFuture();
         this.afterClose = requireNonNull(afterClose, "afterClose is null");
     }
 

@@ -799,8 +799,7 @@ public final class GeoFunctions
     @Description("Returns a \"simplified\" version of the given geometry")
     @ScalarFunction("simplify_geometry")
     @SqlType(GEOMETRY_TYPE_NAME)
-    public static Slice simplifyGeometry(@SqlType(GEOMETRY_TYPE_NAME) Slice input,
-                                         @SqlType(DOUBLE) double distanceTolerance)
+    public static Slice simplifyGeometry(@SqlType(GEOMETRY_TYPE_NAME) Slice input, @SqlType(DOUBLE) double distanceTolerance)
     {
         if (isNaN(distanceTolerance)) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "distanceTolerance is NaN");
@@ -1413,7 +1412,8 @@ public final class GeoFunctions
     private static Iterable<Slice> getGeometrySlicesFromBlock(Block block)
     {
         requireNonNull(block, "block is null");
-        return () -> new Iterator<Slice>() {
+        return () -> new Iterator<Slice>()
+        {
             private int iteratorPosition;
 
             @Override

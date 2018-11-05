@@ -28,7 +28,6 @@ import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
@@ -56,18 +55,15 @@ public class TimestampStreamReader
     private int readOffset;
     private int nextBatchSize;
 
-    @Nonnull
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
     private BooleanInputStream presentStream;
     private boolean[] nullVector = new boolean[0];
 
-    @Nonnull
     private InputStreamSource<LongInputStream> secondsStreamSource = missingStreamSource(LongInputStream.class);
     @Nullable
     private LongInputStream secondsStream;
 
-    @Nonnull
     private InputStreamSource<LongInputStream> nanosStreamSource = missingStreamSource(LongInputStream.class);
     @Nullable
     private LongInputStream nanosStream;

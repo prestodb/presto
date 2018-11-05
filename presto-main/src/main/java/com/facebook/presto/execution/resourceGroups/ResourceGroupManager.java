@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.presto.execution.QueryExecution;
+import com.facebook.presto.execution.ManagedQueryExecution;
 import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -33,7 +33,7 @@ import java.util.concurrent.Executor;
 @ThreadSafe
 public interface ResourceGroupManager<C>
 {
-    void submit(Statement statement, QueryExecution queryExecution, SelectionContext<C> selectionContext, Executor executor);
+    void submit(Statement statement, ManagedQueryExecution queryExecution, SelectionContext<C> selectionContext, Executor executor);
 
     SelectionContext<C> selectGroup(SelectionCriteria criteria);
 

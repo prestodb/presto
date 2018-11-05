@@ -31,7 +31,6 @@ import com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
@@ -60,17 +59,14 @@ public class DecimalStreamReader
     private boolean[] nullVector = new boolean[0];
     private long[] scaleVector = new long[0];
 
-    @Nonnull
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
     private BooleanInputStream presentStream;
 
-    @Nonnull
     private InputStreamSource<DecimalInputStream> decimalStreamSource = missingStreamSource(DecimalInputStream.class);
     @Nullable
     private DecimalInputStream decimalStream;
 
-    @Nonnull
     private InputStreamSource<LongInputStream> scaleStreamSource = missingStreamSource(LongInputStream.class);
     @Nullable
     private LongInputStream scaleStream;

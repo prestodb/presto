@@ -693,7 +693,7 @@ public class JoinCompiler
             // The plan is to allow scalar function to optionally provide an additional implementation using Block+position calling convention.
             // At that point, we'll be able to fully deprecate Type.equalTo (and friends) and remove this hack.
             if (type.getJavaType().equals(Slice.class)) {
-                switch(type.getTypeSignature().getBase()) {
+                switch (type.getTypeSignature().getBase()) {
                     case StandardTypes.CHAR:
                     case StandardTypes.IPADDRESS:
                     case StandardTypes.JSON:

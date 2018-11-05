@@ -21,7 +21,7 @@ remote exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                         scan tpch:region:sf3000.0
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, ["partkey_3"])
+                        remote exchange (REPARTITION, HASH, ["partkey"])
                             join (INNER, PARTITIONED):
                                 remote exchange (REPARTITION, HASH, ["suppkey_4"])
                                     join (INNER, REPLICATED):

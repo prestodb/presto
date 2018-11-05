@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class FixedSplitSource
@@ -31,9 +32,7 @@ public class FixedSplitSource
 
     public FixedSplitSource(Iterable<? extends ConnectorSplit> splits)
     {
-        if (splits == null) {
-            throw new NullPointerException("splits is null");
-        }
+        requireNonNull(splits, "splits is null");
         List<ConnectorSplit> splitsList = new ArrayList<>();
         for (ConnectorSplit split : splits) {
             splitsList.add(split);

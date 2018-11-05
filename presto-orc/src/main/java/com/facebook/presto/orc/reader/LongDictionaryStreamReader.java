@@ -26,7 +26,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
@@ -51,25 +50,20 @@ public class LongDictionaryStreamReader
     private int readOffset;
     private int nextBatchSize;
 
-    @Nonnull
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
     private BooleanInputStream presentStream;
     private boolean[] nullVector = new boolean[0];
 
-    @Nonnull
     private InputStreamSource<LongInputStream> dictionaryDataStreamSource = missingStreamSource(LongInputStream.class);
     private int dictionarySize;
-    @Nonnull
     private long[] dictionary = new long[0];
 
-    @Nonnull
     private InputStreamSource<BooleanInputStream> inDictionaryStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
     private BooleanInputStream inDictionaryStream;
     private boolean[] inDictionaryVector = new boolean[0];
 
-    @Nonnull
     private InputStreamSource<LongInputStream> dataStreamSource;
     @Nullable
     private LongInputStream dataStream;

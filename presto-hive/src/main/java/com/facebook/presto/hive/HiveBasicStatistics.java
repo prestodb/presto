@@ -13,12 +13,18 @@
  */
 package com.facebook.presto.hive;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import javax.annotation.concurrent.Immutable;
+
 import java.util.Objects;
 import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class HiveBasicStatistics
 {
     private final OptionalLong fileCount;
@@ -41,11 +47,12 @@ public class HiveBasicStatistics
         this(OptionalLong.of(fileCount), OptionalLong.of(rowCount), OptionalLong.of(inMemoryDataSizeInBytes), OptionalLong.of(onDiskDataSizeInBytes));
     }
 
+    @JsonCreator
     public HiveBasicStatistics(
-            OptionalLong fileCount,
-            OptionalLong rowCount,
-            OptionalLong inMemoryDataSizeInBytes,
-            OptionalLong onDiskDataSizeInBytes)
+            @JsonProperty("fileCount") OptionalLong fileCount,
+            @JsonProperty("rowCount") OptionalLong rowCount,
+            @JsonProperty("inMemoryDataSizeInBytes") OptionalLong inMemoryDataSizeInBytes,
+            @JsonProperty("onDiskDataSizeInBytes") OptionalLong onDiskDataSizeInBytes)
     {
         this.fileCount = requireNonNull(fileCount, "fileCount is null");
         this.rowCount = requireNonNull(rowCount, "rowCount is null");
@@ -53,21 +60,25 @@ public class HiveBasicStatistics
         this.onDiskDataSizeInBytes = requireNonNull(onDiskDataSizeInBytes, "onDiskDataSizeInBytes is null");
     }
 
+    @JsonProperty
     public OptionalLong getFileCount()
     {
         return fileCount;
     }
 
+    @JsonProperty
     public OptionalLong getRowCount()
     {
         return rowCount;
     }
 
+    @JsonProperty
     public OptionalLong getInMemoryDataSizeInBytes()
     {
         return inMemoryDataSizeInBytes;
     }
 
+    @JsonProperty
     public OptionalLong getOnDiskDataSizeInBytes()
     {
         return onDiskDataSizeInBytes;
