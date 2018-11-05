@@ -34,12 +34,14 @@ class QueryStateTimer
 
     private final long createNanos;
     private final AtomicReference<Long> beginResourceWaitingNanos = new AtomicReference<>();
+    private final AtomicReference<Long> beginDispatchingNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginPlanningNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginFinishingNanos = new AtomicReference<>();
     private final AtomicReference<Long> endNanos = new AtomicReference<>();
 
     private final AtomicReference<Duration> queuedTime = new AtomicReference<>();
     private final AtomicReference<Duration> resourceWaitingTime = new AtomicReference<>();
+    private final AtomicReference<Duration> dispatchingTime = new AtomicReference<>();
     private final AtomicReference<Duration> executionTime = new AtomicReference<>();
     private final AtomicReference<Duration> planningTime = new AtomicReference<>();
     private final AtomicReference<Duration> finishingTime = new AtomicReference<>();
@@ -71,6 +73,18 @@ class QueryStateTimer
         beginResourceWaitingNanos.compareAndSet(null, now);
     }
 
+    public void beginDispatching()
+    {
+        beginDispatching(tickerNanos());
+    }
+
+    private void beginDispatching(long now)
+    {
+        beginWaitingForResources(now);
+        resourceWaitingTime.compareAndSet(null, nanosSince(beginResourceWaitingNanos, now));
+        beginDispatchingNanos.compareAndSet(null, now);
+    }
+
     public void beginPlanning()
     {
         beginPlanning(tickerNanos());
@@ -78,8 +92,8 @@ class QueryStateTimer
 
     private void beginPlanning(long now)
     {
-        beginWaitingForResources(now);
-        resourceWaitingTime.compareAndSet(null, nanosSince(beginResourceWaitingNanos, now));
+        beginDispatching(now);
+        dispatchingTime.compareAndSet(null, nanosSince(beginDispatchingNanos, now));
         beginPlanningNanos.compareAndSet(null, now);
     }
 
@@ -183,6 +197,11 @@ class QueryStateTimer
     public Duration getResourceWaitingTime()
     {
         return getDuration(resourceWaitingTime, beginResourceWaitingNanos);
+    }
+
+    public Duration getDispatchingTime()
+    {
+        return getDuration(dispatchingTime, beginDispatchingNanos);
     }
 
     public Duration getPlanningTime()
