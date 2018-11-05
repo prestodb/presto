@@ -87,6 +87,10 @@ public class ValuesStatsRule
 
     private SymbolStatsEstimate buildSymbolStatistics(List<Object> values, Session session, Type type)
     {
+        if (values.isEmpty()) {
+            return SymbolStatsEstimate.zero();
+        }
+
         List<Object> nonNullValues = values.stream()
                 .filter(Objects::nonNull)
                 .collect(toImmutableList());
