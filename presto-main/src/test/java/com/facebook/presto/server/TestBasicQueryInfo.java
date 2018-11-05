@@ -60,6 +60,7 @@ public class TestBasicQueryInfo
                                 Duration.valueOf("8m"),
                                 Duration.valueOf("7m"),
                                 Duration.valueOf("34m"),
+                                Duration.valueOf("35m"),
                                 Duration.valueOf("44m"),
                                 Duration.valueOf("9m"),
                                 Duration.valueOf("10m"),
