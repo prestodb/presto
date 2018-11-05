@@ -49,6 +49,7 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.relational.Expressions.field;
@@ -72,7 +73,12 @@ public class BenchmarkMapToMapCast
     public List<Optional<Page>> benchmark(BenchmarkData data)
             throws Throwable
     {
-        return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, new DriverYieldSignal(), data.getPage()));
+        return ImmutableList.copyOf(
+                data.getPageProcessor().process(
+                        SESSION,
+                        new DriverYieldSignal(),
+                        newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
+                        data.getPage()));
     }
 
     @SuppressWarnings("FieldMayBeFinal")

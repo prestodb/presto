@@ -60,6 +60,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.createExpression;
@@ -139,7 +140,12 @@ public class PageProcessorBenchmark
     @Benchmark
     public List<Optional<Page>> columnOriented()
     {
-        return ImmutableList.copyOf(pageProcessor.process(null, new DriverYieldSignal(), inputPage));
+        return ImmutableList.copyOf(
+                pageProcessor.process(
+                        null,
+                        new DriverYieldSignal(),
+                        newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
+                        inputPage));
     }
 
     private RowExpression getFilter(Type type)

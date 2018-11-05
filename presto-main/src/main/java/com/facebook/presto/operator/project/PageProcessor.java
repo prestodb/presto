@@ -39,7 +39,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Function;
 
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.operator.WorkProcessor.ProcessState.finished;
 import static com.facebook.presto.operator.WorkProcessor.ProcessState.ofResult;
 import static com.facebook.presto.operator.WorkProcessor.ProcessState.yield;
@@ -55,7 +54,6 @@ public class PageProcessor
     public static final int MAX_BATCH_SIZE = 8 * 1024;
     static final int MAX_PAGE_SIZE_IN_BYTES = 4 * 1024 * 1024;
     static final int MIN_PAGE_SIZE_IN_BYTES = 1024 * 1024;
-    private static final String PAGE_PROCESSOR_SIMPLE_CLASS_NAME = PageProcessor.class.getSimpleName();
 
     private final ExpressionProfiler expressionProfiler;
     private final DictionarySourceIdFunction dictionarySourceIdFunction = new DictionarySourceIdFunction();
@@ -95,12 +93,6 @@ public class PageProcessor
     public PageProcessor(Optional<PageFilter> filter, List<? extends PageProjection> projections)
     {
         this(filter, projections, OptionalInt.of(1));
-    }
-
-    public PageProcessorOutput process(ConnectorSession session, DriverYieldSignal yieldSignal, Page page)
-    {
-        LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext(PAGE_PROCESSOR_SIMPLE_CLASS_NAME);
-        return new PageProcessorOutput(memoryContext::getBytes, process(session, yieldSignal, memoryContext, page));
     }
 
     public Iterator<Optional<Page>> process(ConnectorSession session, DriverYieldSignal yieldSignal, LocalMemoryContext memoryContext, Page page)

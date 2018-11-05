@@ -59,6 +59,7 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.operator.scalar.BenchmarkArrayFilter.ExactArrayFilterFunction.EXACT_ARRAY_FILTER_FUNCTION;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
@@ -97,7 +98,12 @@ public class BenchmarkArrayFilter
     @OperationsPerInvocation(POSITIONS * ARRAY_SIZE * NUM_TYPES)
     public List<Optional<Page>> benchmark(BenchmarkData data)
     {
-        return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, new DriverYieldSignal(), data.getPage()));
+        return ImmutableList.copyOf(
+                data.getPageProcessor().process(
+                        SESSION,
+                        new DriverYieldSignal(),
+                        newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
+                        data.getPage()));
     }
 
     @SuppressWarnings("FieldMayBeFinal")

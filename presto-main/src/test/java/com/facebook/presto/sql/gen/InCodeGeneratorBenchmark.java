@@ -45,6 +45,7 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -138,7 +139,12 @@ public class InCodeGeneratorBenchmark
     @Benchmark
     public List<Optional<Page>> benchmark()
     {
-        return ImmutableList.copyOf(processor.process(SESSION, new DriverYieldSignal(), inputPage));
+        return ImmutableList.copyOf(
+                processor.process(
+                        SESSION,
+                        new DriverYieldSignal(),
+                        newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
+                        inputPage));
     }
 
     public static void main(String[] args)

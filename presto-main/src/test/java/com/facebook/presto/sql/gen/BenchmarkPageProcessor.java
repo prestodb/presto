@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -98,7 +99,12 @@ public class BenchmarkPageProcessor
     @Benchmark
     public List<Optional<Page>> compiled()
     {
-        return ImmutableList.copyOf(compiledProcessor.process(null, new DriverYieldSignal(), inputPage));
+        return ImmutableList.copyOf(
+                compiledProcessor.process(
+                        null,
+                        new DriverYieldSignal(),
+                        newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
+                        inputPage));
     }
 
     public static void main(String[] args)

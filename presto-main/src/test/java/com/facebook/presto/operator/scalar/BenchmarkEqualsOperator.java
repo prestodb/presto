@@ -16,7 +16,6 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
-import com.facebook.presto.operator.project.PageProcessorOutput;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -44,12 +43,14 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.internalScalarFunction;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -124,7 +125,11 @@ public class BenchmarkEqualsOperator
     public List<Page> processPage(BenchmarkData data)
     {
         List<Page> output = new ArrayList<>();
-        PageProcessorOutput pageProcessorOutput = compiledProcessor.process(SESSION, SIGNAL, data.page);
+        Iterator<Optional<Page>> pageProcessorOutput = compiledProcessor.process(
+                SESSION,
+                SIGNAL,
+                newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
+                data.page);
         while (pageProcessorOutput.hasNext()) {
             pageProcessorOutput.next().ifPresent(output::add);
         }
