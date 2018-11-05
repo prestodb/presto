@@ -75,7 +75,6 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
-import static sun.misc.Unsafe.ARRAY_OBJECT_INDEX_SCALE;
 
 public class TestPageProcessor
 {
@@ -206,7 +205,6 @@ public class TestPageProcessor
 
         LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName());
         Iterator<Optional<Page>> output = pageProcessor.process(SESSION, new DriverYieldSignal(), memoryContext, inputPage);
-        assertEquals(memoryContext.getBytes(), new Page(createLongSequenceBlock(0, 100)).getRetainedSizeInBytes() + ARRAY_OBJECT_INDEX_SCALE);
 
         List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
         assertEquals(outputPages.size(), 1);
@@ -500,7 +498,7 @@ public class TestPageProcessor
                 yieldSignal,
                 memoryContext.newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                 inputPage);
-        assertEquals(memoryContext.getBytes(), inputPage.getRetainedSizeInBytes());
+        assertEquals(memoryContext.getBytes(), 0);
         return output;
     }
 

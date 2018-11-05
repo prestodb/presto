@@ -44,6 +44,7 @@ import static com.facebook.presto.operator.WorkProcessor.ProcessState.ofResult;
 import static com.facebook.presto.operator.WorkProcessor.ProcessState.yield;
 import static com.facebook.presto.operator.project.SelectedPositions.positionsRange;
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -135,8 +136,8 @@ public class PageProcessor
         private final ConnectorSession session;
         private final DriverYieldSignal yieldSignal;
         private final LocalMemoryContext memoryContext;
-        private final Page page;
 
+        private Page page;
         private Block[] previouslyComputedResults;
         private SelectedPositions selectedPositions;
         private long retainedSizeInBytes;
@@ -148,13 +149,14 @@ public class PageProcessor
 
         private ProjectSelectedPositions(ConnectorSession session, DriverYieldSignal yieldSignal, LocalMemoryContext memoryContext, Page page, SelectedPositions selectedPositions)
         {
+            checkArgument(!selectedPositions.isEmpty(), "selectedPositions is empty");
+
             this.session = session;
             this.yieldSignal = yieldSignal;
             this.page = page;
             this.memoryContext = memoryContext;
             this.selectedPositions = selectedPositions;
             this.previouslyComputedResults = new Block[projections.size()];
-            updateRetainedSize();
         }
 
         @Override
@@ -163,7 +165,6 @@ public class PageProcessor
             int batchSize;
             while (true) {
                 if (selectedPositions.isEmpty()) {
-                    memoryContext.setBytes(0);
                     verify(!lastComputeYielded);
                     return finished();
                 }
@@ -185,6 +186,7 @@ public class PageProcessor
                     // if we are running out of time, save the batch size and continue next time
                     lastComputeYielded = true;
                     lastComputeBatchSize = batchSize;
+                    updateRetainedSize();
                     return yield();
                 }
 
@@ -220,7 +222,18 @@ public class PageProcessor
                     }
                 }
 
-                updateRetainedSize();
+                if (!selectedPositions.isEmpty()) {
+                    // there are still some positions to process therefore we need to retain page and account its memory
+                    updateRetainedSize();
+                }
+                else {
+                    page = null;
+                    for (int i = 0; i < previouslyComputedResults.length; i++) {
+                        previouslyComputedResults[i] = null;
+                    }
+                    memoryContext.setBytes(0);
+                }
+
                 return ofResult(resultPage);
             }
         }
