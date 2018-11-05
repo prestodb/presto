@@ -56,7 +56,8 @@ public final class SemiJoinStatsCalculator
         SymbolStatsEstimate filteringSourceJoinSymbolStats = filteringSourceStats.getSymbolStatistics(filteringSourceJoinSymbol);
 
         double retainedNdv = retainedNdvProvider.apply(sourceJoinSymbolStats, filteringSourceJoinSymbolStats);
-        double filterFactor = sourceJoinSymbolStats.getValuesFraction() * retainedNdv / sourceJoinSymbolStats.getDistinctValuesCount();
+        double sourceDistinctValuesCount = sourceJoinSymbolStats.getDistinctValuesCount();
+        double filterFactor = sourceDistinctValuesCount == 0 ? 0 : (sourceJoinSymbolStats.getValuesFraction() * retainedNdv / sourceDistinctValuesCount);
 
         SymbolStatsEstimate newSourceJoinSymbolStats = SymbolStatsEstimate.buildFrom(sourceJoinSymbolStats)
                 .setNullsFraction(0)
