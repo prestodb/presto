@@ -359,6 +359,10 @@ public class JoinStatsRule
     {
         double innerJoinRowCount = innerJoinStats.getOutputRowCount();
         double joinComplementRowCount = joinComplementStats.getOutputRowCount();
+        if (joinComplementRowCount == 0) {
+            return innerJoinStats;
+        }
+
         double outputRowCount = innerJoinRowCount + joinComplementRowCount;
 
         PlanNodeStatsEstimate.Builder outputStats = PlanNodeStatsEstimate.buildFrom(innerJoinStats);
