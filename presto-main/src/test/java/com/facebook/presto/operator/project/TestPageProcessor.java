@@ -102,7 +102,7 @@ public class TestPageProcessor
         Page inputPage = new Page(createLongSequenceBlock(0, 100));
 
         PageProcessorOutput output = pageProcessor.process(SESSION, new DriverYieldSignal(), inputPage);
-        assertEquals(output.getRetainedSizeInBytes(), inputPage.getRetainedSizeInBytes());
+        assertEquals(output.getRetainedSizeInBytes(), 0);
 
         List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
         assertEquals(outputPages.size(), 1);

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import javax.annotation.concurrent.Immutable;
@@ -117,6 +118,12 @@ public interface WorkProcessor<T>
     static <T> WorkProcessor<T> flatten(WorkProcessor<WorkProcessor<T>> processor)
     {
         return WorkProcessorUtils.flatten(processor);
+    }
+
+    @SafeVarargs
+    static <T> WorkProcessor<T> of(T... elements)
+    {
+        return fromIterator(Iterators.forArray(elements));
     }
 
     static <T> WorkProcessor<T> fromIterable(Iterable<T> iterable)
