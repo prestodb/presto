@@ -410,7 +410,7 @@ public class SqlQueryExecution
     private PlanRoot doAnalyzeQuery()
     {
         // time analysis phase
-        long analysisStart = System.nanoTime();
+        stateMachine.beginAnalysis();
 
         // plan query
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
@@ -430,7 +430,7 @@ public class SqlQueryExecution
         SubPlan fragmentedPlan = planFragmenter.createSubPlans(stateMachine.getSession(), metadata, nodePartitioningManager, plan, false);
 
         // record analysis time
-        stateMachine.recordAnalysisTime(analysisStart);
+        stateMachine.endAnalysis();
 
         boolean explainAnalyze = analysis.getStatement() instanceof Explain && ((Explain) analysis.getStatement()).isAnalyze();
         return new PlanRoot(fragmentedPlan, !explainAnalyze, extractConnectors(analysis));
@@ -455,12 +455,12 @@ public class SqlQueryExecution
     private void planDistribution(PlanRoot plan)
     {
         // time distribution planning
-        long distributedPlanningStart = System.nanoTime();
+        stateMachine.beginDistributedPlanning();
 
         // plan the execution on the active nodes
         DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(splitManager);
         StageExecutionPlan outputStageExecutionPlan = distributedPlanner.plan(plan.getRoot(), stateMachine.getSession());
-        stateMachine.recordDistributedPlanningTime(distributedPlanningStart);
+        stateMachine.endDistributedPlanning();
 
         // ensure split sources are closed
         stateMachine.addStateChangeListener(state -> {
