@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.block.RowBlock.fromFieldBlocks;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -70,7 +71,11 @@ public class BenchmarkRowToRowCast
     @OperationsPerInvocation(POSITION_COUNT)
     public List<Optional<Page>> benchmark(BenchmarkData data)
     {
-        return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, new DriverYieldSignal(), data.getPage()));
+        return ImmutableList.copyOf(data.getPageProcessor().process(
+                SESSION,
+                new DriverYieldSignal(),
+                newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
+                data.getPage()));
     }
 
     @SuppressWarnings("FieldMayBeFinal")

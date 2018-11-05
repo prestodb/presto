@@ -32,6 +32,7 @@ public class FilterAndProjectOperator
         implements Operator
 {
     private final OperatorContext operatorContext;
+    private final LocalMemoryContext pageProcessorMemoryContext;
     private final LocalMemoryContext outputMemoryContext;
 
     private final PageProcessor processor;
@@ -45,6 +46,7 @@ public class FilterAndProjectOperator
     {
         this.processor = requireNonNull(processor, "processor is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.pageProcessorMemoryContext = operatorContext.newLocalSystemMemoryContext(FilterAndProjectOperator.class.getSimpleName());
         this.outputMemoryContext = operatorContext.newLocalSystemMemoryContext(FilterAndProjectOperator.class.getSimpleName());
         this.mergingOutput = requireNonNull(mergingOutput, "mergingOutput is null");
     }
@@ -85,7 +87,11 @@ public class FilterAndProjectOperator
         requireNonNull(page, "page is null");
         checkState(mergingOutput.needsInput(), "Page buffer is full");
 
-        mergingOutput.addInput(processor.process(operatorContext.getSession().toConnectorSession(), operatorContext.getDriverContext().getYieldSignal(), page));
+        mergingOutput.addInput(processor.process(
+                operatorContext.getSession().toConnectorSession(),
+                operatorContext.getDriverContext().getYieldSignal(),
+                pageProcessorMemoryContext,
+                page));
         outputMemoryContext.setBytes(mergingOutput.getRetainedSizeInBytes());
     }
 
