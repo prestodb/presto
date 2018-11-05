@@ -34,7 +34,12 @@ public class TestAggregationStatsRule
                         .lowValue(10)
                         .highValue(15)
                         .distinctValuesCount(4)
-                        .nullsFraction(0.2));
+                        .nullsFraction(0.2))
+                .symbolStats("y", symbolStatsAssertion -> symbolStatsAssertion
+                        .lowValue(0)
+                        .highValue(3)
+                        .distinctValuesCount(3)
+                        .nullsFraction(0));
 
         testAggregation(
                 SymbolStatsEstimate.builder()
@@ -56,10 +61,13 @@ public class TestAggregationStatsRule
         Consumer<PlanNodeStatsAssertion> outputRowsCountAndZStatsAreNotFullyCalculated = check -> check
                 .outputRowsCountUnknown()
                 .symbolStats("z", symbolStatsAssertion -> symbolStatsAssertion
-                        .lowValue(10)
-                        .highValue(15)
+                        .unknownRange()
                         .distinctValuesCountUnknown()
-                        .nullsFractionUnknown());
+                        .nullsFractionUnknown())
+                .symbolStats("y", symbolStatsAssertion -> symbolStatsAssertion
+                        .unknownRange()
+                        .nullsFractionUnknown()
+                        .distinctValuesCountUnknown());
 
         testAggregation(
                 SymbolStatsEstimate.builder()
@@ -122,12 +130,7 @@ public class TestAggregationStatsRule
                                 .lowValueUnknown()
                                 .highValueUnknown()
                                 .distinctValuesCountUnknown()
-                                .nullsFractionUnknown())
-                        .symbolStats("y", symbolStatsAssertion -> symbolStatsAssertion
-                                .lowValue(0)
-                                .highValue(3)
-                                .distinctValuesCount(3)
-                                .nullsFraction(0)));
+                                .nullsFractionUnknown()));
     }
 
     @Test

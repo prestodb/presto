@@ -30,6 +30,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Predicate;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.floor;
@@ -53,6 +54,10 @@ public class StatsNormalizer
 
     private PlanNodeStatsEstimate normalize(PlanNodeStatsEstimate stats, Optional<Collection<Symbol>> outputSymbols, TypeProvider types)
     {
+        if (stats.isOutputRowCountUnknown()) {
+            return PlanNodeStatsEstimate.unknown();
+        }
+
         PlanNodeStatsEstimate.Builder normalized = PlanNodeStatsEstimate.buildFrom(stats);
 
         Predicate<Symbol> symbolFilter = outputSymbols
@@ -67,7 +72,7 @@ public class StatsNormalizer
             }
 
             SymbolStatsEstimate symbolStats = stats.getSymbolStatistics(symbol);
-            SymbolStatsEstimate normalizedSymbolStats = normalizeSymbolStats(symbol, symbolStats, stats, types);
+            SymbolStatsEstimate normalizedSymbolStats = stats.getOutputRowCount() == 0 ? SymbolStatsEstimate.zero() : normalizeSymbolStats(symbol, symbolStats, stats, types);
             if (normalizedSymbolStats.isUnknown()) {
                 normalized.removeSymbolStatistics(symbol);
                 continue;
@@ -90,6 +95,7 @@ public class StatsNormalizer
         }
 
         double outputRowCount = stats.getOutputRowCount();
+        checkArgument(outputRowCount > 0, "outputRowCount must be greater than zero: %s", outputRowCount);
         double distinctValuesCount = symbolStats.getDistinctValuesCount();
         double nullsFraction = symbolStats.getNullsFraction();
 
