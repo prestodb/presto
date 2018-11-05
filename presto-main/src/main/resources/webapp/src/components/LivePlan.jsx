@@ -11,9 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+//@flow
 
 import React from "react";
-import ReactDOM from "react-dom";
 import ReactDOMServer from "react-dom/server";
 import * as dagreD3 from "dagre-d3";
 import * as d3 from "d3";
@@ -26,10 +26,14 @@ import {
     initializeGraph,
     initializeSvg
 } from "../utils";
-import {StageDetail} from "./StageDetail";
 import {QueryHeader} from "./QueryHeader";
 
-class StageStatistics extends React.Component {
+type StageStatisticsProps = {
+    stage: any,
+}
+type StageStatisticsState = {}
+
+class StageStatistics extends React.Component<StageStatisticsProps, StageStatisticsState> {
     static flatten(queryInfo) {
         const stages = new Map();
         StageStatistics.flattenStage(queryInfo.outputStage, stages);
@@ -107,58 +111,74 @@ class StageStatistics extends React.Component {
     }
 }
 
-export class LivePlan extends React.Component {
-    constructor(props) {
+type LivePlanProps = {}
+type LivePlanState = {
+    initialized: boolean,
+    ended: boolean,
+
+    query: ?any,
+
+    graph: any,
+    svg: any,
+    render: any,
+}
+
+export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
+    timeoutId: TimeoutID;
+
+    constructor(props: LivePlanProps) {
         super(props);
         this.state = {
             initialized: false,
             ended: false,
 
+            query: null,
+
             graph: initializeGraph(),
             svg: initializeSvg("#plan-canvas"),
             render: new dagreD3.render(),
         };
-
-        this.refreshLoop = this.refreshLoop.bind(this);
     }
 
     resetTimer() {
         clearTimeout(this.timeoutId);
         // stop refreshing when query finishes or fails
         if (this.state.query === null || !this.state.ended) {
-            this.timeoutId = setTimeout(this.refreshLoop, 1000);
+            this.timeoutId = setTimeout(this.refreshLoop.bind(this), 1000);
         }
     }
 
     refreshLoop() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
         const queryId = getFirstParameter(window.location.search);
-        $.get('/v1/query/' + queryId, function (query) {
-            this.setState({
-                query: query,
+        fetch('/v1/query/' + queryId)
+            .then(response => response.json())
+            .then(query => {
+                this.setState({
+                    query: query,
 
-                initialized: true,
-                ended: query.finalQueryInfo,
-            });
-            this.resetTimer();
-        }.bind(this))
-            .error(function () {
+                    initialized: true,
+                    ended: query.finalQueryInfo,
+                });
+                this.resetTimer();
+            })
+            .catch(() => {
                 this.setState({
                     initialized: true,
                 });
                 this.resetTimer();
-            }.bind(this));
+            });
     }
 
-    static handleStageClick(stageCssId) {
+    static handleStageClick(stageCssId: string) {
         window.open("stage.html?" + stageCssId, '_blank');
     }
 
     componentDidMount() {
-        this.refreshLoop();
+        this.refreshLoop.bind(this)();
     }
 
-    updateD3Stage(stage, graph) {
+    updateD3Stage(stage: any, graph: any) {
         const clusterId = stage.stageId;
         const stageRootNodeId = "stage-" + stage.id + "-root";
         const color = getStageStateColor(stage);
@@ -211,25 +231,6 @@ export class LivePlan extends React.Component {
         svg.attr("width", graph.graph().width);
     }
 
-    findStage(stageId, currentStage) {
-        if (stageId === -1) {
-            return null;
-        }
-
-        if (parseInt(currentStage.plan.id) === stageId) {
-            return currentStage;
-        }
-
-        for (let i = 0; i < currentStage.subStages.length; i++) {
-            const stage = this.findStage(stageId, currentStage.subStages[i]);
-            if (stage !== null) {
-                return stage;
-            }
-        }
-
-        return null;
-    }
-
     render() {
         const query = this.state.query;
 
@@ -246,7 +247,7 @@ export class LivePlan extends React.Component {
         }
 
         let livePlanGraph = null;
-        if (!this.state.query.outputStage) {
+        if (query && !query.outputStage) {
             livePlanGraph = (
                 <div className="row error-message">
                     <div className="col-xs-12">
@@ -258,13 +259,6 @@ export class LivePlan extends React.Component {
         }
         else {
             this.updateD3Graph();
-            const selectedStage = this.findStage(this.state.selectedStageId, this.state.query.outputStage);
-            if (selectedStage) {
-                ReactDOM.render(
-                    <StageDetail key={0} stage={selectedStage}/>,
-                    document.getElementById('stage-performance')
-                );
-            }
         }
 
         return (
