@@ -32,6 +32,7 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Double.NaN;
+import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.floor;
 import static java.lang.Math.pow;
@@ -140,7 +141,7 @@ public class StatsNormalizer
         }
 
         double length = symbolStats.getHighValue() - symbolStats.getLowValue();
-        if (isNaN(length)) {
+        if (!isFinite(length)) {
             return NaN;
         }
 
