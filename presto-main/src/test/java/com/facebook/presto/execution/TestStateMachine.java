@@ -240,8 +240,8 @@ public class TestStateMachine
 
         assertEquals(stateMachine.get(), expectedState);
 
-        assertEquals(futureChange.get(1, SECONDS), expectedState);
-        assertEquals(listenerChange.get(1, SECONDS), expectedState);
+        assertEquals(futureChange.get(10, SECONDS), expectedState);
+        assertEquals(listenerChange.get(10, SECONDS), expectedState);
 
         // listeners should not be retained if we are in a terminal state
         boolean isTerminalState = stateMachine.isTerminalState(expectedState);
@@ -272,7 +272,7 @@ public class TestStateMachine
         boolean isTerminalState = stateMachine.isTerminalState(initialState);
         if (isTerminalState) {
             assertEquals(stateMachine.getStateChangeListeners(), ImmutableSet.of());
-            assertEquals(listenerChange.get(1, SECONDS), initialState);
+            assertEquals(listenerChange.get(10, SECONDS), initialState);
         }
 
         stateChange.run();
