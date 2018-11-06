@@ -39,7 +39,8 @@ public class FinalizerService
 
     private final Set<FinalizerReference> finalizers = Sets.newConcurrentHashSet();
     private final ReferenceQueue<Object> finalizerQueue = new ReferenceQueue<>();
-    private final ExecutorService executor = newSingleThreadExecutor(daemonThreadsNamed("FinalizerService"));
+    @GuardedBy("this")
+    private ExecutorService executor;
 
     @GuardedBy("this")
     private Future<?> finalizerTask;
@@ -49,6 +50,9 @@ public class FinalizerService
     {
         if (finalizerTask != null) {
             return;
+        }
+        if (executor == null) {
+            executor = newSingleThreadExecutor(daemonThreadsNamed("FinalizerService"));
         }
         if (executor.isShutdown()) {
             throw new IllegalStateException("Finalizer service has been destroyed");
@@ -63,7 +67,10 @@ public class FinalizerService
             finalizerTask.cancel(true);
             finalizerTask = null;
         }
-        executor.shutdownNow();
+        if (executor != null) {
+            executor.shutdownNow();
+            executor = null;
+        }
     }
 
     /**
