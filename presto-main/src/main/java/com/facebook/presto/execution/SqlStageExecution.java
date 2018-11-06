@@ -81,6 +81,8 @@ public final class SqlStageExecution
     private final Map<PlanFragmentId, RemoteSourceNode> exchangeSources;
 
     private final Map<Node, Set<RemoteTask>> tasks = new ConcurrentHashMap<>();
+
+    @GuardedBy("this")
     private final AtomicInteger nextTaskId = new AtomicInteger();
     @GuardedBy("this")
     private final Set<TaskId> allTasks = newConcurrentHashSet();
@@ -88,10 +90,14 @@ public final class SqlStageExecution
     private final Set<TaskId> finishedTasks = newConcurrentHashSet();
     @GuardedBy("this")
     private final Set<TaskId> tasksWithFinalInfo = newConcurrentHashSet();
+    @GuardedBy("this")
     private final AtomicBoolean splitsScheduled = new AtomicBoolean();
 
+    @GuardedBy("this")
     private final Multimap<PlanNodeId, RemoteTask> sourceTasks = HashMultimap.create();
+    @GuardedBy("this")
     private final Set<PlanNodeId> completeSources = newConcurrentHashSet();
+    @GuardedBy("this")
     private final Set<PlanFragmentId> completeSourceFragments = newConcurrentHashSet();
 
     private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>();
