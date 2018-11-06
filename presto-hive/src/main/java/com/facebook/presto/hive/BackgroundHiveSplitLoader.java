@@ -431,7 +431,7 @@ public class BackgroundHiveSplitLoader
         for (int bucketNumber = 0; bucketNumber < Math.max(tableBucketCount, partitionBucketCount); bucketNumber++) {
             int partitionBucketNumber = bucketNumber % partitionBucketCount; // physical
             int tableBucketNumber = bucketNumber % tableBucketCount; // logical
-            if (bucketSplitInfo.isBucketEnabled(tableBucketNumber)) {
+            if (bucketSplitInfo.isTableBucketEnabled(tableBucketNumber)) {
                 LocatedFileStatus file = files.get(partitionBucketNumber);
                 splitFactory.createInternalHiveSplit(file, tableBucketNumber)
                         .ifPresent(splitList::add);
@@ -539,9 +539,18 @@ public class BackgroundHiveSplitLoader
             return bucketCount;
         }
 
-        public boolean isBucketEnabled(int value)
+        /**
+         * Evaluates whether the provided table bucket number passes the bucket predicate.
+         * A bucket predicate can be present in two cases:
+         * <ul>
+         * <li>Filter on "$bucket" column. e.g. {@code "$bucket" between 0 and 100}
+         * <li>Single-value equality filter on all bucket columns. e.g. for a table with two bucketing columns,
+         *     {@code bucketCol1 = 'a' AND bucketCol2 = 123}
+         * </ul>
+         */
+        public boolean isTableBucketEnabled(int tableBucketNumber)
         {
-            return bucketFilter.test(value);
+            return bucketFilter.test(tableBucketNumber);
         }
     }
 }
