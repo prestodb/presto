@@ -87,7 +87,7 @@ public final class SqlStageExecution
     @GuardedBy("this")
     private final Set<TaskId> finishedTasks = newConcurrentHashSet();
     @GuardedBy("this")
-    private final Set<TaskId> doneTasks = newConcurrentHashSet();
+    private final Set<TaskId> tasksWithFinalInfo = newConcurrentHashSet();
     private final AtomicBoolean splitsScheduled = new AtomicBoolean();
 
     private final Multimap<PlanNodeId, RemoteTask> sourceTasks = HashMultimap.create();
@@ -141,14 +141,7 @@ public final class SqlStageExecution
         }
         this.exchangeSources = fragmentToExchangeSource.build();
 
-        stateMachine.addStateChangeListener(newState -> {
-            synchronized (this) {
-                // when stage transitions to a done state, check if all tasks have final status information
-                if (newState.isDone() && doneTasks.containsAll(allTasks)) {
-                    stateMachine.setAllTasksFinal();
-                }
-            }
-        });
+        stateMachine.addStateChangeListener(newState -> checkAllTaskFinal());
     }
 
     public StageId getStageId()
@@ -417,6 +410,7 @@ public final class SqlStageExecution
         nodeTaskMap.addTask(node, task);
 
         task.addStateChangeListener(new StageTaskListener());
+        task.addFinalTaskInfoListener(this::updateFinalTaskInfo);
 
         if (!stateMachine.getState().isDone()) {
             task.start();
@@ -449,12 +443,6 @@ public final class SqlStageExecution
     private synchronized void updateTaskStatus(TaskStatus taskStatus)
     {
         try {
-            // always update done tasks before, state transitions to ensure
-            // the transition to "final status info" is not missed
-            if (taskStatus.getState().isDone()) {
-                doneTasks.add(taskStatus.getTaskId());
-            }
-
             StageState stageState = getState();
             if (stageState.isDone()) {
                 return;
@@ -488,9 +476,20 @@ public final class SqlStageExecution
         }
         finally {
             // after updating state, check if all tasks have final status information
-            if (stateMachine.getState().isDone() && doneTasks.containsAll(allTasks)) {
-                stateMachine.setAllTasksFinal();
-            }
+            checkAllTaskFinal();
+        }
+    }
+
+    private synchronized void updateFinalTaskInfo(TaskInfo finalTaskInfo)
+    {
+        tasksWithFinalInfo.add(finalTaskInfo.getTaskStatus().getTaskId());
+        checkAllTaskFinal();
+    }
+
+    private synchronized void checkAllTaskFinal()
+    {
+        if (stateMachine.getState().isDone() && tasksWithFinalInfo.containsAll(allTasks)) {
+            stateMachine.setAllTasksFinal();
         }
     }
 

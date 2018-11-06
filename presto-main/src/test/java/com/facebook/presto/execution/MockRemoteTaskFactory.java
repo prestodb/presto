@@ -68,6 +68,7 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
@@ -369,6 +370,19 @@ public class MockRemoteTaskFactory
         public void addStateChangeListener(StateChangeListener<TaskStatus> stateChangeListener)
         {
             taskStateMachine.addStateChangeListener(newValue -> stateChangeListener.stateChanged(getTaskStatus()));
+        }
+
+        @Override
+        public void addFinalTaskInfoListener(StateChangeListener<TaskInfo> stateChangeListener)
+        {
+            AtomicBoolean done = new AtomicBoolean();
+            StateChangeListener<TaskState> fireOnceStateChangeListener = state -> {
+                if (state.isDone() && done.compareAndSet(false, true)) {
+                    stateChangeListener.stateChanged(getTaskInfo());
+                }
+            };
+            taskStateMachine.addStateChangeListener(fireOnceStateChangeListener);
+            fireOnceStateChangeListener.stateChanged(taskStateMachine.getState());
         }
 
         @Override
