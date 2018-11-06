@@ -32,6 +32,7 @@ import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.tree.QualifiedName;
 import io.airlift.slice.Slice;
 
@@ -112,6 +113,18 @@ public abstract class AbstractMockMetadata
 
     @Override
     public TableLayout getLayout(Session session, TableLayoutHandle handle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public TableLayoutHandle getAlternativeLayoutHandle(Session session, TableLayoutHandle tableLayoutHandle, PartitioningHandle partitioningHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<PartitioningHandle> getCommonPartitioning(Session session, PartitioningHandle left, PartitioningHandle right)
     {
         throw new UnsupportedOperationException();
     }

@@ -1624,7 +1624,7 @@ public class TestHiveIntegrationSmokeTest
 
     private int getBucketCount(String tableName)
     {
-        return (int) getHiveTableProperty(tableName, (HiveTableLayoutHandle table) -> table.getBucketHandle().get().getBucketCount());
+        return (int) getHiveTableProperty(tableName, (HiveTableLayoutHandle table) -> table.getBucketHandle().get().getTableBucketCount());
     }
 
     @Test
@@ -2241,6 +2241,78 @@ public class TestHiveIntegrationSmokeTest
         }
         finally {
             assertUpdate("DROP TABLE test_table_with_char");
+        }
+    }
+
+    @Test
+    public void testMismatchedBucketing()
+    {
+        try {
+            assertUpdate(
+                    "CREATE TABLE test_mismatch_bucketing16\n" +
+                            "WITH (bucket_count = 16, bucketed_by = ARRAY['key16']) AS\n" +
+                            "SELECT orderkey key16, comment value16 FROM orders",
+                    15000);
+            assertUpdate(
+                    "CREATE TABLE test_mismatch_bucketing32\n" +
+                            "WITH (bucket_count = 32, bucketed_by = ARRAY['key32']) AS\n" +
+                            "SELECT orderkey key32, comment value32 FROM orders",
+                    15000);
+            assertUpdate(
+                    "CREATE TABLE test_mismatch_bucketingN AS\n" +
+                            "SELECT orderkey keyN, comment valueN FROM orders",
+                    15000);
+
+            Session withMismatchOptimization = Session.builder(getSession())
+                    .setSystemProperty(COLOCATED_JOIN, "true")
+                    .setCatalogSessionProperty(catalog, "optimize_mismatched_bucket_count", "true")
+                    .build();
+            Session withoutMismatchOptimization = Session.builder(getSession())
+                    .setSystemProperty(COLOCATED_JOIN, "true")
+                    .setCatalogSessionProperty(catalog, "optimize_mismatched_bucket_count", "false")
+                    .build();
+
+            @Language("SQL") String writeToTableWithMoreBuckets = "CREATE TABLE test_mismatch_bucketing_out32\n" +
+                    "WITH (bucket_count = 32, bucketed_by = ARRAY['key16'])\n" +
+                    "AS\n" +
+                    "SELECT key16, value16, key32, value32, keyN, valueN\n" +
+                    "FROM\n" +
+                    "  test_mismatch_bucketing16\n" +
+                    "JOIN\n" +
+                    "  test_mismatch_bucketing32\n" +
+                    "ON key16=key32\n" +
+                    "JOIN\n" +
+                    "  test_mismatch_bucketingN\n" +
+                    "ON key16=keyN";
+            @Language("SQL") String writeToTableWithFewerBuckets = "CREATE TABLE test_mismatch_bucketing_out8\n" +
+                    "WITH (bucket_count = 8, bucketed_by = ARRAY['key16'])\n" +
+                    "AS\n" +
+                    "SELECT key16, value16, key32, value32, keyN, valueN\n" +
+                    "FROM\n" +
+                    "  test_mismatch_bucketing16\n" +
+                    "JOIN\n" +
+                    "  test_mismatch_bucketing32\n" +
+                    "ON key16=key32\n" +
+                    "JOIN\n" +
+                    "  test_mismatch_bucketingN\n" +
+                    "ON key16=keyN";
+
+            assertUpdate(withoutMismatchOptimization, writeToTableWithMoreBuckets, 15000, assertRemoteExchangesCount(4));
+            assertQuery("SELECT * FROM test_mismatch_bucketing_out32", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
+            assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_out32");
+
+            assertUpdate(withMismatchOptimization, writeToTableWithMoreBuckets, 15000, assertRemoteExchangesCount(2));
+            assertQuery("SELECT * FROM test_mismatch_bucketing_out32", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
+
+            assertUpdate(withMismatchOptimization, writeToTableWithFewerBuckets, 15000, assertRemoteExchangesCount(2));
+            assertQuery("SELECT * FROM test_mismatch_bucketing_out8", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing16");
+            assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing32");
+            assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketingN");
+            assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_out32");
+            assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_out8");
         }
     }
 

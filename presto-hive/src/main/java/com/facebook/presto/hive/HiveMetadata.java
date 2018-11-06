@@ -53,6 +53,7 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.NullableValue;
@@ -98,6 +99,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Properties;
 import java.util.Set;
@@ -127,6 +129,7 @@ import static com.facebook.presto.hive.HivePartitionManager.extractPartitionValu
 import static com.facebook.presto.hive.HiveSessionProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveSessionProperties.isBucketExecutionEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isCollectColumnStatisticsOnWrite;
+import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedMismatchedBucketCount;
 import static com.facebook.presto.hive.HiveSessionProperties.isRespectTableFormat;
 import static com.facebook.presto.hive.HiveSessionProperties.isSortedWritingEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
@@ -1510,10 +1513,11 @@ public class HiveMetadata
         if (isBucketExecutionEnabled(session) && hiveLayoutHandle.getBucketHandle().isPresent()) {
             nodePartitioning = hiveLayoutHandle.getBucketHandle().map(hiveBucketHandle -> new ConnectorTablePartitioning(
                     new HivePartitioningHandle(
-                            hiveBucketHandle.getBucketCount(),
+                            hiveBucketHandle.getReadBucketCount(),
                             hiveBucketHandle.getColumns().stream()
                                     .map(HiveColumnHandle::getHiveType)
-                                    .collect(Collectors.toList())),
+                                    .collect(Collectors.toList()),
+                            OptionalInt.empty()),
                     hiveBucketHandle.getColumns().stream()
                             .map(ColumnHandle.class::cast)
                             .collect(toList())));
@@ -1527,6 +1531,87 @@ public class HiveMetadata
                 Optional.empty(),
                 discretePredicates,
                 ImmutableList.of());
+    }
+
+    @Override
+    public Optional<ConnectorPartitioningHandle> getCommonPartitioningHandle(ConnectorSession session, ConnectorPartitioningHandle left, ConnectorPartitioningHandle right)
+    {
+        HivePartitioningHandle leftHandle = (HivePartitioningHandle) left;
+        HivePartitioningHandle rightHandle = (HivePartitioningHandle) right;
+
+        if (!leftHandle.getHiveTypes().equals(rightHandle.getHiveTypes())) {
+            return Optional.empty();
+        }
+        if (leftHandle.getBucketCount() == rightHandle.getBucketCount()) {
+            return Optional.of(leftHandle);
+        }
+        if (!isOptimizedMismatchedBucketCount(session)) {
+            return Optional.empty();
+        }
+
+        int largerBucketCount = Math.max(leftHandle.getBucketCount(), rightHandle.getBucketCount());
+        int smallerBucketCount = Math.min(leftHandle.getBucketCount(), rightHandle.getBucketCount());
+        if (largerBucketCount % smallerBucketCount != 0) {
+            // must be evenly divisible
+            return Optional.empty();
+        }
+        if (Integer.bitCount(largerBucketCount / smallerBucketCount) != 1) {
+            // ratio must be power of two
+            return Optional.empty();
+        }
+
+        OptionalInt maxCompatibleBucketCount = min(leftHandle.getMaxCompatibleBucketCount(), rightHandle.getMaxCompatibleBucketCount());
+        if (maxCompatibleBucketCount.isPresent() && maxCompatibleBucketCount.getAsInt() < smallerBucketCount) {
+            // maxCompatibleBucketCount must be larger than or equal to smallerBucketCount
+            // because the current code uses the smallerBucketCount as the common partitioning handle.
+            return Optional.empty();
+        }
+
+        return Optional.of(new HivePartitioningHandle(
+                smallerBucketCount,
+                leftHandle.getHiveTypes(),
+                maxCompatibleBucketCount));
+    }
+
+    private static OptionalInt min(OptionalInt left, OptionalInt right)
+    {
+        if (!left.isPresent()) {
+            return right;
+        }
+        if (!right.isPresent()) {
+            return left;
+        }
+        return OptionalInt.of(Math.min(left.getAsInt(), right.getAsInt()));
+    }
+
+    @Override
+    public ConnectorTableLayoutHandle getAlternativeLayoutHandle(ConnectorSession session, ConnectorTableLayoutHandle tableLayoutHandle, ConnectorPartitioningHandle partitioningHandle)
+    {
+        HiveTableLayoutHandle hiveLayoutHandle = (HiveTableLayoutHandle) tableLayoutHandle;
+        HivePartitioningHandle hivePartitioningHandle = (HivePartitioningHandle) partitioningHandle;
+
+        checkArgument(hiveLayoutHandle.getBucketHandle().isPresent(), "Hive connector only provides alternative layout for bucketed table");
+        HiveBucketHandle bucketHandle = hiveLayoutHandle.getBucketHandle().get();
+        ImmutableList<HiveType> bucketTypes = bucketHandle.getColumns().stream().map(HiveColumnHandle::getHiveType).collect(toImmutableList());
+        checkArgument(
+                hivePartitioningHandle.getHiveTypes().equals(bucketTypes),
+                "Types from the new PartitioningHandle (%s) does not match the TableLayoutHandle (%s)",
+                hivePartitioningHandle.getHiveTypes(),
+                bucketTypes);
+        int largerBucketCount = Math.max(bucketHandle.getTableBucketCount(), hivePartitioningHandle.getBucketCount());
+        int smallerBucketCount = Math.min(bucketHandle.getTableBucketCount(), hivePartitioningHandle.getBucketCount());
+        checkArgument(
+                largerBucketCount % smallerBucketCount == 0 && Integer.bitCount(largerBucketCount / smallerBucketCount) == 1,
+                "The requested partitioning is not a valid alternative for the table layout");
+
+        return new HiveTableLayoutHandle(
+                hiveLayoutHandle.getSchemaTableName(),
+                hiveLayoutHandle.getPartitionColumns(),
+                hiveLayoutHandle.getPartitions().get(),
+                hiveLayoutHandle.getCompactEffectivePredicate(),
+                hiveLayoutHandle.getPromisedPredicate(),
+                Optional.of(new HiveBucketHandle(bucketHandle.getColumns(), bucketHandle.getTableBucketCount(), hivePartitioningHandle.getBucketCount())),
+                hiveLayoutHandle.getBucketFilter());
     }
 
     @VisibleForTesting
@@ -1600,10 +1685,11 @@ public class HiveMetadata
         }
 
         HivePartitioningHandle partitioningHandle = new HivePartitioningHandle(
-                hiveBucketHandle.get().getBucketCount(),
+                hiveBucketHandle.get().getTableBucketCount(),
                 hiveBucketHandle.get().getColumns().stream()
                         .map(HiveColumnHandle::getHiveType)
-                        .collect(Collectors.toList()));
+                        .collect(Collectors.toList()),
+                OptionalInt.of(hiveBucketHandle.get().getTableBucketCount()));
         List<String> partitionColumns = hiveBucketHandle.get().getColumns().stream()
                 .map(HiveColumnHandle::getName)
                 .collect(Collectors.toList());
@@ -1631,7 +1717,8 @@ public class HiveMetadata
                         bucketProperty.get().getBucketCount(),
                         bucketedBy.stream()
                                 .map(hiveTypeMap::get)
-                                .collect(toList())),
+                                .collect(toList()),
+                        OptionalInt.of(bucketProperty.get().getBucketCount())),
                 bucketedBy));
     }
 
