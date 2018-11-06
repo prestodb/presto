@@ -140,7 +140,7 @@ public class TestBackgroundHiveSplitLoader
                 RETURNED_PATH_DOMAIN,
                 Optional.of(new HiveBucketFilter(ImmutableSet.of(0, 1))),
                 PARTITIONED_TABLE,
-                Optional.of(new HiveBucketHandle(BUCKET_COLUMN_HANDLES, BUCKET_COUNT)));
+                Optional.of(new HiveBucketHandle(BUCKET_COLUMN_HANDLES, BUCKET_COUNT, BUCKET_COUNT)));
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, RETURNED_PATH_DOMAIN);
         backgroundHiveSplitLoader.start(hiveSplitSource);
@@ -161,6 +161,7 @@ public class TestBackgroundHiveSplitLoader
                 Optional.of(
                         new HiveBucketHandle(
                                 getRegularColumnHandles(PARTITIONED_TABLE),
+                                BUCKET_COUNT,
                                 BUCKET_COUNT)));
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, RETURNED_PATH_DOMAIN);

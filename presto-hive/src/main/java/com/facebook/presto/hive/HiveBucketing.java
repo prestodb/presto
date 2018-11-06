@@ -272,7 +272,8 @@ final class HiveBucketing
             bucketColumns.add(bucketColumnHandle);
         }
 
-        return Optional.of(new HiveBucketHandle(bucketColumns.build(), hiveBucketProperty.get().getBucketCount()));
+        int bucketCount = hiveBucketProperty.get().getBucketCount();
+        return Optional.of(new HiveBucketHandle(bucketColumns.build(), bucketCount, bucketCount));
     }
 
     public static Optional<HiveBucketFilter> getHiveBucketFilter(Table table, TupleDomain<ColumnHandle> effectivePredicate)

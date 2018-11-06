@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -82,12 +84,27 @@ public final class Partitioning
                 .collect(toImmutableSet());
     }
 
-    public boolean isPartitionedWith(Partitioning right,
+    public boolean isCompatibleWith(
+            Partitioning right,
+            Metadata metadata,
+            Session session)
+    {
+        if (!handle.equals(right.handle) && !metadata.getCommonPartitioning(session, handle, right.handle).isPresent()) {
+            return false;
+        }
+
+        return arguments.equals(right.arguments);
+    }
+
+    public boolean isCompatibleWith(
+            Partitioning right,
             Function<Symbol, Set<Symbol>> leftToRightMappings,
             Function<Symbol, Optional<NullableValue>> leftConstantMapping,
-            Function<Symbol, Optional<NullableValue>> rightConstantMapping)
+            Function<Symbol, Optional<NullableValue>> rightConstantMapping,
+            Metadata metadata,
+            Session session)
     {
-        if (!handle.equals(right.handle)) {
+        if (!handle.equals(right.handle) && !metadata.getCommonPartitioning(session, handle, right.handle).isPresent()) {
             return false;
         }
 
@@ -189,6 +206,11 @@ public final class Partitioning
         }
 
         return Optional.of(new Partitioning(handle, newArguments.build()));
+    }
+
+    public Partitioning withAlternativePartitiongingHandle(PartitioningHandle partitiongingHandle)
+    {
+        return new Partitioning(partitiongingHandle, this.arguments);
     }
 
     @Override
