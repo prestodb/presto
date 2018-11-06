@@ -77,7 +77,9 @@ public class TestSqlStageExecution
     public void tearDown()
     {
         executor.shutdownNow();
+        executor = null;
         scheduledExecutor.shutdownNow();
+        scheduledExecutor = null;
     }
 
     @Test(timeOut = 2 * 60 * 1000)
