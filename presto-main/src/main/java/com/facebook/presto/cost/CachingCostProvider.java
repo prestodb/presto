@@ -18,18 +18,22 @@ import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Memo;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import io.airlift.log.Logger;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isEnableStatsCalculator;
+import static com.facebook.presto.SystemSessionProperties.isIgnoreStatsCalculatorFailures;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class CachingCostProvider
         implements CostProvider
 {
+    private static final Logger log = Logger.get(CachingCostProvider.class);
+
     private final CostCalculator costCalculator;
     private final StatsProvider statsProvider;
     private final Optional<Memo> memo;
@@ -61,18 +65,27 @@ public class CachingCostProvider
 
         requireNonNull(node, "node is null");
 
-        if (node instanceof GroupReference) {
-            return getGroupCost((GroupReference) node);
-        }
+        try {
+            if (node instanceof GroupReference) {
+                return getGroupCost((GroupReference) node);
+            }
 
-        PlanNodeCostEstimate cumulativeCost = cache.get(node);
-        if (cumulativeCost != null) {
+            PlanNodeCostEstimate cumulativeCost = cache.get(node);
+            if (cumulativeCost != null) {
+                return cumulativeCost;
+            }
+
+            cumulativeCost = calculateCumulativeCost(node);
+            verify(cache.put(node, cumulativeCost) == null, "Cost already set");
             return cumulativeCost;
         }
-
-        cumulativeCost = calculateCumulativeCost(node);
-        verify(cache.put(node, cumulativeCost) == null, "Cost already set");
-        return cumulativeCost;
+        catch (RuntimeException e) {
+            if (isIgnoreStatsCalculatorFailures(session)) {
+                log.error(e, "Error occurred when computing cost for query %s", session.getQueryId());
+                return PlanNodeCostEstimate.unknown();
+            }
+            throw e;
+        }
     }
 
     private PlanNodeCostEstimate getGroupCost(GroupReference groupReference)
