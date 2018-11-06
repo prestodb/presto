@@ -38,6 +38,7 @@ import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -218,6 +219,15 @@ public class PlanFragmenter
                     .orElse(SOURCE_DISTRIBUTION);
 
             context.get().addSourceDistribution(node.getId(), partitioning);
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<FragmentProperties> context)
+        {
+            if (node.getPartitioningScheme().isPresent()) {
+                context.get().setDistribution(node.getPartitioningScheme().get().getPartitioning().getHandle());
+            }
             return context.defaultRewrite(node, context.get());
         }
 
