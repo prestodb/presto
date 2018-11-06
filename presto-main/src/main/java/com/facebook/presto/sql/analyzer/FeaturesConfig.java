@@ -107,6 +107,7 @@ public class FeaturesConfig
     private double spillMaxUsedSpaceThreshold = 0.9;
     private boolean iterativeOptimizerEnabled = true;
     private boolean enableStatsCalculator = true;
+    private boolean ignoreStatsCalculatorFailures = true;
     private boolean pushAggregationThroughJoin = true;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
@@ -601,6 +602,19 @@ public class FeaturesConfig
     public FeaturesConfig setEnableStatsCalculator(boolean enableStatsCalculator)
     {
         this.enableStatsCalculator = enableStatsCalculator;
+        return this;
+    }
+
+    public boolean isIgnoreStatsCalculatorFailures()
+    {
+        return ignoreStatsCalculatorFailures;
+    }
+
+    @Config("optimizer.ignore-stats-calculator-failures")
+    @ConfigDescription("Ignore statistics calculator failures")
+    public FeaturesConfig setIgnoreStatsCalculatorFailures(boolean ignoreStatsCalculatorFailures)
+    {
+        this.ignoreStatsCalculatorFailures = ignoreStatsCalculatorFailures;
         return this;
     }
 

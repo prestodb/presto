@@ -112,6 +112,7 @@ public final class SystemSessionProperties
     public static final String LEGACY_UNNEST = "legacy_unnest";
     public static final String STATISTICS_CPU_TIMER_ENABLED = "statistics_cpu_timer_enabled";
     public static final String ENABLE_STATS_CALCULATOR = "enable_stats_calculator";
+    public static final String IGNORE_STATS_CALCULATOR_FAILURES = "ignore_stats_calculator_failures";
     public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
 
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -525,7 +526,12 @@ public final class SystemSessionProperties
                         null,
                         false,
                         value -> min(taskManagerConfig.getMaxDriversPerTask(), validateNullablePositiveIntegerValue(value, MAX_DRIVERS_PER_TASK)),
-                        object -> object));
+                        object -> object),
+                booleanProperty(
+                        IGNORE_STATS_CALCULATOR_FAILURES,
+                        "Ignore statistics calculator failures",
+                        featuresConfig.isIgnoreStatsCalculatorFailures(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -891,5 +897,10 @@ public final class SystemSessionProperties
     public static boolean isEnableStatsCalculator(Session session)
     {
         return session.getSystemProperty(ENABLE_STATS_CALCULATOR, Boolean.class);
+    }
+
+    public static boolean isIgnoreStatsCalculatorFailures(Session session)
+    {
+        return session.getSystemProperty(IGNORE_STATS_CALCULATOR_FAILURES, Boolean.class);
     }
 }
