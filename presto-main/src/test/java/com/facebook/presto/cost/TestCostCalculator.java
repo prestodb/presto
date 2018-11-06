@@ -70,7 +70,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static com.facebook.presto.SystemSessionProperties.ENABLE_STATS_CALCULATOR;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.cpuCost;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
@@ -117,10 +116,7 @@ public class TestCostCalculator
         costCalculatorWithEstimatedExchanges = new CostCalculatorWithEstimatedExchanges(costCalculatorUsingExchanges, () -> NUMBER_OF_NODES);
         planFragmenter = new PlanFragmenter(new QueryManagerConfig());
 
-        session = testSessionBuilder()
-                .setCatalog("tpch")
-                .setSystemProperty(ENABLE_STATS_CALCULATOR, "true")
-                .build();
+        session = testSessionBuilder().setCatalog("tpch").build();
 
         CatalogManager catalogManager = new CatalogManager();
         catalogManager.registerCatalog(createBogusTestingCatalog("tpch"));
