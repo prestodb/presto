@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.predicate.NullableValue;
@@ -117,18 +119,20 @@ public class ActualProperties
         return global.isNodePartitionedOn(columns, constants.keySet(), nullsAndAnyReplicated);
     }
 
-    public boolean isNodePartitionedOn(Partitioning partitioning, boolean nullsAndAnyReplicated)
+    public boolean isCompatibleTablePartitioningWith(Partitioning partitioning, boolean nullsAndAnyReplicated, Metadata metadata, Session session)
     {
-        return global.isNodePartitionedOn(partitioning, nullsAndAnyReplicated);
+        return global.isCompatibleTablePartitioningWith(partitioning, nullsAndAnyReplicated, metadata, session);
     }
 
-    public boolean isNodePartitionedWith(ActualProperties other, Function<Symbol, Set<Symbol>> symbolMappings)
+    public boolean isCompatibleTablePartitioningWith(ActualProperties other, Function<Symbol, Set<Symbol>> symbolMappings, Metadata metadata, Session session)
     {
-        return global.isNodePartitionedWith(
+        return global.isCompatibleTablePartitioningWith(
                 other.global,
                 symbolMappings,
                 symbol -> Optional.ofNullable(constants.get(symbol)),
-                symbol -> Optional.ofNullable(other.constants.get(symbol)));
+                symbol -> Optional.ofNullable(other.constants.get(symbol)),
+                metadata,
+                session);
     }
 
     /**
@@ -393,24 +397,28 @@ public class ActualProperties
             return nodePartitioning.isPresent() && nodePartitioning.get().isPartitionedOn(columns, constants) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
         }
 
-        private boolean isNodePartitionedOn(Partitioning partitioning, boolean nullsAndAnyReplicated)
+        private boolean isCompatibleTablePartitioningWith(Partitioning partitioning, boolean nullsAndAnyReplicated, Metadata metadata, Session session)
         {
-            return nodePartitioning.isPresent() && nodePartitioning.get().equals(partitioning) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
+            return nodePartitioning.isPresent() && nodePartitioning.get().isCompatibleWith(partitioning, metadata, session) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
         }
 
-        private boolean isNodePartitionedWith(
+        private boolean isCompatibleTablePartitioningWith(
                 Global other,
                 Function<Symbol, Set<Symbol>> symbolMappings,
                 Function<Symbol, Optional<NullableValue>> leftConstantMapping,
-                Function<Symbol, Optional<NullableValue>> rightConstantMapping)
+                Function<Symbol, Optional<NullableValue>> rightConstantMapping,
+                Metadata metadata,
+                Session session)
         {
             return nodePartitioning.isPresent() &&
                     other.nodePartitioning.isPresent() &&
-                    nodePartitioning.get().isPartitionedWith(
+                    nodePartitioning.get().isCompatibleWith(
                             other.nodePartitioning.get(),
                             symbolMappings,
                             leftConstantMapping,
-                            rightConstantMapping) &&
+                            rightConstantMapping,
+                            metadata,
+                            session) &&
                     nullsAndAnyReplicated == other.nullsAndAnyReplicated;
         }
 
