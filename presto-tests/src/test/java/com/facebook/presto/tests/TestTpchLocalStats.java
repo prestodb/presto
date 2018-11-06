@@ -23,7 +23,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SystemSessionProperties.ENABLE_STATS_CALCULATOR;
 import static com.facebook.presto.SystemSessionProperties.PREFER_PARTITIAL_AGGREGATION;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.absoluteError;
@@ -49,7 +48,6 @@ public class TestTpchLocalStats
                 .setCatalog("tpch")
                 .setSchema(TINY_SCHEMA_NAME)
                 // We are not able to calculate stats for PARTIAL aggregations
-                .setSystemProperty(ENABLE_STATS_CALCULATOR, "true")
                 .setSystemProperty(PREFER_PARTITIAL_AGGREGATION, "false")
                 .build();
 
