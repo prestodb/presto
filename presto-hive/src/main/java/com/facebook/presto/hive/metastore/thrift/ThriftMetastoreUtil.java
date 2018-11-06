@@ -363,7 +363,7 @@ public final class ThriftMetastoreUtil
             BooleanColumnStatsData booleanStatsData = columnStatistics.getStatsData().getBooleanStats();
             return createBooleanColumnStatistics(
                     booleanStatsData.isSetNumTrues() ? OptionalLong.of(booleanStatsData.getNumTrues()) : OptionalLong.empty(),
-                    booleanStatsData.isSetNumFalses() ? OptionalLong.of(booleanStatsData.getNumFalses()) : OptionalLong.empty(),
+                    booleanStatsData.isSetNumFalses() ? fromMetastoreNumFalse(booleanStatsData.getNumFalses()) : OptionalLong.empty(),
                     booleanStatsData.isSetNumNulls() ? fromMetastoreNullsCount(booleanStatsData.getNumNulls()) : OptionalLong.empty());
         }
         if (columnStatistics.getStatsData().isSetStringStats()) {
@@ -412,6 +412,19 @@ public final class ThriftMetastoreUtil
             return OptionalLong.empty();
         }
         return OptionalLong.of(nullsCount);
+    }
+
+    /**
+     * Impala 'COMPUTE STATS' will write -1 as the numFalse
+     * @param numFalse
+     * @return
+     */
+    public static OptionalLong fromMetastoreNumFalse(long numFalse)
+    {
+        if (numFalse == -1L) {
+            return OptionalLong.empty();
+        }
+        return OptionalLong.of(numFalse);
     }
 
     public static Optional<BigDecimal> fromMetastoreDecimal(@Nullable Decimal decimal)
