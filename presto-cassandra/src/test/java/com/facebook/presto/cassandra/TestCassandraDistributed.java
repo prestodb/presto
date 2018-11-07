@@ -39,6 +39,12 @@ public class TestCassandraDistributed
     }
 
     @Override
+    protected boolean supportsNotNullColumns()
+    {
+        return false;
+    }
+
+    @Override
     public void testJoinWithLessThanOnDatesInJoinClause()
     {
         // Cassandra does not support DATE

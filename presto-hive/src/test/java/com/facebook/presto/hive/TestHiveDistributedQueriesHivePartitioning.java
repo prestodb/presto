@@ -96,5 +96,11 @@ public class TestHiveDistributedQueriesHivePartitioning
         assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, LOGICAL));
     }
 
+    @Override
+    protected boolean supportsNotNullColumns()
+    {
+        return false;
+    }
+
     // Hive specific tests should normally go in TestHiveIntegrationSmokeTest
 }
