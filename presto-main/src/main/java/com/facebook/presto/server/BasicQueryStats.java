@@ -90,9 +90,9 @@ public class BasicQueryStats
         this.createTime = createTime;
         this.endTime = endTime;
 
-        this.queuedTime = queuedTime;
-        this.elapsedTime = elapsedTime;
-        this.executionTime = executionTime;
+        this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
+        this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
+        this.executionTime = requireNonNull(executionTime, "executionTime is null");
 
         checkArgument(totalDrivers >= 0, "totalDrivers is negative");
         this.totalDrivers = totalDrivers;

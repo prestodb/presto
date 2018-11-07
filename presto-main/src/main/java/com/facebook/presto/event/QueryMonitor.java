@@ -210,8 +210,8 @@ public class QueryMonitor
                 ofMillis(queryStats.getTotalCpuTime().toMillis()),
                 ofMillis(queryStats.getTotalScheduledTime().toMillis()),
                 ofMillis(queryStats.getQueuedTime().toMillis()),
-                Optional.ofNullable(queryStats.getAnalysisTime()).map(duration -> ofMillis(duration.toMillis())),
-                Optional.ofNullable(queryStats.getDistributedPlanningTime()).map(duration -> ofMillis(duration.toMillis())),
+                Optional.of(ofMillis(queryStats.getAnalysisTime().toMillis())),
+                Optional.of(ofMillis(queryStats.getDistributedPlanningTime().toMillis())),
                 queryStats.getPeakUserMemoryReservation().toBytes(),
                 queryStats.getPeakTotalMemoryReservation().toBytes(),
                 queryStats.getPeakTaskTotalMemory().toBytes(),
@@ -363,7 +363,7 @@ public class QueryMonitor
             }
 
             // planning duration -- start to end of planning
-            long planning = max(queryStats.getTotalPlanningTime() == null ? 0 : queryStats.getTotalPlanningTime().toMillis(), 0);
+            long planning = queryStats.getTotalPlanningTime().toMillis();
 
             List<StageInfo> stages = StageInfo.getAllStages(queryInfo.getOutputStage());
             // long lastSchedulingCompletion = 0;

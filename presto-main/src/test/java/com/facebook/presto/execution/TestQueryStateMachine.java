@@ -166,16 +166,10 @@ public class TestQueryStateMachine
 
         QueryStats queryStats = stateMachine.getQueryInfo(Optional.empty()).getQueryStats();
         assertEquals(queryStats.getQueuedTime(), new Duration(7, MILLISECONDS));
-        if (queryStats.getResourceWaitingTime() != null) {
-            assertEquals(queryStats.getResourceWaitingTime(), new Duration(0, MILLISECONDS));
-        }
-        if (queryStats.getTotalPlanningTime() != null) {
-            assertEquals(queryStats.getTotalPlanningTime(), new Duration(0, MILLISECONDS));
-        }
+        assertEquals(queryStats.getResourceWaitingTime(), new Duration(0, MILLISECONDS));
+        assertEquals(queryStats.getTotalPlanningTime(), new Duration(0, MILLISECONDS));
         assertEquals(queryStats.getExecutionTime(), new Duration(0, MILLISECONDS));
-        if (queryStats.getFinishingTime() != null) {
-            assertEquals(queryStats.getFinishingTime(), new Duration(0, MILLISECONDS));
-        }
+        assertEquals(queryStats.getFinishingTime(), new Duration(0, MILLISECONDS));
     }
 
     @Test
@@ -409,42 +403,10 @@ public class TestQueryStateMachine
         QueryStats queryStats = queryInfo.getQueryStats();
         assertNotNull(queryStats.getElapsedTime());
         assertNotNull(queryStats.getQueuedTime());
+        assertNotNull(queryStats.getResourceWaitingTime());
         assertNotNull(queryStats.getExecutionTime());
-        if (queryInfo.getState() == QUEUED) {
-            assertNull(queryStats.getResourceWaitingTime());
-            assertNull(queryStats.getTotalPlanningTime());
-            assertNull(queryStats.getFinishingTime());
-        }
-        else if (queryInfo.getState() == WAITING_FOR_RESOURCES) {
-            assertNull(queryStats.getResourceWaitingTime());
-            assertNull(queryStats.getTotalPlanningTime());
-            assertNull(queryStats.getFinishingTime());
-        }
-        else if (queryInfo.getState() == PLANNING) {
-            assertNotNull(queryStats.getResourceWaitingTime());
-            assertNull(queryStats.getTotalPlanningTime());
-            assertNull(queryStats.getFinishingTime());
-        }
-        else if (queryInfo.getState() == STARTING) {
-            assertNotNull(queryStats.getResourceWaitingTime());
-            assertNotNull(queryStats.getTotalPlanningTime());
-            assertNull(queryStats.getFinishingTime());
-        }
-        else if (queryInfo.getState() == RUNNING) {
-            assertNotNull(queryStats.getResourceWaitingTime());
-            assertNotNull(queryStats.getTotalPlanningTime());
-            assertNull(queryStats.getFinishingTime());
-        }
-        else if (queryInfo.getState() == FINISHING) {
-            assertNotNull(queryStats.getResourceWaitingTime());
-            assertNotNull(queryStats.getTotalPlanningTime());
-            assertNull(queryStats.getFinishingTime());
-        }
-        else {
-            assertNotNull(queryStats.getResourceWaitingTime());
-            assertNotNull(queryStats.getTotalPlanningTime());
-            assertNotNull(queryStats.getFinishingTime());
-        }
+        assertNotNull(queryStats.getTotalPlanningTime());
+        assertNotNull(queryStats.getFinishingTime());
 
         assertNotNull(queryStats.getCreateTime());
         if (queryInfo.getState() == QUEUED || queryInfo.getState() == WAITING_FOR_RESOURCES) {
