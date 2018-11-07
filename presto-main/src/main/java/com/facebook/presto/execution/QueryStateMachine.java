@@ -471,12 +471,12 @@ public class QueryStateMachine
 
                 queryStateTimer.getElapsedTime(),
                 queryStateTimer.getQueuedTime(),
-                queryStateTimer.getResourceWaitingTime().orElse(null),
+                queryStateTimer.getResourceWaitingTime(),
                 queryStateTimer.getExecutionTime(),
-                queryStateTimer.getAnalysisTime().orElse(null),
-                queryStateTimer.getDistributedPlanningTime().orElse(null),
-                queryStateTimer.getPlanningTime().orElse(null),
-                queryStateTimer.getFinishingTime().orElse(null),
+                queryStateTimer.getAnalysisTime(),
+                queryStateTimer.getDistributedPlanningTime(),
+                queryStateTimer.getPlanningTime(),
+                queryStateTimer.getFinishingTime(),
 
                 totalTasks,
                 runningTasks,

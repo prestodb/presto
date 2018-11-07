@@ -192,19 +192,19 @@ class QueryStateTimer
         return getElapsedTime();
     }
 
-    public Optional<Duration> getResourceWaitingTime()
+    public Duration getResourceWaitingTime()
     {
-        return Optional.ofNullable(resourceWaitingTime.get());
+        return getDuration(resourceWaitingTime, beginResourceWaitingNanos);
     }
 
-    public Optional<Duration> getPlanningTime()
+    public Duration getPlanningTime()
     {
-        return Optional.ofNullable(planningTime.get());
+        return getDuration(planningTime, beginPlanningNanos);
     }
 
-    public Optional<Duration> getFinishingTime()
+    public Duration getFinishingTime()
     {
-        return Optional.ofNullable(finishingTime.get());
+        return getDuration(finishingTime, beginFinishingNanos);
     }
 
     public Duration getExecutionTime()
@@ -217,14 +217,14 @@ class QueryStateTimer
         return toDateTime(endNanos);
     }
 
-    public Optional<Duration> getAnalysisTime()
+    public Duration getAnalysisTime()
     {
-        return Optional.ofNullable(analysisTime.get());
+        return getDuration(analysisTime, beginAnalysisNanos);
     }
 
-    public Optional<Duration> getDistributedPlanningTime()
+    public Duration getDistributedPlanningTime()
     {
-        return Optional.ofNullable(distributedPlanningTime.get());
+        return getDuration(distributedPlanningTime, beginDistributedPlanningNanos);
     }
 
     public DateTime getLastHeartbeat()

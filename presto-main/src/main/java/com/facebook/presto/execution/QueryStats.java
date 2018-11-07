@@ -154,14 +154,14 @@ public class QueryStats
         this.lastHeartbeat = requireNonNull(lastHeartbeat, "lastHeartbeat is null");
         this.endTime = endTime;
 
-        this.elapsedTime = elapsedTime;
-        this.queuedTime = queuedTime;
-        this.resourceWaitingTime = resourceWaitingTime;
+        this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
+        this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
+        this.resourceWaitingTime = requireNonNull(resourceWaitingTime, "resourceWaitingTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
-        this.analysisTime = analysisTime;
-        this.distributedPlanningTime = distributedPlanningTime;
-        this.totalPlanningTime = totalPlanningTime;
-        this.finishingTime = finishingTime;
+        this.analysisTime = requireNonNull(analysisTime, "analysisTime is null");
+        this.distributedPlanningTime = requireNonNull(distributedPlanningTime, "distributedPlanningTime is null");
+        this.totalPlanningTime = requireNonNull(totalPlanningTime, "totalPlanningTime is null");
+        this.finishingTime = requireNonNull(finishingTime, "finishingTime is null");
 
         checkArgument(totalTasks >= 0, "totalTasks is negative");
         this.totalTasks = totalTasks;
@@ -225,8 +225,8 @@ public class QueryStats
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
-                null,
-                null,
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 0,
@@ -300,10 +300,6 @@ public class QueryStats
     @JsonProperty
     public Duration getQueuedTime()
     {
-        if (queuedTime == null) {
-            // counter-intuitively, this means that the query is still queued
-            return elapsedTime;
-        }
         return queuedTime;
     }
 
