@@ -57,6 +57,7 @@ public final class SessionRepresentation
     private final ResourceEstimates resourceEstimates;
     private final Map<String, String> systemProperties;
     private final Map<ConnectorId, Map<String, String>> catalogProperties;
+    private final Map<String, Map<String, String>> unprocessedCatalogProperties;
     private final Map<String, String> preparedStatements;
 
     @JsonCreator
@@ -82,6 +83,7 @@ public final class SessionRepresentation
             @JsonProperty("startTime") long startTime,
             @JsonProperty("systemProperties") Map<String, String> systemProperties,
             @JsonProperty("catalogProperties") Map<ConnectorId, Map<String, String>> catalogProperties,
+            @JsonProperty("unprocessedCatalogProperties") Map<String, Map<String, String>> unprocessedCatalogProperties,
             @JsonProperty("preparedStatements") Map<String, String> preparedStatements)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
@@ -111,6 +113,12 @@ public final class SessionRepresentation
             catalogPropertiesBuilder.put(entry.getKey(), ImmutableMap.copyOf(entry.getValue()));
         }
         this.catalogProperties = catalogPropertiesBuilder.build();
+
+        ImmutableMap.Builder<String, Map<String, String>> unprocessedCatalogPropertiesBuilder = ImmutableMap.builder();
+        for (Entry<String, Map<String, String>> entry : unprocessedCatalogProperties.entrySet()) {
+            unprocessedCatalogPropertiesBuilder.put(entry.getKey(), ImmutableMap.copyOf(entry.getValue()));
+        }
+        this.unprocessedCatalogProperties = unprocessedCatalogPropertiesBuilder.build();
     }
 
     @JsonProperty
@@ -240,6 +248,12 @@ public final class SessionRepresentation
     }
 
     @JsonProperty
+    public Map<String, Map<String, String>> getUnprocessedCatalogProperties()
+    {
+        return unprocessedCatalogProperties;
+    }
+
+    @JsonProperty
     public Map<String, String> getPreparedStatements()
     {
         return preparedStatements;
@@ -268,7 +282,7 @@ public final class SessionRepresentation
                 startTime,
                 systemProperties,
                 catalogProperties,
-                ImmutableMap.of(),
+                unprocessedCatalogProperties,
                 sessionPropertyManager,
                 preparedStatements);
     }

@@ -56,6 +56,7 @@ import org.joda.time.DateTime;
 
 import javax.inject.Inject;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -332,14 +333,21 @@ public class QueryMonitor
 
     private static Map<String, String> mergeSessionAndCatalogProperties(SessionRepresentation session)
     {
-        ImmutableMap.Builder<String, String> mergedProperties = ImmutableMap.builder();
-        mergedProperties.putAll(session.getSystemProperties());
+        Map<String, String> mergedProperties = new LinkedHashMap<>(session.getSystemProperties());
+
+        // Either processed or unprocessed catalog properties, but not both.  Instead of trying to enforces this while
+        // firing events, allow both to be set and if there is a duplicate favor the processed properties.
+        for (Map.Entry<String, Map<String, String>> catalogEntry : session.getUnprocessedCatalogProperties().entrySet()) {
+            for (Map.Entry<String, String> entry : catalogEntry.getValue().entrySet()) {
+                mergedProperties.put(catalogEntry.getKey() + "." + entry.getKey(), entry.getValue());
+            }
+        }
         for (Map.Entry<ConnectorId, Map<String, String>> catalogEntry : session.getCatalogProperties().entrySet()) {
             for (Map.Entry<String, String> entry : catalogEntry.getValue().entrySet()) {
                 mergedProperties.put(catalogEntry.getKey().getCatalogName() + "." + entry.getKey(), entry.getValue());
             }
         }
-        return mergedProperties.build();
+        return ImmutableMap.copyOf(mergedProperties);
     }
 
     private static void logQueryTimeline(QueryInfo queryInfo)
