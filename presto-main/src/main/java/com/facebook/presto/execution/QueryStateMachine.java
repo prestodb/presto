@@ -427,6 +427,20 @@ public class QueryStateMachine
             elapsedTime = nanosSince(createNanos);
         }
 
+        Duration executionTime;
+        if (totalPlanningStartNanos.get() == null) {
+            // not executing yet
+            executionTime = new Duration(0, MILLISECONDS);
+        }
+        else if (endNanos.get() == 0) {
+            // still executing
+            executionTime = nanosSince(totalPlanningStartNanos.get());
+        }
+        else {
+            // done executing
+            executionTime = succinctNanos(endNanos.get() - totalPlanningStartNanos.get());
+        }
+
         int totalTasks = 0;
         int runningTasks = 0;
         int completedTasks = 0;
@@ -520,6 +534,7 @@ public class QueryStateMachine
                 elapsedTime.convertToMostSuccinctTimeUnit(),
                 queuedTime.get(),
                 resourceWaitingTime.get(),
+                executionTime,
                 analysisTime.get(),
                 distributedPlanningTime.get(),
                 totalPlanningTime.get(),
@@ -710,6 +725,7 @@ public class QueryStateMachine
         resourceWaitingStartNanos.compareAndSet(null, tickerNanos());
         resourceWaitingTime.compareAndSet(null, nanosSince(resourceWaitingStartNanos.get()).convertToMostSuccinctTimeUnit());
         totalPlanningStartNanos.compareAndSet(null, tickerNanos());
+        executionStartTime.compareAndSet(null, DateTime.now());
         return queryState.setIf(PLANNING, currentState -> currentState.ordinal() < PLANNING.ordinal());
     }
 
@@ -720,6 +736,7 @@ public class QueryStateMachine
         resourceWaitingTime.compareAndSet(null, nanosSince(resourceWaitingStartNanos.get()).convertToMostSuccinctTimeUnit());
         totalPlanningStartNanos.compareAndSet(null, tickerNanos());
         totalPlanningTime.compareAndSet(null, nanosSince(totalPlanningStartNanos.get()));
+        executionStartTime.compareAndSet(null, DateTime.now());
 
         return queryState.setIf(STARTING, currentState -> currentState.ordinal() < STARTING.ordinal());
     }
@@ -1021,6 +1038,7 @@ public class QueryStateMachine
                 queryStats.getElapsedTime(),
                 queryStats.getQueuedTime(),
                 queryStats.getResourceWaitingTime(),
+                queryStats.getExecutionTime(),
                 queryStats.getAnalysisTime(),
                 queryStats.getDistributedPlanningTime(),
                 queryStats.getTotalPlanningTime(),

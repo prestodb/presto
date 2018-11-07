@@ -34,11 +34,9 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
-import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class QueryStats
 {
@@ -50,6 +48,7 @@ public class QueryStats
 
     private final Duration elapsedTime;
     private final Duration queuedTime;
+    private final Duration executionTime;
     private final Duration resourceWaitingTime;
     private final Duration analysisTime;
     private final Duration distributedPlanningTime;
@@ -105,6 +104,7 @@ public class QueryStats
             @JsonProperty("elapsedTime") Duration elapsedTime,
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("resourceWaitingTime") Duration resourceWaitingTime,
+            @JsonProperty("executionTime") Duration executionTime,
             @JsonProperty("analysisTime") Duration analysisTime,
             @JsonProperty("distributedPlanningTime") Duration distributedPlanningTime,
             @JsonProperty("totalPlanningTime") Duration totalPlanningTime,
@@ -157,6 +157,7 @@ public class QueryStats
         this.elapsedTime = elapsedTime;
         this.queuedTime = queuedTime;
         this.resourceWaitingTime = resourceWaitingTime;
+        this.executionTime = requireNonNull(executionTime, "executionTime is null");
         this.analysisTime = analysisTime;
         this.distributedPlanningTime = distributedPlanningTime;
         this.totalPlanningTime = totalPlanningTime;
@@ -220,6 +221,7 @@ public class QueryStats
                 now,
                 now,
                 now,
+                new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -308,12 +310,7 @@ public class QueryStats
     @JsonProperty
     public Duration getExecutionTime()
     {
-        if (queuedTime == null) {
-            // counter-intuitively, this means that the query is still queued
-            return new Duration(0, NANOSECONDS);
-        }
-        long executionNanos = (long) elapsedTime.getValue(NANOSECONDS) - (long) queuedTime.getValue(NANOSECONDS);
-        return succinctNanos(Math.max(0, executionNanos));
+        return executionTime;
     }
 
     @JsonProperty
