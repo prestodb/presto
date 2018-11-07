@@ -19,7 +19,6 @@ import com.facebook.presto.operator.TableWriterOperator;
 import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
@@ -95,51 +94,6 @@ public class QueryStats
     private final List<StageGcStatistics> stageGcStatistics;
 
     private final List<OperatorStats> operatorSummaries;
-
-    @VisibleForTesting
-    public QueryStats()
-    {
-        this.createTime = null;
-        this.executionStartTime = null;
-        this.lastHeartbeat = null;
-        this.endTime = null;
-        this.elapsedTime = null;
-        this.queuedTime = null;
-        this.resourceWaitingTime = null;
-        this.analysisTime = null;
-        this.distributedPlanningTime = null;
-        this.totalPlanningTime = null;
-        this.finishingTime = null;
-        this.totalTasks = 0;
-        this.runningTasks = 0;
-        this.blockedDrivers = 0;
-        this.completedTasks = 0;
-        this.totalDrivers = 0;
-        this.queuedDrivers = 0;
-        this.runningDrivers = 0;
-        this.completedDrivers = 0;
-        this.cumulativeUserMemory = 0.0;
-        this.userMemoryReservation = null;
-        this.totalMemoryReservation = null;
-        this.peakUserMemoryReservation = null;
-        this.peakTotalMemoryReservation = null;
-        this.peakTaskTotalMemory = null;
-        this.scheduled = false;
-        this.totalScheduledTime = null;
-        this.totalCpuTime = null;
-        this.totalBlockedTime = null;
-        this.fullyBlocked = false;
-        this.blockedReasons = ImmutableSet.of();
-        this.rawInputDataSize = null;
-        this.rawInputPositions = 0;
-        this.processedInputDataSize = null;
-        this.processedInputPositions = 0;
-        this.outputDataSize = null;
-        this.outputPositions = 0;
-        this.physicalWrittenDataSize = null;
-        this.stageGcStatistics = null;
-        this.operatorSummaries = null;
-    }
 
     @JsonCreator
     public QueryStats(
