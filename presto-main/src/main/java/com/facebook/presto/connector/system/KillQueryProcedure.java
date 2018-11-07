@@ -28,6 +28,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.NoSuchElementException;
 
 import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
+import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -88,6 +89,12 @@ public class KillQueryProcedure
     public static PrestoException createKillQueryException(String message)
     {
         return new PrestoException(ADMINISTRATIVELY_KILLED, "Query killed. " +
+                (isNullOrEmpty(message) ? "No message provided." : "Message: " + message));
+    }
+
+    public static PrestoException createPreemptQueryException(String message)
+    {
+        return new PrestoException(ADMINISTRATIVELY_PREEMPTED, "Query preempted. " +
                 (isNullOrEmpty(message) ? "No message provided." : "Message: " + message));
     }
 
