@@ -28,7 +28,7 @@ public class TestJdbcColumnHandle
     @Test
     public void testJsonRoundTrip()
     {
-        assertJsonRoundTrip(COLUMN_CODEC, new JdbcColumnHandle("connectorId", "columnName", JDBC_VARCHAR, VARCHAR));
+        assertJsonRoundTrip(COLUMN_CODEC, new JdbcColumnHandle("connectorId", "columnName", JDBC_VARCHAR, VARCHAR, true));
     }
 
     @Test
@@ -36,20 +36,20 @@ public class TestJdbcColumnHandle
     {
         EquivalenceTester.equivalenceTester()
                 .addEquivalentGroup(
-                        new JdbcColumnHandle("connectorId", "columnName", JDBC_VARCHAR, VARCHAR),
-                        new JdbcColumnHandle("connectorId", "columnName", JDBC_VARCHAR, VARCHAR),
-                        new JdbcColumnHandle("connectorId", "columnName", JDBC_BIGINT, BIGINT),
-                        new JdbcColumnHandle("connectorId", "columnName", JDBC_VARCHAR, VARCHAR))
+                        new JdbcColumnHandle("connectorId", "columnName", JDBC_VARCHAR, VARCHAR, true),
+                        new JdbcColumnHandle("connectorId", "columnName", JDBC_VARCHAR, VARCHAR, true),
+                        new JdbcColumnHandle("connectorId", "columnName", JDBC_BIGINT, BIGINT, true),
+                        new JdbcColumnHandle("connectorId", "columnName", JDBC_VARCHAR, VARCHAR, true))
                 .addEquivalentGroup(
-                        new JdbcColumnHandle("connectorIdX", "columnName", JDBC_VARCHAR, VARCHAR),
-                        new JdbcColumnHandle("connectorIdX", "columnName", JDBC_VARCHAR, VARCHAR),
-                        new JdbcColumnHandle("connectorIdX", "columnName", JDBC_BIGINT, BIGINT),
-                        new JdbcColumnHandle("connectorIdX", "columnName", JDBC_VARCHAR, VARCHAR))
+                        new JdbcColumnHandle("connectorIdX", "columnName", JDBC_VARCHAR, VARCHAR, true),
+                        new JdbcColumnHandle("connectorIdX", "columnName", JDBC_VARCHAR, VARCHAR, true),
+                        new JdbcColumnHandle("connectorIdX", "columnName", JDBC_BIGINT, BIGINT, true),
+                        new JdbcColumnHandle("connectorIdX", "columnName", JDBC_VARCHAR, VARCHAR, true))
                 .addEquivalentGroup(
-                        new JdbcColumnHandle("connectorId", "columnNameX", JDBC_VARCHAR, VARCHAR),
-                        new JdbcColumnHandle("connectorId", "columnNameX", JDBC_VARCHAR, VARCHAR),
-                        new JdbcColumnHandle("connectorId", "columnNameX", JDBC_BIGINT, BIGINT),
-                        new JdbcColumnHandle("connectorId", "columnNameX", JDBC_VARCHAR, VARCHAR))
+                        new JdbcColumnHandle("connectorId", "columnNameX", JDBC_VARCHAR, VARCHAR, true),
+                        new JdbcColumnHandle("connectorId", "columnNameX", JDBC_VARCHAR, VARCHAR, true),
+                        new JdbcColumnHandle("connectorId", "columnNameX", JDBC_BIGINT, BIGINT, true),
+                        new JdbcColumnHandle("connectorId", "columnNameX", JDBC_VARCHAR, VARCHAR, true))
                 .check();
     }
 }

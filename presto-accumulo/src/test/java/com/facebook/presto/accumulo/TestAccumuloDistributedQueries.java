@@ -43,6 +43,12 @@ public class TestAccumuloDistributedQueries
     }
 
     @Override
+    protected boolean supportsNotNullColumns()
+    {
+        return false;
+    }
+
+    @Override
     public void testAddColumn()
     {
         // Adding columns via SQL are not supported until adding columns with comments are supported

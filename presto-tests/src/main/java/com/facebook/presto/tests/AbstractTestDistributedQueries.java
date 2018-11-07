@@ -82,6 +82,11 @@ public abstract class AbstractTestDistributedQueries
         return true;
     }
 
+    protected boolean supportsNotNullColumns()
+    {
+        return true;
+    }
+
     @Test
     public void testSetSession()
     {
@@ -331,6 +336,45 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate(session, "DROP TABLE " + table);
 
         assertFalse(getQueryRunner().tableExists(session, table));
+    }
+
+    @Test
+    public void testInsertIntoNotNullColumn()
+    {
+        skipTestUnless(supportsNotNullColumns());
+
+        String catalog = getSession().getCatalog().get();
+        String createTableStatement = "CREATE TABLE " + catalog + ".tpch.test_not_null_with_insert (\n" +
+                "   column_a date,\n" +
+                "   column_b date NOT NULL\n" +
+                ")";
+        assertUpdate("CREATE TABLE test_not_null_with_insert (column_a DATE, column_b DATE NOT NULL)");
+        assertQuery(
+                "SHOW CREATE TABLE test_not_null_with_insert",
+                "VALUES '" + createTableStatement + "'");
+
+        assertQueryFails("INSERT INTO test_not_null_with_insert (column_a) VALUES (date '2012-12-31')", "(?s).*column_b.*null.*");
+        assertQueryFails("INSERT INTO test_not_null_with_insert (column_a, column_b) VALUES (date '2012-12-31', null)", "(?s).*column_b.*null.*");
+
+        assertUpdate("ALTER TABLE test_not_null_with_insert ADD COLUMN column_c BIGINT NOT NULL");
+        assertQuery(
+                "SHOW CREATE TABLE test_not_null_with_insert",
+                "VALUES 'CREATE TABLE " + catalog + ".tpch.test_not_null_with_insert (\n" +
+                        "   column_a date,\n" +
+                        "   column_b date NOT NULL,\n" +
+                        "   column_c bigint NOT NULL\n" +
+                        ")'");
+
+        assertQueryFails("INSERT INTO test_not_null_with_insert (column_b) VALUES (date '2012-12-31')", "(?s).*column_c.*null.*");
+        assertQueryFails("INSERT INTO test_not_null_with_insert (column_b, column_c) VALUES (date '2012-12-31', null)", "(?s).*column_c.*null.*");
+
+        assertUpdate("INSERT INTO test_not_null_with_insert (column_b, column_c) VALUES (date '2012-12-31', 1)", 1);
+        assertUpdate("INSERT INTO test_not_null_with_insert (column_a, column_b, column_c) VALUES (date '2013-01-01', date '2013-01-02', 2)", 1);
+        assertQuery(
+                "SELECT * FROM test_not_null_with_insert",
+                "VALUES ( NULL, CAST ('2012-12-31' AS DATE), 1 ), ( CAST ('2013-01-01' AS DATE), CAST ('2013-01-02' AS DATE), 2 );");
+
+        assertUpdate("DROP TABLE test_not_null_with_insert");
     }
 
     @Test

@@ -32,6 +32,12 @@ public class TestHiveDistributedQueries
     }
 
     @Override
+    protected boolean supportsNotNullColumns()
+    {
+        return false;
+    }
+
+    @Override
     public void testDelete()
     {
         // Hive connector currently does not support row-by-row delete

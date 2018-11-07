@@ -72,6 +72,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
+import static java.sql.ResultSetMetaData.columnNullable;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -208,7 +209,8 @@ public class BaseJdbcClient
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
                         String columnName = resultSet.getString("COLUMN_NAME");
-                        columns.add(new JdbcColumnHandle(connectorId, columnName, typeHandle, columnMapping.get().getType()));
+                        boolean nullable = columnNullable == resultSet.getInt("NULLABLE");
+                        columns.add(new JdbcColumnHandle(connectorId, columnName, typeHandle, columnMapping.get().getType(), nullable));
                     }
                 }
                 if (columns.isEmpty()) {
@@ -364,6 +366,9 @@ public class BaseJdbcClient
                 .append(quoted(columnName))
                 .append(" ")
                 .append(toSqlType(column.getType()));
+        if (!column.isNullable()) {
+            sb.append(" NOT NULL");
+        }
         return sb.toString();
     }
 

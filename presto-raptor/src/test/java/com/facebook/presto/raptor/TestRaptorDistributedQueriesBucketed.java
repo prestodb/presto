@@ -24,4 +24,10 @@ public class TestRaptorDistributedQueriesBucketed
     {
         super(() -> createRaptorQueryRunner(ImmutableMap.of(), true, true));
     }
+
+    @Override
+    protected boolean supportsNotNullColumns()
+    {
+        return false;
+    }
 }
