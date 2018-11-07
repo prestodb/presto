@@ -151,6 +151,28 @@
 
     <build>
         <plugins>
+            <!-- workaround for MSHADE-195 -->
+            <plugin>
+                <artifactId>maven-source-plugin</artifactId>
+                <executions>
+                    <!-- disable the default execution -->
+                    <execution>
+                        <id>attach-sources</id>
+                        <configuration>
+                            <skipSource>true</skipSource>
+                        </configuration>
+                    </execution>
+                    <!-- enable only the test jar; the sources jar is attached by the shade plugin -->
+                    <execution>
+                        <id>test-only</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>test-jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
