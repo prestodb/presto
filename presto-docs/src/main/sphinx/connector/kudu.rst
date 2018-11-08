@@ -103,7 +103,7 @@ Example
 
 On creating a Kudu table you must/can specify addition information about
 the primary key, encoding, and compression of columns and hash or range
-partitioning, and the number of replicas. Details see in section
+partitioning. Details see in section
 `Create Table`_.
 
 -  The table can be described using
@@ -324,13 +324,21 @@ Simple Example:
       details varchar WITH (nullable = true, encoding = 'plain')
     ) WITH (
       partition_by_hash_columns = ARRAY['user_id'],
-      partition_by_hash_buckets = 5
+      partition_by_hash_buckets = 5,
+      number_of_replicas = 3
     );
 
-Here the table is partitioned into five partitions by hash values of the column ``user_id``.
-Note that the primary key consists of ``user_id`` and ``event_name``.
+The primary key consists of ``user_id`` and ``event_name``, the table is partitioned into
+five partitions by hash values of the column ``user_id``, and the ``number_of_replicas`` is
+explicitly set to 3.
+
 The primary key columns must always be the first columns of the column list.
 All columns used in partitions must be part of the primary key.
+
+The table property ``number_of_replicas`` is optional. It defines the
+number of tablet replicas and must be an odd number. If it is not specified,
+the default replication factor from the Kudu master configuration is used.
+
 Kudu supports two different kinds of partitioning: hash and range partitioning.
 Hash partitioning distributes rows by hash value into one of many buckets.
 Range partitions distributes rows using a totally-ordered range partition key.
