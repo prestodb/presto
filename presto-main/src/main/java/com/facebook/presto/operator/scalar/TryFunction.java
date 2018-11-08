@@ -24,6 +24,8 @@ import com.facebook.presto.spi.function.TypeParameterSpecialization;
 import com.facebook.presto.sql.gen.lambda.LambdaFunctionInterface;
 import io.airlift.slice.Slice;
 
+import java.util.function.Supplier;
+
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -143,6 +145,17 @@ public final class TryFunction
             extends LambdaFunctionInterface
     {
         Block apply();
+    }
+
+    public static <T> T evaluate(Supplier<T> supplier, T defaultValue)
+    {
+        try {
+            return supplier.get();
+        }
+        catch (PrestoException e) {
+            propagateIfUnhandled(e);
+            return defaultValue;
+        }
     }
 
     private static void propagateIfUnhandled(PrestoException e)

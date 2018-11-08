@@ -20,6 +20,7 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayoutResult;
+import com.facebook.presto.operator.scalar.TryFunction;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.predicate.NullableValue;
@@ -368,8 +369,11 @@ public class PickTableLayout
             }
             LookupSymbolResolver inputs = new LookupSymbolResolver(assignments, bindings);
 
+            // Skip pruning if evaluation fails in a recoverable way. Failing here can cause
+            // spurious query failures for partitions that would otherwise be filtered out.
+            Object optimized = TryFunction.evaluate(() -> evaluator.optimize(inputs), true);
+
             // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
-            Object optimized = evaluator.optimize(inputs);
             if (Boolean.FALSE.equals(optimized) || optimized == null || optimized instanceof NullLiteral) {
                 return false;
             }

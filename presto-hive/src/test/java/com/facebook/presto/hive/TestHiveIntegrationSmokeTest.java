@@ -3176,6 +3176,20 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(createSql, "Bucketing/Partitioning columns not supported when Avro schema url is set");
     }
 
+    @Test
+    public void testPrunePartitionFailure()
+    {
+        assertUpdate("CREATE TABLE test_prune_failure\n" +
+                "WITH (partitioned_by = ARRAY['p']) AS\n" +
+                "SELECT 123 x, 'abc' p", 1);
+
+        assertQueryReturnsEmptyResult("" +
+                "SELECT * FROM test_prune_failure\n" +
+                "WHERE x < 0 AND cast(p AS int) > 0");
+
+        assertUpdate("DROP TABLE test_prune_failure");
+    }
+
     private Session getParallelWriteSession()
     {
         return Session.builder(getSession())
