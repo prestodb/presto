@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static io.airlift.testing.Assertions.assertContains;
@@ -50,7 +51,7 @@ public class TestHiveConnectorFactory
         HiveConnectorFactory connectorFactory = new HiveConnectorFactory(
                 "hive-test",
                 HiveConnector.class.getClassLoader(),
-                null);
+                Optional.empty());
 
         Map<String, String> config = ImmutableMap.<String, String>builder()
                 .put("hive.metastore.uri", metastoreUri)
