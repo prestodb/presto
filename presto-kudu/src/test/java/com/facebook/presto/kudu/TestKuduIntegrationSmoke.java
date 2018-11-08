@@ -22,8 +22,11 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.regex.Pattern;
+
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.tpch.TpchTable.ORDERS;
+import static org.testng.Assert.assertTrue;
 
 public class TestKuduIntegrationSmoke
         extends AbstractTestIntegrationSmokeTest
@@ -68,6 +71,32 @@ public class TestKuduIntegrationSmoke
                 .row("shippriority", "integer", "", "")
                 .row("comment", "varchar", "", "").build();
         assertEquals(filteredActual, expectedColumns, String.format("%s != %s", filteredActual, expectedColumns));
+    }
+
+    @Test
+    public void testShowCreateTable()
+    {
+        queryRunner.execute("CREATE TABLE IF NOT EXISTS test_show_create_table (\n" +
+                "id INT WITH (primary_key=true),\n" +
+                "user_name VARCHAR\n" +
+                ") WITH (\n" +
+                " partition_by_hash_columns = ARRAY['id'],\n" +
+                " partition_by_hash_buckets = 2," +
+                " number_of_replicas = 1\n" +
+                ")");
+
+        MaterializedResult result = queryRunner.execute("SHOW CREATE TABLE test_show_create_table");
+        String sqlStatement = (String) result.getOnlyValue();
+        String tableProperties = sqlStatement.split("\\)\\s*WITH\\s*\\(")[1];
+        assertTableProperty(tableProperties, "number_of_replicas", "1");
+        assertTableProperty(tableProperties, "partition_by_hash_columns", Pattern.quote("ARRAY['id']"));
+        assertTableProperty(tableProperties, "partition_by_hash_buckets", "2");
+    }
+
+    private void assertTableProperty(String tableProperties, String key, String regexValue)
+    {
+        assertTrue(Pattern.compile(key + "\\s*=\\s*" + regexValue + ",?\\s+").matcher(tableProperties).find(),
+                "Not found: " + key + " = " + regexValue + " in " + tableProperties);
     }
 
     @AfterClass(alwaysRun = true)

@@ -65,7 +65,7 @@ public final class KuduTableProperties
     public static final String PARTITION_BY_HASH_BUCKETS_2 = "partition_by_second_hash_buckets";
     public static final String PARTITION_BY_RANGE_COLUMNS = "partition_by_range_columns";
     public static final String RANGE_PARTITIONS = "range_partitions";
-    public static final String NUM_REPLICAS = "num_replicas";
+    public static final String NUM_REPLICAS = "number_of_replicas";
     public static final String PRIMARY_KEY = "primary_key";
     public static final String NULLABLE = "nullable";
     public static final String ENCODING = "encoding";
@@ -321,7 +321,7 @@ public final class KuduTableProperties
             String partitionRangesValue = mapper.writeValueAsString(rangePartitionList);
             properties.put(RANGE_PARTITIONS, partitionRangesValue);
 
-            // currently no access to numReplicas?
+            properties.put(NUM_REPLICAS, table.getNumReplicas());
 
             return properties;
         }
