@@ -13,29 +13,14 @@
  */
 package com.facebook.presto.sql.query;
 
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(QueryAssertionsExtension.class)
 public class TestGroupingSets
 {
-    private QueryAssertions assertions;
-
-    @BeforeClass
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void teardown()
-    {
-        assertions.close();
-        assertions = null;
-    }
-
     @Test
-    public void testPredicateOverGroupingKeysWithEmptyGroupingSet()
+    public void testPredicateOverGroupingKeysWithEmptyGroupingSet(QueryAssertions assertions)
     {
         assertions.assertQuery(
                 "WITH t AS (" +
@@ -52,7 +37,7 @@ public class TestGroupingSets
     }
 
     @Test
-    public void testDistinctWithMixedReferences()
+    public void testDistinctWithMixedReferences(QueryAssertions assertions)
     {
         assertions.assertQuery("" +
                         "SELECT a " +

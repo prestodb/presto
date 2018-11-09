@@ -13,37 +13,17 @@
  */
 package com.facebook.presto.sql.query;
 
-import com.facebook.presto.Session;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
+@ExtendWith(TestPrecomputedHashes.PrecomputedHashesQueryAssertionsExtension.class)
 public class TestPrecomputedHashes
 {
-    private QueryAssertions assertions;
-
-    @BeforeClass
-    public void init()
-    {
-        Session session = testSessionBuilder()
-                .setSystemProperty(OPTIMIZE_HASH_GENERATION, "true")
-                .build();
-
-        assertions = new QueryAssertions(session);
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void teardown()
-    {
-        assertions.close();
-        assertions = null;
-    }
-
     @Test
-    public void testDistinctLimit()
+    public void testDistinctLimit(QueryAssertions assertions)
     {
         // issue #11593
         assertions.assertQuery(
@@ -57,5 +37,16 @@ public class TestPrecomputedHashes
                         ")" +
                         "GROUP BY a",
                 "VALUES (1)");
+    }
+
+    public static class PrecomputedHashesQueryAssertionsExtension
+            extends QueryAssertionsExtension
+    {
+        public PrecomputedHashesQueryAssertionsExtension()
+        {
+            super(() -> new QueryAssertions(testSessionBuilder()
+                    .setSystemProperty(OPTIMIZE_HASH_GENERATION, "true")
+                    .build()));
+        }
     }
 }

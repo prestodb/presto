@@ -13,20 +13,23 @@
  */
 package com.facebook.presto.sql.query;
 
-import org.testng.annotations.BeforeClass;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import static com.facebook.presto.SystemSessionProperties.USE_MARK_DISTINCT;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
+@ExtendWith(TestDistinctAggregationsNoMarkDistinct.WithDisabledMarkDistinctQueryAssertionExtension.class)
 public class TestDistinctAggregationsNoMarkDistinct
-        extends TestDistinctAggregations
+        implements BaseDistinctAggregationsTest
 {
-    @BeforeClass
-    @Override
-    public void init()
+    public static class WithDisabledMarkDistinctQueryAssertionExtension
+            extends QueryAssertionsExtension
     {
-        assertions = new QueryAssertions(testSessionBuilder()
-                .setSystemProperty(USE_MARK_DISTINCT, "false")
-                .build());
+        public WithDisabledMarkDistinctQueryAssertionExtension()
+        {
+            super(() -> new QueryAssertions(testSessionBuilder()
+                    .setSystemProperty(USE_MARK_DISTINCT, "false")
+                    .build()));
+        }
     }
 }

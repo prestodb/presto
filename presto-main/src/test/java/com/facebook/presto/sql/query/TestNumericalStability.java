@@ -13,29 +13,14 @@
  */
 package com.facebook.presto.sql.query;
 
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(QueryAssertionsExtension.class)
 public class TestNumericalStability
 {
-    private QueryAssertions assertions;
-
-    @BeforeClass
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void teardown()
-    {
-        assertions.close();
-        assertions = null;
-    }
-
     @Test
-    public void testVariance()
+    public void testVariance(QueryAssertions assertions)
     {
         assertions.assertQuery(
                 "SELECT CAST(VAR_SAMP(x + exp(30))/VAR_SAMP(x) AS DECIMAL(3,2)) " +
@@ -44,7 +29,7 @@ public class TestNumericalStability
     }
 
     @Test
-    public void testCovariance()
+    public void testCovariance(QueryAssertions assertions)
     {
         assertions.assertQuery(
                 "SELECT CAST(COVAR_SAMP(x + exp(30), x + exp(30))/VAR_SAMP(x) AS DECIMAL(3,2)) " +
@@ -53,7 +38,7 @@ public class TestNumericalStability
     }
 
     @Test
-    public void testCorrelation()
+    public void testCorrelation(QueryAssertions assertions)
     {
         assertions.assertQuery(
                 "SELECT CAST(CORR(x + exp(30), x + exp(30)) AS DECIMAL(3,2)) " +
@@ -62,7 +47,7 @@ public class TestNumericalStability
     }
 
     @Test
-    public void testRegressionSlope()
+    public void testRegressionSlope(QueryAssertions assertions)
     {
         assertions.assertQuery(
                 "SELECT CAST(REGR_SLOPE((x + exp(30)) * 5 + 8, x + exp(30)) AS DECIMAL(3,2)) " +
@@ -71,7 +56,7 @@ public class TestNumericalStability
     }
 
     @Test
-    public void testRegressionIntercept()
+    public void testRegressionIntercept(QueryAssertions assertions)
     {
         assertions.assertQuery(
                 "SELECT CAST(REGR_INTERCEPT((x + exp(20)) * 5 + 8, x + exp(20)) AS DECIMAL(3,2)) " +

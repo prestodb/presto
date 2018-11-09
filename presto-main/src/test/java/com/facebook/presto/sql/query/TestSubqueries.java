@@ -22,9 +22,8 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.util.function.Consumer;
 
@@ -42,40 +41,29 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static org.testng.Assert.assertEquals;
 
+@ExtendWith(QueryAssertionsExtension.class)
 public class TestSubqueries
 {
     private static final String UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG = "line .*: Given correlated subquery is not supported";
 
-    private QueryAssertions assertions;
-
-    @BeforeClass
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void teardown()
-    {
-        assertions.close();
-        assertions = null;
-    }
-
     @Test
-    public void testCorrelatedExistsSubqueriesWithOrPredicateAndNull()
+    public void testCorrelatedExistsSubqueriesWithOrPredicateAndNull(QueryAssertions assertions)
     {
         assertExistsRewrittenToAggregationAboveJoin(
+                assertions,
+
                 "SELECT EXISTS(SELECT 1 FROM (VALUES null, 10) t(x) WHERE y > x OR y + 10 > x) FROM (values (11)) t2(y)",
                 "VALUES true",
                 false);
         assertExistsRewrittenToAggregationAboveJoin(
+                assertions,
                 "SELECT EXISTS(SELECT 1 FROM (VALUES null) t(x) WHERE y > x OR y + 10 > x) FROM (values (11)) t2(y)",
                 "VALUES false",
                 false);
     }
 
     @Test
-    public void testUnsupportedSubqueriesWithCoercions()
+    public void testUnsupportedSubqueriesWithCoercions(QueryAssertions assertions)
     {
         // coercion from subquery symbol type to correlation type
         assertions.assertFails(
@@ -88,7 +76,7 @@ public class TestSubqueries
     }
 
     @Test
-    public void testCorrelatedSubqueriesWithLimit()
+    public void testCorrelatedSubqueriesWithLimit(QueryAssertions assertions)
     {
         assertions.assertQuery(
                 "select (select t.a from (values 1, 2) t(a) where t.a=t2.b limit 1) from (values 1) t2(b)",
@@ -104,6 +92,7 @@ public class TestSubqueries
                 "select (select count(*) from (select t.a from (values 1, 1, null, 3) t(a) limit 1) t where t.a=t2.b) from (values 1, 2) t2(b)",
                 "VALUES BIGINT '1', BIGINT '0'");
         assertExistsRewrittenToAggregationBelowJoin(
+                assertions,
                 "select EXISTS(select 1 from (values 1, 1, 3) t(a) where t.a=t2.b limit 1) from (values 1, 2) t2(b)",
                 "VALUES true, false",
                 false);
@@ -112,6 +101,7 @@ public class TestSubqueries
                 "select (select count(*) from (values 1, 1, 3) t(a) where t.a=t2.b limit 1) from (values 1) t2(b)",
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         assertExistsRewrittenToAggregationBelowJoin(
+                assertions,
                 "SELECT EXISTS(SELECT 1 FROM (values ('x', 1)) u(x, cid) WHERE x = 'x' AND t.cid = cid LIMIT 1) " +
                         "FROM (values 1) t(cid)",
                 "VALUES true",
@@ -119,7 +109,7 @@ public class TestSubqueries
     }
 
     @Test
-    public void testCorrelatedSubqueriesWithGroupBy()
+    public void testCorrelatedSubqueriesWithGroupBy(QueryAssertions assertions)
     {
         // t.a is not a "constant" column, group by does not guarantee single row per correlated subquery
         assertions.assertFails(
@@ -129,14 +119,17 @@ public class TestSubqueries
                 "select (select count(*) from (values 1, 1, 2, 3, null) t(a) where t.a<t2.b GROUP BY t.a HAVING count(*) > 1) from (values 1, 2) t2(b)",
                 "VALUES null, BIGINT '2'");
         assertExistsRewrittenToAggregationBelowJoin(
+                assertions,
                 "select EXISTS(select 1 from (values 1, 1, 3) t(a) where t.a=t2.b GROUP BY t.a) from (values 1, 2) t2(b)",
                 "VALUES true, false",
                 false);
         assertExistsRewrittenToAggregationBelowJoin(
+                assertions,
                 "select EXISTS(select 1 from (values (1, 2), (1, 2), (null, null), (3, 3)) t(a, b) where t.a=t2.b GROUP BY t.a, t.b) from (values 1, 2) t2(b)",
                 "VALUES true, false",
                 true);
         assertExistsRewrittenToAggregationAboveJoin(
+                assertions,
                 "select EXISTS(select 1 from (values (1, 2), (1, 2), (null, null), (3, 3)) t(a, b) where t.a<t2.b GROUP BY t.a, t.b) from (values 1, 2) t2(b)",
                 "VALUES false, true",
                 true);
@@ -145,14 +138,17 @@ public class TestSubqueries
                 "select EXISTS(select 1 from (values (1, 1), (1, 1), (null, null), (3, 3)) t(a, b) where t.a+t.b<t2.b GROUP BY t.a) from (values 1, 2) t2(b)",
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         assertExistsRewrittenToAggregationAboveJoin(
+                assertions,
                 "select EXISTS(select 1 from (values (1, 1), (1, 1), (null, null), (3, 3)) t(a, b) where t.a+t.b<t2.b GROUP BY t.a, t.b) from (values 1, 4) t2(b)",
                 "VALUES false, true",
                 true);
         assertExistsRewrittenToAggregationBelowJoin(
+                assertions,
                 "select EXISTS(select 1 from (values (1, 2), (1, 2), (null, null), (3, 3)) t(a, b) where t.a=t2.b GROUP BY t.b) from (values 1, 2) t2(b)",
                 "VALUES true, false",
                 true);
         assertExistsRewrittenToAggregationBelowJoin(
+                assertions,
                 "select EXISTS(select * from (values 1, 1, 2, 3) t(a) where t.a=t2.b GROUP BY t.a HAVING count(*) > 1) from (values 1, 2) t2(b)",
                 "VALUES true, false",
                 false);
@@ -161,13 +157,14 @@ public class TestSubqueries
                         " from (values 1, 2) t2(b)",
                 "VALUES true, false");
         assertExistsRewrittenToAggregationBelowJoin(
+                assertions,
                 "select EXISTS(select * from (values 1, 1, 2, 3) t(a) where t.a=t2.b GROUP BY (t.a) HAVING count(*) > 1) from (values 1, 2) t2(b)",
                 "VALUES true, false",
                 false);
     }
 
     @Test
-    public void testCorrelatedLateralWithGroupBy()
+    public void testCorrelatedLateralWithGroupBy(QueryAssertions assertions)
     {
         assertions.assertQuery(
                 "select * from (values 1, 2) t2(b), LATERAL (select t.a from (values 1, 1, 3) t(a) where t.a=t2.b GROUP BY t.a)",
@@ -182,7 +179,7 @@ public class TestSubqueries
     }
 
     @Test
-    public void testLateralWithUnnest()
+    public void testLateralWithUnnest(QueryAssertions assertions)
     {
         assertions.assertFails(
                 "SELECT * FROM (VALUES ARRAY[1]) t(x), LATERAL (SELECT * FROM UNNEST(x))",
@@ -190,7 +187,7 @@ public class TestSubqueries
     }
 
     @Test
-    public void testCorrelatedScalarSubquery()
+    public void testCorrelatedScalarSubquery(QueryAssertions assertions)
     {
         assertions.assertQuery(
                 "SELECT * FROM (VALUES 1, 2) t2(b) WHERE (SELECT b) = 2",
@@ -198,14 +195,14 @@ public class TestSubqueries
     }
 
     @Test
-    public void testCorrelatedSubqueryWithExplicitCoercion()
+    public void testCorrelatedSubqueryWithExplicitCoercion(QueryAssertions assertions)
     {
         assertions.assertQuery(
                 "SELECT 1 FROM (VALUES 1, 2) t1(b) WHERE 1 = (SELECT cast(b as decimal(7,2)))",
                 "VALUES 1");
     }
 
-    private void assertExistsRewrittenToAggregationBelowJoin(@Language("SQL") String actual, @Language("SQL") String expected, boolean extraAggregation)
+    private void assertExistsRewrittenToAggregationBelowJoin(QueryAssertions assertions, @Language("SQL") String actual, @Language("SQL") String expected, boolean extraAggregation)
     {
         PlanMatchPattern source = node(ValuesNode.class);
         if (extraAggregation) {
@@ -228,7 +225,7 @@ public class TestSubqueries
                 plan -> assertEquals(countFinalAggregationNodes(plan), extraAggregation ? 2 : 1));
     }
 
-    private void assertExistsRewrittenToAggregationAboveJoin(@Language("SQL") String actual, @Language("SQL") String expected, boolean extraAggregation)
+    private void assertExistsRewrittenToAggregationAboveJoin(QueryAssertions assertions, @Language("SQL") String actual, @Language("SQL") String expected, boolean extraAggregation)
     {
         Consumer<Plan> singleStreamingAggregationValidator = plan -> assertEquals(countSingleStreamingAggregations(plan), 1);
         Consumer<Plan> finalAggregationValidator = plan -> assertEquals(countFinalAggregationNodes(plan), extraAggregation ? 1 : 0);

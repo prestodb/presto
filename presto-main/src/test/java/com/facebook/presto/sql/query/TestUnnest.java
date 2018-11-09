@@ -13,29 +13,14 @@
  */
 package com.facebook.presto.sql.query;
 
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(QueryAssertionsExtension.class)
 public class TestUnnest
 {
-    private QueryAssertions assertions;
-
-    @BeforeClass
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void teardown()
-    {
-        assertions.close();
-        assertions = null;
-    }
-
     @Test
-    public void testUnnestArrayRows()
+    public void testUnnestArrayRows(QueryAssertions assertions)
     {
         assertions.assertQuery(
                 "SELECT * FROM UNNEST(ARRAY[ROW(1, 1.1), ROW(3, 3.3)], ARRAY[ROW('a', true), ROW('b', false)])",
@@ -49,7 +34,7 @@ public class TestUnnest
     }
 
     @Test
-    public void testUnnestPreserveColumnName()
+    public void testUnnestPreserveColumnName(QueryAssertions assertions)
     {
         assertions.assertQuery(
                 "SELECT x FROM UNNEST(CAST(ARRAY[ROW(1, 'a'), ROW(2, 'b')] as ARRAY(ROW(x int, y varchar))))",
@@ -75,7 +60,7 @@ public class TestUnnest
     }
 
     @Test
-    public void testUnnestMultiExpr()
+    public void testUnnestMultiExpr(QueryAssertions assertions)
     {
         assertions.assertFails(
                 "SELECT x " +

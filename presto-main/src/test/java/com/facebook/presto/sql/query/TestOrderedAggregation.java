@@ -13,29 +13,14 @@
  */
 package com.facebook.presto.sql.query;
 
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(QueryAssertionsExtension.class)
 public class TestOrderedAggregation
 {
-    private QueryAssertions assertions;
-
-    @BeforeClass
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void teardown()
-    {
-        assertions.close();
-        assertions = null;
-    }
-
     @Test
-    public void testAggregationWithOrderBy()
+    public void testAggregationWithOrderBy(QueryAssertions assertions)
     {
         assertions.assertQuery(
                 "SELECT sum(x ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
@@ -125,7 +110,7 @@ public class TestOrderedAggregation
     }
 
     @Test
-    public void testGroupingSets()
+    public void testGroupingSets(QueryAssertions assertions)
     {
         assertions.assertQuery(
                 "SELECT x, array_agg(y ORDER BY y), array_agg(y ORDER BY y) FILTER (WHERE y > 1), count(*) FROM (" +

@@ -13,29 +13,14 @@
  */
 package com.facebook.presto.sql.query;
 
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(QueryAssertionsExtension.class)
 public class TestJoinUsing
 {
-    private QueryAssertions assertions;
-
-    @BeforeClass
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void teardown()
-    {
-        assertions.close();
-        assertions = null;
-    }
-
     @Test
-    public void testColumnReferences()
+    public void testColumnReferences(QueryAssertions assertions)
     {
         assertions.assertQuery(
                 "SELECT k, v1, v2, t.v1, u.v2 FROM " +
@@ -51,7 +36,7 @@ public class TestJoinUsing
     }
 
     @Test
-    public void testInner()
+    public void testInner(QueryAssertions assertions)
     {
         assertions.assertQuery(
                 "SELECT * FROM " +
@@ -61,7 +46,7 @@ public class TestJoinUsing
     }
 
     @Test
-    public void testMultipleKeys()
+    public void testMultipleKeys(QueryAssertions assertions)
     {
         assertions.assertQuery(
                 "SELECT * FROM " +
@@ -71,7 +56,7 @@ public class TestJoinUsing
     }
 
     @Test
-    public void testCoercion()
+    public void testCoercion(QueryAssertions assertions)
     {
         assertions.assertQuery(
                 "SELECT * FROM " +
@@ -114,7 +99,7 @@ public class TestJoinUsing
     }
 
     @Test
-    public void testDuplicateColumns()
+    public void testDuplicateColumns(QueryAssertions assertions)
     {
         assertions.assertFails(
                 "SELECT * FROM " +
@@ -124,7 +109,7 @@ public class TestJoinUsing
     }
 
     @Test
-    public void testAlternateColumnOrders()
+    public void testAlternateColumnOrders(QueryAssertions assertions)
     {
         assertions.assertQuery(
                 "SELECT * FROM " +
@@ -134,7 +119,7 @@ public class TestJoinUsing
     }
 
     @Test
-    public void testOuter()
+    public void testOuter(QueryAssertions assertions)
     {
         assertions.assertQuery(
                 "SELECT * FROM " +
@@ -169,7 +154,7 @@ public class TestJoinUsing
     }
 
     @Test
-    public void testDuplicateAliases()
+    public void testDuplicateAliases(QueryAssertions assertions)
     {
         assertions.assertQuery(
                 "WITH t(k, v) AS (VALUES (1, 'a'))" +
@@ -178,7 +163,7 @@ public class TestJoinUsing
     }
 
     @Test
-    public void testDecimal()
+    public void testDecimal(QueryAssertions assertions)
     {
         assertions.assertQuery(
                 "SELECT * FROM (VALUES (1.0, 2.0)) x (a, b) JOIN (VALUES (1.0, 3.0)) y (a, b) USING(a)",

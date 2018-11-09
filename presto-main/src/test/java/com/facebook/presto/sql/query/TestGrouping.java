@@ -13,29 +13,14 @@
  */
 package com.facebook.presto.sql.query;
 
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(QueryAssertionsExtension.class)
 public class TestGrouping
 {
-    private QueryAssertions assertions;
-
-    @BeforeClass
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void teardown()
-    {
-        assertions.close();
-        assertions = null;
-    }
-
     @Test
-    public void testImplicitCoercions()
+    public void testImplicitCoercions(QueryAssertions assertions)
     {
         // GROUPING + implicit coercions (issue #8738)
         assertions.assertQuery(
@@ -52,7 +37,7 @@ public class TestGrouping
     }
 
     @Test
-    public void testFilter()
+    public void testFilter(QueryAssertions assertions)
     {
         assertions.assertQuery(
                 "SELECT a, b, grouping(a, b) " +
