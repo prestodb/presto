@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
@@ -118,7 +119,7 @@ public final class PolymorphicScalarFunctionBuilder
     private static boolean isOperator(Signature signature)
     {
         for (OperatorType operator : OperatorType.values()) {
-            if (signature.getName().equals(FunctionRegistry.mangleOperatorName(operator))) {
+            if (signature.getName().equals(mangleOperatorName(operator))) {
                 return true;
             }
         }

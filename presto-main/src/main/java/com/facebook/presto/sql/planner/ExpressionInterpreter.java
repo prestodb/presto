@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ArraySubscriptOperator;
@@ -122,6 +121,7 @@ import static com.facebook.presto.sql.analyzer.ConstantExpressionVerifier.verify
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
+import static com.facebook.presto.sql.planner.LiteralEncoder.isSupportedLiteralType;
 import static com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static com.facebook.presto.type.LikeFunctions.isLikePattern;
 import static com.facebook.presto.type.LikeFunctions.unescapeLiteralLikePattern;
@@ -1100,7 +1100,7 @@ public class ExpressionInterpreter
 
             // hack!!! don't optimize CASTs for types that cannot be represented in the SQL AST
             // TODO: this will not be an issue when we migrate to RowExpression tree for this, which allows arbitrary literals.
-            if (optimize && !FunctionRegistry.isSupportedLiteralType(type(node))) {
+            if (optimize && !isSupportedLiteralType(type(node))) {
                 return new Cast(toExpression(value, sourceType), node.getType(), node.isSafe(), node.isTypeOnly());
             }
 

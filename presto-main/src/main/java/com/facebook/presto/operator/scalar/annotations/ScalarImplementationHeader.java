@@ -24,7 +24,7 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
+import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseDescription;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;

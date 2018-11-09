@@ -18,7 +18,7 @@ import com.facebook.presto.spi.type.TypeSignature;
 
 import java.util.List;
 
-import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
+import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
 
 public abstract class SqlOperator
         extends SqlScalarFunction

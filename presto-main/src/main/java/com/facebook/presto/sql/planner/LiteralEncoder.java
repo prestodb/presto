@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.block.BlockSerdeUtil;
-import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.block.Block;
@@ -25,6 +24,7 @@ import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -39,6 +39,7 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -46,7 +47,9 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.SliceUtf8;
 
 import java.util.List;
+import java.util.Set;
 
+import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -56,6 +59,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Float.intBitsToFloat;
@@ -64,6 +68,10 @@ import static java.util.Objects.requireNonNull;
 
 public final class LiteralEncoder
 {
+    // hack: java classes for types that can be used with magic literals
+    public static final String MAGIC_LITERAL_FUNCTION_PREFIX = "$literal$";
+
+    private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.of(long.class, double.class, Slice.class, boolean.class);
     private final BlockEncodingSerde blockEncodingSerde;
 
     public LiteralEncoder(BlockEncodingSerde blockEncodingSerde)
@@ -197,18 +205,56 @@ public final class LiteralEncoder
             // This if condition will evaluate to true: object instanceof Slice && !type.equals(VARCHAR)
         }
 
+        Signature signature = getMagicLiteralFunctionSignature(type);
         if (object instanceof Slice) {
             // HACK: we need to serialize VARBINARY in a format that can be embedded in an expression to be
             // able to encode it in the plan that gets sent to workers.
             // We do this by transforming the in-memory varbinary into a call to from_base64(<base64-encoded value>)
             FunctionCall fromBase64 = new FunctionCall(QualifiedName.of("from_base64"), ImmutableList.of(new StringLiteral(VarbinaryFunctions.toBase64((Slice) object).toStringUtf8())));
-            Signature signature = FunctionRegistry.getMagicLiteralFunctionSignature(type);
             return new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(fromBase64));
         }
-
-        Signature signature = FunctionRegistry.getMagicLiteralFunctionSignature(type);
-        Expression rawLiteral = toExpression(object, FunctionRegistry.typeForMagicLiteral(type));
+        Expression rawLiteral = toExpression(object, typeForMagicLiteral(type));
 
         return new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(rawLiteral));
+    }
+
+    public static boolean isSupportedLiteralType(Type type)
+    {
+        return SUPPORTED_LITERAL_TYPES.contains(type.getJavaType());
+    }
+
+    public static Signature getMagicLiteralFunctionSignature(Type type)
+    {
+        TypeSignature argumentType = typeForMagicLiteral(type).getTypeSignature();
+
+        return new Signature(MAGIC_LITERAL_FUNCTION_PREFIX + type.getTypeSignature(),
+                SCALAR,
+                type.getTypeSignature(),
+                argumentType);
+    }
+
+    private static Type typeForMagicLiteral(Type type)
+    {
+        Class<?> clazz = type.getJavaType();
+        clazz = Primitives.unwrap(clazz);
+
+        if (clazz == long.class) {
+            return BIGINT;
+        }
+        if (clazz == double.class) {
+            return DOUBLE;
+        }
+        if (!clazz.isPrimitive()) {
+            if (type instanceof VarcharType) {
+                return type;
+            }
+            else {
+                return VARBINARY;
+            }
+        }
+        if (clazz == boolean.class) {
+            return BOOLEAN;
+        }
+        throw new IllegalArgumentException("Unhandled Java type: " + clazz.getName());
     }
 }

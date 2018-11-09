@@ -15,7 +15,6 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionListBuilder;
-import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.DriverYieldSignal;
@@ -62,6 +61,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
 import static com.facebook.presto.operator.scalar.CombineHashFunction.getHash;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
@@ -104,7 +104,7 @@ public class BenchmarkArrayHashCodeOperator
     public static class BenchmarkData
     {
         @Param({"$operator$hash_code", "old_hash", "another_hash"})
-        private String name = FunctionRegistry.mangleOperatorName(HASH_CODE);
+        private String name = mangleOperatorName(HASH_CODE);
 
         @Param({"BIGINT", "VARCHAR", "DOUBLE", "BOOLEAN"})
         private String type = "BIGINT";

@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
-import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
+import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;

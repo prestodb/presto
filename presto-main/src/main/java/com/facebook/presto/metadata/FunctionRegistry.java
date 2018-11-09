@@ -150,7 +150,6 @@ import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -191,12 +190,10 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
-import com.google.common.primitives.Primitives;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 
@@ -216,6 +213,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.FunctionKind.WINDOW;
+import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static com.facebook.presto.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
@@ -295,13 +293,11 @@ import static com.facebook.presto.operator.window.AggregateWindowFunction.suppli
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.planner.LiteralEncoder.MAGIC_LITERAL_FUNCTION_PREFIX;
+import static com.facebook.presto.sql.planner.LiteralEncoder.getMagicLiteralFunctionSignature;
 import static com.facebook.presto.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.BOOLEAN_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_BIGINT_CAST;
@@ -359,12 +355,6 @@ import static java.util.concurrent.TimeUnit.HOURS;
 @ThreadSafe
 public class FunctionRegistry
 {
-    private static final String MAGIC_LITERAL_FUNCTION_PREFIX = "$literal$";
-    private static final String OPERATOR_PREFIX = "$operator$";
-
-    // hack: java classes for types that can be used with magic literals
-    private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.of(long.class, double.class, Slice.class, boolean.class);
-
     private final TypeManager typeManager;
     private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
     private final LoadingCache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
@@ -749,7 +739,6 @@ public class FunctionRegistry
 
             // verify we have one parameter of the proper type
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
-            Type parameterType = typeManager.getType(parameterTypes.get(0).getTypeSignature());
 
             return getMagicLiteralFunctionSignature(type);
         }
@@ -1062,7 +1051,7 @@ public class FunctionRegistry
     public List<SqlFunction> listOperators()
     {
         Set<String> operatorNames = Arrays.asList(OperatorType.values()).stream()
-                .map(FunctionRegistry::mangleOperatorName)
+                .map(OperatorSignatureUtils::mangleOperatorName)
                 .collect(toImmutableSet());
 
         return functions.list().stream()
@@ -1131,64 +1120,7 @@ public class FunctionRegistry
         return signature;
     }
 
-    public static Type typeForMagicLiteral(Type type)
-    {
-        Class<?> clazz = type.getJavaType();
-        clazz = Primitives.unwrap(clazz);
-
-        if (clazz == long.class) {
-            return BIGINT;
-        }
-        if (clazz == double.class) {
-            return DOUBLE;
-        }
-        if (!clazz.isPrimitive()) {
-            if (type instanceof VarcharType) {
-                return type;
-            }
-            else {
-                return VARBINARY;
-            }
-        }
-        if (clazz == boolean.class) {
-            return BOOLEAN;
-        }
-        throw new IllegalArgumentException("Unhandled Java type: " + clazz.getName());
-    }
-
-    public static Signature getMagicLiteralFunctionSignature(Type type)
-    {
-        TypeSignature argumentType = typeForMagicLiteral(type).getTypeSignature();
-
-        return new Signature(MAGIC_LITERAL_FUNCTION_PREFIX + type.getTypeSignature(),
-                SCALAR,
-                type.getTypeSignature(),
-                argumentType);
-    }
-
-    public static boolean isSupportedLiteralType(Type type)
-    {
-        return SUPPORTED_LITERAL_TYPES.contains(type.getJavaType());
-    }
-
-    public static String mangleOperatorName(OperatorType operatorType)
-    {
-        return mangleOperatorName(operatorType.name());
-    }
-
-    public static String mangleOperatorName(String operatorName)
-    {
-        return OPERATOR_PREFIX + operatorName;
-    }
-
-    @VisibleForTesting
-    public static OperatorType unmangleOperator(String mangledName)
-    {
-        checkArgument(mangledName.startsWith(OPERATOR_PREFIX), "%s is not a mangled operator name", mangledName);
-        return OperatorType.valueOf(mangledName.substring(OPERATOR_PREFIX.length()));
-    }
-
-    public static Optional<List<Type>> toTypes(List<TypeSignatureProvider> typeSignatureProviders, TypeManager typeManager)
+    private static Optional<List<Type>> toTypes(List<TypeSignatureProvider> typeSignatureProviders, TypeManager typeManager)
     {
         ImmutableList.Builder<Type> resultBuilder = ImmutableList.builder();
         for (TypeSignatureProvider typeSignatureProvider : typeSignatureProviders) {

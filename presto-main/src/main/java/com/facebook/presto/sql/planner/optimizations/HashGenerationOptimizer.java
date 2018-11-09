@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
@@ -73,6 +72,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
+import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
@@ -94,7 +94,7 @@ public class HashGenerationOptimizer
         implements PlanOptimizer
 {
     public static final int INITIAL_HASH_VALUE = 0;
-    private static final String HASH_CODE = FunctionRegistry.mangleOperatorName("HASH_CODE");
+    private static final String HASH_CODE = mangleOperatorName("HASH_CODE");
     private static final Signature COMBINE_HASH = new Signature(
             "combine_hash",
             SCALAR,

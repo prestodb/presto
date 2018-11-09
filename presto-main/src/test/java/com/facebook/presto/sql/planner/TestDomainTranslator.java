@@ -55,7 +55,6 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.metadata.FunctionRegistry.getMagicLiteralFunctionSignature;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -75,6 +74,7 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.or;
+import static com.facebook.presto.sql.planner.LiteralEncoder.getMagicLiteralFunctionSignature;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
