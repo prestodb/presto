@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -83,10 +83,10 @@ public class TransformExistsApplyToLateralNode
     private static final FunctionCall COUNT_CALL = new FunctionCall(COUNT, ImmutableList.of());
     private final Signature countSignature;
 
-    public TransformExistsApplyToLateralNode(FunctionRegistry functionRegistry)
+    public TransformExistsApplyToLateralNode(FunctionManager functionManager)
     {
-        requireNonNull(functionRegistry, "functionRegistry is null");
-        countSignature = functionRegistry.resolveFunction(COUNT, ImmutableList.of());
+        requireNonNull(functionManager, "functionManager is null");
+        countSignature = functionManager.resolveFunction(COUNT, ImmutableList.of());
     }
 
     @Override

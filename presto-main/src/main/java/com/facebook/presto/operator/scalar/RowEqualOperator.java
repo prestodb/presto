@@ -14,7 +14,7 @@ package com.facebook.presto.operator.scalar;
  */
 
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.block.Block;
@@ -53,7 +53,7 @@ public class RowEqualOperator
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         RowType type = (RowType) boundVariables.getTypeVariable("T");
         return new ScalarFunctionImplementation(
@@ -63,21 +63,21 @@ public class RowEqualOperator
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 METHOD_HANDLE
                         .bindTo(type)
-                        .bindTo(resolveFieldEqualOperators(type, functionRegistry)),
+                        .bindTo(resolveFieldEqualOperators(type, functionManager)),
                 isDeterministic());
     }
 
-    public static List<MethodHandle> resolveFieldEqualOperators(RowType rowType, FunctionRegistry functionRegistry)
+    public static List<MethodHandle> resolveFieldEqualOperators(RowType rowType, FunctionManager functionManager)
     {
         return rowType.getTypeParameters().stream()
-                .map(type -> resolveEqualOperator(type, functionRegistry))
+                .map(type -> resolveEqualOperator(type, functionManager))
                 .collect(toImmutableList());
     }
 
-    private static MethodHandle resolveEqualOperator(Type type, FunctionRegistry functionRegistry)
+    private static MethodHandle resolveEqualOperator(Type type, FunctionManager functionManager)
     {
-        Signature operator = functionRegistry.resolveOperator(EQUAL, ImmutableList.of(type, type));
-        ScalarFunctionImplementation implementation = functionRegistry.getScalarFunctionImplementation(operator);
+        Signature operator = functionManager.resolveOperator(EQUAL, ImmutableList.of(type, type));
+        ScalarFunctionImplementation implementation = functionManager.getScalarFunctionImplementation(operator);
         return implementation.getMethodHandle();
     }
 

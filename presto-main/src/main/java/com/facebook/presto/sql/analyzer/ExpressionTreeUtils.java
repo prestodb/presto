@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -31,9 +31,9 @@ public final class ExpressionTreeUtils
 {
     private ExpressionTreeUtils() {}
 
-    static List<FunctionCall> extractAggregateFunctions(Iterable<? extends Node> nodes, FunctionRegistry functionRegistry)
+    static List<FunctionCall> extractAggregateFunctions(Iterable<? extends Node> nodes, FunctionManager functionManager)
     {
-        return extractExpressions(nodes, FunctionCall.class, isAggregationPredicate(functionRegistry));
+        return extractExpressions(nodes, FunctionCall.class, isAggregationPredicate(functionManager));
     }
 
     static List<FunctionCall> extractWindowFunctions(Iterable<? extends Node> nodes)
@@ -48,9 +48,9 @@ public final class ExpressionTreeUtils
         return extractExpressions(nodes, clazz, alwaysTrue());
     }
 
-    private static Predicate<FunctionCall> isAggregationPredicate(FunctionRegistry functionRegistry)
+    private static Predicate<FunctionCall> isAggregationPredicate(FunctionManager functionManager)
     {
-        return ((functionCall) -> (functionRegistry.isAggregationFunction(functionCall.getName())
+        return ((functionCall) -> (functionManager.isAggregationFunction(functionCall.getName())
                 || functionCall.getFilter().isPresent()) && !functionCall.getWindow().isPresent()
                 || functionCall.getOrderBy().isPresent());
     }

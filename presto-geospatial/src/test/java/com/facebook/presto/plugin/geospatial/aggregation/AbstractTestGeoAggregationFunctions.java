@@ -52,7 +52,7 @@ public abstract class AbstractTestGeoAggregationFunctions
         functionAssertions.getMetadata().addFunctions(extractFunctions(plugin.getFunctions()));
         function = functionAssertions
                 .getMetadata()
-                .getFunctionRegistry()
+                .getFunctionManager()
                 .getAggregateFunctionImplementation(new Signature(
                         getFunctionName(),
                         FunctionKind.AGGREGATE,

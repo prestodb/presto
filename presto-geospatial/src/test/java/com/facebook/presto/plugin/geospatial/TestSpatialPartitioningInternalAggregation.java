@@ -100,7 +100,7 @@ public class TestSpatialPartitioningInternalAggregation
     {
         return functionAssertions
                 .getMetadata()
-                .getFunctionRegistry()
+                .getFunctionManager()
                 .getAggregateFunctionImplementation(
                         new Signature("spatial_partitioning",
                                 FunctionKind.AGGREGATE,

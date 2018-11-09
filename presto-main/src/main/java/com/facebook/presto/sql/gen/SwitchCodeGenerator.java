@@ -115,7 +115,7 @@ public class SwitchCodeGenerator
             RowExpression result = ((CallExpression) clause).getArguments().get(1);
 
             // call equals(value, operand)
-            Signature equalsFunction = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(value.getType(), operand.getType()));
+            Signature equalsFunction = generatorContext.getFunctionManager().resolveOperator(OperatorType.EQUAL, ImmutableList.of(value.getType(), operand.getType()));
 
             // TODO: what if operand is null? It seems that the call will return "null" (which is cleared below)
             // and the code only does the right thing because the value in the stack for that scenario is
@@ -124,7 +124,7 @@ public class SwitchCodeGenerator
             // check if wasNull is true
             BytecodeNode equalsCall = generatorContext.generateCall(
                     equalsFunction.getName(),
-                    generatorContext.getRegistry().getScalarFunctionImplementation(equalsFunction),
+                    generatorContext.getFunctionManager().getScalarFunctionImplementation(equalsFunction),
                     ImmutableList.of(generatorContext.generate(operand, Optional.empty()), getTempVariableNode));
 
             BytecodeBlock condition = new BytecodeBlock()

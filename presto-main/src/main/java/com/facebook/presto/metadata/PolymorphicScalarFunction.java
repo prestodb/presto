@@ -84,12 +84,12 @@ class PolymorphicScalarFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         ImmutableList.Builder<ScalarImplementationChoice> implementationChoices = ImmutableList.builder();
 
         for (PolymorphicScalarFunctionChoice choice : choices) {
-            implementationChoices.add(getScalarFunctionImplementationChoice(boundVariables, typeManager, functionRegistry, choice));
+            implementationChoices.add(getScalarFunctionImplementationChoice(boundVariables, typeManager, functionManager, choice));
         }
 
         return new ScalarFunctionImplementation(implementationChoices.build(), deterministic);
@@ -98,14 +98,14 @@ class PolymorphicScalarFunction
     private ScalarImplementationChoice getScalarFunctionImplementationChoice(
             BoundVariables boundVariables,
             TypeManager typeManager,
-            FunctionRegistry functionRegistry,
+            FunctionManager functionManager,
             PolymorphicScalarFunctionChoice choice)
     {
         List<TypeSignature> resolvedParameterTypeSignatures = applyBoundVariables(getSignature().getArgumentTypes(), boundVariables);
         List<Type> resolvedParameterTypes = resolveTypes(resolvedParameterTypeSignatures, typeManager);
         TypeSignature resolvedReturnTypeSignature = applyBoundVariables(getSignature().getReturnType(), boundVariables);
         Type resolvedReturnType = typeManager.getType(resolvedReturnTypeSignature);
-        SpecializeContext context = new SpecializeContext(boundVariables, resolvedParameterTypes, resolvedReturnType, typeManager, functionRegistry);
+        SpecializeContext context = new SpecializeContext(boundVariables, resolvedParameterTypes, resolvedReturnType, typeManager, functionManager);
         Optional<MethodAndNativeContainerTypes> matchingMethod = Optional.empty();
 
         Optional<MethodsGroup> matchingMethodsGroup = Optional.empty();

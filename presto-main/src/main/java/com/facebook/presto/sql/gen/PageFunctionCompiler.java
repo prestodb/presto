@@ -114,7 +114,7 @@ public class PageFunctionCompiler
     public PageFunctionCompiler(Metadata metadata, int expressionCacheSize)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.determinismEvaluator = new DeterminismEvaluator(metadata.getFunctionRegistry());
+        this.determinismEvaluator = new DeterminismEvaluator(metadata.getFunctionManager());
 
         if (expressionCacheSize > 0) {
             projectionCache = CacheBuilder.newBuilder()
@@ -346,7 +346,7 @@ public class PageFunctionCompiler
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder),
-                metadata.getFunctionRegistry(),
+                metadata.getFunctionManager(),
                 compiledLambdaMap);
 
         Variable outputBlockVariable = scope.createTempVariable(BlockBuilder.class);
@@ -520,7 +520,7 @@ public class PageFunctionCompiler
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder),
-                metadata.getFunctionRegistry(),
+                metadata.getFunctionManager(),
                 compiledLambdaMap);
 
         Variable result = scope.declareVariable(boolean.class, "result");
@@ -549,7 +549,7 @@ public class PageFunctionCompiler
                     compiledLambdaMap.build(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    metadata.getFunctionRegistry());
+                    metadata.getFunctionManager());
             compiledLambdaMap.put(lambdaExpression, compiledLambda);
             counter++;
         }

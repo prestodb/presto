@@ -214,7 +214,7 @@ public class TestPageProcessorCompiler
 
         PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(lessThanRandomExpression), MAX_BATCH_SIZE).get();
 
-        assertFalse(new DeterminismEvaluator(metadataManager.getFunctionRegistry()).isDeterministic(lessThanRandomExpression));
+        assertFalse(new DeterminismEvaluator(metadataManager.getFunctionManager()).isDeterministic(lessThanRandomExpression));
 
         Page page = new Page(createLongDictionaryBlock(1, 100));
         Page outputPage = getOnlyElement(

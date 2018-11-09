@@ -15,7 +15,7 @@ package com.facebook.presto.rcfile;
 
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.hadoop.HadoopNative;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.rcfile.binary.BinaryRcFileEncoding;
 import com.facebook.presto.rcfile.text.TextRcFileEncoding;
 import com.facebook.presto.spi.Page;
@@ -191,8 +191,8 @@ public class RcFileTester
     private static final TypeManager TYPE_MANAGER = new TypeRegistry();
 
     static {
-        // associate TYPE_MANAGER with a function registry
-        new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
+        // associate TYPE_MANAGER with a function manager
+        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
 
         HadoopNative.requireHadoopNative();
     }

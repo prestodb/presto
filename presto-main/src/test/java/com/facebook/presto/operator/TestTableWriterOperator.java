@@ -74,7 +74,7 @@ import static org.testng.Assert.assertTrue;
 public class TestTableWriterOperator
 {
     private static final ConnectorId CONNECTOR_ID = new ConnectorId("testConnectorId");
-    private static final InternalAggregationFunction LONG_MAX = createTestMetadataManager().getFunctionRegistry().getAggregateFunctionImplementation(
+    private static final InternalAggregationFunction LONG_MAX = createTestMetadataManager().getFunctionManager().getAggregateFunctionImplementation(
             new Signature("max", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;

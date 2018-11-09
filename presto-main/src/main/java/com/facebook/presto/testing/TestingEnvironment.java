@@ -14,7 +14,7 @@
 package com.facebook.presto.testing;
 
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
@@ -26,7 +26,7 @@ public class TestingEnvironment
     public static final TypeManager TYPE_MANAGER = new TypeRegistry();
 
     static {
-        // wire TYPE_MANAGER with function registry
-        new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
+        // wire TYPE_MANAGER with function manager
+        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
     }
 }

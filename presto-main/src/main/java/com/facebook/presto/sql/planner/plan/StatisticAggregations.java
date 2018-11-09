@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.sql.planner.Symbol;
@@ -58,7 +58,7 @@ public class StatisticAggregations
         return groupingSymbols;
     }
 
-    public Parts createPartialAggregations(SymbolAllocator symbolAllocator, FunctionRegistry functionRegistry)
+    public Parts createPartialAggregations(SymbolAllocator symbolAllocator, FunctionManager functionManager)
     {
         ImmutableMap.Builder<Symbol, Aggregation> partialAggregation = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, Aggregation> finalAggregation = ImmutableMap.builder();
@@ -66,7 +66,7 @@ public class StatisticAggregations
         for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
             Aggregation originalAggregation = entry.getValue();
             Signature signature = originalAggregation.getSignature();
-            InternalAggregationFunction function = functionRegistry.getAggregateFunctionImplementation(signature);
+            InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(signature);
             Symbol partialSymbol = symbolAllocator.newSymbol(signature.getName(), function.getIntermediateType());
             mappings.put(entry.getKey(), partialSymbol);
             partialAggregation.put(partialSymbol, new Aggregation(originalAggregation.getCall(), signature, originalAggregation.getMask()));

@@ -62,7 +62,7 @@ public class TestFunctionRegistry
     public void testIdentityCast()
     {
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionRegistry registry = createFunctionRegistry(typeManager);
         Signature exactOperator = registry.getCoercion(HYPER_LOG_LOG, HYPER_LOG_LOG);
         assertEquals(exactOperator.getName(), mangleOperatorName(OperatorType.CAST.name()));
         assertEquals(transform(exactOperator.getArgumentTypes(), Functions.toStringFunction()), ImmutableList.of(StandardTypes.HYPER_LOG_LOG));
@@ -73,7 +73,7 @@ public class TestFunctionRegistry
     public void testExactMatchBeforeCoercion()
     {
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionRegistry registry = createFunctionRegistry(typeManager);
         boolean foundOperator = false;
         for (SqlFunction function : registry.listOperators()) {
             OperatorType operatorType = unmangleOperator(function.getSignature().getName());
@@ -102,7 +102,7 @@ public class TestFunctionRegistry
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
 
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionRegistry registry = createFunctionRegistry(typeManager);
         Signature function = registry.resolveFunction(QualifiedName.of(signature.getName()), fromTypeSignatures(signature.getArgumentTypes()));
         assertEquals(function.getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
@@ -119,7 +119,7 @@ public class TestFunctionRegistry
                 .collect(toImmutableList());
 
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionRegistry registry = createFunctionRegistry(typeManager);
         registry.addFunctions(functions);
         registry.addFunctions(functions);
     }
@@ -132,7 +132,7 @@ public class TestFunctionRegistry
                 .getFunctions();
 
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionRegistry registry = createFunctionRegistry(typeManager);
         registry.addFunctions(functions);
     }
 
@@ -140,7 +140,7 @@ public class TestFunctionRegistry
     public void testListingHiddenFunctions()
     {
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionRegistry registry = createFunctionRegistry(typeManager);
         List<SqlFunction> functions = registry.list();
         List<String> names = transform(functions, input -> input.getSignature().getName());
 
@@ -293,6 +293,14 @@ public class TestFunctionRegistry
                 .failsWithMessage("Could not choose a best candidate operator. Explicit type casts must be added.");
     }
 
+    private FunctionRegistry createFunctionRegistry(TypeRegistry typeManager)
+    {
+        BlockEncodingManager blockEncodingManager = new BlockEncodingManager(typeManager);
+        FeaturesConfig featuresConfig = new FeaturesConfig();
+        FunctionManager functionManager = new FunctionManager(typeManager, blockEncodingManager, featuresConfig);
+        return new FunctionRegistry(typeManager, blockEncodingManager, featuresConfig, functionManager);
+    }
+
     private SignatureBuilder functionSignature(String... argumentTypes)
     {
         return functionSignature(ImmutableList.copyOf(argumentTypes), "boolean");
@@ -370,9 +378,11 @@ public class TestFunctionRegistry
 
         private Signature resolveSignature()
         {
-            FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, blockEncoding, new FeaturesConfig());
-            functionRegistry.addFunctions(createFunctionsFromSignatures());
-            return functionRegistry.resolveFunction(QualifiedName.of(TEST_FUNCTION_NAME), fromTypeSignatures(parameterTypes));
+            FeaturesConfig featuresConfig = new FeaturesConfig();
+            FunctionManager functionManager = new FunctionManager(typeRegistry, blockEncoding, featuresConfig);
+            FunctionRegistry registry = new FunctionRegistry(typeRegistry, blockEncoding, featuresConfig, functionManager);
+            registry.addFunctions(createFunctionsFromSignatures());
+            return registry.resolveFunction(QualifiedName.of(TEST_FUNCTION_NAME), fromTypeSignatures(parameterTypes));
         }
 
         private List<SqlFunction> createFunctionsFromSignatures()
@@ -387,7 +397,7 @@ public class TestFunctionRegistry
                             BoundVariables boundVariables,
                             int arity,
                             TypeManager typeManager,
-                            FunctionRegistry functionRegistry)
+                            FunctionManager functionManager)
                     {
                         return new ScalarFunctionImplementation(
                                 false,

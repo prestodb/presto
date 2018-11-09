@@ -1530,7 +1530,7 @@ public class TestAnalyzer
                 new AnalyzePropertyManager(),
                 transactionManager);
 
-        metadata.getFunctionRegistry().addFunctions(ImmutableList.of(APPLY_FUNCTION));
+        metadata.getFunctionManager().addFunctions(ImmutableList.of(APPLY_FUNCTION));
 
         Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CONNECTOR_ID);
         catalogManager.registerCatalog(tpchTestCatalog);

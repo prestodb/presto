@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.window;
 
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.spi.type.TypeManager;
@@ -55,7 +55,7 @@ public class SqlWindowFunction
         return supplier.getDescription();
     }
 
-    public WindowFunctionSupplier specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public WindowFunctionSupplier specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         return supplier;
     }

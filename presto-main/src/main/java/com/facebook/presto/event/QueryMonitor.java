@@ -25,7 +25,7 @@ import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.OperatorStats;
@@ -82,7 +82,7 @@ public class QueryMonitor
     private final String serverAddress;
     private final String environment;
     private final SessionPropertyManager sessionPropertyManager;
-    private final FunctionRegistry functionRegistry;
+    private final FunctionManager functionManager;
     private final int maxJsonLimit;
 
     @Inject
@@ -105,7 +105,7 @@ public class QueryMonitor
         this.serverAddress = requireNonNull(nodeInfo, "nodeInfo is null").getExternalAddress();
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
-        this.functionRegistry = requireNonNull(metadata, "metadata is null").getFunctionRegistry();
+        this.functionManager = requireNonNull(metadata, "metadata is null").getFunctionManager();
         this.maxJsonLimit = toIntExact(requireNonNull(config, "config is null").getMaxOutputStageJsonSize().toBytes());
     }
 
@@ -258,7 +258,7 @@ public class QueryMonitor
             if (queryInfo.getOutputStage().isPresent()) {
                 return Optional.of(textDistributedPlan(
                         queryInfo.getOutputStage().get(),
-                        functionRegistry,
+                        functionManager,
                         queryInfo.getSession().toSession(sessionPropertyManager),
                         false));
             }

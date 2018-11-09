@@ -196,7 +196,7 @@ public class JoinFilterFunctionCompiler
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder, leftPosition, leftPage, rightPosition, rightPage, leftBlocksSize),
-                metadata.getFunctionRegistry(),
+                metadata.getFunctionManager(),
                 compiledLambdaMap);
 
         BytecodeNode visitorBody = compiler.compile(filter, scope, Optional.empty());
@@ -229,7 +229,7 @@ public class JoinFilterFunctionCompiler
                     compiledLambdaMap.build(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    metadata.getFunctionRegistry());
+                    metadata.getFunctionManager());
             compiledLambdaMap.put(lambdaExpression, compiledLambda);
             counter++;
         }

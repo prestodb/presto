@@ -43,7 +43,7 @@ public class TestRealAverageAggregation
     public void setUp()
     {
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
-        avgFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+        avgFunction = metadata.getFunctionManager().getAggregateFunctionImplementation(
                 new Signature("avg", FunctionKind.AGGREGATE, parseTypeSignature(StandardTypes.REAL), parseTypeSignature(StandardTypes.REAL)));
     }
 

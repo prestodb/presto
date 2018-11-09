@@ -175,7 +175,6 @@ import com.facebook.presto.type.TimeWithTimeZoneOperators;
 import com.facebook.presto.type.TimestampOperators;
 import com.facebook.presto.type.TimestampWithTimeZoneOperators;
 import com.facebook.presto.type.TinyintOperators;
-import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.type.UnknownOperators;
 import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharOperators;
@@ -353,7 +352,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
-public class FunctionRegistry
+class FunctionRegistry
 {
     private final TypeManager typeManager;
     private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
@@ -362,9 +361,13 @@ public class FunctionRegistry
     private final LoadingCache<SpecializedFunctionKey, WindowFunctionSupplier> specializedWindowCache;
     private final MagicLiteralFunction magicLiteralFunction;
     private volatile FunctionMap functions = new FunctionMap();
-    private final FunctionInvokerProvider functionInvokerProvider;
 
-    public FunctionRegistry(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FeaturesConfig featuresConfig)
+    public FunctionRegistry(
+            TypeManager typeManager,
+            BlockEncodingSerde blockEncodingSerde,
+            FeaturesConfig featuresConfig,
+            // TODO: Remove FunctionManager once the logic requiring this is moved to FunctionNamespace.
+            FunctionManager functionManager)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.magicLiteralFunction = new MagicLiteralFunction(blockEncodingSerde);
@@ -385,13 +388,13 @@ public class FunctionRegistry
                 .maximumSize(1000)
                 .expireAfterWrite(1, HOURS)
                 .build(CacheLoader.from(key -> ((SqlScalarFunction) key.getFunction())
-                        .specialize(key.getBoundVariables(), key.getArity(), typeManager, this)));
+                        .specialize(key.getBoundVariables(), key.getArity(), typeManager, functionManager)));
 
         specializedAggregationCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
                 .expireAfterWrite(1, HOURS)
                 .build(CacheLoader.from(key -> ((SqlAggregationFunction) key.getFunction())
-                        .specialize(key.getBoundVariables(), key.getArity(), typeManager, this)));
+                        .specialize(key.getBoundVariables(), key.getArity(), typeManager, functionManager)));
 
         specializedWindowCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
@@ -402,7 +405,7 @@ public class FunctionRegistry
                         return supplier(key.getFunction().getSignature(), specializedAggregationCache.getUnchecked(key));
                     }
                     return ((SqlWindowFunction) key.getFunction())
-                            .specialize(key.getBoundVariables(), key.getArity(), typeManager, this);
+                            .specialize(key.getBoundVariables(), key.getArity(), typeManager, functionManager);
                 }));
 
         FunctionListBuilder builder = new FunctionListBuilder()
@@ -655,17 +658,6 @@ public class FunctionRegistry
         }
 
         addFunctions(builder.getFunctions());
-
-        if (typeManager instanceof TypeRegistry) {
-            ((TypeRegistry) typeManager).setFunctionRegistry(this);
-        }
-
-        functionInvokerProvider = new FunctionInvokerProvider(this);
-    }
-
-    public FunctionInvokerProvider getFunctionInvokerProvider()
-    {
-        return functionInvokerProvider;
     }
 
     public final synchronized void addFunctions(List<? extends SqlFunction> functions)
@@ -1217,7 +1209,7 @@ public class FunctionRegistry
     {
         private final BlockEncodingSerde blockEncodingSerde;
 
-        public MagicLiteralFunction(BlockEncodingSerde blockEncodingSerde)
+        MagicLiteralFunction(BlockEncodingSerde blockEncodingSerde)
         {
             super(new Signature(MAGIC_LITERAL_FUNCTION_PREFIX, FunctionKind.SCALAR, TypeSignature.parseTypeSignature("R"), TypeSignature.parseTypeSignature("T")));
             this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
@@ -1242,7 +1234,7 @@ public class FunctionRegistry
         }
 
         @Override
-        public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+        public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
         {
             Type parameterType = boundVariables.getTypeVariable("T");
             Type type = boundVariables.getTypeVariable("R");

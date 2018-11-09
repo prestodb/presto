@@ -36,7 +36,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     @Test
     public void doesNotFireOnPlanWithoutApplyNode()
     {
-        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionRegistry()))
+        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionManager()))
                 .on(p -> p.values(p.symbol("a")))
                 .doesNotFire();
     }
@@ -44,7 +44,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     @Test
     public void doesNotFireOnCorrelatedWithoutAggregation()
     {
-        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionRegistry()))
+        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionManager()))
                 .on(p -> p.lateral(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -55,7 +55,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     @Test
     public void doesNotFireOnUncorrelated()
     {
-        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionRegistry()))
+        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionManager()))
                 .on(p -> p.lateral(
                         ImmutableList.of(),
                         p.values(p.symbol("a")),
@@ -66,7 +66,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     @Test
     public void doesNotFireOnCorrelatedWithNonScalarAggregation()
     {
-        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionRegistry()))
+        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionManager()))
                 .on(p -> p.lateral(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -80,7 +80,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     @Test
     public void rewritesOnSubqueryWithoutProjection()
     {
-        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionRegistry()))
+        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionManager()))
                 .on(p -> p.lateral(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -102,7 +102,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     @Test
     public void rewritesOnSubqueryWithProjection()
     {
-        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionRegistry()))
+        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionManager()))
                 .on(p -> p.lateral(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),

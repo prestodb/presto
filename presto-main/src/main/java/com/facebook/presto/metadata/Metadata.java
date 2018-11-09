@@ -315,7 +315,7 @@ public interface Metadata
      */
     List<GrantInfo> listTablePrivileges(Session session, QualifiedTablePrefix prefix);
 
-    FunctionRegistry getFunctionRegistry();
+    FunctionManager getFunctionManager();
 
     ProcedureRegistry getProcedureRegistry();
 

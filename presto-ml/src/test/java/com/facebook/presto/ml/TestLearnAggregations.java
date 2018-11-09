@@ -16,7 +16,7 @@ package com.facebook.presto.ml;
 import com.facebook.presto.RowPageBuilder;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.ml.type.ClassifierParametricType;
 import com.facebook.presto.ml.type.ClassifierType;
 import com.facebook.presto.ml.type.ModelType;
@@ -59,8 +59,8 @@ public class TestLearnAggregations
         typeRegistry.addType(ModelType.MODEL);
         typeRegistry.addType(RegressorType.REGRESSOR);
 
-        // associate typeRegistry with a function registry
-        new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+        // associate typeRegistry with a function manager
+        new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
 
         typeManager = typeRegistry;
     }

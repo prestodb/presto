@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.MaxDataSizeForStats;
@@ -72,7 +72,7 @@ public class StatisticsAggregationPlanner
         }
 
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> aggregations = ImmutableMap.builder();
-        FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
+        FunctionManager functionManager = metadata.getFunctionManager();
         for (TableStatisticType type : statisticsMetadata.getTableStatistics()) {
             if (type != ROW_COUNT) {
                 throw new PrestoException(NOT_SUPPORTED, "Table-wide statistic type not supported: " + type);
@@ -80,7 +80,7 @@ public class StatisticsAggregationPlanner
             QualifiedName count = QualifiedName.of("count");
             AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
                     new FunctionCall(count, ImmutableList.of()),
-                    functionRegistry.resolveFunction(count, ImmutableList.of()),
+                    functionManager.resolveFunction(count, ImmutableList.of()),
                     Optional.empty());
             Symbol symbol = symbolAllocator.newSymbol("rowCount", BIGINT);
             aggregations.put(symbol, aggregation);
@@ -128,7 +128,7 @@ public class StatisticsAggregationPlanner
 
     private ColumnStatisticsAggregation createAggregation(QualifiedName functionName, SymbolReference input, Type inputType, Type outputType)
     {
-        Signature signature = metadata.getFunctionRegistry().resolveFunction(functionName, TypeSignatureProvider.fromTypes(ImmutableList.of(inputType)));
+        Signature signature = metadata.getFunctionManager().resolveFunction(functionName, TypeSignatureProvider.fromTypes(ImmutableList.of(inputType)));
         Type resolvedType = metadata.getType(getOnlyElement(signature.getArgumentTypes()));
         verify(resolvedType.equals(inputType), "resolved function input type does not match the input type: %s != %s", resolvedType, inputType);
         return new ColumnStatisticsAggregation(

@@ -15,7 +15,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.RowType;
@@ -49,7 +49,7 @@ public class RowNotEqualOperator
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         RowType type = (RowType) boundVariables.getTypeVariable("T");
         return new ScalarFunctionImplementation(
@@ -59,7 +59,7 @@ public class RowNotEqualOperator
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 METHOD_HANDLE
                         .bindTo(type)
-                        .bindTo(RowEqualOperator.resolveFieldEqualOperators(type, functionRegistry)),
+                        .bindTo(RowEqualOperator.resolveFieldEqualOperators(type, functionManager)),
                 isDeterministic());
     }
 

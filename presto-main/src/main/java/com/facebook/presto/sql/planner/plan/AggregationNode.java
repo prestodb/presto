@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.sql.planner.Symbol;
@@ -204,7 +204,7 @@ public class AggregationNode
         return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), aggregations, groupingSets, preGroupedSymbols, step, hashSymbol, groupIdSymbol);
     }
 
-    public boolean isDecomposable(FunctionRegistry functionRegistry)
+    public boolean isDecomposable(FunctionManager functionManager)
     {
         boolean hasOrderBy = getAggregations().values().stream()
                 .map(Aggregation::getCall)
@@ -217,13 +217,13 @@ public class AggregationNode
 
         boolean decomposableFunctions = getAggregations().values().stream()
                 .map(Aggregation::getSignature)
-                .map(functionRegistry::getAggregateFunctionImplementation)
+                .map(functionManager::getAggregateFunctionImplementation)
                 .allMatch(InternalAggregationFunction::isDecomposable);
 
         return !hasOrderBy && !hasDistinct && decomposableFunctions;
     }
 
-    public boolean hasSingleNodeExecutionPreference(FunctionRegistry functionRegistry)
+    public boolean hasSingleNodeExecutionPreference(FunctionManager functionManager)
     {
         // There are two kinds of aggregations the have single node execution preference:
         //
@@ -235,7 +235,7 @@ public class AggregationNode
         // since all input have to be aggregated into one line output.
         //
         // 2. aggregations that must produce default output and are not decomposable, we can not distribute them.
-        return (hasEmptyGroupingSet() && !hasNonEmptyGroupingSet()) || (hasDefaultOutput() && !isDecomposable(functionRegistry));
+        return (hasEmptyGroupingSet() && !hasNonEmptyGroupingSet()) || (hasDefaultOutput() && !isDecomposable(functionManager));
     }
 
     public boolean isStreamable()

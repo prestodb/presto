@@ -461,7 +461,7 @@ public class OptimizeMixedDistinctAggregations
 
         private Signature getFunctionSignature(QualifiedName functionName, Symbol argument)
         {
-            return metadata.getFunctionRegistry()
+            return metadata.getFunctionManager()
                     .resolveFunction(
                             functionName,
                             ImmutableList.of(new TypeSignatureProvider(symbolAllocator.getTypes().get(argument).getTypeSignature())));

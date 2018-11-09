@@ -13,33 +13,33 @@
  */
 package com.facebook.presto.sql.relational;
 
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Signature;
 
 import static java.util.Objects.requireNonNull;
 
 public class DeterminismEvaluator
 {
-    final FunctionRegistry registry;
+    final FunctionManager functionManager;
 
-    public DeterminismEvaluator(FunctionRegistry registry)
+    public DeterminismEvaluator(FunctionManager functionManager)
     {
-        this.registry = requireNonNull(registry, "registry is null");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
     }
 
     public boolean isDeterministic(RowExpression expression)
     {
-        return expression.accept(new Visitor(registry), null);
+        return expression.accept(new Visitor(functionManager), null);
     }
 
     private static class Visitor
             implements RowExpressionVisitor<Boolean, Void>
     {
-        private final FunctionRegistry registry;
+        private final FunctionManager functionManager;
 
-        public Visitor(FunctionRegistry registry)
+        public Visitor(FunctionManager functionManager)
         {
-            this.registry = registry;
+            this.functionManager = functionManager;
         }
 
         @Override
@@ -58,7 +58,7 @@ public class DeterminismEvaluator
         public Boolean visitCall(CallExpression call, Void context)
         {
             Signature signature = call.getSignature();
-            if (registry.isRegistered(signature) && !registry.getScalarFunctionImplementation(signature).isDeterministic()) {
+            if (functionManager.isRegistered(signature) && !functionManager.getScalarFunctionImplementation(signature).isDeterministic()) {
                 return false;
             }
 

@@ -63,7 +63,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestTableFinishOperator
 {
-    private static final InternalAggregationFunction LONG_MAX = createTestMetadataManager().getFunctionRegistry().getAggregateFunctionImplementation(
+    private static final InternalAggregationFunction LONG_MAX = createTestMetadataManager().getFunctionManager().getAggregateFunctionImplementation(
             new Signature("max", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
 
     private ScheduledExecutorService scheduledExecutor;

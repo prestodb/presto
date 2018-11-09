@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.JoinHash;
 import com.facebook.presto.operator.JoinHashSupplier;
@@ -90,7 +90,7 @@ import static java.util.Objects.requireNonNull;
 
 public class JoinCompiler
 {
-    private final FunctionRegistry registry;
+    private final FunctionManager functionManager;
     private final boolean groupByUsesEqualTo;
 
     private final LoadingCache<CacheKey, LookupSourceSupplierFactory> lookupSourceFactories = CacheBuilder.newBuilder()
@@ -113,7 +113,7 @@ public class JoinCompiler
     @Inject
     public JoinCompiler(Metadata metadata, FeaturesConfig config)
     {
-        this.registry = requireNonNull(metadata, "metadata is null").getFunctionRegistry();
+        this.functionManager = requireNonNull(metadata, "metadata is null").getFunctionManager();
         this.groupByUsesEqualTo = requireNonNull(config, "config is null").isGroupByUsesEqualTo();
     }
 
@@ -706,7 +706,7 @@ public class JoinCompiler
                         continue;
                 }
             }
-            ScalarFunctionImplementation operator = registry.getScalarFunctionImplementation(registry.resolveOperator(OperatorType.IS_DISTINCT_FROM, ImmutableList.of(type, type)));
+            ScalarFunctionImplementation operator = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(OperatorType.IS_DISTINCT_FROM, ImmutableList.of(type, type)));
             Binding binding = callSiteBinder.bind(operator.getMethodHandle());
             List<BytecodeNode> argumentsBytecode = new ArrayList<>();
             argumentsBytecode.add(generateInputReference(callSiteBinder, scope, type, leftBlock, leftBlockPosition));

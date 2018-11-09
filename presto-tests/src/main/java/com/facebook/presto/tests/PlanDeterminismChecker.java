@@ -66,7 +66,7 @@ public class PlanDeterminismChecker
             return PlanPrinter.textLogicalPlan(
                     plan.getRoot(),
                     plan.getTypes(),
-                    localQueryRunner.getMetadata().getFunctionRegistry(),
+                    localQueryRunner.getMetadata().getFunctionManager(),
                     plan.getStatsAndCosts(),
                     transactionSession,
                     0,

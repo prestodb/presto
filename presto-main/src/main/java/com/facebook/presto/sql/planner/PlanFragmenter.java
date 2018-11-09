@@ -253,7 +253,7 @@ public class PlanFragmenter
                     properties.getPartitioningScheme(),
                     StageExecutionDescriptor.ungroupedExecution(),
                     statsAndCosts.getForSubplan(root),
-                    Optional.of(jsonFragmentPlan(root, symbols, metadata.getFunctionRegistry(), session)));
+                    Optional.of(jsonFragmentPlan(root, symbols, metadata.getFunctionManager(), session)));
 
             return new SubPlan(fragment, properties.getChildren());
         }

@@ -60,8 +60,8 @@ public class NullIfCodeGenerator
         Type secondType = second.getType();
 
         // if (equal(cast(first as <common type>), cast(second as <common type>))
-        Signature equalsSignature = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(firstType, secondType));
-        ScalarFunctionImplementation equalsFunction = generatorContext.getRegistry().getScalarFunctionImplementation(equalsSignature);
+        Signature equalsSignature = generatorContext.getFunctionManager().resolveOperator(OperatorType.EQUAL, ImmutableList.of(firstType, secondType));
+        ScalarFunctionImplementation equalsFunction = generatorContext.getFunctionManager().getScalarFunctionImplementation(equalsSignature);
         BytecodeNode equalsCall = generatorContext.generateCall(
                 equalsSignature.getName(),
                 equalsFunction,
@@ -100,10 +100,10 @@ public class NullIfCodeGenerator
         }
 
         Signature function = generatorContext
-                .getRegistry()
+                .getFunctionManager()
                 .getCoercion(actualType.getTypeSignature(), requiredType);
 
         // TODO: do we need a full function call? (nullability checks, etc)
-        return generatorContext.generateCall(function.getName(), generatorContext.getRegistry().getScalarFunctionImplementation(function), ImmutableList.of(argument));
+        return generatorContext.generateCall(function.getName(), generatorContext.getFunctionManager().getScalarFunctionImplementation(function), ImmutableList.of(argument));
     }
 }

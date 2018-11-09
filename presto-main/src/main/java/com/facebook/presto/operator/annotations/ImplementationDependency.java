@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.annotations;
 
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.Convention;
 import com.facebook.presto.spi.function.FunctionDependency;
 import com.facebook.presto.spi.function.InvocationConvention;
@@ -42,7 +42,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public interface ImplementationDependency
 {
-    Object resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry);
+    Object resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionManager functionManager);
 
     static boolean isImplementationDependencyAnnotation(Annotation annotation)
     {

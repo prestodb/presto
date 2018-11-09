@@ -35,7 +35,7 @@ public class TestApproximateCountDistinctBoolean
     @Override
     public InternalAggregationFunction getAggregationFunction()
     {
-        return metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+        return metadata.getFunctionManager().getAggregateFunctionImplementation(
                 new Signature("approx_distinct", AGGREGATE, BIGINT.getTypeSignature(), BOOLEAN.getTypeSignature(), DOUBLE.getTypeSignature()));
     }
 

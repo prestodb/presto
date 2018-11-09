@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql;
 
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
@@ -33,11 +33,11 @@ import static java.util.Objects.requireNonNull;
 
 public class InterpretedFunctionInvoker
 {
-    private final FunctionRegistry registry;
+    private final FunctionManager functionManager;
 
-    public InterpretedFunctionInvoker(FunctionRegistry registry)
+    public InterpretedFunctionInvoker(FunctionManager functionManager)
     {
-        this.registry = requireNonNull(registry, "registry is null");
+        this.functionManager = requireNonNull(functionManager, "registry is null");
     }
 
     public Object invoke(Signature function, ConnectorSession session, Object... arguments)
@@ -52,7 +52,7 @@ public class InterpretedFunctionInvoker
      */
     public Object invoke(Signature function, ConnectorSession session, List<Object> arguments)
     {
-        ScalarFunctionImplementation implementation = registry.getScalarFunctionImplementation(function);
+        ScalarFunctionImplementation implementation = functionManager.getScalarFunctionImplementation(function);
         MethodHandle method = implementation.getMethodHandle();
 
         // handle function on instance method, to allow use of fields

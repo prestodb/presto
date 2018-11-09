@@ -24,6 +24,7 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.type.TypeRegistry;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -37,9 +38,12 @@ public class FunctionManager
 
     public FunctionManager(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FeaturesConfig featuresConfig)
     {
-        FunctionRegistry functionRegistry = new FunctionRegistry(typeManager, blockEncodingSerde, featuresConfig);
+        FunctionRegistry functionRegistry = new FunctionRegistry(typeManager, blockEncodingSerde, featuresConfig, this);
         this.globalFunctionNamespace = new FunctionNamespace(functionRegistry);
         this.functionInvokerProvider = new FunctionInvokerProvider(functionRegistry);
+        if (typeManager instanceof TypeRegistry) {
+            ((TypeRegistry) typeManager).setFunctionManager(this);
+        }
     }
 
     public FunctionInvokerProvider getFunctionInvokerProvider()

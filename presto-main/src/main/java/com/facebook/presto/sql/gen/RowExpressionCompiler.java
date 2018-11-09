@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
@@ -60,20 +60,20 @@ public class RowExpressionCompiler
     private final CallSiteBinder callSiteBinder;
     private final CachedInstanceBinder cachedInstanceBinder;
     private final RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler;
-    private final FunctionRegistry registry;
+    private final FunctionManager functionManager;
     private final Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap;
 
     RowExpressionCompiler(
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler,
-            FunctionRegistry registry,
+            FunctionManager functionManager,
             Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap)
     {
         this.callSiteBinder = callSiteBinder;
         this.cachedInstanceBinder = cachedInstanceBinder;
         this.fieldReferenceCompiler = fieldReferenceCompiler;
-        this.registry = registry;
+        this.functionManager = functionManager;
         this.compiledLambdaMap = compiledLambdaMap;
     }
 
@@ -96,7 +96,7 @@ public class RowExpressionCompiler
         public BytecodeNode visitCall(CallExpression call, Context context)
         {
             BytecodeGenerator generator;
-            // special-cased in function registry
+            // special-cased in function manager
             if (call.getSignature().getName().equals(CAST)) {
                 generator = new CastCodeGenerator();
             }
@@ -122,7 +122,7 @@ public class RowExpressionCompiler
                         break;
                     // functions that require varargs and/or complex types (e.g., lists)
                     case IN:
-                        generator = new InCodeGenerator(registry);
+                        generator = new InCodeGenerator(functionManager);
                         break;
                     // optimized implementations (shortcircuiting behavior)
                     case "AND":
@@ -150,7 +150,7 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    registry);
+                    functionManager);
 
             return generator.generateExpression(call.getSignature(), generatorContext, call.getType(), call.getArguments(), context.getOutputBlockVariable());
         }
@@ -244,7 +244,7 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    registry);
+                    functionManager);
 
             return generateLambda(
                     generatorContext,

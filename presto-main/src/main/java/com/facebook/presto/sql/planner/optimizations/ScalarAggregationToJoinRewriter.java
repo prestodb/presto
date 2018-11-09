@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -55,15 +55,15 @@ public class ScalarAggregationToJoinRewriter
 {
     private static final QualifiedName COUNT = QualifiedName.of("count");
 
-    private final FunctionRegistry functionRegistry;
+    private final FunctionManager functionManager;
     private final SymbolAllocator symbolAllocator;
     private final PlanNodeIdAllocator idAllocator;
     private final Lookup lookup;
     private final PlanNodeDecorrelator planNodeDecorrelator;
 
-    public ScalarAggregationToJoinRewriter(FunctionRegistry functionRegistry, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
+    public ScalarAggregationToJoinRewriter(FunctionManager functionManager, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
     {
-        this.functionRegistry = requireNonNull(functionRegistry, "metadata is null");
+        this.functionManager = requireNonNull(functionManager, "metadata is null");
         this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.lookup = requireNonNull(lookup, "lookup is null");
@@ -182,7 +182,7 @@ public class ScalarAggregationToJoinRewriter
                         new FunctionCall(
                                 COUNT,
                                 ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference())),
-                        functionRegistry.resolveFunction(
+                        functionManager.resolveFunction(
                                 COUNT,
                                 fromTypeSignatures(scalarAggregationSourceTypeSignatures)),
                         entry.getValue().getMask()));

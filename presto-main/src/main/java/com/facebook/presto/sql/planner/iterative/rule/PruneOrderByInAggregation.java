@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -32,11 +32,11 @@ public class PruneOrderByInAggregation
         implements Rule<AggregationNode>
 {
     private static final Pattern<AggregationNode> PATTERN = aggregation();
-    private final FunctionRegistry functionRegistry;
+    private final FunctionManager functionManager;
 
-    public PruneOrderByInAggregation(FunctionRegistry functionRegistry)
+    public PruneOrderByInAggregation(FunctionManager functionManager)
     {
-        this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
     }
 
     @Override
@@ -60,7 +60,7 @@ public class PruneOrderByInAggregation
                 aggregations.put(entry);
             }
             // getAggregateFunctionImplementation can be expensive, so check it last.
-            else if (functionRegistry.getAggregateFunctionImplementation(aggregation.getSignature()).isOrderSensitive()) {
+            else if (functionManager.getAggregateFunctionImplementation(aggregation.getSignature()).isOrderSensitive()) {
                 aggregations.put(entry);
             }
             else {

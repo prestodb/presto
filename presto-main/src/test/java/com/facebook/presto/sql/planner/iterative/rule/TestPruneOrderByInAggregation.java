@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -38,12 +38,12 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 public class TestPruneOrderByInAggregation
         extends BaseRuleTest
 {
-    private static final FunctionRegistry functionRegistry = MetadataManager.createTestMetadataManager().getFunctionRegistry();
+    private static final FunctionManager FUNCTION_MANAGER = MetadataManager.createTestMetadataManager().getFunctionManager();
 
     @Test
     public void testBasics()
     {
-        tester().assertThat(new PruneOrderByInAggregation(functionRegistry))
+        tester().assertThat(new PruneOrderByInAggregation(FUNCTION_MANAGER))
                 .on(this::buildAggregation)
                 .matches(
                         aggregation(

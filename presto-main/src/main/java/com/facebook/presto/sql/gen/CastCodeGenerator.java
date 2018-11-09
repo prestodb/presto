@@ -35,13 +35,13 @@ public class CastCodeGenerator
         RowExpression argument = arguments.get(0);
 
         Signature function = generatorContext
-                .getRegistry()
+                .getFunctionManager()
                 .getCoercion(argument.getType(), returnType);
 
         BytecodeBlock block = new BytecodeBlock()
                 .append(generatorContext.generateCall(
                         function.getName(),
-                        generatorContext.getRegistry().getScalarFunctionImplementation(function),
+                        generatorContext.getFunctionManager().getScalarFunctionImplementation(function),
                         ImmutableList.of(generatorContext.generate(argument, Optional.empty()))));
         outputBlockVariable.ifPresent(output -> block.append(generateWrite(generatorContext, returnType, output)));
         return block;

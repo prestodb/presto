@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.annotations;
 
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -36,7 +36,7 @@ public final class TypeImplementationDependency
     }
 
     @Override
-    public Type resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public Type resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionManager functionManager)
     {
         return typeManager.getType(applyBoundVariables(signature, boundVariables));
     }

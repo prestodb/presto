@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.OperatorType;
@@ -62,11 +62,11 @@ import static java.util.Objects.requireNonNull;
 public class InCodeGenerator
         implements BytecodeGenerator
 {
-    private final FunctionRegistry registry;
+    private final FunctionManager functionManager;
 
-    public InCodeGenerator(FunctionRegistry registry)
+    public InCodeGenerator(FunctionManager functionManager)
     {
-        this.registry = requireNonNull(registry, "registry is null");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
     }
 
     enum SwitchGenerationCase
@@ -121,10 +121,10 @@ public class InCodeGenerator
 
         SwitchGenerationCase switchGenerationCase = checkSwitchGenerationCase(type, values);
 
-        Signature hashCodeSignature = generatorContext.getRegistry().resolveOperator(HASH_CODE, ImmutableList.of(type));
-        MethodHandle hashCodeFunction = generatorContext.getRegistry().getScalarFunctionImplementation(hashCodeSignature).getMethodHandle();
-        Signature isIndeterminateSignature = generatorContext.getRegistry().resolveOperator(INDETERMINATE, ImmutableList.of(type));
-        ScalarFunctionImplementation isIndeterminateFunction = generatorContext.getRegistry().getScalarFunctionImplementation(isIndeterminateSignature);
+        Signature hashCodeSignature = generatorContext.getFunctionManager().resolveOperator(HASH_CODE, ImmutableList.of(type));
+        MethodHandle hashCodeFunction = generatorContext.getFunctionManager().getScalarFunctionImplementation(hashCodeSignature).getMethodHandle();
+        Signature isIndeterminateSignature = generatorContext.getFunctionManager().resolveOperator(INDETERMINATE, ImmutableList.of(type));
+        ScalarFunctionImplementation isIndeterminateFunction = generatorContext.getFunctionManager().getScalarFunctionImplementation(isIndeterminateSignature);
 
         ImmutableListMultimap.Builder<Integer, BytecodeNode> hashBucketsBuilder = ImmutableListMultimap.builder();
         ImmutableList.Builder<BytecodeNode> defaultBucket = ImmutableList.builder();
@@ -220,7 +220,7 @@ public class InCodeGenerator
                         .append(switchBuilder.build());
                 break;
             case SET_CONTAINS:
-                Set<?> constantValuesSet = toFastutilHashSet(constantValues, type, registry);
+                Set<?> constantValuesSet = toFastutilHashSet(constantValues, type, functionManager);
                 Binding constant = generatorContext.getCallSiteBinder().bind(constantValuesSet, constantValuesSet.getClass());
 
                 switchBlock = new BytecodeBlock()
@@ -333,8 +333,8 @@ public class InCodeGenerator
 
         elseBlock.gotoLabel(noMatchLabel);
 
-        Signature equalsSignature = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(type, type));
-        ScalarFunctionImplementation equalsFunction = generatorContext.getRegistry().getScalarFunctionImplementation(equalsSignature);
+        Signature equalsSignature = generatorContext.getFunctionManager().resolveOperator(OperatorType.EQUAL, ImmutableList.of(type, type));
+        ScalarFunctionImplementation equalsFunction = generatorContext.getFunctionManager().getScalarFunctionImplementation(equalsSignature);
 
         BytecodeNode elseNode = elseBlock;
         for (BytecodeNode testNode : testValues) {

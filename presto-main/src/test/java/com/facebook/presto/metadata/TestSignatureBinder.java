@@ -61,8 +61,8 @@ public class TestSignatureBinder
 
     TestSignatureBinder()
     {
-        // associate typeRegistry with a function registry
-        new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+        // associate typeRegistry with a function manager
+        new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
     }
 
     @Test
