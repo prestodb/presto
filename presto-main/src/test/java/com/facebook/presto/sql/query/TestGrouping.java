@@ -46,4 +46,10 @@ public class TestGrouping
                         "HAVING grouping(a, b) = 0",
                 "VALUES ('x0', 'y0', 0), ('x1', 'y1', 0)");
     }
+
+    @Test
+    public void testToMakeSureThatMavenExecutesJunitTests(QueryAssertions queryAssertions)
+    {
+        queryAssertions.assertFails("SELECT true", "Expected this test to fail");
+    }
 }
