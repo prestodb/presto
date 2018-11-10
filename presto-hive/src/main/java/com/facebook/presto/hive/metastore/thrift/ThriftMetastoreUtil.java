@@ -415,9 +415,8 @@ public final class ThriftMetastoreUtil
     }
 
     /**
-     * Impala 'COMPUTE STATS' will write -1 as the numFalse
-     * @param numFalse
-     * @return
+     * Impala 'COMPUTE STATS' write 1 as the numTrue and -1 as the numFalse
+     * @see <a href="https://github.com/apache/impala/blob/0cbe37afc8f77fd8e0aef7e710e2d1b214c1c5b1/fe/src/main/java/org/apache/impala/catalog/ColumnStats.java#L269">Impala ColumnStats.java#L269</>
      */
     public static OptionalLong fromMetastoreNumFalse(long numFalse)
     {
