@@ -17,6 +17,7 @@ import com.facebook.presto.spi.HostAddress;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -194,6 +195,7 @@ public class RedisConnectorConfig
     }
 
     @Config("redis.password")
+    @ConfigSecuritySensitive
     public RedisConnectorConfig setRedisPassword(String redisPassword)
     {
         this.redisPassword = redisPassword;
