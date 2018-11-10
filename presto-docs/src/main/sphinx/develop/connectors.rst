@@ -56,3 +56,14 @@ Given a split and a list of columns, the record set provider is
 responsible for delivering data to the Presto execution engine.
 It creates a ``RecordSet``, which in turn creates a ``RecordCursor``
 that is used by Presto to read the column values for each row.
+
+.. note::
+
+    For any connector that uses Joda-Time, it must declare a ``runtime``
+    dependency on `joda-to-java-time-bridge <https://github.com/airlift/joda-to-java-time-bridge/blob/master/README.md>`_.
+    Presto internally uses ``java.time`` for certain date/time
+    computations. Thus, to avoid incorrect results caused by inconsistent
+    time zone rules, Presto registers a custom Joda-Time zone provider
+    at startup time, which makes Joda-Time delegate to the JVM's built-in
+    zone rules. The zone provider can be found in the above package.
+    If the dependency is not declared, a class loading error will occur.
