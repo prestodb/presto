@@ -46,6 +46,7 @@ import static com.facebook.presto.parquet.ParquetTypeUtils.getPrestoType;
 import static com.facebook.presto.parquet.predicate.PredicateUtils.isStatisticsOverflow;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -200,6 +201,15 @@ public class TupleDomainParquetPredicate
             ParquetStringStatistics parquetStringStatistics = new ParquetStringStatistics(minSlice, maxSlice);
             return createDomain(type, hasNullValue, parquetStringStatistics);
         }
+        else if (type.equals(DATE) && statistics instanceof IntStatistics) {
+            IntStatistics intStatistics = (IntStatistics) statistics;
+            // ignore corrupted statistics
+            if (intStatistics.genericGetMin() > intStatistics.genericGetMax()) {
+                return Domain.create(ValueSet.all(type), hasNullValue);
+            }
+            ParquetIntegerStatistics parquetIntegerStatistics = new ParquetIntegerStatistics((long) intStatistics.getMin(), (long) intStatistics.getMax());
+            return createDomain(type, hasNullValue, parquetIntegerStatistics);
+        }
         return Domain.create(ValueSet.all(type), hasNullValue);
     }
 
@@ -235,7 +245,7 @@ public class TupleDomainParquetPredicate
             domains.add(Domain.onlyNull(type));
             return Domain.union(domains);
         }
-        else if (type.equals(BIGINT) && columnDescriptor.getType() == PrimitiveTypeName.INT32) {
+        else if ((type.equals(BIGINT) || type.equals(DATE)) && columnDescriptor.getType() == PrimitiveTypeName.INT32) {
             List<Domain> domains = new ArrayList<>();
             for (int i = 0; i < dictionarySize; i++) {
                 domains.add(Domain.singleValue(type, (long) dictionary.decodeToInt(i)));
