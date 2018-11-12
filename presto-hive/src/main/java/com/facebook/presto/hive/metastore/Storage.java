@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.HiveBucketProperty;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 
@@ -35,6 +36,7 @@ public class Storage
     private final boolean skewed;
     private final Map<String, String> serdeParameters;
 
+    @JsonCreator
     public Storage(
             @JsonProperty("storageFormat") StorageFormat storageFormat,
             @JsonProperty("location") String location,
