@@ -36,7 +36,12 @@ public class StatsCalculatorTester
 
     public StatsCalculatorTester()
     {
-        this(createQueryRunner());
+        this(testSessionBuilder().build());
+    }
+
+    public StatsCalculatorTester(Session session)
+    {
+        this(createQueryRunner(session));
     }
 
     private StatsCalculatorTester(LocalQueryRunner queryRunner)
@@ -47,10 +52,8 @@ public class StatsCalculatorTester
         this.queryRunner = queryRunner;
     }
 
-    private static LocalQueryRunner createQueryRunner()
+    private static LocalQueryRunner createQueryRunner(Session session)
     {
-        Session session = testSessionBuilder().build();
-
         LocalQueryRunner queryRunner = new LocalQueryRunner(session);
         queryRunner.createCatalog(session.getCatalog().get(),
                 new TpchConnectorFactory(1),
