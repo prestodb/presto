@@ -18,9 +18,9 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.RealType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
@@ -36,6 +36,7 @@ import parquet.io.ParquetDecodingException;
 import parquet.io.PrimitiveColumnIO;
 import parquet.schema.DecimalMetadata;
 import parquet.schema.MessageType;
+import parquet.schema.OriginalType;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -45,6 +46,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static parquet.schema.OriginalType.DECIMAL;
 import static parquet.schema.Type.Repetition.REPEATED;
@@ -169,7 +171,7 @@ public final class ParquetTypeUtils
             case DOUBLE:
                 return DoubleType.DOUBLE;
             case INT32:
-                return createDecimalType(descriptor).orElse(IntegerType.INTEGER);
+                return getInt32Type(descriptor);
             case INT64:
                 return createDecimalType(descriptor).orElse(BigintType.BIGINT);
             case INT96:
@@ -278,8 +280,12 @@ public final class ParquetTypeUtils
         if (descriptor.getPrimitiveType().getOriginalType() != DECIMAL) {
             return Optional.empty();
         }
-        DecimalMetadata decimalMetadata = descriptor.getPrimitiveType().getDecimalMetadata();
-        return Optional.of(DecimalType.createDecimalType(decimalMetadata.getPrecision(), decimalMetadata.getScale()));
+        return Optional.of(createDecimalType(descriptor.getPrimitiveType().getDecimalMetadata()));
+    }
+
+    private static Type createDecimalType(DecimalMetadata decimalMetadata)
+    {
+        return DecimalType.createDecimalType(decimalMetadata.getPrecision(), decimalMetadata.getScale());
     }
 
     /**
@@ -308,5 +314,22 @@ public final class ParquetTypeUtils
         }
 
         return value;
+    }
+
+    private static Type getInt32Type(RichColumnDescriptor descriptor)
+    {
+        OriginalType originalType = descriptor.getPrimitiveType().getOriginalType();
+        if (originalType == null) {
+            return INTEGER;
+        }
+
+        switch (originalType) {
+            case DECIMAL:
+                return createDecimalType(descriptor.getPrimitiveType().getDecimalMetadata());
+            case DATE:
+                return DateType.DATE;
+            default:
+                return INTEGER;
+        }
     }
 }
