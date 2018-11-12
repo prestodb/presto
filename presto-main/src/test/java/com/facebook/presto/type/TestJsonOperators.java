@@ -174,6 +174,10 @@ public class TestJsonOperators
         assertFunction("JSON '123'", JSON, "123");
         assertFunction("JSON '[4,5,6]'", JSON, "[4,5,6]");
         assertFunction("JSON '{ \"a\": 789 }'", JSON, "{\"a\":789}");
+        assertFunction("JSON 'null'", JSON, "null");
+        assertFunction("JSON '[null]'", JSON, "[null]");
+        assertFunction("JSON '[13,null,42]'", JSON, "[13,null,42]");
+        assertFunction("JSON '{\"x\": null}'", JSON, "{\"x\":null}");
     }
 
     @Test
