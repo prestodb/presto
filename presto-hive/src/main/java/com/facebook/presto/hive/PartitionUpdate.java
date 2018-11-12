@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.PrestoException;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimaps;
@@ -39,6 +40,7 @@ public class PartitionUpdate
     private final long inMemoryDataSizeInBytes;
     private final long onDiskDataSizeInBytes;
 
+    @JsonCreator
     public PartitionUpdate(
             @JsonProperty("name") String name,
             @JsonProperty("updateMode") UpdateMode updateMode,
