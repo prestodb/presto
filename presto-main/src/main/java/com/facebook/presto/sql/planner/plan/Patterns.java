@@ -154,6 +154,11 @@ public class Patterns
         return typeOf(WindowNode.class);
     }
 
+    public static Pattern<RowNumberNode> rowNumber()
+    {
+        return typeOf(RowNumberNode.class);
+    }
+
     public static Property<PlanNode, PlanNode> source()
     {
         return optionalProperty("source", node -> node.getSources().size() == 1 ?
