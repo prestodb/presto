@@ -127,14 +127,11 @@ script:
       presto-product-tests/bin/run_on_docker.sh \
         singlenode-ldap -g ldap -x simba_jdbc
     fi
-# SQL server image sporadically hangs during the startup
-# TODO: Uncomment it once issue is fixed
-# https://github.com/Microsoft/mssql-docker/issues/76
-#  - |
-#    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
-#      presto-product-tests/bin/run_on_docker.sh \
-#        singlenode-sqlserver -g sqlserver
-#    fi
+  - |
+    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
+      presto-product-tests/bin/run_on_docker.sh \
+        singlenode-sqlserver -g sqlserver
+    fi
   - |
     if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2 ]]; then
       presto-product-tests/bin/run_on_docker.sh \
