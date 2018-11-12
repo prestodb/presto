@@ -108,6 +108,7 @@ public class FeaturesConfig
     private boolean iterativeOptimizerEnabled = true;
     private boolean enableStatsCalculator = true;
     private boolean ignoreStatsCalculatorFailures = true;
+    private boolean defaultFilterFactorEnabled;
     private boolean pushAggregationThroughJoin = true;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
@@ -616,6 +617,18 @@ public class FeaturesConfig
     {
         this.ignoreStatsCalculatorFailures = ignoreStatsCalculatorFailures;
         return this;
+    }
+
+    @Config("optimizer.default-filter-factor-enabled")
+    public FeaturesConfig setDefaultFilterFactorEnabled(boolean defaultFilterFactorEnabled)
+    {
+        this.defaultFilterFactorEnabled = defaultFilterFactorEnabled;
+        return this;
+    }
+
+    public boolean isDefaultFilterFactorEnabled()
+    {
+        return defaultFilterFactorEnabled;
     }
 
     public DataSize getAggregationOperatorUnspillMemoryLimit()

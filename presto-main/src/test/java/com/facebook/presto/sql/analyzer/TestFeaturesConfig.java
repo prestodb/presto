@@ -86,6 +86,7 @@ public class TestFeaturesConfig
                 .setIterativeOptimizerTimeout(new Duration(3, MINUTES))
                 .setEnableStatsCalculator(true)
                 .setIgnoreStatsCalculatorFailures(true)
+                .setDefaultFilterFactorEnabled(false)
                 .setExchangeCompressionEnabled(false)
                 .setLegacyTimestamp(true)
                 .setLegacyRowFieldOrdinalAccess(false)
@@ -119,6 +120,7 @@ public class TestFeaturesConfig
                 .put("experimental.iterative-optimizer-timeout", "10s")
                 .put("experimental.enable-stats-calculator", "false")
                 .put("optimizer.ignore-stats-calculator-failures", "false")
+                .put("optimizer.default-filter-factor-enabled", "true")
                 .put("deprecated.legacy-array-agg", "true")
                 .put("deprecated.legacy-log-function", "true")
                 .put("deprecated.group-by-uses-equal", "true")
@@ -232,7 +234,8 @@ public class TestFeaturesConfig
                 .setMultimapAggGroupImplementation(MultimapAggGroupImplementation.LEGACY)
                 .setDistributedSortEnabled(false)
                 .setMaxGroupingSets(2047)
-                .setLegacyUnnestArrayRows(true);
+                .setLegacyUnnestArrayRows(true)
+                .setDefaultFilterFactorEnabled(true);
         assertFullMapping(properties, expected);
     }
 
