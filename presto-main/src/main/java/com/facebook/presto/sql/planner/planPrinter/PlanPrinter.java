@@ -131,6 +131,7 @@ import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 import static java.lang.String.format;
 import static java.util.Arrays.stream;
+import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -987,10 +988,10 @@ public class PlanPrinter
                     Set<ColumnHandle> outputs = ImmutableSet.copyOf(node.getAssignments().values());
 
                     predicate.getDomains().get()
-                            .entrySet().stream()
-                            .filter(entry -> !outputs.contains(entry.getKey()))
-                            .forEach(entry -> {
-                                ColumnHandle column = entry.getKey();
+                            .keySet().stream()
+                            .filter(entry -> !outputs.contains(entry))
+                            .sorted(comparing(entry -> entry.toString()))
+                            .forEach(column -> {
                                 print(indent + 2, "%s", column);
                                 printConstraint(indent + 3, column, predicate);
                             });
