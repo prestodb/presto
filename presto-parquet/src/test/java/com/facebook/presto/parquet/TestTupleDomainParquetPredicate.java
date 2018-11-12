@@ -27,6 +27,7 @@ import parquet.column.statistics.BinaryStatistics;
 import parquet.column.statistics.BooleanStatistics;
 import parquet.column.statistics.DoubleStatistics;
 import parquet.column.statistics.FloatStatistics;
+import parquet.column.statistics.IntStatistics;
 import parquet.column.statistics.LongStatistics;
 import parquet.column.statistics.Statistics;
 import parquet.io.api.Binary;
@@ -45,6 +46,7 @@ import static com.facebook.presto.spi.predicate.Range.range;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -190,6 +192,16 @@ public class TestTupleDomainParquetPredicate
     }
 
     @Test
+    public void testDate()
+    {
+        assertEquals(getDomain(DATE, 0, null), all(DATE));
+        assertEquals(getDomain(DATE, 10, intColumnStats(100, 100)), singleValue(DATE, 100L));
+        assertEquals(getDomain(DATE, 10, intColumnStats(0, 100)), create(ValueSet.ofRanges(range(DATE, 0L, true, 100L, true)), false));
+        // assert corrupt stats are ignored properly
+        assertEquals(getDomain(DATE, 10, intColumnStats(200, 100)), create(ValueSet.all(DATE), false));
+    }
+
+    @Test
     public void testMatchesWithStatistics()
     {
         String value = "Test";
@@ -225,6 +237,13 @@ public class TestTupleDomainParquetPredicate
     private static FloatStatistics floatColumnStats(float minimum, float maximum)
     {
         FloatStatistics statistics = new FloatStatistics();
+        statistics.setMinMax(minimum, maximum);
+        return statistics;
+    }
+
+    private static IntStatistics intColumnStats(int minimum, int maximum)
+    {
+        IntStatistics statistics = new IntStatistics();
         statistics.setMinMax(minimum, maximum);
         return statistics;
     }
