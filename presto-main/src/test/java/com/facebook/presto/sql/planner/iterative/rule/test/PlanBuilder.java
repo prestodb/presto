@@ -58,6 +58,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
+import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
@@ -713,6 +714,17 @@ public class PlanBuilder
                 Optional.of(hashSymbol),
                 ImmutableSet.of(),
                 0);
+    }
+
+    public RowNumberNode rowNumber(List<Symbol> partitionBy, Optional<Integer> maxRowCountPerPartition, Symbol rowNumberSymbol, PlanNode source)
+    {
+        return new RowNumberNode(
+                idAllocator.getNextId(),
+                source,
+                partitionBy,
+                rowNumberSymbol,
+                maxRowCountPerPartition,
+                Optional.empty());
     }
 
     public RemoteSourceNode remoteSourceNode(List<PlanFragmentId> fragmentIds, List<Symbol> symbols, ExchangeNode.Type exchangeType)

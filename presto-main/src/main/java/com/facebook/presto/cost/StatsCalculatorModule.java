@@ -53,6 +53,7 @@ public class StatsCalculatorModule
         rules.add(new UnionStatsRule(normalizer));
         rules.add(new AssignUniqueIdStatsRule());
         rules.add(new SemiJoinStatsRule());
+        rules.add(new RowNumberStatsRule(normalizer));
 
         return new ComposableStatsCalculator(rules.build());
     }
