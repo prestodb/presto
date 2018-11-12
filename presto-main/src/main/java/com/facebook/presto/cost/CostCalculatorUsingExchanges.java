@@ -32,6 +32,7 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -126,6 +127,24 @@ public class CostCalculatorUsingExchanges
         public PlanNodeCostEstimate visitAssignUniqueId(AssignUniqueId node, Void context)
         {
             return cpuCost(getStats(node).getOutputSizeInBytes(ImmutableList.of(node.getIdColumn()), types));
+        }
+
+        @Override
+        public PlanNodeCostEstimate visitRowNumber(RowNumberNode node, Void context)
+        {
+            List<Symbol> symbols = node.getOutputSymbols();
+            // when maxRowCountPerPartition is set, the RowNumberOperator
+            // copies values for all the columns into a page builder
+            if (!node.getMaxRowCountPerPartition().isPresent()) {
+                symbols = ImmutableList.<Symbol>builder()
+                        .addAll(node.getPartitionBy())
+                        .add(node.getRowNumberSymbol())
+                        .build();
+            }
+            PlanNodeStatsEstimate stats = getStats(node);
+            double cpuCost = stats.getOutputSizeInBytes(symbols, types);
+            double memoryCost = node.getPartitionBy().isEmpty() ? 0 : stats.getOutputSizeInBytes(node.getSource().getOutputSymbols(), types);
+            return new PlanNodeCostEstimate(cpuCost, memoryCost, 0);
         }
 
         @Override
