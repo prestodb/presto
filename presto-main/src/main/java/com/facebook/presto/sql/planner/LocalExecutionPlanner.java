@@ -252,6 +252,7 @@ import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_TH
 import static com.facebook.presto.util.SpatialJoinUtils.ST_CONTAINS;
 import static com.facebook.presto.util.SpatialJoinUtils.ST_DISTANCE;
 import static com.facebook.presto.util.SpatialJoinUtils.ST_INTERSECTS;
+import static com.facebook.presto.util.SpatialJoinUtils.ST_WITHIN;
 import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialComparisons;
 import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialFunctions;
 import static com.google.common.base.Functions.forMap;
@@ -1682,6 +1683,13 @@ public class LocalExecutionPlanner
                     }
                     else {
                         return (buildGeometry, probeGeometry, radius) -> buildGeometry.contains(probeGeometry);
+                    }
+                case ST_WITHIN:
+                    if (probeFirst) {
+                        return (buildGeometry, probeGeometry, radius) -> probeGeometry.within(buildGeometry);
+                    }
+                    else {
+                        return (buildGeometry, probeGeometry, radius) -> buildGeometry.within(probeGeometry);
                     }
                 case ST_INTERSECTS:
                     return (buildGeometry, probeGeometry, radius) -> buildGeometry.intersects(probeGeometry);
