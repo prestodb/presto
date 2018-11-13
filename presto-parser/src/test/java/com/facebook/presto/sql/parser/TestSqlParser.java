@@ -1128,6 +1128,25 @@ public class TestSqlParser
                         true,
                         ImmutableList.of(),
                         Optional.of("test")));
+
+        assertEquals(
+                formatSql(
+                        new CreateTable(QualifiedName.of("foo"),
+                                ImmutableList.of(
+                                        new ColumnDefinition(identifier("values"), "BIGINT", emptyList(), Optional.empty()),
+                                        new ColumnDefinition(identifier("ORDER"), "VARCHAR", emptyList(), Optional.empty()),
+                                        new ColumnDefinition(quotedIdentifier("group"), "VARCHAR", emptyList(), Optional.empty()),
+                                        new ColumnDefinition(identifier(" "), "VARCHAR", emptyList(), Optional.empty())),
+                                false,
+                                ImmutableList.of(),
+                                Optional.empty()),
+                        Optional.empty()),
+                "CREATE TABLE foo (\n" +
+                        "   \"values\" BIGINT,\n" +
+                        "   \"ORDER\" VARCHAR,\n" +
+                        "   \"group\" VARCHAR,\n" +
+                        "   \" \" VARCHAR\n" +
+                        ")");
     }
 
     @Test

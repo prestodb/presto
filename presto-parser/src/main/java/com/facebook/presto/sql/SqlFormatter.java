@@ -99,6 +99,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -106,15 +107,18 @@ import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.sql.ExpressionFormatter.formatGroupBy;
 import static com.facebook.presto.sql.ExpressionFormatter.formatOrderBy;
 import static com.facebook.presto.sql.ExpressionFormatter.formatStringLiteral;
+import static com.facebook.presto.sql.ReservedIdentifiers.reservedIdentifiers;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 
 public final class SqlFormatter
 {
     private static final String INDENT = "   ";
     private static final Pattern NAME_PATTERN = Pattern.compile("[a-z_][a-z0-9_]*");
+    private static final Set<String> RESERVED_IDENTIFIERS = reservedIdentifiers();
 
     private SqlFormatter() {}
 
@@ -860,7 +864,11 @@ public final class SqlFormatter
 
         private String formatColumnDefinition(ColumnDefinition column)
         {
-            return formatExpression(column.getName(), parameters) + " " + column.getType() +
+            String columnName = formatExpression(column.getName(), parameters);
+            columnName = RESERVED_IDENTIFIERS.contains(columnName.toUpperCase(ENGLISH)) ?
+                    "\"" + columnName + "\"" :
+                    columnName;
+            return columnName + " " + column.getType() +
                     column.getComment()
                             .map(comment -> " COMMENT " + formatStringLiteral(comment))
                             .orElse("") +
