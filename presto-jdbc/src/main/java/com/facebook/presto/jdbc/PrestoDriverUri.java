@@ -15,6 +15,7 @@ package com.facebook.presto.jdbc;
 
 import com.facebook.presto.client.ClientException;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.net.HostAndPort;
 import okhttp3.OkHttpClient;
@@ -55,6 +56,7 @@ import static com.facebook.presto.jdbc.ConnectionProperties.SSL_KEY_STORE_PATH;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH;
 import static com.facebook.presto.jdbc.ConnectionProperties.USER;
+import static com.facebook.presto.jdbc.ConnectionProperties.USER_CREDENTIAL;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -175,7 +177,8 @@ final class PrestoDriverUri
                         KERBEROS_CONFIG_PATH.getValue(properties),
                         KERBEROS_KEYTAB_PATH.getValue(properties),
                         Optional.ofNullable(KERBEROS_CREDENTIAL_CACHE_PATH.getValue(properties)
-                                .orElseGet(() -> defaultCredentialCachePath().map(File::new).orElse(null))));
+                                .orElseGet(() -> defaultCredentialCachePath().map(File::new).orElse(null)))
+                        , USER_CREDENTIAL.getValue(properties));
             }
 
             if (ACCESS_TOKEN.getValue(properties).isPresent()) {
@@ -193,10 +196,10 @@ final class PrestoDriverUri
         }
     }
 
-    private static Map<String, String> parseParameters(String query)
+    private static Map<Object, Object> parseParameters(String query)
             throws SQLException
     {
-        Map<String, String> result = new HashMap<>();
+        Map<Object, Object> result = new HashMap<>();
 
         if (query != null) {
             Iterable<String> queryArgs = QUERY_SPLITTER.split(query);
@@ -284,11 +287,11 @@ final class PrestoDriverUri
     private static Properties mergeConnectionProperties(URI uri, Properties driverProperties)
             throws SQLException
     {
-        Map<String, String> defaults = ConnectionProperties.getDefaults();
-        Map<String, String> urlProperties = parseParameters(uri.getQuery());
-        Map<String, String> suppliedProperties = Maps.fromProperties(driverProperties);
+        Map<Object, Object> defaults = ConnectionProperties.getDefaults();
+        Map<Object, Object> urlProperties = parseParameters(uri.getQuery());
+        Map<Object, Object> suppliedProperties = ImmutableMap.copyOf(driverProperties);
 
-        for (String key : urlProperties.keySet()) {
+        for (Object key : urlProperties.keySet()) {
             if (suppliedProperties.containsKey(key)) {
                 throw new SQLException(format("Connection property '%s' is both in the URL and an argument", key));
             }
@@ -301,10 +304,10 @@ final class PrestoDriverUri
         return result;
     }
 
-    private static void setProperties(Properties properties, Map<String, String> values)
+    private static void setProperties(Properties properties, Map<Object, Object> values)
     {
-        for (Entry<String, String> entry : values.entrySet()) {
-            properties.setProperty(entry.getKey(), entry.getValue());
+        for (Entry<Object, Object> entry : values.entrySet()) {
+            properties.put(entry.getKey(), entry.getValue());
         }
     }
 

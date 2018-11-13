@@ -23,6 +23,7 @@ import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
 import okhttp3.Response;
+import org.ietf.jgss.GSSCredential;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
@@ -259,7 +260,8 @@ public final class OkHttpUtil
             Optional<String> principal,
             Optional<File> kerberosConfig,
             Optional<File> keytab,
-            Optional<File> credentialCache)
+            Optional<File> credentialCache,
+            Optional<GSSCredential> userCredential)
     {
         SpnegoHandler handler = new SpnegoHandler(
                 remoteServiceName,
@@ -267,7 +269,8 @@ public final class OkHttpUtil
                 principal,
                 kerberosConfig,
                 keytab,
-                credentialCache);
+                credentialCache,
+                userCredential);
         clientBuilder.addInterceptor(handler);
         clientBuilder.authenticator(handler);
     }
