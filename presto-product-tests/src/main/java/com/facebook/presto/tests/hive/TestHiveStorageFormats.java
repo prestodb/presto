@@ -196,7 +196,7 @@ public class TestHiveStorageFormats
     {
         String tableName = "table_created_in_hive_parquet";
 
-        query("DROP TABLE IF EXISTS " + tableName);
+        onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
 
         onHive().executeQuery(format(
                 "CREATE TABLE %s (" +
@@ -210,7 +210,7 @@ public class TestHiveStorageFormats
 
         assertThat(query("SELECT * FROM " + tableName)).containsExactly(row(1, "test data"));
 
-        query("DROP TABLE " + tableName);
+        onHive().executeQuery("DROP TABLE " + tableName);
     }
 
     private static void assertSelect(String query, String tableName)
