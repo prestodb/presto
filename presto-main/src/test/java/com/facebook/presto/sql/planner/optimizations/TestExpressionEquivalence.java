@@ -94,6 +94,10 @@ public class TestExpressionEquivalence
         assertEquivalent(
                 "(a_boolean and b_boolean and c_boolean) or (d_boolean and e_boolean) or (f_boolean and g_boolean and h_boolean)",
                 "(h_boolean and g_boolean and f_boolean) or (b_boolean and a_boolean and c_boolean) or (e_boolean and d_boolean)");
+
+        assertEquivalent(
+                "reduce(ARRAY [b_boolean], false, (s, x) -> s AND x, s -> s)",
+                "reduce(ARRAY [b_boolean], false, (s, x) -> x AND s, s -> s)");
     }
 
     private static void assertEquivalent(@Language("SQL") String left, @Language("SQL") String right)
@@ -142,6 +146,10 @@ public class TestExpressionEquivalence
         assertNotEquivalent("4 <= 5 or 6 < 7", "7 > 6 or 5 >= 6");
         assertNotEquivalent("a_bigint <= b_bigint and c_bigint < d_bigint", "d_bigint > c_bigint and b_bigint >= c_bigint");
         assertNotEquivalent("a_bigint <= b_bigint or c_bigint < d_bigint", "d_bigint > c_bigint or b_bigint >= c_bigint");
+
+        assertNotEquivalent(
+                "reduce(ARRAY [b_boolean], false, (s, x) -> s AND x, s -> s)",
+                "reduce(ARRAY [b_boolean], false, (s, x) -> s OR x, s -> s)");
     }
 
     private static void assertNotEquivalent(@Language("SQL") String left, @Language("SQL") String right)
