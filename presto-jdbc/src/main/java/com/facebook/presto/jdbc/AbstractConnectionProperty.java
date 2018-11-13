@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.google.common.net.HostAndPort;
+import org.ietf.jgss.GSSCredential;
+
 import java.io.File;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
@@ -131,20 +134,24 @@ abstract class AbstractConnectionProperty<T>
 
     interface Converter<T>
     {
-        T convert(String value);
+        T convert(Object value);
     }
 
-    protected static final Converter<String> STRING_CONVERTER = value -> value;
+    protected static final Converter<String> STRING_CONVERTER = Object::toString;
 
     protected static final Converter<String> NON_EMPTY_STRING_CONVERTER = value -> {
-        checkArgument(!value.isEmpty(), "value is empty");
-        return value;
+        checkArgument(!value.toString().isEmpty(), "value is empty");
+        return value.toString();
     };
 
-    protected static final Converter<File> FILE_CONVERTER = File::new;
+    protected static final Converter<GSSCredential> CREDENTIAL_CONVERTER = value -> (GSSCredential) value;
+
+    protected static final Converter<HostAndPort> HOST_AND_PORT_CONVERTER = value -> HostAndPort.fromString(value.toString());
+
+    protected static final Converter<File> FILE_CONVERTER = value -> new File(value.toString());
 
     protected static final Converter<Boolean> BOOLEAN_CONVERTER = value -> {
-        switch (value.toLowerCase(ENGLISH)) {
+        switch (value.toString().toLowerCase(ENGLISH)) {
             case "true":
                 return true;
             case "false":

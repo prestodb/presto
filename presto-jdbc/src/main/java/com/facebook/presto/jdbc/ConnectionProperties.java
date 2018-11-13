@@ -16,8 +16,10 @@ package com.facebook.presto.jdbc;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
+import org.ietf.jgss.GSSCredential;
 
 import java.io.File;
+import java.sql.SQLException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -47,6 +49,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<File> KERBEROS_CONFIG_PATH = new KerberosConfigPath();
     public static final ConnectionProperty<File> KERBEROS_KEYTAB_PATH = new KerberosKeytabPath();
     public static final ConnectionProperty<File> KERBEROS_CREDENTIAL_CACHE_PATH = new KerberosCredentialCachePath();
+    public static final ConnectionProperty<GSSCredential> USER_CREDENTIAL = new UserCredential();
     public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
 
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
@@ -67,15 +70,16 @@ final class ConnectionProperties
             .add(KERBEROS_KEYTAB_PATH)
             .add(KERBEROS_CREDENTIAL_CACHE_PATH)
             .add(ACCESS_TOKEN)
+            .add(USER_CREDENTIAL)
             .build();
 
     private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
             .collect(toMap(ConnectionProperty::getKey, identity())));
 
-    private static final Map<String, String> DEFAULTS;
+    private static final Map<Object, Object> DEFAULTS;
 
     static {
-        ImmutableMap.Builder<String, String> defaults = ImmutableMap.builder();
+        ImmutableMap.Builder<Object, Object> defaults = ImmutableMap.builder();
         for (ConnectionProperty<?> property : ALL_PROPERTIES) {
             property.getDefault().ifPresent(value -> defaults.put(property.getKey(), value));
         }
@@ -94,7 +98,7 @@ final class ConnectionProperties
         return ALL_PROPERTIES;
     }
 
-    public static Map<String, String> getDefaults()
+    public static Map<Object, Object> getDefaults()
     {
         return DEFAULTS;
     }
@@ -125,7 +129,7 @@ final class ConnectionProperties
 
         public SocksProxy()
         {
-            super("socksProxy", NOT_REQUIRED, NO_HTTP_PROXY, HostAndPort::fromString);
+            super("socksProxy", NOT_REQUIRED, NO_HTTP_PROXY, HOST_AND_PORT_CONVERTER);
         }
     }
 
@@ -137,7 +141,26 @@ final class ConnectionProperties
 
         public HttpProxy()
         {
-            super("httpProxy", NOT_REQUIRED, NO_SOCKS_PROXY, HostAndPort::fromString);
+            super("httpProxy", NOT_REQUIRED, NO_SOCKS_PROXY, HOST_AND_PORT_CONVERTER);
+        }
+    }
+
+    private static class UserCredential
+            extends AbstractConnectionProperty<GSSCredential>
+    {
+        public UserCredential()
+        {
+            super("userCredential", NOT_REQUIRED, isKerberosEnabled(), CREDENTIAL_CONVERTER);
+        }
+
+        @Override
+        public Optional<GSSCredential> getValue(Properties properties)
+        {
+            Object userCredentialObject = properties.get(getKey());
+            if (userCredentialObject != null) {
+                return Optional.of(CREDENTIAL_CONVERTER.convert(userCredentialObject));
+            }
+            return Optional.empty();
         }
     }
 

@@ -79,6 +79,7 @@ public class SpnegoHandler
     private final Optional<String> principal;
     private final Optional<File> keytab;
     private final Optional<File> credentialCache;
+    private final Optional<GSSCredential> userCredential;
 
     @GuardedBy("this")
     private Session clientSession;
@@ -89,13 +90,15 @@ public class SpnegoHandler
             Optional<String> principal,
             Optional<File> kerberosConfig,
             Optional<File> keytab,
-            Optional<File> credentialCache)
+            Optional<File> credentialCache,
+            Optional<GSSCredential> userCredential)
     {
         this.remoteServiceName = requireNonNull(remoteServiceName, "remoteServiceName is null");
         this.useCanonicalHostname = useCanonicalHostname;
         this.principal = requireNonNull(principal, "principal is null");
         this.keytab = requireNonNull(keytab, "keytab is null");
         this.credentialCache = requireNonNull(credentialCache, "credentialCache is null");
+        this.userCredential = userCredential;
 
         kerberosConfig.ifPresent(file -> System.setProperty("java.security.krb5.conf", file.getAbsolutePath()));
     }
@@ -146,21 +149,28 @@ public class SpnegoHandler
     {
         GSSContext context = null;
         try {
-            Session session = getSession();
-            context = doAs(session.getLoginContext().getSubject(), () -> {
-                GSSContext result = GSS_MANAGER.createContext(
-                        GSS_MANAGER.createName(servicePrincipal, NT_HOSTBASED_SERVICE),
+            if (userCredential.isPresent()) {
+                context = GSS_MANAGER.createContext(GSS_MANAGER.createName(servicePrincipal, NT_HOSTBASED_SERVICE),
                         SPNEGO_OID,
-                        session.getClientCredential(),
+                        userCredential.get(),
                         INDEFINITE_LIFETIME);
+            }
+            else {
+                Session session = getSession();
+                context = doAs(session.getLoginContext().getSubject(), () -> {
+                    GSSContext result = GSS_MANAGER.createContext(
+                            GSS_MANAGER.createName(servicePrincipal, NT_HOSTBASED_SERVICE),
+                            SPNEGO_OID,
+                            session.getClientCredential(),
+                            INDEFINITE_LIFETIME);
 
-                result.requestMutualAuth(true);
-                result.requestConf(true);
-                result.requestInteg(true);
-                result.requestCredDeleg(false);
-                return result;
-            });
-
+                    result.requestMutualAuth(true);
+                    result.requestConf(true);
+                    result.requestInteg(true);
+                    result.requestCredDeleg(false);
+                    return result;
+                });
+            }
             byte[] token = context.initSecContext(new byte[0], 0, 0);
             if (token == null) {
                 throw new LoginException("No token generated from GSS context");
