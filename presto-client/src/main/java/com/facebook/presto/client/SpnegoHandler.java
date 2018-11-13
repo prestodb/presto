@@ -148,6 +148,7 @@ public class SpnegoHandler
     private byte[] generateToken(String servicePrincipal)
     {
         GSSContext context = null;
+        // Optional<GSSCredential> clientCredential;
         try {
             if (userCredential.isPresent()) {
                 context = GSS_MANAGER.createContext(GSS_MANAGER.createName(servicePrincipal, NT_HOSTBASED_SERVICE),
