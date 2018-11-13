@@ -35,6 +35,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 public class SpatialJoinUtils
 {
     public static final String ST_CONTAINS = "st_contains";
+    public static final String ST_WITHIN = "st_within";
     public static final String ST_INTERSECTS = "st_intersects";
     public static final String ST_DISTANCE = "st_distance";
 
@@ -43,6 +44,7 @@ public class SpatialJoinUtils
     /**
      * Returns a subset of conjuncts matching one of the following shapes:
      * - ST_Contains(...)
+     * - ST_Within(...)
      * - ST_Intersects(...)
      * <p>
      * Doesn't check or guarantee anything about function arguments.
@@ -59,7 +61,8 @@ public class SpatialJoinUtils
     private static boolean isSupportedSpatialFunction(FunctionCall functionCall)
     {
         String functionName = functionCall.getName().toString();
-        return functionName.equalsIgnoreCase(ST_CONTAINS) || functionName.equalsIgnoreCase(ST_INTERSECTS);
+        return functionName.equalsIgnoreCase(ST_CONTAINS) || functionName.equalsIgnoreCase(ST_WITHIN)
+                || functionName.equalsIgnoreCase(ST_INTERSECTS);
     }
 
     /**
