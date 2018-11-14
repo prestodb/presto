@@ -147,6 +147,16 @@ public class TestStringStatisticsBuilder
     }
 
     @Test
+    public void testMergeWithNullMinMaxValues()
+    {
+        List<ColumnStatistics> statisticsList = new ArrayList<>();
+        statisticsList.add(stringColumnStatistics(MEDIUM_BOTTOM_VALUE, MEDIUM_BOTTOM_VALUE));
+        assertMinMax(mergeColumnStatistics(statisticsList).getStringStatistics(), MEDIUM_BOTTOM_VALUE, MEDIUM_BOTTOM_VALUE);
+        statisticsList.add(stringColumnStatistics(null, null));
+        assertMinMax(mergeColumnStatistics(statisticsList).getStringStatistics(), null, null);
+    }
+
+    @Test
     public void testMixingAddValueAndMergeWithLimit()
     {
         // max merged to null
