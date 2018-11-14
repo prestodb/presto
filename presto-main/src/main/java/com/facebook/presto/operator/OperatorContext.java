@@ -153,17 +153,29 @@ public class OperatorContext
         }
     }
 
+    /**
+     * Record the amount of physical bytes that were read by an operator.
+     * This metric is valid only for source operators.
+     */
     public void recordRawInput(long sizeInBytes)
     {
         rawInputDataSize.update(sizeInBytes);
     }
 
+    /**
+     * Record the amount of physical bytes that were read by an operator and
+     * the time it took to read the data. This metric is valid only for source operators.
+     */
     public void recordRawInputWithTiming(long sizeInBytes, long readNanos)
     {
         rawInputDataSize.update(sizeInBytes);
         addInputTiming.record(readNanos, 0);
     }
 
+    /**
+     * Record the size in bytes of input blocks that were processed by an operator.
+     * This metric is valid only for source operators.
+     */
     public void recordProcessedInput(long sizeInBytes, long positions)
     {
         inputDataSize.update(sizeInBytes);
