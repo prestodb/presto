@@ -270,6 +270,11 @@ public class SqlQueryManager
         return queryTracker.getQuery(queryId).getQueryPlan();
     }
 
+    public void addFinalQueryInfoListener(QueryId queryId, StateChangeListener<QueryInfo> stateChangeListener)
+    {
+        queryTracker.getQuery(queryId).addFinalQueryInfoListener(stateChangeListener);
+    }
+
     @Override
     public QueryState getQueryState(QueryId queryId)
     {

@@ -73,6 +73,7 @@ public final class HiveSessionProperties
     private static final String PARTITION_STATISTICS_SAMPLE_SIZE = "partition_statistics_sample_size";
     private static final String IGNORE_CORRUPTED_STATISTICS = "ignore_corrupted_statistics";
     private static final String COLLECT_COLUMN_STATISTICS_ON_WRITE = "collect_column_statistics_on_write";
+    private static final String OPTIMIZE_MISMATCHED_BUCKET_COUNT = "optimize_mismatched_bucket_count";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -278,6 +279,11 @@ public final class HiveSessionProperties
                         COLLECT_COLUMN_STATISTICS_ON_WRITE,
                         "Experimental: Enables automatic column level statistics collection on write",
                         hiveClientConfig.isCollectColumnStatisticsOnWrite(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_MISMATCHED_BUCKET_COUNT,
+                        "Experimenal: Enable optimization to avoid shuffle when bucket count is compatible but not the same",
+                        hiveClientConfig.isOptimizeMismatchedBucketCount(),
                         false));
     }
 
@@ -460,6 +466,11 @@ public final class HiveSessionProperties
     public static boolean isCollectColumnStatisticsOnWrite(ConnectorSession session)
     {
         return session.getProperty(COLLECT_COLUMN_STATISTICS_ON_WRITE, Boolean.class);
+    }
+
+    public static boolean isOptimizedMismatchedBucketCount(ConnectorSession session)
+    {
+        return session.getProperty(OPTIMIZE_MISMATCHED_BUCKET_COUNT, Boolean.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)

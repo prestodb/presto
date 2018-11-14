@@ -190,7 +190,7 @@ public class HiveSplitManager
         // sort partitions
         partitions = Ordering.natural().onResultOf(HivePartition::getPartitionId).reverse().sortedCopy(partitions);
 
-        Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(metastore, table, tableName, partitions, bucketHandle.map(HiveBucketHandle::toBucketProperty));
+        Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(metastore, table, tableName, partitions, bucketHandle.map(HiveBucketHandle::toTableBucketProperty));
 
         HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
                 table,
@@ -360,7 +360,7 @@ public class HiveSplitManager
         return concat(partitionBatches);
     }
 
-    private static boolean isBucketCountCompatible(int tableBucketCount, int partitionBucketCount)
+    static boolean isBucketCountCompatible(int tableBucketCount, int partitionBucketCount)
     {
         checkArgument(tableBucketCount > 0 && partitionBucketCount > 0);
         int larger = Math.max(tableBucketCount, partitionBucketCount);

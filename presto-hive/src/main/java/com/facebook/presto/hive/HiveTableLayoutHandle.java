@@ -125,6 +125,11 @@ public final class HiveTableLayoutHandle
     @Override
     public String toString()
     {
-        return schemaTableName.toString();
+        StringBuilder result = new StringBuilder();
+        result.append(schemaTableName.toString());
+        if (bucketHandle.isPresent()) {
+            result.append(" bucket=").append(bucketHandle.get().getReadBucketCount());
+        }
+        return result.toString();
     }
 }

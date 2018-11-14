@@ -28,6 +28,7 @@ import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
+import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_MAP;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
@@ -48,7 +49,7 @@ public final class ValueStreams
             ColumnEncodingKind encoding,
             boolean usesVInt)
     {
-        if (streamId.getStreamKind() == PRESENT) {
+        if (streamId.getStreamKind() == PRESENT || streamId.getStreamKind() == IN_MAP) {
             return new BooleanInputStream(inputStream);
         }
 

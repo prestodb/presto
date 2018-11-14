@@ -34,12 +34,6 @@ public class PrestoException
         this.errorCode = errorCodeSupplier.toErrorCode();
     }
 
-    public PrestoException(ErrorCodeSupplier errorCodeSupplier, String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace)
-    {
-        super(message, cause, enableSuppression, writableStackTrace);
-        this.errorCode = errorCodeSupplier.toErrorCode();
-    }
-
     public ErrorCode getErrorCode()
     {
         return errorCode;

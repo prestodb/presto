@@ -436,6 +436,7 @@ public final class Session
                 startTime,
                 systemProperties,
                 connectorProperties,
+                unprocessedCatalogProperties,
                 preparedStatements);
     }
 

@@ -26,8 +26,8 @@ public class StripeInformation
 
     public StripeInformation(int numberOfRows, long offset, long indexLength, long dataLength, long footerLength)
     {
+        // dataLength can be zero when the stripe only contains empty flat maps.
         checkArgument(numberOfRows > 0, "Stripe must have at least one row");
-        checkArgument(dataLength > 0, "Stripe must have a data section");
         checkArgument(footerLength > 0, "Stripe must have a footer section");
         this.numberOfRows = numberOfRows;
         this.offset = offset;

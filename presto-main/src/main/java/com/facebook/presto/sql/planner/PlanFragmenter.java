@@ -20,6 +20,7 @@ import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayout.TablePartitioning;
+import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.operator.StageExecutionStrategy;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
@@ -38,6 +39,7 @@ import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -93,6 +95,7 @@ public class PlanFragmenter
 
         SubPlan subPlan = fragmenter.buildRootFragment(root, properties);
         subPlan = analyzeGroupedExecution(session, metadata, nodePartitioningManager, subPlan);
+        subPlan = reassignPartitioningHandleIfNecessary(session, metadata, subPlan);
 
         checkState(!isForceSingleNodeOutput(session) || subPlan.getFragment().getPartitioning().isSingleNode(), "Root of PlanFragment is not single node");
         sanityCheckFragmentedPlan(subPlan, getQueryMaxStageCount(session));
@@ -125,6 +128,49 @@ public class PlanFragmenter
             result.add(analyzeGroupedExecution(session, metadata, nodePartitioningManager, child));
         }
         return new SubPlan(fragment, result.build());
+    }
+
+    private SubPlan reassignPartitioningHandleIfNecessary(Session session, Metadata metadata, SubPlan subPlan)
+    {
+        return reassignPartitioningHandleIfNecessaryHelper(session, metadata, subPlan, subPlan.getFragment().getPartitioning());
+    }
+
+    private SubPlan reassignPartitioningHandleIfNecessaryHelper(Session session, Metadata metadata, SubPlan subPlan, PartitioningHandle newOutputPartitioningHandle)
+    {
+        PlanFragment fragment = subPlan.getFragment();
+
+        PlanNode newRoot = fragment.getRoot();
+        // If the fragment's partitioning is SINGLE or COORDINATOR_ONLY, leave the sources as is (this is for single-node execution)
+        if (!fragment.getPartitioning().isSingleNode()) {
+            PartitioningHandleReassigner partitioningHandleReassigner = new PartitioningHandleReassigner(fragment.getPartitioning(), metadata, session);
+            newRoot = SimplePlanRewriter.rewriteWith(partitioningHandleReassigner, newRoot);
+        }
+        PartitioningScheme outputPartitioningScheme = fragment.getPartitioningScheme();
+        Partitioning newOutputPartitioning = outputPartitioningScheme.getPartitioning();
+        if (outputPartitioningScheme.getPartitioning().getHandle().getConnectorId().isPresent()) {
+            // Do not replace the handle if the source's output handle is a system one, e.g. broadcast.
+            newOutputPartitioning = newOutputPartitioning.withAlternativePartitiongingHandle(newOutputPartitioningHandle);
+        }
+        PlanFragment newFragment = new PlanFragment(
+                fragment.getId(),
+                newRoot,
+                fragment.getSymbols(),
+                fragment.getPartitioning(),
+                fragment.getPartitionedSources(),
+                new PartitioningScheme(
+                        newOutputPartitioning,
+                        outputPartitioningScheme.getOutputLayout(),
+                        outputPartitioningScheme.getHashColumn(),
+                        outputPartitioningScheme.isReplicateNullsAndAny(),
+                        outputPartitioningScheme.getBucketToPartition()),
+                fragment.getStageExecutionStrategy(),
+                fragment.getStatsAndCosts());
+
+        ImmutableList.Builder<SubPlan> childrenBuilder = ImmutableList.builder();
+        for (SubPlan child : subPlan.getChildren()) {
+            childrenBuilder.add(reassignPartitioningHandleIfNecessaryHelper(session, metadata, child, fragment.getPartitioning()));
+        }
+        return new SubPlan(newFragment, childrenBuilder.build());
     }
 
     private static class Fragmenter
@@ -217,7 +263,16 @@ public class PlanFragmenter
                     .map(TablePartitioning::getPartitioningHandle)
                     .orElse(SOURCE_DISTRIBUTION);
 
-            context.get().addSourceDistribution(node.getId(), partitioning);
+            context.get().addSourceDistribution(node.getId(), partitioning, metadata, session);
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<FragmentProperties> context)
+        {
+            if (node.getPartitioningScheme().isPresent()) {
+                context.get().setDistribution(node.getPartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
+            }
             return context.defaultRewrite(node, context.get());
         }
 
@@ -241,7 +296,7 @@ public class PlanFragmenter
                 context.get().setSingleNodeDistribution();
             }
             else if (exchange.getType() == ExchangeNode.Type.REPARTITION) {
-                context.get().setDistribution(partitioningScheme.getPartitioning().getHandle());
+                context.get().setDistribution(partitioningScheme.getPartitioning().getHandle(), metadata, session);
             }
 
             ImmutableList.Builder<SubPlan> builder = ImmutableList.builder();
@@ -276,6 +331,7 @@ public class PlanFragmenter
         private final PartitioningScheme partitioningScheme;
 
         private Optional<PartitioningHandle> partitioningHandle = Optional.empty();
+        private boolean needPartitioningHandleReassignment;
         private final Set<PlanNodeId> partitionedSources = new HashSet<>();
 
         public FragmentProperties(PartitioningScheme partitioningScheme)
@@ -305,34 +361,44 @@ public class PlanFragmenter
             return this;
         }
 
-        public FragmentProperties setDistribution(PartitioningHandle distribution)
+        public FragmentProperties setDistribution(PartitioningHandle distribution, Metadata metadata, Session session)
         {
-            if (partitioningHandle.isPresent()) {
-                chooseDistribution(distribution);
+            if (!partitioningHandle.isPresent()) {
+                partitioningHandle = Optional.of(distribution);
                 return this;
             }
 
-            partitioningHandle = Optional.of(distribution);
-            return this;
-        }
+            PartitioningHandle currentPartitioning = this.partitioningHandle.get();
 
-        private void chooseDistribution(PartitioningHandle distribution)
-        {
-            checkState(partitioningHandle.isPresent(), "No partitioning to choose from");
+            if (isCompatibleSystemPartitioning(distribution)) {
+                return this;
+            }
 
-            if (partitioningHandle.get().equals(distribution) ||
-                    partitioningHandle.get().isSingleNode() ||
-                    isCompatibleSystemPartitioning(distribution)) {
-                return;
+            if (currentPartitioning.equals(SOURCE_DISTRIBUTION)) {
+                this.partitioningHandle = Optional.of(distribution);
+                return this;
             }
-            if (partitioningHandle.get().equals(SOURCE_DISTRIBUTION)) {
-                partitioningHandle = Optional.of(distribution);
-                return;
+
+            // If already system SINGLE or COORDINATOR_ONLY, leave it as is (this is for single-node execution)
+            if (currentPartitioning.isSingleNode()) {
+                return this;
             }
+
+            if (currentPartitioning.equals(distribution)) {
+                return this;
+            }
+
+            Optional<PartitioningHandle> commonPartitioning = metadata.getCommonPartitioning(session, currentPartitioning, distribution);
+            if (commonPartitioning.isPresent()) {
+                needPartitioningHandleReassignment = true;
+                partitioningHandle = commonPartitioning;
+                return this;
+            }
+
             throw new IllegalStateException(format(
                     "Cannot set distribution to %s. Already set to %s",
                     distribution,
-                    partitioningHandle));
+                    this.partitioningHandle));
         }
 
         private boolean isCompatibleSystemPartitioning(PartitioningHandle distribution)
@@ -365,28 +431,39 @@ public class PlanFragmenter
             return this;
         }
 
-        public FragmentProperties addSourceDistribution(PlanNodeId source, PartitioningHandle distribution)
+        public FragmentProperties addSourceDistribution(PlanNodeId source, PartitioningHandle distribution, Metadata metadata, Session session)
         {
             requireNonNull(source, "source is null");
             requireNonNull(distribution, "distribution is null");
 
             partitionedSources.add(source);
 
-            if (partitioningHandle.isPresent()) {
-                PartitioningHandle currentPartitioning = partitioningHandle.get();
-                if (!currentPartitioning.equals(distribution)) {
-                    // If already system SINGLE or COORDINATOR_ONLY, leave it as is (this is for single-node execution)
-                    checkState(
-                            currentPartitioning.equals(SINGLE_DISTRIBUTION) || currentPartitioning.equals(COORDINATOR_DISTRIBUTION),
-                            "Cannot overwrite distribution with %s (currently set to %s)",
-                            distribution,
-                            currentPartitioning);
-                    return this;
-                }
+            if (!partitioningHandle.isPresent()) {
+                partitioningHandle = Optional.of(distribution);
+                return this;
             }
-            partitioningHandle = Optional.of(distribution);
 
-            return this;
+            PartitioningHandle currentPartitioning = partitioningHandle.get();
+
+            // If already system SINGLE or COORDINATOR_ONLY, leave it as is (this is for single-node execution)
+            if (currentPartitioning.equals(SINGLE_DISTRIBUTION) || currentPartitioning.equals(COORDINATOR_DISTRIBUTION)) {
+                return this;
+            }
+
+            if (currentPartitioning.equals(distribution)) {
+                return this;
+            }
+
+            Optional<PartitioningHandle> commonPartitioning = metadata.getCommonPartitioning(session, currentPartitioning, distribution);
+            if (commonPartitioning.isPresent()) {
+                needPartitioningHandleReassignment = true;
+                partitioningHandle = commonPartitioning;
+                return this;
+            }
+
+            throw new IllegalStateException(String.format(
+                    "Cannot overwrite distribution with %s (currently set to %s)",
+                    distribution, currentPartitioning));
         }
 
         public FragmentProperties addChildren(List<SubPlan> children)
@@ -404,6 +481,11 @@ public class PlanFragmenter
         public PartitioningHandle getPartitioningHandle()
         {
             return partitioningHandle.get();
+        }
+
+        public boolean isNeedPartitioningHandleReassignment()
+        {
+            return needPartitioningHandleReassignment;
         }
 
         public Set<PlanNodeId> getPartitionedSources()
@@ -607,6 +689,45 @@ public class PlanFragmenter
         public List<PlanNodeId> getCapableTableScanNodes()
         {
             return capableTableScanNodes;
+        }
+    }
+
+    private static final class PartitioningHandleReassigner
+            extends SimplePlanRewriter<Void>
+    {
+        private final PartitioningHandle fragmentPartitioningHandle;
+        private final Metadata metadata;
+        private final Session session;
+
+        public PartitioningHandleReassigner(PartitioningHandle fragmentPartitioningHandle, Metadata metadata, Session session)
+        {
+            this.fragmentPartitioningHandle = fragmentPartitioningHandle;
+            this.metadata = metadata;
+            this.session = session;
+        }
+
+        @Override
+        public PlanNode visitTableScan(TableScanNode node, RewriteContext<Void> context)
+        {
+            PartitioningHandle partitioning = node.getLayout()
+                    .map(layout -> metadata.getLayout(session, layout))
+                    .flatMap(TableLayout::getTablePartitioning)
+                    .map(TablePartitioning::getPartitioningHandle)
+                    .orElse(SOURCE_DISTRIBUTION);
+            if (partitioning.equals(fragmentPartitioningHandle)) {
+                // do nothing if the current scan node's partitioning matches the fragment's
+                return node;
+            }
+
+            TableLayoutHandle newTableLayoutHandle = metadata.getAlternativeLayoutHandle(session, node.getLayout().get(), fragmentPartitioningHandle);
+            return new TableScanNode(
+                    node.getId(),
+                    node.getTable(),
+                    node.getOutputSymbols(),
+                    node.getAssignments(),
+                    Optional.of(newTableLayoutHandle),
+                    node.getCurrentConstraint(),
+                    node.getEnforcedConstraint());
         }
     }
 }

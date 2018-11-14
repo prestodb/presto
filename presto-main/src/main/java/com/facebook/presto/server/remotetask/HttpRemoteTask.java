@@ -408,6 +408,12 @@ public final class HttpRemoteTask
     }
 
     @Override
+    public void addFinalTaskInfoListener(StateChangeListener<TaskInfo> stateChangeListener)
+    {
+        taskInfoFetcher.addFinalTaskInfoListener(stateChangeListener);
+    }
+
+    @Override
     public synchronized ListenableFuture<?> whenSplitQueueHasSpace(int threshold)
     {
         if (whenSplitQueueHasSpaceThreshold.isPresent()) {

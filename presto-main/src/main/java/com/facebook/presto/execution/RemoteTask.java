@@ -42,6 +42,8 @@ public interface RemoteTask
 
     void addStateChangeListener(StateChangeListener<TaskStatus> stateChangeListener);
 
+    void addFinalTaskInfoListener(StateChangeListener<TaskInfo> stateChangeListener);
+
     ListenableFuture<?> whenSplitQueueHasSpace(int threshold);
 
     void cancel();

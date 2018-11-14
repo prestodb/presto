@@ -29,6 +29,7 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.SPATIAL_PARTITIONING_TABLE_NAME;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -85,7 +86,7 @@ public class TestSpatialJoins
                 .setOwnerName("public")
                 .setOwnerType(PrincipalType.ROLE)
                 .build());
-        queryRunner.installPlugin(new HivePlugin("hive", metastore));
+        queryRunner.installPlugin(new HivePlugin("hive", Optional.of(metastore)));
 
         queryRunner.createCatalog("hive", "hive");
         return queryRunner;

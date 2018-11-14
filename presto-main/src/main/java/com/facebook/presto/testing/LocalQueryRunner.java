@@ -585,6 +585,12 @@ public class LocalQueryRunner
     @Override
     public MaterializedResult execute(Session session, @Language("SQL") String sql)
     {
+        return executeWithPlan(session, sql, WarningCollector.NOOP).getMaterializedResult();
+    }
+
+    @Override
+    public MaterializedResultWithPlan executeWithPlan(Session session, String sql, WarningCollector warningCollector)
+    {
         return inTransaction(session, transactionSession -> executeInternal(transactionSession, sql));
     }
 
@@ -600,7 +606,7 @@ public class LocalQueryRunner
                 .execute(session, transactionSessionConsumer);
     }
 
-    private MaterializedResult executeInternal(Session session, @Language("SQL") String sql)
+    private MaterializedResultWithPlan executeInternal(Session session, @Language("SQL") String sql)
     {
         lock.readLock().lock();
         try (Closer closer = Closer.create()) {
@@ -615,7 +621,8 @@ public class LocalQueryRunner
                     .setQueryMaxSpillSize(nodeSpillConfig.getQueryMaxSpillPerNode())
                     .build();
 
-            List<Driver> drivers = createDrivers(session, sql, outputFactory, taskContext);
+            Plan plan = createPlan(session, sql, WarningCollector.NOOP);
+            List<Driver> drivers = createDrivers(session, plan, outputFactory, taskContext);
             drivers.forEach(closer::register);
 
             boolean done = false;
@@ -637,7 +644,7 @@ public class LocalQueryRunner
             }
 
             verify(builder.get() != null, "Output operator was not created");
-            return builder.get().build();
+            return new MaterializedResultWithPlan(builder.get().build(), plan);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -661,7 +668,11 @@ public class LocalQueryRunner
     public List<Driver> createDrivers(Session session, @Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
     {
         Plan plan = createPlan(session, sql, WarningCollector.NOOP);
+        return createDrivers(session, plan, outputFactory, taskContext);
+    }
 
+    private List<Driver> createDrivers(Session session, Plan plan, OutputFactory outputFactory, TaskContext taskContext)
+    {
         if (printPlan) {
             System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionRegistry(), plan.getStatsAndCosts(), session, 0, false));
         }

@@ -17,8 +17,10 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.eventlistener.EventListenerManager;
+import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.SqlQueryManager;
+import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
 import com.facebook.presto.memory.ClusterMemoryManager;
@@ -329,6 +331,11 @@ public class TestingPrestoServer
     public Plan getQueryPlan(QueryId queryId)
     {
         return queryManager.getQueryPlan(queryId);
+    }
+
+    public void addFinalQueryInfoListener(QueryId queryId, StateChangeListener<QueryInfo> stateChangeListener)
+    {
+        queryManager.addFinalQueryInfoListener(queryId, stateChangeListener);
     }
 
     public ConnectorId createCatalog(String catalogName, String connectorName)

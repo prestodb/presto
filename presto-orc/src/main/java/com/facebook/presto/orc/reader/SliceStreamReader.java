@@ -77,7 +77,9 @@ public class SliceStreamReader
     public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
-        ColumnEncodingKind columnEncodingKind = encoding.get(streamDescriptor.getStreamId()).getColumnEncodingKind();
+        ColumnEncodingKind columnEncodingKind = encoding.get(streamDescriptor.getStreamId())
+                .getColumnEncoding(streamDescriptor.getSequence())
+                .getColumnEncodingKind();
         if (columnEncodingKind == DIRECT || columnEncodingKind == DIRECT_V2 || columnEncodingKind == DWRF_DIRECT) {
             currentReader = directReader;
         }

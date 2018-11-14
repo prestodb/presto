@@ -32,7 +32,6 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.ENABLE_STATS_CALCULATOR;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -59,10 +58,7 @@ public class TestDetermineJoinDistributionType
     @BeforeClass
     public void setUp()
     {
-        tester = new RuleTester(
-                ImmutableList.of(),
-                ImmutableMap.of(ENABLE_STATS_CALCULATOR, "true"),
-                Optional.of(4));
+        tester = new RuleTester(ImmutableList.of(), ImmutableMap.of(), Optional.of(4));
     }
 
     @AfterClass(alwaysRun = true)

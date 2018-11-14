@@ -65,14 +65,14 @@ public class HiveConnectorFactory
 {
     private final String name;
     private final ClassLoader classLoader;
-    private final ExtendedHiveMetastore metastore;
+    private final Optional<ExtendedHiveMetastore> metastore;
 
-    public HiveConnectorFactory(String name, ClassLoader classLoader, ExtendedHiveMetastore metastore)
+    public HiveConnectorFactory(String name, ClassLoader classLoader, Optional<ExtendedHiveMetastore> metastore)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
-        this.metastore = metastore;
+        this.metastore = requireNonNull(metastore, "metastore is null");
     }
 
     @Override
@@ -99,7 +99,7 @@ public class HiveConnectorFactory
                     new JsonModule(),
                     new HiveClientModule(catalogName),
                     new HiveS3Module(catalogName),
-                    new HiveMetastoreModule(catalogName, Optional.ofNullable(metastore)),
+                    new HiveMetastoreModule(catalogName, metastore),
                     new HiveSecurityModule(),
                     new HiveAuthenticationModule(),
                     new HiveProcedureModule(),
