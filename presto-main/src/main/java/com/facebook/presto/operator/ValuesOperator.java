@@ -113,7 +113,7 @@ public class ValuesOperator
         }
         Page page = pages.next();
         if (page != null) {
-            operatorContext.recordGeneratedInput(page.getSizeInBytes(), page.getPositionCount());
+            operatorContext.recordProcessedInput(page.getSizeInBytes(), page.getPositionCount());
         }
         return page;
     }

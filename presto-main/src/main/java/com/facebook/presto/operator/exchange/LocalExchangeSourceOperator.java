@@ -123,7 +123,7 @@ public class LocalExchangeSourceOperator
     {
         Page page = source.removePage();
         if (page != null) {
-            operatorContext.recordGeneratedInput(page.getSizeInBytes(), page.getPositionCount());
+            operatorContext.recordProcessedInput(page.getSizeInBytes(), page.getPositionCount());
         }
         return page;
     }

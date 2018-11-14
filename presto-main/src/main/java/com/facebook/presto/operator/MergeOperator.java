@@ -235,7 +235,7 @@ public class MergeOperator
         }
 
         Page page = mergedPages.getResult();
-        operatorContext.recordGeneratedInput(page.getSizeInBytes(), page.getPositionCount());
+        operatorContext.recordProcessedInput(page.getSizeInBytes(), page.getPositionCount());
         return page;
     }
 
