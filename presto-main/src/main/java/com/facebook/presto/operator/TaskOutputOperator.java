@@ -147,7 +147,7 @@ public class TaskOutputOperator
                 .collect(toImmutableList());
 
         outputBuffer.enqueue(serializedPages);
-        operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
+        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
     }
 
     @Override
