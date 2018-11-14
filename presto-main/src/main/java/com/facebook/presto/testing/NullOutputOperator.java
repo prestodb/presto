@@ -107,7 +107,7 @@ public class NullOutputOperator
     @Override
     public void addInput(Page page)
     {
-        operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
+        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
     }
 
     @Override
