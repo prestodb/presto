@@ -275,7 +275,7 @@ public class PartitionedOutputOperator
         page = pagePreprocessor.apply(page);
         partitionFunction.partitionPage(page);
 
-        operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
+        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
 
         // We use getSizeInBytes() here instead of getRetainedSizeInBytes() for an approximation of
         // the amount of memory used by the pageBuilders, because calculating the retained
