@@ -1509,9 +1509,9 @@ public class HiveMetadata
             discretePredicates = Optional.of(new DiscretePredicates(partitionColumns, partitionDomains));
         }
 
-        Optional<ConnectorTablePartitioning> nodePartitioning = Optional.empty();
+        Optional<ConnectorTablePartitioning> tablePartitioning = Optional.empty();
         if (isBucketExecutionEnabled(session) && hiveLayoutHandle.getBucketHandle().isPresent()) {
-            nodePartitioning = hiveLayoutHandle.getBucketHandle().map(hiveBucketHandle -> new ConnectorTablePartitioning(
+            tablePartitioning = hiveLayoutHandle.getBucketHandle().map(hiveBucketHandle -> new ConnectorTablePartitioning(
                     new HivePartitioningHandle(
                             hiveBucketHandle.getReadBucketCount(),
                             hiveBucketHandle.getColumns().stream()
@@ -1527,7 +1527,7 @@ public class HiveMetadata
                 hiveLayoutHandle,
                 Optional.empty(),
                 predicate,
-                nodePartitioning,
+                tablePartitioning,
                 Optional.empty(),
                 discretePredicates,
                 ImmutableList.of());

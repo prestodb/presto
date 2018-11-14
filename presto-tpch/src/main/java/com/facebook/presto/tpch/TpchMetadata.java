@@ -181,7 +181,7 @@ public class TpchMetadata
     {
         TpchTableHandle tableHandle = (TpchTableHandle) table;
 
-        Optional<ConnectorTablePartitioning> nodePartition = Optional.empty();
+        Optional<ConnectorTablePartitioning> tablePartitioning = Optional.empty();
         Optional<Set<ColumnHandle>> partitioningColumns = Optional.empty();
         List<LocalProperty<ColumnHandle>> localProperties = ImmutableList.of();
 
@@ -191,7 +191,7 @@ public class TpchMetadata
         if (tableHandle.getTableName().equals(TpchTable.ORDERS.getTableName())) {
             if (partitioningEnabled) {
                 ColumnHandle orderKeyColumn = columns.get(columnNaming.getName(OrderColumn.ORDER_KEY));
-                nodePartition = Optional.of(new ConnectorTablePartitioning(
+                tablePartitioning = Optional.of(new ConnectorTablePartitioning(
                         new TpchPartitioningHandle(
                                 TpchTable.ORDERS.getTableName(),
                                 calculateTotalRows(OrderGenerator.SCALE_BASE, tableHandle.getScaleFactor())),
@@ -218,7 +218,7 @@ public class TpchMetadata
         else if (tableHandle.getTableName().equals(TpchTable.LINE_ITEM.getTableName())) {
             if (partitioningEnabled) {
                 ColumnHandle orderKeyColumn = columns.get(columnNaming.getName(LineItemColumn.ORDER_KEY));
-                nodePartition = Optional.of(new ConnectorTablePartitioning(
+                tablePartitioning = Optional.of(new ConnectorTablePartitioning(
                         new TpchPartitioningHandle(
                                 TpchTable.ORDERS.getTableName(),
                                 calculateTotalRows(OrderGenerator.SCALE_BASE, tableHandle.getScaleFactor())),
@@ -234,7 +234,7 @@ public class TpchMetadata
                 new TpchTableLayoutHandle(tableHandle, predicate),
                 Optional.empty(),
                 predicate, // TODO: conditionally return well-known properties (e.g., orderkey > 0, etc)
-                nodePartition,
+                tablePartitioning,
                 partitioningColumns,
                 Optional.empty(),
                 localProperties);
