@@ -768,7 +768,7 @@ public class AddExchanges
             }
             else {
                 left = withDerivedProperties(
-                        partitionedExchange(idAllocator.getNextId(), REMOTE, node.getLeft(), ImmutableList.of(node.getLeftPartitionSymbol().get()), Optional.empty()),
+                        partitionedExchange(idAllocator.getNextId(), REMOTE, left.getNode(), ImmutableList.of(node.getLeftPartitionSymbol().get()), Optional.empty()),
                         left.getProperties());
                 right = withDerivedProperties(
                         partitionedExchange(idAllocator.getNextId(), REMOTE, right.getNode(), ImmutableList.of(node.getRightPartitionSymbol().get()), Optional.empty()),
