@@ -438,32 +438,7 @@ public class PlanFragmenter
             requireNonNull(distribution, "distribution is null");
 
             partitionedSources.add(source);
-
-            if (!partitioningHandle.isPresent()) {
-                partitioningHandle = Optional.of(distribution);
-                return this;
-            }
-
-            PartitioningHandle currentPartitioning = partitioningHandle.get();
-
-            // If already system SINGLE or COORDINATOR_ONLY, leave it as is (this is for single-node execution)
-            if (currentPartitioning.equals(SINGLE_DISTRIBUTION) || currentPartitioning.equals(COORDINATOR_DISTRIBUTION)) {
-                return this;
-            }
-
-            if (currentPartitioning.equals(distribution)) {
-                return this;
-            }
-
-            Optional<PartitioningHandle> commonPartitioning = metadata.getCommonPartitioning(session, currentPartitioning, distribution);
-            if (commonPartitioning.isPresent()) {
-                partitioningHandle = commonPartitioning;
-                return this;
-            }
-
-            throw new IllegalStateException(String.format(
-                    "Cannot overwrite distribution with %s (currently set to %s)",
-                    distribution, currentPartitioning));
+            return setDistribution(distribution, metadata, session);
         }
 
         public FragmentProperties addChildren(List<SubPlan> children)
