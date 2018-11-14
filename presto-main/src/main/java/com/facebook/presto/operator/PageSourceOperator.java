@@ -92,7 +92,7 @@ public class PageSourceOperator
         // update operator stats
         long endCompletedBytes = pageSource.getCompletedBytes();
         long endReadTimeNanos = pageSource.getReadTimeNanos();
-        operatorContext.recordGeneratedInput(endCompletedBytes - completedBytes, page.getPositionCount(), endReadTimeNanos - readTimeNanos);
+        operatorContext.recordProcessedInput(endCompletedBytes - completedBytes, page.getPositionCount(), endReadTimeNanos - readTimeNanos);
         completedBytes = endCompletedBytes;
         readTimeNanos = endReadTimeNanos;
 

@@ -153,12 +153,12 @@ public class OperatorContext
         }
     }
 
-    public void recordGeneratedInput(long sizeInBytes, long positions)
+    public void recordProcessedInput(long sizeInBytes, long positions)
     {
-        recordGeneratedInput(sizeInBytes, positions, 0);
+        recordProcessedInput(sizeInBytes, positions, 0);
     }
 
-    public void recordGeneratedInput(long sizeInBytes, long positions, long readNanos)
+    public void recordProcessedInput(long sizeInBytes, long positions, long readNanos)
     {
         inputDataSize.update(sizeInBytes);
         inputPositions.update(positions);
