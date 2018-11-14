@@ -19,7 +19,6 @@ import com.google.common.net.HostAndPort;
 import org.ietf.jgss.GSSCredential;
 
 import java.io.File;
-import java.sql.SQLException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;

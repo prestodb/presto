@@ -16,7 +16,6 @@ package com.facebook.presto.jdbc;
 import com.facebook.presto.client.ClientException;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.common.net.HostAndPort;
 import okhttp3.OkHttpClient;
 
@@ -177,8 +176,8 @@ final class PrestoDriverUri
                         KERBEROS_CONFIG_PATH.getValue(properties),
                         KERBEROS_KEYTAB_PATH.getValue(properties),
                         Optional.ofNullable(KERBEROS_CREDENTIAL_CACHE_PATH.getValue(properties)
-                                .orElseGet(() -> defaultCredentialCachePath().map(File::new).orElse(null)))
-                        , USER_CREDENTIAL.getValue(properties));
+                                .orElseGet(() -> defaultCredentialCachePath().map(File::new).orElse(null))),
+                        USER_CREDENTIAL.getValue(properties));
             }
 
             if (ACCESS_TOKEN.getValue(properties).isPresent()) {

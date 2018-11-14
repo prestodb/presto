@@ -92,7 +92,8 @@ public class QueryRunner
                     kerberosPrincipal,
                     kerberosConfigPath.map(File::new),
                     kerberosKeytabPath.map(File::new),
-                    kerberosCredentialCachePath.map(File::new));
+                    kerberosCredentialCachePath.map(File::new),
+                    Optional.empty());
         }
 
         this.httpClient = builder.build();
