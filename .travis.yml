@@ -82,7 +82,7 @@ script:
     fi
   - |
     if [[ -v WEBUI_CHECKS ]]; then
-      presto-main/bin/validate_webui_generated_files.sh
+      presto-main/bin/check_webui.sh
     fi
   - |
     if [[ -v TEST_SPECIFIC_MODULES ]]; then
