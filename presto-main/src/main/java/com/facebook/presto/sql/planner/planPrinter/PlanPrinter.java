@@ -1030,7 +1030,11 @@ public class PlanPrinter
         {
             Iterable<String> keys = Iterables.transform(node.getOrderingScheme().getOrderBy(), input -> input + " " + node.getOrderingScheme().getOrdering(input));
 
-            print(indent, "- TopN[%s by (%s)] => [%s]", node.getCount(), Joiner.on(", ").join(keys), formatOutputs(node.getOutputSymbols()));
+            print(indent, "- TopN%s[%s by (%s)] => [%s]",
+                    node.getStep() == TopNNode.Step.PARTIAL ? "Partial" : "",
+                    node.getCount(),
+                    Joiner.on(", ").join(keys),
+                    formatOutputs(node.getOutputSymbols()));
             printPlanNodesStatsAndCost(indent + 2, node);
             printStats(indent + 2, node.getId());
             return processChildren(node, indent + 1);
