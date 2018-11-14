@@ -45,7 +45,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -106,6 +105,7 @@ import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
@@ -137,7 +137,7 @@ import static java.util.stream.Collectors.toList;
 
 public class PlanPrinter
 {
-    private final StringBuilder output = new StringBuilder();
+    private final PrintOutput output;
     private final FunctionRegistry functionRegistry;
     private final Optional<Map<PlanNodeId, PlanNodeStats>> stats;
     private final boolean verbose;
@@ -161,6 +161,7 @@ public class PlanPrinter
         this.functionRegistry = functionRegistry;
         this.stats = stats;
         this.verbose = verbose;
+        this.output = new PrintOutput(types);
 
         Visitor visitor = new Visitor(stageExecutionStrategy, types, estimatedStatsAndCosts, session);
         plan.accept(visitor, indent);
@@ -169,7 +170,7 @@ public class PlanPrinter
     @Override
     public String toString()
     {
-        return output.toString();
+        return output.getTextOutput();
     }
 
     public static String textLogicalPlan(PlanNode plan, TypeProvider types, FunctionRegistry functionRegistry, StatsAndCosts estimatedStatsAndCosts, Session session, int indent)
@@ -298,135 +299,214 @@ public class PlanPrinter
         return GraphvizPrinter.printDistributed(plan);
     }
 
-    private void print(int indent, String format, Object... args)
+    private static String formatOutputs(TypeProvider types, Iterable<Symbol> outputs)
     {
-        String value;
+        return Joiner.on(", ").join(Iterables.transform(outputs, input -> input + ":" + types.get(input).getDisplayName()));
+    }
 
-        if (args.length == 0) {
-            value = format;
+    private static class PrintOutput
+    {
+        private final Map<PlanNodeId, PlanNodeInfo> nodeInfo = new HashMap<>();
+        private final StringBuilder output = new StringBuilder();
+        private final TypeProvider types;
+
+        private PlanNodeId currentNode;
+
+        public PrintOutput(TypeProvider types)
+        {
+            this.types = requireNonNull(types, "types is null");
         }
-        else {
-            value = format(format, args);
+
+        private String format(String format, Object... args)
+        {
+            String value;
+
+            if (args.length == 0) {
+                value = format;
+            }
+            else {
+                value = String.format(format, args);
+            }
+
+            return value;
         }
-        output.append(indentString(indent)).append(value).append('\n');
+
+        public void addNode(PlanNode node, int level, String name)
+        {
+            addNode(node, level, name, "");
+        }
+
+        public void addNode(PlanNode node, int level, String name, String identifier, Object... args)
+        {
+            addNode(node, level, name, node.getOutputSymbols(), identifier, args);
+        }
+
+        public void addNode(PlanNode node, int level, String name, List<Symbol> outputs, String identifier, Object... args)
+        {
+            writeCurrentNode();
+            String formattedIdentifier = format(identifier, args);
+            String formattedOutputs = formatOutputs(types, outputs);
+
+            output.append(indentString(level))
+                    .append("- ")
+                    .append(name)
+                    .append(formattedIdentifier)
+                    .append(" => [")
+                    .append(formattedOutputs)
+                    .append("]\n");
+
+            nodeInfo.put(node.getId(), new PlanNodeInfo(level));
+            currentNode = node.getId();
+        }
+
+        public void appendDetails(PlanNode node, String string, Object... args)
+        {
+            String formatted = format(string, args);
+            nodeInfo.get(node.getId()).details.append(formatted);
+        }
+
+        public void appendDetailsLine(PlanNode node, String string, Object... args)
+        {
+            String formatted = format(string, args);
+            nodeInfo.get(node.getId()).details.append(formatted).append('\n');
+        }
+
+        private void writeCurrentNode()
+        {
+            if (currentNode == null) {
+                return;
+            }
+            PlanNodeInfo info = nodeInfo.get(currentNode);
+            String details = info.details.toString();
+            String indentedDetails = details.replaceAll("(?m)^", indentString(info.level + 2));
+
+            if (indentedDetails.length() > 0) {
+                output.append(indentedDetails);
+
+                if (!indentedDetails.endsWith("\n")) {
+                    output.append('\n');
+                }
+            }
+        }
+
+        public String getTextOutput()
+        {
+            writeCurrentNode();
+            return output.toString();
+        }
+
+        private static class PlanNodeInfo
+        {
+            private final int level;
+            private final StringBuilder details = new StringBuilder();
+
+            public PlanNodeInfo(int level)
+            {
+                this.level = level;
+            }
+        }
     }
 
-    private void print(int indent, String format, List<Object> args)
+    private void printStats(PlanNode node)
     {
-        print(indent, format, args.toArray(new Object[args.size()]));
+        printStats(node, false, false);
     }
 
-    private void printStats(int intent, PlanNodeId planNodeId)
-    {
-        printStats(intent, planNodeId, false, false);
-    }
-
-    private void printStats(int indent, PlanNodeId planNodeId, boolean printInput, boolean printFiltered)
+    private void printStats(PlanNode node, boolean printInput, boolean printFiltered)
     {
         if (!stats.isPresent()) {
             return;
         }
 
         long totalScheduledMillis = stats.get().values().stream()
-                .mapToLong(node -> node.getPlanNodeScheduledTime().toMillis())
+                .mapToLong(planNode -> planNode.getPlanNodeScheduledTime().toMillis())
                 .sum();
 
         long totalCpuMillis = stats.get().values().stream()
-                .mapToLong(node -> node.getPlanNodeCpuTime().toMillis())
+                .mapToLong(planNode -> planNode.getPlanNodeCpuTime().toMillis())
                 .sum();
 
-        PlanNodeStats nodeStats = stats.get().get(planNodeId);
+        PlanNodeStats nodeStats = stats.get().get(node.getId());
         if (nodeStats == null) {
-            output.append(indentString(indent));
-            output.append("Cost: ?");
+            output.appendDetails(node, "Cost: ?");
             if (printInput) {
-                output.append(", Input: ? rows (?B)");
+                output.appendDetails(node, ", Input: ? rows (?B)");
             }
-            output.append(", Output: ? rows (?B)");
+            output.appendDetails(node, ", Output: ? rows (?B)");
             if (printFiltered) {
-                output.append(", Filtered: ?%");
+                output.appendDetails(node, ", Filtered: ?%");
             }
-            output.append('\n');
+            output.appendDetails(node, "\n");
             return;
         }
 
         double scheduledTimeFraction = 100.0d * nodeStats.getPlanNodeScheduledTime().toMillis() / totalScheduledMillis;
         double cpuTimeFraction = 100.0d * nodeStats.getPlanNodeCpuTime().toMillis() / totalCpuMillis;
 
-        output.append(indentString(indent));
-        output.append(format(
+        output.appendDetails(node,
                 "CPU: %s (%s%%), Scheduled: %s (%s%%)",
                 nodeStats.getPlanNodeCpuTime().convertToMostSuccinctTimeUnit(),
                 formatDouble(cpuTimeFraction),
                 nodeStats.getPlanNodeScheduledTime().convertToMostSuccinctTimeUnit(),
-                formatDouble(scheduledTimeFraction)));
+                formatDouble(scheduledTimeFraction));
 
         if (printInput) {
-            output.append(format(", Input: %s (%s)",
-                    formatPositions(nodeStats.getPlanNodeInputPositions()),
-                    nodeStats.getPlanNodeInputDataSize().toString()));
+            output.appendDetails(node, ", Input: %s (%s)", formatPositions(nodeStats.getPlanNodeInputPositions()), nodeStats.getPlanNodeInputDataSize().toString());
         }
-        output.append(format(", Output: %s (%s)",
-                formatPositions(nodeStats.getPlanNodeOutputPositions()),
-                nodeStats.getPlanNodeOutputDataSize().toString()));
+        output.appendDetails(node, ", Output: %s (%s)", formatPositions(nodeStats.getPlanNodeOutputPositions()), nodeStats.getPlanNodeOutputDataSize().toString());
         if (printFiltered) {
             double filtered = 100.0d * (nodeStats.getPlanNodeInputPositions() - nodeStats.getPlanNodeOutputPositions()) / nodeStats.getPlanNodeInputPositions();
-            output.append(", Filtered: " + formatDouble(filtered) + "%");
+            output.appendDetails(node, ", Filtered: " + formatDouble(filtered) + "%");
         }
-        output.append('\n');
+        output.appendDetails(node, "\n");
 
-        printDistributions(indent, nodeStats);
+        printDistributions(node, nodeStats);
 
         if (nodeStats.getWindowOperatorStats().isPresent()) {
             // TODO: Once PlanNodeStats becomes broken into smaller classes, we should rely on toString() method of WindowOperatorStats here
-            printWindowOperatorStats(indent, nodeStats.getWindowOperatorStats().get());
+            printWindowOperatorStats(node, nodeStats.getWindowOperatorStats().get());
         }
     }
 
-    private void printDistributions(int indent, PlanNodeStats nodeStats)
+    private void printDistributions(PlanNode node, PlanNodeStats stats)
     {
-        Map<String, Double> inputAverages = nodeStats.getOperatorInputPositionsAverages();
-        Map<String, Double> inputStdDevs = nodeStats.getOperatorInputPositionsStdDevs();
+        Map<String, Double> inputAverages = stats.getOperatorInputPositionsAverages();
+        Map<String, Double> inputStdDevs = stats.getOperatorInputPositionsStdDevs();
 
-        Map<String, Double> hashCollisionsAverages = nodeStats.getOperatorHashCollisionsAverages();
-        Map<String, Double> hashCollisionsStdDevs = nodeStats.getOperatorHashCollisionsStdDevs();
-        Map<String, Double> expectedHashCollisionsAverages = nodeStats.getOperatorExpectedCollisionsAverages();
+        Map<String, Double> hashCollisionsAverages = stats.getOperatorHashCollisionsAverages();
+        Map<String, Double> hashCollisionsStdDevs = stats.getOperatorHashCollisionsStdDevs();
+        Map<String, Double> expectedHashCollisionsAverages = stats.getOperatorExpectedCollisionsAverages();
 
-        Map<String, String> translatedOperatorTypes = translateOperatorTypes(nodeStats.getOperatorTypes());
+        Map<String, String> translatedOperatorTypes = translateOperatorTypes(stats.getOperatorTypes());
 
         for (String operator : translatedOperatorTypes.keySet()) {
             String translatedOperatorType = translatedOperatorTypes.get(operator);
             double inputAverage = inputAverages.get(operator);
 
-            output.append(indentString(indent));
-            output.append(translatedOperatorType);
-            output.append(format(Locale.US, "Input avg.: %s rows, Input std.dev.: %s%%",
+            output.appendDetails(node, translatedOperatorType);
+            output.appendDetailsLine(node, format(Locale.US, "Input avg.: %s rows, Input std.dev.: %s%%",
                     formatDouble(inputAverage), formatDouble(100.0d * inputStdDevs.get(operator) / inputAverage)));
-            output.append('\n');
 
             double hashCollisionsAverage = hashCollisionsAverages.getOrDefault(operator, 0.0d);
             double expectedHashCollisionsAverage = expectedHashCollisionsAverages.getOrDefault(operator, 0.0d);
             if (hashCollisionsAverage != 0.0d) {
                 double hashCollisionsStdDevRatio = hashCollisionsStdDevs.get(operator) / hashCollisionsAverage;
 
-                if (translatedOperatorType.isEmpty()) {
-                    output.append(indentString(indent));
-                }
-                else {
-                    output.append(indentString(indent + 2));
+                if (!translatedOperatorType.isEmpty()) {
+                    output.appendDetails(node, indentString(2));
                 }
 
                 if (expectedHashCollisionsAverage != 0.0d) {
                     double hashCollisionsRatio = hashCollisionsAverage / expectedHashCollisionsAverage;
-                    output.append(format(Locale.US, "Collisions avg.: %s (%s%% est.), Collisions std.dev.: %s%%",
+                    output.appendDetails(node, format(Locale.US, "Collisions avg.: %s (%s%% est.), Collisions std.dev.: %s%%",
                             formatDouble(hashCollisionsAverage), formatDouble(hashCollisionsRatio * 100.0d), formatDouble(hashCollisionsStdDevRatio * 100.0d)));
                 }
                 else {
-                    output.append(format(Locale.US, "Collisions avg.: %s, Collisions std.dev.: %s%%",
+                    output.appendDetails(node, format(Locale.US, "Collisions avg.: %s, Collisions std.dev.: %s%%",
                             formatDouble(hashCollisionsAverage), formatDouble(hashCollisionsStdDevRatio * 100.0d)));
                 }
 
-                output.append('\n');
+                output.appendDetails(node, "\n");
             }
         }
     }
@@ -448,32 +528,18 @@ public class PlanPrinter
         return ImmutableMap.of();
     }
 
-    private void printWindowOperatorStats(int indent, WindowOperatorStats stats)
+    private void printWindowOperatorStats(PlanNode node, WindowOperatorStats stats)
     {
         if (!verbose) {
             // these stats are too detailed for non-verbose mode
             return;
         }
 
-        output.append(indentString(indent));
-        output.append(format("Active Drivers: [ %d / %d ]", stats.getActiveDrivers(), stats.getTotalDrivers()));
-        output.append('\n');
-
-        output.append(indentString(indent));
-        output.append(format("Index size: std.dev.: %s bytes , %s rows", formatDouble(stats.getIndexSizeStdDev()), formatDouble(stats.getIndexPositionsStdDev())));
-        output.append('\n');
-
-        output.append(indentString(indent));
-        output.append(format("Index count per driver: std.dev.: %s", formatDouble(stats.getIndexCountPerDriverStdDev())));
-        output.append('\n');
-
-        output.append(indentString(indent));
-        output.append(format("Rows per driver: std.dev.: %s", formatDouble(stats.getRowsPerDriverStdDev())));
-        output.append('\n');
-
-        output.append(indentString(indent));
-        output.append(format("Size of partition: std.dev.: %s", formatDouble(stats.getPartitionRowsStdDev())));
-        output.append('\n');
+        output.appendDetailsLine(node, "Active Drivers: [ %d / %d ]", stats.getActiveDrivers(), stats.getTotalDrivers());
+        output.appendDetailsLine(node, "Index size: std.dev.: %s bytes , %s rows", formatDouble(stats.getIndexSizeStdDev()), formatDouble(stats.getIndexPositionsStdDev()));
+        output.appendDetailsLine(node, "Index count per driver: std.dev.: %s", formatDouble(stats.getIndexCountPerDriverStdDev()));
+        output.appendDetailsLine(node, "Rows per driver: std.dev.: %s", formatDouble(stats.getRowsPerDriverStdDev()));
+        output.appendDetailsLine(node, "Size of partition: std.dev.: %s", formatDouble(stats.getPartitionRowsStdDev()));
     }
 
     private static String formatDouble(double value)
@@ -527,9 +593,9 @@ public class PlanPrinter
         @Override
         public Void visitExplainAnalyze(ExplainAnalyzeNode node, Integer indent)
         {
-            print(indent, "- ExplainAnalyze => [%s]", formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+            output.addNode(node, indent, "ExplainAnalyze");
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
             return processChildren(node, indent + 1);
         }
 
@@ -544,20 +610,21 @@ public class PlanPrinter
 
             if (node.isCrossJoin()) {
                 checkState(joinExpressions.isEmpty());
-                print(indent, "- CrossJoin => [%s]", formatOutputs(node.getOutputSymbols()));
+                output.addNode(node, indent, "CrossJoin");
             }
             else {
-                print(indent, "- %s[%s]%s => [%s]",
+                output.addNode(node,
+                        indent,
                         node.getType().getJoinLabel(),
+                        "[%s]%s",
                         Joiner.on(" AND ").join(joinExpressions),
-                        formatHash(node.getLeftHashSymbol(), node.getRightHashSymbol()),
-                        formatOutputs(node.getOutputSymbols()));
+                        formatHash(node.getLeftHashSymbol(), node.getRightHashSymbol()));
             }
 
-            node.getDistributionType().ifPresent(distributionType -> print(indent + 2, "Distribution: %s", distributionType));
-            node.getSortExpressionContext().ifPresent(context -> print(indent + 2, "SortExpression[%s]", context.getSortExpression()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+            node.getDistributionType().ifPresent(distributionType -> output.appendDetails(node, "Distribution: %s", distributionType));
+            node.getSortExpressionContext().ifPresent(context -> output.appendDetails(node, "SortExpression[%s]", context.getSortExpression()));
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
             node.getLeft().accept(this, indent + 1);
             node.getRight().accept(this, indent + 1);
 
@@ -567,14 +634,15 @@ public class PlanPrinter
         @Override
         public Void visitSpatialJoin(SpatialJoinNode node, Integer indent)
         {
-            print(indent, "- %s[%s] => [%s]",
+            output.addNode(node,
+                    indent,
                     node.getType().getJoinLabel(),
-                    node.getFilter(),
-                    formatOutputs(node.getOutputSymbols()));
+                    "[%s]",
+                    node.getFilter());
 
-            print(indent + 2, "Distribution: %s", node.getDistributionType());
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+            output.appendDetailsLine(node, "Distribution: %s", node.getDistributionType());
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
             node.getLeft().accept(this, indent + 1);
             node.getRight().accept(this, indent + 1);
 
@@ -584,14 +652,16 @@ public class PlanPrinter
         @Override
         public Void visitSemiJoin(SemiJoinNode node, Integer indent)
         {
-            print(indent, "- SemiJoin[%s = %s]%s => [%s]",
+            output.addNode(node,
+                    indent,
+                    "SemiJoin",
+                    "[%s = %s]%s",
                     node.getSourceJoinSymbol(),
                     node.getFilteringSourceJoinSymbol(),
-                    formatHash(node.getSourceHashSymbol(), node.getFilteringSourceHashSymbol()),
-                    formatOutputs(node.getOutputSymbols()));
-            node.getDistributionType().ifPresent(distributionType -> print(indent + 2, "Distribution: %s", distributionType));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+                    formatHash(node.getSourceHashSymbol(), node.getFilteringSourceHashSymbol()));
+            node.getDistributionType().ifPresent(distributionType -> output.appendDetailsLine(node, "Distribution: %s", distributionType));
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
             node.getSource().accept(this, indent + 1);
             node.getFilteringSource().accept(this, indent + 1);
 
@@ -601,12 +671,18 @@ public class PlanPrinter
         @Override
         public Void visitIndexSource(IndexSourceNode node, Integer indent)
         {
-            print(indent, "- IndexSource[%s, lookup = %s] => [%s]", node.getIndexHandle(), node.getLookupSymbols(), formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+            output.addNode(node,
+                    indent,
+                    "IndexSource",
+                    "[%s, lookup = %s]",
+                    node.getIndexHandle(),
+                    node.getLookupSymbols());
+            
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
                 if (node.getOutputSymbols().contains(entry.getKey())) {
-                    print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
+                    output.appendDetailsLine(node, "%s := %s", entry.getKey(), entry.getValue());
                 }
             }
             return null;
@@ -622,13 +698,14 @@ public class PlanPrinter
                         clause.getIndex().toSymbolReference()));
             }
 
-            print(indent, "- %sIndexJoin[%s]%s => [%s]",
-                    node.getType().getJoinLabel(),
+            output.addNode(node,
+                    indent,
+                    format("%sIndexJoin", node.getType().getJoinLabel()),
+                    "[%s]%s => [%s]",
                     Joiner.on(" AND ").join(joinExpressions),
-                    formatHash(node.getProbeHashSymbol(), node.getIndexHashSymbol()),
-                    formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+                    formatHash(node.getProbeHashSymbol(), node.getIndexHashSymbol()));
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
             node.getProbeSource().accept(this, indent + 1);
             node.getIndexSource().accept(this, indent + 1);
 
@@ -638,22 +715,27 @@ public class PlanPrinter
         @Override
         public Void visitLimit(LimitNode node, Integer indent)
         {
-            print(indent, "- Limit%s[%s] => [%s]", node.isPartial() ? "Partial" : "", node.getCount(), formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+            output.addNode(node,
+                    indent,
+                    format("Limit%s", node.isPartial() ? "Partial" : ""),
+                    "[%s]",
+                    node.getCount());
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
             return processChildren(node, indent + 1);
         }
 
         @Override
         public Void visitDistinctLimit(DistinctLimitNode node, Integer indent)
         {
-            print(indent, "- DistinctLimit%s[%s]%s => [%s]",
-                    node.isPartial() ? "Partial" : "",
+            output.addNode(node,
+                    indent,
+                    format("DistinctLimit%s", node.isPartial() ? "Partial" : ""),
+                    "[%s]%s",
                     node.getLimit(),
-                    formatHash(node.getHashSymbol()),
-                    formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+                    formatHash(node.getHashSymbol()));
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
             return processChildren(node, indent + 1);
         }
 
@@ -672,16 +754,18 @@ public class PlanPrinter
                 key = node.getGroupingKeys().toString();
             }
 
-            print(indent, "- Aggregate%s%s%s => [%s]", type, key, formatHash(node.getHashSymbol()), formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+            output.addNode(node,
+                    indent,
+                    format("Aggregate%s%s%s", type, key, formatHash(node.getHashSymbol())));
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
 
-            for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
+            for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
                 if (entry.getValue().getMask().isPresent()) {
-                    print(indent + 2, "%s := %s (mask = %s)", entry.getKey(), entry.getValue().getCall(), entry.getValue().getMask().get());
+                    output.appendDetailsLine(node, "%s := %s (mask = %s)", entry.getKey(), entry.getValue().getCall(), entry.getValue().getMask().get());
                 }
                 else {
-                    print(indent + 2, "%s := %s", entry.getKey(), entry.getValue().getCall());
+                    output.appendDetailsLine(node, "%s := %s", entry.getKey(), entry.getValue().getCall());
                 }
             }
 
@@ -698,12 +782,12 @@ public class PlanPrinter
                             .collect(Collectors.toList()))
                     .collect(Collectors.toList());
 
-            print(indent, "- GroupId%s => [%s]", inputGroupingSetSymbols, formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+            output.addNode(node, indent, "GroupId", "%s", inputGroupingSetSymbols);
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
 
             for (Map.Entry<Symbol, Symbol> mapping : node.getGroupingColumns().entrySet()) {
-                print(indent + 2, "%s := %s", mapping.getKey(), mapping.getValue());
+                output.appendDetailsLine(node, "%s := %s", mapping.getKey(), mapping.getValue());
             }
 
             return processChildren(node, indent + 1);
@@ -712,14 +796,16 @@ public class PlanPrinter
         @Override
         public Void visitMarkDistinct(MarkDistinctNode node, Integer indent)
         {
-            print(indent, "- MarkDistinct[distinct=%s marker=%s]%s => [%s]",
-                    formatOutputs(node.getDistinctSymbols()),
+            output.addNode(node,
+                    indent,
+                    "MarkDistinct",
+                    "[distinct=%s marker=%s]%s",
+                    formatOutputs(types, node.getDistinctSymbols()),
                     node.getMarkerSymbol(),
-                    formatHash(node.getHashSymbol()),
-                    formatOutputs(node.getOutputSymbols()));
+                    formatHash(node.getHashSymbol()));
 
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
             return processChildren(node, indent + 1);
         }
 
@@ -764,15 +850,15 @@ public class PlanPrinter
                         .collect(Collectors.joining(", "))));
             }
 
-            print(indent, "- Window[%s]%s => [%s]", Joiner.on(", ").join(args), formatHash(node.getHashSymbol()), formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+            output.addNode(node, indent, "Window", "[%s]%s", Joiner.on(", ").join(args), formatHash(node.getHashSymbol()));
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
 
             for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 FunctionCall call = entry.getValue().getFunctionCall();
                 String frameInfo = formatFrame(entry.getValue().getFrame());
 
-                print(indent + 2, "%s := %s(%s) %s", entry.getKey(), call.getName(), Joiner.on(", ").join(call.getArguments()), frameInfo);
+                output.appendDetailsLine(node, "%s := %s(%s) %s", entry.getKey(), call.getName(), Joiner.on(", ").join(call.getArguments()), frameInfo);
             }
             return processChildren(node, indent + 1);
         }
@@ -792,15 +878,17 @@ public class PlanPrinter
             args.add(format("partition by (%s)", Joiner.on(", ").join(partitionBy)));
             args.add(format("order by (%s)", Joiner.on(", ").join(orderBy)));
 
-            print(indent, "- TopNRowNumber[%s limit %s]%s => [%s]",
+            output.addNode(node,
+                    indent,
+                    "TopNRowNumber",
+                    "[%s limit %s]%s",
                     Joiner.on(", ").join(args),
                     node.getMaxRowCountPerPartition(),
-                    formatHash(node.getHashSymbol()),
-                    formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+                    formatHash(node.getHashSymbol()));
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
 
-            print(indent + 2, "%s := %s", node.getRowNumberSymbol(), "row_number()");
+            output.appendDetailsLine(node, "%s := %s", node.getRowNumberSymbol(), "row_number()");
             return processChildren(node, indent + 1);
         }
 
@@ -817,14 +905,16 @@ public class PlanPrinter
                 args.add(format("limit = %s", node.getMaxRowCountPerPartition().get()));
             }
 
-            print(indent, "- RowNumber[%s]%s => [%s]",
+            output.addNode(node,
+                    indent,
+                    "RowNumber",
+                    "[%s]%s",
                     Joiner.on(", ").join(args),
-                    formatHash(node.getHashSymbol()),
-                    formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+                    formatHash(node.getHashSymbol()));
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
 
-            print(indent + 2, "%s := %s", node.getRowNumberSymbol(), "row_number()");
+            output.appendDetailsLine(node, "%s := %s", node.getRowNumberSymbol(), "row_number()");
             return processChildren(node, indent + 1);
         }
 
@@ -833,31 +923,30 @@ public class PlanPrinter
         {
             TableHandle table = node.getTable();
             if (stageExecutionStrategy.isPresent()) {
-                print(indent, "- TableScan[%s, grouped = %s] => [%s]",
+                output.addNode(node,
+                        indent,
+                        "TableScan",
+                        "[%s, grouped = %s]",
                         table,
-                        stageExecutionStrategy.get().isGroupedExecution(node.getId()),
-                        formatOutputs(node.getOutputSymbols()));
+                        stageExecutionStrategy.get().isGroupedExecution(node.getId()));
             }
             else {
-                print(indent, "- TableScan[%s] => [%s]",
-                        table,
-                        formatOutputs(node.getOutputSymbols()));
+                output.addNode(node, indent, "TableScan", "[%s]", table);
             }
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
-            printTableScanInfo(node, indent);
-
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
+            printTableScanInfo(node, node);
             return null;
         }
 
         @Override
         public Void visitValues(ValuesNode node, Integer indent)
         {
-            print(indent, "- Values => [%s]", formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+            output.addNode(node, indent, "Values");
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
             for (List<Expression> row : node.getRows()) {
-                print(indent + 2, "(" + Joiner.on(", ").join(row) + ")");
+                output.appendDetailsLine(node, "(" + Joiner.on(", ").join(row) + ")");
             }
             return null;
         }
@@ -865,21 +954,21 @@ public class PlanPrinter
         @Override
         public Void visitFilter(FilterNode node, Integer indent)
         {
-            return visitScanFilterAndProjectInfo(node.getId(), Optional.of(node), Optional.empty(), indent);
+            return visitScanFilterAndProjectInfo(node, Optional.of(node), Optional.empty(), indent);
         }
 
         @Override
         public Void visitProject(ProjectNode node, Integer indent)
         {
             if (node.getSource() instanceof FilterNode) {
-                return visitScanFilterAndProjectInfo(node.getId(), Optional.of((FilterNode) node.getSource()), Optional.of(node), indent);
+                return visitScanFilterAndProjectInfo(node, Optional.of((FilterNode) node.getSource()), Optional.of(node), indent);
             }
 
-            return visitScanFilterAndProjectInfo(node.getId(), Optional.empty(), Optional.of(node), indent);
+            return visitScanFilterAndProjectInfo(node, Optional.empty(), Optional.of(node), indent);
         }
 
         private Void visitScanFilterAndProjectInfo(
-                PlanNodeId planNodeId,
+                PlanNode rootNode,
                 Optional<FilterNode> filterNode,
                 Optional<ProjectNode> projectNode,
                 int indent)
@@ -903,7 +992,8 @@ public class PlanPrinter
             }
 
             String format = "[";
-            String operatorName = "- ";
+            String operatorName = "";
+            List<Symbol> outputs;
             List<Object> arguments = new LinkedList<>();
 
             if (scanNode.isPresent()) {
@@ -926,31 +1016,30 @@ public class PlanPrinter
             if (format.length() > 1) {
                 format = format.substring(0, format.length() - 2);
             }
-            format += "] => [%s]";
+            format += "]";
 
             if (projectNode.isPresent()) {
                 operatorName += "Project";
-                arguments.add(formatOutputs(projectNode.get().getOutputSymbols()));
+                outputs = projectNode.get().getOutputSymbols();
             }
             else {
-                arguments.add(formatOutputs(filterNode.get().getOutputSymbols()));
+                outputs = filterNode.get().getOutputSymbols();
             }
 
-            format = operatorName + format;
-            print(indent, format, arguments);
-            printPlanNodesStatsAndCost(indent + 2,
+            output.addNode(rootNode, indent, operatorName, outputs, format, arguments.toArray(new Object[arguments.size()]));
+            printPlanNodesStatsAndCost(rootNode,
                     Stream.of(scanNode, filterNode, projectNode)
                             .filter(Optional::isPresent)
                             .map(Optional::get)
                             .toArray(PlanNode[]::new));
-            printStats(indent + 2, planNodeId, true, true);
+            printStats(rootNode, true, true);
 
             if (projectNode.isPresent()) {
-                printAssignments(projectNode.get().getAssignments(), indent + 2);
+                printAssignments(rootNode, projectNode.get().getAssignments());
             }
 
             if (scanNode.isPresent()) {
-                printTableScanInfo(scanNode.get(), indent);
+                printTableScanInfo(rootNode, scanNode.get());
                 return null;
             }
 
@@ -958,7 +1047,7 @@ public class PlanPrinter
             return null;
         }
 
-        private void printTableScanInfo(TableScanNode node, int indent)
+        private void printTableScanInfo(PlanNode rootNode, TableScanNode node)
         {
             TableHandle table = node.getTable();
 
@@ -966,20 +1055,20 @@ public class PlanPrinter
                 // TODO: find a better way to do this
                 ConnectorTableLayoutHandle layout = node.getLayout().get().getConnectorHandle();
                 if (!table.getConnectorHandle().toString().equals(layout.toString())) {
-                    print(indent + 2, "LAYOUT: %s", layout);
+                    output.appendDetailsLine(rootNode, "LAYOUT: %s", layout);
                 }
             }
 
             TupleDomain<ColumnHandle> predicate = node.getCurrentConstraint();
             if (predicate.isNone()) {
-                print(indent + 2, ":: NONE");
+                output.appendDetailsLine(rootNode, ":: NONE");
             }
             else {
                 // first, print output columns and their constraints
                 for (Map.Entry<Symbol, ColumnHandle> assignment : node.getAssignments().entrySet()) {
                     ColumnHandle column = assignment.getValue();
-                    print(indent + 2, "%s := %s", assignment.getKey(), column);
-                    printConstraint(indent + 3, column, predicate);
+                    output.appendDetailsLine(rootNode, "%s := %s", assignment.getKey(), column);
+                    printConstraint(rootNode, column, predicate);
                 }
 
                 // then, print constraints for columns that are not in the output
@@ -991,8 +1080,8 @@ public class PlanPrinter
                             .filter(entry -> !outputs.contains(entry.getKey()))
                             .forEach(entry -> {
                                 ColumnHandle column = entry.getKey();
-                                print(indent + 2, "%s", column);
-                                printConstraint(indent + 3, column, predicate);
+                                output.appendDetailsLine(rootNode, "%s", column);
+                                printConstraint(rootNode, column, predicate);
                             });
                 }
             }
@@ -1001,9 +1090,9 @@ public class PlanPrinter
         @Override
         public Void visitUnnest(UnnestNode node, Integer indent)
         {
-            print(indent, "- Unnest [replicate=%s, unnest=%s] => [%s]", formatOutputs(node.getReplicateSymbols()), formatOutputs(node.getUnnestSymbols().keySet()), formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+            output.addNode(node, indent, "Unnest", "[replicate=%s, unnest=%s]", formatOutputs(types, node.getReplicateSymbols()), formatOutputs(types, node.getUnnestSymbols().keySet()));
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
 
             return processChildren(node, indent + 1);
         }
@@ -1011,17 +1100,16 @@ public class PlanPrinter
         @Override
         public Void visitOutput(OutputNode node, Integer indent)
         {
-            print(indent, "- Output[%s] => [%s]", Joiner.on(", ").join(node.getColumnNames()), formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+            output.addNode(node, indent, "Output", "[%s]", Joiner.on(", ").join(node.getColumnNames()));
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
             for (int i = 0; i < node.getColumnNames().size(); i++) {
                 String name = node.getColumnNames().get(i);
                 Symbol symbol = node.getOutputSymbols().get(i);
                 if (!name.equals(symbol.toString())) {
-                    print(indent + 2, "%s := %s", name, symbol);
+                    output.appendDetailsLine(node, "%s := %s", name, symbol);
                 }
             }
-
             return processChildren(node, indent + 1);
         }
 
@@ -1030,9 +1118,9 @@ public class PlanPrinter
         {
             Iterable<String> keys = Iterables.transform(node.getOrderingScheme().getOrderBy(), input -> input + " " + node.getOrderingScheme().getOrdering(input));
 
-            print(indent, "- TopN[%s by (%s)] => [%s]", node.getCount(), Joiner.on(", ").join(keys), formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+            output.addNode(node, indent, "TopN", "[%s by (%s)]", node.getCount(), Joiner.on(", ").join(keys));
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
             return processChildren(node, indent + 1);
         }
 
@@ -1045,24 +1133,26 @@ public class PlanPrinter
                 isPartial = true;
             }
 
-            print(indent, "- %sSort[%s] => [%s]",
-                    isPartial ? "Partial" : "",
-                    Joiner.on(", ").join(keys),
-                    formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+            output.addNode(node,
+                    indent,
+                    format("%sSort", isPartial ? "Partial" : ""),
+                    "[%s]",
+                    Joiner.on(", ").join(keys));
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
             return processChildren(node, indent + 1);
         }
 
         @Override
         public Void visitRemoteSource(RemoteSourceNode node, Integer indent)
         {
-            print(indent, "- Remote%s[%s] => [%s]",
-                    node.getOrderingScheme().isPresent() ? "Merge" : "Source",
-                    Joiner.on(',').join(node.getSourceFragmentIds()),
-                    formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+            output.addNode(node,
+                    indent,
+                    format("Remote%s", node.getOrderingScheme().isPresent() ? "Merge" : "Source"),
+                    "[%s]",
+                    Joiner.on(',').join(node.getSourceFragmentIds()));
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
 
             return null;
         }
@@ -1070,9 +1160,9 @@ public class PlanPrinter
         @Override
         public Void visitUnion(UnionNode node, Integer indent)
         {
-            print(indent, "- Union => [%s]", formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+            output.addNode(node, indent, "Union");
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
 
             return processChildren(node, indent + 1);
         }
@@ -1080,9 +1170,9 @@ public class PlanPrinter
         @Override
         public Void visitIntersect(IntersectNode node, Integer indent)
         {
-            print(indent, "- Intersect => [%s]", formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+            output.addNode(node, indent, "Intersect");
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
 
             return processChildren(node, indent + 1);
         }
@@ -1090,9 +1180,9 @@ public class PlanPrinter
         @Override
         public Void visitExcept(ExceptNode node, Integer indent)
         {
-            print(indent, "- Except => [%s]", formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+            output.addNode(node, indent, "Except");
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
 
             return processChildren(node, indent + 1);
         }
@@ -1100,18 +1190,18 @@ public class PlanPrinter
         @Override
         public Void visitTableWriter(TableWriterNode node, Integer indent)
         {
-            print(indent, "- TableWriter => [%s]", formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+            output.addNode(node, indent, "TableWriter");
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
             for (int i = 0; i < node.getColumnNames().size(); i++) {
                 String name = node.getColumnNames().get(i);
                 Symbol symbol = node.getColumns().get(i);
-                print(indent + 2, "%s := %s", name, symbol);
+                output.appendDetailsLine(node, "%s := %s", name, symbol);
             }
 
             if (node.getStatisticsAggregation().isPresent()) {
                 verify(node.getStatisticsAggregationDescriptor().isPresent(), "statisticsAggregationDescriptor is not present");
-                printStatisticAggregations(node.getStatisticsAggregation().get(), node.getStatisticsAggregationDescriptor().get(), indent + 2);
+                printStatisticAggregations(node, node.getStatisticsAggregation().get(), node.getStatisticsAggregationDescriptor().get());
             }
 
             return processChildren(node, indent + 1);
@@ -1120,23 +1210,23 @@ public class PlanPrinter
         @Override
         public Void visitTableFinish(TableFinishNode node, Integer indent)
         {
-            print(indent, "- TableCommit[%s] => [%s]", node.getTarget(), formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+            output.addNode(node, indent, "TableCommit", "[%s]", node.getTarget());
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
 
             if (node.getStatisticsAggregation().isPresent()) {
                 verify(node.getStatisticsAggregationDescriptor().isPresent(), "statisticsAggregationDescriptor is not present");
-                printStatisticAggregations(node.getStatisticsAggregation().get(), node.getStatisticsAggregationDescriptor().get(), indent + 2);
+                printStatisticAggregations(node, node.getStatisticsAggregation().get(), node.getStatisticsAggregationDescriptor().get());
             }
 
             return processChildren(node, indent + 1);
         }
 
-        private void printStatisticAggregations(StatisticAggregations aggregations, StatisticAggregationsDescriptor<Symbol> descriptor, int indent)
+        private void printStatisticAggregations(PlanNode node, StatisticAggregations aggregations, StatisticAggregationsDescriptor<Symbol> descriptor)
         {
-            print(indent, "Collected statistics:");
-            printStatisticAggregationsInfo(descriptor.getTableStatistics(), descriptor.getColumnStatistics(), aggregations.getAggregations(), indent + 1);
-            print(indent + 1, "grouped by => [%s]", getStatisticGroupingSetsInfo(descriptor.getGrouping()));
+            output.appendDetailsLine(node, "Collected statistics:");
+            printStatisticAggregationsInfo(node, descriptor.getTableStatistics(), descriptor.getColumnStatistics(), aggregations.getAggregations());
+            output.appendDetailsLine(node, indentString(1) + "grouped by => [%s]", getStatisticGroupingSetsInfo(descriptor.getGrouping()));
         }
 
         private String getStatisticGroupingSetsInfo(Map<String, Symbol> columnMappings)
@@ -1147,25 +1237,25 @@ public class PlanPrinter
         }
 
         private void printStatisticAggregationsInfo(
+                PlanNode node,
                 Map<TableStatisticType, Symbol> tableStatistics,
                 Map<ColumnStatisticMetadata, Symbol> columnStatistics,
-                Map<Symbol, Aggregation> aggregations,
-                int indent)
+                Map<Symbol, AggregationNode.Aggregation> aggregations)
         {
-            print(indent, "aggregations =>");
+            output.appendDetailsLine(node, "aggregations =>");
             for (Map.Entry<TableStatisticType, Symbol> tableStatistic : tableStatistics.entrySet()) {
-                print(
-                        indent + 1,
-                        "%s => [%s := %s]",
+                output.appendDetailsLine(
+                        node,
+                        indentString(1) + "%s => [%s := %s]",
                         tableStatistic.getValue(),
                         tableStatistic.getKey(),
                         aggregations.get(tableStatistic.getValue()).getCall());
             }
 
             for (Map.Entry<ColumnStatisticMetadata, Symbol> columnStatistic : columnStatistics.entrySet()) {
-                print(
-                        indent + 1,
-                        "%s[%s] => [%s := %s]",
+                output.appendDetailsLine(
+                        node,
+                        indentString(1) + "%s[%s] => [%s := %s]",
                         columnStatistic.getKey().getStatisticType(),
                         columnStatistic.getKey().getColumnName(),
                         columnStatistic.getValue(),
@@ -1176,9 +1266,9 @@ public class PlanPrinter
         @Override
         public Void visitSample(SampleNode node, Integer indent)
         {
-            print(indent, "- Sample[%s: %s] => [%s]", node.getSampleType(), node.getSampleRatio(), formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+            output.addNode(node, indent, "Sample", "[%s: %s]", node.getSampleType(), node.getSampleRatio());
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
 
             return processChildren(node, indent + 1);
         }
@@ -1193,39 +1283,42 @@ public class PlanPrinter
                         .map(input -> input + " " + orderingScheme.getOrdering(input))
                         .collect(toImmutableList());
 
-                print(indent, "- %sMerge[%s] => [%s]",
-                        UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, node.getScope().toString()),
-                        Joiner.on(", ").join(orderBy),
-                        formatOutputs(node.getOutputSymbols()));
+                output.addNode(node,
+                        indent,
+                        format("%sMerge", UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, node.getScope().toString())),
+                        "[%s]",
+                        Joiner.on(", ").join(orderBy));
             }
             else if (node.getScope() == Scope.LOCAL) {
-                print(indent, "- LocalExchange[%s%s]%s (%s) => %s",
+                output.addNode(node,
+                        indent,
+                        "LocalExchange",
+                        "[%s%s]%s (%s)",
                         node.getPartitioningScheme().getPartitioning().getHandle(),
                         node.getPartitioningScheme().isReplicateNullsAndAny() ? " - REPLICATE NULLS AND ANY" : "",
                         formatHash(node.getPartitioningScheme().getHashColumn()),
-                        Joiner.on(", ").join(node.getPartitioningScheme().getPartitioning().getArguments()),
-                        formatOutputs(node.getOutputSymbols()));
+                        Joiner.on(", ").join(node.getPartitioningScheme().getPartitioning().getArguments()));
             }
             else {
-                print(indent, "- %sExchange[%s%s]%s => %s",
-                        UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, node.getScope().toString()),
+                output.addNode(node,
+                        indent,
+                        format("%sExchange", UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, node.getScope().toString())),
+                        "[%s%s]%s",
                         node.getType(),
                         node.getPartitioningScheme().isReplicateNullsAndAny() ? " - REPLICATE NULLS AND ANY" : "",
-                        formatHash(node.getPartitioningScheme().getHashColumn()),
-                        formatOutputs(node.getOutputSymbols()));
+                        formatHash(node.getPartitioningScheme().getHashColumn()));
             }
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
-
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
             return processChildren(node, indent + 1);
         }
 
         @Override
         public Void visitDelete(DeleteNode node, Integer indent)
         {
-            print(indent, "- Delete[%s] => [%s]", node.getTarget(), formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+            output.addNode(node, indent, "Delete", "[%s]", node.getTarget());
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
 
             return processChildren(node, indent + 1);
         }
@@ -1233,9 +1326,9 @@ public class PlanPrinter
         @Override
         public Void visitMetadataDelete(MetadataDeleteNode node, Integer indent)
         {
-            print(indent, "- MetadataDelete[%s] => [%s]", node.getTarget(), formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+            output.addNode(node, indent, "MetadataDelete", "[%s]", node.getTarget());
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
 
             return processChildren(node, indent + 1);
         }
@@ -1243,9 +1336,9 @@ public class PlanPrinter
         @Override
         public Void visitEnforceSingleRow(EnforceSingleRowNode node, Integer indent)
         {
-            print(indent, "- Scalar => [%s]", formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+            output.addNode(node, indent, "Scalar");
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
 
             return processChildren(node, indent + 1);
         }
@@ -1253,9 +1346,9 @@ public class PlanPrinter
         @Override
         public Void visitAssignUniqueId(AssignUniqueId node, Integer indent)
         {
-            print(indent, "- AssignUniqueId => [%s]", formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
+            output.addNode(node, indent, "AssignUniqueId");
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
 
             return processChildren(node, indent + 1);
         }
@@ -1263,7 +1356,7 @@ public class PlanPrinter
         @Override
         public Void visitGroupReference(GroupReference node, Integer indent)
         {
-            print(indent, "- GroupReference[%s] => [%s]", node.getGroupId(), formatOutputs(node.getOutputSymbols()));
+            output.addNode(node, indent, "GroupReference", "[%s]", node.getGroupId());
 
             return null;
         }
@@ -1271,10 +1364,10 @@ public class PlanPrinter
         @Override
         public Void visitApply(ApplyNode node, Integer indent)
         {
-            print(indent, "- Apply[%s] => [%s]", node.getCorrelation(), formatOutputs(node.getOutputSymbols()));
-            printPlanNodesStatsAndCost(indent + 2, node);
-            printStats(indent + 2, node.getId());
-            printAssignments(node.getSubqueryAssignments(), indent + 4);
+            output.addNode(node, indent, "Apply", "[%s]", node.getCorrelation());
+            printPlanNodesStatsAndCost(node);
+            printStats(node);
+            printAssignments(node, node.getSubqueryAssignments());
 
             return processChildren(node, indent + 1);
         }
@@ -1282,8 +1375,8 @@ public class PlanPrinter
         @Override
         public Void visitLateralJoin(LateralJoinNode node, Integer indent)
         {
-            print(indent, "- Lateral[%s] => [%s]", node.getCorrelation(), formatOutputs(node.getOutputSymbols()));
-            printStats(indent + 2, node.getId());
+            output.addNode(node, indent, "Lateral", "[%s]", node.getCorrelation());
+            printStats(node);
 
             return processChildren(node, indent + 1);
         }
@@ -1294,7 +1387,7 @@ public class PlanPrinter
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }
 
-        private Void processChildren(PlanNode node, int indent)
+        private Void processChildren(PlanNode node, Integer indent)
         {
             for (PlanNode child : node.getSources()) {
                 child.accept(this, indent);
@@ -1303,28 +1396,23 @@ public class PlanPrinter
             return null;
         }
 
-        private void printAssignments(Assignments assignments, int indent)
+        private void printAssignments(PlanNode node, Assignments assignments)
         {
             for (Map.Entry<Symbol, Expression> entry : assignments.getMap().entrySet()) {
                 if (entry.getValue() instanceof SymbolReference && ((SymbolReference) entry.getValue()).getName().equals(entry.getKey().getName())) {
                     // skip identity assignments
                     continue;
                 }
-                print(indent, "%s := %s", entry.getKey(), entry.getValue());
+                output.appendDetailsLine(node, "%s := %s", entry.getKey(), entry.getValue());
             }
         }
 
-        private String formatOutputs(Iterable<Symbol> symbols)
-        {
-            return Joiner.on(", ").join(Iterables.transform(symbols, input -> input + ":" + types.get(input).getDisplayName()));
-        }
-
-        private void printConstraint(int indent, ColumnHandle column, TupleDomain<ColumnHandle> constraint)
+        private void printConstraint(PlanNode node, ColumnHandle column, TupleDomain<ColumnHandle> constraint)
         {
             checkArgument(!constraint.isNone());
             Map<ColumnHandle, Domain> domains = constraint.getDomains().get();
             if (!constraint.isAll() && domains.containsKey(column)) {
-                print(indent, ":: %s", formatDomain(domains.get(column).simplify()));
+                output.appendDetailsLine(node, "    :: %s", formatDomain(domains.get(column).simplify()));
             }
         }
 
@@ -1383,12 +1471,13 @@ public class PlanPrinter
             return "[" + Joiner.on(", ").join(parts.build()) + "]";
         }
 
-        private void printPlanNodesStatsAndCost(int indent, PlanNode... nodes)
+        private void printPlanNodesStatsAndCost(PlanNode rootNode, PlanNode... otherNodes)
         {
-            if (stream(nodes).allMatch(this::isPlanNodeStatsAndCostsUnknown)) {
+            Stream<PlanNode> allNodes = Stream.concat(Stream.of(rootNode), Stream.of(otherNodes));
+            if (allNodes.allMatch(this::isPlanNodeStatsAndCostsUnknown)) {
                 return;
             }
-            print(indent, "Cost: %s", stream(nodes).map(this::formatPlanNodeStatsAndCost).collect(joining("/")));
+            output.appendDetails(rootNode, "Cost: %s", allNodes.map(this::formatPlanNodeStatsAndCost).collect(joining("/")));
         }
 
         private boolean isPlanNodeStatsAndCostsUnknown(PlanNode node)
