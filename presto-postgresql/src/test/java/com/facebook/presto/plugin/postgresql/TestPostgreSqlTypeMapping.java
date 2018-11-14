@@ -267,6 +267,21 @@ public class TestPostgreSqlTypeMapping
         // TODO timestamp is not correctly read (see comment in StandardReadMappings.timestampReadMapping), but testing this is hard because of #7122
     }
 
+    @Test
+    public void testJson()
+    {
+        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
+        jdbcSqlExecutor.execute("CREATE TABLE tpch.test_json_data_type(key varchar(5), json_column json, jsonb_column jsonb)");
+        try {
+            assertQuery(
+                    "SELECT COLUMN_NAME,DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'tpch' AND TABLE_NAME = 'test_json_data_type'",
+                    "VALUES ('key','varchar(5)'),('json_column','json'),('jsonb_column','json')"); //
+        }
+        finally {
+            jdbcSqlExecutor.execute("DROP TABLE tpch.test_json_data_type");
+        }
+    }
+
     private void testUnsupportedDataType(String databaseDataType)
     {
         JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());

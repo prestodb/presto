@@ -23,16 +23,19 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 public final class JdbcTypeHandle
 {
     private final int jdbcType;
+    private final String jdbcTypeName;
     private final int columnSize;
     private final int decimalDigits;
 
     @JsonCreator
     public JdbcTypeHandle(
             @JsonProperty("jdbcType") int jdbcType,
+            @JsonProperty("jdbcTypeName") String jdbcTypeName,
             @JsonProperty("columnSize") int columnSize,
             @JsonProperty("decimalDigits") int decimalDigits)
     {
         this.jdbcType = jdbcType;
+        this.jdbcTypeName = jdbcTypeName;
         this.columnSize = columnSize;
         this.decimalDigits = decimalDigits;
     }
@@ -41,6 +44,12 @@ public final class JdbcTypeHandle
     public int getJdbcType()
     {
         return jdbcType;
+    }
+
+    @JsonProperty
+    public String getJdbcTypeName()
+    {
+        return jdbcTypeName;
     }
 
     @JsonProperty
@@ -58,7 +67,7 @@ public final class JdbcTypeHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(jdbcType, columnSize, decimalDigits);
+        return Objects.hash(jdbcType, jdbcTypeName, columnSize, decimalDigits);
     }
 
     @Override
@@ -72,6 +81,7 @@ public final class JdbcTypeHandle
         }
         JdbcTypeHandle that = (JdbcTypeHandle) o;
         return jdbcType == that.jdbcType &&
+                jdbcTypeName.equals(that.jdbcTypeName) &&
                 columnSize == that.columnSize &&
                 decimalDigits == that.decimalDigits;
     }
@@ -81,6 +91,7 @@ public final class JdbcTypeHandle
     {
         return toStringHelper(this)
                 .add("jdbcType", jdbcType)
+                .add("jdbcTypeName", jdbcTypeName)
                 .add("columnSize", columnSize)
                 .add("decimalDigits", decimalDigits)
                 .toString();

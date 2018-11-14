@@ -18,6 +18,9 @@ import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcOutputTableHandle;
+import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
+import com.facebook.presto.plugin.jdbc.ReadMapping;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import org.postgresql.Driver;
 
@@ -28,8 +31,13 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
+import java.util.Optional;
 
+import static com.facebook.presto.plugin.jdbc.ReadMapping.sliceReadMapping;
+import static com.facebook.presto.spi.type.JsonType.JSON;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static io.airlift.slice.Slices.utf8Slice;
 
 public class PostgreSqlClient
         extends BaseJdbcClient
@@ -87,7 +95,29 @@ public class PostgreSqlClient
         if (VARBINARY.equals(type)) {
             return "bytea";
         }
+        if (JSON.equals(type)) {
+            return "jsonb";
+        }
 
         return super.toSqlType(type);
+    }
+
+    @Override
+    public Optional<ReadMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
+    {
+        if (typeHandle.getJdbcType() == Types.OTHER) {
+            switch (typeHandle.getJdbcTypeName()) {
+                case "jsonb":
+                case "json":
+                    return Optional.of(jsonReadMapping());
+            }
+        }
+
+        return super.toPrestoType(session, typeHandle);
+    }
+
+    private static ReadMapping jsonReadMapping()
+    {
+        return sliceReadMapping(JSON, (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex)));
     }
 }

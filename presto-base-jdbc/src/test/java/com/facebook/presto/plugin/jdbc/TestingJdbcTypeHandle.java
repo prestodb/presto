@@ -19,20 +19,20 @@ public final class TestingJdbcTypeHandle
 {
     private TestingJdbcTypeHandle() {}
 
-    public static final JdbcTypeHandle JDBC_BOOLEAN = new JdbcTypeHandle(Types.BOOLEAN, 1, 0);
+    public static final JdbcTypeHandle JDBC_BOOLEAN = new JdbcTypeHandle(Types.BOOLEAN, "", 1, 0);
 
-    public static final JdbcTypeHandle JDBC_SMALLINT = new JdbcTypeHandle(Types.SMALLINT, 1, 0);
-    public static final JdbcTypeHandle JDBC_TINYINT = new JdbcTypeHandle(Types.TINYINT, 2, 0);
-    public static final JdbcTypeHandle JDBC_INTEGER = new JdbcTypeHandle(Types.INTEGER, 4, 0);
-    public static final JdbcTypeHandle JDBC_BIGINT = new JdbcTypeHandle(Types.BIGINT, 8, 0);
+    public static final JdbcTypeHandle JDBC_SMALLINT = new JdbcTypeHandle(Types.SMALLINT, "", 1, 0);
+    public static final JdbcTypeHandle JDBC_TINYINT = new JdbcTypeHandle(Types.TINYINT, "", 2, 0);
+    public static final JdbcTypeHandle JDBC_INTEGER = new JdbcTypeHandle(Types.INTEGER, "", 4, 0);
+    public static final JdbcTypeHandle JDBC_BIGINT = new JdbcTypeHandle(Types.BIGINT, "", 8, 0);
 
-    public static final JdbcTypeHandle JDBC_REAL = new JdbcTypeHandle(Types.REAL, 8, 0);
-    public static final JdbcTypeHandle JDBC_DOUBLE = new JdbcTypeHandle(Types.DOUBLE, 8, 0);
+    public static final JdbcTypeHandle JDBC_REAL = new JdbcTypeHandle(Types.REAL, "", 8, 0);
+    public static final JdbcTypeHandle JDBC_DOUBLE = new JdbcTypeHandle(Types.DOUBLE, "", 8, 0);
 
-    public static final JdbcTypeHandle JDBC_CHAR = new JdbcTypeHandle(Types.CHAR, 10, 0);
-    public static final JdbcTypeHandle JDBC_VARCHAR = new JdbcTypeHandle(Types.VARCHAR, 10, 0);
+    public static final JdbcTypeHandle JDBC_CHAR = new JdbcTypeHandle(Types.CHAR, "", 10, 0);
+    public static final JdbcTypeHandle JDBC_VARCHAR = new JdbcTypeHandle(Types.VARCHAR, "", 10, 0);
 
-    public static final JdbcTypeHandle JDBC_DATE = new JdbcTypeHandle(Types.DATE, 8, 0);
-    public static final JdbcTypeHandle JDBC_TIME = new JdbcTypeHandle(Types.TIME, 4, 0);
-    public static final JdbcTypeHandle JDBC_TIMESTAMP = new JdbcTypeHandle(Types.TIMESTAMP, 8, 0);
+    public static final JdbcTypeHandle JDBC_DATE = new JdbcTypeHandle(Types.DATE, "", 8, 0);
+    public static final JdbcTypeHandle JDBC_TIME = new JdbcTypeHandle(Types.TIME, "", 4, 0);
+    public static final JdbcTypeHandle JDBC_TIMESTAMP = new JdbcTypeHandle(Types.TIMESTAMP, "", 8, 0);
 }
