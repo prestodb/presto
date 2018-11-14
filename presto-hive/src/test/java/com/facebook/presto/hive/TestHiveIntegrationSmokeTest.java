@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -29,6 +30,8 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.ColumnConstraint;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.FormattedDomain;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.FormattedMarker;
@@ -55,6 +58,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.LongStream;
 
@@ -87,6 +91,8 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
+import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
@@ -1618,7 +1624,7 @@ public class TestHiveIntegrationSmokeTest
 
     private int getBucketCount(String tableName)
     {
-        return (int) getHiveTableProperty(tableName, (HiveTableLayoutHandle table) -> table.getBucketHandle().get().getBucketCount());
+        return (int) getHiveTableProperty(tableName, (HiveTableLayoutHandle table) -> table.getBucketHandle().get().getTableBucketCount());
     }
 
     @Test
@@ -2239,6 +2245,78 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testMismatchedBucketing()
+    {
+        try {
+            assertUpdate(
+                    "CREATE TABLE test_mismatch_bucketing16\n" +
+                            "WITH (bucket_count = 16, bucketed_by = ARRAY['key16']) AS\n" +
+                            "SELECT orderkey key16, comment value16 FROM orders",
+                    15000);
+            assertUpdate(
+                    "CREATE TABLE test_mismatch_bucketing32\n" +
+                            "WITH (bucket_count = 32, bucketed_by = ARRAY['key32']) AS\n" +
+                            "SELECT orderkey key32, comment value32 FROM orders",
+                    15000);
+            assertUpdate(
+                    "CREATE TABLE test_mismatch_bucketingN AS\n" +
+                            "SELECT orderkey keyN, comment valueN FROM orders",
+                    15000);
+
+            Session withMismatchOptimization = Session.builder(getSession())
+                    .setSystemProperty(COLOCATED_JOIN, "true")
+                    .setCatalogSessionProperty(catalog, "optimize_mismatched_bucket_count", "true")
+                    .build();
+            Session withoutMismatchOptimization = Session.builder(getSession())
+                    .setSystemProperty(COLOCATED_JOIN, "true")
+                    .setCatalogSessionProperty(catalog, "optimize_mismatched_bucket_count", "false")
+                    .build();
+
+            @Language("SQL") String writeToTableWithMoreBuckets = "CREATE TABLE test_mismatch_bucketing_out32\n" +
+                    "WITH (bucket_count = 32, bucketed_by = ARRAY['key16'])\n" +
+                    "AS\n" +
+                    "SELECT key16, value16, key32, value32, keyN, valueN\n" +
+                    "FROM\n" +
+                    "  test_mismatch_bucketing16\n" +
+                    "JOIN\n" +
+                    "  test_mismatch_bucketing32\n" +
+                    "ON key16=key32\n" +
+                    "JOIN\n" +
+                    "  test_mismatch_bucketingN\n" +
+                    "ON key16=keyN";
+            @Language("SQL") String writeToTableWithFewerBuckets = "CREATE TABLE test_mismatch_bucketing_out8\n" +
+                    "WITH (bucket_count = 8, bucketed_by = ARRAY['key16'])\n" +
+                    "AS\n" +
+                    "SELECT key16, value16, key32, value32, keyN, valueN\n" +
+                    "FROM\n" +
+                    "  test_mismatch_bucketing16\n" +
+                    "JOIN\n" +
+                    "  test_mismatch_bucketing32\n" +
+                    "ON key16=key32\n" +
+                    "JOIN\n" +
+                    "  test_mismatch_bucketingN\n" +
+                    "ON key16=keyN";
+
+            assertUpdate(withoutMismatchOptimization, writeToTableWithMoreBuckets, 15000, assertRemoteExchangesCount(4));
+            assertQuery("SELECT * FROM test_mismatch_bucketing_out32", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
+            assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_out32");
+
+            assertUpdate(withMismatchOptimization, writeToTableWithMoreBuckets, 15000, assertRemoteExchangesCount(2));
+            assertQuery("SELECT * FROM test_mismatch_bucketing_out32", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
+
+            assertUpdate(withMismatchOptimization, writeToTableWithFewerBuckets, 15000, assertRemoteExchangesCount(2));
+            assertQuery("SELECT * FROM test_mismatch_bucketing_out8", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing16");
+            assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing32");
+            assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketingN");
+            assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_out32");
+            assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_out8");
+        }
+    }
+
+    @Test
     public void testGroupedExecution()
     {
         try {
@@ -2327,15 +2405,15 @@ public class TestHiveIntegrationSmokeTest
             assertQuery(notColocated, leftJoinBucketedTable, expectedOuterJoinQuery);
             assertQuery(notColocated, rightJoinBucketedTable, expectedOuterJoinQuery);
 
-            assertQuery(colocatedAllGroupsAtOnce, joinThreeBucketedTable, expectedJoinQuery);
-            assertQuery(colocatedAllGroupsAtOnce, joinThreeMixedTable, expectedJoinQuery);
-            assertQuery(colocatedOneGroupAtATime, joinThreeBucketedTable, expectedJoinQuery);
-            assertQuery(colocatedOneGroupAtATime, joinThreeMixedTable, expectedJoinQuery);
+            assertQuery(colocatedAllGroupsAtOnce, joinThreeBucketedTable, expectedJoinQuery, assertRemoteExchangesCount(1));
+            assertQuery(colocatedAllGroupsAtOnce, joinThreeMixedTable, expectedJoinQuery, assertRemoteExchangesCount(2));
+            assertQuery(colocatedOneGroupAtATime, joinThreeBucketedTable, expectedJoinQuery, assertRemoteExchangesCount(1));
+            assertQuery(colocatedOneGroupAtATime, joinThreeMixedTable, expectedJoinQuery, assertRemoteExchangesCount(2));
 
-            assertQuery(colocatedAllGroupsAtOnce, leftJoinBucketedTable, expectedOuterJoinQuery);
-            assertQuery(colocatedAllGroupsAtOnce, rightJoinBucketedTable, expectedOuterJoinQuery);
-            assertQuery(colocatedOneGroupAtATime, leftJoinBucketedTable, expectedOuterJoinQuery);
-            assertQuery(colocatedOneGroupAtATime, rightJoinBucketedTable, expectedOuterJoinQuery);
+            assertQuery(colocatedAllGroupsAtOnce, leftJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
+            assertQuery(colocatedAllGroupsAtOnce, rightJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
+            assertQuery(colocatedOneGroupAtATime, leftJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
+            assertQuery(colocatedOneGroupAtATime, rightJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
 
             //
             // CROSS JOIN and HASH JOIN mixed
@@ -2354,8 +2432,8 @@ public class TestHiveIntegrationSmokeTest
                             "CROSS JOIN\n" +
                             "  (SELECT orderkey key3, comment value3 FROM orders where orderkey <= 3)";
             assertQuery(notColocated, crossJoin, expectedCrossJoinQuery);
-            assertQuery(colocatedAllGroupsAtOnce, crossJoin, expectedCrossJoinQuery);
-            assertQuery(colocatedOneGroupAtATime, crossJoin, expectedCrossJoinQuery);
+            assertQuery(colocatedAllGroupsAtOnce, crossJoin, expectedCrossJoinQuery, assertRemoteExchangesCount(2));
+            assertQuery(colocatedOneGroupAtATime, crossJoin, expectedCrossJoinQuery, assertRemoteExchangesCount(2));
 
             //
             // Bucketed and unbucketed HASH JOIN mixed
@@ -2375,8 +2453,8 @@ public class TestHiveIntegrationSmokeTest
                             "ON key1 = key3";
             @Language("SQL") String expectedBucketedAndUnbucketedJoinQuery = "SELECT orderkey, comment, orderkey, comment, orderkey, comment, orderkey, comment from orders";
             assertQuery(notColocated, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery);
-            assertQuery(colocatedAllGroupsAtOnce, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery);
-            assertQuery(colocatedOneGroupAtATime, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery);
+            assertQuery(colocatedAllGroupsAtOnce, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery, assertRemoteExchangesCount(2));
+            assertQuery(colocatedOneGroupAtATime, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery, assertRemoteExchangesCount(2));
 
             //
             // UNION ALL / GROUP BY
@@ -2456,14 +2534,14 @@ public class TestHiveIntegrationSmokeTest
             @Language("SQL") String expectedGroupByOfUnionOfGroupBy = "SELECT orderkey, 3 from orders";
 
             // Eligible GROUP BYs run in the same fragment regardless of colocated_join flag
-            assertQuery(colocatedAllGroupsAtOnce, groupBySingleBucketed, expectedSingleGroupByQuery);
-            assertQuery(colocatedOneGroupAtATime, groupBySingleBucketed, expectedSingleGroupByQuery);
-            assertQuery(colocatedAllGroupsAtOnce, groupByOfUnionBucketed, expectedGroupByOfUnion);
-            assertQuery(colocatedOneGroupAtATime, groupByOfUnionBucketed, expectedGroupByOfUnion);
+            assertQuery(colocatedAllGroupsAtOnce, groupBySingleBucketed, expectedSingleGroupByQuery, assertRemoteExchangesCount(1));
+            assertQuery(colocatedOneGroupAtATime, groupBySingleBucketed, expectedSingleGroupByQuery, assertRemoteExchangesCount(1));
+            assertQuery(colocatedAllGroupsAtOnce, groupByOfUnionBucketed, expectedGroupByOfUnion, assertRemoteExchangesCount(1));
+            assertQuery(colocatedOneGroupAtATime, groupByOfUnionBucketed, expectedGroupByOfUnion, assertRemoteExchangesCount(1));
 
             // cannot be executed in a grouped manner but should still produce correct result
-            assertQuery(colocatedOneGroupAtATime, groupByOfUnionMixed, expectedGroupByOfUnion);
-            assertQuery(colocatedOneGroupAtATime, groupByOfUnionOfGroupByMixed, expectedGroupByOfUnionOfGroupBy);
+            assertQuery(colocatedOneGroupAtATime, groupByOfUnionMixed, expectedGroupByOfUnion, assertRemoteExchangesCount(2));
+            assertQuery(colocatedOneGroupAtATime, groupByOfUnionOfGroupByMixed, expectedGroupByOfUnionOfGroupBy, assertRemoteExchangesCount(2));
 
             //
             // GROUP BY and JOIN mixed
@@ -2516,16 +2594,16 @@ public class TestHiveIntegrationSmokeTest
             @Language("SQL") String expectedGroupOnJoinResult = "SELECT orderkey, 2, 2 from orders";
 
             // Eligible GROUP BYs run in the same fragment regardless of colocated_join flag
-            assertQuery(colocatedAllGroupsAtOnce, joinGroupedWithGrouped, expectedJoinGroupedWithGrouped);
-            assertQuery(colocatedOneGroupAtATime, joinGroupedWithGrouped, expectedJoinGroupedWithGrouped);
-            assertQuery(colocatedAllGroupsAtOnce, joinGroupedWithUngrouped, expectedJoinGroupedWithUngrouped);
-            assertQuery(colocatedOneGroupAtATime, joinGroupedWithUngrouped, expectedJoinGroupedWithUngrouped);
-            assertQuery(colocatedAllGroupsAtOnce, groupOnJoinResult, expectedGroupOnJoinResult);
-            assertQuery(colocatedOneGroupAtATime, groupOnJoinResult, expectedGroupOnJoinResult);
-            assertQuery(broadcastOneGroupAtATime, groupOnJoinResult, expectedGroupOnJoinResult);
+            assertQuery(colocatedAllGroupsAtOnce, joinGroupedWithGrouped, expectedJoinGroupedWithGrouped, assertRemoteExchangesCount(1));
+            assertQuery(colocatedOneGroupAtATime, joinGroupedWithGrouped, expectedJoinGroupedWithGrouped, assertRemoteExchangesCount(1));
+            assertQuery(colocatedAllGroupsAtOnce, joinGroupedWithUngrouped, expectedJoinGroupedWithUngrouped, assertRemoteExchangesCount(2));
+            assertQuery(colocatedOneGroupAtATime, joinGroupedWithUngrouped, expectedJoinGroupedWithUngrouped, assertRemoteExchangesCount(2));
+            assertQuery(colocatedAllGroupsAtOnce, groupOnJoinResult, expectedGroupOnJoinResult, assertRemoteExchangesCount(2));
+            assertQuery(colocatedOneGroupAtATime, groupOnJoinResult, expectedGroupOnJoinResult, assertRemoteExchangesCount(2));
+            assertQuery(broadcastOneGroupAtATime, groupOnJoinResult, expectedGroupOnJoinResult, assertRemoteExchangesCount(2));
 
             // cannot be executed in a grouped manner but should still produce correct result
-            assertQuery(colocatedOneGroupAtATime, joinUngroupedWithGrouped, expectedJoinUngroupedWithGrouped);
+            assertQuery(colocatedOneGroupAtATime, joinUngroupedWithGrouped, expectedJoinUngroupedWithGrouped, assertRemoteExchangesCount(2));
 
             //
             // Outer JOIN (that involves LookupOuterOperator)
@@ -2579,12 +2657,12 @@ public class TestHiveIntegrationSmokeTest
                     "WHERE mod(orderkey, 3) = 0";
 
             assertQuery(notColocated, chainedOuterJoin, expectedChainedOuterJoinResult);
-            assertQuery(colocatedAllGroupsAtOnce, chainedOuterJoin, expectedChainedOuterJoinResult);
-            assertQuery(colocatedOneGroupAtATime, chainedOuterJoin, expectedChainedOuterJoinResult);
+            assertQuery(colocatedAllGroupsAtOnce, chainedOuterJoin, expectedChainedOuterJoinResult, assertRemoteExchangesCount(1));
+            assertQuery(colocatedOneGroupAtATime, chainedOuterJoin, expectedChainedOuterJoinResult, assertRemoteExchangesCount(1));
             assertQuery(notColocated, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult);
-            assertQuery(colocatedAllGroupsAtOnce, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult);
-            assertQuery(colocatedOneGroupAtATime, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult);
-            assertQuery(colocatedOneGroupAtATime, chainedSharedBuildOuterJoin, expectedChainedOuterJoinResult);
+            assertQuery(colocatedAllGroupsAtOnce, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult, assertRemoteExchangesCount(2));
+            assertQuery(colocatedOneGroupAtATime, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult, assertRemoteExchangesCount(2));
+            assertQuery(colocatedOneGroupAtATime, chainedSharedBuildOuterJoin, expectedChainedOuterJoinResult, assertRemoteExchangesCount(2));
 
             //
             // Filter out all or majority of splits
@@ -2617,11 +2695,11 @@ public class TestHiveIntegrationSmokeTest
                     "WHERE mod(orderkey, 13) IN (1, 11)";
 
             assertQuery(notColocated, noSplits, expectedNoSplits);
-            assertQuery(colocatedAllGroupsAtOnce, noSplits, expectedNoSplits);
-            assertQuery(colocatedOneGroupAtATime, noSplits, expectedNoSplits);
+            assertQuery(colocatedAllGroupsAtOnce, noSplits, expectedNoSplits, assertRemoteExchangesCount(1));
+            assertQuery(colocatedOneGroupAtATime, noSplits, expectedNoSplits, assertRemoteExchangesCount(1));
             assertQuery(notColocated, joinMismatchedBuckets, expectedJoinMismatchedBuckets);
-            assertQuery(colocatedAllGroupsAtOnce, joinMismatchedBuckets, expectedJoinMismatchedBuckets);
-            assertQuery(colocatedOneGroupAtATime, joinMismatchedBuckets, expectedJoinMismatchedBuckets);
+            assertQuery(colocatedAllGroupsAtOnce, joinMismatchedBuckets, expectedJoinMismatchedBuckets, assertRemoteExchangesCount(1));
+            assertQuery(colocatedOneGroupAtATime, joinMismatchedBuckets, expectedJoinMismatchedBuckets, assertRemoteExchangesCount(1));
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS test_grouped_join1");
@@ -2630,6 +2708,27 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate("DROP TABLE IF EXISTS test_grouped_joinN");
             assertUpdate("DROP TABLE IF EXISTS test_grouped_joinDual");
         }
+    }
+
+    private Consumer<Plan> assertRemoteExchangesCount(int expectedRemoteExchangesCount)
+    {
+        return plan ->
+        {
+            int actualRemoteExchangesCount = searchFrom(plan.getRoot())
+                    .where(node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope() == ExchangeNode.Scope.REMOTE)
+                    .findAll()
+                    .size();
+            if (actualRemoteExchangesCount != expectedRemoteExchangesCount) {
+                Session session = getSession();
+                Metadata metadata = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getMetadata();
+                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionRegistry(), StatsAndCosts.empty(), session, 0);
+                throw new AssertionError(format(
+                        "Expected [\n%s\n] remote exchanges but found [\n%s\n] remote exchanges. Actual plan is [\n\n%s\n]",
+                        expectedRemoteExchangesCount,
+                        actualRemoteExchangesCount,
+                        formattedPlan));
+            }
+        };
     }
 
     @Test

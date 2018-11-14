@@ -17,6 +17,7 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.StageId;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableList;
 
@@ -35,7 +36,7 @@ import java.util.Locale;
 import java.util.NoSuchElementException;
 
 import static com.facebook.presto.connector.system.KillQueryProcedure.createKillQueryException;
-import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
+import static com.facebook.presto.connector.system.KillQueryProcedure.createPreemptQueryException;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -92,6 +93,18 @@ public class QueryResource
     @Path("{queryId}/killed")
     public Response killQuery(@PathParam("queryId") QueryId queryId, String message)
     {
+        return failQuery(queryId, createKillQueryException(message));
+    }
+
+    @PUT
+    @Path("{queryId}/preempted")
+    public Response preemptQuery(@PathParam("queryId") QueryId queryId, String message)
+    {
+        return failQuery(queryId, createPreemptQueryException(message));
+    }
+
+    private Response failQuery(QueryId queryId, PrestoException queryException)
+    {
         requireNonNull(queryId, "queryId is null");
 
         try {
@@ -102,10 +115,10 @@ public class QueryResource
                 return Response.status(Status.CONFLICT).build();
             }
 
-            queryManager.failQuery(queryId, createKillQueryException(message));
+            queryManager.failQuery(queryId, queryException);
 
-            // verify if the query was killed (if not, we lost the race)
-            if (!ADMINISTRATIVELY_KILLED.toErrorCode().equals(queryManager.getQueryInfo(queryId).getErrorCode())) {
+            // verify if the query was failed (if not, we lost the race)
+            if (!queryException.getErrorCode().equals(queryManager.getQueryInfo(queryId).getErrorCode())) {
                 return Response.status(Status.CONFLICT).build();
             }
 

@@ -36,6 +36,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import io.airlift.units.Duration;
 
+import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
@@ -80,14 +81,23 @@ public final class SqlStageExecution
     private final Map<PlanFragmentId, RemoteSourceNode> exchangeSources;
 
     private final Map<Node, Set<RemoteTask>> tasks = new ConcurrentHashMap<>();
+
+    @GuardedBy("this")
     private final AtomicInteger nextTaskId = new AtomicInteger();
+    @GuardedBy("this")
     private final Set<TaskId> allTasks = newConcurrentHashSet();
+    @GuardedBy("this")
     private final Set<TaskId> finishedTasks = newConcurrentHashSet();
-    private final Set<TaskId> doneTasks = newConcurrentHashSet();
+    @GuardedBy("this")
+    private final Set<TaskId> tasksWithFinalInfo = newConcurrentHashSet();
+    @GuardedBy("this")
     private final AtomicBoolean splitsScheduled = new AtomicBoolean();
 
+    @GuardedBy("this")
     private final Multimap<PlanNodeId, RemoteTask> sourceTasks = HashMultimap.create();
+    @GuardedBy("this")
     private final Set<PlanNodeId> completeSources = newConcurrentHashSet();
+    @GuardedBy("this")
     private final Set<PlanFragmentId> completeSourceFragments = newConcurrentHashSet();
 
     private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>();
@@ -137,12 +147,7 @@ public final class SqlStageExecution
         }
         this.exchangeSources = fragmentToExchangeSource.build();
 
-        stateMachine.addStateChangeListener(newState -> {
-            // when stage transitions to a done state, check if all tasks have final status information
-            if (newState.isDone() && doneTasks.containsAll(allTasks)) {
-                stateMachine.setAllTasksFinal();
-            }
-        });
+        stateMachine.addStateChangeListener(newState -> checkAllTaskFinal());
     }
 
     public StageId getStageId()
@@ -411,6 +416,7 @@ public final class SqlStageExecution
         nodeTaskMap.addTask(node, task);
 
         task.addStateChangeListener(new StageTaskListener());
+        task.addFinalTaskInfoListener(this::updateFinalTaskInfo);
 
         if (!stateMachine.getState().isDone()) {
             task.start();
@@ -440,6 +446,76 @@ public final class SqlStageExecution
         return new Split(REMOTE_CONNECTOR_ID, new RemoteTransactionHandle(), new RemoteSplit(splitLocation));
     }
 
+    private synchronized void updateTaskStatus(TaskStatus taskStatus)
+    {
+        try {
+            StageState stageState = getState();
+            if (stageState.isDone()) {
+                return;
+            }
+
+            TaskState taskState = taskStatus.getState();
+            if (taskState == TaskState.FAILED) {
+                RuntimeException failure = taskStatus.getFailures().stream()
+                        .findFirst()
+                        .map(this::rewriteTransportFailure)
+                        .map(ExecutionFailureInfo::toException)
+                        .orElse(new PrestoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
+                stateMachine.transitionToFailed(failure);
+            }
+            else if (taskState == TaskState.ABORTED) {
+                // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
+                stateMachine.transitionToFailed(new PrestoException(GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageState));
+            }
+            else if (taskState == TaskState.FINISHED) {
+                finishedTasks.add(taskStatus.getTaskId());
+            }
+
+            if (stageState == StageState.SCHEDULED || stageState == StageState.RUNNING) {
+                if (taskState == TaskState.RUNNING) {
+                    stateMachine.transitionToRunning();
+                }
+                if (finishedTasks.containsAll(allTasks)) {
+                    stateMachine.transitionToFinished();
+                }
+            }
+        }
+        finally {
+            // after updating state, check if all tasks have final status information
+            checkAllTaskFinal();
+        }
+    }
+
+    private synchronized void updateFinalTaskInfo(TaskInfo finalTaskInfo)
+    {
+        tasksWithFinalInfo.add(finalTaskInfo.getTaskStatus().getTaskId());
+        checkAllTaskFinal();
+    }
+
+    private synchronized void checkAllTaskFinal()
+    {
+        if (stateMachine.getState().isDone() && tasksWithFinalInfo.containsAll(allTasks)) {
+            stateMachine.setAllTasksFinal();
+        }
+    }
+
+    private ExecutionFailureInfo rewriteTransportFailure(ExecutionFailureInfo executionFailureInfo)
+    {
+        if (executionFailureInfo.getRemoteHost() == null || failureDetector.getState(executionFailureInfo.getRemoteHost()) != GONE) {
+            return executionFailureInfo;
+        }
+
+        return new ExecutionFailureInfo(
+                executionFailureInfo.getType(),
+                executionFailureInfo.getMessage(),
+                executionFailureInfo.getCause(),
+                executionFailureInfo.getSuppressed(),
+                executionFailureInfo.getStack(),
+                executionFailureInfo.getErrorLocation(),
+                REMOTE_HOST_GONE.toErrorCode(),
+                executionFailureInfo.getRemoteHost());
+    }
+
     @Override
     public String toString()
     {
@@ -457,51 +533,11 @@ public final class SqlStageExecution
         public void stateChanged(TaskStatus taskStatus)
         {
             try {
-                // always update done tasks before, state transitions to ensure
-                // the transition to "final status info" is not missed
-                if (taskStatus.getState().isDone()) {
-                    doneTasks.add(taskStatus.getTaskId());
-                }
-
                 updateMemoryUsage(taskStatus);
                 updateCompletedDriverGroups(taskStatus);
-
-                StageState stageState = getState();
-                if (stageState.isDone()) {
-                    return;
-                }
-
-                TaskState taskState = taskStatus.getState();
-                if (taskState == TaskState.FAILED) {
-                    RuntimeException failure = taskStatus.getFailures().stream()
-                            .findFirst()
-                            .map(this::rewriteTransportFailure)
-                            .map(ExecutionFailureInfo::toException)
-                            .orElse(new PrestoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
-                    stateMachine.transitionToFailed(failure);
-                }
-                else if (taskState == TaskState.ABORTED) {
-                    // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
-                    stateMachine.transitionToFailed(new PrestoException(GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageState));
-                }
-                else if (taskState == TaskState.FINISHED) {
-                    finishedTasks.add(taskStatus.getTaskId());
-                }
-
-                if (stageState == StageState.SCHEDULED || stageState == StageState.RUNNING) {
-                    if (taskState == TaskState.RUNNING) {
-                        stateMachine.transitionToRunning();
-                    }
-                    if (finishedTasks.containsAll(allTasks)) {
-                        stateMachine.transitionToFinished();
-                    }
-                }
             }
             finally {
-                // after updating state, check if all tasks have final status information
-                if (stateMachine.getState().isDone() && doneTasks.containsAll(allTasks)) {
-                    stateMachine.setAllTasksFinal();
-                }
+                updateTaskStatus(taskStatus);
             }
         }
 
@@ -531,25 +567,6 @@ public final class SqlStageExecution
             // newlyCompletedDriverGroups is a view.
             // Making changes to completedDriverGroups will change newlyCompletedDriverGroups.
             completedDriverGroups.addAll(newlyCompletedDriverGroups);
-        }
-
-        private ExecutionFailureInfo rewriteTransportFailure(ExecutionFailureInfo executionFailureInfo)
-        {
-            if (executionFailureInfo.getRemoteHost() != null &&
-                    failureDetector.getState(executionFailureInfo.getRemoteHost()) == GONE) {
-                return new ExecutionFailureInfo(
-                        executionFailureInfo.getType(),
-                        executionFailureInfo.getMessage(),
-                        executionFailureInfo.getCause(),
-                        executionFailureInfo.getSuppressed(),
-                        executionFailureInfo.getStack(),
-                        executionFailureInfo.getErrorLocation(),
-                        REMOTE_HOST_GONE.toErrorCode(),
-                        executionFailureInfo.getRemoteHost());
-            }
-            else {
-                return executionFailureInfo;
-            }
         }
     }
 

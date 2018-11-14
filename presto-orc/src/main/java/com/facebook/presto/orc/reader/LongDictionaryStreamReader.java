@@ -200,7 +200,9 @@ public class LongDictionaryStreamReader
     public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
     {
         dictionaryDataStreamSource = dictionaryStreamSources.getInputStreamSource(streamDescriptor, DICTIONARY_DATA, LongInputStream.class);
-        dictionarySize = encoding.get(streamDescriptor.getStreamId()).getDictionarySize();
+        dictionarySize = encoding.get(streamDescriptor.getStreamId())
+                .getColumnEncoding(streamDescriptor.getSequence())
+                .getDictionarySize();
         dictionaryOpen = false;
 
         inDictionaryStreamSource = missingStreamSource(BooleanInputStream.class);

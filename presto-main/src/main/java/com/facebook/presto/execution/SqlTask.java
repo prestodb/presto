@@ -307,8 +307,7 @@ public class SqlTask
                 outputBuffer.getInfo(),
                 noMoreSplits,
                 taskStats,
-                needsPlan.get(),
-                taskStatus.getState().isDone());
+                needsPlan.get());
     }
 
     public ListenableFuture<TaskStatus> getTaskStatus(TaskState callersCurrentState)

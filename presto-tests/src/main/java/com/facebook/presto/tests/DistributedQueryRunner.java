@@ -396,6 +396,13 @@ public class DistributedQueryRunner
     }
 
     @Override
+    public MaterializedResultWithPlan executeWithPlan(Session session, String sql, WarningCollector warningCollector)
+    {
+        ResultWithQueryId<MaterializedResult> resultWithQueryId = executeWithQueryId(session, sql);
+        return new MaterializedResultWithPlan(resultWithQueryId.getResult().toTestTypes(), getQueryPlan(resultWithQueryId.getQueryId()));
+    }
+
+    @Override
     public Plan createPlan(Session session, String sql, WarningCollector warningCollector)
     {
         QueryId queryId = executeWithQueryId(session, sql).getQueryId();

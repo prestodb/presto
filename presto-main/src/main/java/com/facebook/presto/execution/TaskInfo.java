@@ -43,7 +43,6 @@ public class TaskInfo
     private final TaskStats stats;
 
     private final boolean needsPlan;
-    private final boolean complete;
 
     @JsonCreator
     public TaskInfo(@JsonProperty("taskStatus") TaskStatus taskStatus,
@@ -51,8 +50,7 @@ public class TaskInfo
             @JsonProperty("outputBuffers") OutputBufferInfo outputBuffers,
             @JsonProperty("noMoreSplits") Set<PlanNodeId> noMoreSplits,
             @JsonProperty("stats") TaskStats stats,
-            @JsonProperty("needsPlan") boolean needsPlan,
-            @JsonProperty("complete") boolean complete)
+            @JsonProperty("needsPlan") boolean needsPlan)
     {
         this.taskStatus = requireNonNull(taskStatus, "taskStatus is null");
         this.lastHeartbeat = requireNonNull(lastHeartbeat, "lastHeartbeat is null");
@@ -61,7 +59,6 @@ public class TaskInfo
         this.stats = requireNonNull(stats, "stats is null");
 
         this.needsPlan = needsPlan;
-        this.complete = complete;
     }
 
     @JsonProperty
@@ -100,18 +97,12 @@ public class TaskInfo
         return needsPlan;
     }
 
-    @JsonProperty
-    public boolean isComplete()
-    {
-        return complete;
-    }
-
     public TaskInfo summarize()
     {
         if (taskStatus.getState().isDone()) {
-            return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarizeFinal(), needsPlan, complete);
+            return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarizeFinal(), needsPlan);
         }
-        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarize(), needsPlan, complete);
+        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarize(), needsPlan);
     }
 
     @Override
@@ -131,12 +122,11 @@ public class TaskInfo
                 new OutputBufferInfo("UNINITIALIZED", OPEN, true, true, 0, 0, 0, 0, bufferStates),
                 ImmutableSet.of(),
                 taskStats,
-                true,
-                false);
+                true);
     }
 
     public TaskInfo withTaskStatus(TaskStatus newTaskStatus)
     {
-        return new TaskInfo(newTaskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, needsPlan, complete);
+        return new TaskInfo(newTaskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, needsPlan);
     }
 }

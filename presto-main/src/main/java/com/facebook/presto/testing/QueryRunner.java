@@ -59,6 +59,11 @@ public interface QueryRunner
 
     MaterializedResult execute(Session session, @Language("SQL") String sql);
 
+    default MaterializedResultWithPlan executeWithPlan(Session session, @Language("SQL") String sql, WarningCollector warningCollector)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     default Plan createPlan(Session session, @Language("SQL") String sql, WarningCollector warningCollector)
     {
         throw new UnsupportedOperationException();
@@ -73,4 +78,26 @@ public interface QueryRunner
     void createCatalog(String catalogName, String connectorName, Map<String, String> properties);
 
     Lock getExclusiveLock();
+
+    class MaterializedResultWithPlan
+    {
+        private final MaterializedResult materializedResult;
+        private final Plan queryPlan;
+
+        public MaterializedResultWithPlan(MaterializedResult materializedResult, Plan queryPlan)
+        {
+            this.materializedResult = materializedResult;
+            this.queryPlan = queryPlan;
+        }
+
+        public MaterializedResult getMaterializedResult()
+        {
+            return materializedResult;
+        }
+
+        public Plan getQueryPlan()
+        {
+            return queryPlan;
+        }
+    }
 }

@@ -16,28 +16,38 @@ package com.facebook.presto.orc;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 
+import java.util.Objects;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public final class StreamId
 {
     private final int column;
+    private final int sequence;
     private final StreamKind streamKind;
 
     public StreamId(Stream stream)
     {
         this.column = stream.getColumn();
+        this.sequence = stream.getSequence();
         this.streamKind = stream.getStreamKind();
     }
 
-    public StreamId(int column, StreamKind streamKind)
+    public StreamId(int column, int sequence, StreamKind streamKind)
     {
         this.column = column;
+        this.sequence = sequence;
         this.streamKind = streamKind;
     }
 
     public int getColumn()
     {
         return column;
+    }
+
+    public int getSequence()
+    {
+        return sequence;
     }
 
     public StreamKind getStreamKind()
@@ -48,7 +58,7 @@ public final class StreamId
     @Override
     public int hashCode()
     {
-        return 31 * column + streamKind.hashCode();
+        return Objects.hash(column, sequence, streamKind);
     }
 
     @Override
@@ -62,7 +72,7 @@ public final class StreamId
         }
 
         StreamId other = (StreamId) obj;
-        return column == other.column && streamKind == other.streamKind;
+        return column == other.column && sequence == other.sequence && streamKind == other.streamKind;
     }
 
     @Override
@@ -70,6 +80,7 @@ public final class StreamId
     {
         return toStringHelper(this)
                 .add("column", column)
+                .add("sequence", sequence)
                 .add("streamKind", streamKind)
                 .toString();
     }

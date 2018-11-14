@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -25,6 +26,7 @@ public final class StreamDescriptor
 {
     private final String streamName;
     private final int streamId;
+    private final int sequence;
     private final OrcTypeKind streamType;
     private final String fieldName;
     private final OrcDataSource orcDataSource;
@@ -32,8 +34,14 @@ public final class StreamDescriptor
 
     public StreamDescriptor(String streamName, int streamId, String fieldName, OrcTypeKind streamType, OrcDataSource orcDataSource, List<StreamDescriptor> nestedStreams)
     {
+        this(streamName, streamId, fieldName, streamType, orcDataSource, nestedStreams, DEFAULT_SEQUENCE_ID);
+    }
+
+    public StreamDescriptor(String streamName, int streamId, String fieldName, OrcTypeKind streamType, OrcDataSource orcDataSource, List<StreamDescriptor> nestedStreams, int sequence)
+    {
         this.streamName = requireNonNull(streamName, "streamName is null");
         this.streamId = streamId;
+        this.sequence = sequence;
         this.fieldName = requireNonNull(fieldName, "fieldName is null");
         this.streamType = requireNonNull(streamType, "type is null");
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
@@ -48,6 +56,11 @@ public final class StreamDescriptor
     public int getStreamId()
     {
         return streamId;
+    }
+
+    public int getSequence()
+    {
+        return sequence;
     }
 
     public OrcTypeKind getStreamType()
@@ -81,6 +94,7 @@ public final class StreamDescriptor
         return toStringHelper(this)
                 .add("streamName", streamName)
                 .add("streamId", streamId)
+                .add("sequence", sequence)
                 .add("streamType", streamType)
                 .add("dataSource", orcDataSource.getId())
                 .toString();

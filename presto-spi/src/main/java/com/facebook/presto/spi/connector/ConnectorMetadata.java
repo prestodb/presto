@@ -99,6 +99,29 @@ public interface ConnectorMetadata
     ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle);
 
     /**
+     * Return a table layout handle whose partitioning is converted to the provided partitioning handle,
+     * but otherwise identical to the provided table layout handle.
+     * The provided table layout handle must be one that the connector can transparently convert to from
+     * the original partitioning handle associated with the provided table layout handle,
+     * as promised by {@link #getCommonPartitioningHandle}.
+     */
+    default ConnectorTableLayoutHandle getAlternativeLayoutHandle(ConnectorSession session, ConnectorTableLayoutHandle tableLayoutHandle, ConnectorPartitioningHandle partitioningHandle)
+    {
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getCommonPartitioningHandle() is implemented without getAlternativeLayout()");
+    }
+
+    /**
+     * Return a partitioning handle which the connector can transparently convert both {@code left} and {@code right} into.
+     */
+    default Optional<ConnectorPartitioningHandle> getCommonPartitioningHandle(ConnectorSession session, ConnectorPartitioningHandle left, ConnectorPartitioningHandle right)
+    {
+        if (left.equals(right)) {
+            return Optional.of(left);
+        }
+        return Optional.empty();
+    }
+
+    /**
      * Return the metadata for the specified table handle.
      *
      * @throws RuntimeException if table handle is no longer valid

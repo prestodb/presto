@@ -215,12 +215,7 @@ public class ShardRecoveryManager
                 return;
             }
             stats.incrementCorruptLocalFile();
-            File quarantine = getQuarantineFile(shardUuid);
-            log.error("Local file is corrupt. Quarantining local file: %s", quarantine);
-            if (!storageFile.renameTo(quarantine)) {
-                log.warn("Quarantine of corrupt local file failed: %s", shardUuid);
-                storageFile.delete();
-            }
+            quarantineFile(shardUuid, storageFile, "Local file is corrupt.");
         }
 
         // create a temporary file in the staging directory
@@ -271,22 +266,29 @@ public class ShardRecoveryManager
         if (isFileCorrupt(storageFile, shardSize, shardXxhash64)) {
             stats.incrementShardRecoveryFailure();
             stats.incrementCorruptRecoveredFile();
-            File quarantine = getQuarantineFile(shardUuid);
-            log.error("Local file is corrupt after recovery. Quarantining local file: %s", quarantine);
-            if (!storageFile.renameTo(quarantine)) {
-                log.warn("Quarantine of corrupt recovered file failed: %s", shardUuid);
-                storageFile.delete();
-            }
+            quarantineFile(shardUuid, storageFile, "Local file is corrupt after recovery.");
             throw new PrestoException(RAPTOR_BACKUP_CORRUPTION, "Backup is corrupt after read: " + shardUuid);
         }
 
         stats.incrementShardRecoverySuccess();
     }
 
-    private File getQuarantineFile(UUID shardUuid)
+    private void quarantineFile(UUID shardUuid, File file, String message)
     {
-        File file = storageService.getQuarantineFile(shardUuid);
-        return new File(file.getPath() + ".corrupt." + System.currentTimeMillis());
+        File quarantine = new File(storageService.getQuarantineFile(shardUuid).getPath() + ".corrupt");
+        if (quarantine.exists()) {
+            log.warn("%s Quarantine already exists: %s", message, quarantine);
+            return;
+        }
+
+        log.error("%s Quarantining corrupt file: %s", message, quarantine);
+        try {
+            Files.move(file.toPath(), quarantine.toPath(), ATOMIC_MOVE);
+        }
+        catch (IOException e) {
+            log.warn(e, "Quarantine of corrupt file failed: " + quarantine);
+            file.delete();
+        }
     }
 
     private static boolean isFileCorrupt(File file, long size, OptionalLong xxhash64)
