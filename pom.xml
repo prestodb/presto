@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>86</version>
+        <version>88</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -44,7 +44,7 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.174</dep.airlift.version>
+        <dep.airlift.version>0.176</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.36</dep.slice.version>
         <dep.aws-sdk.version>1.11.445</dep.aws-sdk.version>
@@ -728,21 +728,7 @@
             <dependency>
                 <groupId>com.microsoft.sqlserver</groupId>
                 <artifactId>mssql-jdbc</artifactId>
-                <version>6.1.0.jre8</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>net.jcip</groupId>
-                        <artifactId>jcip-annotations</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>commons-logging</groupId>
-                        <artifactId>commons-logging</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>com.sun.jersey</groupId>
-                        <artifactId>jersey-core</artifactId>
-                    </exclusion>
-                </exclusions>
+                <version>7.0.0.jre8</version>
             </dependency>
 
             <dependency>
@@ -928,7 +914,7 @@
             <dependency>
                 <groupId>org.apache.zookeeper</groupId>
                 <artifactId>zookeeper</artifactId>
-                <version>3.4.9</version>
+                <version>3.4.13</version>
                 <exclusions>
                     <exclusion>
                         <artifactId>jline</artifactId>
@@ -1171,35 +1157,17 @@
                 </plugin>
 
                 <plugin>
-                    <groupId>com.ning.maven.plugins</groupId>
-                    <artifactId>maven-dependency-versions-check-plugin</artifactId>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
                     <configuration>
-                        <exceptions>
-                            <exception>
-                                <groupId>org.javassist</groupId>
-                                <artifactId>javassist</artifactId>
-                                <expectedVersion>3.22.0-CR2</expectedVersion>
-                                <resolvedVersion>3.22.0-GA</resolvedVersion>
-                            </exception>
-                            <exception>
-                                <groupId>org.javassist</groupId>
-                                <artifactId>javassist</artifactId>
-                                <expectedVersion>3.22.0-CR2</expectedVersion>
-                                <resolvedVersion>3.22.0-GA</resolvedVersion>
-                            </exception>
-                            <exception>
-                                <groupId>com.fasterxml.jackson.core</groupId>
-                                <artifactId>jackson-core</artifactId>
-                                <expectedVersion>2.8.9</expectedVersion>
-                                <resolvedVersion>${dep.jackson.version}</resolvedVersion>
-                            </exception>
-                            <exception>
-                                <groupId>com.fasterxml.jackson.core</groupId>
-                                <artifactId>jackson-databind</artifactId>
-                                <expectedVersion>2.8.9</expectedVersion>
-                                <resolvedVersion>${dep.jackson.version}</resolvedVersion>
-                            </exception>
-                        </exceptions>
+                        <rules>
+                            <requireUpperBoundDeps>
+                                <excludes combine.children="append">
+                                    <!-- TODO: fix this in Airlift resolver -->
+                                    <exclude>org.codehaus.plexus:plexus-utils</exclude>
+                                </excludes>
+                            </requireUpperBoundDeps>
+                        </rules>
                     </configuration>
                 </plugin>
 

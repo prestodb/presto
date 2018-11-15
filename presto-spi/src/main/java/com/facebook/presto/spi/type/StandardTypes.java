@@ -25,6 +25,7 @@ public final class StandardTypes
     public static final String REAL = "real";
     public static final String DOUBLE = "double";
     public static final String HYPER_LOG_LOG = "HyperLogLog";
+    public static final String QDIGEST = "qdigest";
     public static final String P4_HYPER_LOG_LOG = "P4HyperLogLog";
     public static final String INTERVAL_DAY_TO_SECOND = "interval day to second";
     public static final String INTERVAL_YEAR_TO_MONTH = "interval year to month";

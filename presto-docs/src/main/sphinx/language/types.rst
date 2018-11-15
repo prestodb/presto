@@ -256,3 +256,26 @@ Calculating the approximate distinct count can be done much more cheaply than an
 
     A P4HyperLogLog sketch is similar to :ref:`hyperloglog_type`, but it starts (and remains)
     in the dense representation.
+
+Quantile Digest
+---------------
+
+.. _qdigest_type:
+
+``QDigest``
+^^^^^^^^^^^
+
+    A quantile digest (qdigest) is a summary structure which captures the approximate
+    distribution of data for a given input set, and can be queried to retrieve approximate
+    quantile values from the distribution.  The level of accuracy for a qdigest
+    is tunable, allowing for more precise results at the expense of space.
+
+    A qdigest can be used to give approximate answer to queries asking for what value
+    belongs at a certain quantile.  A useful property of qdigests is that they are
+    additive, meaning they can be merged together without losing precision.
+
+    A qdigest may be helpful whenever the partial results of ``approx_percentile``
+    can be reused.  For example, one may be interested in a daily reading of the 99th
+    percentile values that are read over the course of a week.  Instead of calculating
+    the past week of data with ``approx_percentile``, ``qdigest``\ s could be stored
+    daily, and quickly merged to retrieve the 99th percentile value.
