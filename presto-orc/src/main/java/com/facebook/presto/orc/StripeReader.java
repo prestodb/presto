@@ -64,9 +64,11 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_COUN
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_INDEX;
+import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
 import static com.facebook.presto.orc.stream.CheckpointInputStreamSource.createCheckpointStreamSource;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -466,7 +468,14 @@ public class StripeReader
         for (int ordinal = 0; ordinal < rootStructType.getFieldCount(); ordinal++) {
             List<ColumnStatistics> columnStatistics = groupedColumnStatistics.get(rootStructType.getFieldTypeIndex(ordinal));
             if (columnStatistics != null) {
-                statistics.put(ordinal, ColumnStatistics.mergeColumnStatistics(columnStatistics));
+                if (columnStatistics.size() == 1) {
+                    statistics.put(ordinal, getOnlyElement(columnStatistics));
+                }
+                else {
+                    // Merge statistics from different streams
+                    // This can happen if map is represented as struct (DWRF only)
+                    statistics.put(ordinal, mergeColumnStatistics(columnStatistics));
+                }
             }
         }
         return statistics.build();
