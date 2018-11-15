@@ -22,8 +22,10 @@ import com.facebook.presto.plugin.memory.MemoryConnectorFactory;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.testing.LocalQueryRunner;
+import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -35,12 +37,14 @@ import static com.facebook.presto.geospatial.KdbTree.Node.newLeaf;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SPATIAL_PARTITIONING;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.spatialJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.spatialLeftJoin;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.unnest;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -69,6 +73,7 @@ public class TestSpatialJoinPlanning
                 .setSchema("default")
                 .build());
         queryRunner.installPlugin(new GeoPlugin());
+        queryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
         queryRunner.createCatalog("memory", new MemoryConnectorFactory(), ImmutableMap.of());
         queryRunner.execute(format("CREATE TABLE kdb_tree AS SELECT '%s' AS v", KDB_TREE_JSON));
         return queryRunner;
@@ -348,6 +353,48 @@ public class TestSpatialJoinPlanning
                                                 anyTree(values(ImmutableMap.of("lng", 0, "lat", 1, "name_a", 2)))),
                                         anyTree(project(ImmutableMap.of("st_geometryfromtext", expression("ST_GeometryFromText(cast(wkt as varchar))")),
                                                 anyTree(values(ImmutableMap.of("wkt", 0, "name_b", 1)))))))));
+    }
+
+    @Test
+    public void testDistributedSpatialJoinOverUnion()
+    {
+        // union on the left side
+        assertDistributedPlan("SELECT a.name, b.name " +
+                        "FROM (SELECT name FROM tpch.tiny.region UNION ALL SELECT name FROM tpch.tiny.nation) a, tpch.tiny.customer b " +
+                        "WHERE ST_Contains(ST_GeometryFromText(a.name), ST_GeometryFromText(b.name))",
+                withSpatialPartitioning("kdb_tree"),
+                anyTree(
+                        spatialJoin("st_contains(g1, g3)", Optional.of(KDB_TREE_JSON),
+                                anyTree(unnest(exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.REPARTITION,
+                                        project(ImmutableMap.of("p1", expression(format("spatial_partitions(cast('%s' as kdbtree), g1)", KDB_TREE_JSON))),
+                                                project(ImmutableMap.of("g1", expression("ST_GeometryFromText(cast(name_a1 as varchar))")),
+                                                        tableScan("region", ImmutableMap.of("name_a1", "name")))),
+                                        project(ImmutableMap.of("p2", expression(format("spatial_partitions(cast('%s' as kdbtree), g2)", KDB_TREE_JSON))),
+                                                project(ImmutableMap.of("g2", expression("ST_GeometryFromText(cast(name_a2 as varchar))")),
+                                                        tableScan("nation", ImmutableMap.of("name_a2", "name"))))))),
+                                anyTree(unnest(
+                                        project(ImmutableMap.of("p3", expression(format("spatial_partitions(cast('%s' as kdbtree), g3)", KDB_TREE_JSON))),
+                                                project(ImmutableMap.of("g3", expression("ST_GeometryFromText(cast(name_b as varchar))")),
+                                                        tableScan("customer", ImmutableMap.of("name_b", "name")))))))));
+
+        // union on the right side
+        assertDistributedPlan("SELECT a.name, b.name " +
+                        "FROM tpch.tiny.customer a, (SELECT name FROM tpch.tiny.region UNION ALL SELECT name FROM tpch.tiny.nation) b " +
+                        "WHERE ST_Contains(ST_GeometryFromText(a.name), ST_GeometryFromText(b.name))",
+                withSpatialPartitioning("kdb_tree"),
+                anyTree(
+                        spatialJoin("st_contains(g1, g2)", Optional.of(KDB_TREE_JSON),
+                                anyTree(unnest(
+                                        project(ImmutableMap.of("p1", expression(format("spatial_partitions(cast('%s' as kdbtree), g1)", KDB_TREE_JSON))),
+                                                project(ImmutableMap.of("g1", expression("ST_GeometryFromText(cast(name_a as varchar))")),
+                                                        tableScan("customer", ImmutableMap.of("name_a", "name")))))),
+                                anyTree(unnest(exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.REPARTITION,
+                                        project(ImmutableMap.of("p2", expression(format("spatial_partitions(cast('%s' as kdbtree), g2)", KDB_TREE_JSON))),
+                                                project(ImmutableMap.of("g2", expression("ST_GeometryFromText(cast(name_b1 as varchar))")),
+                                                        tableScan("region", ImmutableMap.of("name_b1", "name")))),
+                                        project(ImmutableMap.of("p3", expression(format("spatial_partitions(cast('%s' as kdbtree), g3)", KDB_TREE_JSON))),
+                                                project(ImmutableMap.of("g3", expression("ST_GeometryFromText(cast(name_b2 as varchar))")),
+                                                        tableScan("nation", ImmutableMap.of("name_b2", "name"))))))))));
     }
 
     private Session withSpatialPartitioning(String tableName)

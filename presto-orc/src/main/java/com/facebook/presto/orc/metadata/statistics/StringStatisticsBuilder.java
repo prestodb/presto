@@ -150,7 +150,7 @@ public class StringStatisticsBuilder
         for (ColumnStatistics columnStatistics : stats) {
             StringStatistics partialStatistics = columnStatistics.getStringStatistics();
             if (columnStatistics.getNumberOfValues() > 0) {
-                if (partialStatistics == null) {
+                if (partialStatistics == null || (partialStatistics.getMin() == null && partialStatistics.getMax() == null)) {
                     // there are non null values but no statistics, so we can not say anything about the data
                     return Optional.empty();
                 }
