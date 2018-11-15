@@ -44,6 +44,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.Decimals.readBigDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.JsonType.JSON;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
@@ -148,6 +149,9 @@ public class JdbcPageSink
             statement.setBigDecimal(parameter, readBigDecimal((DecimalType) type, block, position));
         }
         else if (isVarcharType(type) || isCharType(type)) {
+            statement.setString(parameter, type.getSlice(block, position).toStringUtf8());
+        }
+        else if (JSON.equals(type)) {
             statement.setString(parameter, type.getSlice(block, position).toStringUtf8());
         }
         else if (VARBINARY.equals(type)) {

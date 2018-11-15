@@ -96,16 +96,4 @@ public class JsonType
     {
         blockBuilder.writeBytes(value, offset, length).closeEntry();
     }
-
-    @Override
-    public boolean equals(Object other)
-    {
-        return other == JSON;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return getClass().hashCode();
-    }
 }

@@ -58,7 +58,7 @@ public final class PostgreSqlQueryRunner
             queryRunner.createCatalog("tpch", "tpch");
 
             Map<String, String> properties = ImmutableMap.<String, String>builder()
-                    .put("connection-url", server.getJdbcUrl())
+                    .put("connection-url", server.getJdbcUrl() + "&stringtype=unspecified")
                     .put("allow-drop-table", "true")
                     .build();
 

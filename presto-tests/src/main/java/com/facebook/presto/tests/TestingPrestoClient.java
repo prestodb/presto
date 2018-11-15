@@ -59,6 +59,7 @@ import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.JsonType.JSON;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeType.TIME;
@@ -242,6 +243,9 @@ public class TestingPrestoClient
             return new BigDecimal((String) value);
         }
         else if (type.getTypeSignature().getBase().equals("ObjectId")) {
+            return value;
+        }
+        if (JSON.equals(type)) {
             return value;
         }
         else {

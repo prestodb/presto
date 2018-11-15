@@ -67,6 +67,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
+import static com.facebook.presto.spi.type.StandardTypes.JSON;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -260,6 +261,9 @@ public class MaterializedResult
         }
         else if (BOOLEAN.equals(type)) {
             type.writeBoolean(blockBuilder, (Boolean) value);
+        }
+        else if (JSON.equals(type)) {
+            type.writeSlice(blockBuilder, Slices.utf8Slice((String) value));
         }
         else if (type instanceof VarcharType) {
             type.writeSlice(blockBuilder, Slices.utf8Slice((String) value));

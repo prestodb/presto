@@ -35,6 +35,7 @@ import java.time.ZoneId;
 import java.util.function.Function;
 
 import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
+import static com.facebook.presto.spi.type.JsonType.JSON;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.tests.datatype.DataType.bigintDataType;
@@ -303,6 +304,43 @@ public class TestPostgreSqlTypeMapping
                 VARBINARY,
                 bytes -> format("bytea E'\\\\x%s'", base16().encode(bytes)),
                 Function.identity());
+    }
+
+    public static DataType<String> jsonDataType()
+    {
+        return DataType.dataType(
+                "json",
+                JSON,
+                value -> format("JSON'%s'", value),
+                Function.identity());
+    }
+
+    private DataTypeTest jsonDataTypeTest()
+    {
+        return DataTypeTest.create()
+                .addRoundTrip(jsonDataType(), "{}")
+                .addRoundTrip(jsonDataType(), "{\"a\": 1, \"b\": 2}")
+                .addRoundTrip(jsonDataType(), "{\"a\": [1, 2, 3], \"b\": {\"aa\": 11, \"bb\": [{\"a\": 1, \"b\": 2}, {\"a\": 0}]}}")
+                .addRoundTrip(jsonDataType(), "[]");
+    }
+
+    @Test
+    public void testPrestoJson()
+    {
+        jsonDataTypeTest()
+                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_json1"));
+        jsonDataTypeTest()
+                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_json2"));
+    }
+
+    @Test
+    public void testPostgreSqlJson()
+    {
+        jsonDataTypeTest()
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_json1"));
+
+        jsonDataTypeTest()
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_json2"));
     }
 
     private DataSetup prestoCreateAsSelect(String tableNamePrefix)

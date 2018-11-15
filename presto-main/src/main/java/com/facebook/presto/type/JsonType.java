@@ -13,90 +13,11 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.AbstractVariableWidthType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.TypeSignature;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
-
 /**
  * The stack representation for JSON objects must have the keys in natural sorted order.
  */
 public class JsonType
-        extends AbstractVariableWidthType
+        extends com.facebook.presto.spi.type.JsonType
 {
-    public static final JsonType JSON = new JsonType();
-
-    public JsonType()
-    {
-        super(new TypeSignature(StandardTypes.JSON), Slice.class);
-    }
-
-    @Override
-    public boolean isComparable()
-    {
-        return true;
-    }
-
-    @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        Slice leftValue = leftBlock.getSlice(leftPosition, 0, leftBlock.getSliceLength(leftPosition));
-        Slice rightValue = rightBlock.getSlice(rightPosition, 0, rightBlock.getSliceLength(rightPosition));
-        return leftValue.equals(rightValue);
-    }
-
-    @Override
-    public long hash(Block block, int position)
-    {
-        return block.hash(position, 0, block.getSliceLength(position));
-    }
-
-    @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
-    {
-        if (block.isNull(position)) {
-            return null;
-        }
-
-        return block.getSlice(position, 0, block.getSliceLength(position)).toStringUtf8();
-    }
-
-    @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            block.writeBytesTo(position, 0, block.getSliceLength(position), blockBuilder);
-            blockBuilder.closeEntry();
-        }
-    }
-
-    @Override
-    public Slice getSlice(Block block, int position)
-    {
-        return block.getSlice(position, 0, block.getSliceLength(position));
-    }
-
-    public void writeString(BlockBuilder blockBuilder, String value)
-    {
-        writeSlice(blockBuilder, Slices.utf8Slice(value));
-    }
-
-    @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value)
-    {
-        writeSlice(blockBuilder, value, 0, value.length());
-    }
-
-    @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
-    {
-        blockBuilder.writeBytes(value, offset, length).closeEntry();
-    }
+    public static final com.facebook.presto.spi.type.JsonType JSON = com.facebook.presto.spi.type.JsonType.JSON;
 }
