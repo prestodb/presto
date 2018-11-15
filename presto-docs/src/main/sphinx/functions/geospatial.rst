@@ -46,9 +46,11 @@ Constructors
 
 .. function:: ST_LineString(array(Point)) -> LineString
 
-    Returns a LineString formed from an array of points. Empty or null points are ignored.  If there are fewer than
-    two non-empty points in the input array, an empty LineString will be returned.  The returned geometry may
-    not be simple, e.g. may self-intersect or may contain duplicate vertexes depending on the input.
+    Returns a LineString formed from an array of points. If there are fewer than
+    two non-empty points in the input array, an empty LineString will be returned.
+    Throws an exception if any element in the array is `null` or empty or same as the previous one.
+    The returned geometry may not be simple, e.g. may self-intersect or may contain
+    duplicate vertexes depending on the input.
 
 .. function:: ST_MultiPoint(array(Point)) -> MultiPoint
 

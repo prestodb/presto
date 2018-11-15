@@ -147,16 +147,13 @@ public final class GeoFunctions
     @SqlType(GEOMETRY_TYPE_NAME)
     public static Slice stLineString(@SqlType("array(" + GEOMETRY_TYPE_NAME + ")") Block input)
     {
-        // The number of points added to the LineString
-        int addedPoints = 0;
-
         MultiPath multipath = new Polyline();
+        OGCPoint previousPoint = null;
         for (int i = 0; i < input.getPositionCount(); i++) {
             Slice slice = GEOMETRY.getSlice(input, i);
 
-            // Ignore null points
             if (slice.getInput().available() == 0) {
-                continue;
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_LineString: null point at index %s", i + 1));
             }
 
             OGCGeometry geometry = deserialize(slice);
@@ -165,18 +162,21 @@ public final class GeoFunctions
             }
             OGCPoint point = (OGCPoint) geometry;
 
-            // Empty points are ignored
             if (point.isEmpty()) {
-                continue;
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_LineString: empty point at index %s", i + 1));
             }
 
-            if (addedPoints == 0) {
+            if (previousPoint == null) {
                 multipath.startPath(point.X(), point.Y());
             }
             else {
+                if (point.Equals(previousPoint)) {
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT,
+                            format("Invalid input to ST_LineString: consecutive duplicate points at index %s", i + 1));
+                }
                 multipath.lineTo(point.X(), point.Y());
             }
-            addedPoints++;
+            previousPoint = point;
         }
         OGCLineString linestring = new OGCLineString(multipath, 0, null);
         return serialize(linestring);
