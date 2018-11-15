@@ -995,8 +995,8 @@ public class TestGeoFunctions
         // Other ways of creating points
         assertFunction("ST_LineString(array[ST_GeometryFromText('POINT (1 2)'), ST_GeometryFromText('POINT (3 4)')])", GEOMETRY, "LINESTRING (1 2, 3 4)");
 
-        // Duplicate points work
-        assertFunction("ST_LineString(array[ST_Point(1, 2), ST_Point(1, 2)])", GEOMETRY, "LINESTRING (1 2, 1 2)");
+        // Duplicate consecutive points throws exception
+        assertInvalidFunction("ST_LineString(array[ST_Point(1, 2), ST_Point(1, 2)])", INVALID_FUNCTION_ARGUMENT, "Invalid input to ST_LineString: consecutive duplicate points at index 2");
         assertFunction("ST_LineString(array[ST_Point(1, 2), ST_Point(3, 4), ST_Point(1, 2)])", GEOMETRY, "LINESTRING (1 2, 3 4, 1 2)");
 
         // Single point
@@ -1008,17 +1008,17 @@ public class TestGeoFunctions
         // Only points can be passed
         assertInvalidFunction("ST_LineString(array[ST_Point(7,8), ST_GeometryFromText('LINESTRING (1 2, 3 4)')])", INVALID_FUNCTION_ARGUMENT, "ST_LineString takes only an array of valid points, LineString was passed");
 
-        // Nulls points ignored
-        assertFunction("ST_LineString(array[NULL])", GEOMETRY, "LINESTRING EMPTY");
-        assertFunction("ST_LineString(array[ST_Point(1,2), NULL])", GEOMETRY, "LINESTRING EMPTY");
-        assertFunction("ST_LineString(array[ST_Point(1, 2), NULL, ST_Point(3, 4)])", GEOMETRY, "LINESTRING (1 2, 3 4)");
-        assertFunction("ST_LineString(array[ST_Point(1, 2), NULL, ST_Point(3, 4), NULL])", GEOMETRY, "LINESTRING (1 2, 3 4)");
+        // Nulls points are invalid
+        assertInvalidFunction("ST_LineString(array[NULL])", INVALID_FUNCTION_ARGUMENT, "Invalid input to ST_LineString: null point at index 1");
+        assertInvalidFunction("ST_LineString(array[ST_Point(1,2), NULL])", INVALID_FUNCTION_ARGUMENT, "Invalid input to ST_LineString: null point at index 2");
+        assertInvalidFunction("ST_LineString(array[ST_Point(1, 2), NULL, ST_Point(3, 4)])", INVALID_FUNCTION_ARGUMENT, "Invalid input to ST_LineString: null point at index 2");
+        assertInvalidFunction("ST_LineString(array[ST_Point(1, 2), NULL, ST_Point(3, 4), NULL])", INVALID_FUNCTION_ARGUMENT, "Invalid input to ST_LineString: null point at index 2");
 
-        // Empty points ignored
-        assertFunction("ST_LineString(array[ST_GeometryFromText('POINT EMPTY')])", GEOMETRY, "LINESTRING EMPTY");
-        assertFunction("ST_LineString(array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY')])", GEOMETRY, "LINESTRING EMPTY");
-        assertFunction("ST_LineString(array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY'), ST_Point(3,4)])", GEOMETRY, "LINESTRING (1 2, 3 4)");
-        assertFunction("ST_LineString(array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY'), ST_Point(3,4), ST_GeometryFromText('POINT EMPTY')])", GEOMETRY, "LINESTRING (1 2, 3 4)");
+        // Empty points are invalid
+        assertInvalidFunction("ST_LineString(array[ST_GeometryFromText('POINT EMPTY')])", INVALID_FUNCTION_ARGUMENT, "Invalid input to ST_LineString: empty point at index 1");
+        assertInvalidFunction("ST_LineString(array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY')])", INVALID_FUNCTION_ARGUMENT, "Invalid input to ST_LineString: empty point at index 2");
+        assertInvalidFunction("ST_LineString(array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY'), ST_Point(3,4)])", INVALID_FUNCTION_ARGUMENT, "Invalid input to ST_LineString: empty point at index 2");
+        assertInvalidFunction("ST_LineString(array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY'), ST_Point(3,4), ST_GeometryFromText('POINT EMPTY')])", INVALID_FUNCTION_ARGUMENT, "Invalid input to ST_LineString: empty point at index 2");
     }
 
     @Test
