@@ -45,6 +45,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
@@ -53,7 +54,6 @@ import static com.facebook.presto.hive.HiveSplitSource.StateKind.CLOSED;
 import static com.facebook.presto.hive.HiveSplitSource.StateKind.FAILED;
 import static com.facebook.presto.hive.HiveSplitSource.StateKind.INITIAL;
 import static com.facebook.presto.hive.HiveSplitSource.StateKind.NO_MORE_SPLITS;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -286,7 +286,7 @@ class HiveSplitSource
                 log.warn("Split buffering for %s.%s in query %s exceeded memory limit (%s). %s splits are buffered.",
                         databaseName, tableName, queryId, succinctBytes(maxOutstandingSplitsBytes), getBufferedInternalSplitCount());
             }
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, format(
+            throw new PrestoException(HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT, format(
                     "Split buffering for %s.%s exceeded memory limit (%s). %s splits are buffered.",
                     databaseName, tableName, succinctBytes(maxOutstandingSplitsBytes), getBufferedInternalSplitCount()));
         }
