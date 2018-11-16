@@ -77,6 +77,7 @@ public class TestQueryManagerConfig
                 .put("query-manager.initialization-timeout", "1m")
                 .put("query-manager.required-workers", "333")
                 .put("query-manager.required-workers-max-wait", "33m")
+                .put("query.wait-stats-after-failed-enabled", "false")
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -101,7 +102,8 @@ public class TestQueryManagerConfig
                 .setInitializationRequiredWorkers(200)
                 .setInitializationTimeout(new Duration(1, TimeUnit.MINUTES))
                 .setRequiredWorkers(333)
-                .setRequiredWorkersMaxWait(new Duration(33, TimeUnit.MINUTES));
+                .setRequiredWorkersMaxWait(new Duration(33, TimeUnit.MINUTES))
+                .setWaitForQueryStatsAfterFailed(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

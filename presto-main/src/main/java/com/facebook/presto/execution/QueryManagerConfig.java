@@ -370,8 +370,9 @@ public class QueryManagerConfig
 
     @Config("query.wait-stats-after-failed-enabled")
     @ConfigDescription("Whether or not client will wait for stats even after query already failed")
-    public void setWaitForQueryStatsAfterFailed(boolean waitForQueryStatsAfterFailed)
+    public QueryManagerConfig setWaitForQueryStatsAfterFailed(boolean waitForQueryStatsAfterFailed)
     {
         this.waitForQueryStatsAfterFailed = waitForQueryStatsAfterFailed;
+        return this;
     }
 }
