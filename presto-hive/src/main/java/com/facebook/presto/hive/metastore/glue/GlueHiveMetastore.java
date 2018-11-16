@@ -47,6 +47,7 @@ import com.amazonaws.services.glue.model.GetTablesResult;
 import com.amazonaws.services.glue.model.PartitionError;
 import com.amazonaws.services.glue.model.PartitionInput;
 import com.amazonaws.services.glue.model.PartitionValueList;
+import com.amazonaws.services.glue.model.Segment;
 import com.amazonaws.services.glue.model.TableInput;
 import com.amazonaws.services.glue.model.UpdateDatabaseRequest;
 import com.amazonaws.services.glue.model.UpdatePartitionRequest;
@@ -96,6 +97,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
@@ -126,10 +128,17 @@ public class GlueHiveMetastore
     private static final int BATCH_GET_PARTITION_MAX_PAGE_SIZE = 1000;
     private static final int BATCH_CREATE_PARTITION_MAX_PAGE_SIZE = 100;
 
+    /**
+     * Maximum number of segments supported by Glue.
+     * @see https://docs.aws.amazon.com/glue/latest/webapi/API_Segment.html
+     */
+    private static final int MAX_SEGMENTS = 10;
+
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
     private final AWSGlueAsync glueClient;
     private final Optional<String> defaultDir;
+    private final int numSegments;
 
     @Inject
     public GlueHiveMetastore(HdfsEnvironment hdfsEnvironment, GlueHiveMetastoreConfig glueConfig)
@@ -143,6 +152,7 @@ public class GlueHiveMetastore
         this.hdfsContext = new HdfsContext(new Identity(DEFAULT_METASTORE_USER, Optional.empty()));
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
         this.defaultDir = glueConfig.getDefaultWarehouseDir();
+        this.numSegments = Math.min(glueConfig.getMaxGlueConnections(), MAX_SEGMENTS);
     }
 
     private static AWSGlueAsync createAsyncGlueClient(GlueHiveMetastoreConfig config)
@@ -602,6 +612,25 @@ public class GlueHiveMetastore
 
     private List<Partition> getPartitions(String databaseName, String tableName, String expression)
     {
+        List<Partition> partitions;
+        if (numSegments <= 1) {
+            partitions = getPartitions(databaseName, tableName, expression, null);
+        }
+        else {
+            // Do parallel partition fetch
+            List<Segment> segments = IntStream.range(0, numSegments)
+                    .mapToObj(s -> new Segment().withSegmentNumber(s).withTotalSegments(numSegments))
+                    .collect(toList());
+            partitions = segments.parallelStream()
+                    .map(segment -> getPartitions(databaseName, tableName, expression, segment))
+                    .flatMap(List::stream)
+                    .collect(toList());
+        }
+        return partitions;
+    }
+
+    private List<Partition> getPartitions(String databaseName, String tableName, String expression, Segment segment)
+    {
         try {
             List<Partition> partitions = new ArrayList<>();
             String nextToken = null;
@@ -611,7 +640,8 @@ public class GlueHiveMetastore
                         .withDatabaseName(databaseName)
                         .withTableName(tableName)
                         .withExpression(expression)
-                        .withNextToken(nextToken));
+                        .withNextToken(nextToken)
+                        .withSegment(segment));
                 result.getPartitions()
                         .forEach(partition -> partitions.add(GlueToPrestoConverter.convertPartition(partition)));
                 nextToken = result.getNextToken();

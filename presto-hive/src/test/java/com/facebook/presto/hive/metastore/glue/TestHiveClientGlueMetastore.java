@@ -48,7 +48,7 @@ public class TestHiveClientGlueMetastore
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig, new NoHdfsAuthentication());
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig();
         glueConfig.setDefaultWarehouseDir(tempDir.toURI().toString());
-
+        glueConfig.setMaxGlueConnections(10);
         return new GlueHiveMetastore(hdfsEnvironment, glueConfig);
     }
 
