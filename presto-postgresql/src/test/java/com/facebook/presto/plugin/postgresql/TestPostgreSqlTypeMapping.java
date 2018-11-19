@@ -315,37 +315,28 @@ public class TestPostgreSqlTypeMapping
                 Function.identity());
     }
 
-    private DataTypeTest jsonDataTypeTest()
+    @Test
+    public void jsonDataTypeTest()
     {
-        return DataTypeTest.create()
+        DataTypeTest dataTypeTest = DataTypeTest.create()
                 .addRoundTrip(jsonDataType(), "{}")
-                .addRoundTrip(jsonDataType(), "{\"a\": 1, \"b\": 2}")
-                .addRoundTrip(jsonDataType(), "{\"a\": [1, 2, 3], \"b\": {\"aa\": 11, \"bb\": [{\"a\": 1, \"b\": 2}, {\"a\": 0}]}}")
+                .addRoundTrip(jsonDataType(), "{\"a\":1,\"b\":2}")
+                .addRoundTrip(jsonDataType(), "{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}")
                 .addRoundTrip(jsonDataType(), "[]");
-    }
 
-    @Test
-    public void testPrestoJson()
-    {
-        jsonDataTypeTest()
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_json1"));
-        jsonDataTypeTest()
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_json2"));
-    }
-
-    @Test
-    public void testPostgreSqlJson()
-    {
-        jsonDataTypeTest()
-                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_json1"));
-
-        jsonDataTypeTest()
-                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_json2"));
+        dataTypeTest.execute(getQueryRunner(), prestoCreateAsSelect("presto_test_json"));
+        dataTypeTest.execute(getQueryRunner(), postgresCreateAsSelect("tpch.postgresql_test_json1"));
+        dataTypeTest.execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_json2"));
     }
 
     private DataSetup prestoCreateAsSelect(String tableNamePrefix)
     {
         return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner()), tableNamePrefix);
+    }
+
+    private DataSetup postgresCreateAsSelect(String tableNamePrefix)
+    {
+        return new CreateAsSelectDataSetup(new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl()), tableNamePrefix);
     }
 
     private DataSetup postgresCreateAndInsert(String tableNamePrefix)

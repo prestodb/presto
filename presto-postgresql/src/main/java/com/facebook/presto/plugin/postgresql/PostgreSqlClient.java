@@ -21,11 +21,22 @@ import com.facebook.presto.plugin.jdbc.JdbcOutputTableHandle;
 import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
 import com.facebook.presto.plugin.jdbc.ReadMapping;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.airlift.json.ObjectMapperProvider;
+import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import org.postgresql.Driver;
 
 import javax.inject.Inject;
 
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -35,9 +46,14 @@ import java.sql.Types;
 import java.util.Optional;
 
 import static com.facebook.presto.plugin.jdbc.ReadMapping.sliceReadMapping;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.JsonType.JSON;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
+import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class PostgreSqlClient
         extends BaseJdbcClient
@@ -118,6 +134,35 @@ public class PostgreSqlClient
 
     private static ReadMapping jsonReadMapping()
     {
-        return sliceReadMapping(JSON, (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex)));
+        return sliceReadMapping(JSON, (resultSet, columnIndex) -> jsonParse(utf8Slice(resultSet.getString(columnIndex))));
+    }
+
+    private static final JsonFactory JSON_FACTORY = new JsonFactory()
+            .disable(CANONICALIZE_FIELD_NAMES);
+
+    private static final ObjectMapper SORTED_MAPPER = new ObjectMapperProvider().get().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
+
+    public static Slice jsonParse(Slice slice)
+    {
+        try (JsonParser parser = createJsonParser(JSON_FACTORY, slice)) {
+            byte[] in = slice.getBytes();
+            SliceOutput dynamicSliceOutput = new DynamicSliceOutput(in.length);
+            SORTED_MAPPER.writeValue((OutputStream) dynamicSliceOutput, SORTED_MAPPER.readValue(parser, Object.class));
+            // nextToken() returns null if the input is parsed correctly,
+            // but will throw an exception if there are trailing characters.
+            parser.nextToken();
+            return dynamicSliceOutput.slice();
+        }
+        catch (Exception e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Cannot convert '%s' to JSON", slice.toStringUtf8()));
+        }
+    }
+
+    public static JsonParser createJsonParser(JsonFactory factory, Slice json)
+            throws IOException
+    {
+        // Jackson tries to detect the character encoding automatically when using InputStream
+        // so we pass an InputStreamReader instead.
+        return factory.createParser(new InputStreamReader(json.getInput(), UTF_8));
     }
 }
