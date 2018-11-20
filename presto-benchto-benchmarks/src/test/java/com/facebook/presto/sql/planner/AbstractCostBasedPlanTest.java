@@ -131,12 +131,12 @@ public abstract class AbstractCostBasedPlanTest
         verify(isDirectory(workingDir), "Working directory is not a directory");
         String topDirectoryName = workingDir.getFileName().toString();
         switch (topDirectoryName) {
-            case "presto-benchto-queries":
+            case "presto-benchto-benchmarks":
                 return workingDir;
             case "presto":
-                return workingDir.resolve("presto-benchto-queries");
+                return workingDir.resolve("presto-benchto-benchmarks");
             default:
-                throw new IllegalStateException("This class must be executed from presto-benchto-queries or presto source directory");
+                throw new IllegalStateException("This class must be executed from presto-benchto-benchmarks or presto source directory");
         }
     }
 
