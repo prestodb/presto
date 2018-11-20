@@ -12,12 +12,8 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.sql.planner.optimizations;
+package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.planner.LogicalPlanner;
-import com.facebook.presto.sql.planner.Partitioning;
-import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.planner.SimplePlanVisitor;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -90,7 +86,7 @@ public abstract class AbstractCostBasedPlanTest
                     .forEach(queryResourcePath -> {
                         try {
                             Path queryPlanWritePath = Paths.get(
-                                    getPrestoMainSourcePath().toString(),
+                                    getSourcePath().toString(),
                                     "src/test/resources",
                                     getQueryPlanResourcePath(queryResourcePath));
                             createParentDirs(queryPlanWritePath.toFile());
@@ -129,18 +125,18 @@ public abstract class AbstractCostBasedPlanTest
         return joinOrderPrinter.result();
     }
 
-    private static Path getPrestoMainSourcePath()
+    private static Path getSourcePath()
     {
         Path workingDir = Paths.get(System.getProperty("user.dir"));
         verify(isDirectory(workingDir), "Working directory is not a directory");
         String topDirectoryName = workingDir.getFileName().toString();
         switch (topDirectoryName) {
-            case "presto-main":
+            case "presto-benchto-queries":
                 return workingDir;
             case "presto":
-                return workingDir.resolve("presto-main");
+                return workingDir.resolve("presto-benchto-queries");
             default:
-                throw new IllegalStateException("This class must be executed from presto-main or presto source directory");
+                throw new IllegalStateException("This class must be executed from presto-benchto-queries or presto source directory");
         }
     }
 
