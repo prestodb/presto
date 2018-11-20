@@ -992,7 +992,10 @@ public class AddExchanges
                         .global(PreferredProperties.Global.distributed(childPartitioning.withNullsAndAnyReplicated(nullsAndAnyReplicated)))
                         .build();
                 PlanWithProperties child = node.getSources().get(sourceIndex).accept(this, childPreferred);
-                if (child.getProperties().isNodePartitionedOn(childPartitioning.getPartitioningColumns(), nullsAndAnyReplicated)) {
+                // Don't select a single node partitioning so that we maintain query parallelism
+                // Theoretically, if all children are single partitioned on the same node we could choose a single
+                // partitioning, but as this only applies to a union of two values nodes, it isn't worth the added complexity
+                if (child.getProperties().isNodePartitionedOn(childPartitioning.getPartitioningColumns(), nullsAndAnyReplicated) && !child.getProperties().isSingleNode()) {
                     Function<Symbol, Optional<Symbol>> childToParent = createTranslator(createMapping(node.sourceOutputLayout(sourceIndex), node.getOutputSymbols()));
                     return child.getProperties().translate(childToParent).getNodePartitioning().get();
                 }
