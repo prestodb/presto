@@ -17,6 +17,7 @@ import com.facebook.presto.client.IntervalYearMonth;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.AbstractIntType;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -30,6 +31,7 @@ import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
@@ -104,14 +106,16 @@ public final class IntervalYearMonthOperators
 
     @ScalarOperator(EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean equal(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
+    @SqlNullable
+    public static Boolean equal(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
         return left == right;
     }
 
     @ScalarOperator(NOT_EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean notEqual(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
+    @SqlNullable
+    public static Boolean notEqual(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
         return left != right;
     }
@@ -184,5 +188,12 @@ public final class IntervalYearMonthOperators
             return false;
         }
         return notEqual(left, right);
+    }
+
+    @ScalarOperator(INDETERMINATE)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean indeterminate(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long value, @IsNull boolean isNull)
+    {
+        return isNull;
     }
 }

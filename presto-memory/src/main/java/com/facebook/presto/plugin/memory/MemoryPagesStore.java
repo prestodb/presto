@@ -63,6 +63,8 @@ public class MemoryPagesStore
             throw new PrestoException(MISSING_DATA, "Failed to find table on a worker.");
         }
 
+        page.compact();
+
         long newSize = currentBytes + page.getRetainedSizeInBytes();
         if (maxBytes < newSize) {
             throw new PrestoException(MEMORY_LIMIT_EXCEEDED, format("Memory limit [%d] for memory connector exceeded", maxBytes));
@@ -133,11 +135,10 @@ public class MemoryPagesStore
 
     private static Page getColumns(Page page, List<Integer> columnIndexes)
     {
-        Block[] blocks = page.getBlocks();
         Block[] outputBlocks = new Block[columnIndexes.size()];
 
         for (int i = 0; i < columnIndexes.size(); i++) {
-            outputBlocks[i] = blocks[columnIndexes.get(i)];
+            outputBlocks[i] = page.getBlock(columnIndexes.get(i));
         }
 
         return new Page(page.getPositionCount(), outputBlocks);

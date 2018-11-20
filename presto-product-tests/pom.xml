@@ -5,7 +5,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.197-SNAPSHOT</version>
+        <version>0.214-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-product-tests</artifactId>
@@ -14,9 +14,22 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <main-class>com.facebook.presto.tests.TemptoProductTestRunner</main-class>
+        <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>org.apache.avro</groupId>
+            <artifactId>avro</artifactId>
+            <version>1.8.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.xerial.snappy</groupId>
+            <artifactId>snappy-java</artifactId>
+            <version>1.1.2.6</version>
+            <scope>runtime</scope>
+        </dependency>
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-jdbc</artifactId>
@@ -24,6 +37,12 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>io.prestodb.tempto</groupId>
@@ -32,6 +51,10 @@
         <dependency>
             <groupId>io.prestodb.tempto</groupId>
             <artifactId>tempto-ldap</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.prestodb.tempto</groupId>
+            <artifactId>tempto-kafka</artifactId>
         </dependency>
         <dependency>
             <groupId>io.prestodb.tempto</groupId>
@@ -48,10 +71,6 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>joda-time</groupId>
-            <artifactId>joda-time</artifactId>
         </dependency>
         <dependency>
             <groupId>org.assertj</groupId>
@@ -148,14 +167,14 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
-                        <!--
-                        Presto-product-tests has a dependency on SQL Server (mssql-jdbc) which is a signed jar.
-                        Its invalidated when we repackage it into an uber jar. Hence to avoid
-                        Error: A JNI error has occurred, please check your installation and try again
-                        Exception in thread "main" java.lang.SecurityException: Invalid signature file digest for Manifest main attributes
+                            <!--
+                            Presto-product-tests has a dependency on SQL Server (mssql-jdbc) which is a signed jar.
+                            Its invalidated when we repackage it into an uber jar. Hence to avoid
+                            Error: A JNI error has occurred, please check your installation and try again
+                            Exception in thread "main" java.lang.SecurityException: Invalid signature file digest for Manifest main attributes
 
-                        We remove signed information from META-INF
-                        -->
+                            We remove signed information from META-INF
+                            -->
                             <filters>
                                 <filter>
                                     <artifact>*:*</artifact>

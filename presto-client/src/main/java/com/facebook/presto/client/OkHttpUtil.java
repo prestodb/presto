@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.client;
 
+import com.google.common.base.CharMatcher;
 import com.google.common.net.HostAndPort;
 import io.airlift.security.pem.PemReader;
 import okhttp3.Call;
@@ -49,6 +50,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static java.net.Proxy.Type.HTTP;
@@ -88,6 +90,16 @@ public final class OkHttpUtil
         String credential = Credentials.basic(user, password);
         return chain -> chain.proceed(chain.request().newBuilder()
                 .header(AUTHORIZATION, credential)
+                .build());
+    }
+
+    public static Interceptor tokenAuth(String accessToken)
+    {
+        requireNonNull(accessToken, "accessToken is null");
+        checkArgument(CharMatcher.inRange((char) 33, (char) 126).matchesAllOf(accessToken));
+
+        return chain -> chain.proceed(chain.request().newBuilder()
+                .addHeader(AUTHORIZATION, "Bearer " + accessToken)
                 .build());
     }
 

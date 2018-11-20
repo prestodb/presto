@@ -44,8 +44,8 @@ public class SqlConsecutiveJoinBenchmark
 
     public static void main(String[] args)
     {
-        LocalQueryRunner queryRunner = createLocalQueryRunner(ImmutableMap.of("reorder_joins", "false"));
-        new SqlConsecutiveJoinBenchmark(queryRunner).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
-        queryRunner.close();
+        try (LocalQueryRunner queryRunner = createLocalQueryRunner(ImmutableMap.of("reorder_joins", "false"))) {
+            new SqlConsecutiveJoinBenchmark(queryRunner).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
+        }
     }
 }

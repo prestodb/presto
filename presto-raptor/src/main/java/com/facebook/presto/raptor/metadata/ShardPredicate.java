@@ -39,7 +39,6 @@ import static com.facebook.presto.raptor.util.UuidUtil.uuidStringToBytes;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -48,6 +47,7 @@ class ShardPredicate
     private final String predicate;
     private final List<JDBCType> types;
     private final List<Object> values;
+    private static final int MAX_RANGE_COUNT = 100;
 
     private ShardPredicate(String predicate, List<JDBCType> types, List<Object> values)
     {
@@ -80,7 +80,7 @@ class ShardPredicate
                 .toString();
     }
 
-    public static ShardPredicate create(TupleDomain<RaptorColumnHandle> tupleDomain, boolean bucketed)
+    public static ShardPredicate create(TupleDomain<RaptorColumnHandle> tupleDomain)
     {
         StringJoiner predicate = new StringJoiner(" AND ").setEmptyValue("true");
         ImmutableList.Builder<JDBCType> types = ImmutableList.builder();
@@ -108,54 +108,55 @@ class ShardPredicate
                 continue;
             }
 
+            StringJoiner columnPredicate = new StringJoiner(" OR ", "(", ")").setEmptyValue("true");
             Ranges ranges = domain.getValues().getRanges();
 
-            // TODO: support multiple ranges
-            if (ranges.getRangeCount() != 1) {
+            // prevent generating complicated metadata queries
+            if (ranges.getRangeCount() > MAX_RANGE_COUNT) {
                 continue;
             }
-            Range range = getOnlyElement(ranges.getOrderedRanges());
 
-            Object minValue = null;
-            Object maxValue = null;
-            if (range.isSingleValue()) {
-                minValue = range.getSingleValue();
-                maxValue = range.getSingleValue();
-            }
-            else {
-                if (!range.getLow().isLowerUnbounded()) {
-                    minValue = range.getLow().getValue();
+            for (Range range : ranges.getOrderedRanges()) {
+                Object minValue = null;
+                Object maxValue = null;
+                if (range.isSingleValue()) {
+                    minValue = range.getSingleValue();
+                    maxValue = range.getSingleValue();
                 }
-                if (!range.getHigh().isUpperUnbounded()) {
-                    maxValue = range.getHigh().getValue();
+                else {
+                    if (!range.getLow().isLowerUnbounded()) {
+                        minValue = range.getLow().getValue();
+                    }
+                    if (!range.getHigh().isUpperUnbounded()) {
+                        maxValue = range.getHigh().getValue();
+                    }
                 }
-            }
 
-            String min;
-            String max;
-            if (handle.isBucketNumber()) {
-                if (!bucketed) {
-                    predicate.add("false");
-                    continue;
+                String min;
+                String max;
+                if (handle.isBucketNumber()) {
+                    min = "bucket_number";
+                    max = "bucket_number";
                 }
-                min = "bucket_number";
-                max = "bucket_number";
-            }
-            else {
-                min = minColumn(handle.getColumnId());
-                max = maxColumn(handle.getColumnId());
-            }
+                else {
+                    min = minColumn(handle.getColumnId());
+                    max = maxColumn(handle.getColumnId());
+                }
 
-            if (minValue != null) {
-                predicate.add(format("(%s >= ? OR %s IS NULL)", max, max));
-                types.add(jdbcType);
-                values.add(minValue);
+                StringJoiner rangePredicate = new StringJoiner(" AND ", "(", ")").setEmptyValue("true");
+                if (minValue != null) {
+                    rangePredicate.add(format("(%s >= ? OR %s IS NULL)", max, max));
+                    types.add(jdbcType);
+                    values.add(minValue);
+                }
+                if (maxValue != null) {
+                    rangePredicate.add(format("(%s <= ? OR %s IS NULL)", min, min));
+                    types.add(jdbcType);
+                    values.add(maxValue);
+                }
+                columnPredicate.add(rangePredicate.toString());
             }
-            if (maxValue != null) {
-                predicate.add(format("(%s <= ? OR %s IS NULL)", min, min));
-                types.add(jdbcType);
-                values.add(maxValue);
-            }
+            predicate.add(columnPredicate.toString());
         }
         return new ShardPredicate(predicate.toString(), types.build(), values.build());
     }

@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
+import static com.facebook.presto.spi.block.RowBlock.createRowBlockInternal;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -48,9 +49,7 @@ public class RowBlockBuilder
     {
         this(
                 blockBuilderStatus,
-                fieldTypes.stream()
-                        .map(type -> type.createBlockBuilder(blockBuilderStatus, expectedEntries))
-                        .toArray(BlockBuilder[]::new),
+                createFieldBlockBuilders(fieldTypes, blockBuilderStatus, expectedEntries),
                 new int[expectedEntries + 1],
                 new boolean[expectedEntries]);
     }
@@ -66,8 +65,18 @@ public class RowBlockBuilder
         this.fieldBlockBuilders = requireNonNull(fieldBlockBuilders, "fieldBlockBuilders is null");
     }
 
+    private static BlockBuilder[] createFieldBlockBuilders(List<Type> fieldTypes, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    {
+        // Stream API should not be used since constructor can be called in performance sensitive sections
+        BlockBuilder[] fieldBlockBuilders = new BlockBuilder[fieldTypes.size()];
+        for (int i = 0; i < fieldTypes.size(); i++) {
+            fieldBlockBuilders[i] = fieldTypes.get(i).createBlockBuilder(blockBuilderStatus, expectedEntries);
+        }
+        return fieldBlockBuilders;
+    }
+
     @Override
-    protected Block[] getFieldBlocks()
+    protected Block[] getRawFieldBlocks()
     {
         return fieldBlockBuilders;
     }
@@ -201,7 +210,7 @@ public class RowBlockBuilder
         for (int i = 0; i < numFields; i++) {
             fieldBlocks[i] = fieldBlockBuilders[i].build();
         }
-        return new RowBlock(0, positionCount, rowIsNull, fieldBlockOffsets, fieldBlocks);
+        return createRowBlockInternal(0, positionCount, rowIsNull, fieldBlockOffsets, fieldBlocks);
     }
 
     @Override
@@ -211,14 +220,16 @@ public class RowBlockBuilder
     }
 
     @Override
-    public BlockBuilder writeObject(Object value)
+    public BlockBuilder appendStructure(Block block)
     {
+        if (!(block instanceof AbstractSingleRowBlock)) {
+            throw new IllegalStateException("Expected AbstractSingleRowBlock");
+        }
         if (currentEntryOpened) {
             throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
         currentEntryOpened = true;
 
-        Block block = (Block) value;
         int blockPositionCount = block.getPositionCount();
         if (blockPositionCount != numFields) {
             throw new IllegalArgumentException(format("block position count (%s) is not equal to number of fields (%s)", blockPositionCount, numFields));
@@ -229,9 +240,34 @@ public class RowBlockBuilder
             }
             else {
                 block.writePositionTo(i, fieldBlockBuilders[i]);
-                fieldBlockBuilders[i].closeEntry();
             }
         }
+
+        closeEntry();
+        return this;
+    }
+
+    @Override
+    public BlockBuilder appendStructureInternal(Block block, int position)
+    {
+        if (!(block instanceof AbstractRowBlock)) {
+            throw new IllegalArgumentException();
+        }
+
+        AbstractRowBlock rowBlock = (AbstractRowBlock) block;
+        BlockBuilder entryBuilder = this.beginBlockEntry();
+
+        int fieldBlockOffset = rowBlock.getFieldBlockOffset(position);
+        for (int i = 0; i < rowBlock.numFields; i++) {
+            if (rowBlock.getRawFieldBlocks()[i].isNull(fieldBlockOffset)) {
+                entryBuilder.appendNull();
+            }
+            else {
+                rowBlock.getRawFieldBlocks()[i].writePositionTo(fieldBlockOffset, entryBuilder);
+            }
+        }
+
+        closeEntry();
         return this;
     }
 

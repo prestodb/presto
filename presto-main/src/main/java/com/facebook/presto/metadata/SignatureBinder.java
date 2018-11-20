@@ -457,7 +457,7 @@ public class SignatureBinder
                 NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
                 TypeSignature typeSignature = namedTypeSignature.getTypeSignature();
                 return TypeSignatureParameter.of(new NamedTypeSignature(
-                        namedTypeSignature.getName(),
+                        namedTypeSignature.getFieldName(),
                         applyBoundVariables(typeSignature, boundVariables)));
             }
             case VARIABLE: {

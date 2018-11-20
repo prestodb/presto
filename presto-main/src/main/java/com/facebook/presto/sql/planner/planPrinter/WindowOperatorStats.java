@@ -50,16 +50,16 @@ class WindowOperatorStats
         long totalPartitionsCount = 0;
 
         double averageNumberOfIndexes = info.getWindowInfos().stream()
-                .filter(windowInfo -> windowInfo.getTotalRowsCount() > 0)
+                .filter(WindowOperatorStats::isMeaningful)
                 .mapToLong(DriverWindowInfo::getNumberOfIndexes)
                 .average()
-                .getAsDouble();
+                .orElse(Double.NaN);
 
         double averageNumberOfRows = info.getWindowInfos().stream()
-                .filter(windowInfo -> windowInfo.getTotalRowsCount() > 0)
+                .filter(WindowOperatorStats::isMeaningful)
                 .mapToLong(DriverWindowInfo::getTotalRowsCount)
                 .average()
-                .getAsDouble();
+                .orElse(Double.NaN);
 
         for (DriverWindowInfo driverWindowInfo : info.getWindowInfos()) {
             long driverTotalRowsCount = driverWindowInfo.getTotalRowsCount();
@@ -92,6 +92,35 @@ class WindowOperatorStats
                 totalPartitionsCount,
                 activeDrivers,
                 totalDrivers);
+    }
+
+    private static boolean isMeaningful(DriverWindowInfo windowInfo)
+    {
+        // We are filtering out windowInfos without rows.
+        //
+        // The idea was to distinguish two types of problems:
+        //
+        // Data skew (should be visible in ExchangeOperator stats), e.g. when one partition is significantly larger than others.
+        // In such case, WindowOperator will be inefficient because parallelism will go down.
+        // Problems in WindowOperator execution itself.
+        // If you included empty indexes in WO stats, the active WO stats would be overwhelmed by data skew problems.
+        // Imagine situation when all data is in one partition (processed by 8 local WOs) but you have 1024 WOs total in plan
+        // (128 nodes are idling till 1 node finishes processing WO).
+        //
+        // In such case you care how efficiently the only occupied 8 local operators were working (how many times index was rebuilt, how big it was etc,
+        // did everyone get the same index or maybe there was some skew which could be prevent on the operator level etc.).
+        // If you included all 127 remaining idling nodes in the average, the problems with running operators would be not visible
+        // (in most cases you'd see the average values very low, no matter how well active operators are doing).
+        //
+        // So, in other words, it's to make stats more granular:
+        // if you're looking for data distribution skew, keep an eye on ExchangeOperator stats.
+        // If you're debugging execution of WO, focus on relevant stats for WOs.
+        //
+        // Keep in mind, though, that WO stats are very low level and tightly coupled to implementation.
+        // They don't make sense to DBA, if he doesn't know execution engine and implementation of WOs.
+        // It's mostly to help driving window function improvements by better understanding why some queries are slower than others.
+
+        return windowInfo.getTotalRowsCount() > 0;
     }
 
     private WindowOperatorStats(

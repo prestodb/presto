@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
@@ -25,6 +26,7 @@ import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -70,6 +72,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionT
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionInterpreter;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -81,7 +84,7 @@ import static org.testng.Assert.assertTrue;
 public class TestExpressionInterpreter
 {
     private static final int TEST_VARCHAR_TYPE_LENGTH = 17;
-    private static final Map<Symbol, Type> SYMBOL_TYPES = ImmutableMap.<Symbol, Type>builder()
+    private static final TypeProvider SYMBOL_TYPES = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("bound_integer"), INTEGER)
             .put(new Symbol("bound_long"), BIGINT)
             .put(new Symbol("bound_string"), createVarcharType(TEST_VARCHAR_TYPE_LENGTH))
@@ -108,7 +111,7 @@ public class TestExpressionInterpreter
             .put(new Symbol("unbound_interval"), INTERVAL_DAY_TIME)
             .put(new Symbol("unbound_pattern"), VARCHAR)
             .put(new Symbol("unbound_null_string"), VARCHAR)
-            .build();
+            .build());
 
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
@@ -275,6 +278,9 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("nullif(9876543210.9874561203, 9876543210.9874561203)", "null");
         assertOptimizedEquals("nullif(bound_decimal_short, 123.45)", "null");
         assertOptimizedEquals("nullif(bound_decimal_long, 12345678901234567890.123)", "null");
+        assertOptimizedEquals("nullif(ARRAY[CAST(1 AS BIGINT)], ARRAY[CAST(1 AS BIGINT)]) IS NULL", "true");
+        assertOptimizedEquals("nullif(ARRAY[CAST(1 AS BIGINT)], ARRAY[CAST(NULL AS BIGINT)]) IS NULL", "false");
+        assertOptimizedEquals("nullif(ARRAY[CAST(NULL AS BIGINT)], ARRAY[CAST(NULL AS BIGINT)]) IS NULL", "false");
     }
 
     @Test
@@ -288,9 +294,9 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("-(CAST(NULL AS BIGINT))", "null");
         assertOptimizedEquals("-(unbound_long+(1+1))", "-(unbound_long+2)");
         assertOptimizedEquals("-(1.1+1.2)", "-2.3");
-        // TODO enabled when DECIMAL is default for literal: assertOptimizedEquals("-(9876543210.9874561203-9876543210.9874561203)", "CAST(0 AS DECIMAL(20,10))");
+        assertOptimizedEquals("-(9876543210.9874561203-9876543210.9874561203)", "CAST(0 AS DECIMAL(20,10))");
         assertOptimizedEquals("-(bound_decimal_short+123.45)", "-246.90");
-        // TODO enabled when DECIMAL is default for literal: assertOptimizedEquals("-(bound_decimal_long-12345678901234567890.123)", "CAST(0 AS DECIMAL(20,10))");
+        assertOptimizedEquals("-(bound_decimal_long-12345678901234567890.123)", "CAST(0 AS DECIMAL(20,10))");
     }
 
     @Test
@@ -363,13 +369,13 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("1.15 between 1.1 and 1.2", "true");
         assertOptimizedEquals("9876543210.98745612035 between 9876543210.9874561203 and 9876543210.9874561204", "true");
         assertOptimizedEquals("123.455 between bound_decimal_short and 123.46", "true");
-        // TODO enabled when DECIMAL is default for literal: assertOptimizedEquals("12345678901234567890.1235 between bound_decimal_long and 12345678901234567890.123", "false");
+        assertOptimizedEquals("12345678901234567890.1235 between bound_decimal_long and 12345678901234567890.123", "false");
     }
 
     @Test
     public void testExtract()
     {
-        DateTime dateTime = new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC);
+        DateTime dateTime = new DateTime(2001, 8, 22, 3, 4, 5, 321, getDateTimeZone(TEST_SESSION.getTimeZoneKey()));
         double seconds = dateTime.getMillis() / 1000.0;
 
         assertOptimizedEquals("extract (YEAR from from_unixtime(" + seconds + "))", "2001");
@@ -389,10 +395,10 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("extract (QUARTER from bound_timestamp)", "3");
         assertOptimizedEquals("extract (MONTH from bound_timestamp)", "8");
         assertOptimizedEquals("extract (WEEK from bound_timestamp)", "34");
-        assertOptimizedEquals("extract (DOW from bound_timestamp)", "3");
-        assertOptimizedEquals("extract (DOY from bound_timestamp)", "234");
-        assertOptimizedEquals("extract (DAY from bound_timestamp)", "22");
-        assertOptimizedEquals("extract (HOUR from bound_timestamp)", "3");
+        assertOptimizedEquals("extract (DOW from bound_timestamp)", "2");
+        assertOptimizedEquals("extract (DOY from bound_timestamp)", "233");
+        assertOptimizedEquals("extract (DAY from bound_timestamp)", "21");
+        assertOptimizedEquals("extract (HOUR from bound_timestamp)", "16");
         assertOptimizedEquals("extract (MINUTE from bound_timestamp)", "4");
         assertOptimizedEquals("extract (SECOND from bound_timestamp)", "5");
         // todo reenable when cast as timestamp with time zone is implemented
@@ -449,12 +455,69 @@ public class TestExpressionInterpreter
     }
 
     @Test
+    public void testInComplexTypes()
+    {
+        assertEvaluatedEquals("ARRAY[1] IN (ARRAY[1])", "true");
+        assertEvaluatedEquals("ARRAY[1] IN (ARRAY[2])", "false");
+        assertEvaluatedEquals("ARRAY[1] IN (ARRAY[2], ARRAY[1])", "true");
+        assertEvaluatedEquals("ARRAY[1] IN (null)", "null");
+        assertEvaluatedEquals("ARRAY[1] IN (null, ARRAY[1])", "true");
+        assertEvaluatedEquals("ARRAY[1, 2, null] IN (ARRAY[2, null], ARRAY[1, null])", "false");
+        assertEvaluatedEquals("ARRAY[1, null] IN (ARRAY[2, null], null)", "null");
+        assertEvaluatedEquals("ARRAY[null] IN (ARRAY[null])", "null");
+        assertEvaluatedEquals("ARRAY[1] IN (ARRAY[null])", "null");
+        assertEvaluatedEquals("ARRAY[null] IN (ARRAY[1])", "null");
+        assertEvaluatedEquals("ARRAY[1, null] IN (ARRAY[1, null])", "null");
+        assertEvaluatedEquals("ARRAY[1, null] IN (ARRAY[2, null])", "false");
+        assertEvaluatedEquals("ARRAY[1, null] IN (ARRAY[1, null], ARRAY[2, null])", "null");
+        assertEvaluatedEquals("ARRAY[1, null] IN (ARRAY[1, null], ARRAY[2, null], ARRAY[1, null])", "null");
+        assertEvaluatedEquals("ARRAY[ARRAY[1, 2], ARRAY[3, 4]] in (ARRAY[ARRAY[1, 2], ARRAY[3, NULL]])", "null");
+
+        assertEvaluatedEquals("ROW(1) IN (ROW(1))", "true");
+        assertEvaluatedEquals("ROW(1) IN (ROW(2))", "false");
+        assertEvaluatedEquals("ROW(1) IN (ROW(2), ROW(1), ROW(2))", "true");
+        assertEvaluatedEquals("ROW(1) IN (null)", "null");
+        assertEvaluatedEquals("ROW(1) IN (null, ROW(1))", "true");
+        assertEvaluatedEquals("ROW(1, null) IN (ROW(2, null), null)", "null");
+        assertEvaluatedEquals("ROW(null) IN (ROW(null))", "null");
+        assertEvaluatedEquals("ROW(1) IN (ROW(null))", "null");
+        assertEvaluatedEquals("ROW(null) IN (ROW(1))", "null");
+        assertEvaluatedEquals("ROW(1, null) IN (ROW(1, null))", "null");
+        assertEvaluatedEquals("ROW(1, null) IN (ROW(2, null))", "false");
+        assertEvaluatedEquals("ROW(1, null) IN (ROW(1, null), ROW(2, null))", "null");
+        assertEvaluatedEquals("ROW(1, null) IN (ROW(1, null), ROW(2, null), ROW(1, null))", "null");
+
+        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[1]) IN (MAP(ARRAY[1], ARRAY[1]))", "true");
+        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[1]) IN (null)", "null");
+        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[1]) IN (null, MAP(ARRAY[1], ARRAY[1]))", "true");
+        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[1]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]))", "false");
+        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[2, null]), null)", "null");
+        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]))", "null");
+        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 3], ARRAY[1, null]))", "false");
+        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[null]) IN (MAP(ARRAY[1], ARRAY[null]))", "null");
+        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[1]) IN (MAP(ARRAY[1], ARRAY[null]))", "null");
+        assertEvaluatedEquals("MAP(ARRAY[1], ARRAY[null]) IN (MAP(ARRAY[1], ARRAY[1]))", "null");
+        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]))", "null");
+        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 3], ARRAY[1, null]))", "false");
+        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[2, null]))", "false");
+        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]), MAP(ARRAY[1, 2], ARRAY[2, null]))", "null");
+        assertEvaluatedEquals("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]), MAP(ARRAY[1, 2], ARRAY[2, null]), MAP(ARRAY[1, 2], ARRAY[1, null]))", "null");
+    }
+
+    @Test
     public void testCurrentTimestamp()
     {
         double current = TEST_SESSION.getStartTime() / 1000.0;
         assertOptimizedEquals("current_timestamp = from_unixtime(" + current + ")", "true");
         double future = current + TimeUnit.MINUTES.toSeconds(1);
         assertOptimizedEquals("current_timestamp > from_unixtime(" + future + ")", "false");
+    }
+
+    @Test
+    public void testCurrentUser()
+            throws Exception
+    {
+        assertOptimizedEquals("current_user", "'" + TEST_SESSION.getUser() + "'");
     }
 
     @Test
@@ -810,18 +873,21 @@ public class TestExpressionInterpreter
                         "end",
                 "2.2");
 
-        // TODO enabled when DECIMAL is default for literal:
-//        assertOptimizedEquals("case " +
-//                        "when false then 1234567890.0987654321 " +
-//                        "when true then 3.3 " +
-//                        "end",
-//                "CAST(3.3 AS DECIMAL(20,10))");
+        assertOptimizedEquals("case " +
+                        "when false then 1234567890.0987654321 " +
+                        "when true then 3.3 " +
+                        "end",
+                "CAST(3.3 AS DECIMAL(20,10))");
 
         assertOptimizedEquals("case " +
                         "when false then 1 " +
                         "when true then 2.2 " +
                         "end",
                 "2.2");
+
+        assertOptimizedEquals("case when ARRAY[CAST(1 AS BIGINT)] = ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'matched'");
+        assertOptimizedEquals("case when ARRAY[CAST(2 AS BIGINT)] = ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'not_matched'");
+        assertOptimizedEquals("case when ARRAY[CAST(null AS BIGINT)] = ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'not_matched'");
     }
 
     @Test
@@ -1054,6 +1120,10 @@ public class TestExpressionInterpreter
                         "when true then 2.2 " +
                         "end",
                 "2.2");
+
+        assertOptimizedEquals("case ARRAY[CAST(1 AS BIGINT)] when ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'matched'");
+        assertOptimizedEquals("case ARRAY[CAST(2 AS BIGINT)] when ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'not_matched'");
+        assertOptimizedEquals("case ARRAY[CAST(null AS BIGINT)] when ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'not_matched'");
     }
 
     @Test
@@ -1332,7 +1402,7 @@ public class TestExpressionInterpreter
         Expression predicate = new LikePredicate(
                 rawStringLiteral(Slices.wrappedBuffer(value)),
                 new StringLiteral(pattern),
-                null);
+                Optional.empty());
         assertEquals(evaluate(predicate), expected);
     }
 
@@ -1371,7 +1441,7 @@ public class TestExpressionInterpreter
 
         Expression parsedExpression = FunctionAssertions.createExpression(expression, METADATA, SYMBOL_TYPES);
 
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, parsedExpression, emptyList());
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, parsedExpression, emptyList(), WarningCollector.NOOP);
         ExpressionInterpreter interpreter = expressionOptimizer(parsedExpression, METADATA, TEST_SESSION, expressionTypes);
         return interpreter.optimize(symbol -> {
             switch (symbol.getName().toLowerCase(ENGLISH)) {
@@ -1405,6 +1475,11 @@ public class TestExpressionInterpreter
         });
     }
 
+    private static void assertEvaluatedEquals(@Language("SQL") String actual, @Language("SQL") String expected)
+    {
+        assertEquals(evaluate(actual), evaluate(expected));
+    }
+
     private static Object evaluate(String expression)
     {
         assertRoundTrip(expression);
@@ -1423,10 +1498,10 @@ public class TestExpressionInterpreter
 
     private static Object evaluate(Expression expression)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, expression, emptyList());
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, expression, emptyList(), WarningCollector.NOOP);
         ExpressionInterpreter interpreter = expressionInterpreter(expression, METADATA, TEST_SESSION, expressionTypes);
 
-        return interpreter.evaluate(null);
+        return interpreter.evaluate();
     }
 
     private static class FailedFunctionRewriter

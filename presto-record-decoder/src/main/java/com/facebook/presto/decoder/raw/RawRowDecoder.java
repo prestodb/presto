@@ -14,13 +14,16 @@
 package com.facebook.presto.decoder.raw;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
 
-import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 /**
  * Decoder for raw (direct byte) rows. All field decoders map bytes directly to Presto columns.
@@ -30,32 +33,26 @@ public class RawRowDecoder
 {
     public static final String NAME = "raw";
 
-    @Override
-    public String getName()
+    private final Map<DecoderColumnHandle, RawColumnDecoder> columnDecoders;
+
+    public RawRowDecoder(Set<DecoderColumnHandle> columnHandles)
     {
-        return NAME;
+        requireNonNull(columnHandles, "columnHandles is null");
+        columnDecoders = columnHandles.stream()
+                .collect(toImmutableMap(identity(), this::createColumnDecoder));
+    }
+
+    private RawColumnDecoder createColumnDecoder(DecoderColumnHandle columnHandle)
+    {
+        return new RawColumnDecoder(columnHandle);
     }
 
     @Override
-    public boolean decodeRow(byte[] data,
-            Map<String, String> dataMap,
-            Set<FieldValueProvider> fieldValueProviders,
-            List<DecoderColumnHandle> columnHandles,
-            Map<DecoderColumnHandle, FieldDecoder<?>> fieldDecoders)
+    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data, Map<String, String> dataMap)
     {
-        for (DecoderColumnHandle columnHandle : columnHandles) {
-            if (columnHandle.isInternal()) {
-                continue;
-            }
-
-            @SuppressWarnings("unchecked")
-            FieldDecoder<byte[]> decoder = (FieldDecoder<byte[]>) fieldDecoders.get(columnHandle);
-
-            if (decoder != null) {
-                fieldValueProviders.add(decoder.decode(data, columnHandle));
-            }
-        }
-
-        return false;
+        return Optional.of(columnDecoders.entrySet().stream()
+                .collect(toImmutableMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue().decodeField(data))));
     }
 }

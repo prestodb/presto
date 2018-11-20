@@ -15,7 +15,6 @@ package com.facebook.presto.hive.security;
 
 import com.facebook.presto.hive.HiveConnectorId;
 import com.facebook.presto.hive.HiveTransactionHandle;
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.spi.SchemaTableName;
@@ -54,7 +53,6 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameS
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
-import static com.facebook.presto.spi.security.AccessDeniedException.denySelectView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static java.util.Objects.requireNonNull;
 
@@ -65,21 +63,15 @@ public class SqlStandardAccessControl
     private static final String INFORMATION_SCHEMA_NAME = "information_schema";
 
     private final String connectorId;
-    // Two metastores (one transaction-aware, the other not) are available in this class
-    // so that an appropriate one can be chosen based on whether transaction handle is available.
-    // Transaction handle is not available for checkCanSetCatalogSessionProperty.
     private final Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider;
-    private final ExtendedHiveMetastore metastore;
 
     @Inject
     public SqlStandardAccessControl(
             HiveConnectorId connectorId,
-            Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider,
-            ExtendedHiveMetastore metastore)
+            Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.metastoreProvider = requireNonNull(metastoreProvider, "metastoreProvider is null");
-        this.metastore = requireNonNull(metastore, "metastore is null");
     }
 
     @Override
@@ -177,8 +169,9 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    public void checkCanSelectFromColumns(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName, Set<String> columnNames)
     {
+        // TODO: Implement column level access control
         if (!checkTablePermission(transaction, identity, tableName, SELECT)) {
             denySelectTable(tableName.toString());
         }
@@ -217,40 +210,21 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
+    public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName, Set<String> columnNames)
     {
-        if (!checkTablePermission(transaction, identity, viewName, SELECT)) {
-            denySelectView(viewName.toString());
-        }
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
-    {
+        // TODO implement column level access control
         if (!checkTablePermission(transaction, identity, tableName, SELECT)) {
             denySelectTable(tableName.toString());
         }
-        else if (!getGrantOptionForPrivilege(transaction, identity, Privilege.SELECT, tableName)) {
-            denyCreateViewWithSelect(tableName.toString());
+        if (!getGrantOptionForPrivilege(transaction, identity, Privilege.SELECT, tableName)) {
+            denyCreateViewWithSelect(tableName.toString(), identity);
         }
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
+    public void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transaction, Identity identity, String propertyName)
     {
-        if (!checkTablePermission(transaction, identity, viewName, SELECT)) {
-            denySelectView(viewName.toString());
-        }
-        if (!getGrantOptionForPrivilege(transaction, identity, Privilege.SELECT, viewName)) {
-            denyCreateViewWithSelect(viewName.toString());
-        }
-    }
-
-    @Override
-    public void checkCanSetCatalogSessionProperty(Identity identity, String propertyName)
-    {
-        // TODO: when this is updated to have a transaction, use isAdmin()
-        if (!metastore.getRoles(identity.getUser()).contains(ADMIN_ROLE_NAME)) {
+        if (!isAdmin(transaction, identity)) {
             denySetCatalogSessionProperty(connectorId, propertyName);
         }
     }

@@ -48,15 +48,13 @@ import static com.facebook.presto.cli.Completion.lowerCaseCommandCompleter;
 import static com.facebook.presto.cli.Help.getHelpText;
 import static com.facebook.presto.cli.QueryPreprocessor.preprocessQuery;
 import static com.facebook.presto.client.ClientSession.stripTransactionId;
-import static com.facebook.presto.client.ClientSession.withCatalogAndSchema;
-import static com.facebook.presto.client.ClientSession.withPreparedStatements;
-import static com.facebook.presto.client.ClientSession.withProperties;
-import static com.facebook.presto.client.ClientSession.withTransactionId;
 import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
 import static com.facebook.presto.sql.parser.StatementSplitter.isEmptyStatement;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.io.ByteStreams.nullOutputStream;
+import static com.google.common.io.Files.createParentDirs;
 import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
@@ -86,8 +84,8 @@ public class Console
     public boolean run()
     {
         ClientSession session = clientOptions.toClientSession();
-        boolean hasQuery = !Strings.isNullOrEmpty(clientOptions.execute);
-        boolean isFromFile = !Strings.isNullOrEmpty(clientOptions.file);
+        boolean hasQuery = !isNullOrEmpty(clientOptions.execute);
+        boolean isFromFile = !isNullOrEmpty(clientOptions.file);
 
         if (!hasQuery && !isFromFile) {
             AnsiConsole.systemInstall();
@@ -132,6 +130,7 @@ public class Console
                 Optional.ofNullable(clientOptions.keystorePassword),
                 Optional.ofNullable(clientOptions.truststorePath),
                 Optional.ofNullable(clientOptions.truststorePassword),
+                Optional.ofNullable(clientOptions.accessToken),
                 Optional.ofNullable(clientOptions.user),
                 clientOptions.password ? Optional.of(getPassword()) : Optional.empty(),
                 Optional.ofNullable(clientOptions.krb5Principal),
@@ -139,8 +138,7 @@ public class Console
                 Optional.ofNullable(clientOptions.krb5ConfigPath),
                 Optional.ofNullable(clientOptions.krb5KeytabPath),
                 Optional.ofNullable(clientOptions.krb5CredentialCachePath),
-                !clientOptions.krb5DisableRemoteServiceHostnameCanonicalization,
-                clientOptions.authenticationEnabled)) {
+                !clientOptions.krb5DisableRemoteServiceHostnameCanonicalization)) {
             if (hasQuery) {
                 return executeCommand(queryRunner, query, clientOptions.outputFormat, clientOptions.ignoreErrors);
             }
@@ -317,10 +315,27 @@ public class Console
 
             // update catalog and schema if present
             if (query.getSetCatalog().isPresent() || query.getSetSchema().isPresent()) {
-                session = withCatalogAndSchema(session,
-                        query.getSetCatalog().orElse(session.getCatalog()),
-                        query.getSetSchema().orElse(session.getSchema()));
+                session = ClientSession.builder(session)
+                        .withCatalog(query.getSetCatalog().orElse(session.getCatalog()))
+                        .withSchema(query.getSetSchema().orElse(session.getSchema()))
+                        .build();
                 schemaChanged.run();
+            }
+
+            // update transaction ID if necessary
+            if (query.isClearTransactionId()) {
+                session = stripTransactionId(session);
+            }
+
+            ClientSession.Builder builder = ClientSession.builder(session);
+
+            if (query.getStartedTransactionId() != null) {
+                builder = builder.withTransactionId(query.getStartedTransactionId());
+            }
+
+            // update path if present
+            if (query.getSetPath().isPresent()) {
+                builder = builder.withPath(query.getSetPath().get());
             }
 
             // update session properties if present
@@ -328,7 +343,7 @@ public class Console
                 Map<String, String> sessionProperties = new HashMap<>(session.getProperties());
                 sessionProperties.putAll(query.getSetSessionProperties());
                 sessionProperties.keySet().removeAll(query.getResetSessionProperties());
-                session = withProperties(session, sessionProperties);
+                builder = builder.withProperties(sessionProperties);
             }
 
             // update prepared statements if present
@@ -336,17 +351,10 @@ public class Console
                 Map<String, String> preparedStatements = new HashMap<>(session.getPreparedStatements());
                 preparedStatements.putAll(query.getAddedPreparedStatements());
                 preparedStatements.keySet().removeAll(query.getDeallocatedPreparedStatements());
-                session = withPreparedStatements(session, preparedStatements);
+                builder = builder.withPreparedStatements(preparedStatements);
             }
 
-            // update transaction ID if necessary
-            if (query.isClearTransactionId()) {
-                session = stripTransactionId(session);
-            }
-            if (query.getStartedTransactionId() != null) {
-                session = withTransactionId(session, query.getStartedTransactionId());
-            }
-
+            session = builder.build();
             queryRunner.setSession(session);
 
             return success;
@@ -362,23 +370,26 @@ public class Console
 
     private static MemoryHistory getHistory()
     {
-        return getHistory(new File(getUserHome(), ".presto_history"));
+        String historyFilePath = System.getenv("PRESTO_HISTORY_FILE");
+        File historyFile;
+        if (isNullOrEmpty(historyFilePath)) {
+            historyFile = new File(getUserHome(), ".presto_history");
+        }
+        else {
+            historyFile = new File(historyFilePath);
+        }
+        return getHistory(historyFile);
     }
 
     @VisibleForTesting
     static MemoryHistory getHistory(File historyFile)
     {
-        if (!historyFile.canWrite() || !historyFile.canRead()) {
-            System.err.printf("WARNING: History file is not readable/writable: %s. " +
-                            "History will not be available during this session.%n",
-                    historyFile.getAbsolutePath());
-            MemoryHistory history = new MemoryHistory();
-            history.setAutoTrim(true);
-            return history;
-        }
-
         MemoryHistory history;
         try {
+            //  try creating the history file and its parents to check
+            // whether the directory tree is readable/writeable
+            createParentDirs(historyFile.getParentFile());
+            historyFile.createNewFile();
             history = new FileHistory(historyFile);
             history.setMaxSize(10000);
         }

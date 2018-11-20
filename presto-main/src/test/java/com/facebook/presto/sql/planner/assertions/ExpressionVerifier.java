@@ -20,6 +20,7 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -175,7 +176,7 @@ final class ExpressionVerifier
     {
         if (expectedExpression instanceof ComparisonExpression) {
             ComparisonExpression expected = (ComparisonExpression) expectedExpression;
-            if (actual.getType() == expected.getType()) {
+            if (actual.getOperator() == expected.getOperator()) {
                 return process(actual.getLeft(), expected.getLeft()) && process(actual.getRight(), expected.getRight());
             }
         }
@@ -187,7 +188,7 @@ final class ExpressionVerifier
     {
         if (expectedExpression instanceof ArithmeticBinaryExpression) {
             ArithmeticBinaryExpression expected = (ArithmeticBinaryExpression) expectedExpression;
-            if (actual.getType() == expected.getType()) {
+            if (actual.getOperator() == expected.getOperator()) {
                 return process(actual.getLeft(), expected.getLeft()) && process(actual.getRight(), expected.getRight());
             }
         }
@@ -224,6 +225,16 @@ final class ExpressionVerifier
     }
 
     @Override
+    protected Boolean visitDecimalLiteral(DecimalLiteral actual, Node expected)
+    {
+        if (expected instanceof DecimalLiteral) {
+            return getValueFromLiteral(actual).equals(getValueFromLiteral(expected));
+        }
+
+        return false;
+    }
+
+    @Override
     protected Boolean visitBooleanLiteral(BooleanLiteral actual, Node expected)
     {
         if (expected instanceof BooleanLiteral) {
@@ -242,6 +253,9 @@ final class ExpressionVerifier
         }
         else if (expression instanceof DoubleLiteral) {
             return String.valueOf(((DoubleLiteral) expression).getValue());
+        }
+        else if (expression instanceof DecimalLiteral) {
+            return String.valueOf(((DecimalLiteral) expression).getValue());
         }
         else if (expression instanceof GenericLiteral) {
             return ((GenericLiteral) expression).getValue();
@@ -266,7 +280,7 @@ final class ExpressionVerifier
     {
         if (expectedExpression instanceof LogicalBinaryExpression) {
             LogicalBinaryExpression expected = (LogicalBinaryExpression) expectedExpression;
-            if (actual.getType() == expected.getType()) {
+            if (actual.getOperator() == expected.getOperator()) {
                 return process(actual.getLeft(), expected.getLeft()) && process(actual.getRight(), expected.getRight());
             }
         }

@@ -38,8 +38,8 @@ public class SingleRowBlockWriter
         super(rowIndex);
         this.fieldBlockBuilders = fieldBlockBuilders;
         long initialBlockBuilderSize = 0;
-        for (int i = 0; i < fieldBlockBuilders.length; i++) {
-            initialBlockBuilderSize += fieldBlockBuilders[i].getSizeInBytes();
+        for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
+            initialBlockBuilderSize += fieldBlockBuilder.getSizeInBytes();
         }
         this.initialBlockBuilderSize = initialBlockBuilderSize;
     }
@@ -63,7 +63,7 @@ public class SingleRowBlockWriter
     }
 
     @Override
-    protected Block getFieldBlock(int fieldIndex)
+    protected Block getRawFieldBlock(int fieldIndex)
     {
         return fieldBlockBuilders[fieldIndex];
     }
@@ -72,8 +72,8 @@ public class SingleRowBlockWriter
     public long getSizeInBytes()
     {
         long currentBlockBuilderSize = 0;
-        for (int i = 0; i < fieldBlockBuilders.length; i++) {
-            currentBlockBuilderSize += fieldBlockBuilders[i].getSizeInBytes();
+        for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
+            currentBlockBuilderSize += fieldBlockBuilder.getSizeInBytes();
         }
         return currentBlockBuilderSize - initialBlockBuilderSize;
     }
@@ -82,8 +82,8 @@ public class SingleRowBlockWriter
     public long getRetainedSizeInBytes()
     {
         long size = INSTANCE_SIZE;
-        for (int i = 0; i < fieldBlockBuilders.length; i++) {
-            size += fieldBlockBuilders[i].getRetainedSizeInBytes();
+        for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
+            size += fieldBlockBuilder.getRetainedSizeInBytes();
         }
         return size;
     }
@@ -91,8 +91,8 @@ public class SingleRowBlockWriter
     @Override
     public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
-        for (int i = 0; i < fieldBlockBuilders.length; i++) {
-            consumer.accept(fieldBlockBuilders[i], fieldBlockBuilders[i].getRetainedSizeInBytes());
+        for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
+            consumer.accept(fieldBlockBuilder, fieldBlockBuilder.getRetainedSizeInBytes());
         }
         consumer.accept(this, (long) INSTANCE_SIZE);
     }
@@ -138,10 +138,20 @@ public class SingleRowBlockWriter
     }
 
     @Override
-    public BlockBuilder writeObject(Object value)
+    public BlockBuilder appendStructure(Block block)
     {
         checkFieldIndexToWrite();
-        fieldBlockBuilders[currentFieldIndexToWrite].writeObject(value);
+        fieldBlockBuilders[currentFieldIndexToWrite].appendStructure(block);
+        entryAdded();
+        return this;
+    }
+
+    @Override
+    public BlockBuilder appendStructureInternal(Block block, int position)
+    {
+        checkFieldIndexToWrite();
+        fieldBlockBuilders[currentFieldIndexToWrite].appendStructureInternal(block, position);
+        entryAdded();
         return this;
     }
 
@@ -186,7 +196,7 @@ public class SingleRowBlockWriter
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
         throw new UnsupportedOperationException();
     }
@@ -207,10 +217,10 @@ public class SingleRowBlockWriter
     public String toString()
     {
         if (!fieldBlockBuilderReturned) {
-            return format("RowBlock{SingleRowBlockWriter=%d, fieldBlockBuilderReturned=false, positionCount=%d}", fieldBlockBuilders.length, getPositionCount());
+            return format("SingleRowBlockWriter{numFields=%d, fieldBlockBuilderReturned=false, positionCount=%d}", fieldBlockBuilders.length, getPositionCount());
         }
         else {
-            return format("RowBlock{SingleRowBlockWriter=%d, fieldBlockBuilderReturned=true}", fieldBlockBuilders.length);
+            return format("SingleRowBlockWriter{numFields=%d, fieldBlockBuilderReturned=true}", fieldBlockBuilders.length);
         }
     }
 

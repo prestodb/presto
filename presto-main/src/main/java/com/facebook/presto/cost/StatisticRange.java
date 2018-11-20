@@ -155,6 +155,12 @@ public class StatisticRange
         return new StatisticRange(minExcludeNaN(low, other.low), maxExcludeNaN(high, other.high), newDistinctValues);
     }
 
+    public StatisticRange addAndMaxDistinctValues(StatisticRange other)
+    {
+        double newDistinctValues = minExcludeNaN(distinctValues, other.distinctValues);
+        return new StatisticRange(minExcludeNaN(low, other.low), maxExcludeNaN(high, other.high), newDistinctValues);
+    }
+
     public StatisticRange addAndCollapseDistinctValues(StatisticRange other)
     {
         double overlapPercentOfThis = this.overlapPercentWith(other);

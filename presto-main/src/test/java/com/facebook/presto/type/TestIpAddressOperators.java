@@ -14,11 +14,15 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.spi.type.SqlVarbinary;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.IpAddressType.IPADDRESS;
+import static com.google.common.io.BaseEncoding.base16;
 
 public class TestIpAddressOperators
         extends AbstractTestFunctions
@@ -58,6 +62,24 @@ public class TestIpAddressOperators
     }
 
     @Test
+    public void testVarbinaryToIpAddressCast()
+    {
+        assertFunction("CAST(x'00000000000000000000ffff01020304' AS IPADDRESS)", IPADDRESS, "1.2.3.4");
+        assertFunction("CAST(x'01020304' AS IPADDRESS)", IPADDRESS, "1.2.3.4");
+        assertFunction("CAST(x'c0a80000' AS IPADDRESS)", IPADDRESS, "192.168.0.0");
+        assertFunction("CAST(x'20010db8000000000000ff0000428329' AS IPADDRESS)", IPADDRESS, "2001:db8::ff00:42:8329");
+        assertInvalidCast("CAST(x'f000001100' AS IPADDRESS)", "Invalid IP address binary length: 5");
+    }
+
+    @Test
+    public void testIpAddressToVarbinaryCast()
+    {
+        assertFunction("CAST(IPADDRESS '::ffff:1.2.3.4' AS VARBINARY)", VARBINARY, new SqlVarbinary(base16().decode("00000000000000000000FFFF01020304")));
+        assertFunction("CAST(IPADDRESS '2001:0db8:0000:0000:0000:ff00:0042:8329' AS VARBINARY)", VARBINARY, new SqlVarbinary(base16().decode("20010DB8000000000000FF0000428329")));
+        assertFunction("CAST(IPADDRESS '2001:db8::ff00:42:8329' AS VARBINARY)", VARBINARY, new SqlVarbinary(base16().decode("20010DB8000000000000FF0000428329")));
+    }
+
+    @Test
     public void testEquals()
     {
         assertFunction("IPADDRESS '2001:0db8:0000:0000:0000:ff00:0042:8329' = IPADDRESS '2001:db8::ff00:42:8329'", BOOLEAN, true);
@@ -66,6 +88,16 @@ public class TestIpAddressOperators
         assertFunction("IPADDRESS '10.0.0.0' = IPADDRESS '::ffff:a00:0'", BOOLEAN, true);
         assertFunction("IPADDRESS '2001:db8::ff00:42:8329' = IPADDRESS '2001:db8::ff00:42:8300'", BOOLEAN, false);
         assertFunction("CAST('1.2.3.4' AS IPADDRESS) = IPADDRESS '1.2.3.5'", BOOLEAN, false);
+    }
+
+    @Test
+    public void testDistinctFrom()
+    {
+        assertFunction("IPADDRESS '2001:0db8:0000:0000:0000:ff00:0042:8329' IS DISTINCT FROM IPADDRESS '2001:db8::ff00:42:8329'", BOOLEAN, false);
+        assertFunction("CAST(NULL AS IPADDRESS) IS DISTINCT FROM CAST(NULL AS IPADDRESS)", BOOLEAN, false);
+        assertFunction("IPADDRESS '2001:0db8:0000:0000:0000:ff00:0042:8329' IS DISTINCT FROM IPADDRESS '2001:db8::ff00:42:8328'", BOOLEAN, true);
+        assertFunction("IPADDRESS '2001:0db8:0000:0000:0000:ff00:0042:8329' IS DISTINCT FROM CAST(NULL AS IPADDRESS)", BOOLEAN, true);
+        assertFunction("CAST(NULL AS IPADDRESS) IS DISTINCT FROM IPADDRESS '2001:db8::ff00:42:8328'", BOOLEAN, true);
     }
 
     @Test
@@ -97,5 +129,12 @@ public class TestIpAddressOperators
 
         assertFunction("IPADDRESS '::1' BETWEEN IPADDRESS '::' AND IPADDRESS '::1234'", BOOLEAN, true);
         assertFunction("IPADDRESS '::2222' BETWEEN IPADDRESS '::' AND IPADDRESS '::1234'", BOOLEAN, false);
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "CAST(null AS IPADDRESS)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "IPADDRESS '::2222'", BOOLEAN, false);
     }
 }

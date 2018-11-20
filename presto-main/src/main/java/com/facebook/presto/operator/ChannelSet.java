@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.annotations.VisibleForTesting;
@@ -92,7 +91,7 @@ public class ChannelSet
                     isDictionaryAggregationEnabled(operatorContext.getSession()),
                     joinCompiler,
                     this::updateMemoryReservation);
-            this.nullBlockPage = new Page(type.createBlockBuilder(new BlockBuilderStatus(), 1, UNKNOWN.getFixedSize()).appendNull().build());
+            this.nullBlockPage = new Page(type.createBlockBuilder(null, 1, UNKNOWN.getFixedSize()).appendNull().build());
             this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
             this.localMemoryContext = operatorContext.localUserMemoryContext();
         }

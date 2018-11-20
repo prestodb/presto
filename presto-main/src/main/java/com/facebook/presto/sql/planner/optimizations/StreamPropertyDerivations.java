@@ -18,10 +18,10 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.LocalProperty;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
@@ -46,6 +46,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -89,16 +90,24 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
-final class StreamPropertyDerivations
+public final class StreamPropertyDerivations
 {
     private StreamPropertyDerivations() {}
 
-    public static StreamProperties deriveProperties(PlanNode node, StreamProperties inputProperties, Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
+    public static StreamProperties derivePropertiesRecursively(PlanNode node, Metadata metadata, Session session, TypeProvider types, SqlParser parser)
+    {
+        List<StreamProperties> inputProperties = node.getSources().stream()
+                .map(source -> derivePropertiesRecursively(source, metadata, session, types, parser))
+                .collect(toImmutableList());
+        return StreamPropertyDerivations.deriveProperties(node, inputProperties, metadata, session, types, parser);
+    }
+
+    public static StreamProperties deriveProperties(PlanNode node, StreamProperties inputProperties, Metadata metadata, Session session, TypeProvider types, SqlParser parser)
     {
         return deriveProperties(node, ImmutableList.of(inputProperties), metadata, session, types, parser);
     }
 
-    public static StreamProperties deriveProperties(PlanNode node, List<StreamProperties> inputProperties, Metadata metadata, Session session, Map<Symbol, Type> types, SqlParser parser)
+    public static StreamProperties deriveProperties(PlanNode node, List<StreamProperties> inputProperties, Metadata metadata, Session session, TypeProvider types, SqlParser parser)
     {
         requireNonNull(node, "node is null");
         requireNonNull(inputProperties, "inputProperties is null");
@@ -169,10 +178,8 @@ final class StreamPropertyDerivations
                             .translate(column -> PropertyDerivations.filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column))
                             .unordered(unordered);
                 case LEFT:
-                    // the left can contain nulls in any stream so we can't say anything about the
-                    // partitioning but the other properties of the left will be maintained.
                     return leftProperties
-                            .withUnspecifiedPartitioning()
+                            .translate(column -> PropertyDerivations.filterIfMissing(node.getOutputSymbols(), column))
                             .unordered(unordered);
                 case RIGHT:
                     // since this is a right join, none of the matched output rows will contain nulls
@@ -192,6 +199,20 @@ final class StreamPropertyDerivations
                     return new StreamProperties(MULTIPLE, Optional.empty(), false);
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
+            }
+        }
+
+        @Override
+        public StreamProperties visitSpatialJoin(SpatialJoinNode node, List<StreamProperties> inputProperties)
+        {
+            StreamProperties leftProperties = inputProperties.get(0);
+
+            switch (node.getType()) {
+                case INNER:
+                case LEFT:
+                    return leftProperties.translate(column -> PropertyDerivations.filterIfMissing(node.getOutputSymbols(), column));
+                default:
+                    throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
             }
         }
 
@@ -272,7 +293,13 @@ final class StreamPropertyDerivations
         @Override
         public StreamProperties visitExchange(ExchangeNode node, List<StreamProperties> inputProperties)
         {
+            if (node.getOrderingScheme().isPresent()) {
+                return StreamProperties.ordered();
+            }
+
             if (node.getScope() == REMOTE) {
+                // TODO: correctly determine if stream is parallelised
+                // based on session properties
                 return StreamProperties.fixedStreams();
             }
 
@@ -324,7 +351,7 @@ final class StreamPropertyDerivations
         public StreamProperties visitGroupId(GroupIdNode node, List<StreamProperties> inputProperties)
         {
             Map<Symbol, Symbol> inputToOutputMappings = new HashMap<>();
-            for (Map.Entry<Symbol, Symbol> setMapping : node.getGroupingSetMappings().entrySet()) {
+            for (Map.Entry<Symbol, Symbol> setMapping : node.getGroupingColumns().entrySet()) {
                 if (node.getCommonGroupingColumns().contains(setMapping.getKey())) {
                     // TODO: Add support for translating a property on a single column to multiple columns
                     // when GroupIdNode is copying a single input grouping column into multiple output grouping columns (i.e. aliases), this is basically picking one arbitrarily
@@ -334,8 +361,8 @@ final class StreamPropertyDerivations
 
             // TODO: Add support for translating a property on a single column to multiple columns
             // this is deliberately placed after the grouping columns, because preserving properties has a bigger perf impact
-            for (Map.Entry<Symbol, Symbol> argumentMapping : node.getArgumentMappings().entrySet()) {
-                inputToOutputMappings.putIfAbsent(argumentMapping.getValue(), argumentMapping.getKey());
+            for (Symbol argument : node.getAggregationArguments()) {
+                inputToOutputMappings.putIfAbsent(argument, argument);
             }
 
             return Iterables.getOnlyElement(inputProperties).translate(column -> Optional.ofNullable(inputToOutputMappings.get(column)));
@@ -423,7 +450,15 @@ final class StreamPropertyDerivations
         @Override
         public StreamProperties visitAssignUniqueId(AssignUniqueId node, List<StreamProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+            if (properties.getPartitioningColumns().isPresent()) {
+                // preserve input (possibly preferred) partitioning
+                return properties;
+            }
+
+            return new StreamProperties(properties.getDistribution(),
+                    Optional.of(ImmutableList.of(node.getIdColumn())),
+                    properties.isOrdered());
         }
 
         //

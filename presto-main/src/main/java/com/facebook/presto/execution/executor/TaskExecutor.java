@@ -16,7 +16,9 @@ package com.facebook.presto.execution.executor;
 import com.facebook.presto.execution.SplitRunner;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManagerConfig;
+import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.version.EmbedVersion;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ComparisonChain;
@@ -43,6 +45,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.concurrent.ConcurrentHashMap;
@@ -58,6 +61,7 @@ import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.function.DoubleSupplier;
 
 import static com.facebook.presto.execution.executor.MultilevelSplitQueue.computeLevel;
+import static com.facebook.presto.util.MoreMath.min;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -75,11 +79,8 @@ public class TaskExecutor
 {
     private static final Logger log = Logger.get(TaskExecutor.class);
 
-    // each task is guaranteed a minimum number of splits
-    static final int GUARANTEED_SPLITS_PER_TASK = 3;
-
     // print out split call stack if it has been running for a certain amount of time
-    private static final Duration LONG_SPLIT_WARNING_THRESHOLD = new Duration(1000, TimeUnit.SECONDS);
+    private static final Duration LONG_SPLIT_WARNING_THRESHOLD = new Duration(600, TimeUnit.SECONDS);
 
     private static final AtomicLong NEXT_RUNNER_ID = new AtomicLong();
 
@@ -88,6 +89,9 @@ public class TaskExecutor
 
     private final int runnerThreads;
     private final int minimumNumberOfDrivers;
+    private final int guaranteedNumberOfDriversPerTask;
+    private final int maximumNumberOfDriversPerTask;
+    private final EmbedVersion embedVersion;
 
     private final Ticker ticker;
 
@@ -149,44 +153,60 @@ public class TaskExecutor
     private final TimeStat blockedQuantaWallTime = new TimeStat(MICROSECONDS);
     private final TimeStat unblockedQuantaWallTime = new TimeStat(MICROSECONDS);
 
-    private final boolean legacySchedulingBehavior;
-
     private volatile boolean closed;
 
     @Inject
-    public TaskExecutor(TaskManagerConfig config, MultilevelSplitQueue splitQueue)
+    public TaskExecutor(TaskManagerConfig config, EmbedVersion embedVersion, MultilevelSplitQueue splitQueue)
     {
-        this(requireNonNull(config, "config is null").getMaxWorkerThreads(), config.getMinDrivers(), splitQueue, config.isLegacySchedulingBehavior(), Ticker.systemTicker());
+        this(requireNonNull(config, "config is null").getMaxWorkerThreads(),
+                config.getMinDrivers(),
+                config.getMinDriversPerTask(),
+                config.getMaxDriversPerTask(),
+                embedVersion,
+                splitQueue,
+                Ticker.systemTicker());
     }
 
     @VisibleForTesting
-    public TaskExecutor(int runnerThreads, int minDrivers)
+    public TaskExecutor(int runnerThreads, int minDrivers, int guaranteedNumberOfDriversPerTask, int maximumNumberOfDriversPerTask, Ticker ticker)
     {
-        this(runnerThreads, minDrivers, Ticker.systemTicker());
+        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, new EmbedVersion(new ServerConfig()), new MultilevelSplitQueue(2), ticker);
     }
 
     @VisibleForTesting
-    public TaskExecutor(int runnerThreads, int minDrivers, Ticker ticker)
+    public TaskExecutor(int runnerThreads, int minDrivers, int guaranteedNumberOfDriversPerTask, int maximumNumberOfDriversPerTask, MultilevelSplitQueue splitQueue, Ticker ticker)
     {
-        this(runnerThreads, minDrivers, new MultilevelSplitQueue(false, 2), false, ticker);
+        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, new EmbedVersion(new ServerConfig()), splitQueue, ticker);
     }
 
     @VisibleForTesting
-    public TaskExecutor(int runnerThreads, int minDrivers, MultilevelSplitQueue splitQueue, boolean legacySchedulingBehavior, Ticker ticker)
+    public TaskExecutor(
+            int runnerThreads,
+            int minDrivers,
+            int guaranteedNumberOfDriversPerTask,
+            int maximumNumberOfDriversPerTask,
+            EmbedVersion embedVersion,
+            MultilevelSplitQueue splitQueue,
+            Ticker ticker)
     {
         checkArgument(runnerThreads > 0, "runnerThreads must be at least 1");
+        checkArgument(guaranteedNumberOfDriversPerTask > 0, "guaranteedNumberOfDriversPerTask must be at least 1");
+        checkArgument(maximumNumberOfDriversPerTask > 0, "maximumNumberOfDriversPerTask must be at least 1");
+        checkArgument(guaranteedNumberOfDriversPerTask <= maximumNumberOfDriversPerTask, "guaranteedNumberOfDriversPerTask cannot be greater than maximumNumberOfDriversPerTask");
 
         // we manage thread pool size directly, so create an unlimited pool
         this.executor = newCachedThreadPool(threadsNamed("task-processor-%s"));
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
         this.runnerThreads = runnerThreads;
+        this.embedVersion = requireNonNull(embedVersion, "embedVersion is null");
 
         this.ticker = requireNonNull(ticker, "ticker is null");
 
         this.minimumNumberOfDrivers = minDrivers;
+        this.guaranteedNumberOfDriversPerTask = guaranteedNumberOfDriversPerTask;
+        this.maximumNumberOfDriversPerTask = maximumNumberOfDriversPerTask;
         this.waitingSplits = requireNonNull(splitQueue, "splitQueue is null");
         this.tasks = new LinkedList<>();
-        this.legacySchedulingBehavior = legacySchedulingBehavior;
     }
 
     @PostConstruct
@@ -196,7 +216,6 @@ public class TaskExecutor
         for (int i = 0; i < runnerThreads; i++) {
             addRunnerThread();
         }
-        splitMonitorExecutor.scheduleWithFixedDelay(this::monitorActiveSplits, 1, 1, TimeUnit.MINUTES);
     }
 
     @PreDestroy
@@ -223,27 +242,27 @@ public class TaskExecutor
     private synchronized void addRunnerThread()
     {
         try {
-            executor.execute(new TaskRunner());
+            executor.execute(embedVersion.embedVersion(new TaskRunner()));
         }
         catch (RejectedExecutionException ignored) {
         }
     }
 
-    public synchronized TaskHandle addTask(TaskId taskId, DoubleSupplier utilizationSupplier, int initialSplitConcurrency, Duration splitConcurrencyAdjustFrequency)
+    public synchronized TaskHandle addTask(
+            TaskId taskId,
+            DoubleSupplier utilizationSupplier,
+            int initialSplitConcurrency,
+            Duration splitConcurrencyAdjustFrequency,
+            OptionalInt maxDriversPerTask)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(utilizationSupplier, "utilizationSupplier is null");
+        checkArgument(!maxDriversPerTask.isPresent() || maxDriversPerTask.getAsInt() <= maximumNumberOfDriversPerTask,
+                "maxDriversPerTask cannot be greater than the configured value");
 
         log.debug("Task scheduled " + taskId);
 
-        TaskHandle taskHandle;
-
-        if (legacySchedulingBehavior) {
-            taskHandle = new LegacyTaskHandle(taskId, waitingSplits, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency);
-        }
-        else {
-            taskHandle = new TaskHandle(taskId, waitingSplits, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency);
-        }
+        TaskHandle taskHandle = new TaskHandle(taskId, waitingSplits, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency, maxDriversPerTask);
 
         tasks.add(taskHandle);
         return taskHandle;
@@ -291,27 +310,14 @@ public class TaskExecutor
         List<ListenableFuture<?>> finishedFutures = new ArrayList<>(taskSplits.size());
         synchronized (this) {
             for (SplitRunner taskSplit : taskSplits) {
-                PrioritizedSplitRunner prioritizedSplitRunner;
-                if (legacySchedulingBehavior) {
-                    prioritizedSplitRunner = new LegacyPrioritizedSplitRunner(
-                            taskHandle,
-                            taskSplit,
-                            ticker,
-                            globalCpuTimeMicros,
-                            globalScheduledTimeMicros,
-                            blockedQuantaWallTime,
-                            unblockedQuantaWallTime);
-                }
-                else {
-                    prioritizedSplitRunner = new PrioritizedSplitRunner(
-                            taskHandle,
-                            taskSplit,
-                            ticker,
-                            globalCpuTimeMicros,
-                            globalScheduledTimeMicros,
-                            blockedQuantaWallTime,
-                            unblockedQuantaWallTime);
-                }
+                PrioritizedSplitRunner prioritizedSplitRunner = new PrioritizedSplitRunner(
+                        taskHandle,
+                        taskSplit,
+                        ticker,
+                        globalCpuTimeMicros,
+                        globalScheduledTimeMicros,
+                        blockedQuantaWallTime,
+                        unblockedQuantaWallTime);
 
                 if (taskHandle.isDestroyed()) {
                     // If the handle is destroyed, we destroy the task splits to complete the future
@@ -380,7 +386,7 @@ public class TaskExecutor
         // immediately schedule a new split for this task.  This assures
         // that a task gets its fair amount of consideration (you have to
         // have splits to be considered for running on a thread).
-        if (taskHandle.getRunningLeafSplits() < GUARANTEED_SPLITS_PER_TASK) {
+        if (taskHandle.getRunningLeafSplits() < min(guaranteedNumberOfDriversPerTask, taskHandle.getMaxDriversPerTask().orElse(Integer.MAX_VALUE))) {
             PrioritizedSplitRunner split = taskHandle.pollNextSplit();
             if (split != null) {
                 startSplit(split);
@@ -428,6 +434,10 @@ public class TaskExecutor
         // end of the task list, so we get round robin
         for (Iterator<TaskHandle> iterator = tasks.iterator(); iterator.hasNext(); ) {
             TaskHandle task = iterator.next();
+            // skip tasks that are already running the configured max number of drivers
+            if (task.getRunningLeafSplits() >= task.getMaxDriversPerTask().orElse(maximumNumberOfDriversPerTask)) {
+                continue;
+            }
             PrioritizedSplitRunner split = task.pollNextSplit();
             if (split != null) {
                 // move task to end of list
@@ -440,25 +450,6 @@ public class TaskExecutor
             }
         }
         return null;
-    }
-
-    private void monitorActiveSplits()
-    {
-        for (RunningSplitInfo splitInfo : runningSplitInfos) {
-            Duration duration = Duration.succinctNanos(ticker.read() - splitInfo.getStartTime());
-            if (duration.compareTo(LONG_SPLIT_WARNING_THRESHOLD) < 0) {
-                return;
-            }
-            if (splitInfo.isPrinted()) {
-                continue;
-            }
-            splitInfo.setPrinted();
-
-            String currentMaxActiveSplit = splitInfo.getThreadId();
-            Exception exception = new Exception("Long running split");
-            exception.setStackTrace(splitInfo.getThread().getStackTrace());
-            log.warn(exception, "Split thread %s has been running longer than %s", currentMaxActiveSplit, duration);
-        }
     }
 
     private class TaskRunner
@@ -790,14 +781,52 @@ public class TaskExecutor
         return count;
     }
 
-    @Managed
-    public long getMaxActiveSplitTime()
+    public String getMaxActiveSplitsInfo()
     {
-        Iterator<RunningSplitInfo> iterator = runningSplitInfos.iterator();
-        if (iterator.hasNext()) {
-            return NANOSECONDS.toMillis(ticker.read() - iterator.next().getStartTime());
+        // Sample output:
+        //
+        // 2 splits have been continuously active for more than 600.00ms seconds
+        //
+        // "20180907_054754_00000_88xi4.1.0-2" tid=99
+        // at java.util.Formatter$FormatSpecifier.<init>(Formatter.java:2708)
+        // at java.util.Formatter.parse(Formatter.java:2560)
+        // at java.util.Formatter.format(Formatter.java:2501)
+        // at ... (more lines of stacktrace)
+        //
+        // "20180907_054754_00000_88xi4.1.0-3" tid=106
+        // at java.util.Formatter$FormatSpecifier.<init>(Formatter.java:2709)
+        // at java.util.Formatter.parse(Formatter.java:2560)
+        // at java.util.Formatter.format(Formatter.java:2501)
+        // at ... (more line of stacktrace)
+        StringBuilder stackTrace = new StringBuilder();
+        int maxActiveSplitCount = 0;
+        String message = "%s splits have been continuously active for more than %s seconds\n";
+        for (RunningSplitInfo splitInfo : runningSplitInfos) {
+            Duration duration = Duration.succinctNanos(ticker.read() - splitInfo.getStartTime());
+            if (duration.compareTo(LONG_SPLIT_WARNING_THRESHOLD) >= 0) {
+                maxActiveSplitCount++;
+                stackTrace.append("\n");
+                stackTrace.append(String.format("\"%s\" tid=%s", splitInfo.getThreadId(), splitInfo.getThread().getId())).append("\n");
+                for (StackTraceElement traceElement : splitInfo.getThread().getStackTrace()) {
+                    stackTrace.append("\tat ").append(traceElement).append("\n");
+                }
+            }
         }
-        return 0;
+
+        return String.format(message, maxActiveSplitCount, LONG_SPLIT_WARNING_THRESHOLD).concat(stackTrace.toString());
+    }
+
+    @Managed
+    public long getRunAwaySplitCount()
+    {
+        int count = 0;
+        for (RunningSplitInfo splitInfo : runningSplitInfos) {
+            Duration duration = Duration.succinctNanos(ticker.read() - splitInfo.getStartTime());
+            if (duration.compareTo(LONG_SPLIT_WARNING_THRESHOLD) > 0) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private static class RunningSplitInfo

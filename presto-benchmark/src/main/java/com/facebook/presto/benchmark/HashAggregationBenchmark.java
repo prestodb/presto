@@ -49,12 +49,12 @@ public class HashAggregationBenchmark
     @Override
     protected List<? extends OperatorFactory> createOperatorFactories()
     {
+        List<Type> tableTypes = getColumnTypes("orders", "orderstatus", "totalprice");
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "orderstatus", "totalprice");
-        List<Type> types = ImmutableList.of(tableScanOperator.getTypes().get(0));
         HashAggregationOperatorFactory aggregationOperator = new HashAggregationOperatorFactory(
                 1,
                 new PlanNodeId("test"),
-                types,
+                ImmutableList.of(tableTypes.get(0)),
                 Ints.asList(0),
                 ImmutableList.of(),
                 Step.SINGLE,
@@ -62,8 +62,9 @@ public class HashAggregationBenchmark
                 Optional.empty(),
                 Optional.empty(),
                 100_000,
-                new DataSize(16, MEGABYTE),
-                JOIN_COMPILER);
+                Optional.of(new DataSize(16, MEGABYTE)),
+                JOIN_COMPILER,
+                false);
         return ImmutableList.of(tableScanOperator, aggregationOperator);
     }
 

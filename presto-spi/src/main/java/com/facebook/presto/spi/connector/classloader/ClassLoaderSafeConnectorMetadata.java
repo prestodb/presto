@@ -14,7 +14,6 @@
 package com.facebook.presto.spi.connector.classloader;
 
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnIdentity;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
@@ -30,14 +29,17 @@ import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.TableIdentity;
+import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -82,6 +84,22 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public Optional<ConnectorPartitioningHandle> getCommonPartitioningHandle(ConnectorSession session, ConnectorPartitioningHandle left, ConnectorPartitioningHandle right)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getCommonPartitioningHandle(session, left, right);
+        }
+    }
+
+    @Override
+    public ConnectorTableLayoutHandle getAlternativeLayoutHandle(ConnectorSession session, ConnectorTableLayoutHandle tableLayoutHandle, ConnectorPartitioningHandle partitioningHandle)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getAlternativeLayoutHandle(session, tableLayoutHandle, partitioningHandle);
+        }
+    }
+
+    @Override
     public Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -94,6 +112,14 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getInsertLayout(session, tableHandle);
+        }
+    }
+
+    @Override
+    public TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getStatisticsCollectionMetadata(session, tableMetadata);
         }
     }
 
@@ -122,6 +148,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getSystemTable(session, tableName);
+        }
+    }
+
+    @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -134,6 +168,14 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getInfo(table);
+        }
+    }
+
+    @Override
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.listTables(session, schemaName);
         }
     }
 
@@ -258,10 +300,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.finishCreateTable(session, tableHandle, fragments);
+            return delegate.finishCreateTable(session, tableHandle, fragments, computedStatistics);
         }
     }
 
@@ -290,10 +332,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.finishInsert(session, insertHandle, fragments);
+            return delegate.finishInsert(session, insertHandle, fragments, computedStatistics);
         }
     }
 
@@ -310,6 +352,14 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             delegate.dropView(session, viewName);
+        }
+    }
+
+    @Override
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.listViews(session, schemaName);
         }
     }
 
@@ -398,37 +448,6 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.listTablePrivileges(session, prefix);
-        }
-    }
-
-    public TableIdentity getTableIdentity(ConnectorTableHandle connectorTableHandle)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getTableIdentity(connectorTableHandle);
-        }
-    }
-
-    @Override
-    public TableIdentity deserializeTableIdentity(byte[] bytes)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.deserializeTableIdentity(bytes);
-        }
-    }
-
-    @Override
-    public ColumnIdentity getColumnIdentity(ColumnHandle columnHandle)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getColumnIdentity(columnHandle);
-        }
-    }
-
-    @Override
-    public ColumnIdentity deserializeColumnIdentity(byte[] bytes)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.deserializeColumnIdentity(bytes);
         }
     }
 }

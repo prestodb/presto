@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.StripeFooter;
@@ -21,10 +22,8 @@ import com.facebook.presto.orc.stream.OrcInputStream;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
@@ -53,67 +52,70 @@ public class TestOrcWriter
     public void testWriteOutputStreamsInOrder()
             throws IOException
     {
-        TempFile tempFile = new TempFile();
-        OrcWriter writer = new OrcWriter(
-                new OutputStreamSliceOutput(new FileOutputStream(tempFile.getFile())),
-                ImmutableList.of("test1", "test2", "test3", "test4", "test5"),
-                ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR),
-                ORC,
-                NONE,
-                new OrcWriterOptions()
-                        .withStripeMaxSize(new DataSize(32, MEGABYTE))
-                        .withStripeMaxRowCount(ORC_STRIPE_SIZE)
-                        .withStripeMinRowCount(ORC_STRIPE_SIZE)
-                        .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
-                        .withDictionaryMaxMemory(new DataSize(32, MEGABYTE)),
-                ImmutableMap.of(),
-                HIVE_STORAGE_TIME_ZONE,
-                true,
-                new OrcWriterStats());
+        for (OrcWriteValidationMode validationMode : OrcWriteValidationMode.values()) {
+            TempFile tempFile = new TempFile();
+            OrcWriter writer = new OrcWriter(
+                    new OutputStreamOrcDataSink(new FileOutputStream(tempFile.getFile())),
+                    ImmutableList.of("test1", "test2", "test3", "test4", "test5"),
+                    ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR),
+                    ORC,
+                    NONE,
+                    new OrcWriterOptions()
+                            .withStripeMinSize(new DataSize(0, MEGABYTE))
+                            .withStripeMaxSize(new DataSize(32, MEGABYTE))
+                            .withStripeMaxRowCount(ORC_STRIPE_SIZE)
+                            .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
+                            .withDictionaryMaxMemory(new DataSize(32, MEGABYTE)),
+                    ImmutableMap.of(),
+                    HIVE_STORAGE_TIME_ZONE,
+                    true,
+                    validationMode,
+                    new OrcWriterStats());
 
-        // write down some data with unsorted streams
-        String[] data = new String[]{"a", "bbbbb", "ccc", "dd", "eeee"};
-        Block[] blocks = new Block[data.length];
-        int entries = 65536;
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), entries);
-        for (int i = 0; i < data.length; i++) {
-            byte[] bytes = data[i].getBytes();
-            for (int j = 0; j < entries; j++) {
-                // force to write different data
-                bytes[0] = (byte) ((bytes[0] + 1) % 128);
-                blockBuilder.writeBytes(Slices.wrappedBuffer(bytes, 0, bytes.length), 0, bytes.length);
-                blockBuilder.closeEntry();
+            // write down some data with unsorted streams
+            String[] data = new String[] {"a", "bbbbb", "ccc", "dd", "eeee"};
+            Block[] blocks = new Block[data.length];
+            int entries = 65536;
+            BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, entries);
+            for (int i = 0; i < data.length; i++) {
+                byte[] bytes = data[i].getBytes();
+                for (int j = 0; j < entries; j++) {
+                    // force to write different data
+                    bytes[0] = (byte) ((bytes[0] + 1) % 128);
+                    blockBuilder.writeBytes(Slices.wrappedBuffer(bytes, 0, bytes.length), 0, bytes.length);
+                    blockBuilder.closeEntry();
+                }
+                blocks[i] = blockBuilder.build();
+                blockBuilder = blockBuilder.newBlockBuilderLike(null);
             }
-            blocks[i] = blockBuilder.build();
-            blockBuilder = blockBuilder.newBlockBuilderLike(new BlockBuilderStatus());
-        }
 
-        writer.write(new Page(blocks));
-        writer.close();
+            writer.write(new Page(blocks));
+            writer.close();
 
-        // read the footer and verify the streams are ordered by size
-        DataSize dataSize = new DataSize(1, MEGABYTE);
-        OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), dataSize, dataSize, dataSize, true);
-        Footer footer = new OrcReader(orcDataSource, ORC, dataSize, dataSize, dataSize).getFooter();
+            // read the footer and verify the streams are ordered by size
+            DataSize dataSize = new DataSize(1, MEGABYTE);
+            OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), dataSize, dataSize, dataSize, true);
+            Footer footer = new OrcReader(orcDataSource, ORC, dataSize, dataSize, dataSize, dataSize).getFooter();
 
-        for (StripeInformation stripe : footer.getStripes()) {
-            // read the footer
-            byte[] tailBuffer = new byte[toIntExact(stripe.getFooterLength())];
-            orcDataSource.readFully(stripe.getOffset() + stripe.getIndexLength() + stripe.getDataLength(), tailBuffer);
-            try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), Slices.wrappedBuffer(tailBuffer).getInput(), Optional.empty(), newSimpleAggregatedMemoryContext())) {
-                StripeFooter stripeFooter = ORC.createMetadataReader().readStripeFooter(footer.getTypes(), inputStream);
+            for (StripeInformation stripe : footer.getStripes()) {
+                // read the footer
+                byte[] tailBuffer = new byte[toIntExact(stripe.getFooterLength())];
+                orcDataSource.readFully(stripe.getOffset() + stripe.getIndexLength() + stripe.getDataLength(), tailBuffer);
+                try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), Slices.wrappedBuffer(tailBuffer).getInput(), Optional.empty(), newSimpleAggregatedMemoryContext(), tailBuffer.length)) {
+                    StripeFooter stripeFooter = ORC.createMetadataReader().readStripeFooter(footer.getTypes(), inputStream);
 
-                int size = 0;
-                boolean dataStreamStarted = false;
-                for (Stream stream : stripeFooter.getStreams()) {
-                    if (isIndexStream(stream)) {
-                        assertFalse(dataStreamStarted);
-                        continue;
+                    int size = 0;
+                    boolean dataStreamStarted = false;
+                    for (Stream stream : stripeFooter.getStreams()) {
+                        if (isIndexStream(stream)) {
+                            assertFalse(dataStreamStarted);
+                            continue;
+                        }
+                        dataStreamStarted = true;
+                        // verify sizes in order
+                        assertGreaterThanOrEqual(stream.getLength(), size);
+                        size = stream.getLength();
                     }
-                    dataStreamStarted = true;
-                    // verify sizes in order
-                    assertGreaterThanOrEqual(stream.getLength(), size);
-                    size = stream.getLength();
                 }
             }
         }

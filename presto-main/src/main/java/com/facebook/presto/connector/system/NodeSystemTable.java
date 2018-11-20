@@ -30,6 +30,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
+import java.util.Locale;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
@@ -88,7 +89,7 @@ public class NodeSystemTable
     private void addRows(Builder table, Set<Node> nodes, NodeState state)
     {
         for (Node node : nodes) {
-            table.addRow(node.getNodeIdentifier(), node.getHttpUri().toString(), getNodeVersion(node), isCoordinator(node), state.toString().toLowerCase());
+            table.addRow(node.getNodeIdentifier(), node.getHttpUri().toString(), getNodeVersion(node), isCoordinator(node), state.toString().toLowerCase(Locale.ENGLISH));
         }
     }
 

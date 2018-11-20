@@ -42,6 +42,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -52,7 +53,6 @@ import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.Joiner;
@@ -301,7 +301,7 @@ public final class GraphvizPrinter
         @Override
         public Void visitRemoteSource(RemoteSourceNode node, Void context)
         {
-            printNode(node, "Exchange 1:N", NODE_COLORS.get(NodeType.EXCHANGE));
+            printNode(node, (node.getOrderingScheme().isPresent() ? "Merge" : "Exchange") + " 1:N", NODE_COLORS.get(NodeType.EXCHANGE));
             return null;
         }
 
@@ -344,7 +344,7 @@ public final class GraphvizPrinter
             // grouping sets are easier to understand in terms of inputs
             List<String> inputGroupingSetSymbols = node.getGroupingSets().stream()
                     .map(set -> "(" + Joiner.on(", ").join(set.stream()
-                            .map(symbol -> node.getGroupingSetMappings().get(symbol))
+                            .map(symbol -> node.getGroupingColumns().get(symbol))
                             .collect(Collectors.toList())) + ")")
                     .collect(Collectors.toList());
 
@@ -380,7 +380,7 @@ public final class GraphvizPrinter
         @Override
         public Void visitUnnest(UnnestNode node, Void context)
         {
-            if (node.getOrdinalitySymbol() == null) {
+            if (!node.getOrdinalitySymbol().isPresent()) {
                 printNode(node, format("Unnest[%s]", node.getUnnestSymbols().keySet()), NODE_COLORS.get(NodeType.UNNEST));
             }
             else {
@@ -422,7 +422,7 @@ public final class GraphvizPrinter
         @Override
         public Void visitTableScan(TableScanNode node, Void context)
         {
-            printNode(node, format("TableScan[%s]", node.getTable()), format("original constraint=%s", node.getOriginalConstraint()), NODE_COLORS.get(NodeType.TABLESCAN));
+            printNode(node, format("TableScan[%s]", node.getTable()), NODE_COLORS.get(NodeType.TABLESCAN));
             return null;
         }
 
@@ -464,6 +464,17 @@ public final class GraphvizPrinter
 
             node.getSource().accept(this, context);
             node.getFilteringSource().accept(this, context);
+
+            return null;
+        }
+
+        @Override
+        public Void visitSpatialJoin(SpatialJoinNode node, Void context)
+        {
+            printNode(node, node.getType().getJoinLabel(), node.getFilter().toString(), NODE_COLORS.get(NodeType.JOIN));
+
+            node.getLeft().accept(this, context);
+            node.getRight().accept(this, context);
 
             return null;
         }
@@ -513,7 +524,7 @@ public final class GraphvizPrinter
         {
             List<Expression> joinExpressions = new ArrayList<>();
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
-                joinExpressions.add(new ComparisonExpression(ComparisonExpressionType.EQUAL,
+                joinExpressions.add(new ComparisonExpression(ComparisonExpression.Operator.EQUAL,
                         clause.getProbe().toSymbolReference(),
                         clause.getIndex().toSymbolReference()));
             }

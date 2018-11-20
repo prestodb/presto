@@ -25,6 +25,8 @@ import org.joda.time.DateTimeZone;
 
 import java.util.List;
 
+import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
+import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMappingKind.REGULAR;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.charPartitionKey;
@@ -98,7 +100,7 @@ public class HiveRecordCursor
         for (int columnIndex = 0; columnIndex < size; columnIndex++) {
             ColumnMapping columnMapping = columnMappings.get(columnIndex);
 
-            if (columnMapping.isPrefilled()) {
+            if (columnMapping.getKind() == PREFILLED) {
                 String columnValue = columnMapping.getPrefilledValue();
                 byte[] bytes = columnValue.getBytes(UTF_8);
 
@@ -177,7 +179,7 @@ public class HiveRecordCursor
     public boolean getBoolean(int field)
     {
         ColumnMapping columnMapping = columnMappings.get(field);
-        if (!columnMapping.isPrefilled()) {
+        if (columnMapping.getKind() == REGULAR) {
             return delegate.getBoolean(columnMapping.getIndex());
         }
         return booleans[field];
@@ -187,7 +189,7 @@ public class HiveRecordCursor
     public long getLong(int field)
     {
         ColumnMapping columnMapping = columnMappings.get(field);
-        if (!columnMapping.isPrefilled()) {
+        if (columnMapping.getKind() == REGULAR) {
             return delegate.getLong(columnMapping.getIndex());
         }
         return longs[field];
@@ -197,7 +199,7 @@ public class HiveRecordCursor
     public double getDouble(int field)
     {
         ColumnMapping columnMapping = columnMappings.get(field);
-        if (!columnMapping.isPrefilled()) {
+        if (columnMapping.getKind() == REGULAR) {
             return delegate.getDouble(columnMapping.getIndex());
         }
         return doubles[field];
@@ -207,7 +209,7 @@ public class HiveRecordCursor
     public Slice getSlice(int field)
     {
         ColumnMapping columnMapping = columnMappings.get(field);
-        if (!columnMapping.isPrefilled()) {
+        if (columnMapping.getKind() == REGULAR) {
             return delegate.getSlice(columnMapping.getIndex());
         }
         return slices[field];
@@ -217,7 +219,7 @@ public class HiveRecordCursor
     public Object getObject(int field)
     {
         ColumnMapping columnMapping = columnMappings.get(field);
-        if (!columnMapping.isPrefilled()) {
+        if (columnMapping.getKind() == REGULAR) {
             return delegate.getObject(columnMapping.getIndex());
         }
         return objects[field];
@@ -227,7 +229,7 @@ public class HiveRecordCursor
     public boolean isNull(int field)
     {
         ColumnMapping columnMapping = columnMappings.get(field);
-        if (!columnMapping.isPrefilled()) {
+        if (columnMapping.getKind() == REGULAR) {
             return delegate.isNull(columnMapping.getIndex());
         }
         return nulls[field];

@@ -14,12 +14,17 @@
 package com.facebook.presto.server;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigSecuritySensitive;
 
 public class InternalCommunicationConfig
 {
+    public static final String INTERNAL_COMMUNICATION_KERBEROS_ENABLED = "internal-communication.kerberos.enabled";
+
     private boolean httpsRequired;
     private String keyStorePath;
     private String keyStorePassword;
+    private boolean kerberosEnabled;
+    private boolean kerberosUseCanonicalHostname = true;
 
     public boolean isHttpsRequired()
     {
@@ -51,9 +56,34 @@ public class InternalCommunicationConfig
     }
 
     @Config("internal-communication.https.keystore.key")
+    @ConfigSecuritySensitive
     public InternalCommunicationConfig setKeyStorePassword(String keyStorePassword)
     {
         this.keyStorePassword = keyStorePassword;
+        return this;
+    }
+
+    public boolean isKerberosEnabled()
+    {
+        return kerberosEnabled;
+    }
+
+    @Config(INTERNAL_COMMUNICATION_KERBEROS_ENABLED)
+    public InternalCommunicationConfig setKerberosEnabled(boolean kerberosEnabled)
+    {
+        this.kerberosEnabled = kerberosEnabled;
+        return this;
+    }
+
+    public boolean isKerberosUseCanonicalHostname()
+    {
+        return kerberosUseCanonicalHostname;
+    }
+
+    @Config("internal-communication.kerberos.use-canonical-hostname")
+    public InternalCommunicationConfig setKerberosUseCanonicalHostname(boolean kerberosUseCanonicalHostname)
+    {
+        this.kerberosUseCanonicalHostname = kerberosUseCanonicalHostname;
         return this;
     }
 }

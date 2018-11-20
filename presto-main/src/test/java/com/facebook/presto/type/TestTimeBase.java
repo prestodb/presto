@@ -13,16 +13,19 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.spi.type.SqlTime;
+import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
-import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.sql.analyzer.SemanticErrorCode;
+import com.facebook.presto.testing.TestingSession;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -30,6 +33,8 @@ import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimeOf;
+import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
@@ -37,7 +42,7 @@ import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 public abstract class TestTimeBase
         extends AbstractTestFunctions
 {
-    protected static final TimeZoneKey TIME_ZONE_KEY = getTimeZoneKey("Europe/Berlin");
+    protected static final TimeZoneKey TIME_ZONE_KEY = TestingSession.DEFAULT_TIME_ZONE_KEY;
     protected static final DateTimeZone DATE_TIME_ZONE = getDateTimeZone(TIME_ZONE_KEY);
 
     public TestTimeBase(boolean legacyTimestamp)
@@ -51,13 +56,14 @@ public abstract class TestTimeBase
     @Test
     public void testLiteral()
     {
-        assertFunction("TIME '03:04:05.321'", TIME, new SqlTime(new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
-        assertFunction("TIME '03:04:05'", TIME, new SqlTime(new DateTime(1970, 1, 1, 3, 4, 5, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
-        assertFunction("TIME '03:04'", TIME, new SqlTime(new DateTime(1970, 1, 1, 3, 4, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+        assertFunction("TIME '03:04:05.321'", TIME, sqlTimeOf(3, 4, 5, 321, session));
+        assertFunction("TIME '03:04:05'", TIME, sqlTimeOf(3, 4, 5, 0, session));
+        assertFunction("TIME '03:04'", TIME, sqlTimeOf(3, 4, 0, 0, session));
+        assertInvalidFunction("TIME 'text'", SemanticErrorCode.INVALID_LITERAL, "line 1:1: 'text' is not a valid time literal");
     }
 
     @Test
-    public void testSubstract()
+    public void testSubtract()
     {
         functionAssertions.assertFunctionString("TIME '14:15:16.432' - TIME '03:04:05.321'", INTERVAL_DAY_TIME, "0 11:11:11.111");
 
@@ -138,11 +144,41 @@ public abstract class TestTimeBase
     }
 
     @Test
+    public void testCastToTimeWithTimeZoneWithTZWithRulesChanged()
+    {
+        TimeZoneKey timeZoneThatChangedSince1970 = getTimeZoneKey("Asia/Kathmandu");
+        DateTimeZone dateTimeZoneThatChangedSince1970 = getDateTimeZone(timeZoneThatChangedSince1970);
+        Session session = Session.builder(this.session)
+                .setTimeZoneKey(timeZoneThatChangedSince1970)
+                .build();
+        try (FunctionAssertions localAssertions = new FunctionAssertions(session)) {
+            localAssertions.assertFunction(
+                    "cast(TIME '03:04:05.321' as time with time zone)",
+                    TIME_WITH_TIME_ZONE,
+                    new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, dateTimeZoneThatChangedSince1970).getMillis(), dateTimeZoneThatChangedSince1970.toTimeZone()));
+        }
+    }
+
+    @Test
+    public void testCastToTimeWithTimeZoneDSTIsNotAppliedWhenTimeCrossesDST()
+    {
+        // Australia/Sydney will switch DST a second after session start
+        // For simplicity we have to use time zone that is going forward when entering DST zone with 1970-01-01
+        Session session = Session.builder(this.session)
+                .setTimeZoneKey(getTimeZoneKey("Australia/Sydney"))
+                .setStartTime(new DateTime(2017, 10, 1, 1, 59, 59, 999, getDateTimeZone(getTimeZoneKey("Australia/Sydney"))).getMillis())
+                .build();
+        try (FunctionAssertions localAssertions = new FunctionAssertions(session)) {
+            localAssertions.assertFunctionString("cast(TIME '12:00:00.000' as time with time zone)", TIME_WITH_TIME_ZONE, "12:00:00.000 Australia/Sydney");
+        }
+    }
+
+    @Test
     public void testCastToTimestamp()
     {
         assertFunction("cast(TIME '03:04:05.321' as timestamp)",
                 TIMESTAMP,
-                new SqlTimestamp(new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+                sqlTimestampOf(1970, 1, 1, 3, 4, 5, 321, session));
     }
 
     @Test
@@ -167,5 +203,12 @@ public abstract class TestTimeBase
         assertFunction("cast('03:04:05.321' as time) = TIME '03:04:05.321'", BOOLEAN, true);
         assertFunction("cast('03:04:05' as time) = TIME '03:04:05.000'", BOOLEAN, true);
         assertFunction("cast('03:04' as time) = TIME '03:04:00.000'", BOOLEAN, true);
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as TIME)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "TIME '00:00:00'", BOOLEAN, false);
     }
 }

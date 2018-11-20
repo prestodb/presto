@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
 import static java.lang.Double.NEGATIVE_INFINITY;
@@ -23,6 +24,8 @@ import static org.testng.Assert.assertThrows;
 public class TestDoubleStatistics
         extends AbstractRangeStatisticsTest<DoubleStatistics, Double>
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DoubleStatistics.class).instanceSize();
+
     @Override
     protected DoubleStatistics getCreateStatistics(Double min, Double max)
     {
@@ -46,5 +49,15 @@ public class TestDoubleStatistics
         assertThrows(() -> new DoubleStatistics(0.0, NaN));
         assertThrows(() -> new DoubleStatistics(NaN, 0.0));
         assertThrows(() -> new DoubleStatistics(NaN, NaN));
+    }
+
+    @Test
+    public void testRetainedSize()
+    {
+        assertRetainedSize(0.0, 42.0, INSTANCE_SIZE);
+        assertRetainedSize(42.0, 42.0, INSTANCE_SIZE);
+        assertRetainedSize(NEGATIVE_INFINITY, 42.0, INSTANCE_SIZE);
+        assertRetainedSize(42.0, POSITIVE_INFINITY, INSTANCE_SIZE);
+        assertRetainedSize(NEGATIVE_INFINITY, POSITIVE_INFINITY, INSTANCE_SIZE);
     }
 }

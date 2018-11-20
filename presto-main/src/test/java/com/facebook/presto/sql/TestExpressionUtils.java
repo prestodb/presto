@@ -24,10 +24,12 @@ import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.facebook.presto.sql.ExpressionUtils.normalize;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.IS_DISTINCT_FROM;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.NOT_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
 import static org.testng.Assert.assertEquals;
 
 public class TestExpressionUtils
@@ -55,7 +57,7 @@ public class TestExpressionUtils
     {
         assertNormalize(new ComparisonExpression(EQUAL, name("a"), new LongLiteral("1")));
         assertNormalize(new IsNullPredicate(name("a")));
-        assertNormalize(new NotExpression(new LikePredicate(name("a"), new StringLiteral("x%"), null)));
+        assertNormalize(new NotExpression(new LikePredicate(name("a"), new StringLiteral("x%"), Optional.empty())));
         assertNormalize(
                 new NotExpression(new ComparisonExpression(EQUAL, name("a"), new LongLiteral("1"))),
                 new ComparisonExpression(NOT_EQUAL, name("a"), new LongLiteral("1")));
@@ -83,6 +85,6 @@ public class TestExpressionUtils
 
     private LogicalBinaryExpression and(Expression left, Expression right)
     {
-        return new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND, left, right);
+        return new LogicalBinaryExpression(LogicalBinaryExpression.Operator.AND, left, right);
     }
 }

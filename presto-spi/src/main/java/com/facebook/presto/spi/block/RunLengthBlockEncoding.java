@@ -13,24 +13,13 @@
  */
 package com.facebook.presto.spi.block;
 
-import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
-
-import static java.util.Objects.requireNonNull;
 
 public class RunLengthBlockEncoding
         implements BlockEncoding
 {
-    public static final BlockEncodingFactory<RunLengthBlockEncoding> FACTORY = new RunLengthBlockEncodingFactory();
-    private static final String NAME = "RLE";
-
-    private final BlockEncoding valueBlockEncoding;
-
-    public RunLengthBlockEncoding(BlockEncoding valueBlockEncoding)
-    {
-        this.valueBlockEncoding = requireNonNull(valueBlockEncoding, "valueBlockEncoding is null");
-    }
+    public static final String NAME = "RLE";
 
     @Override
     public String getName()
@@ -38,13 +27,8 @@ public class RunLengthBlockEncoding
         return NAME;
     }
 
-    public BlockEncoding getValueBlockEncoding()
-    {
-        return valueBlockEncoding;
-    }
-
     @Override
-    public void writeBlock(SliceOutput sliceOutput, Block block)
+    public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         RunLengthEncodedBlock rleBlock = (RunLengthEncodedBlock) block;
 
@@ -52,47 +36,18 @@ public class RunLengthBlockEncoding
         sliceOutput.writeInt(rleBlock.getPositionCount());
 
         // write the value
-        getValueBlockEncoding().writeBlock(sliceOutput, rleBlock.getValue());
+        blockEncodingSerde.writeBlock(sliceOutput, rleBlock.getValue());
     }
 
     @Override
-    public RunLengthEncodedBlock readBlock(SliceInput sliceInput)
+    public RunLengthEncodedBlock readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
         // read the run length
         int positionCount = sliceInput.readInt();
 
         // read the value
-        Block value = getValueBlockEncoding().readBlock(sliceInput);
+        Block value = blockEncodingSerde.readBlock(sliceInput);
 
         return new RunLengthEncodedBlock(value, positionCount);
-    }
-
-    @Override
-    public BlockEncodingFactory getFactory()
-    {
-        return FACTORY;
-    }
-
-    private static class RunLengthBlockEncodingFactory
-            implements BlockEncodingFactory<RunLengthBlockEncoding>
-    {
-        @Override
-        public String getName()
-        {
-            return NAME;
-        }
-
-        @Override
-        public RunLengthBlockEncoding readEncoding(TypeManager manager, BlockEncodingSerde serde, SliceInput input)
-        {
-            BlockEncoding valueBlockEncoding = serde.readBlockEncoding(input);
-            return new RunLengthBlockEncoding(valueBlockEncoding);
-        }
-
-        @Override
-        public void writeEncoding(BlockEncodingSerde serde, SliceOutput output, RunLengthBlockEncoding blockEncoding)
-        {
-            serde.writeBlockEncoding(output, blockEncoding.getValueBlockEncoding());
-        }
     }
 }

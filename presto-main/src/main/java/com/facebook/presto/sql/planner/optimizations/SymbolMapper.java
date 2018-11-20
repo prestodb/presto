@@ -15,12 +15,17 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.sql.planner.OrderingScheme;
+import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.plan.StatisticAggregations;
+import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
+import com.facebook.presto.sql.planner.plan.TableFinishNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
@@ -33,9 +38,12 @@ import com.google.common.collect.ImmutableMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.plan.AggregationNode.groupingSets;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class SymbolMapper
@@ -82,28 +90,30 @@ public class SymbolMapper
     private AggregationNode map(AggregationNode node, PlanNode source, PlanNodeId newNodeId)
     {
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
-            Symbol symbol = entry.getKey();
-            Aggregation aggregation = entry.getValue();
-
-            aggregations.put(map(symbol), new Aggregation(
-                    (FunctionCall) map(aggregation.getCall()),
-                    aggregation.getSignature(),
-                    aggregation.getMask().map(this::map)));
+        for (Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
+            aggregations.put(map(entry.getKey()), map(entry.getValue()));
         }
-
-        List<List<Symbol>> groupingSets = node.getGroupingSets().stream()
-                .map(this::mapAndDistinct)
-                .collect(toImmutableList());
 
         return new AggregationNode(
                 newNodeId,
                 source,
                 aggregations.build(),
-                groupingSets,
+                groupingSets(
+                        mapAndDistinct(node.getGroupingKeys()),
+                        node.getGroupingSetCount(),
+                        node.getGlobalGroupingSets()),
+                ImmutableList.of(),
                 node.getStep(),
                 node.getHashSymbol().map(this::map),
                 node.getGroupIdSymbol().map(this::map));
+    }
+
+    private Aggregation map(Aggregation aggregation)
+    {
+        return new Aggregation(
+                (FunctionCall) map(aggregation.getCall()),
+                aggregation.getSignature(),
+                aggregation.getMask().map(this::map));
     }
 
     public TopNNode map(TopNNode node, PlanNode source, PlanNodeId newNodeId)
@@ -128,6 +138,71 @@ public class SymbolMapper
                 node.getStep());
     }
 
+    public TableWriterNode map(TableWriterNode node, PlanNode source)
+    {
+        return map(node, source, node.getId());
+    }
+
+    public TableWriterNode map(TableWriterNode node, PlanNode source, PlanNodeId newNodeId)
+    {
+        // Intentionally does not use canonicalizeAndDistinct as that would remove columns
+        ImmutableList<Symbol> columns = node.getColumns().stream()
+                .map(this::map)
+                .collect(toImmutableList());
+
+        return new TableWriterNode(
+                newNodeId,
+                source,
+                node.getTarget(),
+                map(node.getRowCountSymbol()),
+                map(node.getFragmentSymbol()),
+                columns,
+                node.getColumnNames(),
+                node.getPartitioningScheme().map(partitioningScheme -> canonicalize(partitioningScheme, source)),
+                node.getStatisticsAggregation().map(this::map),
+                node.getStatisticsAggregationDescriptor().map(this::map));
+    }
+
+    public TableFinishNode map(TableFinishNode node, PlanNode source)
+    {
+        return new TableFinishNode(
+                node.getId(),
+                source,
+                node.getTarget(),
+                map(node.getRowCountSymbol()),
+                node.getStatisticsAggregation().map(this::map),
+                node.getStatisticsAggregationDescriptor().map(descriptor -> descriptor.map(this::map)));
+    }
+
+    private PartitioningScheme canonicalize(PartitioningScheme scheme, PlanNode source)
+    {
+        return new PartitioningScheme(
+                scheme.getPartitioning().translate(this::map),
+                mapAndDistinct(source.getOutputSymbols()),
+                scheme.getHashColumn().map(this::map),
+                scheme.isReplicateNullsAndAny(),
+                scheme.getBucketToPartition());
+    }
+
+    private StatisticAggregations map(StatisticAggregations statisticAggregations)
+    {
+        Map<Symbol, Aggregation> aggregations = statisticAggregations.getAggregations().entrySet().stream()
+                .collect(toImmutableMap(entry -> map(entry.getKey()), entry -> map(entry.getValue())));
+        return new StatisticAggregations(aggregations, mapAndDistinct(statisticAggregations.getGroupingSymbols()));
+    }
+
+    private StatisticAggregationsDescriptor<Symbol> map(StatisticAggregationsDescriptor<Symbol> descriptor)
+    {
+        return descriptor.map(this::map);
+    }
+
+    private List<Symbol> map(List<Symbol> outputs)
+    {
+        return outputs.stream()
+                .map(this::map)
+                .collect(toImmutableList());
+    }
+
     private List<Symbol> mapAndDistinct(List<Symbol> outputs)
     {
         Set<Symbol> added = new HashSet<>();
@@ -148,7 +223,7 @@ public class SymbolMapper
 
     public static class Builder
     {
-        private ImmutableMap.Builder<Symbol, Symbol> mappings = ImmutableMap.builder();
+        private final ImmutableMap.Builder<Symbol, Symbol> mappings = ImmutableMap.builder();
 
         public SymbolMapper build()
         {

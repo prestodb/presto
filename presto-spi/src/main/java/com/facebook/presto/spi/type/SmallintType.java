@@ -18,6 +18,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.PageBuilderStatus;
 import com.facebook.presto.spi.block.ShortArrayBlockBuilder;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -46,10 +47,10 @@ public final class SmallintType
     {
         int maxBlockSizeInBytes;
         if (blockBuilderStatus == null) {
-            maxBlockSizeInBytes = BlockBuilderStatus.DEFAULT_MAX_BLOCK_SIZE_IN_BYTES;
+            maxBlockSizeInBytes = PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
         }
         else {
-            maxBlockSizeInBytes = blockBuilderStatus.getMaxBlockSizeInBytes();
+            maxBlockSizeInBytes = blockBuilderStatus.getMaxPageSizeInBytes();
         }
         return new ShortArrayBlockBuilder(
                 blockBuilderStatus,
@@ -65,7 +66,7 @@ public final class SmallintType
     @Override
     public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
-        return new ShortArrayBlockBuilder(new BlockBuilderStatus(), positionCount);
+        return new ShortArrayBlockBuilder(null, positionCount);
     }
 
     @Override

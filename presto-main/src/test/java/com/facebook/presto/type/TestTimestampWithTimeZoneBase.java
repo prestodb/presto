@@ -15,9 +15,7 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.type.SqlDate;
-import com.facebook.presto.spi.type.SqlTime;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
-import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
@@ -26,13 +24,12 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -102,7 +99,7 @@ public abstract class TestTimestampWithTimeZoneBase
     }
 
     @Test
-    public void testSubstract()
+    public void testSubtract()
     {
         functionAssertions.assertFunctionString("TIMESTAMP '2017-03-30 14:15:16.432 +07:09' - TIMESTAMP '2016-03-29 03:04:05.321 +08:09'",
                 INTERVAL_DAY_TIME,
@@ -253,12 +250,7 @@ public abstract class TestTimestampWithTimeZoneBase
     }
 
     @Test
-    public void testCastToTime()
-    {
-        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as time)",
-                TIME,
-                new SqlTime(new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), session.getTimeZoneKey()));
-    }
+    public abstract void testCastToTime();
 
     @Test
     public void testCastToTimeWithTimeZone()
@@ -266,15 +258,13 @@ public abstract class TestTimestampWithTimeZoneBase
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as time with time zone)",
                 TIME_WITH_TIME_ZONE,
                 new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+        functionAssertions.assertFunctionString("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as time with time zone)",
+                TIME_WITH_TIME_ZONE,
+                "03:04:05.321 +07:09");
     }
 
     @Test
-    public void testCastToTimestamp()
-    {
-        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as timestamp)",
-                TIMESTAMP,
-                new SqlTimestamp(new DateTime(2001, 1, 22, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), session.getTimeZoneKey()));
-    }
+    public abstract void testCastToTimestamp();
 
     @Test
     public void testCastToSlice()
@@ -362,5 +352,12 @@ public abstract class TestTimestampWithTimeZoneBase
                 "least(TIMESTAMP '2001-01-02 03:04:05.321 +07:09', TIMESTAMP '2001-01-02 01:04:05.321 +02:09')",
                 TIMESTAMP_WITH_TIME_ZONE,
                 new SqlTimestampWithTimeZone(new DateTime(2001, 1, 2, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as TIMESTAMP WITH TIME ZONE)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "TIMESTAMP '2001-01-02 01:04:05.321 +02:09'", BOOLEAN, false);
     }
 }

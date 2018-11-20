@@ -1,4 +1,4 @@
--- delimiter: |; types: CHAR|CHAR|CHAR|CHAR|CHAR|LONGNVARCHAR|CHAR|CHAR|LONGNVARCHAR|LONGNVARCHAR|CHAR|CHAR|LONGNVARCHAR|DECIMAL|CHAR|DECIMAL
+-- delimiter: |; types: CHAR|CHAR|CHAR|CHAR|CHAR|VARCHAR|CHAR|CHAR|VARCHAR|VARCHAR|CHAR|CHAR|VARCHAR|DECIMAL|CHAR|DECIMAL
 AAAAAAAAABBEAAAA|Dr.       |Oscar               |Fox                           |183       |15th |Ln             |Suite P   |Greenwood|Clay County|GA|38828     |United States|-5.00|condo               |4607.92|
 AAAAAAAAADCEBAAA|Sir       |Billy               |Bell                          |690       |4th Fifth|Ct.            |Suite 390 |Hillcrest|Spalding County|GA|33003     |United States|-5.00|condo               |5567.44|
 AAAAAAAAAFBGAAAA|Mrs.      |Erika               |Buford                        |527       |1st |Ln             |Suite 380 |Lakewood|Jasper County|GA|38877     |United States|-5.00|single family       |5412.16|

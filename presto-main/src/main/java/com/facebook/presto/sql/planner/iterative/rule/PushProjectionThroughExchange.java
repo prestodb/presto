@@ -32,6 +32,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.ExpressionSymbolInliner.inlineSymbols;
@@ -81,6 +82,7 @@ public class PushProjectionThroughExchange
     public Result apply(ProjectNode project, Captures captures, Context context)
     {
         ExchangeNode exchange = captures.get(CHILD);
+        Set<Symbol> partitioningColumns = exchange.getPartitioningScheme().getPartitioning().getColumns();
 
         ImmutableList.Builder<PlanNode> newSourceBuilder = ImmutableList.builder();
         ImmutableList.Builder<List<Symbol>> inputsBuilder = ImmutableList.builder();
@@ -91,7 +93,7 @@ public class PushProjectionThroughExchange
             ImmutableList.Builder<Symbol> inputs = ImmutableList.builder();
 
             // Need to retain the partition keys for the exchange
-            exchange.getPartitioningScheme().getPartitioning().getColumns().stream()
+            partitioningColumns.stream()
                     .map(outputToInputMap::get)
                     .forEach(nameReference -> {
                         Symbol symbol = Symbol.from(nameReference);
@@ -104,6 +106,20 @@ public class PushProjectionThroughExchange
                 projections.put(exchange.getPartitioningScheme().getHashColumn().get(), exchange.getPartitioningScheme().getHashColumn().get().toSymbolReference());
                 inputs.add(exchange.getPartitioningScheme().getHashColumn().get());
             }
+
+            if (exchange.getOrderingScheme().isPresent()) {
+                // need to retain ordering columns for the exchange
+                exchange.getOrderingScheme().get().getOrderBy().stream()
+                        // do not project the same symbol twice as ExchangeNode verifies that source input symbols match partitioning scheme outputLayout
+                        .filter(symbol -> !partitioningColumns.contains(symbol))
+                        .map(outputToInputMap::get)
+                        .forEach(nameReference -> {
+                            Symbol symbol = Symbol.from(nameReference);
+                            projections.put(symbol, nameReference);
+                            inputs.add(symbol);
+                        });
+            }
+
             for (Map.Entry<Symbol, Expression> projection : project.getAssignments().entrySet()) {
                 Expression translatedExpression = inlineSymbols(outputToInputMap, projection.getValue());
                 Type type = context.getSymbolAllocator().getTypes().get(projection.getKey());
@@ -117,10 +133,12 @@ public class PushProjectionThroughExchange
 
         // Construct the output symbols in the same order as the sources
         ImmutableList.Builder<Symbol> outputBuilder = ImmutableList.builder();
-        exchange.getPartitioningScheme().getPartitioning().getColumns()
-                .forEach(outputBuilder::add);
-        if (exchange.getPartitioningScheme().getHashColumn().isPresent()) {
-            outputBuilder.add(exchange.getPartitioningScheme().getHashColumn().get());
+        partitioningColumns.forEach(outputBuilder::add);
+        exchange.getPartitioningScheme().getHashColumn().ifPresent(outputBuilder::add);
+        if (exchange.getOrderingScheme().isPresent()) {
+            exchange.getOrderingScheme().get().getOrderBy().stream()
+                    .filter(symbol -> !partitioningColumns.contains(symbol))
+                    .forEach(outputBuilder::add);
         }
         for (Map.Entry<Symbol, Expression> projection : project.getAssignments().entrySet()) {
             outputBuilder.add(projection.getKey());
@@ -140,7 +158,8 @@ public class PushProjectionThroughExchange
                 exchange.getScope(),
                 partitioningScheme,
                 newSourceBuilder.build(),
-                inputsBuilder.build());
+                inputsBuilder.build(),
+                exchange.getOrderingScheme());
 
         // we need to strip unnecessary symbols (hash, partitioning columns).
         return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), result, ImmutableSet.copyOf(project.getOutputSymbols())).orElse(result));

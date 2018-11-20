@@ -21,36 +21,37 @@ import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.JsonCodec;
 
 import javax.inject.Inject;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.plugin.base.JsonUtils.parseJson;
 import static com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege.DELETE;
 import static com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege.GRANT_SELECT;
 import static com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege.INSERT;
 import static com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege.OWNERSHIP;
 import static com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege.SELECT;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyInsertTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
-import static com.facebook.presto.spi.security.AccessDeniedException.denySelectView;
 
 public class FileBasedAccessControl
         implements ConnectorAccessControl
@@ -62,14 +63,31 @@ public class FileBasedAccessControl
     private final List<SessionPropertyAccessControlRule> sessionPropertyRules;
 
     @Inject
-    public FileBasedAccessControl(FileBasedAccessControlConfig config, JsonCodec<AccessControlRules> codec)
-            throws IOException
+    public FileBasedAccessControl(FileBasedAccessControlConfig config)
     {
-        AccessControlRules rules = codec.fromJson(Files.readAllBytes(Paths.get(config.getConfigFile())));
+        AccessControlRules rules = parseJson(Paths.get(config.getConfigFile()), AccessControlRules.class);
 
         this.schemaRules = rules.getSchemaRules();
         this.tableRules = rules.getTableRules();
         this.sessionPropertyRules = rules.getSessionPropertyRules();
+    }
+
+    @Override
+    public void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+    {
+        denyCreateSchema(schemaName);
+    }
+
+    @Override
+    public void checkCanDropSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+    {
+        denyDropSchema(schemaName);
+    }
+
+    @Override
+    public void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName, String newSchemaName)
+    {
+        denyRenameSchema(schemaName, newSchemaName);
     }
 
     @Override
@@ -143,8 +161,9 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public void checkCanSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
     {
+        // TODO: Implement column level permissions
         if (!checkTablePermission(identity, tableName, SELECT)) {
             denySelectTable(tableName.toString());
         }
@@ -183,34 +202,19 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public void checkCanSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
+    public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
     {
-        if (!checkTablePermission(identity, viewName, SELECT)) {
-            denySelectView(viewName.toString());
-        }
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
-    {
+        // TODO: implement column level permissions
         if (!checkTablePermission(identity, tableName, SELECT)) {
             denySelectTable(tableName.toString());
         }
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
-    {
-        if (!checkTablePermission(identity, viewName, SELECT)) {
-            denySelectView(viewName.toString());
-        }
-        if (!checkTablePermission(identity, viewName, GRANT_SELECT)) {
-            denyCreateView(viewName.toString());
+        if (!checkTablePermission(identity, tableName, GRANT_SELECT)) {
+            denyCreateViewWithSelect(tableName.toString(), identity);
         }
     }
 
     @Override
-    public void checkCanSetCatalogSessionProperty(Identity identity, String propertyName)
+    public void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transactionHandle, Identity identity, String propertyName)
     {
         if (!canSetSessionProperty(identity, propertyName)) {
             denySetSessionProperty(propertyName);

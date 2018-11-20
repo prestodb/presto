@@ -1,4 +1,4 @@
--- delimiter: |; types: CHAR|CHAR|LONGNVARCHAR|LONGNVARCHAR|INTEGER|INTEGER|DECIMAL|DECIMAL|DECIMAL|DECIMAL
+-- delimiter: |; types: CHAR|CHAR|VARCHAR|VARCHAR|INTEGER|INTEGER|DECIMAL|DECIMAL|DECIMAL|DECIMAL
 Men                                               |importoimporto #1                                 |ese|Unknown|1999|3|5492.82|2070.65|3307.78|2784.11|
 Music                                             |exportischolar #1                                 |eing|Unknown|1999|2|5134.24|1740.21|4401.89|2721.61|
 Music                                             |edu packscholar #1                                |ese|Unknown|1999|4|5463.70|2091.07|3391.39|3095.31|

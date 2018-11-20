@@ -34,7 +34,7 @@ import java.util.Optional;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
-import static com.facebook.presto.server.QueryStateInfo.createQueryStateInfo;
+import static com.facebook.presto.server.QueryStateInfo.createQueuedQueryStateInfo;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -62,7 +62,11 @@ public class TestQueryStateInfo
         rootAX.setHardConcurrencyLimit(0);
 
         // Verify QueryStateInfo for query queued on resource group root.a.y
-        QueryStateInfo query = createQueryStateInfo(createQueryInfo("query_root_a_x", QUEUED, "SELECT 1"), Optional.of(rootAX.getInfo()));
+        QueryStateInfo query = createQueuedQueryStateInfo(
+                new BasicQueryInfo(createQueryInfo("query_root_a_x", QUEUED, "SELECT 1")),
+                Optional.of(rootAX.getId()),
+                Optional.of(ImmutableList.of(rootAX.getInfo(), rootA.getInfo(), root.getInfo())));
+
         assertEquals(query.getQuery(), "SELECT 1");
         assertEquals(query.getQueryId().toString(), "query_root_a_x");
         assertEquals(query.getQueryState(), QUEUED);
@@ -105,6 +109,7 @@ public class TestQueryStateInfo
                         DateTime.parse("1991-09-06T06:00-05:30"),
                         Duration.valueOf("8m"),
                         Duration.valueOf("7m"),
+                        Duration.valueOf("34m"),
                         Duration.valueOf("9m"),
                         Duration.valueOf("10m"),
                         Duration.valueOf("11m"),
@@ -121,10 +126,11 @@ public class TestQueryStateInfo
                         DataSize.valueOf("21GB"),
                         DataSize.valueOf("22GB"),
                         DataSize.valueOf("23GB"),
+                        DataSize.valueOf("24GB"),
+                        DataSize.valueOf("25GB"),
                         true,
                         Duration.valueOf("23m"),
                         Duration.valueOf("24m"),
-                        Duration.valueOf("25m"),
                         Duration.valueOf("26m"),
                         true,
                         ImmutableSet.of(WAITING_FOR_MEMORY),
@@ -135,7 +141,9 @@ public class TestQueryStateInfo
                         DataSize.valueOf("31GB"),
                         32,
                         DataSize.valueOf("33GB"),
+                        ImmutableList.of(),
                         ImmutableList.of()),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableMap.of(),
@@ -148,8 +156,8 @@ public class TestQueryStateInfo
                 Optional.empty(),
                 null,
                 null,
+                ImmutableList.of(),
                 ImmutableSet.of(),
-                Optional.empty(),
                 Optional.empty(),
                 false,
                 Optional.empty());

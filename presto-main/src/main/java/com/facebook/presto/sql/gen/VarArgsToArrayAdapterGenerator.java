@@ -78,12 +78,12 @@ public class VarArgsToArrayAdapterGenerator
         /**
          * User state created by provided user state factory
          */
-        public Object userState;
+        public final Object userState;
 
         /**
          * Array of argument, such as long[], Block[]
          */
-        public Object args;
+        public final Object args;
 
         public VarArgsToArrayAdapterState(Object userState, Object args)
         {

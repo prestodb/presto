@@ -46,8 +46,15 @@ public class TestSwapAdjacentWindowsBySpecifications
 
     public TestSwapAdjacentWindowsBySpecifications()
     {
-        frame = new WindowNode.Frame(WindowFrame.Type.RANGE, UNBOUNDED_PRECEDING,
-                Optional.empty(), CURRENT_ROW, Optional.empty());
+        frame = new WindowNode.Frame(
+                WindowFrame.Type.RANGE,
+                UNBOUNDED_PRECEDING,
+                Optional.empty(),
+                CURRENT_ROW,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+
         signature = new Signature(
                 "avg",
                 FunctionKind.WINDOW,

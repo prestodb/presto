@@ -57,6 +57,7 @@ public class PlanNodeStatsEstimateMath
         return statsBuilder.setOutputRowCount(newRowCount).build();
     }
 
+    @Deprecated
     private static SymbolStatsEstimate subtractColumnStats(
             SymbolStatsEstimate leftStats,
             double leftRowCount,
@@ -70,16 +71,27 @@ public class PlanNodeStatsEstimateMath
 
         double nullsCountLeft = leftStats.getNullsFraction() * leftRowCount;
         double nullsCountRight = rightStats.getNullsFraction() * rightRowCount;
-        double totalSizeLeft = leftRowCount * leftStats.getAverageRowSize();
-        double totalSizeRight = rightRowCount * rightStats.getAverageRowSize();
-        StatisticRange range = strategy.range(leftRange, rightRange);
+        double totalSizeLeft = (leftRowCount - nullsCountLeft) * leftStats.getAverageRowSize();
+        double totalSizeRight = (rightRowCount - nullsCountRight) * rightStats.getAverageRowSize();
+        double newNullsFraction = Math.max(nullsCountLeft - nullsCountRight, 0.0) / newRowCount;
+        double newNonNullsRowCount = newRowCount * (1.0 - newNullsFraction);
+
+        StatisticRange range = leftRange;
+        double newDistinctValuesCount = leftStats.getDistinctValuesCount();
+        double leftValuesPerDistinctValue = leftRowCount * (1.0 - leftStats.getNullsFraction()) / leftStats.getDistinctValuesCount();
+        double rightValuesPerDistinctValue = rightRowCount * (1.0 - rightStats.getNullsFraction()) / rightStats.getDistinctValuesCount();
+        if (leftValuesPerDistinctValue <= rightValuesPerDistinctValue) {
+            // right values cover all left values for corresponding distinct values
+            range = strategy.range(leftRange, rightRange);
+            newDistinctValuesCount = leftStats.getDistinctValuesCount() - rightStats.getDistinctValuesCount();
+        }
 
         return SymbolStatsEstimate.builder()
-                .setDistinctValuesCount(leftStats.getDistinctValuesCount() - rightStats.getDistinctValuesCount())
+                .setDistinctValuesCount(newDistinctValuesCount)
                 .setHighValue(range.getHigh())
                 .setLowValue(range.getLow())
-                .setAverageRowSize((totalSizeLeft - totalSizeRight) / newRowCount)
-                .setNullsFraction((nullsCountLeft - nullsCountRight) / newRowCount)
+                .setAverageRowSize((totalSizeLeft - totalSizeRight) / newNonNullsRowCount)
+                .setNullsFraction(newNullsFraction)
                 .build();
     }
 
@@ -94,6 +106,11 @@ public class PlanNodeStatsEstimateMath
         return addStats(left, right, StatisticRange::addAndSumDistinctValues);
     }
 
+    public static PlanNodeStatsEstimate addStatsAndMaxDistinctValues(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
+    {
+        return addStats(left, right, StatisticRange::addAndMaxDistinctValues);
+    }
+
     public static PlanNodeStatsEstimate addStatsAndCollapseDistinctValues(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
     {
         return addStats(left, right, StatisticRange::addAndCollapseDistinctValues);
@@ -105,9 +122,11 @@ public class PlanNodeStatsEstimateMath
         double newRowCount = left.getOutputRowCount() + right.getOutputRowCount();
 
         Stream.concat(left.getSymbolsWithKnownStatistics().stream(), right.getSymbolsWithKnownStatistics().stream())
+                .distinct()
                 .forEach(symbol -> {
                     statsBuilder.addSymbolStatistics(symbol,
-                            addColumnStats(left.getSymbolStatistics(symbol),
+                            addColumnStats(
+                                    left.getSymbolStatistics(symbol),
                                     left.getOutputRowCount(),
                                     right.getSymbolStatistics(symbol),
                                     right.getOutputRowCount(),
@@ -126,13 +145,15 @@ public class PlanNodeStatsEstimateMath
         StatisticRange sum = strategy.add(leftRange, rightRange);
         double nullsCountRight = rightStats.getNullsFraction() * rightRows;
         double nullsCountLeft = leftStats.getNullsFraction() * leftRows;
-        double totalSizeLeft = leftRows * leftStats.getAverageRowSize();
-        double totalSizeRight = rightRows * rightStats.getAverageRowSize();
+        double totalSizeLeft = (leftRows - nullsCountLeft) * leftStats.getAverageRowSize();
+        double totalSizeRight = (rightRows - nullsCountRight) * rightStats.getAverageRowSize();
+        double newNullsFraction = (nullsCountLeft + nullsCountRight) / newRowCount;
+        double newNonNullsRowCount = newRowCount * (1.0 - newNullsFraction);
 
         return SymbolStatsEstimate.builder()
                 .setStatisticsRange(sum)
-                .setAverageRowSize((totalSizeLeft + totalSizeRight) / newRowCount) // FIXME, weights to average. left and right should be equal in most cases anyway
-                .setNullsFraction((nullsCountLeft + nullsCountRight) / newRowCount)
+                .setAverageRowSize((totalSizeLeft + totalSizeRight) / newNonNullsRowCount) // FIXME, weights to average. left and right should be equal in most cases anyway
+                .setNullsFraction(newNullsFraction)
                 .build();
     }
 }

@@ -21,6 +21,7 @@ import io.airlift.units.Duration;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile.OrcTableProperties;
+import org.apache.hadoop.mapreduce.lib.input.LineRecordReader;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.net.DNSToSwitchMapping;
 import org.apache.hadoop.net.SocksSocketFactory;
@@ -36,6 +37,16 @@ import static com.facebook.presto.hive.util.ConfigurationUtils.copy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
+import static org.apache.hadoop.fs.CommonConfigurationKeys.IPC_PING_INTERVAL_KEY;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_RPC_PROTECTION;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_RPC_SOCKET_FACTORY_CLASS_DEFAULT_KEY;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_SOCKS_SERVER_KEY;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_MAX_RETRIES_KEY;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_TIMEOUT_KEY;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.NET_TOPOLOGY_NODE_SWITCH_MAPPING_IMPL_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CLIENT_READ_SHORTCIRCUIT_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CLIENT_SOCKET_TIMEOUT_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DOMAIN_SOCKET_PATH_KEY;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.HIVE_ORC_DEFAULT_COMPRESS;
 import static org.apache.hadoop.io.SequenceFile.CompressionType.BLOCK;
@@ -52,6 +63,8 @@ public class HdfsConfigurationUpdater
     private final HiveCompressionCodec compressionCodec;
     private final int fileSystemMaxCacheSize;
     private final S3ConfigurationUpdater s3ConfigurationUpdater;
+    private final boolean isHdfsWireEncryptionEnabled;
+    private int textMaxLineLength;
 
     @VisibleForTesting
     public HdfsConfigurationUpdater(HiveClientConfig config)
@@ -64,6 +77,7 @@ public class HdfsConfigurationUpdater
     {
         requireNonNull(config, "config is null");
         checkArgument(config.getDfsTimeout().toMillis() >= 1, "dfsTimeout must be at least 1 ms");
+        checkArgument(toIntExact(config.getTextMaxLineLength().toBytes()) >= 1, "textMaxLineLength must be at least 1 byte");
 
         this.socksProxy = config.getMetastoreSocksProxy();
         this.ipcPingInterval = config.getIpcPingInterval();
@@ -74,6 +88,8 @@ public class HdfsConfigurationUpdater
         this.resourcesConfiguration = readConfiguration(config.getResourceConfigFiles());
         this.compressionCodec = config.getHiveCompressionCodec();
         this.fileSystemMaxCacheSize = config.getFileSystemMaxCacheSize();
+        this.isHdfsWireEncryptionEnabled = config.isHdfsWireEncryptionEnabled();
+        this.textMaxLineLength = toIntExact(config.getTextMaxLineLength().toBytes());
 
         this.s3ConfigurationUpdater = requireNonNull(s3ConfigurationUpdater, "s3ConfigurationUpdater is null");
     }
@@ -81,9 +97,6 @@ public class HdfsConfigurationUpdater
     private static Configuration readConfiguration(List<String> resourcePaths)
     {
         Configuration result = new Configuration(false);
-        if (resourcePaths == null) {
-            return result;
-        }
 
         for (String resourcePath : resourcePaths) {
             Configuration resourceProperties = new Configuration(false);
@@ -99,28 +112,35 @@ public class HdfsConfigurationUpdater
         copy(resourcesConfiguration, config);
 
         // this is to prevent dfs client from doing reverse DNS lookups to determine whether nodes are rack local
-        config.setClass("topology.node.switch.mapping.impl", NoOpDNSToSwitchMapping.class, DNSToSwitchMapping.class);
+        config.setClass(NET_TOPOLOGY_NODE_SWITCH_MAPPING_IMPL_KEY, NoOpDNSToSwitchMapping.class, DNSToSwitchMapping.class);
 
         if (socksProxy != null) {
-            config.setClass("hadoop.rpc.socket.factory.class.default", SocksSocketFactory.class, SocketFactory.class);
-            config.set("hadoop.socks.server", socksProxy.toString());
+            config.setClass(HADOOP_RPC_SOCKET_FACTORY_CLASS_DEFAULT_KEY, SocksSocketFactory.class, SocketFactory.class);
+            config.set(HADOOP_SOCKS_SERVER_KEY, socksProxy.toString());
         }
 
         if (domainSocketPath != null) {
-            config.setStrings("dfs.domain.socket.path", domainSocketPath);
+            config.setStrings(DFS_DOMAIN_SOCKET_PATH_KEY, domainSocketPath);
         }
 
         // only enable short circuit reads if domain socket path is properly configured
-        if (!config.get("dfs.domain.socket.path", "").trim().isEmpty()) {
-            config.setBooleanIfUnset("dfs.client.read.shortcircuit", true);
+        if (!config.get(DFS_DOMAIN_SOCKET_PATH_KEY, "").trim().isEmpty()) {
+            config.setBooleanIfUnset(DFS_CLIENT_READ_SHORTCIRCUIT_KEY, true);
         }
 
-        config.setInt("dfs.socket.timeout", toIntExact(dfsTimeout.toMillis()));
-        config.setInt("ipc.ping.interval", toIntExact(ipcPingInterval.toMillis()));
-        config.setInt("ipc.client.connect.timeout", toIntExact(dfsConnectTimeout.toMillis()));
-        config.setInt("ipc.client.connect.max.retries", dfsConnectMaxRetries);
+        config.setInt(DFS_CLIENT_SOCKET_TIMEOUT_KEY, toIntExact(dfsTimeout.toMillis()));
+        config.setInt(IPC_PING_INTERVAL_KEY, toIntExact(ipcPingInterval.toMillis()));
+        config.setInt(IPC_CLIENT_CONNECT_TIMEOUT_KEY, toIntExact(dfsConnectTimeout.toMillis()));
+        config.setInt(IPC_CLIENT_CONNECT_MAX_RETRIES_KEY, dfsConnectMaxRetries);
+
+        if (isHdfsWireEncryptionEnabled) {
+            config.set(HADOOP_RPC_PROTECTION, "privacy");
+            config.setBoolean("dfs.encrypt.data.transfer", true);
+        }
 
         config.setInt("fs.cache.max-size", fileSystemMaxCacheSize);
+
+        config.setInt(LineRecordReader.MAX_LINE_LENGTH, textMaxLineLength);
 
         configureCompression(config, compressionCodec);
 

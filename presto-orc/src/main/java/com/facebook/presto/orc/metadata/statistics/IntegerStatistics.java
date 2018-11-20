@@ -13,44 +13,65 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import com.facebook.presto.orc.metadata.statistics.StatisticsHasher.Hashable;
+import org.openjdk.jol.info.ClassLayout;
+
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class IntegerStatistics
-        implements RangeStatistics<Long>
+        implements RangeStatistics<Long>, Hashable
 {
     // 1 byte to denote if null + 8 bytes for the value (integer is of long type)
     public static final long INTEGER_VALUE_BYTES = Byte.BYTES + Long.BYTES;
 
-    private final Long minimum;
-    private final Long maximum;
-    private final Long sum;
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(IntegerStatistics.class).instanceSize();
+
+    private final boolean hasMinimum;
+    private final boolean hasMaximum;
+    private final boolean hasSum;
+
+    private final long minimum;
+    private final long maximum;
+    private final long sum;
 
     public IntegerStatistics(Long minimum, Long maximum, Long sum)
     {
         checkArgument(minimum == null || maximum == null || minimum <= maximum, "minimum is not less than maximum");
-        this.minimum = minimum;
-        this.maximum = maximum;
-        this.sum = sum;
+
+        this.hasMinimum = minimum != null;
+        this.minimum = hasMinimum ? minimum : 0;
+
+        this.hasMaximum = maximum != null;
+        this.maximum = hasMaximum ? maximum : 0;
+
+        this.hasSum = sum != null;
+        this.sum = hasSum ? sum : 0;
     }
 
     @Override
     public Long getMin()
     {
-        return minimum;
+        return hasMinimum ? minimum : null;
     }
 
     @Override
     public Long getMax()
     {
-        return maximum;
+        return hasMaximum ? maximum : null;
     }
 
     public Long getSum()
     {
-        return sum;
+        return hasSum ? sum : null;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE;
     }
 
     @Override
@@ -63,24 +84,32 @@ public class IntegerStatistics
             return false;
         }
         IntegerStatistics that = (IntegerStatistics) o;
-        return Objects.equals(minimum, that.minimum) &&
-                Objects.equals(maximum, that.maximum) &&
-                Objects.equals(sum, that.sum);
+        return Objects.equals(getMin(), that.getMin()) &&
+                Objects.equals(getMax(), that.getMax()) &&
+                Objects.equals(getSum(), that.getSum());
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(minimum, maximum, sum);
+        return Objects.hash(getMin(), getMax(), getSum());
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("min", minimum)
-                .add("max", maximum)
-                .add("sum", sum)
+                .add("min", getMin())
+                .add("max", getMax())
+                .add("sum", getSum())
                 .toString();
+    }
+
+    @Override
+    public void addHash(StatisticsHasher hasher)
+    {
+        hasher.putOptionalLong(hasMinimum, minimum)
+                .putOptionalLong(hasMaximum, maximum)
+                .putOptionalLong(hasSum, sum);
     }
 }

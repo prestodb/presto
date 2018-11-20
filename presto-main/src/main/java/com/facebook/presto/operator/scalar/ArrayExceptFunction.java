@@ -16,7 +16,6 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
@@ -43,7 +42,7 @@ public final class ArrayExceptFunction
             return leftArray;
         }
         TypedSet typedSet = new TypedSet(type, leftPositionCount + rightPositionCount, "array_except");
-        BlockBuilder distinctElementBlockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), leftPositionCount);
+        BlockBuilder distinctElementBlockBuilder = type.createBlockBuilder(null, leftPositionCount);
         for (int i = 0; i < rightPositionCount; i++) {
             typedSet.add(rightArray, i);
         }

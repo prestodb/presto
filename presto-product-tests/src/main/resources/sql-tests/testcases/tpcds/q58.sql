@@ -72,11 +72,11 @@ WITH
 SELECT
   "ss_items"."item_id"
 , "ss_item_rev"
-, CAST(((("ss_item_rev" / ((CAST("ss_item_rev" AS DECIMAL(12,7)) + "cs_item_rev") + "ws_item_rev")) / 3) * 100) AS DECIMAL(7,2)) "ss_dev"
+, CAST(((("ss_item_rev" / ((CAST("ss_item_rev" AS DECIMAL(16,7)) + "cs_item_rev") + "ws_item_rev")) / 3) * 100) AS DECIMAL(7,2)) "ss_dev"
 , "cs_item_rev"
-, CAST(((("cs_item_rev" / ((CAST("ss_item_rev" AS DECIMAL(12,7)) + "cs_item_rev") + "ws_item_rev")) / 3) * 100) AS DECIMAL(7,2)) "cs_dev"
+, CAST(((("cs_item_rev" / ((CAST("ss_item_rev" AS DECIMAL(16,7)) + "cs_item_rev") + "ws_item_rev")) / 3) * 100) AS DECIMAL(7,2)) "cs_dev"
 , "ws_item_rev"
-, CAST(((("ws_item_rev" / ((CAST("ss_item_rev" AS DECIMAL(12,7)) + "cs_item_rev") + "ws_item_rev")) / 3) * 100) AS DECIMAL(7,2)) "ws_dev"
+, CAST(((("ws_item_rev" / ((CAST("ss_item_rev" AS DECIMAL(16,7)) + "cs_item_rev") + "ws_item_rev")) / 3) * 100) AS DECIMAL(7,2)) "ws_dev"
 , ((("ss_item_rev" + "cs_item_rev") + "ws_item_rev") / 3) "average"
 FROM
   ss_items

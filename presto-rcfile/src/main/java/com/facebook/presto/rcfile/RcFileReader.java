@@ -17,7 +17,6 @@ import com.facebook.presto.rcfile.RcFileWriteValidation.WriteChecksum;
 import com.facebook.presto.rcfile.RcFileWriteValidation.WriteChecksumBuilder;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
@@ -224,7 +223,7 @@ public class RcFileReader
         syncSecond = input.readLong();
         validateWrite(validation -> validation.getSyncSecond() == syncSecond, "Unexpected sync sequence");
 
-        // seek to first sync point withing the specified region, unless the region starts at the beginning
+        // seek to first sync point within the specified region, unless the region starts at the beginning
         // of the file.  In that case, the reader owns all row groups up to the first sync point.
         if (offset != 0) {
             // if the specified file region does not contain the start of a sync sequence, this call will close the reader
@@ -428,7 +427,7 @@ public class RcFileReader
 
         if (columnIndex >= columns.length) {
             Type type = readColumns.get(columnIndex);
-            Block nullBlock = type.createBlockBuilder(new BlockBuilderStatus(), 1, 0).appendNull().build();
+            Block nullBlock = type.createBlockBuilder(null, 1, 0).appendNull().build();
             return new RunLengthEncodedBlock(nullBlock, currentChunkRowCount);
         }
 

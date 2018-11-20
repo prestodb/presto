@@ -14,11 +14,15 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.FixedWidthBlock;
 import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
+import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -41,7 +45,7 @@ public class TestFixedWidthBlock
         for (int fixedSize = 0; fixedSize < 20; fixedSize++) {
             Slice[] expectedValues = (Slice[]) alternatingNullValues(createExpectedValues(17, fixedSize));
             BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues, fixedSize);
-            assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 0, 2, 4, 6, 7, 9, 10, 16);
+            assertBlockFilteredPositions(expectedValues, blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), 0, 2, 4, 6, 7, 9, 10, 16);
         }
     }
 
@@ -50,9 +54,9 @@ public class TestFixedWidthBlock
     {
         for (int fixedSize = 0; fixedSize < 20; fixedSize++) {
             Slice[] expectedValues = (Slice[]) alternatingNullValues(createExpectedValues(17, fixedSize));
-            BlockBuilder emptyBlockBuilder = new FixedWidthBlockBuilder(fixedSize, new BlockBuilderStatus(), 0);
+            BlockBuilder emptyBlockBuilder = new FixedWidthBlockBuilder(fixedSize, null, 0);
 
-            BlockBuilder blockBuilder = new FixedWidthBlockBuilder(fixedSize, new BlockBuilderStatus(), expectedValues.length);
+            BlockBuilder blockBuilder = new FixedWidthBlockBuilder(fixedSize, null, expectedValues.length);
             assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
             assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
 
@@ -60,17 +64,43 @@ public class TestFixedWidthBlock
             assertTrue(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes());
             assertTrue(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes());
 
-            blockBuilder = blockBuilder.newBlockBuilderLike(new BlockBuilderStatus());
+            blockBuilder = blockBuilder.newBlockBuilderLike(null);
             assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
             assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
         }
     }
 
+    @Test
+    public void testEstimatedDataSizeForStats()
+    {
+        for (int fixedSize = 0; fixedSize < 20; fixedSize++) {
+            Slice[] expectedValues = (Slice[]) alternatingNullValues(createExpectedValues(17, fixedSize));
+            BlockBuilder blockBuilder = new FixedWidthBlockBuilder(fixedSize, null, expectedValues.length);
+            writeValues(expectedValues, blockBuilder);
+            assertEstimatedDataSizeForStats(blockBuilder, expectedValues);
+        }
+    }
+
+    @Test
+    public void testCompactBlock()
+    {
+        Slice compactSlice = Slices.copyOf(createExpectedValue(24));
+        Slice incompactSlice = Slices.copyOf(createExpectedValue(30)).slice(0, 24);
+        boolean[] valueIsNull = {false, true, false, false, false, false};
+
+        testCompactBlock(new FixedWidthBlock(4, 0, EMPTY_SLICE, Optional.empty()));
+        testCompactBlock(new FixedWidthBlock(4, valueIsNull.length, compactSlice, Optional.of(Slices.wrappedBooleanArray(valueIsNull))));
+
+        testIncompactBlock(new FixedWidthBlock(4, valueIsNull.length - 1, compactSlice, Optional.of(Slices.wrappedBooleanArray(valueIsNull))));
+        // underlying slice is not compact
+        testIncompactBlock(new FixedWidthBlock(4, valueIsNull.length, incompactSlice, Optional.of(Slices.wrappedBooleanArray(valueIsNull))));
+    }
+
     private void assertFixedWithValues(Slice[] expectedValues, int fixedSize)
     {
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues, fixedSize);
-        assertBlock(blockBuilder, expectedValues);
-        assertBlock(blockBuilder.build(), expectedValues);
+        assertBlock(blockBuilder, () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
+        assertBlock(blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
     }
 
     private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues, int fixedSize)

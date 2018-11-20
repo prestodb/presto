@@ -23,11 +23,9 @@ import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeFactory;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeSinkFactoryId;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import java.util.List;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -57,12 +55,6 @@ public class LocalExchangeSinkOperator
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sinkFactoryId = requireNonNull(sinkFactoryId, "sinkFactoryId is null");
             this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return localExchangeFactory.getTypes();
         }
 
         @Override
@@ -119,12 +111,6 @@ public class LocalExchangeSinkOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return sink.getTypes();
     }
 
     @Override

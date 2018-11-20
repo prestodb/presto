@@ -28,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 
 @DefunctConfig({
         "query.max-pending-splits-per-node",
+        "query.queue-config-file",
         "experimental.big-query-initial-hash-partitions",
         "experimental.max-concurrent-big-queries",
         "experimental.max-queued-big-queries",
@@ -38,12 +39,12 @@ public class QueryManagerConfig
     private int minScheduleSplitBatchSize = 100;
     private int maxConcurrentQueries = 1000;
     private int maxQueuedQueries = 5000;
-    private String queueConfigFile;
 
     private int initialHashPartitions = 100;
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
+    private int maxStageCount = 100;
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
 
     private int queryManagerExecutorPoolSize = 5;
@@ -59,19 +60,8 @@ public class QueryManagerConfig
     private int initializationRequiredWorkers = 1;
     private Duration initializationTimeout = new Duration(5, TimeUnit.MINUTES);
 
-    @Deprecated
-    public String getQueueConfigFile()
-    {
-        return queueConfigFile;
-    }
-
-    @Deprecated
-    @Config("query.queue-config-file")
-    public QueryManagerConfig setQueueConfigFile(String queueConfigFile)
-    {
-        this.queueConfigFile = queueConfigFile;
-        return this;
-    }
+    private int requiredWorkers = 1;
+    private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -180,6 +170,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setMaxQueryLength(int maxQueryLength)
     {
         this.maxQueryLength = maxQueryLength;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxStageCount()
+    {
+        return maxStageCount;
+    }
+
+    @Config("query.max-stage-count")
+    public QueryManagerConfig setMaxStageCount(int maxStageCount)
+    {
+        this.maxStageCount = maxStageCount;
         return this;
     }
 
@@ -328,6 +331,34 @@ public class QueryManagerConfig
     public QueryManagerConfig setInitializationTimeout(Duration initializationTimeout)
     {
         this.initializationTimeout = initializationTimeout;
+        return this;
+    }
+
+    @Min(1)
+    public int getRequiredWorkers()
+    {
+        return requiredWorkers;
+    }
+
+    @Config("query-manager.required-workers")
+    @ConfigDescription("Minimum number of active workers that must be available before a query will start")
+    public QueryManagerConfig setRequiredWorkers(int requiredWorkers)
+    {
+        this.requiredWorkers = requiredWorkers;
+        return this;
+    }
+
+    @NotNull
+    public Duration getRequiredWorkersMaxWait()
+    {
+        return requiredWorkersMaxWait;
+    }
+
+    @Config("query-manager.required-workers-max-wait")
+    @ConfigDescription("Maximum time to wait for minimum number of workers before the query is failed")
+    public QueryManagerConfig setRequiredWorkersMaxWait(Duration requiredWorkersMaxWait)
+    {
+        this.requiredWorkersMaxWait = requiredWorkersMaxWait;
         return this;
     }
 }

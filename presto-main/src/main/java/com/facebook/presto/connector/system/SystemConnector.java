@@ -44,6 +44,15 @@ public class SystemConnector
             Set<SystemTable> tables,
             Function<TransactionId, ConnectorTransactionHandle> transactionHandleFunction)
     {
+        this(connectorId, nodeManager, new StaticSystemTablesProvider(tables), transactionHandleFunction);
+    }
+
+    public SystemConnector(
+            ConnectorId connectorId,
+            InternalNodeManager nodeManager,
+            SystemTablesProvider tables,
+            Function<TransactionId, ConnectorTransactionHandle> transactionHandleFunction)
+    {
         requireNonNull(connectorId, "connectorId is null");
         requireNonNull(nodeManager, "nodeManager is null");
         requireNonNull(tables, "tables is null");

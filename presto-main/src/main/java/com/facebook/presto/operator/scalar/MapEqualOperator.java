@@ -47,8 +47,6 @@ public final class MapEqualOperator
             @SqlType("map(K,V)") Block rightMapBlock)
     {
         return MapGenericEquality.genericEqual(
-                keyEqualsFunction,
-                keyHashcodeFunction,
                 keyType,
                 leftMapBlock,
                 rightMapBlock,

@@ -14,7 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.assertions.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -25,12 +24,12 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 public class TestOperatorAssertion
 {
@@ -39,7 +38,7 @@ public class TestOperatorAssertion
     @BeforeClass
     public void setUp()
     {
-        executor = Executors.newScheduledThreadPool(1);
+        executor = newSingleThreadScheduledExecutor();
     }
 
     @AfterClass(alwaysRun = true)
@@ -67,19 +66,13 @@ public class TestOperatorAssertion
         public BlockedOperator(Duration unblockAfter)
         {
             this.unblockAfter = requireNonNull(unblockAfter, "unblockAfter is null");
-            this.operatorContext = TestingOperatorContext.create();
+            this.operatorContext = TestingOperatorContext.create(executor);
         }
 
         @Override
         public OperatorContext getOperatorContext()
         {
             return operatorContext;
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            throw new UnsupportedOperationException();
         }
 
         @Override

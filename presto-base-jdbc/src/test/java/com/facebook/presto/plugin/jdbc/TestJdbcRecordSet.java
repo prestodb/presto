@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.google.common.collect.ImmutableList;
@@ -29,12 +30,15 @@ import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
 @Test
 public class TestJdbcRecordSet
 {
+    private static final ConnectorSession session = testSessionBuilder().build().toConnectorSession();
+
     private TestingDatabase database;
     private JdbcClient jdbcClient;
     private JdbcSplit split;
@@ -60,31 +64,31 @@ public class TestJdbcRecordSet
     @Test
     public void testGetColumnTypes()
     {
-        RecordSet recordSet = new JdbcRecordSet(jdbcClient, split, ImmutableList.of(
+        RecordSet recordSet = new JdbcRecordSet(jdbcClient, session, split, ImmutableList.of(
                 new JdbcColumnHandle("test", "text", JDBC_VARCHAR, VARCHAR),
                 new JdbcColumnHandle("test", "text_short", JDBC_VARCHAR, createVarcharType(32)),
                 new JdbcColumnHandle("test", "value", JDBC_BIGINT, BIGINT)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(VARCHAR, createVarcharType(32), BIGINT));
 
-        recordSet = new JdbcRecordSet(jdbcClient, split, ImmutableList.of(
+        recordSet = new JdbcRecordSet(jdbcClient, session, split, ImmutableList.of(
                 new JdbcColumnHandle("test", "value", JDBC_BIGINT, BIGINT),
                 new JdbcColumnHandle("test", "text", JDBC_VARCHAR, VARCHAR)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, VARCHAR));
 
-        recordSet = new JdbcRecordSet(jdbcClient, split, ImmutableList.of(
+        recordSet = new JdbcRecordSet(jdbcClient, session, split, ImmutableList.of(
                 new JdbcColumnHandle("test", "value", JDBC_BIGINT, BIGINT),
                 new JdbcColumnHandle("test", "value", JDBC_BIGINT, BIGINT),
                 new JdbcColumnHandle("test", "text", JDBC_VARCHAR, VARCHAR)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, BIGINT, VARCHAR));
 
-        recordSet = new JdbcRecordSet(jdbcClient, split, ImmutableList.of());
+        recordSet = new JdbcRecordSet(jdbcClient, session, split, ImmutableList.of());
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of());
     }
 
     @Test
     public void testCursorSimple()
     {
-        RecordSet recordSet = new JdbcRecordSet(jdbcClient, split, ImmutableList.of(
+        RecordSet recordSet = new JdbcRecordSet(jdbcClient, session, split, ImmutableList.of(
                 columnHandles.get("text"),
                 columnHandles.get("text_short"),
                 columnHandles.get("value")));
@@ -117,7 +121,7 @@ public class TestJdbcRecordSet
     @Test
     public void testCursorMixedOrder()
     {
-        RecordSet recordSet = new JdbcRecordSet(jdbcClient, split, ImmutableList.of(
+        RecordSet recordSet = new JdbcRecordSet(jdbcClient, session, split, ImmutableList.of(
                 columnHandles.get("value"),
                 columnHandles.get("value"),
                 columnHandles.get("text")));
@@ -147,7 +151,7 @@ public class TestJdbcRecordSet
     @Test
     public void testIdempotentClose()
     {
-        RecordSet recordSet = new JdbcRecordSet(jdbcClient, split, ImmutableList.of(
+        RecordSet recordSet = new JdbcRecordSet(jdbcClient, session, split, ImmutableList.of(
                 columnHandles.get("value"),
                 columnHandles.get("value"),
                 columnHandles.get("text")));

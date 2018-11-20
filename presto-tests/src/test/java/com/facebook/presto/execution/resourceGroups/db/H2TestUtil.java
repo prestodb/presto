@@ -16,12 +16,13 @@ package com.facebook.presto.execution.resourceGroups.db;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.resourceGroups.db.DbResourceGroupConfig;
+import com.facebook.presto.resourceGroups.db.DbResourceGroupConfigurationManager;
 import com.facebook.presto.resourceGroups.db.H2DaoProvider;
 import com.facebook.presto.resourceGroups.db.H2ResourceGroupsDao;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
@@ -93,7 +94,7 @@ class H2TestUtil
             throws InterruptedException
     {
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-        while (queryManager.getAllQueryInfo().stream()
+        while (queryManager.getQueries().stream()
                 .filter(q -> countingStates.contains(q.getState())).count() != expectedCount) {
             MILLISECONDS.sleep(500);
         }
@@ -127,7 +128,6 @@ class H2TestUtil
         DistributedQueryRunner queryRunner = DistributedQueryRunner
                 .builder(testSessionBuilder().setCatalog("tpch").setSchema("tiny").build())
                 .setNodeCount(2)
-                .setSingleExtraProperty("experimental.resource-groups-enabled", "true")
                 .setEnvironment(environment)
                 .build();
         try {
@@ -158,20 +158,20 @@ class H2TestUtil
             throws InterruptedException
     {
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
-        dao.insertResourceGroup(1, "global", "1MB", 100, 1000, 1000, null, null, null, null, null, null, null, null, TEST_ENVIRONMENT);
-        dao.insertResourceGroup(2, "bi-${USER}", "1MB", 3, 2, 2, null, null, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
-        dao.insertResourceGroup(3, "user-${USER}", "1MB", 3, 3, 3, null, null, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
-        dao.insertResourceGroup(4, "adhoc-${USER}", "1MB", 3, 3, 3, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
-        dao.insertResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, 1, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
-        dao.insertResourceGroup(6, "no-queueing", "1MB", 0, 1, 1, null, null, null, null, null, null, null, null, TEST_ENVIRONMENT_2);
-        dao.insertResourceGroup(7, "explain", "1MB", 0, 1, 1, null, null, null, null, null, null, null, null, TEST_ENVIRONMENT);
-        dao.insertSelector(2, 10_000, "user.*", "test", null, null);
-        dao.insertSelector(4, 1_000, "user.*", "(?i).*adhoc.*", null, null);
-        dao.insertSelector(5, 100, "user.*", "(?i).*dashboard.*", null, null);
-        dao.insertSelector(4, 10, "user.*", null, null, CLIENT_TAGS_CODEC.toJson(ImmutableList.of("tag1", "tag2")));
-        dao.insertSelector(2, 1, "user.*", null, null, CLIENT_TAGS_CODEC.toJson(ImmutableList.of("tag1")));
-        dao.insertSelector(6, 6, ".*", ".*", null, null);
-        dao.insertSelector(7, 100_000, null, null, EXPLAIN.name(), null);
+        dao.insertResourceGroup(1, "global", "1MB", 100, 1000, 1000, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(2, "bi-${USER}", "1MB", 3, 2, 2, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(3, "user-${USER}", "1MB", 3, 3, 3, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(4, "adhoc-${USER}", "1MB", 3, 3, 3, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, 1, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(6, "no-queueing", "1MB", 0, 1, 1, null, null, null, null, null, null, TEST_ENVIRONMENT_2);
+        dao.insertResourceGroup(7, "explain", "1MB", 0, 1, 1, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.insertSelector(2, 10_000, "user.*", "test", null, null, null);
+        dao.insertSelector(4, 1_000, "user.*", "(?i).*adhoc.*", null, null, null);
+        dao.insertSelector(5, 100, "user.*", "(?i).*dashboard.*", null, null, null);
+        dao.insertSelector(4, 10, "user.*", null, null, CLIENT_TAGS_CODEC.toJson(ImmutableList.of("tag1", "tag2")), null);
+        dao.insertSelector(2, 1, "user.*", null, null, CLIENT_TAGS_CODEC.toJson(ImmutableList.of("tag1")), null);
+        dao.insertSelector(6, 6, ".*", ".*", null, null, null);
+        dao.insertSelector(7, 100_000, null, null, EXPLAIN.name(), null, null);
 
         int expectedSelectors = 6;
         if (environment.equals(TEST_ENVIRONMENT_2)) {
@@ -187,7 +187,7 @@ class H2TestUtil
     public static List<ResourceGroupSelector> getSelectors(DistributedQueryRunner queryRunner)
     {
         try {
-            return queryRunner.getCoordinator().getResourceGroupManager().get().getConfigurationManager().getSelectors();
+            return ((DbResourceGroupConfigurationManager) queryRunner.getCoordinator().getResourceGroupManager().get().getConfigurationManager()).getSelectors();
         }
         catch (PrestoException e) {
             if (e.getErrorCode() == CONFIGURATION_INVALID.toErrorCode()) {

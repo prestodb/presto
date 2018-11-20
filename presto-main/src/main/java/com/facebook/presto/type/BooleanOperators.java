@@ -17,6 +17,7 @@ import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
@@ -28,6 +29,7 @@ import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
@@ -46,14 +48,16 @@ public final class BooleanOperators
 
     @ScalarOperator(EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean equal(@SqlType(StandardTypes.BOOLEAN) boolean left, @SqlType(StandardTypes.BOOLEAN) boolean right)
+    @SqlNullable
+    public static Boolean equal(@SqlType(StandardTypes.BOOLEAN) boolean left, @SqlType(StandardTypes.BOOLEAN) boolean right)
     {
         return left == right;
     }
 
     @ScalarOperator(NOT_EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean notEqual(@SqlType(StandardTypes.BOOLEAN) boolean left, @SqlType(StandardTypes.BOOLEAN) boolean right)
+    @SqlNullable
+    public static Boolean notEqual(@SqlType(StandardTypes.BOOLEAN) boolean left, @SqlType(StandardTypes.BOOLEAN) boolean right)
     {
         return left != right;
     }
@@ -148,6 +152,13 @@ public final class BooleanOperators
     public static long hashCode(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return value ? 1231 : 1237;
+    }
+
+    @ScalarOperator(INDETERMINATE)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean indeterminate(@SqlType(StandardTypes.BOOLEAN) boolean value, @IsNull boolean isNull)
+    {
+        return isNull;
     }
 
     @SqlType(StandardTypes.BOOLEAN)

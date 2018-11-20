@@ -20,14 +20,13 @@ import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
-import java.util.Date;
 import java.util.List;
 
 import static com.datastax.driver.core.utils.Bytes.toRawHexString;
@@ -56,7 +55,6 @@ import static com.facebook.presto.tests.QueryAssertions.assertContainsEventually
 import static com.google.common.primitives.Ints.toByteArray;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
-import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -66,9 +64,8 @@ public class TestCassandraIntegrationSmokeTest
     private static final String KEYSPACE = "smoke_test";
     private static final Session SESSION = createCassandraSession(KEYSPACE);
 
-    private static final DateTime DATE_TIME_UTC = new DateTime(1970, 1, 1, 3, 4, 5, UTC);
-    private static final Date DATE_LOCAL = new Date(DATE_TIME_UTC.getMillis());
-    private static final LocalDateTime TIMESTAMP_LOCAL = LocalDateTime.of(1970, 1, 1, 3, 4, 5);
+    private static final Timestamp DATE_TIME_LOCAL = Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 3, 4, 5, 0));
+    private static final LocalDateTime TIMESTAMP_LOCAL = LocalDateTime.of(1969, 12, 31, 23, 4, 5); // TODO #7122 should match DATE_TIME_LOCAL
 
     private CassandraSession session;
 
@@ -81,7 +78,19 @@ public class TestCassandraIntegrationSmokeTest
     public void setUp()
     {
         session = EmbeddedCassandra.getSession();
-        createTestTables(session, KEYSPACE, DATE_LOCAL);
+        createTestTables(session, KEYSPACE, DATE_TIME_LOCAL);
+    }
+
+    @Override
+    protected boolean isDateTypeSupported()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean isParameterizedVarcharSupported()
+    {
+        return false;
     }
 
     @Test
@@ -94,7 +103,7 @@ public class TestCassandraIntegrationSmokeTest
                 " AND typeinteger = 7" +
                 " AND typelong = 1007" +
                 " AND typebytes = from_hex('" + toRawHexString(ByteBuffer.wrap(toByteArray(7))) + "')" +
-                " AND typetimestamp = TIMESTAMP '1970-01-01 03:04:05'" +
+                " AND typetimestamp = TIMESTAMP '1969-12-31 23:04:05'" +
                 " AND typeansi = 'ansi 7'" +
                 " AND typeboolean = false" +
                 " AND typedecimal = 128.0" +
@@ -225,17 +234,17 @@ public class TestCassandraIntegrationSmokeTest
         assertEquals(execute(sql).getRowCount(), 4);
         sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2";
         assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2 AND clust_three = timestamp '1970-01-01 03:04:05.020'";
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2 AND clust_three = timestamp '1969-12-31 23:04:05.020'";
         assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2 AND clust_three = timestamp '1970-01-01 03:04:05.010'";
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2 AND clust_three = timestamp '1969-12-31 23:04:05.010'";
         assertEquals(execute(sql).getRowCount(), 0);
         sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2)";
         assertEquals(execute(sql).getRowCount(), 2);
         sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two > 1 AND clust_two < 3";
         assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2 AND clust_three >= timestamp '1970-01-01 03:04:05.010' AND clust_three <= timestamp '1970-01-01 03:04:05.020'";
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two=2 AND clust_three >= timestamp '1969-12-31 23:04:05.010' AND clust_three <= timestamp '1969-12-31 23:04:05.020'";
         assertEquals(execute(sql).getRowCount(), 1);
-        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2) AND clust_three >= timestamp '1970-01-01 03:04:05.010' AND clust_three <= timestamp '1970-01-01 03:04:05.020'";
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2) AND clust_three >= timestamp '1969-12-31 23:04:05.010' AND clust_three <= timestamp '1969-12-31 23:04:05.020'";
         assertEquals(execute(sql).getRowCount(), 2);
         sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2,3) AND clust_two < 2";
         assertEquals(execute(sql).getRowCount(), 1);

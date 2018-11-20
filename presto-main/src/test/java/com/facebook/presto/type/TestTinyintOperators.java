@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -249,5 +250,15 @@ public class TestTinyintOperators
         assertFunction("TINYINT'37' IS DISTINCT FROM TINYINT'38'", BOOLEAN, true);
         assertFunction("NULL IS DISTINCT FROM TINYINT'37'", BOOLEAN, true);
         assertFunction("TINYINT'37' IS DISTINCT FROM NULL", BOOLEAN, true);
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as tinyint)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "cast(12 as tinyint)", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "cast(0 as tinyint)", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "cast(-23 as tinyint)", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "cast(1.4 as tinyint)", BOOLEAN, false);
     }
 }

@@ -21,7 +21,6 @@ import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
@@ -176,7 +175,7 @@ public class BenchmarkMapSubscript
             for (int i = 0; i < offsets.length; i++) {
                 offsets[i] = mapSize * i;
             }
-            return mapType.createBlockFromKeyValue(new boolean[positionCount], offsets, keyBlock, valueBlock);
+            return mapType.createBlockFromKeyValue(Optional.empty(), offsets, keyBlock, valueBlock);
         }
 
         private static Block createKeyBlock(int positionCount, List<String> keys)
@@ -191,7 +190,7 @@ public class BenchmarkMapSubscript
 
         private static Block createFixWidthValueBlock(int positionCount, int mapSize)
         {
-            BlockBuilder valueBlockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), positionCount * mapSize);
+            BlockBuilder valueBlockBuilder = DOUBLE.createBlockBuilder(null, positionCount * mapSize);
             for (int i = 0; i < positionCount * mapSize; i++) {
                 DOUBLE.writeDouble(valueBlockBuilder, ThreadLocalRandom.current().nextDouble());
             }
@@ -201,7 +200,7 @@ public class BenchmarkMapSubscript
         private static Block createVarWidthValueBlock(int positionCount, int mapSize)
         {
             Type valueType = createUnboundedVarcharType();
-            BlockBuilder valueBlockBuilder = valueType.createBlockBuilder(new BlockBuilderStatus(), positionCount * mapSize);
+            BlockBuilder valueBlockBuilder = valueType.createBlockBuilder(null, positionCount * mapSize);
             for (int i = 0; i < positionCount * mapSize; i++) {
                 int wordLength = ThreadLocalRandom.current().nextInt(5, 10);
                 valueType.writeSlice(valueBlockBuilder, utf8Slice(randomString(wordLength)));

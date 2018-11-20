@@ -16,7 +16,6 @@ package com.facebook.presto.operator.aggregation.histogram;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.TypeUtils;
 import org.testng.annotations.BeforeMethod;
@@ -38,7 +37,7 @@ public class TestValueStore
             throws Exception
     {
         type = VarcharType.createVarcharType(100);
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 100, 10);
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 100, 10);
         valueStore = new ValueStore(100, blockBuilder);
         valueStoreSmall = new ValueStore(1, blockBuilder);
         block = BlockAssertions.createStringsBlock("a", "b", "c", "d");

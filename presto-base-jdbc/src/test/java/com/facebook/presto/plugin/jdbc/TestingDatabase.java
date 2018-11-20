@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -27,6 +28,7 @@ import java.util.Map;
 import java.util.Properties;
 
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -35,6 +37,7 @@ final class TestingDatabase
         implements AutoCloseable
 {
     public static final String CONNECTOR_ID = "test";
+    private static final ConnectorSession session = testSessionBuilder().build().toConnectorSession();
 
     private final Connection connection;
     private final JdbcClient jdbcClient;
@@ -102,7 +105,7 @@ final class TestingDatabase
     public Map<String, JdbcColumnHandle> getColumnHandles(String schemaName, String tableName)
     {
         JdbcTableHandle tableHandle = jdbcClient.getTableHandle(new SchemaTableName(schemaName, tableName));
-        List<JdbcColumnHandle> columns = jdbcClient.getColumns(tableHandle);
+        List<JdbcColumnHandle> columns = jdbcClient.getColumns(session, tableHandle);
         checkArgument(columns != null, "table not found: %s.%s", schemaName, tableName);
 
         ImmutableMap.Builder<String, JdbcColumnHandle> columnHandles = ImmutableMap.builder();

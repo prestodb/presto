@@ -22,7 +22,8 @@ function stop_docker_compose_containers() {
     # stop containers started with "up", removing their volumes
     # Some containers (SQL Server) fail to stop on Travis after running the tests. We don't have an easy way to
     # reproduce this locally. Since all the tests complete successfully, we ignore this failure.
-    environment_compose down -v || true
+    environment_compose kill
+    environment_compose down --volumes || true
   fi
 
   echo "Docker compose containers stopped: [$ENVIRONMENT]"
@@ -38,8 +39,7 @@ function stop_application_runner_containers() {
     echo "Container stopped: ${CONTAINER_NAME}"
   done
   echo "Removing dead application-runner containers"
-  local CONTAINERS=`docker ps -aq --no-trunc --filter status=dead --filter status=exited --filter name=common_application-runner`
-  for CONTAINER in ${CONTAINERS};
+  for CONTAINER in $(docker ps -aq --no-trunc --filter status=dead --filter status=exited --filter name=common_application-runner);
   do
     docker rm -v "${CONTAINER}"
   done

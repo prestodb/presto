@@ -14,21 +14,39 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestOperatorMemoryRevocation
 {
+    private ScheduledExecutorService scheduledExecutor;
+
+    @BeforeClass
+    public void setUp()
+    {
+        scheduledExecutor = newSingleThreadScheduledExecutor();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        scheduledExecutor.shutdownNow();
+    }
+
     @Test
     public void testOperatorMemoryRevocation()
     {
         AtomicInteger counter = new AtomicInteger();
-        OperatorContext operatorContext = TestingOperatorContext.create();
+        OperatorContext operatorContext = TestingOperatorContext.create(scheduledExecutor);
         LocalMemoryContext revocableMemoryContext = operatorContext.localRevocableMemoryContext();
         revocableMemoryContext.setBytes(1000);
         operatorContext.setMemoryRevocationRequestListener(() -> counter.incrementAndGet());
@@ -49,7 +67,7 @@ public class TestOperatorMemoryRevocation
     public void testRevocationAlreadyRequested()
     {
         AtomicInteger counter = new AtomicInteger();
-        OperatorContext operatorContext = TestingOperatorContext.create();
+        OperatorContext operatorContext = TestingOperatorContext.create(scheduledExecutor);
         LocalMemoryContext revocableMemoryContext = operatorContext.localRevocableMemoryContext();
         revocableMemoryContext.setBytes(1000);
 
@@ -63,7 +81,7 @@ public class TestOperatorMemoryRevocation
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "listener already set")
     public void testSingleListenerEnforcement()
     {
-        OperatorContext operatorContext = TestingOperatorContext.create();
+        OperatorContext operatorContext = TestingOperatorContext.create(scheduledExecutor);
         operatorContext.setMemoryRevocationRequestListener(() -> {});
         operatorContext.setMemoryRevocationRequestListener(() -> {});
     }

@@ -14,12 +14,14 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.sql.planner.StatsRecorder;
+import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
+import com.facebook.presto.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
+import com.facebook.presto.sql.planner.iterative.rule.SingleDistinctAggregationToGroupBy;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -37,6 +39,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTre
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.groupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
@@ -79,9 +82,9 @@ public class TestOptimizeMixedDistinctAggregations
         groups.add(ImmutableList.of(groupBy, aggregate));
         groups.add(ImmutableList.of(groupBy, distinctAggregation));
         PlanMatchPattern expectedPlanPattern = anyTree(
-                aggregation(ImmutableList.of(groupByKeysSecond), aggregationsSecond, ImmutableMap.of(), Optional.empty(), SINGLE,
+                aggregation(singleGroupingSet(groupByKeysSecond), aggregationsSecond, ImmutableMap.of(), Optional.empty(), SINGLE,
                         project(
-                                aggregation(ImmutableList.of(groupByKeysFirst), aggregationsFirst, ImmutableMap.of(), Optional.empty(), SINGLE,
+                                aggregation(singleGroupingSet(groupByKeysFirst), aggregationsFirst, ImmutableMap.of(), Optional.empty(), SINGLE,
                                         groupingSet(groups.build(), group,
                                                 anyTree(tableScan))))));
 
@@ -113,10 +116,13 @@ public class TestOptimizeMixedDistinctAggregations
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),
                 new IterativeOptimizer(
-                        new StatsRecorder(),
+                        new RuleStatsRecorder(),
                         getQueryRunner().getStatsCalculator(),
                         getQueryRunner().getEstimatedExchangesCostCalculator(),
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
+                        ImmutableSet.of(
+                                new RemoveRedundantIdentityProjections(),
+                                new SingleDistinctAggregationToGroupBy(),
+                                new MultipleDistinctAggregationToMarkDistinct())),
                 new OptimizeMixedDistinctAggregations(getQueryRunner().getMetadata()),
                 new PruneUnreferencedOutputs());
         assertPlan(sql, pattern, optimizers);

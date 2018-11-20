@@ -96,7 +96,7 @@ public class ReadOnlyAccessControl
     }
 
     @Override
-    public void checkCanSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
     {
         // allow
     }
@@ -126,25 +126,13 @@ public class ReadOnlyAccessControl
     }
 
     @Override
-    public void checkCanSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
+    public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
     {
         // allow
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
-    {
-        // allow
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
-    {
-        // allow
-    }
-
-    @Override
-    public void checkCanSetCatalogSessionProperty(Identity identity, String propertyName)
+    public void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transactionHandle, Identity identity, String propertyName)
     {
         // allow
     }

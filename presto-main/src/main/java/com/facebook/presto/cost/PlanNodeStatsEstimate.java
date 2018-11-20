@@ -13,7 +13,14 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.presto.spi.type.FixedWidthType;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VariableWidthType;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableMap;
 import org.pcollections.HashTreePMap;
 import org.pcollections.PMap;
 
@@ -23,6 +30,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.util.MoreMath.firstNonNaN;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Double.NaN;
@@ -31,11 +39,24 @@ import static java.util.Objects.requireNonNull;
 
 public class PlanNodeStatsEstimate
 {
-    private static final double DEFAULT_DATA_SIZE_PER_COLUMN = 10;
-    public static final PlanNodeStatsEstimate UNKNOWN_STATS = builder().build();
+    private static final double DEFAULT_DATA_SIZE_PER_COLUMN = 50;
+    private static final PlanNodeStatsEstimate UNKNOWN = new PlanNodeStatsEstimate(NaN, ImmutableMap.of());
 
     private final double outputRowCount;
     private final PMap<Symbol, SymbolStatsEstimate> symbolStatistics;
+
+    public static PlanNodeStatsEstimate unknown()
+    {
+        return UNKNOWN;
+    }
+
+    @JsonCreator
+    public PlanNodeStatsEstimate(
+            @JsonProperty("outputRowCount") double outputRowCount,
+            @JsonProperty("symbolStatistics") Map<Symbol, SymbolStatsEstimate> symbolStatistics)
+    {
+        this(outputRowCount, HashTreePMap.from(requireNonNull(symbolStatistics, "symbolStatistics is null")));
+    }
 
     private PlanNodeStatsEstimate(double outputRowCount, PMap<Symbol, SymbolStatsEstimate> symbolStatistics)
     {
@@ -48,6 +69,7 @@ public class PlanNodeStatsEstimate
      * Returns estimated number of rows.
      * Unknown value is represented by {@link Double#NaN}
      */
+    @JsonProperty
     public double getOutputRowCount()
     {
         return outputRowCount;
@@ -57,28 +79,43 @@ public class PlanNodeStatsEstimate
      * Returns estimated data size.
      * Unknown value is represented by {@link Double#NaN}
      */
-    public double getOutputSizeInBytes(Collection<Symbol> outputSymbols)
+    public double getOutputSizeInBytes(Collection<Symbol> outputSymbols, TypeProvider types)
     {
         requireNonNull(outputSymbols, "outputSymbols is null");
 
-        if (isNaN(outputRowCount)) {
-            return Double.NaN;
-        }
-
         return outputSymbols.stream()
-                .map(this::getSymbolStatistics)
-                .mapToDouble(this::getOutputSizeForSymbol)
+                .mapToDouble(symbol -> getOutputSizeForSymbol(getSymbolStatistics(symbol), types.get(symbol)))
                 .sum();
     }
 
-    private double getOutputSizeForSymbol(SymbolStatsEstimate symbolStatistics)
+    private double getOutputSizeForSymbol(SymbolStatsEstimate symbolStatistics, Type type)
     {
+        checkArgument(type != null, "type is null");
+
         double averageRowSize = symbolStatistics.getAverageRowSize();
+        double nullsFraction = firstNonNaN(symbolStatistics.getNullsFraction(), 0d);
+        double numberOfNonNullRows = outputRowCount * (1.0 - nullsFraction);
+
         if (isNaN(averageRowSize)) {
-            // TODO take into consideration data type of column
-            return outputRowCount * DEFAULT_DATA_SIZE_PER_COLUMN;
+            if (type instanceof FixedWidthType) {
+                averageRowSize = ((FixedWidthType) type).getFixedSize();
+            }
+            else {
+                averageRowSize = DEFAULT_DATA_SIZE_PER_COLUMN;
+            }
         }
-        return outputRowCount * averageRowSize;
+
+        double outputSize = numberOfNonNullRows * averageRowSize;
+
+        // account for "is null" boolean array
+        outputSize += outputRowCount * Byte.BYTES;
+
+        // account for offsets array for variable width types
+        if (type instanceof VariableWidthType) {
+            outputSize += outputRowCount * Integer.BYTES;
+        }
+
+        return outputSize;
     }
 
     public PlanNodeStatsEstimate mapOutputRowCount(Function<Double, Double> mappingFunction)
@@ -95,12 +132,23 @@ public class PlanNodeStatsEstimate
 
     public SymbolStatsEstimate getSymbolStatistics(Symbol symbol)
     {
-        return symbolStatistics.getOrDefault(symbol, SymbolStatsEstimate.UNKNOWN_STATS);
+        return symbolStatistics.getOrDefault(symbol, SymbolStatsEstimate.unknown());
+    }
+
+    @JsonProperty
+    public Map<Symbol, SymbolStatsEstimate> getSymbolStatistics()
+    {
+        return symbolStatistics;
     }
 
     public Set<Symbol> getSymbolsWithKnownStatistics()
     {
         return symbolStatistics.keySet();
+    }
+
+    public boolean isOutputRowCountUnknown()
+    {
+        return isNaN(outputRowCount);
     }
 
     @Override

@@ -23,10 +23,12 @@ import org.testng.annotations.Test;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import static com.facebook.presto.tests.TestGroups.STORAGE_FORMATS;
 import static com.facebook.presto.tests.utils.JdbcDriverUtils.setSessionProperty;
+import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
@@ -45,12 +47,14 @@ public class TestHiveStorageFormats
     public static Object[][] storageFormats()
     {
         return new StorageFormat[][] {
-                {storageFormat("ORC")},
+                {storageFormat("ORC", ImmutableMap.of("hive.orc_optimized_writer_enabled", "false"))},
+                {storageFormat("ORC", ImmutableMap.of("hive.orc_optimized_writer_enabled", "true", "hive.orc_optimized_writer_validate", "true"))},
                 {storageFormat("DWRF")},
                 {storageFormat("PARQUET")},
-                {storageFormat("PARQUET", ImmutableMap.of("hive.parquet_optimized_reader_enabled", "true"))},
-                {storageFormat("RCBINARY")},
-                {storageFormat("RCTEXT")},
+                {storageFormat("RCBINARY", ImmutableMap.of("hive.rcfile_optimized_writer_enabled", "false", "hive.rcfile_optimized_writer_validate", "false"))},
+                {storageFormat("RCBINARY", ImmutableMap.of("hive.rcfile_optimized_writer_enabled", "true", "hive.rcfile_optimized_writer_validate", "true"))},
+                {storageFormat("RCTEXT", ImmutableMap.of("hive.rcfile_optimized_writer_enabled", "false", "hive.rcfile_optimized_writer_validate", "false"))},
+                {storageFormat("RCTEXT", ImmutableMap.of("hive.rcfile_optimized_writer_enabled", "true", "hive.rcfile_optimized_writer_validate", "true"))},
                 {storageFormat("SEQUENCEFILE")},
                 {storageFormat("TEXTFILE")},
                 {storageFormat("AVRO")}
@@ -62,12 +66,10 @@ public class TestHiveStorageFormats
     {
         setSessionProperties(storageFormat);
 
-        String tableName = "storage_formats_test_insert_into_" + storageFormat.getName().toLowerCase();
+        String tableName = "storage_formats_test_insert_into_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
 
-        // DROP TABLE
         query(format("DROP TABLE IF EXISTS %s", tableName));
 
-        // CREATE TABLE
         String createTable = format(
                 "CREATE TABLE %s(" +
                         "   orderkey      BIGINT," +
@@ -88,7 +90,6 @@ public class TestHiveStorageFormats
                 storageFormat.getName());
         query(createTable);
 
-        // INSERT INTO TABLE
         String insertInto = format("INSERT INTO %s " +
                 "SELECT " +
                 "orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
@@ -96,10 +97,8 @@ public class TestHiveStorageFormats
                 "FROM tpch.%s.lineitem", tableName, TPCH_SCHEMA);
         query(insertInto);
 
-        // SELECT FROM TABLE
         assertSelect("select sum(tax), sum(discount), sum(linenumber) from %s", tableName);
 
-        // DROP TABLE
         query(format("DROP TABLE %s", tableName));
     }
 
@@ -108,12 +107,10 @@ public class TestHiveStorageFormats
     {
         setSessionProperties(storageFormat);
 
-        String tableName = "storage_formats_test_create_table_as_select_" + storageFormat.getName().toLowerCase();
+        String tableName = "storage_formats_test_create_table_as_select_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
 
-        // DROP TABLE
         query(format("DROP TABLE IF EXISTS %s", tableName));
 
-        // CREATE TABLE AS SELECT
         String createTableAsSelect = format(
                 "CREATE TABLE %s WITH (format='%s') AS " +
                         "SELECT " +
@@ -124,10 +121,8 @@ public class TestHiveStorageFormats
                 TPCH_SCHEMA);
         query(createTableAsSelect);
 
-        // SELECT FROM TABLE
         assertSelect("select sum(extendedprice), sum(suppkey), count(partkey) from %s", tableName);
 
-        // DROP TABLE
         query(format("DROP TABLE %s", tableName));
     }
 
@@ -136,12 +131,10 @@ public class TestHiveStorageFormats
     {
         setSessionProperties(storageFormat);
 
-        String tableName = "storage_formats_test_insert_into_partitioned_" + storageFormat.getName().toLowerCase();
+        String tableName = "storage_formats_test_insert_into_partitioned_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
 
-        // DROP TABLE
         query(format("DROP TABLE IF EXISTS %s", tableName));
 
-        // CREATE TABLE
         String createTable = format(
                 "CREATE TABLE %s(" +
                         "   orderkey      BIGINT," +
@@ -162,7 +155,6 @@ public class TestHiveStorageFormats
                 storageFormat.getName());
         query(createTable);
 
-        // INSERT INTO TABLE
         String insertInto = format("INSERT INTO %s " +
                 "SELECT " +
                 "orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
@@ -170,10 +162,8 @@ public class TestHiveStorageFormats
                 "FROM tpch.%s.lineitem", tableName, TPCH_SCHEMA);
         query(insertInto);
 
-        // SELECT FROM TABLE
         assertSelect("select sum(tax), sum(discount), sum(length(returnflag)) from %s", tableName);
 
-        // DROP TABLE
         query(format("DROP TABLE %s", tableName));
     }
 
@@ -182,12 +172,10 @@ public class TestHiveStorageFormats
     {
         setSessionProperties(storageFormat);
 
-        String tableName = "storage_formats_test_create_table_as_select_partitioned_" + storageFormat.getName().toLowerCase();
+        String tableName = "storage_formats_test_create_table_as_select_partitioned_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
 
-        // DROP TABLE
         query(format("DROP TABLE IF EXISTS %s", tableName));
 
-        // CREATE TABLE AS SELECT
         String createTableAsSelect = format(
                 "CREATE TABLE %s WITH (format='%s', partitioned_by = ARRAY['returnflag']) AS " +
                         "SELECT " +
@@ -198,11 +186,31 @@ public class TestHiveStorageFormats
                 TPCH_SCHEMA);
         query(createTableAsSelect);
 
-        // SELECT FROM TABLE
         assertSelect("select sum(tax), sum(discount), sum(length(returnflag)) from %s", tableName);
 
-        // DROP TABLE
         query(format("DROP TABLE %s", tableName));
+    }
+
+    @Test
+    public void testSnappyCompressedParquetTableCreatedInHive()
+    {
+        String tableName = "table_created_in_hive_parquet";
+
+        query("DROP TABLE IF EXISTS " + tableName);
+
+        onHive().executeQuery(format(
+                "CREATE TABLE %s (" +
+                        "   c_bigint BIGINT," +
+                        "   c_varchar VARCHAR(255))" +
+                        "STORED AS PARQUET " +
+                        "TBLPROPERTIES(\"parquet.compression\"=\"SNAPPY\")",
+                tableName));
+
+        onHive().executeQuery(format("INSERT INTO %s VALUES(1, 'test data')", tableName));
+
+        assertThat(query("SELECT * FROM " + tableName)).containsExactly(row(1, "test data"));
+
+        query("DROP TABLE " + tableName);
     }
 
     private static void assertSelect(String query, String tableName)

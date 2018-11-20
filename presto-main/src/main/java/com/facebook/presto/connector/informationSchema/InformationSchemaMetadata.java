@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
+import com.facebook.presto.FullConnectorSession;
+import com.facebook.presto.Session;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -25,14 +30,23 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.EquatableValueSet;
+import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slice;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.metadata.MetadataUtil.SchemaMetadataBuilder.schemaMetadataBuilder;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
@@ -42,8 +56,10 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.compose;
-import static com.google.common.base.Predicates.equalTo;
-import static com.google.common.collect.Iterables.filter;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.airlift.slice.Slices.utf8Slice;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
@@ -100,11 +116,18 @@ public class InformationSchemaMetadata
                     .build())
             .build();
 
-    private final String catalogName;
+    private static final InformationSchemaColumnHandle CATALOG_COLUMN_HANDLE = new InformationSchemaColumnHandle("table_catalog");
+    private static final InformationSchemaColumnHandle SCHEMA_COLUMN_HANDLE = new InformationSchemaColumnHandle("table_schema");
+    private static final InformationSchemaColumnHandle TABLE_NAME_COLUMN_HANDLE = new InformationSchemaColumnHandle("table_name");
+    private static final int MAX_PREFIXES_COUNT = 100;
 
-    public InformationSchemaMetadata(String catalogName)
+    private final String catalogName;
+    private final Metadata metadata;
+
+    public InformationSchemaMetadata(String catalogName, Metadata metadata)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     private InformationSchemaTableHandle checkTableHandle(ConnectorTableHandle tableHandle)
@@ -145,7 +168,9 @@ public class InformationSchemaMetadata
             return ImmutableList.copyOf(TABLES.keySet());
         }
 
-        return ImmutableList.copyOf(filter(TABLES.keySet(), compose(equalTo(schemaNameOrNull), SchemaTableName::getSchemaName)));
+        return TABLES.keySet().stream()
+                .filter(compose(schemaNameOrNull::equals, SchemaTableName::getSchemaName))
+                .collect(toImmutableList());
     }
 
     @Override
@@ -189,9 +214,118 @@ public class InformationSchemaMetadata
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
-        InformationSchemaTableHandle handle = (InformationSchemaTableHandle) table;
-        ConnectorTableLayout layout = new ConnectorTableLayout(new InformationSchemaTableLayoutHandle(handle, constraint.getSummary()));
+        if (constraint.getSummary().isNone()) {
+            return ImmutableList.of();
+        }
+
+        InformationSchemaTableHandle handle = checkTableHandle(table);
+
+        Set<QualifiedTablePrefix> prefixes = calculatePrefixesWithSchemaName(session, constraint.getSummary(), constraint.predicate());
+        if (isTablesEnumeratingTable(handle.getSchemaTableName())) {
+            Set<QualifiedTablePrefix> tablePrefixes = calculatePrefixesWithTableName(session, prefixes, constraint.getSummary(), constraint.predicate());
+            // in case of high number of prefixes it is better to populate all data and then filter
+            if (tablePrefixes.size() <= MAX_PREFIXES_COUNT) {
+                prefixes = tablePrefixes;
+            }
+        }
+        if (prefixes.size() > MAX_PREFIXES_COUNT) {
+            // in case of high number of prefixes it is better to populate all data and then filter
+            prefixes = ImmutableSet.of(new QualifiedTablePrefix(catalogName));
+        }
+
+        ConnectorTableLayout layout = new ConnectorTableLayout(new InformationSchemaTableLayoutHandle(handle, prefixes));
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
+    }
+
+    private boolean isTablesEnumeratingTable(SchemaTableName schemaTableName)
+    {
+        return ImmutableSet.of(TABLE_COLUMNS, TABLE_VIEWS, TABLE_TABLES, TABLE_TABLES, TABLE_TABLE_PRIVILEGES).contains(schemaTableName);
+    }
+
+    private Set<QualifiedTablePrefix> calculatePrefixesWithSchemaName(
+            ConnectorSession connectorSession,
+            TupleDomain<ColumnHandle> constraint,
+            Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
+    {
+        Optional<Set<String>> schemas = filterString(constraint, SCHEMA_COLUMN_HANDLE);
+        if (schemas.isPresent()) {
+            return schemas.get().stream()
+                    .filter(this::isLowerCase)
+                    .map(schema -> new QualifiedTablePrefix(catalogName, schema))
+                    .collect(toImmutableSet());
+        }
+
+        Session session = ((FullConnectorSession) connectorSession).getSession();
+        return metadata.listSchemaNames(session, catalogName).stream()
+                .filter(schema -> !predicate.isPresent() || predicate.get().test(schemaAsFixedValues(schema)))
+                .map(schema -> new QualifiedTablePrefix(catalogName, schema))
+                .collect(toImmutableSet());
+    }
+
+    public Set<QualifiedTablePrefix> calculatePrefixesWithTableName(
+            ConnectorSession connectorSession,
+            Set<QualifiedTablePrefix> prefixes,
+            TupleDomain<ColumnHandle> constraint,
+            Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
+    {
+        Session session = ((FullConnectorSession) connectorSession).getSession();
+
+        Optional<Set<String>> tables = filterString(constraint, TABLE_NAME_COLUMN_HANDLE);
+        if (tables.isPresent()) {
+            return prefixes.stream()
+                    .flatMap(prefix -> tables.get().stream()
+                            .filter(this::isLowerCase)
+                            .map(table -> table.toLowerCase(ENGLISH))
+                            .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
+                    .filter(objectName -> metadata.getTableHandle(session, objectName).isPresent() || metadata.getView(session, objectName).isPresent())
+                    .map(QualifiedObjectName::asQualifiedTablePrefix)
+                    .collect(toImmutableSet());
+        }
+
+        return prefixes.stream()
+                .flatMap(prefix -> Stream.concat(
+                        metadata.listTables(session, prefix).stream(),
+                        metadata.listViews(session, prefix).stream()))
+                .filter(objectName -> !predicate.isPresent() || predicate.get().test(asFixedValues(objectName)))
+                .map(QualifiedObjectName::asQualifiedTablePrefix)
+                .collect(toImmutableSet());
+    }
+
+    private <T> Optional<Set<String>> filterString(TupleDomain<T> constraint, T column)
+    {
+        if (constraint.isNone()) {
+            return Optional.of(ImmutableSet.of());
+        }
+
+        Domain domain = constraint.getDomains().get().get(column);
+        if (domain == null) {
+            return Optional.empty();
+        }
+
+        if (domain.isSingleValue()) {
+            return Optional.of(ImmutableSet.of(((Slice) domain.getSingleValue()).toStringUtf8()));
+        }
+        else if (domain.getValues() instanceof EquatableValueSet) {
+            Collection<Object> values = ((EquatableValueSet) domain.getValues()).getValues();
+            return Optional.of(values.stream()
+                    .map(Slice.class::cast)
+                    .map(Slice::toStringUtf8)
+                    .collect(toImmutableSet()));
+        }
+        return Optional.empty();
+    }
+
+    private Map<ColumnHandle, NullableValue> schemaAsFixedValues(String schema)
+    {
+        return ImmutableMap.of(SCHEMA_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(schema)));
+    }
+
+    private Map<ColumnHandle, NullableValue> asFixedValues(QualifiedObjectName objectName)
+    {
+        return ImmutableMap.of(
+                CATALOG_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getCatalogName())),
+                SCHEMA_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getSchemaName())),
+                TABLE_NAME_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getObjectName())));
     }
 
     @Override
@@ -204,5 +338,10 @@ public class InformationSchemaMetadata
     {
         checkArgument(TABLES.containsKey(tableName), "table does not exist: %s", tableName);
         return TABLES.get(tableName).getColumns();
+    }
+
+    private boolean isLowerCase(String value)
+    {
+        return value.toLowerCase(ENGLISH).equals(value);
     }
 }

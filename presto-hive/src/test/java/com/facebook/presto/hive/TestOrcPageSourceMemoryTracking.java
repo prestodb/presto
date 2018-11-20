@@ -40,7 +40,6 @@ import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.TestingSplit;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.base.Joiner;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -178,11 +177,13 @@ public class TestOrcPageSourceMemoryTracking
         assertEquals(pageSource.getSystemMemoryUsage(), 0);
 
         long memoryUsage = -1;
-        for (int i = 0; i < 20; i++) {
+        int totalRows = 0;
+        while (totalRows < 20000) {
             assertFalse(pageSource.isFinished());
             Page page = pageSource.getNextPage();
             assertNotNull(page);
             Block block = page.getBlock(1);
+
             if (memoryUsage == -1) {
                 assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 180000L, 189999L); // Memory usage before lazy-loading the block
                 createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
@@ -194,14 +195,16 @@ public class TestOrcPageSourceMemoryTracking
                 createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
                 assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
             }
+            totalRows += page.getPositionCount();
         }
 
         memoryUsage = -1;
-        for (int i = 20; i < 40; i++) {
+        while (totalRows < 40000) {
             assertFalse(pageSource.isFinished());
             Page page = pageSource.getNextPage();
             assertNotNull(page);
             Block block = page.getBlock(1);
+
             if (memoryUsage == -1) {
                 assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 180000L, 189999L); // Memory usage before lazy-loading the block
                 createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
@@ -213,14 +216,16 @@ public class TestOrcPageSourceMemoryTracking
                 createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
                 assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
             }
+            totalRows += page.getPositionCount();
         }
 
         memoryUsage = -1;
-        for (int i = 40; i < 50; i++) {
+        while (totalRows < NUM_ROWS) {
             assertFalse(pageSource.isFinished());
             Page page = pageSource.getNextPage();
             assertNotNull(page);
             Block block = page.getBlock(1);
+
             if (memoryUsage == -1) {
                 assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 90000L, 99999L); // Memory usage before lazy-loading the block
                 createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
@@ -232,6 +237,7 @@ public class TestOrcPageSourceMemoryTracking
                 createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
                 assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
             }
+            totalRows += page.getPositionCount();
         }
 
         assertFalse(pageSource.isFinished());
@@ -248,7 +254,7 @@ public class TestOrcPageSourceMemoryTracking
         int maxReadBytes = 1_000;
         HiveClientConfig config = new HiveClientConfig();
         config.setOrcMaxReadBlockSize(new DataSize(maxReadBytes, BYTE));
-        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig()).getSessionProperties());
+        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
 
         // Build a table where every row gets larger, so we can test that the "batchSize" reduces
@@ -276,7 +282,7 @@ public class TestOrcPageSourceMemoryTracking
                     break;
                 }
                 assertNotNull(page);
-                page.assureLoaded();
+                page = page.getLoadedPage();
                 positionCount += page.getPositionCount();
                 // assert upper bound is tight
                 // ignore the first MAX_BATCH_SIZE rows given the sizes are set when loading the blocks
@@ -311,7 +317,8 @@ public class TestOrcPageSourceMemoryTracking
         assertEquals(driverContext.getSystemMemoryUsage(), 0);
 
         long memoryUsage = -1;
-        for (int i = 0; i < 20; i++) {
+        int totalRows = 0;
+        while (totalRows < 20000) {
             assertFalse(operator.isFinished());
             Page page = operator.getOutput();
             assertNotNull(page);
@@ -323,10 +330,11 @@ public class TestOrcPageSourceMemoryTracking
             else {
                 assertEquals(driverContext.getSystemMemoryUsage(), memoryUsage);
             }
+            totalRows += page.getPositionCount();
         }
 
         memoryUsage = -1;
-        for (int i = 20; i < 40; i++) {
+        while (totalRows < 40000) {
             assertFalse(operator.isFinished());
             Page page = operator.getOutput();
             assertNotNull(page);
@@ -338,10 +346,11 @@ public class TestOrcPageSourceMemoryTracking
             else {
                 assertEquals(driverContext.getSystemMemoryUsage(), memoryUsage);
             }
+            totalRows += page.getPositionCount();
         }
 
         memoryUsage = -1;
-        for (int i = 40; i < 50; i++) {
+        while (totalRows < NUM_ROWS) {
             assertFalse(operator.isFinished());
             Page page = operator.getOutput();
             assertNotNull(page);
@@ -353,6 +362,7 @@ public class TestOrcPageSourceMemoryTracking
             else {
                 assertEquals(driverContext.getSystemMemoryUsage(), memoryUsage);
             }
+            totalRows += page.getPositionCount();
         }
 
         assertFalse(operator.isFinished());
@@ -372,10 +382,13 @@ public class TestOrcPageSourceMemoryTracking
 
         assertEquals(driverContext.getSystemMemoryUsage(), 0);
 
-        for (int i = 0; i < 50; i++) {
+        int totalRows = 0;
+        while (totalRows < NUM_ROWS) {
             assertFalse(operator.isFinished());
-            assertNotNull(operator.getOutput());
+            Page page = operator.getOutput();
+            assertNotNull(page);
             assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 90_000L, 499_999L);
+            totalRows += page.getPositionCount();
         }
 
         // done... in the current implementation finish is not set until output returns a null page
@@ -470,7 +483,8 @@ public class TestOrcPageSourceMemoryTracking
                     partitionKeys,
                     DateTimeZone.UTC,
                     TYPE_MANAGER,
-                    ImmutableMap.of())
+                    ImmutableMap.of(),
+                    Optional.empty())
                     .get();
         }
 
@@ -481,7 +495,6 @@ public class TestOrcPageSourceMemoryTracking
                     0,
                     new PlanNodeId("0"),
                     (session, split, columnHandles) -> pageSource,
-                    types,
                     columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()));
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
             operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
@@ -516,7 +529,7 @@ public class TestOrcPageSourceMemoryTracking
         private DriverContext newDriverContext()
         {
             return createTaskContext(executor, scheduledExecutor, testSessionBuilder().build())
-                    .addPipelineContext(0, true, true)
+                    .addPipelineContext(0, true, true, false)
                     .addDriverContext();
         }
     }
@@ -595,7 +608,7 @@ public class TestOrcPageSourceMemoryTracking
             flushStripe.invoke(writer);
         }
         catch (ReflectiveOperationException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -626,7 +639,7 @@ public class TestOrcPageSourceMemoryTracking
             return constructor;
         }
         catch (ReflectiveOperationException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 

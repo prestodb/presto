@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.type.TestingTypeManager;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
@@ -31,6 +32,8 @@ import static java.util.Objects.requireNonNull;
 
 public final class TestingBlockJsonSerde
 {
+    private final BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde(new TestingTypeManager());
+
     private TestingBlockJsonSerde() {}
 
     public static class Serializer
@@ -48,9 +51,7 @@ public final class TestingBlockJsonSerde
                 throws IOException
         {
             SliceOutput output = new DynamicSliceOutput(64);
-            BlockEncoding encoding = block.getEncoding();
-            blockEncodingSerde.writeBlockEncoding(output, encoding);
-            encoding.writeBlock(output, block);
+            blockEncodingSerde.writeBlock(output, block);
             String encoded = Base64.getEncoder().encodeToString(output.slice().getBytes());
             jsonGenerator.writeString(encoded);
         }
@@ -72,8 +73,7 @@ public final class TestingBlockJsonSerde
         {
             byte[] decoded = Base64.getDecoder().decode(jsonParser.readValueAs(String.class));
             BasicSliceInput input = Slices.wrappedBuffer(decoded).getInput();
-            BlockEncoding blockEncoding = blockEncodingSerde.readBlockEncoding(input);
-            return blockEncoding.readBlock(input);
+            return blockEncodingSerde.readBlock(input);
         }
     }
 }

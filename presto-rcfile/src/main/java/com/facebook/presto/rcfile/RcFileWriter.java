@@ -23,6 +23,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.units.DataSize;
+import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -50,6 +51,7 @@ import static java.util.Objects.requireNonNull;
 public class RcFileWriter
         implements Closeable
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RcFileWriter.class).instanceSize();
     private static final Slice RCFILE_MAGIC = utf8Slice("RCF");
     private static final int CURRENT_VERSION = 1;
     private static final String COLUMN_COUNT_METADATA_KEY = "hive.io.rcfile.column.number";
@@ -222,7 +224,7 @@ public class RcFileWriter
 
     public long getRetainedSizeInBytes()
     {
-        long retainedSize = 0;
+        long retainedSize = INSTANCE_SIZE;
         retainedSize += output.getRetainedSize();
         retainedSize += keySectionOutput.getRetainedSize();
         for (ColumnEncoder columnEncoder : columnEncoders) {
@@ -249,9 +251,8 @@ public class RcFileWriter
         bufferedRows += page.getPositionCount();
 
         bufferedSize = 0;
-        Block[] blocks = page.getBlocks();
-        for (int i = 0; i < blocks.length; i++) {
-            Block block = blocks[i];
+        for (int i = 0; i < page.getChannelCount(); i++) {
+            Block block = page.getBlock(i);
             columnEncoders[i].writeBlock(block);
             bufferedSize += columnEncoders[i].getBufferedSize();
         }
@@ -328,6 +329,8 @@ public class RcFileWriter
 
     private static class ColumnEncoder
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(ColumnEncoder.class).instanceSize() + ClassLayout.parseClass(ColumnEncodeOutput.class).instanceSize();
+
         private final ColumnEncoding columnEncoding;
 
         private ColumnEncodeOutput encodeOutput;
@@ -411,7 +414,7 @@ public class RcFileWriter
 
         public long getRetainedSizeInBytes()
         {
-            return lengthOutput.getRetainedSize() + output.getRetainedSize();
+            return INSTANCE_SIZE + lengthOutput.getRetainedSize() + output.getRetainedSize();
         }
 
         private static class ColumnEncodeOutput

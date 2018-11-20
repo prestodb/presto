@@ -14,10 +14,8 @@
 package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.execution.resourceGroups.WeightedFairQueue.Usage;
-import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.testng.annotations.Test;
 
-import static io.airlift.testing.Assertions.assertBetweenInclusive;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -82,11 +80,7 @@ public class TestWeightedFairQueue
             }
         }
 
-        BinomialDistribution binomial = new BinomialDistribution(1000, 2.0 / 3.0);
-        int lowerBound = binomial.inverseCumulativeProbability(0.000001);
-        int upperBound = binomial.inverseCumulativeProbability(0.999999);
-
-        assertBetweenInclusive(count1, lowerBound, upperBound);
-        assertBetweenInclusive((1000 - count2), lowerBound, upperBound);
+        assertEquals(count1, 500);
+        assertEquals(count2, 500);
     }
 }

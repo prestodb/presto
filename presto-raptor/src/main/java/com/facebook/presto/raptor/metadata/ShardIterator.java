@@ -70,7 +70,7 @@ final class ShardIterator
     {
         this.merged = merged;
         this.bucketToNode = bucketToNode.orElse(null);
-        ShardPredicate predicate = ShardPredicate.create(effectivePredicate, bucketToNode.isPresent());
+        ShardPredicate predicate = ShardPredicate.create(effectivePredicate);
 
         String sql;
         if (bucketToNode.isPresent()) {

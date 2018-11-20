@@ -34,7 +34,7 @@ import static java.util.Objects.requireNonNull;
 public class SymbolToInputParameterRewriter
 {
     private final Map<Symbol, Integer> symbolToChannelMapping;
-    private final Map<Symbol, Type> symbolToTypeMapping;
+    private final TypeProvider types;
 
     private final Map<Integer, Integer> fieldToParameter = new HashMap<>();
     private final List<Integer> inputChannels = new ArrayList<>();
@@ -51,12 +51,12 @@ public class SymbolToInputParameterRewriter
         return ImmutableList.copyOf(inputTypes);
     }
 
-    public SymbolToInputParameterRewriter(Map<Symbol, Type> symbolToTypes, Map<Symbol, Integer> symbolToChannelMapping)
+    public SymbolToInputParameterRewriter(TypeProvider types, Map<Symbol, Integer> symbolToChannelMapping)
     {
+        this.types = requireNonNull(types, "symbolToTypeMapping is null");
+
         requireNonNull(symbolToChannelMapping, "symbolToChannelMapping is null");
-        requireNonNull(symbolToTypes, "symbolToTypeMapping is null");
         this.symbolToChannelMapping = ImmutableMap.copyOf(symbolToChannelMapping);
-        this.symbolToTypeMapping = ImmutableMap.copyOf(symbolToTypes);
     }
 
     public Expression rewrite(Expression expression)
@@ -73,7 +73,7 @@ public class SymbolToInputParameterRewriter
                     return node;
                 }
 
-                Type type = symbolToTypeMapping.get(symbol);
+                Type type = types.get(symbol);
                 checkArgument(type != null, "Cannot resolve symbol %s", node.getName());
 
                 int parameter = fieldToParameter.computeIfAbsent(channel, field -> {

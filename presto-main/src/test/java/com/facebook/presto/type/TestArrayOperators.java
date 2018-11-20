@@ -18,7 +18,6 @@ import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
@@ -26,7 +25,7 @@ import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
@@ -46,8 +45,8 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.TimeZone;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockSerdeUtil.writeBlock;
@@ -57,8 +56,10 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -71,6 +72,7 @@ import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
@@ -113,17 +115,15 @@ public class TestArrayOperators
     {
         Block actualBlock = arrayBlockOf(new ArrayType(BIGINT), arrayBlockOf(BIGINT, 1L, 2L), arrayBlockOf(BIGINT, 3L));
         DynamicSliceOutput actualSliceOutput = new DynamicSliceOutput(100);
-        writeBlock(actualSliceOutput, actualBlock);
+        writeBlock(functionAssertions.getMetadata().getBlockEncodingSerde(), actualSliceOutput, actualBlock);
 
         Block expectedBlock = new ArrayType(BIGINT)
-                .createBlockBuilder(new BlockBuilderStatus(), 3)
-                .writeObject(BIGINT.createBlockBuilder(new BlockBuilderStatus(), 2).writeLong(1).closeEntry().writeLong(2).closeEntry().build())
-                .closeEntry()
-                .writeObject(BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1).writeLong(3).closeEntry().build())
-                .closeEntry()
+                .createBlockBuilder(null, 3)
+                .appendStructure(BIGINT.createBlockBuilder(null, 2).writeLong(1).closeEntry().writeLong(2).closeEntry().build())
+                .appendStructure(BIGINT.createBlockBuilder(null, 1).writeLong(3).closeEntry().build())
                 .build();
         DynamicSliceOutput expectedSliceOutput = new DynamicSliceOutput(100);
-        writeBlock(expectedSliceOutput, expectedBlock);
+        writeBlock(functionAssertions.getMetadata().getBlockEncodingSerde(), expectedSliceOutput, expectedBlock);
 
         assertEquals(actualSliceOutput.slice(), expectedSliceOutput.slice());
     }
@@ -209,9 +209,9 @@ public class TestArrayOperators
                 "[123,3.14,false,\"abc\",[1,\"a\",null],{\"a\":1,\"b\":\"str\",\"c\":null},null,null]");
 
         assertFunction(
-                "CAST(ARRAY[from_unixtime(1), null] AS JSON)",
+                "CAST(ARRAY[TIMESTAMP '1970-01-01 00:00:01', null] AS JSON)",
                 JSON,
-                format("[\"%s\",null]", sqlTimestamp(1000).toString()));
+                format("[\"%s\",null]", sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, TEST_SESSION)));
         assertFunction(
                 "CAST(ARRAY[DATE '2001-08-22', DATE '2001-08-23', null] AS JSON)",
                 JSON,
@@ -229,8 +229,8 @@ public class TestArrayOperators
                 "cast(ARRAY[ROW(1, 2), ROW(3, CAST(null as INTEGER)), CAST(ROW(null, null) AS ROW(INTEGER, INTEGER)), null] AS JSON)",
                 JSON,
                 "[[1,2],[3,null],[null,null],null]");
-        decimalLiteralAsDecimal.assertFunction("CAST(ARRAY [12345.12345, 12345.12345, 3.0] AS JSON)", JSON, "[12345.12345,12345.12345,3.00000]");
-        decimalLiteralAsDecimal.assertFunction(
+        assertFunction("CAST(ARRAY [12345.12345, 12345.12345, 3.0] AS JSON)", JSON, "[12345.12345,12345.12345,3.00000]");
+        assertFunction(
                 "CAST(ARRAY [123456789012345678901234567890.87654321, 123456789012345678901234567890.12345678] AS JSON)",
                 JSON,
                 "[123456789012345678901234567890.87654321,123456789012345678901234567890.12345678]");
@@ -313,7 +313,9 @@ public class TestArrayOperators
                         "{\"k2\": null, \"k1\": 3}, " +
                         "null]' " +
                         "AS ARRAY<ROW(k1 BIGINT, k2 VARCHAR)>)",
-                new ArrayType(new RowType(ImmutableList.of(BIGINT, VARCHAR), Optional.of(ImmutableList.of("k1", "k2")))),
+                new ArrayType(RowType.from(ImmutableList.of(
+                        RowType.field("k1", BIGINT),
+                        RowType.field("k2", VARCHAR)))),
                 asList(
                         asList(1L, "two"),
                         asList(3L, null),
@@ -336,11 +338,11 @@ public class TestArrayOperators
 
         assertFunction("CAST(JSON '[1, 2.0, 3]' AS ARRAY(DECIMAL(10,5)))", new ArrayType(createDecimalType(10, 5)), ImmutableList.of(decimal("1.00000"), decimal("2.00000"), decimal("3.00000")));
         assertFunction("CAST(CAST(ARRAY [1, 2.0, 3] as JSON) AS ARRAY(DECIMAL(10,5)))", new ArrayType(createDecimalType(10, 5)), ImmutableList.of(decimal("1.00000"), decimal("2.00000"), decimal("3.00000")));
-        decimalLiteralAsDecimal.assertFunction(
+        assertFunction(
                 "CAST(CAST(ARRAY [123456789012345678901234567890.12345678, 1.2] as JSON) AS ARRAY(DECIMAL(38,8)))",
                 new ArrayType(createDecimalType(38, 8)),
                 ImmutableList.of(decimal("123456789012345678901234567890.12345678"), decimal("1.20000000")));
-        decimalLiteralAsDecimal.assertFunction(
+        assertFunction(
                 "CAST(CAST(ARRAY [12345.87654] as JSON) AS ARRAY(DECIMAL(7,2)))",
                 new ArrayType(createDecimalType(7, 2)),
                 ImmutableList.of(decimal("12345.88")));
@@ -369,25 +371,29 @@ public class TestArrayOperators
         assertFunction("ARRAY [1, 2.5E0, 3]", new ArrayType(DOUBLE), ImmutableList.of(1.0, 2.5, 3.0));
         assertFunction("ARRAY ['puppies', 'kittens']", new ArrayType(createVarcharType(7)), ImmutableList.of("puppies", "kittens"));
         assertFunction("ARRAY [TRUE, FALSE]", new ArrayType(BOOLEAN), ImmutableList.of(true, false));
-        assertFunction("ARRAY [from_unixtime(1), from_unixtime(100)]", new ArrayType(TIMESTAMP), ImmutableList.of(
-                sqlTimestamp(1000), sqlTimestamp(100_000)));
+        assertFunction(
+                "ARRAY [TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1973-07-08 22:00:01']",
+                new ArrayType(TIMESTAMP),
+                ImmutableList.of(
+                        sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, TEST_SESSION),
+                        sqlTimestampOf(1973, 7, 8, 22, 0, 1, 0, TEST_SESSION)));
         assertFunction("ARRAY [sqrt(-1)]", new ArrayType(DOUBLE), ImmutableList.of(NaN));
         assertFunction("ARRAY [pow(infinity(), 2)]", new ArrayType(DOUBLE), ImmutableList.of(POSITIVE_INFINITY));
         assertFunction("ARRAY [pow(-infinity(), 1)]", new ArrayType(DOUBLE), ImmutableList.of(NEGATIVE_INFINITY));
         assertFunction("ARRAY [ARRAY [], NULL]", new ArrayType(new ArrayType(UNKNOWN)), asList(ImmutableList.of(), null));
-        decimalLiteralAsDecimal.assertFunction(
+        assertFunction(
                 "ARRAY [ARRAY[1.0], ARRAY[2.0, 3.0]]",
                 new ArrayType(new ArrayType(createDecimalType(2, 1))),
                 asList(asList(decimal("1.0")), asList(decimal("2.0"), decimal("3.0"))));
-        decimalLiteralAsDecimal.assertFunction(
+        assertFunction(
                 "ARRAY[1.0, 2.0, 3.11]",
                 new ArrayType(createDecimalType(3, 2)),
                 asList(decimal("1.00"), decimal("2.00"), decimal("3.11")));
-        decimalLiteralAsDecimal.assertFunction(
+        assertFunction(
                 "ARRAY[1, 2.0, 3.11]",
                 new ArrayType(createDecimalType(12, 2)),
                 asList(decimal("0000000001.00"), decimal("0000000002.00"), decimal("0000000003.11")));
-        decimalLiteralAsDecimal.assertFunction(
+        assertFunction(
                 "ARRAY [ARRAY[1.0], ARRAY[2.0, 123456789123456.789]]",
                 new ArrayType(new ArrayType(createDecimalType(18, 3))),
                 asList(asList(decimal("000000000000001.000")), asList(decimal("000000000000002.000"), decimal("123456789123456.789"))));
@@ -404,8 +410,9 @@ public class TestArrayOperators
         assertFunction("ARRAY ['puppies'] || ARRAY ['kittens']", new ArrayType(createVarcharType(7)), ImmutableList.of("puppies", "kittens"));
         assertFunction("ARRAY [TRUE] || ARRAY [FALSE]", new ArrayType(BOOLEAN), ImmutableList.of(true, false));
         assertFunction("concat(ARRAY [1] , ARRAY[2,3])", new ArrayType(INTEGER), ImmutableList.of(1, 2, 3));
-        assertFunction("ARRAY [from_unixtime(1)] || ARRAY[from_unixtime(100)]", new ArrayType(TIMESTAMP), ImmutableList.of(
-                sqlTimestamp(1000), sqlTimestamp(100_000)));
+        assertFunction("ARRAY [TIMESTAMP '1970-01-01 00:00:01'] || ARRAY[TIMESTAMP '1973-07-08 22:00:01']", new ArrayType(TIMESTAMP), ImmutableList.of(
+                sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, TEST_SESSION),
+                sqlTimestampOf(1973, 7, 8, 22, 0, 1, 0, TEST_SESSION)));
         assertFunction("ARRAY [ARRAY[ARRAY[1]]] || ARRAY [ARRAY[ARRAY[2]]]",
                 new ArrayType(new ArrayType(new ArrayType(INTEGER))),
                 asList(singletonList(Ints.asList(1)), singletonList(Ints.asList(2))));
@@ -414,11 +421,11 @@ public class TestArrayOperators
         assertFunction("ARRAY [1] || ARRAY [2] || ARRAY [3] || ARRAY [4]", new ArrayType(INTEGER), ImmutableList.of(1, 2, 3, 4));
         assertFunction("ARRAY [1] || ARRAY [2.0E0] || ARRAY [3] || ARRAY [4.0E0]", new ArrayType(DOUBLE), ImmutableList.of(1.0, 2.0, 3.0, 4.0));
         assertFunction("ARRAY [ARRAY [1], ARRAY [2, 8]] || ARRAY [ARRAY [3, 6], ARRAY [4]]", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1), ImmutableList.of(2, 8), ImmutableList.of(3, 6), ImmutableList.of(4)));
-        decimalLiteralAsDecimal.assertFunction(
+        assertFunction(
                 "ARRAY[1.0] || ARRAY [2.0, 3.11]",
                 new ArrayType(createDecimalType(3, 2)),
                 ImmutableList.of(decimal("1.00"), decimal("2.00"), decimal("3.11")));
-        decimalLiteralAsDecimal.assertFunction(
+        assertFunction(
                 "ARRAY[1.0] || ARRAY [2.0] || ARRAY [123456789123456.789]",
                 new ArrayType(createDecimalType(18, 3)),
                 ImmutableList.of(decimal("000000000000001.000"), decimal("000000000000002.000"), decimal("123456789123456.789")));
@@ -465,17 +472,19 @@ public class TestArrayOperators
         assertFunction("ARRAY [2.0E0] || 1.0E0", new ArrayType(DOUBLE), Lists.newArrayList(2.0, 1.0));
         assertFunction("'puppies' || ARRAY ['kittens']", new ArrayType(createVarcharType(7)), Lists.newArrayList("puppies", "kittens"));
         assertFunction("ARRAY ['kittens'] || 'puppies'", new ArrayType(createVarcharType(7)), Lists.newArrayList("kittens", "puppies"));
-        assertFunction("ARRAY [from_unixtime(1)] || from_unixtime(100)", new ArrayType(TIMESTAMP), ImmutableList.of(
-                sqlTimestamp(1000), sqlTimestamp(100_000)));
-        assertFunction("from_unixtime(100) || ARRAY [from_unixtime(1)]", new ArrayType(TIMESTAMP), ImmutableList.of(
-                sqlTimestamp(100_000), sqlTimestamp(1000)));
+        assertFunction("ARRAY [TIMESTAMP '1970-01-01 00:00:01'] || TIMESTAMP '1973-07-08 22:00:01'", new ArrayType(TIMESTAMP), ImmutableList.of(
+                sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, TEST_SESSION),
+                sqlTimestampOf(1973, 7, 8, 22, 0, 1, 0, TEST_SESSION)));
+        assertFunction("TIMESTAMP '1973-07-08 22:00:01' || ARRAY [TIMESTAMP '1970-01-01 00:00:01']", new ArrayType(TIMESTAMP), ImmutableList.of(
+                sqlTimestampOf(1973, 7, 8, 22, 0, 1, 0, TEST_SESSION),
+                sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, TEST_SESSION)));
         assertFunction("ARRAY [2, 8] || ARRAY[ARRAY[3, 6], ARRAY[4]]", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(2, 8), ImmutableList.of(3, 6), ImmutableList.of(4)));
         assertFunction("ARRAY [ARRAY [1], ARRAY [2, 8]] || ARRAY [3, 6]", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1), ImmutableList.of(2, 8), ImmutableList.of(3, 6)));
-        decimalLiteralAsDecimal.assertFunction(
+        assertFunction(
                 "ARRAY [2.0, 3.11] || 1.0",
                 new ArrayType(createDecimalType(3, 2)),
                 asList(decimal("2.00"), decimal("3.11"), decimal("1.00")));
-        decimalLiteralAsDecimal.assertFunction(
+        assertFunction(
                 "ARRAY[1.0] || 2.0 || 123456789123456.789",
                 new ArrayType(createDecimalType(18, 3)),
                 asList(decimal("000000000000001.000"), decimal("000000000000002.000"), decimal("123456789123456.789")));
@@ -522,6 +531,10 @@ public class TestArrayOperators
         assertFunction("CONTAINS(ARRAY [2.2, 1.1], 0000000000001.100)", BOOLEAN, true);
         assertFunction("CONTAINS(ARRAY [2.2, 001.20], 1.2)", BOOLEAN, true);
         assertFunction("CONTAINS(ARRAY [ARRAY [1.1, 2.2], ARRAY [3.3, 4.3]], ARRAY [3.3, 4.300])", BOOLEAN, true);
+        assertFunction("CONTAINS(ARRAY [ARRAY [1.1, 2.2], ARRAY [3.3, 4.3]], ARRAY [1.3, null])", BOOLEAN, false);
+
+        assertInvalidFunction("CONTAINS(ARRAY [ARRAY [1.1, 2.2], ARRAY [3.3, 4.3]], ARRAY [1.1, null])", NOT_SUPPORTED);
+        assertInvalidFunction("CONTAINS(ARRAY [ARRAY [1.1, null], ARRAY [3.3, 4.3]], ARRAY [1.1, null])", NOT_SUPPORTED);
     }
 
     @Test
@@ -542,13 +555,22 @@ public class TestArrayOperators
         assertFunction("ARRAY_JOIN(ARRAY [null, null, null, null], 'X')", VARCHAR, "");
         assertFunction("ARRAY_JOIN(ARRAY [true, false], 'XX')", VARCHAR, "trueXXfalse");
         assertFunction("ARRAY_JOIN(ARRAY [sqrt(-1), infinity()], ',')", VARCHAR, "NaN,Infinity");
-        assertFunction("ARRAY_JOIN(ARRAY [from_unixtime(1), from_unixtime(10)], '|')", VARCHAR, sqlTimestamp(1000).toString() + "|" + sqlTimestamp(10_000).toString());
-        assertFunction("ARRAY_JOIN(ARRAY [null, from_unixtime(10)], '|')", VARCHAR, sqlTimestamp(10_000).toString());
-        assertFunction("ARRAY_JOIN(ARRAY [null, from_unixtime(10)], '|', 'XYZ')", VARCHAR, "XYZ|" + sqlTimestamp(10_000).toString());
-        decimalLiteralAsDecimal.assertFunction("ARRAY_JOIN(ARRAY [1.0, 2.1, 3.3], 'x')", VARCHAR, "1.0x2.1x3.3");
-        decimalLiteralAsDecimal.assertFunction("ARRAY_JOIN(ARRAY [1.0, 2.100, 3.3], 'x')", VARCHAR, "1.000x2.100x3.300");
-        decimalLiteralAsDecimal.assertFunction("ARRAY_JOIN(ARRAY [1.0, 2.100, NULL], 'x', 'N/A')", VARCHAR, "1.000x2.100xN/A");
-        decimalLiteralAsDecimal.assertFunction("ARRAY_JOIN(ARRAY [1.0, DOUBLE '002.100', 3.3], 'x')", VARCHAR, "1.0x2.1x3.3");
+        assertFunction("ARRAY_JOIN(ARRAY [TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1973-07-08 22:00:01'], '|')", VARCHAR, format(
+                "%s|%s",
+                sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, TEST_SESSION),
+                sqlTimestampOf(1973, 7, 8, 22, 0, 1, 0, TEST_SESSION)));
+        assertFunction(
+                "ARRAY_JOIN(ARRAY [null, TIMESTAMP '1970-01-01 00:00:01'], '|')",
+                VARCHAR,
+                sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, TEST_SESSION).toString());
+        assertFunction(
+                "ARRAY_JOIN(ARRAY [null, TIMESTAMP '1970-01-01 00:00:01'], '|', 'XYZ')",
+                VARCHAR,
+                "XYZ|" + sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, TEST_SESSION).toString());
+        assertFunction("ARRAY_JOIN(ARRAY [1.0, 2.1, 3.3], 'x')", VARCHAR, "1.0x2.1x3.3");
+        assertFunction("ARRAY_JOIN(ARRAY [1.0, 2.100, 3.3], 'x')", VARCHAR, "1.000x2.100x3.300");
+        assertFunction("ARRAY_JOIN(ARRAY [1.0, 2.100, NULL], 'x', 'N/A')", VARCHAR, "1.000x2.100xN/A");
+        assertFunction("ARRAY_JOIN(ARRAY [1.0, DOUBLE '002.100', 3.3], 'x')", VARCHAR, "1.0x2.1x3.3");
 
         assertInvalidFunction("ARRAY_JOIN(ARRAY [ARRAY [1], ARRAY [2]], '-')", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("ARRAY_JOIN(ARRAY [MAP(ARRAY [1], ARRAY [2])], '-')", INVALID_FUNCTION_ARGUMENT);
@@ -658,6 +680,10 @@ public class TestArrayOperators
         assertFunction("ARRAY_POSITION(ARRAY [1.0, 2.0, 3.0, 4.0], 000000000000000000000003.000)", BIGINT, 3L);
         assertFunction("ARRAY_POSITION(ARRAY [1.0, 2.0, 3.0, 4.0], 3)", BIGINT, 3L);
         assertFunction("ARRAY_POSITION(ARRAY [1.0, 2.0, 3, 4.0], 4.0)", BIGINT, 4L);
+        assertFunction("ARRAY_POSITION(ARRAY [ARRAY[1]], ARRAY[1])", BIGINT, 1L);
+
+        assertInvalidFunction("ARRAY_POSITION(ARRAY [ARRAY[null]], ARRAY[1])", NOT_SUPPORTED);
+        assertInvalidFunction("ARRAY_POSITION(ARRAY [ARRAY[null]], ARRAY[null])", NOT_SUPPORTED);
     }
 
     @Test
@@ -692,7 +718,10 @@ public class TestArrayOperators
         assertFunction("ARRAY ['puppies', 'kittens'][2]", createVarcharType(7), "kittens");
         assertFunction("ARRAY ['puppies', 'kittens', NULL][3]", createVarcharType(7), null);
         assertFunction("ARRAY [TRUE, FALSE][2]", BOOLEAN, false);
-        assertFunction("ARRAY [from_unixtime(1), from_unixtime(100)][1]", TIMESTAMP, sqlTimestamp(1000));
+        assertFunction(
+                "ARRAY [TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1973-07-08 22:00:01'][1]",
+                TIMESTAMP,
+                sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, TEST_SESSION));
         assertFunction("ARRAY [infinity()][1]", DOUBLE, POSITIVE_INFINITY);
         assertFunction("ARRAY [-infinity()][1]", DOUBLE, NEGATIVE_INFINITY);
         assertFunction("ARRAY [sqrt(-1)][1]", DOUBLE, NaN);
@@ -741,8 +770,14 @@ public class TestArrayOperators
         assertFunction("ELEMENT_AT(ARRAY ['puppies', 'kittens', NULL], -1)", createVarcharType(7), null);
         assertFunction("ELEMENT_AT(ARRAY [TRUE, FALSE], 2)", BOOLEAN, false);
         assertFunction("ELEMENT_AT(ARRAY [TRUE, FALSE], -1)", BOOLEAN, false);
-        assertFunction("ELEMENT_AT(ARRAY [from_unixtime(1), from_unixtime(100)], 1)", TIMESTAMP, sqlTimestamp(1000));
-        assertFunction("ELEMENT_AT(ARRAY [from_unixtime(1), from_unixtime(100)], -2)", TIMESTAMP, sqlTimestamp(1000));
+        assertFunction(
+                "ELEMENT_AT(ARRAY [TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1973-07-08 22:00:01'], 1)",
+                TIMESTAMP,
+                sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, TEST_SESSION));
+        assertFunction(
+                "ELEMENT_AT(ARRAY [TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1973-07-08 22:00:01'], -2)",
+                TIMESTAMP,
+                sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, TEST_SESSION));
         assertFunction("ELEMENT_AT(ARRAY [infinity()], 1)", DOUBLE, POSITIVE_INFINITY);
         assertFunction("ELEMENT_AT(ARRAY [infinity()], -1)", DOUBLE, POSITIVE_INFINITY);
         assertFunction("ELEMENT_AT(ARRAY [-infinity()], 1)", DOUBLE, NEGATIVE_INFINITY);
@@ -768,30 +803,149 @@ public class TestArrayOperators
     {
         assertFunction("ARRAY_SORT(ARRAY[2, 3, 4, 1])", new ArrayType(INTEGER), ImmutableList.of(1, 2, 3, 4));
         assertFunction("ARRAY_SORT(ARRAY[2, BIGINT '3', 4, 1])", new ArrayType(BIGINT), ImmutableList.of(1L, 2L, 3L, 4L));
-        decimalLiteralAsDecimal.assertFunction(
+        assertFunction(
                 "ARRAY_SORT(ARRAY [2.3, 2.1, 2.2])",
                 new ArrayType(createDecimalType(2, 1)),
                 ImmutableList.of(decimal("2.1"), decimal("2.2"), decimal("2.3")));
-        decimalLiteralAsDecimal.assertFunction(
+        assertFunction(
                 "ARRAY_SORT(ARRAY [2, 1.900, 2.330])",
                 new ArrayType(createDecimalType(13, 3)),
                 ImmutableList.of(decimal("0000000001.900"), decimal("0000000002.000"), decimal("0000000002.330")));
         assertFunction("ARRAY_SORT(ARRAY['z', 'f', 's', 'd', 'g'])", new ArrayType(createVarcharType(1)), ImmutableList.of("d", "f", "g", "s", "z"));
         assertFunction("ARRAY_SORT(ARRAY[TRUE, FALSE])", new ArrayType(BOOLEAN), ImmutableList.of(false, true));
         assertFunction("ARRAY_SORT(ARRAY[22.1E0, 11.1E0, 1.1E0, 44.1E0])", new ArrayType(DOUBLE), ImmutableList.of(1.1, 11.1, 22.1, 44.1));
-        assertFunction("ARRAY_SORT(ARRAY [from_unixtime(100), from_unixtime(1), from_unixtime(200)])",
+        assertFunction(
+                "ARRAY_SORT(ARRAY [TIMESTAMP '1973-07-08 22:00:01', TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1989-02-06 12:00:00'])",
                 new ArrayType(TIMESTAMP),
-                ImmutableList.of(sqlTimestamp(1000), sqlTimestamp(100 * 1000), sqlTimestamp(200 * 1000)));
+                ImmutableList.of(
+                        sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, TEST_SESSION),
+                        sqlTimestampOf(1973, 7, 8, 22, 0, 1, 0, TEST_SESSION),
+                        sqlTimestampOf(1989, 2, 6, 12, 0, 0, 0, TEST_SESSION)));
         assertFunction("ARRAY_SORT(ARRAY [ARRAY [1], ARRAY [2]])",
                 new ArrayType(new ArrayType(INTEGER)),
                 ImmutableList.of(ImmutableList.of(1), ImmutableList.of(2)));
+
+        // with lambda function
+        assertFunction(
+                "ARRAY_SORT(ARRAY[2, 3, 2, null, null, 4, 1], (x, y) -> CASE " +
+                        "WHEN x IS NULL THEN -1 " +
+                        "WHEN y IS NULL THEN 1 " +
+                        "WHEN x < y THEN 1 " +
+                        "WHEN x = y THEN 0 " +
+                        "ELSE -1 END)",
+                new ArrayType(INTEGER),
+                asList(null, null, 4, 3, 2, 2, 1));
+        assertFunction(
+                "ARRAY_SORT(ARRAY[2, 3, 2, null, null, 4, 1], (x, y) -> CASE " +
+                        "WHEN x IS NULL THEN 1 " +
+                        "WHEN y IS NULL THEN -1 " +
+                        "WHEN x < y THEN 1 " +
+                        "WHEN x = y THEN 0 " +
+                        "ELSE -1 END)",
+                new ArrayType(INTEGER),
+                asList(4, 3, 2, 2, 1, null, null));
+        assertFunction(
+                "ARRAY_SORT(ARRAY[2, null, BIGINT '3', 4, null, 1], (x, y) -> CASE " +
+                        "WHEN x IS NULL THEN -1 " +
+                        "WHEN y IS NULL THEN 1 " +
+                        "WHEN x < y THEN 1 " +
+                        "WHEN x = y THEN 0 " +
+                        "ELSE -1 END)",
+                new ArrayType(BIGINT),
+                asList(null, null, 4L, 3L, 2L, 1L));
+        assertFunction(
+                "ARRAY_SORT(ARRAY['bc', null, 'ab', 'dc', null], (x, y) -> CASE " +
+                        "WHEN x IS NULL THEN -1 " +
+                        "WHEN y IS NULL THEN 1 " +
+                        "WHEN x < y THEN 1 " +
+                        "WHEN x = y THEN 0 " +
+                        "ELSE -1 END)",
+                new ArrayType(createVarcharType(2)),
+                asList(null, null, "dc", "bc", "ab"));
+        assertFunction(
+                "ARRAY_SORT(ARRAY['a', null, 'abcd', null, 'abc', 'zx'], (x, y) -> CASE " +
+                        "WHEN x IS NULL THEN -1 " +
+                        "WHEN y IS NULL THEN 1 " +
+                        "WHEN length(x) < length(y) THEN 1 " +
+                        "WHEN length(x) = length(y) THEN 0 " +
+                        "ELSE -1 END)",
+                new ArrayType(createVarcharType(4)),
+                asList(null, null, "abcd", "abc", "zx", "a"));
+        assertFunction(
+                "ARRAY_SORT(ARRAY[TRUE, null, FALSE, TRUE, null, FALSE, TRUE], (x, y) -> CASE " +
+                        "WHEN x IS NULL THEN -1 " +
+                        "WHEN y IS NULL THEN 1 " +
+                        "WHEN x = y THEN 0 " +
+                        "WHEN x THEN -1 " +
+                        "ELSE 1 END)",
+                new ArrayType(BOOLEAN),
+                asList(null, null, true, true, true, false, false));
+        assertFunction(
+                "ARRAY_SORT(ARRAY[22.1E0, null, null, 11.1E0, 1.1E0, 44.1E0], (x, y) -> CASE " +
+                        "WHEN x IS NULL THEN -1 " +
+                        "WHEN y IS NULL THEN 1 " +
+                        "WHEN x < y THEN 1 " +
+                        "WHEN x = y THEN 0 " +
+                        "ELSE -1 END)",
+                new ArrayType(DOUBLE),
+                asList(null, null, 44.1, 22.1, 11.1, 1.1));
+        assertFunction(
+
+                "ARRAY_SORT(ARRAY[TIMESTAMP '1973-07-08 22:00:01', NULL, TIMESTAMP '1970-01-01 00:00:01', NULL, TIMESTAMP '1989-02-06 12:00:00'], (x, y) -> CASE " +
+                        "WHEN x IS NULL THEN -1 " +
+                        "WHEN y IS NULL THEN 1 " +
+                        "WHEN date_diff('millisecond', y, x) < 0 THEN 1 " +
+                        "WHEN date_diff('millisecond', y, x) = 0 THEN 0 " +
+                        "ELSE -1 END)",
+                new ArrayType(TIMESTAMP),
+                asList(
+                        null,
+                        null,
+                        sqlTimestampOf(1989, 2, 6, 12, 0, 0, 0, TEST_SESSION),
+                        sqlTimestampOf(1973, 7, 8, 22, 0, 1, 0, TEST_SESSION),
+                        sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, TEST_SESSION)));
+        assertFunction(
+                "ARRAY_SORT(ARRAY[ARRAY[2, 3, 1], null, ARRAY[4, null, 2, 1, 4], ARRAY[1, 2], null], (x, y) -> CASE " +
+                        "WHEN x IS NULL THEN -1 " +
+                        "WHEN y IS NULL THEN 1 " +
+                        "WHEN cardinality(x) < cardinality(y) THEN 1 " +
+                        "WHEN cardinality(x) = cardinality(y) THEN 0 " +
+                        "ELSE -1 END)",
+                new ArrayType(new ArrayType(INTEGER)),
+                asList(null, null, asList(4, null, 2, 1, 4), asList(2, 3, 1), asList(1, 2)));
+        assertFunction(
+                "ARRAY_SORT(ARRAY[2.3, null, 2.1, null, 2.2], (x, y) -> CASE " +
+                        "WHEN x IS NULL THEN -1 " +
+                        "WHEN y IS NULL THEN 1 " +
+                        "WHEN x < y THEN 1 " +
+                        "WHEN x = y THEN 0 " +
+                        "ELSE -1 END)",
+                new ArrayType(createDecimalType(2, 1)),
+                asList(null, null, decimal("2.3"), decimal("2.2"), decimal("2.1")));
 
         // with null in the array, should be in nulls-last order
         List<Integer> expected = asList(-1, 0, 1, null, null);
         assertFunction("ARRAY_SORT(ARRAY[1, null, 0, null, -1])", new ArrayType(INTEGER), expected);
         assertFunction("ARRAY_SORT(ARRAY[1, null, null, -1, 0])", new ArrayType(INTEGER), expected);
 
+        // invalid functions
         assertInvalidFunction("ARRAY_SORT(ARRAY[color('red'), color('blue')])", FUNCTION_NOT_FOUND);
+        assertInvalidFunction(
+                "ARRAY_SORT(ARRAY[2, 1, 2, 4], (x, y) -> y - x)",
+                INVALID_FUNCTION_ARGUMENT,
+                "Lambda comparator must return either -1, 0, or 1");
+        assertInvalidFunction(
+                "ARRAY_SORT(ARRAY[1, 2], (x, y) -> x / COALESCE(y, 0))",
+                INVALID_FUNCTION_ARGUMENT,
+                "Lambda comparator must return either -1, 0, or 1");
+        assertInvalidFunction(
+                "ARRAY_SORT(ARRAY[2, 3, 2, 4, 1], (x, y) -> IF(x > y, NULL, IF(x = y, 0, -1)))",
+                INVALID_FUNCTION_ARGUMENT,
+                "Lambda comparator must return either -1, 0, or 1");
+        assertInvalidFunction(
+                "ARRAY_SORT(ARRAY[1, null], (x, y) -> x / COALESCE(y, 0))",
+                INVALID_FUNCTION_ARGUMENT,
+                "Lambda comparator must return either -1, 0, or 1");
 
         assertCachedInstanceHasBoundedRetainedSize("ARRAY_SORT(ARRAY[2, 3, 4, 1])");
     }
@@ -819,8 +973,12 @@ public class TestArrayOperators
         assertFunction("ARRAY_DISTINCT(ARRAY [2.2E0, 3.3E0, 4.4E0, 3.3E0, 1, 2.2E0, 3.3E0])", new ArrayType(DOUBLE), ImmutableList.of(2.2, 3.3, 4.4, 1.0));
         assertFunction("ARRAY_DISTINCT(ARRAY [TRUE, TRUE, TRUE])", new ArrayType(BOOLEAN), ImmutableList.of(true));
         assertFunction("ARRAY_DISTINCT(ARRAY [TRUE, FALSE, FALSE, TRUE])", new ArrayType(BOOLEAN), ImmutableList.of(true, false));
-        assertFunction("ARRAY_DISTINCT(ARRAY [from_unixtime(100), from_unixtime(1), from_unixtime(100)])", new ArrayType(TIMESTAMP),
-                ImmutableList.of(sqlTimestamp(100 * 1000), sqlTimestamp(1000)));
+        assertFunction(
+                "ARRAY_DISTINCT(ARRAY [TIMESTAMP '1973-07-08 22:00:01', TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1973-07-08 22:00:01'])",
+                new ArrayType(TIMESTAMP),
+                ImmutableList.of(
+                        sqlTimestampOf(1973, 7, 8, 22, 0, 1, 0, TEST_SESSION),
+                        sqlTimestampOf(1970, 1, 1, 0, 0, 1, 0, TEST_SESSION)));
         assertFunction("ARRAY_DISTINCT(ARRAY ['2', '3', '2'])", new ArrayType(createVarcharType(1)), ImmutableList.of("2", "3"));
         assertFunction("ARRAY_DISTINCT(ARRAY ['BB', 'CCC', 'BB'])", new ArrayType(createVarcharType(3)), ImmutableList.of("BB", "CCC"));
         assertFunction(
@@ -836,15 +994,21 @@ public class TestArrayOperators
 
         // Test for BIGINT-optimized implementation
         assertFunction("ARRAY_DISTINCT(ARRAY [CAST(5 AS BIGINT), NULL, CAST(12 AS BIGINT), NULL])", new ArrayType(BIGINT), asList(5L, null, 12L));
+        assertFunction("ARRAY_DISTINCT(ARRAY [CAST(100 AS BIGINT), NULL, CAST(100 AS BIGINT), NULL, 0, -2, 0])", new ArrayType(BIGINT), asList(100L, null, 0L, -2L));
 
-        decimalLiteralAsDecimal.assertFunction(
+        assertFunction(
                 "ARRAY_DISTINCT(ARRAY [2.3, 2.3, 2.2])",
                 new ArrayType(createDecimalType(2, 1)),
                 ImmutableList.of(decimal("2.3"), decimal("2.2")));
-        decimalLiteralAsDecimal.assertFunction(
+        assertFunction(
                 "ARRAY_DISTINCT(ARRAY [2.330, 1.900, 2.330])",
                 new ArrayType(createDecimalType(4, 3)),
                 ImmutableList.of(decimal("2.330"), decimal("1.900")));
+
+        assertCachedInstanceHasBoundedRetainedSize("ARRAY_DISTINCT(ARRAY[2, 3, 4, 1, 2])");
+        assertCachedInstanceHasBoundedRetainedSize("ARRAY_DISTINCT(ARRAY[CAST(5 AS BIGINT), NULL, CAST(12 AS BIGINT), NULL])");
+        assertCachedInstanceHasBoundedRetainedSize("ARRAY_DISTINCT(ARRAY[true, true, false, true, false])");
+        assertCachedInstanceHasBoundedRetainedSize("ARRAY_DISTINCT(ARRAY['cat', 'dog', 'dog', 'coffee', 'apple'])");
     }
 
     @Test
@@ -862,8 +1026,8 @@ public class TestArrayOperators
         assertFunction("SLICE(ARRAY [1, 2, 3, 4], -5, 5)", new ArrayType(INTEGER), ImmutableList.of());
         assertFunction("SLICE(ARRAY [1, 2, 3, 4], -6, 5)", new ArrayType(INTEGER), ImmutableList.of());
         assertFunction("SLICE(ARRAY [ARRAY [1], ARRAY [2, 3], ARRAY [4, 5, 6]], 1, 2)", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1), ImmutableList.of(2, 3)));
-        decimalLiteralAsDecimal.assertFunction("SLICE(ARRAY [2.3, 2.3, 2.2], 2, 3)", new ArrayType(createDecimalType(2, 1)), ImmutableList.of(decimal("2.3"), decimal("2.2")));
-        decimalLiteralAsDecimal.assertFunction("SLICE(ARRAY [2.330, 1.900, 2.330], 1, 2)", new ArrayType(createDecimalType(4, 3)), ImmutableList.of(decimal("2.330"), decimal("1.900")));
+        assertFunction("SLICE(ARRAY [2.3, 2.3, 2.2], 2, 3)", new ArrayType(createDecimalType(2, 1)), ImmutableList.of(decimal("2.3"), decimal("2.2")));
+        assertFunction("SLICE(ARRAY [2.330, 1.900, 2.330], 1, 2)", new ArrayType(createDecimalType(4, 3)), ImmutableList.of(decimal("2.330"), decimal("1.900")));
 
         assertInvalidFunction("SLICE(ARRAY [1, 2, 3, 4], 1, -1)", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("SLICE(ARRAY [1, 2, 3, 4], 0, 1)", INVALID_FUNCTION_ARGUMENT);
@@ -954,13 +1118,13 @@ public class TestArrayOperators
 
         assertCachedInstanceHasBoundedRetainedSize("ARRAY_INTERSECT(ARRAY ['foo', 'bar', 'baz'], ARRAY ['foo', 'test', 'bar'])");
 
-        decimalLiteralAsDecimal.assertFunction(
+        assertFunction(
                 "ARRAY_INTERSECT(ARRAY [2.3, 2.3, 2.2], ARRAY[2.2, 2.3])",
                 new ArrayType(createDecimalType(2, 1)),
                 ImmutableList.of(decimal("2.2"), decimal("2.3")));
-        decimalLiteralAsDecimal.assertFunction("ARRAY_INTERSECT(ARRAY [2.330, 1.900, 2.330], ARRAY [2.3300, 1.9000])", new ArrayType(createDecimalType(5, 4)),
+        assertFunction("ARRAY_INTERSECT(ARRAY [2.330, 1.900, 2.330], ARRAY [2.3300, 1.9000])", new ArrayType(createDecimalType(5, 4)),
                 ImmutableList.of(decimal("1.9000"), decimal("2.3300")));
-        decimalLiteralAsDecimal.assertFunction("ARRAY_INTERSECT(ARRAY [2, 3], ARRAY[2.0, 3.0])", new ArrayType(createDecimalType(11, 1)),
+        assertFunction("ARRAY_INTERSECT(ARRAY [2, 3], ARRAY[2.0, 3.0])", new ArrayType(createDecimalType(11, 1)),
                 ImmutableList.of(decimal("00000000002.0"), decimal("00000000003.0")));
     }
 
@@ -1011,6 +1175,19 @@ public class TestArrayOperators
                 "!= ARRAY [1234567890.1234567890, 9876543210.9876543210, 123123123456.6549876543]", BOOLEAN, false);
         assertFunction("ARRAY [1234567890.1234567890, 9876543210.9876543210, 123123123456.6549876543] " +
                 "!= ARRAY [1234567890.1234567890, 9876543210.9876543210, 0]", BOOLEAN, true);
+        assertFunction("ARRAY [1, 2, null] = ARRAY [1, null]", BOOLEAN, false);
+        assertFunction("ARRAY ['1', '2', null] = ARRAY ['1', null]", BOOLEAN, false);
+        assertFunction("ARRAY [1.0, 2.0, null] = ARRAY [1.0, null]", BOOLEAN, false);
+        assertFunction("ARRAY [1.0E0, 2.0E0, null] = ARRAY [1.0E0, null]", BOOLEAN, false);
+        assertFunction("ARRAY [1, 2, null] = ARRAY [1, 2, null]", BOOLEAN, null);
+        assertFunction("ARRAY ['1', '2', null] = ARRAY ['1', '2', null]", BOOLEAN, null);
+        assertFunction("ARRAY [1.0, 2.0, null] = ARRAY [1.0, 2.0, null]", BOOLEAN, null);
+        assertFunction("ARRAY [1.0E0, 2.0E0, null] = ARRAY [1.0E0, 2.0E0, null]", BOOLEAN, null);
+        assertFunction("ARRAY [1, 3, null] = ARRAY [1, 2, null]", BOOLEAN, false);
+        assertFunction("ARRAY [1E0, 3E0, null] = ARRAY [1E0, 2E0, null]", BOOLEAN, false);
+        assertFunction("ARRAY ['1', '3', null] = ARRAY ['1', '2', null]", BOOLEAN, false);
+        assertFunction("ARRAY [ARRAY[1], ARRAY[null], ARRAY[2]] = ARRAY [ARRAY[1], ARRAY[2], ARRAY[3]]", BOOLEAN, false);
+        assertFunction("ARRAY [ARRAY[1], ARRAY[null], ARRAY[3]] = ARRAY [ARRAY[1], ARRAY[2], ARRAY[3]]", BOOLEAN, null);
 
         assertFunction("ARRAY [10, 20, 30] != ARRAY [5]", BOOLEAN, true);
         assertFunction("ARRAY [10, 20, 30] = ARRAY [5]", BOOLEAN, false);
@@ -1038,6 +1215,11 @@ public class TestArrayOperators
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] = ARRAY [ARRAY [1, 2, 3], ARRAY [4, 5]]", BOOLEAN, false);
         assertFunction("ARRAY [1.0, 2.0, 3.0] = ARRAY [1.0, 2.0]", BOOLEAN, false);
         assertFunction("ARRAY [1.0, 2.0, 3.0] != ARRAY [1.0, 2.0]", BOOLEAN, true);
+        assertFunction("ARRAY [1, 2, null] != ARRAY [1, 2, null]", BOOLEAN, null);
+        assertFunction("ARRAY [1, 2, null] != ARRAY [1, null]", BOOLEAN, true);
+        assertFunction("ARRAY [1, 3, null] != ARRAY [1, 2, null]", BOOLEAN, true);
+        assertFunction("ARRAY [ARRAY[1], ARRAY[null], ARRAY[2]] != ARRAY [ARRAY[1], ARRAY[2], ARRAY[3]]", BOOLEAN, true);
+        assertFunction("ARRAY [ARRAY[1], ARRAY[null], ARRAY[3]] != ARRAY [ARRAY[1], ARRAY[2], ARRAY[3]]", BOOLEAN, null);
 
         assertFunction("ARRAY [10, 20, 30] < ARRAY [10, 20, 40, 50]", BOOLEAN, true);
         assertFunction("ARRAY [10, 20, 30] >= ARRAY [10, 20, 40, 50]", BOOLEAN, false);
@@ -1160,8 +1342,6 @@ public class TestArrayOperators
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] < ARRAY [ARRAY [1, 2], ARRAY [3, 4]]", BOOLEAN, false);
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] >= ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]]", BOOLEAN, true);
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] < ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]]", BOOLEAN, false);
-
-        assertInvalidFunction("ARRAY [1, NULL] = ARRAY [1, 2]", NOT_SUPPORTED.toErrorCode());
     }
 
     @Test
@@ -1212,23 +1392,27 @@ public class TestArrayOperators
         assertFunction("ARRAY_REMOVE(ARRAY [TRUE, FALSE, TRUE], FALSE)", new ArrayType(BOOLEAN), ImmutableList.of(true, true));
         assertFunction("ARRAY_REMOVE(ARRAY [NULL, FALSE, TRUE], TRUE)", new ArrayType(BOOLEAN), asList(null, false));
         assertFunction("ARRAY_REMOVE(ARRAY [ARRAY ['foo'], ARRAY ['bar'], ARRAY ['baz']], ARRAY ['bar'])", new ArrayType(new ArrayType(createVarcharType(3))), ImmutableList.of(ImmutableList.of("foo"), ImmutableList.of("baz")));
-        decimalLiteralAsDecimal.assertFunction(
+        assertFunction(
                 "ARRAY_REMOVE(ARRAY [1.0, 2.0, 3.0], 2.0)",
                 new ArrayType(createDecimalType(2, 1)),
                 ImmutableList.of(decimal("1.0"), decimal("3.0")));
-        decimalLiteralAsDecimal.assertFunction(
+        assertFunction(
                 "ARRAY_REMOVE(ARRAY [1.0, 2.0, 3.0], 4.0)",
                 new ArrayType(createDecimalType(2, 1)),
                 ImmutableList.of(decimal("1.0"), decimal("2.0"), decimal("3.0")));
-        decimalLiteralAsDecimal.assertFunction(
+        assertFunction(
                 "ARRAY_REMOVE(ARRAY [1234567890.1234567890, 9876543210.9876543210, 123123123456.6549876543], 1234567890.1234567890)",
                 new ArrayType(createDecimalType(22, 10)),
                 ImmutableList.of(decimal("9876543210.9876543210"), decimal("123123123456.6549876543")));
-        decimalLiteralAsDecimal.assertFunction(
+        assertFunction(
                 "ARRAY_REMOVE(ARRAY [1234567890.1234567890, 9876543210.9876543210, 123123123456.6549876543], 4.0)",
                 new ArrayType(createDecimalType(22, 10)),
                 ImmutableList.of(decimal("1234567890.1234567890"), decimal("9876543210.9876543210"), decimal("123123123456.6549876543")));
         assertCachedInstanceHasBoundedRetainedSize("ARRAY_REMOVE(ARRAY ['foo', 'bar', 'baz'], 'foo')");
+
+        assertInvalidFunction("ARRAY_REMOVE(ARRAY [ARRAY[CAST(null AS BIGINT)]], ARRAY[CAST(1 AS BIGINT)])", NOT_SUPPORTED);
+        assertInvalidFunction("ARRAY_REMOVE(ARRAY [ARRAY[CAST(null AS BIGINT)]], ARRAY[CAST(null AS BIGINT)])", NOT_SUPPORTED);
+        assertInvalidFunction("ARRAY_REMOVE(ARRAY [ARRAY[CAST(1 AS BIGINT)]], ARRAY[CAST(null AS BIGINT)])", NOT_SUPPORTED);
     }
 
     @Test
@@ -1265,18 +1449,56 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as array(bigint))", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[1,2,3]", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "array[1,2,3,null]", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array['test1', 'test2', 'test3', 'test4']", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "array['test1', 'test2', 'test3', null]", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array['test1', null, 'test2', 'test3']", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[null, 'test1', 'test2', 'test3']", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[null, time '12:34:56', time '01:23:45']", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[null, timestamp '2016-01-02 12:34:56', timestamp '2016-12-23 01:23:45']", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[null]", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[null, null, null]", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[row(1), row(2), row(3)]", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "array[cast(row(1) as row(a bigint)), cast(null as row(a bigint)), cast(row(3) as row(a bigint))]", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[cast(row(1) as row(a bigint)), cast(row(null) as row(a bigint)), cast(row(3) as row(a bigint))]", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[map(array[2], array[-2]), map(array[1], array[-1])]", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "array[map(array[2], array[-2]), null]", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[map(array[2], array[-2]), map(array[1], array[null])]", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[array[1], array[2], array[3]]", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "array[array[1], array[null], array[3]]", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[array[1], array[2], null]", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[1E0, 2E0, null]", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[1E0, 2E0, 3E0]", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "array[true, false, null]", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[true, false, true]", BOOLEAN, false);
+    }
+
+    @Test
     public void testSequence()
+            throws ParseException
     {
         // defaults to a step of 1
         assertFunction("SEQUENCE(1, 5)", new ArrayType(BIGINT), ImmutableList.of(1L, 2L, 3L, 4L, 5L));
         assertFunction("SEQUENCE(-10, -5)", new ArrayType(BIGINT), ImmutableList.of(-10L, -9L, -8L, -7L, -6L, -5L));
         assertFunction("SEQUENCE(-5, 2)", new ArrayType(BIGINT), ImmutableList.of(-5L, -4L, -3L, -2L, -1L, 0L, 1L, 2L));
         assertFunction("SEQUENCE(2, 2)", new ArrayType(BIGINT), ImmutableList.of(2L));
+        assertFunction(
+                "SEQUENCE(date '2016-04-12', date '2016-04-14')",
+                new ArrayType(DATE),
+                ImmutableList.of(sqlDate("2016-04-12"), sqlDate("2016-04-13"), sqlDate("2016-04-14")));
 
         // defaults to a step of -1
         assertFunction("SEQUENCE(5, 1)", new ArrayType(BIGINT), ImmutableList.of(5L, 4L, 3L, 2L, 1L));
         assertFunction("SEQUENCE(-5, -10)", new ArrayType(BIGINT), ImmutableList.of(-5L, -6L, -7L, -8L, -9L, -10L));
         assertFunction("SEQUENCE(2, -5)", new ArrayType(BIGINT), ImmutableList.of(2L, 1L, 0L, -1L, -2L, -3L, -4L, -5L));
+        assertFunction(
+                "SEQUENCE(date '2016-04-14', date '2016-04-12')",
+                new ArrayType(DATE),
+                ImmutableList.of(sqlDate("2016-04-14"), sqlDate("2016-04-13"), sqlDate("2016-04-12")));
 
         // with increment
         assertFunction("SEQUENCE(1, 9, 4)", new ArrayType(BIGINT), ImmutableList.of(1L, 5L, 9L));
@@ -1287,54 +1509,208 @@ public class TestArrayOperators
         assertFunction("SEQUENCE(10, 2, -2)", new ArrayType(BIGINT), ImmutableList.of(10L, 8L, 6L, 4L, 2L));
 
         // failure modes
-        assertInvalidFunction("SEQUENCE(2, -1, 1)", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("SEQUENCE(-1, -10, 1)", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("SEQUENCE(1, 1000000)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction(
+                "SEQUENCE(2, -1, 1)",
+                INVALID_FUNCTION_ARGUMENT,
+                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
+        assertInvalidFunction(
+                "SEQUENCE(-1, -10, 1)",
+                INVALID_FUNCTION_ARGUMENT,
+                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
+        assertInvalidFunction(
+                "SEQUENCE(1, 1000000)",
+                INVALID_FUNCTION_ARGUMENT,
+                "result of sequence function must not have more than 10000 entries");
+        assertInvalidFunction(
+                "SEQUENCE(date '2000-04-14', date '2030-04-12')",
+                INVALID_FUNCTION_ARGUMENT,
+                "result of sequence function must not have more than 10000 entries");
     }
 
     @Test
     public void testSequenceDateTimeDayToSecond()
             throws ParseException
     {
-        assertFunction("SEQUENCE(date '2016-04-12', date '2016-04-14', interval '1' day)", new ArrayType(TIMESTAMP),
-                ImmutableList.of(sqlTimestamp("2016-04-12"), sqlTimestamp("2016-04-13"), sqlTimestamp("2016-04-14")));
-        assertFunction("SEQUENCE(date '2016-04-14', date '2016-04-12', interval '-1' day)", new ArrayType(TIMESTAMP),
-                ImmutableList.of(sqlTimestamp("2016-04-14"), sqlTimestamp("2016-04-13"), sqlTimestamp("2016-04-12")));
+        assertFunction(
+                "SEQUENCE(date '2016-04-12', date '2016-04-14', interval '1' day)",
+                new ArrayType(DATE),
+                ImmutableList.of(sqlDate("2016-04-12"), sqlDate("2016-04-13"), sqlDate("2016-04-14")));
+        assertFunction(
+                "SEQUENCE(date '2016-04-14', date '2016-04-12', interval '-1' day)",
+                new ArrayType(DATE),
+                ImmutableList.of(sqlDate("2016-04-14"), sqlDate("2016-04-13"), sqlDate("2016-04-12")));
 
-        assertFunction("SEQUENCE(date '2016-04-12', date '2016-04-16', interval '2' day)", new ArrayType(TIMESTAMP),
-                ImmutableList.of(sqlTimestamp("2016-04-12"), sqlTimestamp("2016-04-14"), sqlTimestamp("2016-04-16")));
-        assertFunction("SEQUENCE(date '2016-04-16', date '2016-04-12', interval '-2' day)", new ArrayType(TIMESTAMP),
-                ImmutableList.of(sqlTimestamp("2016-04-16"), sqlTimestamp("2016-04-14"), sqlTimestamp("2016-04-12")));
+        assertFunction(
+                "SEQUENCE(date '2016-04-12', date '2016-04-16', interval '2' day)",
+                new ArrayType(DATE),
+                ImmutableList.of(sqlDate("2016-04-12"), sqlDate("2016-04-14"), sqlDate("2016-04-16")));
+        assertFunction(
+                "SEQUENCE(date '2016-04-16', date '2016-04-12', interval '-2' day)",
+                new ArrayType(DATE),
+                ImmutableList.of(sqlDate("2016-04-16"), sqlDate("2016-04-14"), sqlDate("2016-04-12")));
+
+        assertFunction(
+                "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '2016-04-16 01:07:00', interval '3' minute)",
+                new ArrayType(TIMESTAMP),
+                ImmutableList.of(
+                        sqlTimestampOf(2016, 4, 16, 1, 0, 10, 0, TEST_SESSION),
+                        sqlTimestampOf(2016, 4, 16, 1, 3, 10, 0, TEST_SESSION),
+                        sqlTimestampOf(2016, 4, 16, 1, 6, 10, 0, TEST_SESSION)));
+        assertFunction(
+                "SEQUENCE(timestamp '2016-04-16 01:10:10', timestamp '2016-04-16 01:03:00', interval '-3' minute)",
+                new ArrayType(TIMESTAMP),
+                ImmutableList.of(
+                        sqlTimestampOf(2016, 4, 16, 1, 10, 10, 0, TEST_SESSION),
+                        sqlTimestampOf(2016, 4, 16, 1, 7, 10, 0, TEST_SESSION),
+                        sqlTimestampOf(2016, 4, 16, 1, 4, 10, 0, TEST_SESSION)));
+
+        assertFunction(
+                "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '2016-04-16 01:01:00', interval '20' second)",
+                new ArrayType(TIMESTAMP),
+                ImmutableList.of(
+                        sqlTimestampOf(2016, 4, 16, 1, 0, 10, 0, TEST_SESSION),
+                        sqlTimestampOf(2016, 4, 16, 1, 0, 30, 0, TEST_SESSION),
+                        sqlTimestampOf(2016, 4, 16, 1, 0, 50, 0, TEST_SESSION)));
+        assertFunction(
+                "SEQUENCE(timestamp '2016-04-16 01:01:10', timestamp '2016-04-16 01:00:20', interval '-20' second)",
+                new ArrayType(TIMESTAMP),
+                ImmutableList.of(
+                        sqlTimestampOf(2016, 4, 16, 1, 1, 10, 0, TEST_SESSION),
+                        sqlTimestampOf(2016, 4, 16, 1, 0, 50, 0, TEST_SESSION),
+                        sqlTimestampOf(2016, 4, 16, 1, 0, 30, 0, TEST_SESSION)));
+
+        assertFunction(
+                "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '2016-04-18 01:01:00', interval '19' hour)",
+                new ArrayType(TIMESTAMP),
+                ImmutableList.of(
+                        sqlTimestampOf(2016, 4, 16, 1, 0, 10, 0, TEST_SESSION),
+                        sqlTimestampOf(2016, 4, 16, 20, 0, 10, 0, TEST_SESSION),
+                        sqlTimestampOf(2016, 4, 17, 15, 0, 10, 0, TEST_SESSION)));
+        assertFunction(
+                "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '2016-04-14 01:00:20', interval '-19' hour)",
+                new ArrayType(TIMESTAMP),
+                ImmutableList.of(
+                        sqlTimestampOf(2016, 4, 16, 1, 0, 10, 0, TEST_SESSION),
+                        sqlTimestampOf(2016, 4, 15, 6, 0, 10, 0, TEST_SESSION),
+                        sqlTimestampOf(2016, 4, 14, 11, 0, 10, 0, TEST_SESSION)));
 
         // failure modes
-        assertInvalidFunction("SEQUENCE(date '2016-04-12', date '2016-04-14', interval '-1' day)", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("SEQUENCE(date '2016-04-14', date '2016-04-12', interval '1' day)", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("SEQUENCE(date '2000-04-14', date '2030-04-12', interval '1' day)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction(
+                "SEQUENCE(date '2016-04-12', date '2016-04-14', interval '-1' day)",
+                INVALID_FUNCTION_ARGUMENT,
+                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
+        assertInvalidFunction(
+                "SEQUENCE(date '2016-04-14', date '2016-04-12', interval '1' day)",
+                INVALID_FUNCTION_ARGUMENT,
+                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
+        assertInvalidFunction(
+                "SEQUENCE(date '2000-04-14', date '2030-04-12', interval '1' day)",
+                INVALID_FUNCTION_ARGUMENT,
+                "result of sequence function must not have more than 10000 entries");
+        assertInvalidFunction(
+                "SEQUENCE(date '2018-01-01', date '2018-01-04', interval '18' hour)",
+                INVALID_FUNCTION_ARGUMENT,
+                "sequence step must be a day interval if start and end values are dates");
+        assertInvalidFunction(
+                "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '2016-04-16 01:01:00', interval '-20' second)",
+                INVALID_FUNCTION_ARGUMENT,
+                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
+        assertInvalidFunction(
+                "SEQUENCE(timestamp '2016-04-16 01:10:10', timestamp '2016-04-16 01:01:00', interval '20' second)",
+                INVALID_FUNCTION_ARGUMENT,
+                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
+        assertInvalidFunction(
+                "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '2016-04-16 09:01:00', interval '1' second)",
+                INVALID_FUNCTION_ARGUMENT,
+                "result of sequence function must not have more than 10000 entries");
     }
 
     @Test
     public void testSequenceDateTimeYearToMonth()
             throws ParseException
     {
-        assertFunction("SEQUENCE(date '2016-04-12', date '2016-06-12', interval '1' month)", new ArrayType(TIMESTAMP),
-                ImmutableList.of(sqlTimestamp("2016-04-12"), sqlTimestamp("2016-05-12"), sqlTimestamp("2016-06-12")));
-        assertFunction("SEQUENCE(date '2016-06-12', date '2016-04-12', interval '-1' month)", new ArrayType(TIMESTAMP),
-                ImmutableList.of(sqlTimestamp("2016-06-12"), sqlTimestamp("2016-05-12"), sqlTimestamp("2016-04-12")));
+        assertFunction(
+                "SEQUENCE(date '2016-04-12', date '2016-06-12', interval '1' month)",
+                new ArrayType(DATE),
+                ImmutableList.of(sqlDate("2016-04-12"), sqlDate("2016-05-12"), sqlDate("2016-06-12")));
+        assertFunction(
+                "SEQUENCE(date '2016-06-12', date '2016-04-12', interval '-1' month)",
+                new ArrayType(DATE),
+                ImmutableList.of(sqlDate("2016-06-12"), sqlDate("2016-05-12"), sqlDate("2016-04-12")));
 
-        assertFunction("SEQUENCE(date '2016-04-12', date '2016-08-12', interval '2' month)", new ArrayType(TIMESTAMP),
-                ImmutableList.of(sqlTimestamp("2016-04-12"), sqlTimestamp("2016-06-12"), sqlTimestamp("2016-08-12")));
-        assertFunction("SEQUENCE(date '2016-08-12', date '2016-04-12', interval '-2' month)", new ArrayType(TIMESTAMP),
-                ImmutableList.of(sqlTimestamp("2016-08-12"), sqlTimestamp("2016-06-12"), sqlTimestamp("2016-04-12")));
+        assertFunction(
+                "SEQUENCE(date '2016-04-12', date '2016-08-12', interval '2' month)",
+                new ArrayType(DATE),
+                ImmutableList.of(sqlDate("2016-04-12"), sqlDate("2016-06-12"), sqlDate("2016-08-12")));
+        assertFunction(
+                "SEQUENCE(date '2016-08-12', date '2016-04-12', interval '-2' month)",
+                new ArrayType(DATE),
+                ImmutableList.of(sqlDate("2016-08-12"), sqlDate("2016-06-12"), sqlDate("2016-04-12")));
 
-        assertFunction("SEQUENCE(date '2016-04-12', date '2018-04-12', interval '1' year)", new ArrayType(TIMESTAMP),
-                ImmutableList.of(sqlTimestamp("2016-04-12"), sqlTimestamp("2017-04-12"), sqlTimestamp("2018-04-12")));
-        assertFunction("SEQUENCE(date '2018-04-12', date '2016-04-12', interval '-1' year)", new ArrayType(TIMESTAMP),
-                ImmutableList.of(sqlTimestamp("2018-04-12"), sqlTimestamp("2017-04-12"), sqlTimestamp("2016-04-12")));
+        assertFunction(
+                "SEQUENCE(date '2016-04-12', date '2018-04-12', interval '1' year)",
+                new ArrayType(DATE),
+                ImmutableList.of(sqlDate("2016-04-12"), sqlDate("2017-04-12"), sqlDate("2018-04-12")));
+        assertFunction(
+                "SEQUENCE(date '2018-04-12', date '2016-04-12', interval '-1' year)",
+                new ArrayType(DATE),
+                ImmutableList.of(sqlDate("2018-04-12"), sqlDate("2017-04-12"), sqlDate("2016-04-12")));
+
+        assertFunction(
+                "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '2016-09-16 01:10:00', interval '2' month)",
+                new ArrayType(TIMESTAMP),
+                ImmutableList.of(
+                        sqlTimestampOf(2016, 4, 16, 1, 0, 10, 0, TEST_SESSION),
+                        sqlTimestampOf(2016, 6, 16, 1, 0, 10, 0, TEST_SESSION),
+                        sqlTimestampOf(2016, 8, 16, 1, 0, 10, 0, TEST_SESSION)));
+        assertFunction(
+                "SEQUENCE(timestamp '2016-09-16 01:10:10', timestamp '2016-04-16 01:00:00', interval '-2' month)",
+                new ArrayType(TIMESTAMP),
+                ImmutableList.of(
+                        sqlTimestampOf(2016, 9, 16, 1, 10, 10, 0, TEST_SESSION),
+                        sqlTimestampOf(2016, 7, 16, 1, 10, 10, 0, TEST_SESSION),
+                        sqlTimestampOf(2016, 5, 16, 1, 10, 10, 0, TEST_SESSION)));
+
+        assertFunction(
+                "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '2021-04-16 01:01:00', interval '2' year)",
+                new ArrayType(TIMESTAMP),
+                ImmutableList.of(
+                        sqlTimestampOf(2016, 4, 16, 1, 0, 10, 0, TEST_SESSION),
+                        sqlTimestampOf(2018, 4, 16, 1, 0, 10, 0, TEST_SESSION),
+                        sqlTimestampOf(2020, 4, 16, 1, 0, 10, 0, TEST_SESSION)));
+        assertFunction(
+                "SEQUENCE(timestamp '2016-04-16 01:01:10', timestamp '2011-04-16 01:00:00', interval '-2' year)",
+                new ArrayType(TIMESTAMP),
+                ImmutableList.of(
+                        sqlTimestampOf(2016, 4, 16, 1, 1, 10, 0, TEST_SESSION),
+                        sqlTimestampOf(2014, 4, 16, 1, 1, 10, 0, TEST_SESSION),
+                        sqlTimestampOf(2012, 4, 16, 1, 1, 10, 0, TEST_SESSION)));
 
         // failure modes
-        assertInvalidFunction("SEQUENCE(date '2016-06-12', date '2016-04-12', interval '1' month)", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("SEQUENCE(date '2016-04-12', date '2016-06-12', interval '-1' month)", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("SEQUENCE(date '2000-04-12', date '3000-06-12', interval '1' month)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction(
+                "SEQUENCE(date '2016-06-12', date '2016-04-12', interval '1' month)",
+                INVALID_FUNCTION_ARGUMENT,
+                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
+        assertInvalidFunction(
+                "SEQUENCE(date '2016-04-12', date '2016-06-12', interval '-1' month)",
+                INVALID_FUNCTION_ARGUMENT,
+                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
+        assertInvalidFunction(
+                "SEQUENCE(date '2000-04-12', date '3000-06-12', interval '1' month)",
+                INVALID_FUNCTION_ARGUMENT,
+                "result of sequence function must not have more than 10000 entries");
+        assertInvalidFunction(
+                "SEQUENCE(timestamp '2016-05-16 01:00:10', timestamp '2016-04-16 01:01:00', interval '1' month)",
+                INVALID_FUNCTION_ARGUMENT,
+                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
+        assertInvalidFunction(
+                "SEQUENCE(timestamp '2016-04-16 01:10:10', timestamp '2016-05-16 01:01:00', interval '-1' month)",
+                INVALID_FUNCTION_ARGUMENT,
+                "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
+        assertInvalidFunction(
+                "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '3000-04-16 09:01:00', interval '1' month)",
+                INVALID_FUNCTION_ARGUMENT,
+                "result of sequence function must not have more than 10000 entries");
     }
 
     @Override
@@ -1417,8 +1793,8 @@ public class TestArrayOperators
     private void assertArrayHashOperator(String inputArray, Type elementType, List<Object> elements)
     {
         ArrayType arrayType = new ArrayType(elementType);
-        BlockBuilder arrayArrayBuilder = arrayType.createBlockBuilder(new BlockBuilderStatus(), 1);
-        BlockBuilder arrayBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), elements.size());
+        BlockBuilder arrayArrayBuilder = arrayType.createBlockBuilder(null, 1);
+        BlockBuilder arrayBuilder = elementType.createBlockBuilder(null, elements.size());
         for (Object element : elements) {
             appendToBlockBuilder(elementType, element, arrayBuilder);
         }
@@ -1427,16 +1803,11 @@ public class TestArrayOperators
         assertOperator(HASH_CODE, inputArray, BIGINT, arrayType.hash(arrayArrayBuilder.build(), 0));
     }
 
-    private static SqlTimestamp sqlTimestamp(long millisUtc)
-    {
-        return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
-    }
-
-    private static SqlTimestamp sqlTimestamp(String dateString)
+    private static SqlDate sqlDate(String dateString)
             throws ParseException
     {
         DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
         dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
-        return sqlTimestamp(dateFormat.parse(dateString).getTime());
+        return new SqlDate(toIntExact(TimeUnit.MILLISECONDS.toDays(dateFormat.parse(dateString).getTime())));
     }
 }

@@ -16,7 +16,6 @@ package com.facebook.presto.spi.type;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.spi.block.MethodHandleUtil.methodHandle;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -30,18 +29,19 @@ public class TestRowType
     @Test
     public void testRowDisplayName()
     {
-        List<Type> types = asList(
-                BOOLEAN,
-                DOUBLE,
-                new ArrayType(VARCHAR),
-                new MapType(
+        List<RowType.Field> fields = asList(
+                RowType.field("bool_col", BOOLEAN),
+                RowType.field("double_col", DOUBLE),
+                RowType.field("array_col", new ArrayType(VARCHAR)),
+                RowType.field("map_col", new MapType(
                         BOOLEAN,
                         DOUBLE,
                         methodHandle(TestRowType.class, "throwUnsupportedOperation"),
                         methodHandle(TestRowType.class, "throwUnsupportedOperation"),
-                        methodHandle(TestRowType.class, "throwUnsupportedOperation")));
-        Optional<List<String>> names = Optional.of(asList("bool_col", "double_col", "array_col", "map_col"));
-        RowType row = new RowType(types, names);
+                        methodHandle(TestRowType.class, "throwUnsupportedOperation"),
+                        methodHandle(TestRowType.class, "throwUnsupportedOperation"))));
+
+        RowType row = RowType.from(fields);
         assertEquals(
                 row.getDisplayName(),
                 "row(bool_col boolean, double_col double, array_col array(varchar), map_col map(boolean, double))");
@@ -59,11 +59,33 @@ public class TestRowType
                         DOUBLE,
                         methodHandle(TestRowType.class, "throwUnsupportedOperation"),
                         methodHandle(TestRowType.class, "throwUnsupportedOperation"),
+                        methodHandle(TestRowType.class, "throwUnsupportedOperation"),
                         methodHandle(TestRowType.class, "throwUnsupportedOperation")));
-        RowType row = new RowType(types, Optional.empty());
+        RowType row = RowType.anonymous(types);
         assertEquals(
                 row.getDisplayName(),
                 "row(boolean, double, array(varchar), map(boolean, double))");
+    }
+
+    @Test
+    public void testRowDisplayMixedUnnamedColumns()
+    {
+        List<RowType.Field> fields = asList(
+                RowType.field(BOOLEAN),
+                RowType.field("double_col", DOUBLE),
+                RowType.field(new ArrayType(VARCHAR)),
+                RowType.field("map_col", new MapType(
+                        BOOLEAN,
+                        DOUBLE,
+                        methodHandle(TestRowType.class, "throwUnsupportedOperation"),
+                        methodHandle(TestRowType.class, "throwUnsupportedOperation"),
+                        methodHandle(TestRowType.class, "throwUnsupportedOperation"),
+                        methodHandle(TestRowType.class, "throwUnsupportedOperation"))));
+
+        RowType row = RowType.from(fields);
+        assertEquals(
+                row.getDisplayName(),
+                "row(boolean, double_col double, array(varchar), map_col map(boolean, double))");
     }
 
     public static void throwUnsupportedOperation()

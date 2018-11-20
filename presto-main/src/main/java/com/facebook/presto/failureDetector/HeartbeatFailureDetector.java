@@ -21,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.ServiceType;
@@ -35,6 +36,7 @@ import io.airlift.stats.ExponentialDecay;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.Nullable;
 import javax.annotation.PostConstruct;
@@ -54,8 +56,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -71,7 +73,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.Request.Builder.prepareHead;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 public class HeartbeatFailureDetector
         implements FailureDetector
@@ -82,7 +83,8 @@ public class HeartbeatFailureDetector
     private final HttpClient httpClient;
     private final NodeInfo nodeInfo;
 
-    private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("failure-detector"));
+    private final ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1, daemonThreadsNamed("failure-detector"));
+    private final ThreadPoolExecutorMBean executorMBean = new ThreadPoolExecutorMBean(executor);
 
     // monitoring tasks by service id
     private final ConcurrentMap<UUID, MonitoringTask> tasks = new ConcurrentHashMap<>();
@@ -149,6 +151,13 @@ public class HeartbeatFailureDetector
     public void shutdown()
     {
         executor.shutdownNow();
+    }
+
+    @Managed
+    @Nested
+    public ThreadPoolExecutorMBean getExecutor()
+    {
+        return executorMBean;
     }
 
     @Override

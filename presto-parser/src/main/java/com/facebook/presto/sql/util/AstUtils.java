@@ -14,14 +14,15 @@
 package com.facebook.presto.sql.util;
 
 import com.facebook.presto.sql.tree.Node;
-import com.google.common.collect.TreeTraverser;
+import com.google.common.graph.SuccessorsFunction;
+import com.google.common.graph.Traverser;
 
 import java.util.stream.Stream;
 
-import static com.google.common.collect.Iterables.unmodifiableIterable;
+import static com.google.common.collect.Streams.stream;
 import static java.util.Objects.requireNonNull;
 
-public class AstUtils
+public final class AstUtils
 {
     public static boolean nodeContains(Node node, Node subNode)
     {
@@ -34,9 +35,9 @@ public class AstUtils
 
     public static Stream<Node> preOrder(Node node)
     {
-        return TreeTraverser.using((Node n) -> unmodifiableIterable(n.getChildren()))
-                .preOrderTraversal(requireNonNull(node, "node is null"))
-                .stream();
+        return stream(
+                Traverser.forTree((SuccessorsFunction<Node>) Node::getChildren)
+                        .depthFirstPreOrder(requireNonNull(node, "node is null")));
     }
 
     private AstUtils() {}

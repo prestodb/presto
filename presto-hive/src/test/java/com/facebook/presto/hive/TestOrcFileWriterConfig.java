@@ -22,6 +22,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TestOrcFileWriterConfig
@@ -30,30 +32,36 @@ public class TestOrcFileWriterConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(OrcFileWriterConfig.class)
+                .setStripeMinSize(new DataSize(32, MEGABYTE))
                 .setStripeMaxSize(new DataSize(64, MEGABYTE))
-                .setStripeMinRowCount(100_000)
                 .setStripeMaxRowCount(10_000_000)
                 .setRowGroupMaxRowCount(10_000)
-                .setDictionaryMaxMemory(new DataSize(16, MEGABYTE)));
+                .setDictionaryMaxMemory(new DataSize(16, MEGABYTE))
+                .setStringStatisticsLimit(new DataSize(64, BYTE))
+                .setMaxCompressionBufferSize(new DataSize(256, KILOBYTE)));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("hive.orc.writer.stripe-min-size", "13MB")
                 .put("hive.orc.writer.stripe-max-size", "27MB")
-                .put("hive.orc.writer.stripe-min-rows", "33")
                 .put("hive.orc.writer.stripe-max-rows", "44")
                 .put("hive.orc.writer.row-group-max-rows", "11")
                 .put("hive.orc.writer.dictionary-max-memory", "13MB")
+                .put("hive.orc.writer.string-statistics-limit", "17MB")
+                .put("hive.orc.writer.max-compression-buffer-size", "19MB")
                 .build();
 
         OrcFileWriterConfig expected = new OrcFileWriterConfig()
+                .setStripeMinSize(new DataSize(13, MEGABYTE))
                 .setStripeMaxSize(new DataSize(27, MEGABYTE))
-                .setStripeMinRowCount(33)
                 .setStripeMaxRowCount(44)
                 .setRowGroupMaxRowCount(11)
-                .setDictionaryMaxMemory(new DataSize(13, MEGABYTE));
+                .setDictionaryMaxMemory(new DataSize(13, MEGABYTE))
+                .setStringStatisticsLimit(new DataSize(17, MEGABYTE))
+                .setMaxCompressionBufferSize(new DataSize(19, MEGABYTE));
 
         assertFullMapping(properties, expected);
     }

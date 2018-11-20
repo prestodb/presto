@@ -15,13 +15,14 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.checkpoint.InputStreamCheckpoint;
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.zstd.ZstdJniCompressor;
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.compress.Compressor;
 import io.airlift.compress.lz4.Lz4Compressor;
 import io.airlift.compress.snappy.SnappyCompressor;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -32,10 +33,14 @@ import java.nio.charset.Charset;
 import java.util.Arrays;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
+import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
@@ -44,18 +49,21 @@ public class OrcOutputBuffer
         extends SliceOutput
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcOutputBuffer.class).instanceSize();
-    private static final int MINIMUM_BUFFER_SIZE = 32 * 1024;
+    private static final int INITIAL_BUFFER_SIZE = 256;
+    private static final int DIRECT_FLUSH_SIZE = 32 * 1024;
     private static final int MINIMUM_OUTPUT_BUFFER_CHUNK_SIZE = 4 * 1024;
     private static final int MAXIMUM_OUTPUT_BUFFER_CHUNK_SIZE = 1024 * 1024;
+
+    private final int maxBufferSize;
 
     private final ChunkedSliceOutput compressedOutputStream;
 
     @Nullable
     private final Compressor compressor;
-    private final byte[] compressionBuffer;
+    private byte[] compressionBuffer = new byte[0];
 
-    private final Slice slice;
-    private final byte[] buffer;
+    private Slice slice;
+    private byte[] buffer;
 
     /**
      * Offset of buffer within stream.
@@ -66,40 +74,52 @@ public class OrcOutputBuffer
      */
     private int bufferPosition;
 
-    public OrcOutputBuffer(CompressionKind compression, int bufferSize)
+    public OrcOutputBuffer(CompressionKind compression, int maxBufferSize)
     {
         requireNonNull(compression, "compression is null");
-        checkArgument(bufferSize >= MINIMUM_BUFFER_SIZE, "minimum buffer size of " + MINIMUM_BUFFER_SIZE + " required");
+        checkArgument(maxBufferSize > 0, "maximum buffer size should be greater than 0");
 
-        this.buffer = new byte[bufferSize];
-        this.slice = Slices.wrappedBuffer(buffer);
+        this.maxBufferSize = maxBufferSize;
+
+        this.buffer = new byte[INITIAL_BUFFER_SIZE];
+        this.slice = wrappedBuffer(buffer);
 
         compressedOutputStream = new ChunkedSliceOutput(MINIMUM_OUTPUT_BUFFER_CHUNK_SIZE, MAXIMUM_OUTPUT_BUFFER_CHUNK_SIZE);
 
         if (compression == CompressionKind.NONE) {
             this.compressor = null;
-            this.compressionBuffer = new byte[0];
         }
         else if (compression == CompressionKind.SNAPPY) {
             this.compressor = new SnappyCompressor();
-            this.compressionBuffer = new byte[compressor.maxCompressedLength(bufferSize)];
         }
         else if (compression == CompressionKind.ZLIB) {
             this.compressor = new DeflateCompressor();
-            this.compressionBuffer = new byte[compressor.maxCompressedLength(bufferSize)];
         }
         else if (compression == CompressionKind.LZ4) {
             this.compressor = new Lz4Compressor();
-            this.compressionBuffer = new byte[compressor.maxCompressedLength(bufferSize)];
+        }
+        else if (compression == CompressionKind.ZSTD) {
+            this.compressor = new ZstdJniCompressor();
         }
         else {
             throw new IllegalArgumentException("Unsupported compression " + compression);
         }
     }
 
+    public long getOutputDataSize()
+    {
+        checkState(bufferPosition == 0, "Buffer must be flushed before getOutputDataSize can be called");
+        return compressedOutputStream.size();
+    }
+
+    public long estimateOutputDataSize()
+    {
+        return compressedOutputStream.size() + bufferPosition;
+    }
+
     public int writeDataTo(SliceOutput outputStream)
     {
-        flushBufferToOutputStream();
+        checkState(bufferPosition == 0, "Buffer must be closed before writeDataTo can be called");
         for (Slice slice : compressedOutputStream.getSlices()) {
             outputStream.writeBytes(slice);
         }
@@ -220,9 +240,9 @@ public class OrcOutputBuffer
     public void writeBytes(Slice source, int sourceIndex, int length)
     {
         // Write huge chunks direct to OutputStream
-        if (length >= MINIMUM_BUFFER_SIZE) {
+        if (length >= DIRECT_FLUSH_SIZE) {
             flushBufferToOutputStream();
-            writeDirectlyToOutputStream(source, sourceIndex, length);
+            writeDirectlyToOutputStream((byte[]) source.getBase(), sourceIndex + (int) (source.getAddress() - ARRAY_BYTE_BASE_OFFSET), length);
             bufferOffset += length;
         }
         else {
@@ -242,10 +262,10 @@ public class OrcOutputBuffer
     public void writeBytes(byte[] source, int sourceIndex, int length)
     {
         // Write huge chunks direct to OutputStream
-        if (length >= MINIMUM_BUFFER_SIZE) {
+        if (length >= DIRECT_FLUSH_SIZE) {
             // todo fill buffer before flushing
             flushBufferToOutputStream();
-            writeChunkToOutputStream(source, sourceIndex, length);
+            writeDirectlyToOutputStream(source, sourceIndex, length);
             bufferOffset += length;
         }
         else {
@@ -366,15 +386,37 @@ public class OrcOutputBuffer
 
     private void ensureWritableBytes(int minWritableBytes)
     {
-        if (bufferPosition + minWritableBytes > slice.length()) {
+        int neededBufferSize = bufferPosition + minWritableBytes;
+        if (neededBufferSize <= slice.length()) {
+            return;
+        }
+
+        if (slice.length() >= maxBufferSize) {
             flushBufferToOutputStream();
+            return;
+        }
+
+        // grow the buffer size
+        int newBufferSize = min(max(slice.length() * 2, minWritableBytes), maxBufferSize);
+        if (neededBufferSize <= newBufferSize) {
+            // we have capacity in the new buffer; just copy the data to the new buffer
+            byte[] previousBuffer = buffer;
+            buffer = new byte[newBufferSize];
+            slice = wrappedBuffer(buffer);
+            System.arraycopy(previousBuffer, 0, buffer, 0, bufferPosition);
+        }
+        else {
+            // there is no enough capacity in the new buffer; flush the data and allocate the new buffer
+            flushBufferToOutputStream();
+            buffer = new byte[newBufferSize];
+            slice = wrappedBuffer(buffer);
         }
     }
 
     private int ensureBatchSize(int length)
     {
-        ensureWritableBytes(Math.min(MINIMUM_BUFFER_SIZE, length));
-        return Math.min(length, slice.length() - bufferPosition);
+        ensureWritableBytes(min(DIRECT_FLUSH_SIZE, length));
+        return min(length, slice.length() - bufferPosition);
     }
 
     private void flushBufferToOutputStream()
@@ -394,6 +436,12 @@ public class OrcOutputBuffer
         }
 
         checkArgument(length <= buffer.length, "Write chunk length must be less than compression buffer size");
+
+        int minCompressionBufferSize = compressor.maxCompressedLength(length);
+        if (compressionBuffer.length < minCompressionBufferSize) {
+            compressionBuffer = new byte[minCompressionBufferSize];
+        }
+
         int compressedSize = compressor.compress(chunk, offset, length, compressionBuffer, 0, compressionBuffer.length);
         if (compressedSize < length) {
             int chunkHeader = (compressedSize << 1);
@@ -411,20 +459,24 @@ public class OrcOutputBuffer
         }
     }
 
-    private void writeDirectlyToOutputStream(Slice slice, int sliceOffset, int length)
+    private void writeDirectlyToOutputStream(byte[] bytes, int bytesOffset, int length)
     {
         if (compressor == null) {
-            compressedOutputStream.writeBytes(slice, sliceOffset, length);
+            compressedOutputStream.writeBytes(bytes, bytesOffset, length);
             return;
         }
 
-        byte[] bytes = (byte[]) slice.getBase();
-        int bytesOffset = sliceOffset + (int) (slice.getAddress() - ARRAY_BYTE_BASE_OFFSET);
         while (length > 0) {
             int chunkSize = Integer.min(length, buffer.length);
             writeChunkToOutputStream(bytes, bytesOffset, chunkSize);
             length -= chunkSize;
             bytesOffset += chunkSize;
         }
+    }
+
+    @VisibleForTesting
+    int getBufferCapacity()
+    {
+        return slice.length();
     }
 }

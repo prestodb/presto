@@ -16,7 +16,6 @@ package com.facebook.presto.accumulo.serializers;
 import com.facebook.presto.accumulo.Types;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeUtils;
 import com.facebook.presto.spi.type.VarcharType;
@@ -533,7 +532,7 @@ public interface AccumuloRowSerializer
      */
     static Block getBlockFromArray(Type elementType, List<?> array)
     {
-        BlockBuilder builder = elementType.createBlockBuilder(new BlockBuilderStatus(), array.size());
+        BlockBuilder builder = elementType.createBlockBuilder(null, array.size());
         for (Object item : array) {
             writeObject(builder, elementType, item);
         }
@@ -552,7 +551,7 @@ public interface AccumuloRowSerializer
         Type keyType = mapType.getTypeParameters().get(0);
         Type valueType = mapType.getTypeParameters().get(1);
 
-        BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
         BlockBuilder builder = mapBlockBuilder.beginBlockEntry();
 
         for (Entry<?, ?> entry : map.entrySet()) {

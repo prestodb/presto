@@ -73,11 +73,10 @@ public class UnloadedIndexKeyRecordSet
         GroupByHash groupByHash = createGroupByHash(session, distinctChannelTypes, normalizedDistinctChannels, Optional.empty(), 10_000, joinCompiler);
         for (UpdateRequest request : requests) {
             Page page = request.getPage();
-            Block[] blocks = page.getBlocks();
 
             Block[] distinctBlocks = new Block[distinctChannels.length];
             for (int i = 0; i < distinctBlocks.length; i++) {
-                distinctBlocks[i] = blocks[distinctChannels[i]];
+                distinctBlocks[i] = page.getBlock(distinctChannels[i]);
             }
 
             // Move through the positions while advancing the cursors in lockstep
@@ -86,13 +85,13 @@ public class UnloadedIndexKeyRecordSet
             // TODO: this class does not yield wrt memory limit; enable it
             verify(done);
             GroupByIdBlock groupIds = work.getResult();
-            int positionCount = blocks[0].getPositionCount();
+            int positionCount = page.getBlock(0).getPositionCount();
             long nextDistinctId = -1;
             checkArgument(groupIds.getGroupCount() <= Integer.MAX_VALUE);
             IntList positions = new IntArrayList((int) groupIds.getGroupCount());
             for (int position = 0; position < positionCount; position++) {
                 // We are reading ahead in the cursors, so we need to filter any nulls since they can not join
-                if (!containsNullValue(position, blocks)) {
+                if (!containsNullValue(position, page)) {
                     // Only include the key if it is not already in the index
                     if (existingSnapshot.getJoinPosition(position, page) == UNLOADED_INDEX_KEY) {
                         // Only add the position if we have not seen this tuple before (based on the distinct channels)
@@ -125,9 +124,10 @@ public class UnloadedIndexKeyRecordSet
         return new UnloadedIndexKeyRecordCursor(types, pageAndPositions);
     }
 
-    private static boolean containsNullValue(int position, Block... blocks)
+    private static boolean containsNullValue(int position, Page page)
     {
-        for (Block block : blocks) {
+        for (int channel = 0; channel < page.getChannelCount(); channel++) {
+            Block block = page.getBlock(channel);
             if (block.isNull(position)) {
                 return true;
             }
@@ -140,7 +140,6 @@ public class UnloadedIndexKeyRecordSet
     {
         private final List<Type> types;
         private final Iterator<PageAndPositions> pageAndPositionsIterator;
-        private Block[] blocks;
         private Page page;
         private IntListIterator positionIterator;
         private int position;
@@ -149,7 +148,6 @@ public class UnloadedIndexKeyRecordSet
         {
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.pageAndPositionsIterator = requireNonNull(pageAndPositions, "pageAndPositions is null").iterator();
-            this.blocks = new Block[types.size()];
         }
 
         @Override
@@ -179,19 +177,13 @@ public class UnloadedIndexKeyRecordSet
                 }
                 PageAndPositions pageAndPositions = pageAndPositionsIterator.next();
                 page = pageAndPositions.getUpdateRequest().getPage();
-                blocks = page.getBlocks();
-                checkState(types.size() == blocks.length);
+                checkState(types.size() == page.getChannelCount());
                 positionIterator = pageAndPositions.getPositions().iterator();
             }
 
             position = positionIterator.nextInt();
 
             return true;
-        }
-
-        public Block[] getBlocks()
-        {
-            return blocks;
         }
 
         public Page getPage()
@@ -207,37 +199,37 @@ public class UnloadedIndexKeyRecordSet
         @Override
         public boolean getBoolean(int field)
         {
-            return types.get(field).getBoolean(blocks[field], position);
+            return types.get(field).getBoolean(page.getBlock(field), position);
         }
 
         @Override
         public long getLong(int field)
         {
-            return types.get(field).getLong(blocks[field], position);
+            return types.get(field).getLong(page.getBlock(field), position);
         }
 
         @Override
         public double getDouble(int field)
         {
-            return types.get(field).getDouble(blocks[field], position);
+            return types.get(field).getDouble(page.getBlock(field), position);
         }
 
         @Override
         public Slice getSlice(int field)
         {
-            return types.get(field).getSlice(blocks[field], position);
+            return types.get(field).getSlice(page.getBlock(field), position);
         }
 
         @Override
         public Object getObject(int field)
         {
-            return types.get(field).getObject(blocks[field], position);
+            return types.get(field).getObject(page.getBlock(field), position);
         }
 
         @Override
         public boolean isNull(int field)
         {
-            return blocks[field].isNull(position);
+            return page.getBlock(field).isNull(position);
         }
 
         @Override

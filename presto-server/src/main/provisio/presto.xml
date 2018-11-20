@@ -38,6 +38,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/session-property-managers">
+        <artifact id="${project.groupId}:presto-session-property-managers:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/jmx">
         <artifact id="${project.groupId}:presto-jmx:zip:${project.version}">
             <unpack />
@@ -76,6 +82,12 @@
 
     <artifactSet to="plugin/kafka">
         <artifact id="${project.groupId}:presto-kafka:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/kudu">
+        <artifact id="${project.groupId}:presto-kudu:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

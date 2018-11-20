@@ -130,7 +130,8 @@ public class TaskResource
                 taskId,
                 taskUpdateRequest.getFragment(),
                 taskUpdateRequest.getSources(),
-                taskUpdateRequest.getOutputIds());
+                taskUpdateRequest.getOutputIds(),
+                taskUpdateRequest.getTotalPartitions());
 
         if (shouldSummarize(uriInfo)) {
             taskInfo = taskInfo.summarize();
@@ -168,7 +169,7 @@ public class TaskResource
                 timeoutExecutor);
 
         if (shouldSummarize(uriInfo)) {
-            futureTaskInfo = Futures.transform(futureTaskInfo, TaskInfo::summarize);
+            futureTaskInfo = Futures.transform(futureTaskInfo, TaskInfo::summarize, directExecutor());
         }
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
@@ -277,7 +278,7 @@ public class TaskResource
                     .header(PRESTO_PAGE_NEXT_TOKEN, result.getNextToken())
                     .header(PRESTO_BUFFER_COMPLETE, result.isBufferComplete())
                     .build();
-        });
+        }, directExecutor());
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);

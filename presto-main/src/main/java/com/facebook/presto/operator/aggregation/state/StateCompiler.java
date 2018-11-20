@@ -66,12 +66,14 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.CompilerUtils.defineClass;
 import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
 import static io.airlift.bytecode.Access.PUBLIC;
@@ -170,9 +172,9 @@ public class StateCompiler
 
         Class<? extends AccumulatorStateSerializer> serializerClass = defineClass(definition, AccumulatorStateSerializer.class, callSiteBinder.getBindings(), classLoader);
         try {
-            return (AccumulatorStateSerializer<T>) serializerClass.newInstance();
+            return (AccumulatorStateSerializer<T>) serializerClass.getConstructor().newInstance();
         }
-        catch (InstantiationException | IllegalAccessException e) {
+        catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
         }
     }
@@ -184,10 +186,13 @@ public class StateCompiler
         Type type;
         if (fields.size() > 1) {
             List<Type> types = fields.stream().map(StateField::getSqlType).collect(toImmutableList());
-            type = new RowType(types, Optional.empty());
+            type = RowType.anonymous(types);
+        }
+        else if (fields.size() == 1) {
+            type = getOnlyElement(fields).getSqlType();
         }
         else {
-            type = fields.get(0).getSqlType();
+            type = UNKNOWN;
         }
 
         body.comment("return %s", type.getTypeSignature())
@@ -221,7 +226,7 @@ public class StateCompiler
         BytecodeBlock deserializerBody = method.getBody();
         Scope scope = method.getScope();
         if (fields.size() == 1) {
-            StateField field = fields.get(0);
+            StateField field = getOnlyElement(fields);
             Method setter = getSetter(clazz, field);
             if (!field.isPrimitiveType()) {
                 deserializerBody.append(new IfStatement()
@@ -237,7 +242,7 @@ public class StateCompiler
                                 constantType(binder, field.getSqlType()).getValue(block, index).cast(field.getType())));
             }
         }
-        else {
+        else if (fields.size() > 1) {
             Variable row = scope.declareVariable(Block.class, "row");
             deserializerBody.append(row.set(block.invoke("getObject", Object.class, index, constantClass(Block.class)).cast(Block.class)));
             int position = 0;
@@ -270,12 +275,15 @@ public class StateCompiler
         Scope scope = method.getScope();
         BytecodeBlock serializerBody = method.getBody();
 
-        if (fields.size() == 1) {
-            Method getter = getGetter(clazz, fields.get(0));
-            SqlTypeBytecodeExpression sqlType = constantType(binder, fields.get(0).getSqlType());
+        if (fields.size() == 0) {
+            serializerBody.append(out.invoke("appendNull", BlockBuilder.class).pop());
+        }
+        else if (fields.size() == 1) {
+            Method getter = getGetter(clazz, getOnlyElement(fields));
+            SqlTypeBytecodeExpression sqlType = constantType(binder, getOnlyElement(fields).getSqlType());
             Variable fieldValue = scope.declareVariable(getter.getReturnType(), "value");
             serializerBody.append(fieldValue.set(state.cast(getter.getDeclaringClass()).invoke(getter)));
-            if (!fields.get(0).isPrimitiveType()) {
+            if (!getOnlyElement(fields).isPrimitiveType()) {
                 serializerBody.append(new IfStatement()
                         .condition(equal(fieldValue, constantNull(getter.getReturnType())))
                         .ifTrue(out.invoke("appendNull", BlockBuilder.class).pop())
@@ -283,10 +291,10 @@ public class StateCompiler
             }
             else {
                 // For primitive type, we need to cast here because we serialize byte fields with TINYINT/INTEGER (whose java type is long).
-                serializerBody.append(sqlType.writeValue(out, fieldValue.cast(fields.get(0).getSqlType().getJavaType())));
+                serializerBody.append(sqlType.writeValue(out, fieldValue.cast(getOnlyElement(fields).getSqlType().getJavaType())));
             }
         }
-        else {
+        else if (fields.size() > 1) {
             Variable rowBuilder = scope.declareVariable(BlockBuilder.class, "rowBuilder");
             serializerBody.append(rowBuilder.set(out.invoke("beginBlockEntry", BlockBuilder.class)));
             for (StateField field : fields) {
@@ -392,9 +400,9 @@ public class StateCompiler
 
         Class<? extends AccumulatorStateFactory> factoryClass = defineClass(definition, AccumulatorStateFactory.class, classLoader);
         try {
-            return (AccumulatorStateFactory<T>) factoryClass.newInstance();
+            return (AccumulatorStateFactory<T>) factoryClass.getConstructor().newInstance();
         }
-        catch (InstantiationException | IllegalAccessException e) {
+        catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
         }
     }

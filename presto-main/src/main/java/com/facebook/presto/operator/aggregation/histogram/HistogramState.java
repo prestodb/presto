@@ -24,15 +24,10 @@ public interface HistogramState
 {
     /**
      * will create an empty histogram if none exists
+     *
      * @return histogram based on the type of state (single, grouped). Note that empty histograms will serialize to null as required
      */
     TypedHistogram get();
-
-    /**
-     * used only in combine() for efficiency
-     * @param typedHistogram
-     */
-    void set(TypedHistogram typedHistogram);
 
     void addMemoryUsage(long memory);
 

@@ -17,21 +17,23 @@ import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnIdentity;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.TableIdentity;
+import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.tree.QualifiedName;
 import io.airlift.slice.Slice;
 
@@ -65,9 +67,25 @@ public interface Metadata
      */
     Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName);
 
+    Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName);
+
     List<TableLayoutResult> getLayouts(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns);
 
     TableLayout getLayout(Session session, TableLayoutHandle handle);
+
+    /**
+     * Return a table layout handle whose partitioning is converted to the provided partitioning handle,
+     * but otherwise identical to the provided table layout handle.
+     * The provided table layout handle must be one that the connector can transparently convert to from
+     * the original partitioning handle associated with the provided table layout handle,
+     * as promised by {@link #getCommonPartitioning}.
+     */
+    TableLayoutHandle getAlternativeLayoutHandle(Session session, TableLayoutHandle tableLayoutHandle, PartitioningHandle partitioningHandle);
+
+    /**
+     * Return a partitioning handle which the connector can transparently convert both {@code left} and {@code right} into.
+     */
+    Optional<PartitioningHandle> getCommonPartitioning(Session session, PartitioningHandle left, PartitioningHandle right);
 
     Optional<Object> getInfo(Session session, TableLayoutHandle handle);
 
@@ -156,26 +174,6 @@ public interface Metadata
      */
     void dropTable(Session session, TableHandle tableHandle);
 
-    /**
-     * Gets the TableIdentity for the specified table.
-     */
-    TableIdentity getTableIdentity(Session session, TableHandle tableHandle);
-
-    /**
-     * Deserialize the bytes to TableIdentity
-     */
-    TableIdentity deserializeTableIdentity(Session session, String catalogName, byte[] bytes);
-
-    /**
-     * Gets the ColumnIdentity for the specified column.
-     */
-    ColumnIdentity getColumnIdentity(Session session, TableHandle tableHandle, ColumnHandle columnHandle);
-
-    /**
-     * Deserialize the bytes to ColumnIdentity
-     */
-    ColumnIdentity deserializeColumnIdentity(Session session, String catalogName, byte[] bytes);
-
     Optional<NewTableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
 
     /**
@@ -186,9 +184,14 @@ public interface Metadata
     /**
      * Finish a table creation with data after the data is written.
      */
-    Optional<ConnectorOutputMetadata> finishCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments);
+    Optional<ConnectorOutputMetadata> finishCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
 
     Optional<NewTableLayout> getInsertLayout(Session session, TableHandle target);
+
+    /**
+     * Describes statistics that must be collected during a write.
+     */
+    TableStatisticsMetadata getStatisticsCollectionMetadata(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
 
     /**
      * Start a SELECT/UPDATE/INSERT/DELETE query
@@ -209,7 +212,7 @@ public interface Metadata
     /**
      * Finish insert query
      */
-    Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments);
+    Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
 
     /**
      * Get the row ID column handle used with UpdatablePageSource.
@@ -308,4 +311,6 @@ public interface Metadata
     SchemaPropertyManager getSchemaPropertyManager();
 
     TablePropertyManager getTablePropertyManager();
+
+    ColumnPropertyManager getColumnPropertyManager();
 }

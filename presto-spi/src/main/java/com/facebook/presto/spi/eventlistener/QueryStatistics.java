@@ -30,6 +30,7 @@ public class QueryStatistics
     private final long peakUserMemoryBytes;
     // peak of user + system memory
     private final long peakTotalNonRevocableMemoryBytes;
+    private final long peakTaskTotalMemory;
     private final long totalBytes;
     private final long totalRows;
     private final long outputBytes;
@@ -38,6 +39,8 @@ public class QueryStatistics
     private final long writtenRows;
 
     private final double cumulativeMemory;
+
+    private final List<StageGcStatistics> stageGcStatistics;
 
     private final int completedSplits;
     private final boolean complete;
@@ -54,6 +57,7 @@ public class QueryStatistics
             Optional<Duration> distributedPlanningTime,
             long peakUserMemoryBytes,
             long peakTotalNonRevocableMemoryBytes,
+            long peakTaskTotalMemory,
             long totalBytes,
             long totalRows,
             long outputBytes,
@@ -61,6 +65,7 @@ public class QueryStatistics
             long writtenBytes,
             long writtenRows,
             double cumulativeMemory,
+            List<StageGcStatistics> stageGcStatistics,
             int completedSplits,
             boolean complete,
             List<StageCpuDistribution> cpuTimeDistribution,
@@ -73,6 +78,7 @@ public class QueryStatistics
         this.distributedPlanningTime = requireNonNull(distributedPlanningTime, "distributedPlanningTime is null");
         this.peakUserMemoryBytes = peakUserMemoryBytes;
         this.peakTotalNonRevocableMemoryBytes = peakTotalNonRevocableMemoryBytes;
+        this.peakTaskTotalMemory = peakTaskTotalMemory;
         this.totalBytes = totalBytes;
         this.totalRows = totalRows;
         this.outputBytes = outputBytes;
@@ -80,6 +86,7 @@ public class QueryStatistics
         this.writtenBytes = writtenBytes;
         this.writtenRows = writtenRows;
         this.cumulativeMemory = cumulativeMemory;
+        this.stageGcStatistics = requireNonNull(stageGcStatistics, "stageGcStatistics is null");
         this.completedSplits = completedSplits;
         this.complete = complete;
         this.cpuTimeDistribution = requireNonNull(cpuTimeDistribution, "cpuTimeDistribution is null");
@@ -121,6 +128,11 @@ public class QueryStatistics
         return peakTotalNonRevocableMemoryBytes;
     }
 
+    public long peakTaskTotalMemory()
+    {
+        return peakTaskTotalMemory;
+    }
+
     public long getTotalBytes()
     {
         return totalBytes;
@@ -154,6 +166,11 @@ public class QueryStatistics
     public double getCumulativeMemory()
     {
         return cumulativeMemory;
+    }
+
+    public List<StageGcStatistics> getStageGcStatistics()
+    {
+        return stageGcStatistics;
     }
 
     public int getCompletedSplits()

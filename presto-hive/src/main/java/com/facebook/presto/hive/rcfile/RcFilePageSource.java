@@ -22,7 +22,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
@@ -96,7 +95,7 @@ public class RcFilePageSource
             if (hiveColumnIndexes[columnIndex] >= rcFileReader.getColumnCount()) {
                 // this file may contain fewer fields than what's declared in the schema
                 // this happens when additional columns are added to the hive table after files have been created
-                BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1, NULL_ENTRY_SIZE);
+                BlockBuilder blockBuilder = type.createBlockBuilder(null, 1, NULL_ENTRY_SIZE);
                 blockBuilder.appendNull();
                 constantBlocks[columnIndex] = blockBuilder.build();
             }

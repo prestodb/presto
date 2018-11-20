@@ -36,6 +36,4 @@ public interface MetadataWriter
 
     int writeRowIndexes(SliceOutput output, List<RowGroupIndex> rowGroupIndexes)
             throws IOException;
-
-    MetadataReader getMetadataReader();
 }

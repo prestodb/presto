@@ -16,6 +16,7 @@ package com.facebook.presto.mongodb;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.base.CharMatcher;
@@ -54,14 +55,16 @@ public class ObjectIdFunctions
 
     @ScalarOperator(EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean equal(@SqlType("ObjectId") Slice left, @SqlType("ObjectId") Slice right)
+    @SqlNullable
+    public static Boolean equal(@SqlType("ObjectId") Slice left, @SqlType("ObjectId") Slice right)
     {
         return left.equals(right);
     }
 
     @ScalarOperator(NOT_EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean notEqual(@SqlType("ObjectId") Slice left, @SqlType("ObjectId") Slice right)
+    @SqlNullable
+    public static Boolean notEqual(@SqlType("ObjectId") Slice left, @SqlType("ObjectId") Slice right)
     {
         return !left.equals(right);
     }

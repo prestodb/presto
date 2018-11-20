@@ -16,11 +16,8 @@ package com.facebook.presto.execution;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
-import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.event.query.QueryMonitor;
-import com.facebook.presto.event.query.QueryMonitorConfig;
-import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.buffer.OutputBuffer;
@@ -28,8 +25,8 @@ import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.buffer.PartitionedOutputBuffer;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.execution.executor.TaskExecutor;
+import com.facebook.presto.memory.DefaultQueryContext;
 import com.facebook.presto.memory.MemoryPool;
-import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.DriverContext;
@@ -40,6 +37,7 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.PipelineExecutionStrategy;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
+import com.facebook.presto.operator.StageExecutionStrategy;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskOutputOperator.TaskOutputOperatorFactory;
 import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
@@ -48,7 +46,6 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.UpdatablePageSource;
-import com.facebook.presto.spi.block.TestingBlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.type.TestingTypeManager;
@@ -59,13 +56,13 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.json.ObjectMapperProvider;
-import io.airlift.node.NodeInfo;
+import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.DataProvider;
@@ -93,6 +90,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createStringSequenceBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
+import static com.facebook.presto.execution.TaskTestUtils.createTestSplitMonitor;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.facebook.presto.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -101,9 +99,9 @@ import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_E
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
@@ -124,7 +122,7 @@ public class TestSqlTaskExecution
     @DataProvider
     public static Object[][] executionStrategies()
     {
-        return new Object[][]{{UNGROUPED_EXECUTION}, {GROUPED_EXECUTION}};
+        return new Object[][] {{UNGROUPED_EXECUTION}, {GROUPED_EXECUTION}};
     }
 
     @Test(dataProvider = "executionStrategies", timeOut = 20_000)
@@ -133,7 +131,7 @@ public class TestSqlTaskExecution
     {
         ScheduledExecutorService taskNotificationExecutor = newScheduledThreadPool(10, threadsNamed("task-notification-%s"));
         ScheduledExecutorService driverYieldExecutor = newScheduledThreadPool(2, threadsNamed("driver-yield-%s"));
-        TaskExecutor taskExecutor = new TaskExecutor(5, 10);
+        TaskExecutor taskExecutor = new TaskExecutor(5, 10, 3, 4, Ticker.systemTicker());
         taskExecutor.start();
 
         try {
@@ -160,7 +158,7 @@ public class TestSqlTaskExecution
                     TABLE_SCAN_NODE_ID,
                     outputBuffer,
                     Function.identity(),
-                    new PagesSerdeFactory(new TestingBlockEncodingSerde(new TestingTypeManager()), false));
+                    new PagesSerdeFactory(new BlockEncodingManager(new TestingTypeManager()), false));
             LocalExecutionPlan localExecutionPlan = new LocalExecutionPlan(
                     ImmutableList.of(new DriverFactory(
                             0,
@@ -169,7 +167,8 @@ public class TestSqlTaskExecution
                             ImmutableList.of(testingScanOperatorFactory, taskOutputOperatorFactory),
                             OptionalInt.empty(),
                             executionStrategy)),
-                    ImmutableList.of(TABLE_SCAN_NODE_ID));
+                    ImmutableList.of(TABLE_SCAN_NODE_ID),
+                    executionStrategy == GROUPED_EXECUTION ? StageExecutionStrategy.groupedExecution(ImmutableList.of(TABLE_SCAN_NODE_ID)) : StageExecutionStrategy.ungroupedExecution());
             TaskContext taskContext = newTestingTaskContext(taskNotificationExecutor, driverYieldExecutor, taskStateMachine);
             SqlTaskExecution sqlTaskExecution = SqlTaskExecution.createSqlTaskExecution(
                     taskStateMachine,
@@ -179,7 +178,7 @@ public class TestSqlTaskExecution
                     localExecutionPlan,
                     taskExecutor,
                     taskNotificationExecutor,
-                    new QueryMonitor(new ObjectMapperProvider().get(), jsonCodec(StageInfo.class), new EventListenerManager(), new NodeInfo("test"), new NodeVersion("testVersion"), new QueryMonitorConfig()));
+                    createTestSplitMonitor());
 
             //
             // test body
@@ -300,7 +299,7 @@ public class TestSqlTaskExecution
     {
         ScheduledExecutorService taskNotificationExecutor = newScheduledThreadPool(10, threadsNamed("task-notification-%s"));
         ScheduledExecutorService driverYieldExecutor = newScheduledThreadPool(2, threadsNamed("driver-yield-%s"));
-        TaskExecutor taskExecutor = new TaskExecutor(5, 10);
+        TaskExecutor taskExecutor = new TaskExecutor(5, 10, 3, 4, Ticker.systemTicker());
         taskExecutor.start();
 
         try {
@@ -370,20 +369,18 @@ public class TestSqlTaskExecution
             ValuesOperatorFactory valuesOperatorFactory1 = new ValuesOperatorFactory(
                     101,
                     values1NodeId,
-                    ImmutableList.of(VARCHAR),
                     ImmutableList.of(new Page(createStringsBlock("multiplier1"))));
             TestingScanOperatorFactory scanOperatorFactory2 = new TestingScanOperatorFactory(201, scan2NodeId, ImmutableList.of(VARCHAR));
             ValuesOperatorFactory valuesOperatorFactory3 = new ValuesOperatorFactory(
                     301,
                     values3NodeId,
-                    ImmutableList.of(VARCHAR),
                     ImmutableList.of(new Page(createStringsBlock("x", "y", "multiplier3"))));
             TaskOutputOperatorFactory taskOutputOperatorFactory = new TaskOutputOperatorFactory(
                     4,
                     joinCNodeId,
                     outputBuffer,
                     Function.identity(),
-                    new PagesSerdeFactory(new TestingBlockEncodingSerde(new TestingTypeManager()), false));
+                    new PagesSerdeFactory(new BlockEncodingManager(new TestingTypeManager()), false));
             TestingCrossJoinOperatorFactory joinOperatorFactoryA = new TestingCrossJoinOperatorFactory(2, joinANodeId, buildStatesA);
             TestingCrossJoinOperatorFactory joinOperatorFactoryB = new TestingCrossJoinOperatorFactory(102, joinBNodeId, buildStatesB);
             TestingCrossJoinOperatorFactory joinOperatorFactoryC = new TestingCrossJoinOperatorFactory(3, joinCNodeId, buildStatesC);
@@ -421,7 +418,8 @@ public class TestSqlTaskExecution
                                     ImmutableList.of(valuesOperatorFactory3, buildOperatorFactoryC),
                                     OptionalInt.empty(),
                                     UNGROUPED_EXECUTION)),
-                    ImmutableList.of(scan2NodeId, scan0NodeId));
+                    ImmutableList.of(scan2NodeId, scan0NodeId),
+                    executionStrategy == GROUPED_EXECUTION ? StageExecutionStrategy.groupedExecution(ImmutableList.of(scan0NodeId, scan2NodeId)) : StageExecutionStrategy.ungroupedExecution());
             TaskContext taskContext = newTestingTaskContext(taskNotificationExecutor, driverYieldExecutor, taskStateMachine);
             SqlTaskExecution sqlTaskExecution = SqlTaskExecution.createSqlTaskExecution(
                     taskStateMachine,
@@ -431,7 +429,7 @@ public class TestSqlTaskExecution
                     localExecutionPlan,
                     taskExecutor,
                     taskNotificationExecutor,
-                    new QueryMonitor(new ObjectMapperProvider().get(), jsonCodec(StageInfo.class), new EventListenerManager(), new NodeInfo("test"), new NodeVersion("testVersion"), new QueryMonitorConfig()));
+                    createTestSplitMonitor());
 
             //
             // test body
@@ -599,15 +597,17 @@ public class TestSqlTaskExecution
 
     private TaskContext newTestingTaskContext(ScheduledExecutorService taskNotificationExecutor, ScheduledExecutorService driverYieldExecutor, TaskStateMachine taskStateMachine)
     {
-        QueryContext queryContext = new QueryContext(
+        DefaultQueryContext queryContext = new DefaultQueryContext(
                 new QueryId("queryid"),
                 new DataSize(1, MEGABYTE),
-                new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)), new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE)),
+                new DataSize(2, MEGABYTE),
+                new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)),
+                new TestingGcMonitor(),
                 taskNotificationExecutor,
                 driverYieldExecutor,
                 new DataSize(1, MEGABYTE),
                 new SpillSpaceTracker(new DataSize(1, GIGABYTE)));
-        return queryContext.addTaskContext(taskStateMachine, TEST_SESSION, false, false);
+        return queryContext.addTaskContext(taskStateMachine, TEST_SESSION, false, false, OptionalInt.empty());
     }
 
     private PartitionedOutputBuffer newTestingOutputBuffer(ScheduledExecutorService taskNotificationExecutor)
@@ -619,7 +619,7 @@ public class TestSqlTaskExecution
                         .withBuffer(OUTPUT_BUFFER_ID, 0)
                         .withNoMoreBufferIds(),
                 new DataSize(1, MEGABYTE),
-                () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()),
+                () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 taskNotificationExecutor);
     }
 
@@ -700,6 +700,8 @@ public class TestSqlTaskExecution
     public static class Pauser
     {
         private volatile SettableFuture<?> future = SettableFuture.create();
+
+        public Pauser()
         {
             future.set(null);
         }
@@ -754,12 +756,6 @@ public class TestSqlTaskExecution
         public PlanNodeId getSourceId()
         {
             return sourceId;
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return ImmutableList.of(VARCHAR);
         }
 
         @Override
@@ -859,12 +855,6 @@ public class TestSqlTaskExecution
             }
 
             @Override
-            public List<Type> getTypes()
-            {
-                return ImmutableList.of(VARCHAR);
-            }
-
-            @Override
             public void close()
             {
                 finish();
@@ -937,12 +927,6 @@ public class TestSqlTaskExecution
         }
 
         @Override
-        public List<Type> getTypes()
-        {
-            return ImmutableList.of(VARCHAR);
-        }
-
-        @Override
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!overallNoMoreOperators, "noMoreOperators() has been called");
@@ -1012,12 +996,6 @@ public class TestSqlTaskExecution
             }
 
             @Override
-            public List<Type> getTypes()
-            {
-                return ImmutableList.of(VARCHAR);
-            }
-
-            @Override
             public void finish()
             {
                 if (finishing) {
@@ -1081,12 +1059,6 @@ public class TestSqlTaskExecution
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.buildStates = requireNonNull(buildStates, "buildStates is null");
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return ImmutableList.of(VARCHAR);
         }
 
         @Override
@@ -1156,19 +1128,13 @@ public class TestSqlTaskExecution
                     return buildPages.stream()
                             .mapToInt(Page::getPositionCount)
                             .sum();
-                });
+                }, directExecutor());
             }
 
             @Override
             public OperatorContext getOperatorContext()
             {
                 return operatorContext;
-            }
-
-            @Override
-            public List<Type> getTypes()
-            {
-                return ImmutableList.of(VARCHAR);
             }
 
             @Override

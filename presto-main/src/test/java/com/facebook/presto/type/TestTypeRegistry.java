@@ -27,6 +27,14 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.spi.function.OperatorType.EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
+import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -51,9 +59,9 @@ import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.Re2JRegexpType.RE2J_REGEXP;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -65,14 +73,23 @@ public class TestTypeRegistry
     @Test
     public void testNonexistentType()
     {
-        TypeManager typeManager = new TypeRegistry();
-        assertNull(typeManager.getType(parseTypeSignature("not a real type")));
+        try {
+            TypeManager typeManager = new TypeRegistry();
+            typeManager.getType(parseTypeSignature("not a real type"));
+            fail("Expect to throw IllegalArgumentException");
+        }
+        catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().matches("Unknown type.*"));
+        }
+        catch (Throwable t) {
+            fail("Expect to throw IllegalArgumentException, got " + t.getClass());
+        }
     }
 
     @Test
     public void testIsTypeOnlyCoercion()
     {
-        assertTrue(typeRegistry.isTypeOnlyCoercion(BIGINT, BIGINT));
+        assertTrue(isTypeOnlyCoercion(BIGINT, BIGINT));
         assertTrue(isTypeOnlyCoercion("varchar(42)", "varchar(44)"));
         assertFalse(isTypeOnlyCoercion("varchar(44)", "varchar(42)"));
 
@@ -100,156 +117,101 @@ public class TestTypeRegistry
     }
 
     @Test
-    public void testCanCoerce()
+    public void testTypeCompatibility()
     {
-        assertTrue(typeRegistry.canCoerce(BIGINT, BIGINT));
-        assertTrue(typeRegistry.canCoerce(UNKNOWN, BIGINT));
-        assertFalse(typeRegistry.canCoerce(BIGINT, UNKNOWN));
+        assertThat(UNKNOWN, UNKNOWN).hasCommonSuperType(UNKNOWN).canCoerceToEachOther();
+        assertThat(BIGINT, BIGINT).hasCommonSuperType(BIGINT).canCoerceToEachOther();
+        assertThat(UNKNOWN, BIGINT).hasCommonSuperType(BIGINT).canCoerceFirstToSecondOnly();
 
-        assertTrue(typeRegistry.canCoerce(BIGINT, DOUBLE));
-        assertTrue(typeRegistry.canCoerce(DATE, TIMESTAMP));
-        assertTrue(typeRegistry.canCoerce(DATE, TIMESTAMP_WITH_TIME_ZONE));
-        assertTrue(typeRegistry.canCoerce(TIME, TIME_WITH_TIME_ZONE));
-        assertTrue(typeRegistry.canCoerce(TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE));
-        assertTrue(typeRegistry.canCoerce(VARCHAR, JONI_REGEXP));
-        assertTrue(typeRegistry.canCoerce(VARCHAR, RE2J_REGEXP));
-        assertTrue(typeRegistry.canCoerce(VARCHAR, LIKE_PATTERN));
-        assertTrue(typeRegistry.canCoerce(VARCHAR, JSON_PATH));
+        assertThat(BIGINT, DOUBLE).hasCommonSuperType(DOUBLE).canCoerceFirstToSecondOnly();
+        assertThat(DATE, TIMESTAMP).hasCommonSuperType(TIMESTAMP).canCoerceFirstToSecondOnly();
+        assertThat(DATE, TIMESTAMP_WITH_TIME_ZONE).hasCommonSuperType(TIMESTAMP_WITH_TIME_ZONE).canCoerceFirstToSecondOnly();
+        assertThat(TIME, TIME_WITH_TIME_ZONE).hasCommonSuperType(TIME_WITH_TIME_ZONE).canCoerceFirstToSecondOnly();
+        assertThat(TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE).hasCommonSuperType(TIMESTAMP_WITH_TIME_ZONE).canCoerceFirstToSecondOnly();
+        assertThat(VARCHAR, JONI_REGEXP).hasCommonSuperType(JONI_REGEXP).canCoerceFirstToSecondOnly();
+        assertThat(VARCHAR, RE2J_REGEXP).hasCommonSuperType(RE2J_REGEXP).canCoerceFirstToSecondOnly();
+        assertThat(VARCHAR, LIKE_PATTERN).hasCommonSuperType(LIKE_PATTERN).canCoerceFirstToSecondOnly();
+        assertThat(VARCHAR, JSON_PATH).hasCommonSuperType(JSON_PATH).canCoerceFirstToSecondOnly();
 
-        assertTrue(typeRegistry.canCoerce(REAL, DOUBLE));
-        assertTrue(typeRegistry.canCoerce(TINYINT, REAL));
-        assertTrue(typeRegistry.canCoerce(SMALLINT, REAL));
-        assertTrue(typeRegistry.canCoerce(INTEGER, REAL));
-        assertTrue(typeRegistry.canCoerce(BIGINT, REAL));
+        assertThat(REAL, DOUBLE).hasCommonSuperType(DOUBLE).canCoerceFirstToSecondOnly();
+        assertThat(REAL, TINYINT).hasCommonSuperType(REAL).canCoerceSecondToFirstOnly();
+        assertThat(REAL, SMALLINT).hasCommonSuperType(REAL).canCoerceSecondToFirstOnly();
+        assertThat(REAL, INTEGER).hasCommonSuperType(REAL).canCoerceSecondToFirstOnly();
+        assertThat(REAL, BIGINT).hasCommonSuperType(REAL).canCoerceSecondToFirstOnly();
 
-        assertFalse(typeRegistry.canCoerce(DOUBLE, BIGINT));
-        assertFalse(typeRegistry.canCoerce(TIMESTAMP, TIME_WITH_TIME_ZONE));
-        assertFalse(typeRegistry.canCoerce(TIMESTAMP_WITH_TIME_ZONE, TIMESTAMP));
-        assertFalse(typeRegistry.canCoerce(VARBINARY, VARCHAR));
-        assertFalse(canCoerce("real", "decimal(37,1)"));
-        assertFalse(canCoerce("real", "decimal(37,37)"));
-        assertFalse(canCoerce("double", "decimal(37,1)"));
-        assertFalse(canCoerce("double", "decimal(37,37)"));
+        assertThat(TIMESTAMP, TIME_WITH_TIME_ZONE).isIncompatible();
+        assertThat(VARBINARY, VARCHAR).isIncompatible();
 
-        assertTrue(canCoerce("unknown", "array(bigint)"));
-        assertFalse(canCoerce("array(bigint)", "unknown"));
-        assertTrue(canCoerce("array(bigint)", "array(double)"));
-        assertFalse(canCoerce("array(double)", "array(bigint)"));
-        assertTrue(canCoerce("map(bigint,double)", "map(bigint,double)"));
-        assertTrue(canCoerce("map(bigint,double)", "map(double,double)"));
-        assertTrue(canCoerce("row(a bigint,b double,c varchar)", "row(a bigint,b double,c varchar)"));
-        assertTrue(canCoerce("row(varchar(2))", "row(varchar(5))"));
-        assertTrue(canCoerce("row(a integer)", "row(a bigint)"));
-        assertFalse(canCoerce("row(a integer)", "row(b bigint)"));
-        assertFalse(canCoerce("row(integer)", "row(b bigint)"));
-        assertTrue(canCoerce("row(a integer,b varchar(2))", "row(bigint,varchar(5))"));
-        assertTrue(canCoerce("row(a row(c integer),b varchar(2))", "row(row(c integer),varchar(5))"));
-        assertFalse(canCoerce("row(a integer)", "row(a integer,b varchar(2))"));
-        assertFalse(canCoerce("row(a integer)", "row(a varchar(2))"));
+        assertThat("unknown", "array(bigint)").hasCommonSuperType("array(bigint)").canCoerceFirstToSecondOnly();
+        assertThat("array(bigint)", "array(double)").hasCommonSuperType("array(double)").canCoerceFirstToSecondOnly();
+        assertThat("array(bigint)", "array(unknown)").hasCommonSuperType("array(bigint)").canCoerceSecondToFirstOnly();
+        assertThat("map(bigint,double)", "map(bigint,double)").hasCommonSuperType("map(bigint,double)").canCoerceToEachOther();
+        assertThat("map(bigint,double)", "map(double,double)").hasCommonSuperType("map(double,double)").canCoerceFirstToSecondOnly();
+        assertThat("row(a bigint,b double,c varchar)", "row(a bigint,b double,c varchar)").hasCommonSuperType("row(a bigint,b double,c varchar)").canCoerceToEachOther();
 
-        assertTrue(canCoerce("varchar(42)", "varchar(42)"));
-        assertTrue(canCoerce("varchar(42)", "varchar(44)"));
-        assertFalse(canCoerce("varchar(44)", "varchar(42)"));
+        assertThat("decimal(22,1)", "decimal(23,1)").hasCommonSuperType("decimal(23,1)").canCoerceFirstToSecondOnly();
+        assertThat("bigint", "decimal(23,1)").hasCommonSuperType("decimal(23,1)").canCoerceFirstToSecondOnly();
+        assertThat("bigint", "decimal(18,0)").hasCommonSuperType("decimal(19,0)").cannotCoerceToEachOther();
+        assertThat("bigint", "decimal(19,0)").hasCommonSuperType("decimal(19,0)").canCoerceFirstToSecondOnly();
+        assertThat("bigint", "decimal(37,1)").hasCommonSuperType("decimal(37,1)").canCoerceFirstToSecondOnly();
+        assertThat("real", "decimal(37,1)").hasCommonSuperType("real").canCoerceSecondToFirstOnly();
+        assertThat("array(decimal(23,1))", "array(decimal(22,1))").hasCommonSuperType("array(decimal(23,1))").canCoerceSecondToFirstOnly();
+        assertThat("array(bigint)", "array(decimal(2,1))").hasCommonSuperType("array(decimal(20,1))").cannotCoerceToEachOther();
+        assertThat("array(bigint)", "array(decimal(20,1))").hasCommonSuperType("array(decimal(20,1))").canCoerceFirstToSecondOnly();
 
-        assertTrue(canCoerce("char(42)", "varchar(42)"));
-        assertTrue(canCoerce("char(42)", "varchar(44)"));
-        assertFalse(canCoerce("char(42)", "char(44)"));
-        assertFalse(canCoerce("char(42)", "char(40)"));
-        assertFalse(canCoerce("char(42)", "varchar(40)"));
+        assertThat("decimal(3,2)", "double").hasCommonSuperType("double").canCoerceFirstToSecondOnly();
+        assertThat("decimal(22,1)", "double").hasCommonSuperType("double").canCoerceFirstToSecondOnly();
+        assertThat("decimal(37,1)", "double").hasCommonSuperType("double").canCoerceFirstToSecondOnly();
+        assertThat("decimal(37,37)", "double").hasCommonSuperType("double").canCoerceFirstToSecondOnly();
 
-        assertTrue(typeRegistry.canCoerce(createType("char(42)"), JONI_REGEXP));
-        assertTrue(typeRegistry.canCoerce(createType("char(42)"), RE2J_REGEXP));
-        assertTrue(typeRegistry.canCoerce(createType("char(42)"), LIKE_PATTERN));
-        assertTrue(typeRegistry.canCoerce(createType("char(42)"), JSON_PATH));
+        assertThat("decimal(22,1)", "real").hasCommonSuperType("real").canCoerceFirstToSecondOnly();
+        assertThat("decimal(3,2)", "real").hasCommonSuperType("real").canCoerceFirstToSecondOnly();
+        assertThat("decimal(37,37)", "real").hasCommonSuperType("real").canCoerceFirstToSecondOnly();
 
-        assertTrue(canCoerce("decimal(22,1)", "decimal(23,1)"));
-        assertFalse(canCoerce("decimal(23,1)", "decimal(22,1)"));
-        assertFalse(canCoerce("bigint", "decimal(18,0)"));
-        assertTrue(canCoerce("bigint", "decimal(19,0)"));
-        assertTrue(canCoerce("bigint", "decimal(37,1)"));
-        assertTrue(canCoerce("array(bigint)", "array(decimal(20,1))"));
-        assertFalse(canCoerce("array(bigint)", "array(decimal(2,1))"));
+        assertThat("integer", "decimal(23,1)").hasCommonSuperType("decimal(23,1)").canCoerceFirstToSecondOnly();
+        assertThat("integer", "decimal(9,0)").hasCommonSuperType("decimal(10,0)").cannotCoerceToEachOther();
+        assertThat("integer", "decimal(10,0)").hasCommonSuperType("decimal(10,0)").canCoerceFirstToSecondOnly();
+        assertThat("integer", "decimal(37,1)").hasCommonSuperType("decimal(37,1)").canCoerceFirstToSecondOnly();
 
-        assertTrue(canCoerce("decimal(3,2)", "double"));
-        assertTrue(canCoerce("decimal(22,1)", "double"));
-        assertTrue(canCoerce("decimal(3,2)", "real"));
-        assertTrue(canCoerce("decimal(22,1)", "real"));
+        assertThat("tinyint", "decimal(2,0)").hasCommonSuperType("decimal(3,0)").cannotCoerceToEachOther();
+        assertThat("tinyint", "decimal(9,0)").hasCommonSuperType("decimal(9,0)").canCoerceFirstToSecondOnly();
+        assertThat("tinyint", "decimal(2,1)").hasCommonSuperType("decimal(4,1)").cannotCoerceToEachOther();
+        assertThat("tinyint", "decimal(3,0)").hasCommonSuperType("decimal(3,0)").canCoerceFirstToSecondOnly();
+        assertThat("tinyint", "decimal(37,1)").hasCommonSuperType("decimal(37,1)").canCoerceFirstToSecondOnly();
 
-        assertFalse(canCoerce("integer", "decimal(9,0)"));
-        assertTrue(canCoerce("integer", "decimal(10,0)"));
-        assertTrue(canCoerce("integer", "decimal(37,1)"));
+        assertThat("smallint", "decimal(37,1)").hasCommonSuperType("decimal(37,1)").canCoerceFirstToSecondOnly();
+        assertThat("smallint", "decimal(4,0)").hasCommonSuperType("decimal(5,0)").cannotCoerceToEachOther();
+        assertThat("smallint", "decimal(5,0)").hasCommonSuperType("decimal(5,0)").canCoerceFirstToSecondOnly();
+        assertThat("smallint", "decimal(2,0)").hasCommonSuperType("decimal(5,0)").cannotCoerceToEachOther();
+        assertThat("smallint", "decimal(9,0)").hasCommonSuperType("decimal(9,0)").canCoerceFirstToSecondOnly();
+        assertThat("smallint", "decimal(2,1)").hasCommonSuperType("decimal(6,1)").cannotCoerceToEachOther();
 
-        assertFalse(canCoerce("tinyint", "decimal(2,0)"));
-        assertTrue(canCoerce("tinyint", "decimal(3,0)"));
-        assertTrue(canCoerce("tinyint", "decimal(37,1)"));
+        assertThat("char(42)", "char(40)").hasCommonSuperType("char(42)").canCoerceSecondToFirstOnly();
+        assertThat("char(42)", "char(44)").hasCommonSuperType("char(44)").canCoerceFirstToSecondOnly();
+        assertThat("varchar(42)", "varchar(42)").hasCommonSuperType("varchar(42)").canCoerceToEachOther();
+        assertThat("varchar(42)", "varchar(44)").hasCommonSuperType("varchar(44)").canCoerceFirstToSecondOnly();
+        assertThat("char(40)", "varchar(42)").hasCommonSuperType("char(42)").cannotCoerceToEachOther();
+        assertThat("char(42)", "varchar(42)").hasCommonSuperType("char(42)").canCoerceSecondToFirstOnly();
+        assertThat("char(44)", "varchar(42)").hasCommonSuperType("char(44)").canCoerceSecondToFirstOnly();
 
-        assertFalse(canCoerce("smallint", "decimal(4,0)"));
-        assertTrue(canCoerce("smallint", "decimal(5,0)"));
-        assertTrue(canCoerce("smallint", "decimal(37,1)"));
-    }
+        assertThat(createType("char(42)"), JONI_REGEXP).hasCommonSuperType(JONI_REGEXP).canCoerceFirstToSecondOnly();
+        assertThat(createType("char(42)"), JSON_PATH).hasCommonSuperType(JSON_PATH).canCoerceFirstToSecondOnly();
+        assertThat(createType("char(42)"), LIKE_PATTERN).hasCommonSuperType(LIKE_PATTERN).canCoerceFirstToSecondOnly();
+        assertThat(createType("char(42)"), RE2J_REGEXP).hasCommonSuperType(RE2J_REGEXP).canCoerceFirstToSecondOnly();
 
-    @Test
-    public void testGetCommonSuperType()
-    {
-        assertCommonSuperType(UNKNOWN, UNKNOWN, UNKNOWN);
-        assertCommonSuperType(BIGINT, BIGINT, BIGINT);
-        assertCommonSuperType(UNKNOWN, BIGINT, BIGINT);
+        assertThat("row(varchar(2))", "row(varchar(5))").hasCommonSuperType("row(varchar(5))").canCoerceFirstToSecondOnly();
 
-        assertCommonSuperType(BIGINT, DOUBLE, DOUBLE);
-        assertCommonSuperType(DATE, TIMESTAMP, TIMESTAMP);
-        assertCommonSuperType(DATE, TIMESTAMP_WITH_TIME_ZONE, TIMESTAMP_WITH_TIME_ZONE);
-        assertCommonSuperType(TIME, TIME_WITH_TIME_ZONE, TIME_WITH_TIME_ZONE);
-        assertCommonSuperType(TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE, TIMESTAMP_WITH_TIME_ZONE);
-        assertCommonSuperType(VARCHAR, JONI_REGEXP, JONI_REGEXP);
-        assertCommonSuperType(VARCHAR, RE2J_REGEXP, RE2J_REGEXP);
-        assertCommonSuperType(VARCHAR, LIKE_PATTERN, LIKE_PATTERN);
-        assertCommonSuperType(VARCHAR, JSON_PATH, JSON_PATH);
-
-        assertCommonSuperType(REAL, DOUBLE, DOUBLE);
-        assertCommonSuperType(REAL, TINYINT, REAL);
-        assertCommonSuperType(REAL, SMALLINT, REAL);
-        assertCommonSuperType(REAL, INTEGER, REAL);
-        assertCommonSuperType(REAL, BIGINT, REAL);
-
-        assertCommonSuperType(TIMESTAMP, TIME_WITH_TIME_ZONE, null);
-        assertCommonSuperType(VARBINARY, VARCHAR, null);
-
-        assertCommonSuperType("unknown", "array(bigint)", "array(bigint)");
-        assertCommonSuperType("array(bigint)", "array(double)", "array(double)");
-        assertCommonSuperType("array(bigint)", "array(unknown)", "array(bigint)");
-        assertCommonSuperType("map(bigint,double)", "map(bigint,double)", "map(bigint,double)");
-        assertCommonSuperType("map(bigint,double)", "map(double,double)", "map(double,double)");
-        assertCommonSuperType("row(a bigint,b double,c varchar)", "row(a bigint,b double,c varchar)", "row(a bigint,b double,c varchar)");
-
-        assertCommonSuperType("decimal(22,1)", "decimal(23,1)", "decimal(23,1)");
-        assertCommonSuperType("bigint", "decimal(23,1)", "decimal(23,1)");
-        assertCommonSuperType("bigint", "decimal(18,0)", "decimal(19,0)");
-        assertCommonSuperType("bigint", "decimal(19,0)", "decimal(19,0)");
-        assertCommonSuperType("bigint", "decimal(37,1)", "decimal(37,1)");
-        assertCommonSuperType("real", "decimal(37,1)", "real");
-        assertCommonSuperType("array(decimal(23,1))", "array(decimal(22,1))", "array(decimal(23,1))");
-        assertCommonSuperType("array(bigint)", "array(decimal(2,1))", "array(decimal(20,1))");
-
-        assertCommonSuperType("decimal(3,2)", "double", "double");
-        assertCommonSuperType("decimal(22,1)", "double", "double");
-
-        assertCommonSuperType("integer", "decimal(23,1)", "decimal(23,1)");
-        assertCommonSuperType("integer", "decimal(9,0)", "decimal(10,0)");
-        assertCommonSuperType("integer", "decimal(10,0)", "decimal(10,0)");
-        assertCommonSuperType("integer", "decimal(37,1)", "decimal(37,1)");
-
-        assertCommonSuperType("tinyint", "decimal(2,0)", "decimal(3,0)");
-        assertCommonSuperType("tinyint", "decimal(9,0)", "decimal(9,0)");
-        assertCommonSuperType("tinyint", "decimal(2,1)", "decimal(4,1)");
-
-        assertCommonSuperType("smallint", "decimal(2,0)", "decimal(5,0)");
-        assertCommonSuperType("smallint", "decimal(9,0)", "decimal(9,0)");
-        assertCommonSuperType("smallint", "decimal(2,1)", "decimal(6,1)");
-
-        assertCommonSuperType("row(varchar(2))", "row(varchar(5))", "row(varchar(5))");
-        assertCommonSuperType("row(a integer)", "row(b bigint)", "row(bigint)");
-        assertCommonSuperType("row(a integer,b varchar(2))", "row(a bigint,c varchar(5))", "row(bigint,varchar(5))");
-        assertCommonSuperType("row(a row(c integer),b varchar(2))", "row(a row(c integer),d varchar(5))", "row(row(c integer),varchar(5))");
+        assertThat("row(a integer)", "row(a bigint)").hasCommonSuperType("row(a bigint)").canCoerceFirstToSecondOnly();
+        assertThat("row(a integer)", "row(b bigint)").hasCommonSuperType("row(bigint)").canCoerceFirstToSecondOnly();
+        assertThat("row(integer)", "row(b bigint)").hasCommonSuperType("row(bigint)").canCoerceFirstToSecondOnly();
+        assertThat("row(a integer)", "row(a varchar(2))").isIncompatible();
+        assertThat("row(a integer)", "row(a integer,b varchar(2))").isIncompatible();
+        assertThat("row(a integer,b varchar(2))", "row(a bigint,c varchar(5))").hasCommonSuperType("row(a bigint,varchar(5))").canCoerceFirstToSecondOnly();
+        assertThat("row(a integer,b varchar(2))", "row(bigint,varchar(5))").hasCommonSuperType("row(bigint,varchar(5))").canCoerceFirstToSecondOnly();
+        assertThat("row(a integer,b varchar(5))", "row(c bigint,d varchar(2))").hasCommonSuperType("row(bigint,varchar(5))").cannotCoerceToEachOther();
+        assertThat("row(a row(c integer),b varchar(2))", "row(row(c integer),varchar(5))").hasCommonSuperType("row(row(c integer),varchar(5))").canCoerceFirstToSecondOnly();
+        assertThat("row(a row(c integer),b varchar(2))", "row(a row(c integer),d varchar(5))").hasCommonSuperType("row(a row(c integer),varchar(5))").canCoerceFirstToSecondOnly();
+        assertThat("row(a row(c integer),b varchar(5))", "row(d row(e integer),b varchar(5))").hasCommonSuperType("row(row(integer),b varchar(5))").canCoerceToEachOther();
     }
 
     @Test
@@ -296,6 +258,35 @@ public class TestTypeRegistry
         }
     }
 
+    @Test
+    public void testOperatorsImplemented()
+    {
+        for (Type type : typeRegistry.getTypes()) {
+            if (type.isComparable()) {
+                functionRegistry.resolveOperator(EQUAL, ImmutableList.of(type, type));
+                functionRegistry.resolveOperator(NOT_EQUAL, ImmutableList.of(type, type));
+                functionRegistry.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(type, type));
+                functionRegistry.resolveOperator(HASH_CODE, ImmutableList.of(type));
+            }
+            if (type.isOrderable()) {
+                functionRegistry.resolveOperator(LESS_THAN, ImmutableList.of(type, type));
+                functionRegistry.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(type, type));
+                functionRegistry.resolveOperator(GREATER_THAN_OR_EQUAL, ImmutableList.of(type, type));
+                functionRegistry.resolveOperator(GREATER_THAN, ImmutableList.of(type, type));
+            }
+        }
+    }
+
+    @Test
+    public void testRowTypeCreation()
+    {
+        createType("row(time with time zone,time time with time zone)");
+        createType("row(timestamp with time zone,\"timestamp\" timestamp with time zone)");
+        createType("row(interval day to second,interval interval day to second)");
+        createType("row(interval year to month,\"interval\" interval year to month)");
+        createType("row(array(time with time zone),    \"a\" array(map(timestamp with time zone, interval day to second)))");
+    }
+
     private Set<Type> getStandardPrimitiveTypes()
     {
         ImmutableSet.Builder<Type> builder = ImmutableSet.builder();
@@ -314,22 +305,24 @@ public class TestTypeRegistry
         return builder.build();
     }
 
-    private static void assertCommonSuperType(Type firstType, Type secondType, Type expected)
+    private CompatibilityAssertion assertThat(Type firstType, Type secondType)
     {
-        TypeRegistry typeManager = new TypeRegistry();
-        assertEquals(typeManager.getCommonSuperType(firstType, secondType), Optional.ofNullable(expected));
-        assertEquals(typeManager.getCommonSuperType(secondType, firstType), Optional.ofNullable(expected));
+        Optional<Type> commonSuperType1 = typeRegistry.getCommonSuperType(firstType, secondType);
+        Optional<Type> commonSuperType2 = typeRegistry.getCommonSuperType(secondType, firstType);
+        assertEquals(commonSuperType1, commonSuperType2, "Expected getCommonSuperType to return the same result when invoked in either order");
+        boolean canCoerceFirstToSecond = typeRegistry.canCoerce(firstType, secondType);
+        boolean canCoerceSecondToFirst = typeRegistry.canCoerce(secondType, firstType);
+        return new CompatibilityAssertion(commonSuperType1, canCoerceFirstToSecond, canCoerceSecondToFirst);
     }
 
-    private void assertCommonSuperType(String firstType, String secondType, String expected)
+    private CompatibilityAssertion assertThat(String firstType, String secondType)
     {
-        assertEquals(typeRegistry.getCommonSuperType(createType(firstType), createType(secondType)), Optional.ofNullable(expected).map(this::createType));
-        assertEquals(typeRegistry.getCommonSuperType(createType(secondType), createType(firstType)), Optional.ofNullable(expected).map(this::createType));
+        return assertThat(createType(firstType), createType(secondType));
     }
 
-    private boolean canCoerce(String actual, String expected)
+    private boolean isTypeOnlyCoercion(Type actual, Type expected)
     {
-        return typeRegistry.canCoerce(createType(actual), createType(expected));
+        return typeRegistry.isTypeOnlyCoercion(actual, expected);
     }
 
     private boolean isTypeOnlyCoercion(String actual, String expected)
@@ -340,5 +333,67 @@ public class TestTypeRegistry
     private Type createType(String signature)
     {
         return typeRegistry.getType(TypeSignature.parseTypeSignature(signature));
+    }
+
+    private class CompatibilityAssertion
+    {
+        private final Optional<Type> commonSuperType;
+        private final boolean canCoerceFirstToSecond;
+        private final boolean canCoerceSecondToFirst;
+
+        public CompatibilityAssertion(Optional<Type> commonSuperType, boolean canCoerceFirstToSecond, boolean canCoerceSecondToFirst)
+        {
+            this.commonSuperType = requireNonNull(commonSuperType, "commonSuperType is null");
+
+            // Assert that: (canFirstCoerceToSecond || canSecondCoerceToFirst) => commonSuperType.isPresent
+            assertTrue(!(canCoerceFirstToSecond || canCoerceSecondToFirst) || commonSuperType.isPresent(), "Expected canCoercion to be false when there is no commonSuperType");
+            this.canCoerceFirstToSecond = canCoerceFirstToSecond;
+            this.canCoerceSecondToFirst = canCoerceSecondToFirst;
+        }
+
+        public void isIncompatible()
+        {
+            assertTrue(!commonSuperType.isPresent(), "Expected to be incompatible");
+        }
+
+        public CompatibilityAssertion hasCommonSuperType(Type expected)
+        {
+            assertTrue(commonSuperType.isPresent(), "Expected commonSuperType to be present");
+            assertEquals(commonSuperType.get(), expected, "commonSuperType");
+            return this;
+        }
+
+        public CompatibilityAssertion hasCommonSuperType(String expected)
+        {
+            return hasCommonSuperType(createType(expected));
+        }
+
+        public CompatibilityAssertion canCoerceToEachOther()
+        {
+            assertTrue(canCoerceFirstToSecond, "Expected first be coercible to second");
+            assertTrue(canCoerceSecondToFirst, "Expected second be coercible to first");
+            return this;
+        }
+
+        public CompatibilityAssertion canCoerceFirstToSecondOnly()
+        {
+            assertTrue(canCoerceFirstToSecond, "Expected first be coercible to second");
+            assertFalse(canCoerceSecondToFirst, "Expected second NOT be coercible to first");
+            return this;
+        }
+
+        public CompatibilityAssertion canCoerceSecondToFirstOnly()
+        {
+            assertFalse(canCoerceFirstToSecond, "Expected first NOT be coercible to second");
+            assertTrue(canCoerceSecondToFirst, "Expected second be coercible to first");
+            return this;
+        }
+
+        public CompatibilityAssertion cannotCoerceToEachOther()
+        {
+            assertFalse(canCoerceFirstToSecond, "Expected first NOT be coercible to second");
+            assertFalse(canCoerceSecondToFirst, "Expected second NOT be coercible to first");
+            return this;
+        }
     }
 }

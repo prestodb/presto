@@ -48,8 +48,15 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 public class TestMergeAdjacentWindows
         extends BaseRuleTest
 {
-    private static final WindowNode.Frame frame = new WindowNode.Frame(WindowFrame.Type.RANGE, UNBOUNDED_PRECEDING,
-            Optional.empty(), CURRENT_ROW, Optional.empty());
+    private static final WindowNode.Frame frame = new WindowNode.Frame(
+            WindowFrame.Type.RANGE,
+            UNBOUNDED_PRECEDING,
+            Optional.empty(),
+            CURRENT_ROW,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty());
+
     private static final Signature signature = new Signature(
             "avg",
             FunctionKind.WINDOW,

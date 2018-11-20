@@ -14,9 +14,9 @@
 package com.facebook.presto.connector.thrift.api.valuesets;
 
 import com.facebook.presto.spi.predicate.AllOrNoneValueSet;
-import com.facebook.swift.codec.ThriftConstructor;
-import com.facebook.swift.codec.ThriftField;
-import com.facebook.swift.codec.ThriftStruct;
+import io.airlift.drift.annotations.ThriftConstructor;
+import io.airlift.drift.annotations.ThriftField;
+import io.airlift.drift.annotations.ThriftStruct;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 

@@ -20,24 +20,25 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.io.IOException;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 /**
  * This class is used to track memory usage at all levels (operator, driver, pipeline, etc.).
- *
+ * <p>
  * At every level we have three aggregate and three local memory contexts. The local memory contexts
  * track the allocations in the current level while the aggregate memory contexts aggregate the memory
  * allocated by the leaf levels and the current level.
- *
+ * <p>
  * The reason we have local memory contexts at every level is that not all the
  * allocations are done by the leaf levels (e.g., at the pipeline level exchange clients
  * can do system allocations directly, see the ExchangeOperator, another example is the buffers
  * doing system allocations at the task context level, etc.).
- *
+ * <p>
  * As another example, at the pipeline level there will be system allocations initiated by the operator context
  * and there will be system allocations initiated by the exchange clients (local allocations). All these system
  * allocations will be visible in the systemAggregateMemoryContext.
- *
+ * <p>
  * To perform local allocations clients should use localUserMemoryContext()/localSystemMemoryContext()
  * and get a reference to the local memory contexts. Clients can also use updateUserMemory()/tryReserveUserMemory()
  * to allocate memory (non-local allocations), which will be reflected to all ancestors of this context in the hierarchy.
@@ -49,9 +50,9 @@ public final class MemoryTrackingContext
     private final AggregatedMemoryContext revocableAggregateMemoryContext;
     private final AggregatedMemoryContext systemAggregateMemoryContext;
 
-    private final LocalMemoryContext userLocalMemoryContext;
-    private final LocalMemoryContext revocableLocalMemoryContext;
-    private final LocalMemoryContext systemLocalMemoryContext;
+    private LocalMemoryContext userLocalMemoryContext;
+    private LocalMemoryContext revocableLocalMemoryContext;
+    private LocalMemoryContext systemLocalMemoryContext;
 
     public MemoryTrackingContext(
             AggregatedMemoryContext userAggregateMemoryContext,
@@ -61,9 +62,6 @@ public final class MemoryTrackingContext
         this.userAggregateMemoryContext = requireNonNull(userAggregateMemoryContext, "userAggregateMemoryContext is null");
         this.revocableAggregateMemoryContext = requireNonNull(revocableAggregateMemoryContext, "revocableAggregateMemoryContext is null");
         this.systemAggregateMemoryContext = requireNonNull(systemAggregateMemoryContext, "systemAggregateMemoryContext is null");
-        this.userLocalMemoryContext = userAggregateMemoryContext.newLocalMemoryContext();
-        this.revocableLocalMemoryContext = revocableAggregateMemoryContext.newLocalMemoryContext();
-        this.systemLocalMemoryContext = systemAggregateMemoryContext.newLocalMemoryContext();
     }
 
     public void close()
@@ -83,27 +81,35 @@ public final class MemoryTrackingContext
 
     public LocalMemoryContext localUserMemoryContext()
     {
+        verify(userLocalMemoryContext != null, "local memory contexts are not initialized");
         return userLocalMemoryContext;
     }
 
     public LocalMemoryContext localSystemMemoryContext()
     {
+        verify(systemLocalMemoryContext != null, "local memory contexts are not initialized");
         return systemLocalMemoryContext;
     }
 
     public LocalMemoryContext localRevocableMemoryContext()
     {
+        verify(revocableLocalMemoryContext != null, "local memory contexts are not initialized");
         return revocableLocalMemoryContext;
     }
 
-    public LocalMemoryContext newUserMemoryContext()
+    public LocalMemoryContext newUserMemoryContext(String allocationTag)
     {
-        return userAggregateMemoryContext.newLocalMemoryContext();
+        return userAggregateMemoryContext.newLocalMemoryContext(allocationTag);
     }
 
-    public LocalMemoryContext newSystemMemoryContext()
+    public LocalMemoryContext newSystemMemoryContext(String allocationTag)
     {
-        return systemAggregateMemoryContext.newLocalMemoryContext();
+        return systemAggregateMemoryContext.newLocalMemoryContext(allocationTag);
+    }
+
+    public AggregatedMemoryContext aggregateUserMemoryContext()
+    {
+        return userAggregateMemoryContext;
     }
 
     public AggregatedMemoryContext newAggregateSystemMemoryContext()
@@ -132,6 +138,17 @@ public final class MemoryTrackingContext
                 userAggregateMemoryContext.newAggregatedMemoryContext(),
                 revocableAggregateMemoryContext.newAggregatedMemoryContext(),
                 systemAggregateMemoryContext.newAggregatedMemoryContext());
+    }
+
+    /**
+     * This method has to be called to initialize the local memory contexts. Otherwise, calls to methods
+     * localUserMemoryContext(), localSystemMemoryContext(), etc. will fail.
+     */
+    public void initializeLocalMemoryContexts(String allocationTag)
+    {
+        this.userLocalMemoryContext = userAggregateMemoryContext.newLocalMemoryContext(allocationTag);
+        this.revocableLocalMemoryContext = revocableAggregateMemoryContext.newLocalMemoryContext(allocationTag);
+        this.systemLocalMemoryContext = systemAggregateMemoryContext.newLocalMemoryContext(allocationTag);
     }
 
     @Override

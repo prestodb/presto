@@ -21,6 +21,8 @@ import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.s3.PrestoS3FileSystem;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -41,7 +43,7 @@ import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
-import com.google.common.base.Throwables;
+import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
@@ -50,6 +52,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FilterFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.fs.viewfs.ViewFileSystem;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.conf.HiveConf;
@@ -58,6 +61,7 @@ import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
 import org.apache.hadoop.hive.ql.io.RCFile;
 import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
+import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.io.DateWritable;
@@ -106,19 +110,25 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
+import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.HiveUtil.checkCondition;
 import static com.facebook.presto.hive.HiveUtil.isArrayType;
 import static com.facebook.presto.hive.HiveUtil.isMapType;
 import static com.facebook.presto.hive.HiveUtil.isRowType;
+import static com.facebook.presto.hive.ParquetRecordWriterUtil.createParquetWriter;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.google.common.base.Strings.padEnd;
+import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
@@ -163,12 +173,15 @@ public final class HiveWriteUtils
     {
     }
 
-    public static RecordWriter createRecordWriter(Path target, JobConf conf, Properties properties, String outputFormatName)
+    public static RecordWriter createRecordWriter(Path target, JobConf conf, Properties properties, String outputFormatName, ConnectorSession session)
     {
         try {
             boolean compress = HiveConf.getBoolVar(conf, COMPRESSRESULT);
             if (outputFormatName.equals(RCFileOutputFormat.class.getName())) {
                 return createRcFileWriter(target, conf, properties, compress);
+            }
+            if (outputFormatName.equals(MapredParquetOutputFormat.class.getName())) {
+                return createParquetWriter(target, conf, properties, compress, session);
             }
             Object writer = Class.forName(outputFormatName).getConstructor().newInstance();
             return ((HiveOutputFormat<?, ?>) writer).getHiveRecordWriter(conf, target, Text.class, compress, properties, Reporter.NULL);
@@ -228,8 +241,11 @@ public final class HiveWriteUtils
             result.initialize(conf, properties);
             return result;
         }
+        catch (ClassNotFoundException e) {
+            throw new PrestoException(HIVE_SERDE_NOT_FOUND, "Serializer does not exist: " + serializerName);
+        }
         catch (SerDeException | ReflectiveOperationException e) {
-            throw Throwables.propagate(e);
+            throw new PrestoException(HIVE_WRITER_DATA_ERROR, e);
         }
     }
 
@@ -286,13 +302,34 @@ public final class HiveWriteUtils
         else if (isRowType(type)) {
             return ObjectInspectorFactory.getStandardStructObjectInspector(
                     type.getTypeSignature().getParameters().stream()
-                            .map(parameter -> parameter.getNamedTypeSignature().getName())
+                            .map(parameter -> parameter.getNamedTypeSignature().getName().get())
                             .collect(toList()),
                     type.getTypeParameters().stream()
                             .map(HiveWriteUtils::getJavaObjectInspector)
                             .collect(toList()));
         }
         throw new IllegalArgumentException("unsupported type: " + type);
+    }
+
+    public static List<String> createPartitionValues(List<Type> partitionColumnTypes, Page partitionColumns, int position)
+    {
+        ImmutableList.Builder<String> partitionValues = ImmutableList.builder();
+        for (int field = 0; field < partitionColumns.getChannelCount(); field++) {
+            Object value = getField(partitionColumnTypes.get(field), partitionColumns.getBlock(field), position);
+            if (value == null) {
+                partitionValues.add(HIVE_DEFAULT_DYNAMIC_PARTITION);
+            }
+            else {
+                String valueString = value.toString();
+                if (!CharMatcher.inRange((char) 0x20, (char) 0x7E).matchesAllOf(valueString)) {
+                    throw new PrestoException(HIVE_INVALID_PARTITION_VALUE,
+                            "Hive partition keys can only contain printable ASCII characters (0x20 - 0x7E). Invalid value: " +
+                                    base16().withSeparator(" ", 2).encode(valueString.getBytes(UTF_8)));
+                }
+                partitionValues.add(valueString);
+            }
+        }
+        return partitionValues.build();
     }
 
     public static Object getField(Type type, Block block, int position)
@@ -431,11 +468,6 @@ public final class HiveWriteUtils
             throw new HiveReadOnlyException(tableName, partitionName);
         }
 
-        // verify sorting
-        if (storage.isSorted()) {
-            throw new PrestoException(NOT_SUPPORTED, format("Inserting into bucketed sorted tables is not supported. %s", tablePartitionDescription));
-        }
-
         // verify skew info
         if (storage.isSkewed()) {
             throw new PrestoException(NOT_SUPPORTED, format("Inserting into bucketed tables with skew is not supported. %s", tablePartitionDescription));
@@ -490,9 +522,7 @@ public final class HiveWriteUtils
     public static boolean isViewFileSystem(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
     {
         try {
-            // Hadoop 1.x does not have the ViewFileSystem class
-            return getRawFileSystem(hdfsEnvironment.getFileSystem(context, path))
-                    .getClass().getName().equals("org.apache.hadoop.fs.viewfs.ViewFileSystem");
+            return getRawFileSystem(hdfsEnvironment.getFileSystem(context, path)) instanceof ViewFileSystem;
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);

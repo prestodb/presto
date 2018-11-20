@@ -76,6 +76,11 @@ Name                              Description
 ``password``                      Password to use for LDAP authentication.
 ``socksProxy``                    SOCKS proxy host and port. Example: ``localhost:1080``
 ``httpProxy``                     HTTP proxy host and port. Example: ``localhost:8888``
+``applicationNamePrefix``         Prefix to append to any specified ``ApplicationName`` client info
+                                  property, which is used to set the source name for the Presto query.
+                                  If neither this property nor ``ApplicationName`` are set, the source
+                                  for the query will be ``presto-jdbc``.
+``accessToken``                   Access token for token based authentication.
 ``SSL``                           Use HTTPS for connections
 ``SSLKeyStorePath``               The location of the Java KeyStore file that contains the certificate
                                   and private key to use for authentication.
@@ -84,7 +89,7 @@ Name                              Description
                                   to validate HTTPS server certificates.
 ``SSLTrustStorePassword``         The password for the TrustStore.
 ``KerberosRemoteServiceName``     Presto coordinator Kerberos service name. This parameter is
-                                  required for Kerberos authentiation.
+                                  required for Kerberos authentication.
 ``KerberosPrincipal``             The principal to use when authenticating to the Presto coordinator.
 ``KerberosUseCanonicalHostname``  Use the canonical hostname of the Presto coordinator for the Kerberos
                                   service principal by first resolving the hostname to an IP address

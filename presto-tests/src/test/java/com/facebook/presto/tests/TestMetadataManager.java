@@ -13,21 +13,30 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.connector.MockConnectorFactory;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TestingSessionContext;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
+import com.facebook.presto.transaction.TransactionBuilder;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 /**
  * This is integration / unit test suite.
@@ -46,6 +55,25 @@ public class TestMetadataManager
             throws Exception
     {
         queryRunner = TpchQueryRunnerBuilder.builder().build();
+        queryRunner.installPlugin(new Plugin()
+        {
+            @Override
+            public Iterable<ConnectorFactory> getConnectorFactories()
+            {
+                MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
+                        .withListSchemaNames(session -> ImmutableList.of("UPPER_CASE_SCHEMA"))
+                        .withListTables((session, schemaNameOrNull) -> {
+                            throw new UnsupportedOperationException();
+                        })
+                        .withGetViews((session, prefix) -> ImmutableMap.of())
+                        .withGetColumnHandles((session, tableHandle) -> {
+                            throw new UnsupportedOperationException();
+                        })
+                        .build();
+                return ImmutableList.of(connectorFactory);
+            }
+        });
+        queryRunner.createCatalog("upper_case_schema_catalog", "mock");
         metadataManager = (MetadataManager) queryRunner.getMetadata();
     }
 
@@ -53,6 +81,8 @@ public class TestMetadataManager
     public void tearDown()
     {
         queryRunner.close();
+        queryRunner = null;
+        metadataManager = null;
     }
 
     @Test
@@ -70,6 +100,7 @@ public class TestMetadataManager
         @Language("SQL") String sql = "SELECT nationkey/0 FROM nation"; // will raise division by zero exception
         try {
             queryRunner.execute(sql);
+            fail("expected exception");
         }
         catch (Throwable t) {
             // query should fail
@@ -83,12 +114,16 @@ public class TestMetadataManager
             throws Exception
     {
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-        QueryId queryId = queryManager.createQuery(new TestingSessionContext(TEST_SESSION),
-                "SELECT * FROM lineitem").getQueryId();
+        QueryId queryId = queryManager.createQueryId();
+        queryManager.createQuery(
+                queryId,
+                new TestingSessionContext(TEST_SESSION),
+                "SELECT * FROM lineitem")
+                .get();
 
         // wait until query starts running
         while (true) {
-            QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+            QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
             if (queryInfo.getState().isDone()) {
                 assertEquals(queryInfo.getState(), FAILED);
                 throw queryInfo.getFailureInfo().toException();
@@ -102,5 +137,18 @@ public class TestMetadataManager
         // cancel query
         queryManager.cancelQuery(queryId);
         assertEquals(metadataManager.getCatalogsByQueryId().size(), 0);
+    }
+
+    @Test
+    public void testUpperCaseSchemaIsChangedToLowerCase()
+    {
+        TransactionBuilder.transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+                .execute(
+                        TEST_SESSION,
+                        transactionSession -> {
+                            List<String> expectedSchemas = ImmutableList.of("information_schema", "upper_case_schema");
+                            assertEquals(queryRunner.getMetadata().listSchemaNames(transactionSession, "upper_case_schema_catalog"), expectedSchemas);
+                            return null;
+                        });
     }
 }

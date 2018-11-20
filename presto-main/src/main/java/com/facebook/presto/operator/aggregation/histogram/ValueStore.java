@@ -48,7 +48,7 @@ public class ValueStore
     private int mask;
     private int bucketCount;
     private IntBigArray buckets;
-    private LongBigArray valueHashes;
+    private final LongBigArray valueHashes;
     private int maxFill;
 
     @VisibleForTesting

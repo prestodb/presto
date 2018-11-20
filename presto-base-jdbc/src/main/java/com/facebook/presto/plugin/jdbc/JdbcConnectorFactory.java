@@ -18,7 +18,6 @@ import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.google.common.base.Throwables;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
@@ -27,6 +26,7 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcConnectorFactory
@@ -57,12 +57,12 @@ public class JdbcConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> requiredConfig, ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> requiredConfig, ConnectorContext context)
     {
         requireNonNull(requiredConfig, "requiredConfig is null");
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            Bootstrap app = new Bootstrap(new JdbcModule(connectorId), module);
+            Bootstrap app = new Bootstrap(new JdbcModule(catalogName), module);
 
             Injector injector = app
                     .strictConfig()
@@ -73,7 +73,8 @@ public class JdbcConnectorFactory
             return injector.getInstance(JdbcConnector.class);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 }

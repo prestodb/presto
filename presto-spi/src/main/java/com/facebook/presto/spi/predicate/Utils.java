@@ -15,7 +15,6 @@ package com.facebook.presto.spi.predicate;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
@@ -32,7 +31,7 @@ public final class Utils
         if (object != null && !Primitives.wrap(type.getJavaType()).isInstance(object)) {
             throw new IllegalArgumentException(String.format("Object '%s' does not match type %s", object, type.getJavaType()));
         }
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
         writeNativeValue(type, blockBuilder, object);
         return blockBuilder.build();
     }

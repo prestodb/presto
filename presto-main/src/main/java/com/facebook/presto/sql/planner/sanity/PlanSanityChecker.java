@@ -14,56 +14,61 @@
 package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Multimap;
-
-import java.util.Map;
 
 /**
  * It is going to be executed to verify logical planner correctness
  */
 public final class PlanSanityChecker
 {
-    private static final Multimap<Stage, Checker> CHECKERS = ImmutableListMultimap.<Stage, Checker>builder()
-            .putAll(
-                    Stage.INTERMEDIATE,
-                    new ValidateDependenciesChecker(),
-                    new NoDuplicatePlanNodeIdsChecker(),
-                    new TypeValidator(),
-                    new NoSubqueryExpressionLeftChecker(),
-                    new NoIdentifierLeftChecker(),
-                    new VerifyOnlyOneOutputNode())
-            .putAll(
-                    Stage.FINAL,
-                    new ValidateDependenciesChecker(),
-                    new NoDuplicatePlanNodeIdsChecker(),
-                    new TypeValidator(),
-                    new NoSubqueryExpressionLeftChecker(),
-                    new NoIdentifierLeftChecker(),
-                    new VerifyOnlyOneOutputNode(),
-                    new VerifyNoFilteredAggregations())
-            .build();
+    public static final PlanSanityChecker DISTRIBUTED_PLAN_SANITY_CHECKER = new PlanSanityChecker(false);
 
-    private PlanSanityChecker() {}
+    private final Multimap<Stage, Checker> checkers;
 
-    public static void validateFinalPlan(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, Map<Symbol, Type> types)
+    public PlanSanityChecker(boolean forceSingleNode)
     {
-        CHECKERS.get(Stage.FINAL).forEach(checker -> checker.validate(planNode, session, metadata, sqlParser, types));
+        checkers = ImmutableListMultimap.<Stage, Checker>builder()
+                .putAll(
+                        Stage.INTERMEDIATE,
+                        new ValidateDependenciesChecker(),
+                        new NoDuplicatePlanNodeIdsChecker(),
+                        new TypeValidator(),
+                        new NoSubqueryExpressionLeftChecker(),
+                        new NoIdentifierLeftChecker(),
+                        new VerifyOnlyOneOutputNode())
+                .putAll(
+                        Stage.FINAL,
+                        new ValidateDependenciesChecker(),
+                        new NoDuplicatePlanNodeIdsChecker(),
+                        new TypeValidator(),
+                        new NoSubqueryExpressionLeftChecker(),
+                        new NoIdentifierLeftChecker(),
+                        new VerifyOnlyOneOutputNode(),
+                        new VerifyNoFilteredAggregations(),
+                        new ValidateAggregationsWithDefaultValues(forceSingleNode),
+                        new ValidateStreamingAggregations())
+                .build();
     }
 
-    public static void validateIntermediatePlan(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, Map<Symbol, Type> types)
+    public void validateFinalPlan(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
     {
-        CHECKERS.get(Stage.INTERMEDIATE).forEach(checker -> checker.validate(planNode, session, metadata, sqlParser, types));
+        checkers.get(Stage.FINAL).forEach(checker -> checker.validate(planNode, session, metadata, sqlParser, types, warningCollector));
+    }
+
+    public void validateIntermediatePlan(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+    {
+        checkers.get(Stage.INTERMEDIATE).forEach(checker -> checker.validate(planNode, session, metadata, sqlParser, types, warningCollector));
     }
 
     public interface Checker
     {
-        void validate(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, Map<Symbol, Type> types);
+        void validate(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector);
     }
 
     private enum Stage

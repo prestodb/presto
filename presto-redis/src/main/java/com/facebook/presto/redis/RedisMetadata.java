@@ -62,14 +62,12 @@ public class RedisMetadata
     private final boolean hideInternalColumns;
 
     private final Supplier<Map<SchemaTableName, RedisTableDescription>> redisTableDescriptionSupplier;
-    private final Set<RedisInternalFieldDescription> internalFieldDescriptions;
 
     @Inject
     RedisMetadata(
             RedisConnectorId connectorId,
             RedisConnectorConfig redisConnectorConfig,
-            Supplier<Map<SchemaTableName, RedisTableDescription>> redisTableDescriptionSupplier,
-            Set<RedisInternalFieldDescription> internalFieldDescriptions)
+            Supplier<Map<SchemaTableName, RedisTableDescription>> redisTableDescriptionSupplier)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
 
@@ -79,7 +77,6 @@ public class RedisMetadata
         log.debug("Loading redis table definitions from %s", redisConnectorConfig.getTableDescriptionDir().getAbsolutePath());
 
         this.redisTableDescriptionSupplier = Suppliers.memoize(redisTableDescriptionSupplier::get)::get;
-        this.internalFieldDescriptions = requireNonNull(internalFieldDescriptions, "internalFieldDescriptions is null");
     }
 
     @Override
@@ -200,8 +197,8 @@ public class RedisMetadata
             }
         }
 
-        for (RedisInternalFieldDescription field : internalFieldDescriptions) {
-            columnHandles.put(field.getName(), field.getColumnHandle(connectorId, index, hideInternalColumns));
+        for (RedisInternalFieldDescription field : RedisInternalFieldDescription.values()) {
+            columnHandles.put(field.getColumnName(), field.getColumnHandle(connectorId, index, hideInternalColumns));
             index++;
         }
 
@@ -259,7 +256,7 @@ public class RedisMetadata
         appendFields(builder, table.getKey());
         appendFields(builder, table.getValue());
 
-        for (RedisInternalFieldDescription fieldDescription : internalFieldDescriptions) {
+        for (RedisInternalFieldDescription fieldDescription : RedisInternalFieldDescription.values()) {
             builder.add(fieldDescription.getColumnMetadata(hideInternalColumns));
         }
 

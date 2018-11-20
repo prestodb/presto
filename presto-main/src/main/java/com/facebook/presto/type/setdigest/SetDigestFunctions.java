@@ -16,7 +16,6 @@ package com.facebook.presto.type.setdigest;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
@@ -24,11 +23,11 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Throwables;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.io.UncheckedIOException;
 import java.util.Map;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -91,7 +90,7 @@ public final class SetDigestFunctions
         SetDigest digest = SetDigest.newInstance(slice);
 
         // Maybe use static BlockBuilderStatus in order avoid `new`?
-        BlockBuilder blockBuilder = mapType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder blockBuilder = mapType.createBlockBuilder(null, 1);
         BlockBuilder singleMapBlockBuilder = blockBuilder.beginBlockEntry();
         for (Map.Entry<Long, Short> entry : digest.getHashCounts().entrySet()) {
             BIGINT.writeLong(singleMapBlockBuilder, entry.getKey());
@@ -112,7 +111,7 @@ public final class SetDigestFunctions
             return Slices.utf8Slice(OBJECT_MAPPER.writeValueAsString(digest.getHashCounts()));
         }
         catch (JsonProcessingException e) {
-            throw Throwables.propagate(e);
+            throw new UncheckedIOException(e);
         }
     }
 }

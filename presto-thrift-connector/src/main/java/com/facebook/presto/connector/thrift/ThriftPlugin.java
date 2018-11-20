@@ -30,7 +30,7 @@ public class ThriftPlugin
         implements Plugin
 {
     private final String name;
-    private final Module locationModule;
+    private final Module module;
 
     public ThriftPlugin()
     {
@@ -39,20 +39,20 @@ public class ThriftPlugin
 
     private ThriftPlugin(ThriftPluginInfo info)
     {
-        this(info.getName(), info.getLocationModule());
+        this(info.getName(), info.getModule());
     }
 
-    public ThriftPlugin(String name, Module locationModule)
+    public ThriftPlugin(String name, Module module)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
-        this.locationModule = requireNonNull(locationModule, "locationModule is null");
+        this.module = requireNonNull(module, "module is null");
     }
 
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new ThriftConnectorFactory(name, locationModule));
+        return ImmutableList.of(new ThriftConnectorFactory(name, module));
     }
 
     private static ThriftPluginInfo getPluginInfo()

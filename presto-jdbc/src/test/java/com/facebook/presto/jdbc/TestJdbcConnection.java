@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -33,6 +34,8 @@ import java.util.Set;
 import static com.facebook.presto.jdbc.TestPrestoDriver.closeQuietly;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestJdbcConnection
 {
@@ -146,15 +149,15 @@ public class TestJdbcConnection
     {
         try (Connection connection = createConnection()) {
             assertThat(listSession(connection))
-                    .contains("distributed_join|true|true")
+                    .contains("join_distribution_type|PARTITIONED|PARTITIONED")
                     .contains("exchange_compression|false|false");
 
             try (Statement statement = connection.createStatement()) {
-                statement.execute("SET SESSION distributed_join = false");
+                statement.execute("SET SESSION join_distribution_type = 'BROADCAST'");
             }
 
             assertThat(listSession(connection))
-                    .contains("distributed_join|false|true")
+                    .contains("join_distribution_type|BROADCAST|PARTITIONED")
                     .contains("exchange_compression|false|false");
 
             try (Statement statement = connection.createStatement()) {
@@ -162,15 +165,44 @@ public class TestJdbcConnection
             }
 
             assertThat(listSession(connection))
-                    .contains("distributed_join|false|true")
+                    .contains("join_distribution_type|BROADCAST|PARTITIONED")
                     .contains("exchange_compression|true|false");
+        }
+    }
+
+    @Test
+    public void testApplicationName()
+            throws SQLException
+    {
+        try (Connection connection = createConnection()) {
+            assertConnectionSource(connection, "presto-jdbc");
+        }
+
+        try (Connection connection = createConnection()) {
+            connection.setClientInfo("ApplicationName", "testing");
+            assertConnectionSource(connection, "testing");
+        }
+
+        try (Connection connection = createConnection("applicationNamePrefix=fruit:")) {
+            assertConnectionSource(connection, "fruit:");
+        }
+
+        try (Connection connection = createConnection("applicationNamePrefix=fruit:")) {
+            connection.setClientInfo("ApplicationName", "testing");
+            assertConnectionSource(connection, "fruit:testing");
         }
     }
 
     private Connection createConnection()
             throws SQLException
     {
-        String url = format("jdbc:presto://%s/hive/default", server.getAddress());
+        return createConnection("");
+    }
+
+    private Connection createConnection(String extra)
+            throws SQLException
+    {
+        String url = format("jdbc:presto://%s/hive/default?%s", server.getAddress(), extra);
         return DriverManager.getConnection(url, "test", null);
     }
 
@@ -201,5 +233,25 @@ public class TestJdbcConnection
             }
         }
         return set.build();
+    }
+
+    private static void assertConnectionSource(Connection connection, String expectedSource)
+            throws SQLException
+    {
+        String queryId;
+        try (Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery("SELECT 123")) {
+            queryId = rs.unwrap(PrestoResultSet.class).getQueryId();
+        }
+
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT source FROM system.runtime.queries WHERE query_id = ?")) {
+            statement.setString(1, queryId);
+            try (ResultSet rs = statement.executeQuery()) {
+                assertTrue(rs.next());
+                assertThat(rs.getString("source")).isEqualTo(expectedSource);
+                assertFalse(rs.next());
+            }
+        }
     }
 }

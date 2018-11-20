@@ -36,7 +36,6 @@ public class FrameBound
 
     private final Type type;
     private final Optional<Expression> value;
-    private final Optional<Expression> originalValue;
 
     public FrameBound(Type type)
     {
@@ -48,27 +47,26 @@ public class FrameBound
         this(Optional.of(location), type);
     }
 
-    public FrameBound(Type type, Expression value, Expression originalValue)
+    public FrameBound(Type type, Expression value)
     {
-        this(Optional.empty(), type, value, originalValue);
+        this(Optional.empty(), type, value);
     }
 
     private FrameBound(Optional<NodeLocation> location, Type type)
     {
-        this(location, type, null, null);
+        this(location, type, null);
     }
 
     public FrameBound(NodeLocation location, Type type, Expression value)
     {
-        this(Optional.of(location), type, value, value);
+        this(Optional.of(location), type, value);
     }
 
-    private FrameBound(Optional<NodeLocation> location, Type type, Expression value, Expression originalValue)
+    private FrameBound(Optional<NodeLocation> location, Type type, Expression value)
     {
         super(location);
         this.type = requireNonNull(type, "type is null");
         this.value = Optional.ofNullable(value);
-        this.originalValue = Optional.ofNullable(originalValue);
     }
 
     public Type getType()
@@ -79,11 +77,6 @@ public class FrameBound
     public Optional<Expression> getValue()
     {
         return value;
-    }
-
-    public Optional<Expression> getOriginalValue()
-    {
-        return originalValue;
     }
 
     @Override

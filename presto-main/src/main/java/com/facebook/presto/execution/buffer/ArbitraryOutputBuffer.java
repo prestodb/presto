@@ -19,6 +19,7 @@ import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.ClientBuffer.PagesSupplier;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
@@ -52,7 +53,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -194,7 +194,13 @@ public class ArbitraryOutputBuffer
     }
 
     @Override
-    public ListenableFuture<?> enqueue(List<SerializedPage> pages)
+    public ListenableFuture<?> isFull()
+    {
+        return memoryManager.getBufferBlockedFuture();
+    }
+
+    @Override
+    public void enqueue(List<SerializedPage> pages)
     {
         checkState(!Thread.holdsLock(this), "Can not enqueue pages while holding a lock on this");
         requireNonNull(pages, "page is null");
@@ -202,7 +208,7 @@ public class ArbitraryOutputBuffer
         // ignore pages after "no more pages" is set
         // this can happen with a limit query
         if (!state.get().canAddPages()) {
-            return immediateFuture(true);
+            return;
         }
 
         // reserve memory
@@ -229,15 +235,13 @@ public class ArbitraryOutputBuffer
             }
             clientBuffer.loadPagesIfNecessary(masterBuffer);
         }
-
-        return memoryManager.getNotFullFuture();
     }
 
     @Override
-    public ListenableFuture<?> enqueue(int partition, List<SerializedPage> pages)
+    public void enqueue(int partition, List<SerializedPage> pages)
     {
         checkState(partition == 0, "Expected partition number to be zero");
-        return enqueue(pages);
+        enqueue(pages);
     }
 
     @Override
@@ -302,6 +306,7 @@ public class ArbitraryOutputBuffer
             safeGetBuffersSnapshot().forEach(ClientBuffer::destroy);
 
             memoryManager.setNoBlockOnFull();
+            forceFreeMemory();
         }
     }
 
@@ -311,8 +316,21 @@ public class ArbitraryOutputBuffer
         // ignore fail if the buffer already in a terminal state.
         if (state.setIf(FAILED, oldState -> !oldState.isTerminal())) {
             memoryManager.setNoBlockOnFull();
+            forceFreeMemory();
             // DO NOT destroy buffers or set no more pages.  The coordinator manages the teardown of failed queries.
         }
+    }
+
+    @Override
+    public long getPeakMemoryUsage()
+    {
+        return memoryManager.getPeakMemoryUsage();
+    }
+
+    @VisibleForTesting
+    void forceFreeMemory()
+    {
+        memoryManager.close();
     }
 
     private synchronized ClientBuffer getBuffer(OutputBufferId id)
@@ -455,5 +473,11 @@ public class ArbitraryOutputBuffer
                     .add("bufferedPages", bufferedPages.get())
                     .toString();
         }
+    }
+
+    @VisibleForTesting
+    OutputBufferMemoryManager getMemoryManager()
+    {
+        return memoryManager;
     }
 }

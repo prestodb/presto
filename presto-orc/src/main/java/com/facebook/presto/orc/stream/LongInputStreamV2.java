@@ -16,13 +16,9 @@ package com.facebook.presto.orc.stream;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamV2Checkpoint;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 
 import java.io.IOException;
 import java.io.InputStream;
-
-import static java.lang.Math.toIntExact;
 
 /**
  * @see {@link org.apache.hadoop.hive.ql.io.orc.RunLengthIntegerWriterV2} for description of various lightweight compression techniques.
@@ -374,80 +370,6 @@ public class LongInputStreamV2
             long consume = Math.min(items, numLiterals - used);
             used += consume;
             items -= consume;
-        }
-    }
-
-    @Override
-    public long sum(int items)
-            throws IOException
-    {
-        long sum = 0;
-        for (int i = 0; i < items; i++) {
-            sum += next();
-        }
-        return sum;
-    }
-
-    @Override
-    public void nextLongVector(Type type, int items, BlockBuilder builder)
-            throws IOException
-    {
-        for (int i = 0; i < items; i++) {
-            type.writeLong(builder, next());
-        }
-    }
-
-    @Override
-    public void nextLongVector(Type type, int items, BlockBuilder builder, boolean[] isNull)
-            throws IOException
-    {
-        for (int i = 0; i < items; i++) {
-            if (isNull[i]) {
-                builder.appendNull();
-            }
-            else {
-                type.writeLong(builder, next());
-            }
-        }
-    }
-
-    @Override
-    public void nextLongVector(int items, long[] vector)
-            throws IOException
-    {
-        for (int i = 0; i < items; i++) {
-            vector[i] = next();
-        }
-    }
-
-    @Override
-    public void nextLongVector(int items, long[] vector, boolean[] isNull)
-            throws IOException
-    {
-        for (int i = 0; i < items; i++) {
-            if (!isNull[i]) {
-                vector[i] = next();
-            }
-        }
-    }
-
-    @Override
-    public void nextIntVector(int items, int[] vector)
-            throws IOException
-    {
-        for (int i = 0; i < items; i++) {
-            vector[i] = toIntExact(next());
-        }
-    }
-
-    @Override
-    public void nextIntVector(int items, int[] vector, boolean[] isNull)
-            throws IOException
-    {
-        for (int i = 0; i < items; i++) {
-            if (!isNull[i]) {
-                vector[i] = toIntExact(next());
-            }
         }
     }
 }

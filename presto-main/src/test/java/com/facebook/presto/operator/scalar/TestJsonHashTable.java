@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.util.JsonUtil.HashTable;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
@@ -43,7 +42,7 @@ public class TestJsonHashTable
     {
         Random rand = new Random(SEED);
 
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), NUM_ROUNDS * (NUM_RANDOM_VALUES_IN_ROUND + NUM_EXISTING_VALUES_IN_ROUND));
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, NUM_ROUNDS * (NUM_RANDOM_VALUES_IN_ROUND + NUM_EXISTING_VALUES_IN_ROUND));
         HashTable hashTable = new HashTable(BIGINT, blockBuilder);
         Set<Long> valueSet = new HashSet<>();
         List<Long> valueList = new ArrayList<>();
@@ -79,7 +78,7 @@ public class TestJsonHashTable
     {
         Random rand = new Random(SEED);
 
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), NUM_ROUNDS * (NUM_RANDOM_VALUES_IN_ROUND + NUM_EXISTING_VALUES_IN_ROUND));
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, NUM_ROUNDS * (NUM_RANDOM_VALUES_IN_ROUND + NUM_EXISTING_VALUES_IN_ROUND));
         HashTable hashTable = new HashTable(VARCHAR, blockBuilder);
         Set<Slice> valueSet = new HashSet<>();
         List<Slice> valueList = new ArrayList<>();

@@ -26,6 +26,8 @@ import com.facebook.presto.operator.annotations.ImplementationDependency;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.AggregationState;
+import com.facebook.presto.spi.function.BlockIndex;
+import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
@@ -267,7 +269,7 @@ public class AggregationImplementation
             inputDependencies = parseImplementationDependencies(inputFunction);
             outputDependencies = parseImplementationDependencies(outputFunction);
             combineDependencies = parseImplementationDependencies(combineFunction);
-            stateSerializerFactoryDependencies = stateSerializerFactoryFunction.map(function -> parseImplementationDependencies(function)).orElse(ImmutableList.of());
+            stateSerializerFactoryDependencies = stateSerializerFactoryFunction.map(this::parseImplementationDependencies).orElse(ImmutableList.of());
 
             // parse metadata types
             parameterMetadataTypes = parseParameterMetadataTypes(inputFunction);
@@ -440,8 +442,8 @@ public class AggregationImplementation
                             inputFunction,
                             annotation,
                             typeParameters.stream()
-                                .map(TypeParameter::value)
-                                .collect(toImmutableSet()),
+                                    .map(TypeParameter::value)
+                                    .collect(toImmutableSet()),
                             literalParameters);
                     builder.add(createDependency(annotation, literalParameters));
                 });

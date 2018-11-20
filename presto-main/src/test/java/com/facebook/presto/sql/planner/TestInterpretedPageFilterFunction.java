@@ -19,7 +19,7 @@ import com.facebook.presto.operator.project.InterpretedPageFilter;
 import com.facebook.presto.operator.project.SelectedPositions;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.tree.ComparisonExpressionType;
+import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -177,27 +177,27 @@ public class TestInterpretedPageFilterFunction
     @Test
     public void testComparisonExpressionWithNulls()
     {
-        for (ComparisonExpressionType type : ComparisonExpressionType.values()) {
-            if (type == ComparisonExpressionType.IS_DISTINCT_FROM) {
+        for (ComparisonExpression.Operator operator : ComparisonExpression.Operator.values()) {
+            if (operator == ComparisonExpression.Operator.IS_DISTINCT_FROM) {
                 // IS DISTINCT FROM has different NULL semantics
                 continue;
             }
 
-            assertFilter(format("NULL %s NULL", type.getValue()), false);
+            assertFilter(format("NULL %s NULL", operator.getValue()), false);
 
-            assertFilter(format("42 %s NULL", type.getValue()), false);
-            assertFilter(format("NULL %s 42", type.getValue()), false);
+            assertFilter(format("42 %s NULL", operator.getValue()), false);
+            assertFilter(format("NULL %s 42", operator.getValue()), false);
 
-            assertFilter(format("11.1 %s NULL", type.getValue()), false);
-            assertFilter(format("NULL %s 11.1", type.getValue()), false);
+            assertFilter(format("11.1 %s NULL", operator.getValue()), false);
+            assertFilter(format("NULL %s 11.1", operator.getValue()), false);
         }
     }
 
     private static void assertFilter(String expression, boolean expectedValue)
     {
         InterpretedPageFilter filterFunction = new InterpretedPageFilter(
-                createExpression(expression, METADATA, ImmutableMap.of()),
-                ImmutableMap.of(),
+                createExpression(expression, METADATA, TypeProvider.empty()),
+                TypeProvider.empty(),
                 ImmutableMap.of(),
                 METADATA,
                 SQL_PARSER,

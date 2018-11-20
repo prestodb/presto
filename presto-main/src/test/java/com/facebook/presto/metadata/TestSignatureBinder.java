@@ -34,6 +34,7 @@ import java.util.Set;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
+import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.metadata.Signature.withVariadicBound;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -1046,6 +1047,18 @@ public class TestSignatureBinder
                 .withCoercion()
                 .boundTo("varchar(10)", new TypeSignatureProvider(paramTypes -> new FunctionType(paramTypes, createVarcharType(1)).getTypeSignature()))
                 .succeeds();
+
+        Signature sortByKey = functionSignature()
+                .returnType(parseTypeSignature("array(T)"))
+                .argumentTypes(parseTypeSignature("array(T)"), parseTypeSignature("function(T,E)"))
+                .typeVariableConstraints(typeVariable("T"), orderableTypeParameter("E"))
+                .build();
+        assertThat(sortByKey)
+                .boundTo("array(integer)", new TypeSignatureProvider(paramTypes -> new FunctionType(paramTypes, VARCHAR).getTypeSignature()))
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", INTEGER)
+                        .setTypeVariable("E", VARCHAR)
+                        .build());
     }
 
     @Test

@@ -1,4 +1,4 @@
--- delimiter: |; ignoreOrder: true; types: CHAR|CHAR|LONGNVARCHAR|DECIMAL
+-- delimiter: |; ignoreOrder: true; types: CHAR|CHAR|VARCHAR|DECIMAL
 Holt                          |Curtis              |able|8225.80|
 null|Tommy               |able|38118.08|
 Pettit                        |Richard             |able|3930.52|

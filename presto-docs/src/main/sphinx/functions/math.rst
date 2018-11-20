@@ -85,10 +85,6 @@ Mathematical Functions
 
     Returns the base 10 logarithm of ``x``.
 
-.. function:: log(x, b) -> double
-
-    Returns the base ``b`` logarithm of ``x``.
-
 .. function:: mod(n, m) -> [same as input]
 
     Returns the modulus (remainder) of ``n`` divided by ``m``.
@@ -139,7 +135,7 @@ Mathematical Functions
 
     For double arguments, the function additionally returns:
 
-    * NaN if tha argument is NaN,
+    * NaN if the argument is NaN,
     * 1 if the argument is +Infinity,
     * -1 if the argument is -Infinity.
 
@@ -165,6 +161,19 @@ Mathematical Functions
     Returns the bin number of ``x`` according to the bins specified by the
     array ``bins``. The ``bins`` parameter must be an array of doubles and is
     assumed to be in sorted ascending order.
+
+Statistical Functions
+-----------------------
+
+.. function:: wilson_interval_lower(successes, trials, z) -> double
+
+    Returns the lower bound of the Wilson score interval of a Bernoulli trial process
+    at a confidence specified by the z-score ``z``.
+
+.. function:: wilson_interval_upper(successes, trials, z) -> double
+
+    Returns the upper bound of the Wilson score interval of a Bernoulli trial process
+    at a confidence specified by the z-score ``z``.
 
 Trigonometric Functions
 -----------------------

@@ -18,6 +18,7 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.util.Locale;
 import java.util.Set;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
@@ -57,7 +58,7 @@ public class TestJmxQueries
     public void testShowTables()
     {
         Set<String> standardNamesLower = STANDARD_NAMES.stream()
-                .map(String::toLowerCase)
+                .map(name -> name.toLowerCase(Locale.ENGLISH))
                 .collect(toImmutableSet());
         MaterializedResult result = computeActual("SHOW TABLES");
         assertTrue(result.getOnlyColumnAsSet().containsAll(standardNamesLower));
@@ -78,5 +79,22 @@ public class TestJmxQueries
         MaterializedResult actual = computeActual("SELECT node_id FROM system.runtime.nodes");
         MaterializedResult expected = computeActual(format("SELECT DISTINCT node FROM \"%s\"", name));
         assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
+    public void testOrderOfParametersIsIgnored()
+    {
+        assertEqualsIgnoreOrder(
+                computeActual("SELECT node FROM \"java.nio:type=bufferpool,name=direct\""),
+                computeActual("SELECT node FROM \"java.nio:name=direct,type=bufferpool\""));
+    }
+
+    @Test
+    public void testQueryCumulativeTable()
+    {
+        computeActual("SELECT * FROM \"*:*\"");
+        computeActual("SELECT * FROM \"java.util.logging:*\"");
+        assertTrue(computeActual("SELECT * FROM \"java.lang:*\"").getRowCount() > 1);
+        assertTrue(computeActual("SELECT * FROM \"jAVA.LANg:*\"").getRowCount() > 1);
     }
 }

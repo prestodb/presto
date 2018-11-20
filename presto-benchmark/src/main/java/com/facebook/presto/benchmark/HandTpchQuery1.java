@@ -109,7 +109,7 @@ public class HandTpchQuery1
         HashAggregationOperatorFactory aggregationOperator = new HashAggregationOperatorFactory(
                 2,
                 new PlanNodeId("test"),
-                ImmutableList.of(tpchQuery1Operator.getTypes().get(0), tpchQuery1Operator.getTypes().get(1)),
+                getColumnTypes("lineitem", "returnflag", "linestatus"),
                 Ints.asList(0, 1),
                 ImmutableList.of(),
                 Step.SINGLE,
@@ -124,8 +124,9 @@ public class HandTpchQuery1
                 Optional.empty(),
                 Optional.empty(),
                 10_000,
-                new DataSize(16, MEGABYTE),
-                JOIN_COMPILER);
+                Optional.of(new DataSize(16, MEGABYTE)),
+                JOIN_COMPILER,
+                false);
 
         return ImmutableList.of(tableScanOperator, tpchQuery1Operator, aggregationOperator);
     }
@@ -150,12 +151,6 @@ public class HandTpchQuery1
             public TpchQuery1OperatorFactory(int operatorId)
             {
                 this.operatorId = operatorId;
-            }
-
-            @Override
-            public List<Type> getTypes()
-            {
-                return TYPES;
             }
 
             @Override
@@ -191,12 +186,6 @@ public class HandTpchQuery1
         public OperatorContext getOperatorContext()
         {
             return operatorContext;
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return TYPES;
         }
 
         @Override

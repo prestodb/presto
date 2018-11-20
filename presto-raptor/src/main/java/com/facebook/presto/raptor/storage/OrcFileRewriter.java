@@ -28,6 +28,7 @@ import org.apache.hadoop.hive.ql.io.orc.Reader;
 import org.apache.hadoop.hive.ql.io.orc.RecordReader;
 import org.apache.hadoop.hive.ql.io.orc.Writer;
 import org.apache.hadoop.hive.serde2.io.DoubleWritable;
+import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.io.BooleanWritable;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.LongWritable;
@@ -155,6 +156,9 @@ public final class OrcFileRewriter
         }
         if (object instanceof DoubleWritable) {
             return SIZE_OF_DOUBLE;
+        }
+        if (object instanceof HiveDecimalWritable) {
+            return SIZE_OF_LONG;
         }
         if (object instanceof Text) {
             return ((Text) object).getLength();

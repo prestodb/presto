@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -74,19 +73,26 @@ public class QueryStateInfo
         this.progress = requireNonNull(progress, "progress is null");
     }
 
-    public static QueryStateInfo createQueryStateInfo(QueryInfo queryInfo, Optional<ResourceGroupInfo> group)
+    public static QueryStateInfo createQueuedQueryStateInfo(BasicQueryInfo queryInfo, Optional<ResourceGroupId> group, Optional<List<ResourceGroupInfo>> pathToRoot)
     {
-        Optional<List<ResourceGroupInfo>> pathToRoot = group.map(ResourceGroupInfo::getPathToRoot);
-        return createQueryStateInfo(queryInfo, group.map(ResourceGroupInfo::getId), pathToRoot);
+        return createQueryStateInfo(queryInfo, group, pathToRoot, Optional.empty());
     }
 
-    public static QueryStateInfo createQueryStateInfo(QueryInfo queryInfo, Optional<ResourceGroupId> groupId, Optional<List<ResourceGroupInfo>> pathToRoot)
+    public static QueryStateInfo createQueryStateInfo(BasicQueryInfo queryInfo, Optional<ResourceGroupId> group)
     {
         Optional<QueryProgressStats> progress = Optional.empty();
         if (!queryInfo.getState().isDone() && queryInfo.getState() != QUEUED) {
             progress = Optional.of(createQueryProgressStats(queryInfo.getQueryStats()));
         }
+        return createQueryStateInfo(queryInfo, group, Optional.empty(), progress);
+    }
 
+    private static QueryStateInfo createQueryStateInfo(
+            BasicQueryInfo queryInfo,
+            Optional<ResourceGroupId> groupId,
+            Optional<List<ResourceGroupInfo>> pathToRoot,
+            Optional<QueryProgressStats> progress)
+    {
         return new QueryStateInfo(
                 queryInfo.getQueryId(),
                 queryInfo.getState(),
@@ -158,13 +164,6 @@ public class QueryStateInfo
 
     @JsonProperty
     public Optional<List<ResourceGroupInfo>> getPathToRoot()
-    {
-        return pathToRoot;
-    }
-
-    @JsonProperty
-    @Deprecated
-    public Optional<List<ResourceGroupInfo>> getResourceGroupChain()
     {
         return pathToRoot;
     }

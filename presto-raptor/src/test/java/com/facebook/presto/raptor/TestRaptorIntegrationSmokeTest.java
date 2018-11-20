@@ -155,6 +155,13 @@ public class TestRaptorIntegrationSmokeTest
         assertEquals(actual, IntStream.range(0, 50).boxed().collect(toSet()));
     }
 
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Column '\\$bucket_number' cannot be resolved")
+    public void testNoBucketNumberHiddenColumn()
+    {
+        assertUpdate("CREATE TABLE test_no_bucket_number (test bigint)");
+        computeActual("SELECT DISTINCT \"$bucket_number\" FROM test_no_bucket_number");
+    }
+
     @Test
     public void testShardingByTemporalDateColumn()
     {
@@ -222,9 +229,6 @@ public class TestRaptorIntegrationSmokeTest
     @Test
     public void testShardingByTemporalTimestampColumn()
     {
-        // Make sure we have at least 2 different orderdate.
-        assertEquals(computeActual("SELECT count(DISTINCT orderdate) >= 2 FROM orders WHERE orderdate < date '1992-02-08'").getOnlyValue(), true);
-
         assertUpdate("CREATE TABLE test_shard_temporal_timestamp(col1 BIGINT, col2 TIMESTAMP) WITH (temporal_column = 'col2')");
 
         int rows = 20;
@@ -235,7 +239,7 @@ public class TestRaptorIntegrationSmokeTest
 
         assertUpdate(joiner.toString(), format("VALUES(%s)", rows));
 
-        MaterializedResult results = computeActual("SELECT format_datetime(col2, 'yyyyMMdd'), \"$shard_uuid\" FROM test_shard_temporal_timestamp");
+        MaterializedResult results = computeActual("SELECT format_datetime(col2 AT TIME ZONE 'UTC', 'yyyyMMdd'), \"$shard_uuid\" FROM test_shard_temporal_timestamp");
         assertEquals(results.getRowCount(), rows);
 
         // Each shard will only contain data of one date.
@@ -255,9 +259,6 @@ public class TestRaptorIntegrationSmokeTest
     @Test
     public void testShardingByTemporalTimestampColumnBucketed()
     {
-        // Make sure we have at least 2 different orderdate.
-        assertEquals(computeActual("SELECT count(DISTINCT orderdate) >= 2 FROM orders WHERE orderdate < date '1992-02-08'").getOnlyValue(), true);
-
         assertUpdate("" +
                 "CREATE TABLE test_shard_temporal_timestamp_bucketed(col1 BIGINT, col2 TIMESTAMP) " +
                 "WITH (temporal_column = 'col2', bucket_count = 3, bucketed_on = ARRAY ['col1'])");
@@ -271,7 +272,7 @@ public class TestRaptorIntegrationSmokeTest
         assertUpdate(joiner.toString(), format("VALUES(%s)", rows));
 
         MaterializedResult results = computeActual("" +
-                "SELECT format_datetime(col2, 'yyyyMMdd'), \"$shard_uuid\" " +
+                "SELECT format_datetime(col2 AT TIME ZONE 'UTC', 'yyyyMMdd'), \"$shard_uuid\" " +
                 "FROM test_shard_temporal_timestamp_bucketed");
 
         assertEquals(results.getRowCount(), rows);
@@ -382,6 +383,44 @@ public class TestRaptorIntegrationSmokeTest
                 "" +
                         "SELECT 'tpch', 'test_shards_system_table_timestamp_temporal',\n" +
                         "(SELECT count(*) FROM orders WHERE orderdate BETWEEN date '1992-01-01' AND date '1992-02-08')");
+    }
+
+    @Test
+    public void testColumnRangesSystemTable()
+    {
+        assertQuery("SELECT orderkey_min, orderkey_max, custkey_min, custkey_max, orderdate_min, orderdate_max FROM \"orders$column_ranges\"",
+                "SELECT min(orderkey), max(orderkey), min(custkey), max(custkey), min(orderdate), max(orderdate) FROM orders");
+
+        assertQuery("SELECT orderkey_min, orderkey_max FROM \"orders$column_ranges\"",
+                "SELECT min(orderkey), max(orderkey) FROM orders");
+
+        // No such table test
+        assertQueryFails("SELECT * FROM \"no_table$column_ranges\"", ".*raptor\\.tpch\\.no_table\\$column_ranges does not exist.*");
+
+        // No range column for DOUBLE, INTEGER or VARCHAR
+        assertQueryFails("SELECT totalprice_min FROM \"orders$column_ranges\"", ".*Column 'totalprice_min' cannot be resolved.*");
+        assertQueryFails("SELECT shippriority_min FROM \"orders$column_ranges\"", ".*Column 'shippriority_min' cannot be resolved.*");
+        assertQueryFails("SELECT orderstatus_min FROM \"orders$column_ranges\"", ".*Column 'orderstatus_min' cannot be resolved.*");
+        assertQueryFails("SELECT orderpriority_min FROM \"orders$column_ranges\"", ".*Column 'orderpriority_min' cannot be resolved.*");
+        assertQueryFails("SELECT clerk_min FROM \"orders$column_ranges\"", ".*Column 'clerk_min' cannot be resolved.*");
+        assertQueryFails("SELECT comment_min FROM \"orders$column_ranges\"", ".*Column 'comment_min' cannot be resolved.*");
+
+        // Empty table
+        assertUpdate("CREATE TABLE column_ranges_test (a BIGINT, b BIGINT)");
+        assertQuery("SELECT a_min, a_max, b_min, b_max FROM \"column_ranges_test$column_ranges\"", "SELECT NULL, NULL, NULL, NULL");
+
+        // Table with NULL values
+        assertUpdate("INSERT INTO column_ranges_test VALUES (1, NULL)", 1);
+        assertQuery("SELECT a_min, a_max, b_min, b_max FROM \"column_ranges_test$column_ranges\"", "SELECT 1, 1, NULL, NULL");
+        assertUpdate("INSERT INTO column_ranges_test VALUES (NULL, 99)", 1);
+        assertQuery("SELECT a_min, a_max, b_min, b_max FROM \"column_ranges_test$column_ranges\"", "SELECT 1, 1, 99, 99");
+        assertUpdate("INSERT INTO column_ranges_test VALUES (50, 50)", 1);
+        assertQuery("SELECT a_min, a_max, b_min, b_max FROM \"column_ranges_test$column_ranges\"", "SELECT 1, 50, 50, 99");
+
+        // Drop table
+        assertUpdate("DROP TABLE column_ranges_test");
+        assertQueryFails("SELECT a_min, a_max, b_min, b_max FROM \"column_ranges_test$column_ranges\"",
+                ".*raptor\\.tpch\\.column_ranges_test\\$column_ranges does not exist.*");
     }
 
     @Test
@@ -702,5 +741,34 @@ public class TestRaptorIntegrationSmokeTest
 
         // cleanup
         assertUpdate("DROP TABLE test_table_stats");
+    }
+
+    @Test
+    public void testAlterTable()
+    {
+        assertUpdate("CREATE TABLE test_alter_table (c1 bigint, c2 bigint)");
+        assertUpdate("INSERT INTO test_alter_table VALUES (1, 1), (1, 2), (1, 3), (1, 4)", 4);
+        assertUpdate("INSERT INTO test_alter_table VALUES (11, 1), (11, 2)", 2);
+
+        assertUpdate("ALTER TABLE test_alter_table ADD COLUMN c3 bigint");
+        assertQueryFails("ALTER TABLE test_alter_table DROP COLUMN c3", "Cannot drop the column which has the largest column ID in the table");
+        assertUpdate("INSERT INTO test_alter_table VALUES (2, 1, 1), (2, 2, 2), (2, 3, 3), (2, 4, 4)", 4);
+        assertUpdate("INSERT INTO test_alter_table VALUES (22, 1, 1), (22, 2, 2), (22, 4, 4)", 3);
+
+        // Do a partial delete on a shard that does not contain newly added column
+        assertUpdate("DELETE FROM test_alter_table WHERE c1 = 1 and c2 = 1", 1);
+        // Then drop a full shard that does not contain newly added column
+        assertUpdate("DELETE FROM test_alter_table WHERE c1 = 11", 2);
+
+        // Drop a column from middle of table
+        assertUpdate("ALTER TABLE test_alter_table DROP COLUMN c2");
+        assertUpdate("INSERT INTO test_alter_table VALUES (3, 1), (3, 2), (3, 3), (3, 4)", 4);
+
+        // Do a partial delete on a shard that contains column already dropped
+        assertUpdate("DELETE FROM test_alter_table WHERE c1 = 2 and c3 = 1", 1);
+        // Then drop a full shard that contains column already dropped
+        assertUpdate("DELETE FROM test_alter_table WHERE c1 = 22", 3);
+
+        assertUpdate("DROP TABLE test_alter_table");
     }
 }

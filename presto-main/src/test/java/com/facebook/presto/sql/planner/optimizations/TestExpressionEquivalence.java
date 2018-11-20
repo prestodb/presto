@@ -19,13 +19,13 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -46,6 +46,7 @@ public class TestExpressionEquivalence
     @Test
     public void testEquivalent()
     {
+        assertEquivalent("CAST(null AS BIGINT)", "CAST(null as BIGINT)");
         assertEquivalent("a_bigint < b_double", "b_double > a_bigint");
         assertEquivalent("true", "true");
         assertEquivalent("4", "4");
@@ -93,6 +94,10 @@ public class TestExpressionEquivalence
         assertEquivalent(
                 "(a_boolean and b_boolean and c_boolean) or (d_boolean and e_boolean) or (f_boolean and g_boolean and h_boolean)",
                 "(h_boolean and g_boolean and f_boolean) or (b_boolean and a_boolean and c_boolean) or (e_boolean and d_boolean)");
+
+        assertEquivalent(
+                "reduce(ARRAY [b_boolean], false, (s, x) -> s AND x, s -> s)",
+                "reduce(ARRAY [b_boolean], false, (s, x) -> x AND s, s -> s)");
     }
 
     private static void assertEquivalent(@Language("SQL") String left, @Language("SQL") String right)
@@ -102,8 +107,8 @@ public class TestExpressionEquivalence
         Expression rightExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(right, parsingOptions));
 
         Set<Symbol> symbols = extractUnique(ImmutableList.of(leftExpression, rightExpression));
-        Map<Symbol, Type> types = symbols.stream()
-                .collect(toMap(identity(), TestExpressionEquivalence::generateType));
+        TypeProvider types = TypeProvider.copyOf(symbols.stream()
+                .collect(toMap(identity(), TestExpressionEquivalence::generateType)));
 
         assertTrue(
                 EQUIVALENCE.areExpressionsEquivalent(TEST_SESSION, leftExpression, rightExpression, types),
@@ -116,6 +121,8 @@ public class TestExpressionEquivalence
     @Test
     public void testNotEquivalent()
     {
+        assertNotEquivalent("CAST(null AS BOOLEAN)", "false");
+        assertNotEquivalent("false", "CAST(null AS BOOLEAN)");
         assertNotEquivalent("true", "false");
         assertNotEquivalent("4", "5");
         assertNotEquivalent("4.4", "5.5");
@@ -139,6 +146,10 @@ public class TestExpressionEquivalence
         assertNotEquivalent("4 <= 5 or 6 < 7", "7 > 6 or 5 >= 6");
         assertNotEquivalent("a_bigint <= b_bigint and c_bigint < d_bigint", "d_bigint > c_bigint and b_bigint >= c_bigint");
         assertNotEquivalent("a_bigint <= b_bigint or c_bigint < d_bigint", "d_bigint > c_bigint or b_bigint >= c_bigint");
+
+        assertNotEquivalent(
+                "reduce(ARRAY [b_boolean], false, (s, x) -> s AND x, s -> s)",
+                "reduce(ARRAY [b_boolean], false, (s, x) -> s OR x, s -> s)");
     }
 
     private static void assertNotEquivalent(@Language("SQL") String left, @Language("SQL") String right)
@@ -148,8 +159,8 @@ public class TestExpressionEquivalence
         Expression rightExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(right, parsingOptions));
 
         Set<Symbol> symbols = extractUnique(ImmutableList.of(leftExpression, rightExpression));
-        Map<Symbol, Type> types = symbols.stream()
-                .collect(toMap(identity(), TestExpressionEquivalence::generateType));
+        TypeProvider types = TypeProvider.copyOf(symbols.stream()
+                .collect(toMap(identity(), TestExpressionEquivalence::generateType)));
 
         assertFalse(
                 EQUIVALENCE.areExpressionsEquivalent(TEST_SESSION, leftExpression, rightExpression, types),

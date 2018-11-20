@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -99,14 +100,13 @@ public class CatalogMetadata
         throw new IllegalArgumentException("Unknown connector id: " + connectorId);
     }
 
-    public ConnectorId getConnectorId(QualifiedObjectName table)
+    public ConnectorId getConnectorId(Session session, QualifiedObjectName table)
     {
         if (table.getSchemaName().equals(INFORMATION_SCHEMA_NAME)) {
             return informationSchemaId;
         }
 
-        // system tables does not need a connector session
-        if (systemTables.getTableHandle(null, table.asSchemaTableName()) != null) {
+        if (systemTables.getTableHandle(session.toConnectorSession(systemTablesId), table.asSchemaTableName()) != null) {
             return systemTablesId;
         }
 

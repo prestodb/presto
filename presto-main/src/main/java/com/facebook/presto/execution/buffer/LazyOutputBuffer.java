@@ -234,25 +234,36 @@ public class LazyOutputBuffer
     }
 
     @Override
-    public ListenableFuture<?> enqueue(List<SerializedPage> pages)
+    public ListenableFuture<?> isFull()
     {
         OutputBuffer outputBuffer;
         synchronized (this) {
             checkState(delegate != null, "Buffer has not been initialized");
             outputBuffer = delegate;
         }
-        return outputBuffer.enqueue(pages);
+        return outputBuffer.isFull();
     }
 
     @Override
-    public ListenableFuture<?> enqueue(int partition, List<SerializedPage> pages)
+    public void enqueue(List<SerializedPage> pages)
     {
         OutputBuffer outputBuffer;
         synchronized (this) {
             checkState(delegate != null, "Buffer has not been initialized");
             outputBuffer = delegate;
         }
-        return outputBuffer.enqueue(partition, pages);
+        outputBuffer.enqueue(pages);
+    }
+
+    @Override
+    public void enqueue(int partition, List<SerializedPage> pages)
+    {
+        OutputBuffer outputBuffer;
+        synchronized (this) {
+            checkState(delegate != null, "Buffer has not been initialized");
+            outputBuffer = delegate;
+        }
+        outputBuffer.enqueue(partition, pages);
     }
 
     @Override
@@ -310,6 +321,20 @@ public class LazyOutputBuffer
             outputBuffer = delegate;
         }
         outputBuffer.fail();
+    }
+
+    @Override
+    public long getPeakMemoryUsage()
+    {
+        OutputBuffer outputBuffer;
+        synchronized (this) {
+            outputBuffer = delegate;
+        }
+
+        if (outputBuffer != null) {
+            return outputBuffer.getPeakMemoryUsage();
+        }
+        return 0;
     }
 
     private static class PendingRead

@@ -15,7 +15,6 @@ package com.facebook.presto.plugin.geospatial;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.esri.core.geometry.ogc.OGCPoint;
-import com.facebook.presto.geospatial.GeometryUtils;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -37,6 +36,8 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.geospatial.serde.GeometrySerde.deserialize;
+import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeEnvelope;
 import static com.facebook.presto.plugin.geospatial.GeometryBenchmarkUtils.loadPolygon;
 
 @State(Scope.Thread)
@@ -68,13 +69,13 @@ public class BenchmarkSTContains
     @Benchmark
     public Object deserializeSimpleGeometry(BenchmarkData data)
     {
-        return GeometryUtils.deserialize(data.simpleGeometry);
+        return deserialize(data.simpleGeometry);
     }
 
     @Benchmark
     public Object deserializeEnvelopeSimpleGeometry(BenchmarkData data)
     {
-        return GeometryUtils.deserializeEnvelope(data.simpleGeometry);
+        return deserializeEnvelope(data.simpleGeometry);
     }
 
     @Benchmark
@@ -114,15 +115,15 @@ public class BenchmarkSTContains
     }
 
     @Benchmark
-    public Object deserialize(BenchmarkData data)
+    public Object benchmarkDeserialize(BenchmarkData data)
     {
-        return GeometryUtils.deserialize(data.geometry);
+        return deserialize(data.geometry);
     }
 
     @Benchmark
-    public Object deserializeEnvelope(BenchmarkData data)
+    public Object benchmarkDeserializeEnvelope(BenchmarkData data)
     {
-        return GeometryUtils.deserializeEnvelope(data.geometry);
+        return deserializeEnvelope(data.geometry);
     }
 
     @State(Scope.Thread)
@@ -148,10 +149,10 @@ public class BenchmarkSTContains
             outerPointInEnvelope = GeoFunctions.stPoint(16.6667, 54.05);
             outerPointNotInEnvelope = GeoFunctions.stPoint(16.6333, 54.2);
 
-            ogcGeometry = GeometryUtils.deserialize(geometry);
-            innerOgcPoint = (OGCPoint) GeometryUtils.deserialize(innerPoint);
-            outerOgcPointInEnvelope = (OGCPoint) GeometryUtils.deserialize(outerPointInEnvelope);
-            outerOgcPointNotInEnvelope = (OGCPoint) GeometryUtils.deserialize(outerPointNotInEnvelope);
+            ogcGeometry = deserialize(geometry);
+            innerOgcPoint = (OGCPoint) deserialize(innerPoint);
+            outerOgcPointInEnvelope = (OGCPoint) deserialize(outerPointInEnvelope);
+            outerOgcPointNotInEnvelope = (OGCPoint) deserialize(outerPointNotInEnvelope);
         }
     }
 

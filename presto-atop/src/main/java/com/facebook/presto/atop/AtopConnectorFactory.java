@@ -20,7 +20,6 @@ import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.google.common.base.Throwables;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
@@ -29,6 +28,7 @@ import java.util.Map;
 
 import static com.facebook.presto.atop.AtopConnectorConfig.SECURITY_FILE;
 import static com.facebook.presto.atop.AtopConnectorConfig.SECURITY_NONE;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static java.util.Objects.requireNonNull;
 
@@ -57,7 +57,7 @@ public class AtopConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> requiredConfig, ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> requiredConfig, ConnectorContext context)
     {
         requireNonNull(requiredConfig, "requiredConfig is null");
 
@@ -68,7 +68,7 @@ public class AtopConnectorFactory
                             context.getTypeManager(),
                             context.getNodeManager(),
                             context.getNodeManager().getEnvironment(),
-                            connectorId),
+                            catalogName),
                     installModuleIf(
                             AtopConnectorConfig.class,
                             config -> config.getSecurity().equalsIgnoreCase(SECURITY_NONE),
@@ -90,7 +90,8 @@ public class AtopConnectorFactory
             return injector.getInstance(AtopConnector.class);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 }

@@ -15,6 +15,9 @@ package com.facebook.presto.spi.block;
 
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
+import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
@@ -29,15 +32,16 @@ public class IntArrayBlock
 
     private final int arrayOffset;
     private final int positionCount;
+    @Nullable
     private final boolean[] valueIsNull;
     private final int[] values;
 
     private final long sizeInBytes;
     private final long retainedSizeInBytes;
 
-    public IntArrayBlock(int positionCount, boolean[] valueIsNull, int[] values)
+    public IntArrayBlock(int positionCount, Optional<boolean[]> valueIsNull, int[] values)
     {
-        this(0, positionCount, valueIsNull, values);
+        this(0, positionCount, valueIsNull.orElse(null), values);
     }
 
     IntArrayBlock(int arrayOffset, int positionCount, boolean[] valueIsNull, int[] values)
@@ -56,7 +60,7 @@ public class IntArrayBlock
         }
         this.values = values;
 
-        if (valueIsNull.length - arrayOffset < positionCount) {
+        if (valueIsNull != null && valueIsNull.length - arrayOffset < positionCount) {
             throw new IllegalArgumentException("isNull length is less than positionCount");
         }
         this.valueIsNull = valueIsNull;
@@ -84,10 +88,18 @@ public class IntArrayBlock
     }
 
     @Override
+    public long getEstimatedDataSizeForStats(int position)
+    {
+        return isNull(position) ? 0 : Integer.BYTES;
+    }
+
+    @Override
     public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
         consumer.accept(values, sizeOf(values));
-        consumer.accept(valueIsNull, sizeOf(valueIsNull));
+        if (valueIsNull != null) {
+            consumer.accept(valueIsNull, sizeOf(valueIsNull));
+        }
         consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
@@ -108,10 +120,16 @@ public class IntArrayBlock
     }
 
     @Override
+    public boolean mayHaveNull()
+    {
+        return valueIsNull != null;
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(position);
-        return valueIsNull[position + arrayOffset];
+        return valueIsNull != null && valueIsNull[position + arrayOffset];
     }
 
     @Override
@@ -119,6 +137,7 @@ public class IntArrayBlock
     {
         checkReadablePosition(position);
         blockBuilder.writeInt(values[position + arrayOffset]);
+        blockBuilder.closeEntry();
     }
 
     @Override
@@ -126,8 +145,9 @@ public class IntArrayBlock
     {
         checkReadablePosition(position);
         return new IntArrayBlock(
+                0,
                 1,
-                new boolean[] {valueIsNull[position + arrayOffset]},
+                isNull(position) ? new boolean[] {true} : null,
                 new int[] {values[position + arrayOffset]});
     }
 
@@ -136,15 +156,20 @@ public class IntArrayBlock
     {
         checkArrayRange(positions, offset, length);
 
-        boolean[] newValueIsNull = new boolean[length];
+        boolean[] newValueIsNull = null;
+        if (valueIsNull != null) {
+            newValueIsNull = new boolean[length];
+        }
         int[] newValues = new int[length];
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
             checkReadablePosition(position);
-            newValueIsNull[i] = valueIsNull[position + arrayOffset];
+            if (valueIsNull != null) {
+                newValueIsNull[i] = valueIsNull[position + arrayOffset];
+            }
             newValues[i] = values[position + arrayOffset];
         }
-        return new IntArrayBlock(length, newValueIsNull, newValues);
+        return new IntArrayBlock(0, length, newValueIsNull, newValues);
     }
 
     @Override
@@ -161,19 +186,19 @@ public class IntArrayBlock
         checkValidRegion(getPositionCount(), positionOffset, length);
 
         positionOffset += arrayOffset;
-        boolean[] newValueIsNull = compactArray(valueIsNull, positionOffset, length);
+        boolean[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
         int[] newValues = compactArray(values, positionOffset, length);
 
         if (newValueIsNull == valueIsNull && newValues == values) {
             return this;
         }
-        return new IntArrayBlock(length, newValueIsNull, newValues);
+        return new IntArrayBlock(0, length, newValueIsNull, newValues);
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new IntArrayBlockEncoding();
+        return IntArrayBlockEncoding.NAME;
     }
 
     @Override

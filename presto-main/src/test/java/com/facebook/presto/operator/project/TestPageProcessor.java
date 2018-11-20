@@ -54,6 +54,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
+import static sun.misc.Unsafe.ARRAY_OBJECT_INDEX_SCALE;
 
 public class TestPageProcessor
 {
@@ -180,7 +181,7 @@ public class TestPageProcessor
         }));
 
         PageProcessorOutput output = pageProcessor.process(SESSION, new DriverYieldSignal(), inputPage);
-        assertEquals(output.getRetainedSizeInBytes(), createLongSequenceBlock(0, 100).getRetainedSizeInBytes());
+        assertEquals(output.getRetainedSizeInBytes(), new Page(createLongSequenceBlock(0, 100)).getRetainedSizeInBytes() + ARRAY_OBJECT_INDEX_SCALE);
 
         List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
         assertEquals(outputPages.size(), 1);
@@ -278,7 +279,7 @@ public class TestPageProcessor
             assertPageEquals(ImmutableList.of(VARCHAR, VARCHAR), actualPage, expectedPage);
             pageCount++;
 
-            // batch size will be further reduced to fit withing the bounds
+            // batch size will be further reduced to fit within the bounds
             if (actualPage.getSizeInBytes() > MAX_PAGE_SIZE_IN_BYTES) {
                 batchSize = batchSize / 2;
             }
@@ -468,9 +469,7 @@ public class TestPageProcessor
         @Override
         public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
         {
-            Block block = page.getBlock(0);
-            block.assureLoaded();
-            return new CompletedWork<>(block);
+            return new CompletedWork<>(page.getBlock(0).getLoadedBlock());
         }
     }
 

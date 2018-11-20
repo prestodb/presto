@@ -116,11 +116,13 @@ public class JmxPeriodicSampler
 
         for (JmxTableHandle tableHandle : tableHandles) {
             try {
-                List<Object> row = jmxRecordSetProvider.getLiveRow(
-                        tableHandle,
-                        tableHandle.getColumnHandles(),
-                        dumpTimestamp);
-                jmxHistoricalData.addRow(tableHandle.getObjectName(), row);
+                for (String objectName : tableHandle.getObjectNames()) {
+                    List<Object> row = jmxRecordSetProvider.getLiveRow(
+                            objectName,
+                            tableHandle.getColumnHandles(),
+                            dumpTimestamp);
+                    jmxHistoricalData.addRow(tableHandle.getTableName().getTableName(), row);
+                }
             }
             catch (Exception exception) {
                 log.error(exception, "Error reading jmx records");

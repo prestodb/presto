@@ -30,6 +30,7 @@ public class SelectorSpec
     private final Optional<Pattern> sourceRegex;
     private final Optional<String> queryType;
     private final Optional<List<String>> clientTags;
+    private final Optional<SelectorResourceEstimate> selectorResourceEstimate;
     private final ResourceGroupIdTemplate group;
 
     @JsonCreator
@@ -38,12 +39,14 @@ public class SelectorSpec
             @JsonProperty("source") Optional<Pattern> sourceRegex,
             @JsonProperty("queryType") Optional<String> queryType,
             @JsonProperty("clientTags") Optional<List<String>> clientTags,
+            @JsonProperty("selectorResourceEstimate") Optional<SelectorResourceEstimate> selectorResourceEstimate,
             @JsonProperty("group") ResourceGroupIdTemplate group)
     {
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.clientTags = requireNonNull(clientTags, "clientTags is null");
+        this.selectorResourceEstimate = requireNonNull(selectorResourceEstimate, "selectorResourceEstimate is null");
         this.group = requireNonNull(group, "group is null");
     }
 
@@ -65,6 +68,11 @@ public class SelectorSpec
     public Optional<List<String>> getClientTags()
     {
         return clientTags;
+    }
+
+    public Optional<SelectorResourceEstimate> getResourceEstimate()
+    {
+        return selectorResourceEstimate;
     }
 
     public ResourceGroupIdTemplate getGroup()

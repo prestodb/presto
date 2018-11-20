@@ -22,7 +22,6 @@ import com.facebook.presto.operator.project.InterpretedPageProjection;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
@@ -100,14 +99,14 @@ public class TestInterpretedPageProjectionFunction
     @Test
     public void testArithmeticExpressionWithNulls()
     {
-        for (ArithmeticBinaryExpression.Type type : ArithmeticBinaryExpression.Type.values()) {
-            assertProjection("CAST(NULL AS INTEGER) " + type.getValue() + " CAST(NULL AS INTEGER)", null);
+        for (ArithmeticBinaryExpression.Operator operator : ArithmeticBinaryExpression.Operator.values()) {
+            assertProjection("CAST(NULL AS INTEGER) " + operator.getValue() + " CAST(NULL AS INTEGER)", null);
 
-            assertProjection("42 " + type.getValue() + " NULL", null);
-            assertProjection("NULL " + type.getValue() + " 42", null);
+            assertProjection("42 " + operator.getValue() + " NULL", null);
+            assertProjection("NULL " + operator.getValue() + " 42", null);
 
-            assertProjection("11.1 " + type.getValue() + " CAST(NULL AS INTEGER)", null);
-            assertProjection("CAST(NULL AS INTEGER) " + type.getValue() + " 11.1", null);
+            assertProjection("11.1 " + operator.getValue() + " CAST(NULL AS INTEGER)", null);
+            assertProjection("CAST(NULL AS INTEGER) " + operator.getValue() + " 11.1", null);
         }
     }
 
@@ -163,17 +162,17 @@ public class TestInterpretedPageProjectionFunction
     {
         Symbol symbol = new Symbol("symbol");
         ImmutableMap<Symbol, Integer> symbolToInputMappings = ImmutableMap.of(symbol, 0);
-        assertProjection("symbol", true, symbolToInputMappings, ImmutableMap.of(symbol, BOOLEAN), 0, createBlock(BOOLEAN, true));
-        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.of(symbol, BOOLEAN), 0, createNullBlock(BOOLEAN));
+        assertProjection("symbol", true, symbolToInputMappings, TypeProvider.copyOf(ImmutableMap.of(symbol, BOOLEAN)), 0, createBlock(BOOLEAN, true));
+        assertProjection("symbol", null, symbolToInputMappings, TypeProvider.copyOf(ImmutableMap.of(symbol, BOOLEAN)), 0, createNullBlock(BOOLEAN));
 
-        assertProjection("symbol", 42L, symbolToInputMappings, ImmutableMap.of(symbol, BIGINT), 0, createBlock(BIGINT, 42));
-        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.of(symbol, BIGINT), 0, createNullBlock(BIGINT));
+        assertProjection("symbol", 42L, symbolToInputMappings, TypeProvider.copyOf(ImmutableMap.of(symbol, BIGINT)), 0, createBlock(BIGINT, 42));
+        assertProjection("symbol", null, symbolToInputMappings, TypeProvider.copyOf(ImmutableMap.of(symbol, BIGINT)), 0, createNullBlock(BIGINT));
 
-        assertProjection("symbol", 11.1, symbolToInputMappings, ImmutableMap.of(symbol, DOUBLE), 0, createBlock(DOUBLE, 11.1));
-        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.of(symbol, DOUBLE), 0, createNullBlock(DOUBLE));
+        assertProjection("symbol", 11.1, symbolToInputMappings, TypeProvider.copyOf(ImmutableMap.of(symbol, DOUBLE)), 0, createBlock(DOUBLE, 11.1));
+        assertProjection("symbol", null, symbolToInputMappings, TypeProvider.copyOf(ImmutableMap.of(symbol, DOUBLE)), 0, createNullBlock(DOUBLE));
 
-        assertProjection("symbol", "foo", symbolToInputMappings, ImmutableMap.of(symbol, VARCHAR), 0, createBlock(VARCHAR, "foo"));
-        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.of(symbol, VARCHAR), 0, createNullBlock(VARCHAR));
+        assertProjection("symbol", "foo", symbolToInputMappings, TypeProvider.copyOf(ImmutableMap.of(symbol, VARCHAR)), 0, createBlock(VARCHAR, "foo"));
+        assertProjection("symbol", null, symbolToInputMappings, TypeProvider.copyOf(ImmutableMap.of(symbol, VARCHAR)), 0, createNullBlock(VARCHAR));
     }
 
     private static void assertProjection(String expression, @Nullable Object expectedValue)
@@ -182,7 +181,7 @@ public class TestInterpretedPageProjectionFunction
                 expression,
                 expectedValue,
                 ImmutableMap.of(),
-                ImmutableMap.of(),
+                TypeProvider.empty(),
                 0);
     }
 
@@ -190,7 +189,7 @@ public class TestInterpretedPageProjectionFunction
             String expression,
             @Nullable Object expectedValue,
             Map<Symbol, Integer> symbolToInputMappings,
-            Map<Symbol, Type> symbolTypes,
+            TypeProvider symbolTypes,
             int position,
             Block... blocks)
     {
@@ -201,7 +200,7 @@ public class TestInterpretedPageProjectionFunction
             String expression,
             Object[] expectedValues,
             Map<Symbol, Integer> symbolToInputMappings,
-            Map<Symbol, Type> symbolTypes,
+            TypeProvider symbolTypes,
             int[] positions,
             Block... blocks)
     {
@@ -273,7 +272,7 @@ public class TestInterpretedPageProjectionFunction
 
     private static Block createBlock(Type type, Object[] values)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), values.length);
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, values.length);
         for (Object value : values) {
             writeNativeValue(type, blockBuilder, value);
         }

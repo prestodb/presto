@@ -1,0 +1,40 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        final aggregation over (d_qoy_168, d_year_167, expr_165, expr_166, i_category_169)
+            local exchange (REPARTITION, HASH, ["d_qoy_168", "d_year_167", "expr_165", "expr_166", "i_category_169"])
+                local exchange (REPARTITION, ROUND_ROBIN, [])
+                    remote exchange (REPARTITION, HASH, ["d_qoy", "d_year", "expr_12", "expr_217", "i_category"])
+                        partial aggregation over (d_qoy, d_year, expr_12, expr_217, i_category)
+                            join (INNER, REPLICATED):
+                                join (INNER, REPLICATED):
+                                    scan tpcds:store_sales:sf3000.0
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            scan tpcds:item:sf3000.0
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPLICATE, BROADCAST, [])
+                                        scan tpcds:date_dim:sf3000.0
+                    remote exchange (REPARTITION, HASH, ["d_qoy_49", "d_year_45", "expr_223", "expr_68", "i_category_29"])
+                        partial aggregation over (d_qoy_49, d_year_45, expr_223, expr_68, i_category_29)
+                            join (INNER, PARTITIONED):
+                                remote exchange (REPARTITION, HASH, ["ws_sold_date_sk"])
+                                    join (INNER, PARTITIONED):
+                                        remote exchange (REPARTITION, HASH, ["ws_item_sk"])
+                                            scan tpcds:web_sales:sf3000.0
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPARTITION, HASH, ["i_item_sk_17"])
+                                                scan tpcds:item:sf3000.0
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, ["d_date_sk_39"])
+                                        scan tpcds:date_dim:sf3000.0
+                remote exchange (REPARTITION, HASH, ["d_qoy_129", "d_year_125", "expr_147", "expr_160", "i_category_109"])
+                    partial aggregation over (d_qoy_129, d_year_125, expr_147, expr_160, i_category_109)
+                        join (INNER, REPLICATED):
+                            join (INNER, REPLICATED):
+                                scan tpcds:catalog_sales:sf3000.0
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPLICATE, BROADCAST, [])
+                                        scan tpcds:item:sf3000.0
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    scan tpcds:date_dim:sf3000.0

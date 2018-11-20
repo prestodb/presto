@@ -49,6 +49,8 @@ public interface StatementClient
 
     Optional<String> getSetSchema();
 
+    Optional<String> getSetPath();
+
     Map<String, String> getSetSessionProperties();
 
     Set<String> getResetSessionProperties();

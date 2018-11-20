@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
@@ -24,13 +25,21 @@ import static java.util.stream.Collectors.toList;
 public class HiveBucketHandle
 {
     private final List<HiveColumnHandle> columns;
-    private final int bucketCount;
+    // Number of buckets in the table, as specified in table metadata
+    private final int tableBucketCount;
+    // Number of buckets the table will appear to have when the Hive connector
+    // presents the table to the engine for read.
+    private final int readBucketCount;
 
     @JsonCreator
-    public HiveBucketHandle(@JsonProperty("columns") List<HiveColumnHandle> columns, @JsonProperty("bucketCount") int bucketCount)
+    public HiveBucketHandle(
+            @JsonProperty("columns") List<HiveColumnHandle> columns,
+            @JsonProperty("tableBucketCount") int tableBucketCount,
+            @JsonProperty("readBucketCount") int readBucketCount)
     {
         this.columns = requireNonNull(columns, "columns is null");
-        this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
+        this.tableBucketCount = tableBucketCount;
+        this.readBucketCount = readBucketCount;
     }
 
     @JsonProperty
@@ -40,17 +49,24 @@ public class HiveBucketHandle
     }
 
     @JsonProperty
-    public int getBucketCount()
+    public int getTableBucketCount()
     {
-        return bucketCount;
+        return tableBucketCount;
     }
 
-    public HiveBucketProperty toBucketProperty()
+    @JsonProperty
+    public int getReadBucketCount()
+    {
+        return readBucketCount;
+    }
+
+    public HiveBucketProperty toTableBucketProperty()
     {
         return new HiveBucketProperty(
                 columns.stream()
                         .map(HiveColumnHandle::getName)
                         .collect(toList()),
-                bucketCount);
+                tableBucketCount,
+                ImmutableList.of());
     }
 }

@@ -18,6 +18,7 @@ import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStateMachine;
+import com.facebook.presto.execution.buffer.LazyOutputBuffer;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.memory.QueryContextVisitor;
 import com.facebook.presto.memory.context.LocalMemoryContext;
@@ -28,6 +29,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AtomicDouble;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
+import io.airlift.stats.GcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -36,6 +38,7 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
@@ -50,7 +53,9 @@ import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.stream.Collectors.toList;
 
@@ -59,6 +64,7 @@ public class TaskContext
 {
     private final QueryContext queryContext;
     private final TaskStateMachine taskStateMachine;
+    private final GcMonitor gcMonitor;
     private final Executor notificationExecutor;
     private final ScheduledExecutorService yieldExecutor;
     private final Session session;
@@ -66,7 +72,11 @@ public class TaskContext
     private final long createNanos = System.nanoTime();
 
     private final AtomicLong startNanos = new AtomicLong();
+    private final AtomicLong startFullGcCount = new AtomicLong(-1);
+    private final AtomicLong startFullGcTimeNanos = new AtomicLong(-1);
     private final AtomicLong endNanos = new AtomicLong();
+    private final AtomicLong endFullGcCount = new AtomicLong(-1);
+    private final AtomicLong endFullGcTimeNanos = new AtomicLong(-1);
 
     private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
     private final AtomicReference<DateTime> lastExecutionStartTime = new AtomicReference<>();
@@ -76,8 +86,10 @@ public class TaskContext
 
     private final List<PipelineContext> pipelineContexts = new CopyOnWriteArrayList<>();
 
-    private final boolean verboseStats;
+    private final boolean perOperatorCpuTimerEnabled;
     private final boolean cpuTimerEnabled;
+
+    private final OptionalInt totalPartitions;
 
     private final Object cumulativeMemoryLock = new Object();
     private final AtomicDouble cumulativeUserMemory = new AtomicDouble(0.0);
@@ -93,35 +105,43 @@ public class TaskContext
     public static TaskContext createTaskContext(
             QueryContext queryContext,
             TaskStateMachine taskStateMachine,
+            GcMonitor gcMonitor,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             Session session,
             MemoryTrackingContext taskMemoryContext,
-            boolean verboseStats,
-            boolean cpuTimerEnabled)
+            boolean perOperatorCpuTimerEnabled,
+            boolean cpuTimerEnabled,
+            OptionalInt totalPartitions)
     {
-        TaskContext taskContext = new TaskContext(queryContext, taskStateMachine, notificationExecutor, yieldExecutor, session, taskMemoryContext, verboseStats, cpuTimerEnabled);
+        TaskContext taskContext = new TaskContext(queryContext, taskStateMachine, gcMonitor, notificationExecutor, yieldExecutor, session, taskMemoryContext, perOperatorCpuTimerEnabled, cpuTimerEnabled, totalPartitions);
         taskContext.initialize();
         return taskContext;
     }
 
     private TaskContext(QueryContext queryContext,
             TaskStateMachine taskStateMachine,
+            GcMonitor gcMonitor,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             Session session,
             MemoryTrackingContext taskMemoryContext,
-            boolean verboseStats,
-            boolean cpuTimerEnabled)
+            boolean perOperatorCpuTimerEnabled,
+            boolean cpuTimerEnabled,
+            OptionalInt totalPartitions)
     {
         this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
+        this.gcMonitor = requireNonNull(gcMonitor, "gcMonitor is null");
         this.queryContext = requireNonNull(queryContext, "queryContext is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.session = session;
         this.taskMemoryContext = requireNonNull(taskMemoryContext, "taskMemoryContext is null");
-        this.verboseStats = verboseStats;
+        // Initialize the local memory contexts with the LazyOutputBuffer tag as LazyOutputBuffer will do the local memory allocations
+        taskMemoryContext.initializeLocalMemoryContexts(LazyOutputBuffer.class.getSimpleName());
+        this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
         this.cpuTimerEnabled = cpuTimerEnabled;
+        this.totalPartitions = requireNonNull(totalPartitions, "totalPartitions is null");
     }
 
     // the state change listener is added here in a separate initialize() method
@@ -129,12 +149,7 @@ public class TaskContext
     // another thread, which will cause unsafe publication of this instance.
     private void initialize()
     {
-        taskStateMachine.addStateChangeListener(newState -> {
-            if (newState.isDone()) {
-                executionEndTime.set(DateTime.now());
-                endNanos.set(System.nanoTime());
-            }
-        });
+        taskStateMachine.addStateChangeListener(this::updateStatsIfDone);
     }
 
     public TaskId getTaskId()
@@ -142,7 +157,12 @@ public class TaskContext
         return taskStateMachine.getTaskId();
     }
 
-    public PipelineContext addPipelineContext(int pipelineId, boolean inputPipeline, boolean outputPipeline)
+    public OptionalInt getTotalPartitions()
+    {
+        return totalPartitions;
+    }
+
+    public PipelineContext addPipelineContext(int pipelineId, boolean inputPipeline, boolean outputPipeline, boolean partitioned)
     {
         PipelineContext pipelineContext = new PipelineContext(
                 pipelineId,
@@ -151,7 +171,8 @@ public class TaskContext
                 yieldExecutor,
                 taskMemoryContext.newMemoryTrackingContext(),
                 inputPipeline,
-                outputPipeline);
+                outputPipeline,
+                partitioned);
         pipelineContexts.add(pipelineContext);
         return pipelineContext;
     }
@@ -166,9 +187,36 @@ public class TaskContext
         DateTime now = DateTime.now();
         executionStartTime.compareAndSet(null, now);
         startNanos.compareAndSet(0, System.nanoTime());
+        startFullGcCount.compareAndSet(-1, gcMonitor.getMajorGcCount());
+        startFullGcTimeNanos.compareAndSet(-1, gcMonitor.getMajorGcTime().roundTo(NANOSECONDS));
 
         // always update last execution start time
         lastExecutionStartTime.set(now);
+    }
+
+    private void updateStatsIfDone(TaskState newState)
+    {
+        if (newState.isDone()) {
+            DateTime now = DateTime.now();
+            long majorGcCount = gcMonitor.getMajorGcCount();
+            long majorGcTime = gcMonitor.getMajorGcTime().roundTo(NANOSECONDS);
+
+            // before setting the end times, make sure a start has been recorded
+            executionStartTime.compareAndSet(null, now);
+            startNanos.compareAndSet(0, System.nanoTime());
+            startFullGcCount.compareAndSet(-1, majorGcCount);
+            startFullGcTimeNanos.compareAndSet(-1, majorGcTime);
+
+            // Only update last start time, if the nothing was started
+            lastExecutionStartTime.compareAndSet(null, now);
+
+            // use compare and set from initial value to avoid overwriting if there
+            // were a duplicate notification, which shouldn't happen
+            executionEndTime.compareAndSet(null, now);
+            endNanos.compareAndSet(0, System.nanoTime());
+            endFullGcCount.compareAndSet(-1, majorGcCount);
+            endFullGcTimeNanos.compareAndSet(-1, majorGcTime);
+        }
     }
 
     public void failed(Throwable cause)
@@ -234,26 +282,14 @@ public class TaskContext
         return taskMemoryContext.localSystemMemoryContext();
     }
 
-    /**
-     * This method is used to create a new LocalMemoryContext that will be used to keep track of the bytes transferred from
-     * the OperatorContext with the OperatorContext::transferMemoryToTaskContext() method.
-     * Creating a new memory context for this purpose simplifies tracking those bytes.
-     * The caller must close this LocalMemoryContext when done.
-     * @return a new LocalMemoryContext to track the bytes transferred from the OperatorContext to TaskContext
-     */
-    public synchronized LocalMemoryContext createNewTransferredBytesMemoryContext()
-    {
-        return taskMemoryContext.newUserMemoryContext();
-    }
-
     public void moreMemoryAvailable()
     {
         pipelineContexts.forEach(PipelineContext::moreMemoryAvailable);
     }
 
-    public boolean isVerboseStats()
+    public boolean isPerOperatorCpuTimerEnabled()
     {
-        return verboseStats;
+        return perOperatorCpuTimerEnabled;
     }
 
     public boolean isCpuTimerEnabled()
@@ -305,16 +341,38 @@ public class TaskContext
         return stat;
     }
 
+    public Duration getFullGcTime()
+    {
+        long startFullGcTimeNanos = this.startFullGcTimeNanos.get();
+        if (startFullGcTimeNanos < 0) {
+            return new Duration(0, MILLISECONDS);
+        }
+
+        long endFullGcTimeNanos = this.endFullGcTimeNanos.get();
+        if (endFullGcTimeNanos < 0) {
+            endFullGcTimeNanos = gcMonitor.getMajorGcTime().roundTo(NANOSECONDS);
+        }
+        return new Duration(max(0, endFullGcTimeNanos - startFullGcTimeNanos), NANOSECONDS);
+    }
+
+    public int getFullGcCount()
+    {
+        long startFullGcCount = this.startFullGcCount.get();
+        if (startFullGcCount < 0) {
+            return 0;
+        }
+
+        long endFullGcCount = this.endFullGcCount.get();
+        if (endFullGcCount <= 0) {
+            endFullGcCount = gcMonitor.getMajorGcCount();
+        }
+        return toIntExact(max(0, endFullGcCount - startFullGcCount));
+    }
+
     public TaskStats getTaskStats()
     {
         // check for end state to avoid callback ordering problems
-        if (taskStateMachine.getState().isDone()) {
-            DateTime now = DateTime.now();
-            if (executionEndTime.compareAndSet(null, now)) {
-                lastExecutionStartTime.compareAndSet(null, now);
-                endNanos.set(System.nanoTime());
-            }
-        }
+        updateStatsIfDone(taskStateMachine.getState());
 
         List<PipelineStats> pipelineStats = ImmutableList.copyOf(transform(pipelineContexts, PipelineContext::getPipelineStats));
 
@@ -330,7 +388,6 @@ public class TaskContext
 
         long totalScheduledTime = 0;
         long totalCpuTime = 0;
-        long totalUserTime = 0;
         long totalBlockedTime = 0;
 
         long rawInputDataSize = 0;
@@ -359,7 +416,6 @@ public class TaskContext
 
             totalScheduledTime += pipeline.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += pipeline.getTotalCpuTime().roundTo(NANOSECONDS);
-            totalUserTime += pipeline.getTotalUserTime().roundTo(NANOSECONDS);
             totalBlockedTime += pipeline.getTotalBlockedTime().roundTo(NANOSECONDS);
 
             if (pipeline.isInputPipeline()) {
@@ -392,6 +448,9 @@ public class TaskContext
         else {
             elapsedTime = new Duration(0, NANOSECONDS);
         }
+
+        int fullGcCount = getFullGcCount();
+        Duration fullGcTime = getFullGcTime();
 
         long userMemory = taskMemoryContext.getUserMemory();
 
@@ -434,7 +493,6 @@ public class TaskContext
                 succinctBytes(taskMemoryContext.getSystemMemory()),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 fullyBlocked && (runningDrivers > 0 || runningPartitionedDrivers > 0),
                 blockedReasons,
@@ -445,6 +503,8 @@ public class TaskContext
                 succinctBytes(outputDataSize),
                 outputPositions,
                 succinctBytes(physicalWrittenDataSize),
+                fullGcCount,
+                fullGcTime,
                 pipelineStats);
     }
 
@@ -464,5 +524,11 @@ public class TaskContext
     public synchronized MemoryTrackingContext getTaskMemoryContext()
     {
         return taskMemoryContext;
+    }
+
+    @VisibleForTesting
+    public QueryContext getQueryContext()
+    {
+        return queryContext;
     }
 }

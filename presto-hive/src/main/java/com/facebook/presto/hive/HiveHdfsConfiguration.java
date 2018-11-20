@@ -21,23 +21,13 @@ import javax.inject.Inject;
 import java.net.URI;
 
 import static com.facebook.presto.hive.util.ConfigurationUtils.copy;
+import static com.facebook.presto.hive.util.ConfigurationUtils.getInitialConfiguration;
 import static java.util.Objects.requireNonNull;
 
 public class HiveHdfsConfiguration
         implements HdfsConfiguration
 {
-    private static final Configuration INITIAL_CONFIGURATION;
-
-    static {
-        Configuration.addDefaultResource("hdfs-default.xml");
-        Configuration.addDefaultResource("hdfs-site.xml");
-
-        // must not be transitively reloaded during the future loading of various Hadoop modules
-        // all the required default resources must be declared above
-        INITIAL_CONFIGURATION = new Configuration(false);
-        Configuration defaultConfiguration = new Configuration();
-        copy(defaultConfiguration, INITIAL_CONFIGURATION);
-    }
+    private static final Configuration INITIAL_CONFIGURATION = getInitialConfiguration();
 
     @SuppressWarnings("ThreadLocalNotStaticFinal")
     private final ThreadLocal<Configuration> hadoopConfiguration = new ThreadLocal<Configuration>()

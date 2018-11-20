@@ -227,7 +227,9 @@ public class TestPruneWindowColumns
                                                 UNBOUNDED_PRECEDING,
                                                 Optional.of(startValue1),
                                                 CURRENT_ROW,
-                                                Optional.of(endValue1))),
+                                                Optional.of(endValue1),
+                                                Optional.of(startValue1.toSymbolReference()),
+                                                Optional.of(endValue2.toSymbolReference()))),
                                 output2,
                                 new WindowNode.Function(
                                         new FunctionCall(QualifiedName.of("min"), ImmutableList.of(input2.toSymbolReference())),
@@ -237,7 +239,9 @@ public class TestPruneWindowColumns
                                                 UNBOUNDED_PRECEDING,
                                                 Optional.of(startValue2),
                                                 CURRENT_ROW,
-                                                Optional.of(endValue2)))),
+                                                Optional.of(endValue2),
+                                                Optional.of(startValue2.toSymbolReference()),
+                                                Optional.of(endValue2.toSymbolReference())))),
                         hash,
                         p.values(
                                 inputs.stream()

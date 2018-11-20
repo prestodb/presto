@@ -74,9 +74,9 @@ import static java.util.Objects.requireNonNull;
 public class PrestoResultSet
         implements ResultSet
 {
-    private static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date();
-    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormat.forPattern("HH:mm:ss.SSS");
-    private static final DateTimeFormatter TIME_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
+    static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date();
+    static final DateTimeFormatter TIME_FORMATTER = DateTimeFormat.forPattern("HH:mm:ss.SSS");
+    static final DateTimeFormatter TIME_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
             .append(DateTimeFormat.forPattern("HH:mm:ss.SSS ZZZ").getPrinter(),
                     new DateTimeParser[] {
                             DateTimeFormat.forPattern("HH:mm:ss.SSS Z").getParser(),
@@ -85,8 +85,8 @@ public class PrestoResultSet
             .toFormatter()
             .withOffsetParsed();
 
-    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
-    private static final DateTimeFormatter TIMESTAMP_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
+    static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
+    static final DateTimeFormatter TIMESTAMP_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
             .append(DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ").getPrinter(),
                     new DateTimeParser[] {
                             DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS Z").getParser(),
@@ -105,8 +105,9 @@ public class PrestoResultSet
     private final AtomicReference<List<Object>> row = new AtomicReference<>();
     private final AtomicBoolean wasNull = new AtomicBoolean();
     private final AtomicBoolean closed = new AtomicBoolean();
+    private final WarningsManager warningsManager;
 
-    PrestoResultSet(StatementClient client, long maxRows, Consumer<QueryStats> progressCallback)
+    PrestoResultSet(StatementClient client, long maxRows, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
             throws SQLException
     {
         this.client = requireNonNull(client, "client is null");
@@ -119,8 +120,9 @@ public class PrestoResultSet
         this.fieldMap = getFieldMap(columns);
         this.columnInfoList = getColumnInfo(columns);
         this.resultSetMetaData = new PrestoResultSetMetaData(columnInfoList);
+        this.warningsManager = requireNonNull(warningsManager, "warningsManager is null");
 
-        this.results = flatten(new ResultsPageIterator(client, progressCallback), maxRows);
+        this.results = flatten(new ResultsPageIterator(client, progressCallback, warningsManager), maxRows);
     }
 
     public String getQueryId()
@@ -482,7 +484,7 @@ public class PrestoResultSet
             throws SQLException
     {
         checkOpen();
-        return null;
+        return warningsManager.getWarnings();
     }
 
     @Override
@@ -490,6 +492,7 @@ public class PrestoResultSet
             throws SQLException
     {
         checkOpen();
+        warningsManager.clearWarnings();
     }
 
     @Override
@@ -1643,6 +1646,11 @@ public class PrestoResultSet
         return iface.isInstance(this);
     }
 
+    void partialCancel()
+    {
+        client.cancelLeafStage();
+    }
+
     private void checkOpen()
             throws SQLException
     {
@@ -1753,26 +1761,52 @@ public class PrestoResultSet
     {
         private final StatementClient client;
         private final Consumer<QueryStats> progressCallback;
+        private final WarningsManager warningsManager;
+        private final boolean isQuery;
 
-        private ResultsPageIterator(StatementClient client, Consumer<QueryStats> progressCallback)
+        private ResultsPageIterator(StatementClient client, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
         {
             this.client = requireNonNull(client, "client is null");
             this.progressCallback = requireNonNull(progressCallback, "progressCallback is null");
+            this.warningsManager = requireNonNull(warningsManager, "warningsManager is null");
+            this.isQuery = isQuery(client);
+        }
+
+        private static boolean isQuery(StatementClient client)
+        {
+            String updateType;
+            if (client.isRunning()) {
+                updateType = client.currentStatusInfo().getUpdateType();
+            }
+            else {
+                updateType = client.finalStatusInfo().getUpdateType();
+            }
+            return updateType == null;
         }
 
         @Override
         protected Iterable<List<Object>> computeNext()
         {
+            if (isQuery) {
+                // Clear the warnings if this is a query, per ResultSet javadoc
+                warningsManager.clearWarnings();
+            }
             while (client.isRunning()) {
-                if (Thread.currentThread().isInterrupted()) {
-                    client.close();
-                    throw new RuntimeException(new SQLException("ResultSet thread was interrupted"));
-                }
+                checkInterruption(null);
 
                 QueryStatusInfo results = client.currentStatusInfo();
                 progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
+                warningsManager.addWarnings(results.getWarnings());
                 Iterable<List<Object>> data = client.currentData().getData();
-                client.advance();
+
+                try {
+                    client.advance();
+                }
+                catch (RuntimeException e) {
+                    checkInterruption(e);
+                    throw e;
+                }
+
                 if (data != null) {
                     return data;
                 }
@@ -1781,12 +1815,20 @@ public class PrestoResultSet
             verify(client.isFinished());
             QueryStatusInfo results = client.finalStatusInfo();
             progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
-
+            warningsManager.addWarnings(results.getWarnings());
             if (results.getError() != null) {
                 throw new RuntimeException(resultsException(results));
             }
 
             return endOfData();
+        }
+
+        private void checkInterruption(Throwable t)
+        {
+            if (Thread.currentThread().isInterrupted()) {
+                client.close();
+                throw new RuntimeException(new SQLException("ResultSet thread was interrupted", t));
+            }
         }
     }
 

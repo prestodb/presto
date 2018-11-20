@@ -19,7 +19,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.UpdatablePageSource;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.EmptySplit;
 import com.facebook.presto.split.EmptySplitPageSource;
 import com.facebook.presto.split.PageSourceProvider;
@@ -49,7 +48,6 @@ public class TableScanOperator
         private final int operatorId;
         private final PlanNodeId sourceId;
         private final PageSourceProvider pageSourceProvider;
-        private final List<Type> types;
         private final List<ColumnHandle> columns;
         private boolean closed;
 
@@ -57,12 +55,10 @@ public class TableScanOperator
                 int operatorId,
                 PlanNodeId sourceId,
                 PageSourceProvider pageSourceProvider,
-                List<Type> types,
                 Iterable<ColumnHandle> columns)
         {
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
-            this.types = requireNonNull(types, "types is null");
             this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         }
@@ -74,12 +70,6 @@ public class TableScanOperator
         }
 
         @Override
-        public List<Type> getTypes()
-        {
-            return types;
-        }
-
-        @Override
         public SourceOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
@@ -88,7 +78,6 @@ public class TableScanOperator
                     operatorContext,
                     sourceId,
                     pageSourceProvider,
-                    types,
                     columns);
         }
 
@@ -102,7 +91,6 @@ public class TableScanOperator
     private final OperatorContext operatorContext;
     private final PlanNodeId planNodeId;
     private final PageSourceProvider pageSourceProvider;
-    private final List<Type> types;
     private final List<ColumnHandle> columns;
     private final LocalMemoryContext systemMemoryContext;
     private final SettableFuture<?> blocked = SettableFuture.create();
@@ -119,15 +107,13 @@ public class TableScanOperator
             OperatorContext operatorContext,
             PlanNodeId planNodeId,
             PageSourceProvider pageSourceProvider,
-            List<Type> types,
             Iterable<ColumnHandle> columns)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-        this.types = requireNonNull(types, "types is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext();
+        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(TableScanOperator.class.getSimpleName());
     }
 
     @Override
@@ -180,12 +166,6 @@ public class TableScanOperator
             finished = true;
         }
         blocked.set(null);
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override
@@ -262,7 +242,7 @@ public class TableScanOperator
         Page page = source.getNextPage();
         if (page != null) {
             // assure the page is in memory before handing to another operator
-            page.assureLoaded();
+            page = page.getLoadedPage();
 
             // update operator stats
             long endCompletedBytes = source.getCompletedBytes();

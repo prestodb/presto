@@ -22,19 +22,17 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
+import java.util.Set;
 
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
-import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -44,7 +42,8 @@ public class AggregationNode
 {
     private final PlanNode source;
     private final Map<Symbol, Aggregation> aggregations;
-    private final List<List<Symbol>> groupingSets;
+    private final GroupingSetDescriptor groupingSets;
+    private final List<Symbol> preGroupedSymbols;
     private final Step step;
     private final Optional<Symbol> hashSymbol;
     private final Optional<Symbol> groupIdSymbol;
@@ -55,7 +54,8 @@ public class AggregationNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("aggregations") Map<Symbol, Aggregation> aggregations,
-            @JsonProperty("groupingSets") List<List<Symbol>> groupingSets,
+            @JsonProperty("groupingSets") GroupingSetDescriptor groupingSets,
+            @JsonProperty("preGroupedSymbols") List<Symbol> preGroupedSymbols,
             @JsonProperty("step") Step step,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
             @JsonProperty("groupIdSymbol") Optional<Symbol> groupIdSymbol)
@@ -64,22 +64,28 @@ public class AggregationNode
 
         this.source = source;
         this.aggregations = ImmutableMap.copyOf(requireNonNull(aggregations, "aggregations is null"));
-        requireNonNull(groupingSets, "groupingSets is null");
-        checkArgument(!groupingSets.isEmpty(), "grouping sets list cannot be empty");
-        this.groupingSets = listOfListsCopy(groupingSets);
 
-        boolean hasOrderBy = aggregations.values().stream()
+        requireNonNull(groupingSets, "groupingSets is null");
+        groupIdSymbol.ifPresent(symbol -> checkArgument(groupingSets.getGroupingKeys().contains(symbol), "Grouping columns does not contain groupId column"));
+        this.groupingSets = groupingSets;
+
+        this.groupIdSymbol = requireNonNull(groupIdSymbol);
+
+        boolean noOrderBy = aggregations.values().stream()
                 .map(Aggregation::getCall)
                 .map(FunctionCall::getOrderBy)
                 .noneMatch(Optional::isPresent);
-        checkArgument(hasOrderBy || step == SINGLE, "ORDER BY does not support distributed aggregation");
+        checkArgument(noOrderBy || step == SINGLE, "ORDER BY does not support distributed aggregation");
 
         this.step = step;
         this.hashSymbol = hashSymbol;
-        this.groupIdSymbol = requireNonNull(groupIdSymbol);
+
+        requireNonNull(preGroupedSymbols, "preGroupedSymbols is null");
+        checkArgument(preGroupedSymbols.isEmpty() || groupingSets.getGroupingKeys().containsAll(preGroupedSymbols), "Pre-grouped symbols must be a subset of the grouping keys");
+        this.preGroupedSymbols = ImmutableList.copyOf(preGroupedSymbols);
 
         ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
-        outputs.addAll(getGroupingKeys());
+        outputs.addAll(groupingSets.getGroupingKeys());
         hashSymbol.ifPresent(outputs::add);
         outputs.addAll(aggregations.keySet());
 
@@ -88,13 +94,13 @@ public class AggregationNode
 
     public List<Symbol> getGroupingKeys()
     {
-        List<Symbol> symbols = new ArrayList<>(groupingSets.stream()
-                .flatMap(Collection::stream)
-                .distinct()
-                .collect(Collectors.toList()));
+        return groupingSets.getGroupingKeys();
+    }
 
-        groupIdSymbol.ifPresent(symbols::add);
-        return symbols;
+    @JsonProperty("groupingSets")
+    public GroupingSetDescriptor getGroupingSets()
+    {
+        return groupingSets;
     }
 
     /**
@@ -112,12 +118,12 @@ public class AggregationNode
 
     public boolean hasEmptyGroupingSet()
     {
-        return groupingSets.stream().anyMatch(List::isEmpty);
+        return !groupingSets.getGlobalGroupingSets().isEmpty();
     }
 
     public boolean hasNonEmptyGroupingSet()
     {
-        return groupingSets.stream().anyMatch(symbols -> !symbols.isEmpty());
+        return groupingSets.getGroupingSetCount() > groupingSets.getGlobalGroupingSets().size();
     }
 
     @Override
@@ -138,10 +144,20 @@ public class AggregationNode
         return aggregations;
     }
 
-    @JsonProperty("groupingSets")
-    public List<List<Symbol>> getGroupingSets()
+    @JsonProperty("preGroupedSymbols")
+    public List<Symbol> getPreGroupedSymbols()
     {
-        return groupingSets;
+        return preGroupedSymbols;
+    }
+
+    public int getGroupingSetCount()
+    {
+        return groupingSets.getGroupingSetCount();
+    }
+
+    public Set<Integer> getGlobalGroupingSets()
+    {
+        return groupingSets.getGlobalGroupingSets();
     }
 
     @JsonProperty("source")
@@ -185,16 +201,112 @@ public class AggregationNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), aggregations, groupingSets, step, hashSymbol, groupIdSymbol);
+        return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), aggregations, groupingSets, preGroupedSymbols, step, hashSymbol, groupIdSymbol);
     }
 
     public boolean isDecomposable(FunctionRegistry functionRegistry)
     {
-        return (getAggregations().entrySet().stream()
-                .map(entry -> functionRegistry.getAggregateFunctionImplementation(entry.getValue().getSignature()))
-                .allMatch(InternalAggregationFunction::isDecomposable)) &&
-                getAggregations().entrySet().stream()
-                        .allMatch(entry -> !entry.getValue().getCall().getOrderBy().isPresent());
+        boolean hasOrderBy = getAggregations().values().stream()
+                .map(Aggregation::getCall)
+                .map(FunctionCall::getOrderBy)
+                .anyMatch(Optional::isPresent);
+
+        boolean hasDistinct = getAggregations().values().stream()
+                .map(Aggregation::getCall)
+                .anyMatch(FunctionCall::isDistinct);
+
+        boolean decomposableFunctions = getAggregations().values().stream()
+                .map(Aggregation::getSignature)
+                .map(functionRegistry::getAggregateFunctionImplementation)
+                .allMatch(InternalAggregationFunction::isDecomposable);
+
+        return !hasOrderBy && !hasDistinct && decomposableFunctions;
+    }
+
+    public boolean hasSingleNodeExecutionPreference(FunctionRegistry functionRegistry)
+    {
+        // There are two kinds of aggregations the have single node execution preference:
+        //
+        // 1. aggregations with only empty grouping sets like
+        //
+        // SELECT count(*) FROM lineitem;
+        //
+        // there is no need for distributed aggregation. Single node FINAL aggregation will suffice,
+        // since all input have to be aggregated into one line output.
+        //
+        // 2. aggregations that must produce default output and are not decomposable, we can not distribute them.
+        return (hasEmptyGroupingSet() && !hasNonEmptyGroupingSet()) || (hasDefaultOutput() && !isDecomposable(functionRegistry));
+    }
+
+    public boolean isStreamable()
+    {
+        return !preGroupedSymbols.isEmpty() && groupingSets.getGroupingSetCount() == 1 && groupingSets.getGlobalGroupingSets().isEmpty();
+    }
+
+    public static GroupingSetDescriptor globalAggregation()
+    {
+        return singleGroupingSet(ImmutableList.of());
+    }
+
+    public static GroupingSetDescriptor singleGroupingSet(List<Symbol> groupingKeys)
+    {
+        Set<Integer> globalGroupingSets;
+        if (groupingKeys.isEmpty()) {
+            globalGroupingSets = ImmutableSet.of(0);
+        }
+        else {
+            globalGroupingSets = ImmutableSet.of();
+        }
+
+        return new GroupingSetDescriptor(groupingKeys, 1, globalGroupingSets);
+    }
+
+    public static GroupingSetDescriptor groupingSets(List<Symbol> groupingKeys, int groupingSetCount, Set<Integer> globalGroupingSets)
+    {
+        return new GroupingSetDescriptor(groupingKeys, groupingSetCount, globalGroupingSets);
+    }
+
+    public static class GroupingSetDescriptor
+    {
+        private final List<Symbol> groupingKeys;
+        private final int groupingSetCount;
+        private final Set<Integer> globalGroupingSets;
+
+        @JsonCreator
+        public GroupingSetDescriptor(
+                @JsonProperty("groupingKeys") List<Symbol> groupingKeys,
+                @JsonProperty("groupingSetCount") int groupingSetCount,
+                @JsonProperty("globalGroupingSets") Set<Integer> globalGroupingSets)
+        {
+            requireNonNull(globalGroupingSets, "globalGroupingSets is null");
+            checkArgument(globalGroupingSets.size() <= groupingSetCount, "list of empty global grouping sets must be no larger than grouping set count");
+            requireNonNull(groupingKeys, "groupingKeys is null");
+            if (groupingKeys.isEmpty()) {
+                checkArgument(!globalGroupingSets.isEmpty(), "no grouping keys implies at least one global grouping set, but none provided");
+            }
+
+            this.groupingKeys = ImmutableList.copyOf(groupingKeys);
+            this.groupingSetCount = groupingSetCount;
+            this.globalGroupingSets = ImmutableSet.copyOf(globalGroupingSets);
+        }
+
+        @JsonProperty
+        public List<Symbol> getGroupingKeys()
+        {
+            return groupingKeys;
+        }
+
+        @JsonProperty
+        public int getGroupingSetCount()
+        {
+            return groupingSetCount;
+        }
+
+        @JsonProperty
+        public Set<Integer> getGlobalGroupingSets()
+        {
+            return globalGroupingSets;
+        }
     }
 
     public enum Step
@@ -256,9 +368,9 @@ public class AggregationNode
                 @JsonProperty("signature") Signature signature,
                 @JsonProperty("mask") Optional<Symbol> mask)
         {
-            this.call = call;
-            this.signature = signature;
-            this.mask = mask;
+            this.call = requireNonNull(call, "call is null");
+            this.signature = requireNonNull(signature, "signature is null");
+            this.mask = requireNonNull(mask, "mask is null");
         }
 
         @JsonProperty

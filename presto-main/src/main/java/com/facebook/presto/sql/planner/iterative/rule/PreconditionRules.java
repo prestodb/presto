@@ -28,26 +28,36 @@ public final class PreconditionRules
 
     public static Rule<ExchangeNode> checkRulesAreFiredBeforeAddExchangesRule()
     {
-        return checkPlanDoNotMatch(exchange(), "Expected rules to be fired before 'AddExchanges' optimizer");
+        return checkNoPlanNodeMatches(exchange(), "Expected rules to be fired before 'AddExchanges' optimizer");
     }
 
-    public static <T extends PlanNode> Rule<T> checkPlanDoNotMatch(Pattern<T> pattern, String message)
+    private static <T extends PlanNode> Rule<T> checkNoPlanNodeMatches(Pattern<T> pattern, String message)
     {
-        requireNonNull(pattern, "pattern is null");
-        requireNonNull(message, "message is null");
+        return new CheckNoPlanNodeMatchesRule<>(pattern, message);
+    }
 
-        return new Rule<T>() {
-            @Override
-            public Pattern<T> getPattern()
-            {
-                return pattern;
-            }
+    private static class CheckNoPlanNodeMatchesRule<T extends PlanNode>
+            implements Rule<T>
+    {
+        private final Pattern<T> pattern;
+        private final String message;
 
-            @Override
-            public Result apply(T node, Captures captures, Context context)
-            {
-                throw new IllegalStateException(message);
-            }
-        };
+        public CheckNoPlanNodeMatchesRule(Pattern<T> pattern, String message)
+        {
+            this.pattern = requireNonNull(pattern, "pattern is null");
+            this.message = requireNonNull(message, "message is null");
+        }
+
+        @Override
+        public Pattern<T> getPattern()
+        {
+            return pattern;
+        }
+
+        @Override
+        public Result apply(T node, Captures captures, Context context)
+        {
+            throw new IllegalStateException(message);
+        }
     }
 }

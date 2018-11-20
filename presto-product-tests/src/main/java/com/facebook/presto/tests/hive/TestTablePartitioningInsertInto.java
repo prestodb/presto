@@ -19,9 +19,8 @@ import io.prestodb.tempto.configuration.Configuration;
 import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.SMOKE;
-import static com.facebook.presto.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_REGIONKEY;
+import static com.facebook.presto.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
 import static com.facebook.presto.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT;
 import static io.prestodb.tempto.Requirements.compose;
 import static io.prestodb.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
@@ -41,11 +40,11 @@ public class TestTablePartitioningInsertInto
     public Requirement getRequirements(Configuration configuration)
     {
         return compose(
-                mutableTable(NATION_PARTITIONED_BY_REGIONKEY),
+                mutableTable(NATION_PARTITIONED_BY_BIGINT_REGIONKEY),
                 mutableTable(NATION, TARGET_NATION_NAME, CREATED));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, SMOKE})
+    @Test(groups = {SMOKE})
     public void selectFromPartitionedNation()
             throws Exception
     {
@@ -70,7 +69,7 @@ public class TestTablePartitioningInsertInto
     private void testQuerySplitsNumber(String condition, int expectedProcessedSplits)
             throws Exception
     {
-        String partitionedNation = mutableTablesState().get(NATION_PARTITIONED_BY_REGIONKEY.getTableHandle()).getNameInDatabase();
+        String partitionedNation = mutableTablesState().get(NATION_PARTITIONED_BY_BIGINT_REGIONKEY.getTableHandle()).getNameInDatabase();
         String targetNation = mutableTablesState().get(TARGET_NATION_NAME).getNameInDatabase();
         String query = String.format(
                 "INSERT INTO %s SELECT p_nationkey, p_name, p_regionkey, p_comment FROM %s WHERE %s",

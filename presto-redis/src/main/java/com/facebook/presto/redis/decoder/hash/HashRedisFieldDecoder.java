@@ -14,45 +14,15 @@
 package com.facebook.presto.redis.decoder.hash;
 
 import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldDecoder;
 import com.facebook.presto.decoder.FieldValueProvider;
-import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slice;
-
-import java.util.Set;
-
-import static java.lang.String.format;
+import com.facebook.presto.redis.RedisFieldDecoder;
 
 public class HashRedisFieldDecoder
-        implements FieldDecoder<String>
+        implements RedisFieldDecoder<String>
 {
-    @Override
-    public Set<Class<?>> getJavaTypes()
-    {
-        return ImmutableSet.of(boolean.class, long.class, double.class, Slice.class);
-    }
-
-    @Override
-    public String getRowDecoderName()
-    {
-        return HashRedisRowDecoder.NAME;
-    }
-
-    @Override
-    public String getFieldDecoderName()
-    {
-        return FieldDecoder.DEFAULT_FIELD_DECODER_NAME;
-    }
-
     @Override
     public FieldValueProvider decode(String value, DecoderColumnHandle columnHandle)
     {
         return new HashRedisValueProvider(columnHandle, value);
-    }
-
-    @Override
-    public String toString()
-    {
-        return format("FieldDecoder[%s/%s]", getRowDecoderName(), getFieldDecoderName());
     }
 }

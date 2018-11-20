@@ -29,8 +29,7 @@ public class TestArrayBlockBuilder
     @Test
     public void testArrayBlockIsFull()
     {
-        testIsFull(new PageBuilderStatus(THREE_INTS_ENTRY_SIZE * EXPECTED_ENTRY_COUNT, 10240));
-        testIsFull(new PageBuilderStatus(10240, THREE_INTS_ENTRY_SIZE * EXPECTED_ENTRY_COUNT));
+        testIsFull(new PageBuilderStatus(THREE_INTS_ENTRY_SIZE * EXPECTED_ENTRY_COUNT));
     }
 
     private void testIsFull(PageBuilderStatus pageBuilderStatus)
@@ -53,7 +52,7 @@ public class TestArrayBlockBuilder
     public void testRetainedSizeInBytes()
     {
         int expectedEntries = 1000;
-        BlockBuilder arrayBlockBuilder = new ArrayBlockBuilder(BIGINT, new BlockBuilderStatus(), expectedEntries);
+        BlockBuilder arrayBlockBuilder = new ArrayBlockBuilder(BIGINT, null, expectedEntries);
         long initialRetainedSize = arrayBlockBuilder.getRetainedSizeInBytes();
         for (int i = 0; i < expectedEntries; i++) {
             BlockBuilder arrayElementBuilder = arrayBlockBuilder.beginBlockEntry();
@@ -66,9 +65,9 @@ public class TestArrayBlockBuilder
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Expected current entry to be closed but was opened")
     public void testConcurrentWriting()
     {
-        BlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, new BlockBuilderStatus(), EXPECTED_ENTRY_COUNT);
+        BlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, null, EXPECTED_ENTRY_COUNT);
         BlockBuilder elementBlockWriter = blockBuilder.beginBlockEntry();
         elementBlockWriter.writeLong(45).closeEntry();
-        blockBuilder.writeObject(new FixedWidthBlockBuilder(8, 4).writeLong(123).closeEntry().build()).closeEntry();
+        blockBuilder.appendStructure(new FixedWidthBlockBuilder(8, 4).writeLong(123).closeEntry().build());
     }
 }

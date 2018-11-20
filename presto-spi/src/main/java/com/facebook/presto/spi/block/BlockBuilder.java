@@ -59,14 +59,6 @@ public interface BlockBuilder
     }
 
     /**
-     * Write an object to the current entry;
-     */
-    default BlockBuilder writeObject(Object value)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
      * Return a writer to the current entry. The caller can operate on the returned caller to incrementally build the object. This is generally more efficient than
      * building the object elsewhere and call writeObject afterwards because a large chunk of memory could potentially be unnecessarily copied in this process.
      */
@@ -93,6 +85,23 @@ public interface BlockBuilder
      * Appends a null value to the block.
      */
     BlockBuilder appendNull();
+
+    /**
+     * Append a struct to the block and close the entry.
+     */
+    default BlockBuilder appendStructure(Block value)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
+
+    /**
+     * Do not use this interface outside block package.
+     * Instead, use Block.writePositionTo(BlockBuilder, position)
+     */
+    default BlockBuilder appendStructureInternal(Block block, int position)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
 
     /**
      * Builds the block. This method can be called multiple times.

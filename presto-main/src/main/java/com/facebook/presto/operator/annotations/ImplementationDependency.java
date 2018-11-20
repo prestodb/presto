@@ -15,6 +15,8 @@ package com.facebook.presto.operator.annotations;
 
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.spi.InvocationConvention;
+import com.facebook.presto.spi.function.Convention;
 import com.facebook.presto.spi.function.FunctionDependency;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.TypeParameter;
@@ -25,8 +27,11 @@ import com.facebook.presto.type.LiteralParameter;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -96,26 +101,39 @@ public interface ImplementationDependency
             if (annotation instanceof LiteralParameter) {
                 return new LiteralImplementationDependency(((LiteralParameter) annotation).value());
             }
+
             if (annotation instanceof FunctionDependency) {
-                FunctionDependency function = (FunctionDependency) annotation;
+                FunctionDependency functionDependency = (FunctionDependency) annotation;
                 return new FunctionImplementationDependency(
-                        function.name(),
-                        parseTypeSignature(function.returnType(), literalParameters),
-                        Arrays.stream(function.argumentTypes())
+                        functionDependency.name(),
+                        parseTypeSignature(functionDependency.returnType(), literalParameters),
+                        Arrays.stream(functionDependency.argumentTypes())
                                 .map(signature -> parseTypeSignature(signature, literalParameters))
-                                .collect(toImmutableList()));
+                                .collect(toImmutableList()),
+                        toInvocationConvention(functionDependency.convention()));
             }
             if (annotation instanceof OperatorDependency) {
-                OperatorDependency operator = (OperatorDependency) annotation;
+                OperatorDependency operatorDependency = (OperatorDependency) annotation;
                 return new OperatorImplementationDependency(
-                        operator.operator(),
-                        parseTypeSignature(operator.returnType(), literalParameters),
-                        Arrays.stream(operator.argumentTypes())
+                        operatorDependency.operator(),
+                        parseTypeSignature(operatorDependency.returnType(), literalParameters),
+                        Arrays.stream(operatorDependency.argumentTypes())
                                 .map(signature -> parseTypeSignature(signature, literalParameters))
-                                .collect(toImmutableList()));
+                                .collect(toImmutableList()),
+                        toInvocationConvention(operatorDependency.convention()));
             }
 
             throw new IllegalArgumentException("Unsupported annotation " + annotation.getClass().getSimpleName());
+        }
+
+        private static Optional<InvocationConvention> toInvocationConvention(Convention convention)
+        {
+            if (convention.$notSpecified()) {
+                return Optional.empty();
+            }
+            List<InvocationConvention.InvocationArgumentConvention> argumentConventions = new ArrayList<>();
+            Collections.addAll(argumentConventions, convention.arguments());
+            return Optional.of(new InvocationConvention(argumentConventions, convention.result(), convention.session()));
         }
     }
 }

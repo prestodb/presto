@@ -20,8 +20,6 @@ import com.facebook.presto.spi.PageIndexer;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.IntArrayBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -34,9 +32,6 @@ import io.airlift.concurrent.MoreFutures;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import it.unimi.dsi.fastutil.ints.IntArraySet;
-import it.unimi.dsi.fastutil.ints.IntIterator;
-import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 
@@ -54,11 +49,10 @@ import java.util.concurrent.Executors;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
-import static io.airlift.slice.SizeOf.sizeOf;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -86,12 +80,12 @@ public class HivePageSink
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
 
     private final List<HiveWriter> writers = new ArrayList<>();
-    private final List<WriterPositions> writerPositions = new ArrayList<>();
 
     private final ConnectorSession session;
 
     private long writtenBytes;
     private long systemMemoryUsage;
+    private long validationCpuNanos;
 
     public HivePageSink(
             HiveWriterFactory writerFactory,
@@ -175,6 +169,12 @@ public class HivePageSink
     }
 
     @Override
+    public long getValidationCpuNanos()
+    {
+        return validationCpuNanos;
+    }
+
+    @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
         // Must be wrapped in doAs entirely
@@ -200,6 +200,9 @@ public class HivePageSink
         writtenBytes = writers.stream()
                 .mapToLong(HiveWriter::getWrittenBytes)
                 .sum();
+        validationCpuNanos = writers.stream()
+                .mapToLong(HiveWriter::getValidationCpuNanos)
+                .sum();
 
         if (verificationTasks.isEmpty()) {
             return Futures.immediateFuture(result);
@@ -209,7 +212,7 @@ public class HivePageSink
             List<ListenableFuture<?>> futures = writeVerificationExecutor.invokeAll(verificationTasks).stream()
                     .map(future -> (ListenableFuture<?>) future)
                     .collect(toList());
-            return Futures.transform(Futures.allAsList(futures), input -> result);
+            return Futures.transform(Futures.allAsList(futures), input -> result, directExecutor());
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -272,33 +275,43 @@ public class HivePageSink
     {
         int[] writerIndexes = getWriterIndexes(page);
 
+        // position count for each writer
+        int[] sizes = new int[writers.size()];
+        for (int index : writerIndexes) {
+            sizes[index]++;
+        }
+
         // record which positions are used by which writer
+        int[][] writerPositions = new int[writers.size()][];
+        int[] counts = new int[writers.size()];
+
         for (int position = 0; position < page.getPositionCount(); position++) {
-            int writerIndex = writerIndexes[position];
-            writerPositions.get(writerIndex).add(position);
+            int index = writerIndexes[position];
+
+            int count = counts[index];
+            if (count == 0) {
+                writerPositions[index] = new int[sizes[index]];
+            }
+            writerPositions[index][count] = position;
+            counts[index] = count + 1;
         }
 
         // invoke the writers
         Page dataPage = getDataPage(page);
-        IntSet writersUsed = new IntArraySet(writerIndexes);
-        for (IntIterator iterator = writersUsed.iterator(); iterator.hasNext(); ) {
-            int writerIndex = iterator.nextInt();
-            WriterPositions currentWriterPositions = writerPositions.get(writerIndex);
-            if (currentWriterPositions.isEmpty()) {
+        for (int index = 0; index < writerPositions.length; index++) {
+            int[] positions = writerPositions[index];
+            if (positions == null) {
                 continue;
             }
 
             // If write is partitioned across multiple writers, filter page using dictionary blocks
             Page pageForWriter = dataPage;
-            if (currentWriterPositions.size() != dataPage.getPositionCount()) {
-                Block[] blocks = new Block[dataPage.getChannelCount()];
-                for (int channel = 0; channel < dataPage.getChannelCount(); channel++) {
-                    blocks[channel] = new DictionaryBlock(currentWriterPositions.size(), dataPage.getBlock(channel), currentWriterPositions.getPositionsArray());
-                }
-                pageForWriter = new Page(currentWriterPositions.size(), blocks);
+            if (positions.length != dataPage.getPositionCount()) {
+                verify(positions.length == counts[index]);
+                pageForWriter = pageForWriter.getPositions(positions, 0, positions.length);
             }
 
-            HiveWriter writer = writers.get(writerIndex);
+            HiveWriter writer = writers.get(index);
 
             long currentWritten = writer.getWrittenBytes();
             long currentMemory = writer.getSystemMemoryUsage();
@@ -307,8 +320,6 @@ public class HivePageSink
 
             writtenBytes += (writer.getWrittenBytes() - currentWritten);
             systemMemoryUsage += (writer.getSystemMemoryUsage() - currentMemory);
-
-            currentWriterPositions.clear();
         }
     }
 
@@ -318,15 +329,12 @@ public class HivePageSink
         Block bucketBlock = buildBucketBlock(page);
         int[] writerIndexes = pagePartitioner.partitionPage(partitionColumns, bucketBlock);
         if (pagePartitioner.getMaxIndex() >= maxOpenWriters) {
-            throw new PrestoException(HIVE_TOO_MANY_OPEN_PARTITIONS, "Too many open partitions");
+            throw new PrestoException(HIVE_TOO_MANY_OPEN_PARTITIONS, format("Exceeded limit of %s open writers for partitions/buckets", maxOpenWriters));
         }
 
         // expand writers list to new size
         while (writers.size() <= pagePartitioner.getMaxIndex()) {
             writers.add(null);
-            WriterPositions newWriterPositions = new WriterPositions();
-            systemMemoryUsage += sizeOf(newWriterPositions.getPositionsArray());
-            writerPositions.add(newWriterPositions);
         }
 
         // create missing writers
@@ -365,7 +373,7 @@ public class HivePageSink
             return null;
         }
 
-        IntArrayBlockBuilder bucketColumnBuilder = new IntArrayBlockBuilder(new BlockBuilderStatus(), page.getPositionCount());
+        IntArrayBlockBuilder bucketColumnBuilder = new IntArrayBlockBuilder(null, page.getPositionCount());
         Page bucketColumnsPage = extractColumns(page, bucketColumns);
         for (int position = 0; position < page.getPositionCount(); position++) {
             int bucket = bucketFunction.getBucket(bucketColumnsPage, position);
@@ -425,47 +433,6 @@ public class HivePageSink
         public int getMaxIndex()
         {
             return pageIndexer.getMaxIndex();
-        }
-    }
-
-    private static final class WriterPositions
-    {
-        private final int[] positions = new int[MAX_PAGE_POSITIONS];
-        private int size;
-
-        public boolean isEmpty()
-        {
-            return size == 0;
-        }
-
-        public int size()
-        {
-            return size;
-        }
-
-        public int[] getPositionsArray()
-        {
-            return positions;
-        }
-
-        public void add(int position)
-        {
-            checkArgument(size < positions.length, "Too many page positions");
-            positions[size] = position;
-            size++;
-        }
-
-        public void clear()
-        {
-            size = 0;
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("size", size)
-                    .toString();
         }
     }
 }

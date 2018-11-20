@@ -21,7 +21,6 @@ import com.facebook.presto.verifier.Validator.ChangedRow.Changed;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMultiset;
@@ -48,7 +47,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -62,6 +61,8 @@ import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class Validator
 {
@@ -405,6 +406,9 @@ public class Validator
 
     private QueryResult executeQuery(String url, String username, String password, Query query, String sql, Duration timeout, Map<String, String> sessionProperties)
     {
+        ExecutorService executor = newSingleThreadExecutor();
+        TimeLimiter limiter = SimpleTimeLimiter.create(executor);
+
         String queryId = null;
         try (Connection connection = DriverManager.getConnection(url, username, password)) {
             trySetConnectionProperties(query, connection);
@@ -413,56 +417,39 @@ public class Validator
             }
 
             try (Statement statement = connection.createStatement()) {
-                TimeLimiter limiter = new SimpleTimeLimiter();
                 Stopwatch stopwatch = Stopwatch.createStarted();
-                Statement limitedStatement = limiter.newProxy(statement, Statement.class, timeout.toMillis(), TimeUnit.MILLISECONDS);
+                Statement limitedStatement = limiter.newProxy(statement, Statement.class, timeout.toMillis(), MILLISECONDS);
                 if (explainOnly) {
                     sql = "EXPLAIN " + sql;
                 }
+
                 long start = System.nanoTime();
                 PrestoStatement prestoStatement = limitedStatement.unwrap(PrestoStatement.class);
                 ProgressMonitor progressMonitor = new ProgressMonitor();
                 prestoStatement.setProgressMonitor(progressMonitor);
-                try {
-                    boolean isSelectQuery = limitedStatement.execute(sql);
-                    List<List<Object>> results = null;
-                    if (isSelectQuery) {
-                        results = limiter.callWithTimeout(
-                                getResultSetConverter(limitedStatement.getResultSet()),
-                                timeout.toMillis() - stopwatch.elapsed(TimeUnit.MILLISECONDS),
-                                TimeUnit.MILLISECONDS, true);
-                    }
-                    else {
-                        results = ImmutableList.of(ImmutableList.of(limitedStatement.getLargeUpdateCount()));
-                    }
-                    prestoStatement.clearProgressMonitor();
-                    QueryStats queryStats = progressMonitor.getFinalQueryStats();
-                    if (queryStats == null) {
-                        throw new VerifierException("Cannot fetch query stats");
-                    }
-                    Duration queryCpuTime = new Duration(queryStats.getCpuTimeMillis(), TimeUnit.MILLISECONDS);
-                    queryId = queryStats.getQueryId();
-                    return new QueryResult(State.SUCCESS, null, nanosSince(start), queryCpuTime, queryId, results);
+                boolean isSelectQuery = limitedStatement.execute(sql);
+
+                List<List<Object>> results;
+                if (isSelectQuery) {
+                    ResultSetConverter converter = limiter.newProxy(
+                            this::convertJdbcResultSet,
+                            ResultSetConverter.class,
+                            timeout.toMillis() - stopwatch.elapsed(MILLISECONDS),
+                            MILLISECONDS);
+                    results = converter.convert(limitedStatement.getResultSet());
                 }
-                catch (AssertionError e) {
-                    if (e.getMessage().startsWith("unimplemented type:")) {
-                        return new QueryResult(State.INVALID, null, null, null, queryId, ImmutableList.of());
-                    }
-                    throw e;
+                else {
+                    results = ImmutableList.of(ImmutableList.of(limitedStatement.getLargeUpdateCount()));
                 }
-                catch (SQLException | VerifierException e) {
-                    throw e;
+
+                prestoStatement.clearProgressMonitor();
+                QueryStats queryStats = progressMonitor.getFinalQueryStats();
+                if (queryStats == null) {
+                    throw new VerifierException("Cannot fetch query stats");
                 }
-                catch (UncheckedTimeoutException e) {
-                    return new QueryResult(State.TIMEOUT, null, null, null, queryId, ImmutableList.of());
-                }
-                catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new RuntimeException(e);
-                }
-                catch (Exception e) {
-                    throw Throwables.propagate(e);
-                }
+                Duration queryCpuTime = new Duration(queryStats.getCpuTimeMillis(), MILLISECONDS);
+                queryId = queryStats.getQueryId();
+                return new QueryResult(State.SUCCESS, null, nanosSince(start), queryCpuTime, queryId, results);
             }
         }
         catch (SQLException e) {
@@ -472,10 +459,16 @@ public class Validator
                 exception = (Exception) e.getCause();
             }
             State state = isPrestoQueryInvalid(e) ? State.INVALID : State.FAILED;
-            return new QueryResult(state, exception, null, null, null, null);
+            return new QueryResult(state, exception, null, null, queryId, ImmutableList.of());
         }
         catch (VerifierException e) {
-            return new QueryResult(State.TOO_MANY_ROWS, e, null, null, null, null);
+            return new QueryResult(State.TOO_MANY_ROWS, e, null, null, queryId, ImmutableList.of());
+        }
+        catch (UncheckedTimeoutException e) {
+            return new QueryResult(State.TIMEOUT, e, null, null, queryId, ImmutableList.of());
+        }
+        finally {
+            executor.shutdownNow();
         }
     }
 
@@ -492,11 +485,6 @@ public class Validator
         catch (SQLClientInfoException ignored) {
             // Do nothing
         }
-    }
-
-    private Callable<List<List<Object>>> getResultSetConverter(ResultSet resultSet)
-    {
-        return () -> convertJdbcResultSet(resultSet);
     }
 
     private static boolean isPrestoQueryInvalid(SQLException e)
@@ -803,5 +791,11 @@ public class Validator
             finished = true;
             return queryStats;
         }
+    }
+
+    public interface ResultSetConverter
+    {
+        List<List<Object>> convert(ResultSet resultSet)
+                throws SQLException, VerifierException;
     }
 }

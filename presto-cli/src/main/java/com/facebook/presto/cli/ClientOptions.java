@@ -14,6 +14,8 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.client.ClientSession;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -23,7 +25,6 @@ import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.CharsetEncoder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -36,7 +37,6 @@ import java.util.TimeZone;
 import static com.facebook.presto.client.KerberosUtil.defaultCredentialCachePath;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
-import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -44,11 +44,11 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class ClientOptions
 {
+    private static final Splitter NAME_VALUE_SPLITTER = Splitter.on('=').limit(2);
+    private static final CharMatcher PRINTABLE_ASCII = CharMatcher.inRange((char) 0x21, (char) 0x7E); // spaces are not allowed
+
     @Option(name = "--server", title = "server", description = "Presto server location (default: localhost:8080)")
     public String server = "localhost:8080";
-
-    @Option(name = "--enable-authentication", title = "enable authentication", description = "Enable client authentication")
-    public boolean authenticationEnabled;
 
     @Option(name = "--krb5-remote-service-name", title = "krb5 remote service name", description = "Remote peer's kerberos service name")
     public String krb5RemoteServiceName;
@@ -79,6 +79,9 @@ public class ClientOptions
 
     @Option(name = "--truststore-password", title = "truststore password", description = "Truststore password")
     public String truststorePassword;
+
+    @Option(name = "--access-token", title = "access token", description = "Access token")
+    public String accessToken;
 
     @Option(name = "--user", title = "user", description = "Username")
     public String user = System.getProperty("user.name");
@@ -116,6 +119,9 @@ public class ClientOptions
     @Option(name = "--output-format", title = "output-format", description = "Output format for batch mode [ALIGNED, VERTICAL, CSV, TSV, CSV_HEADER, TSV_HEADER, NULL] (default: CSV)")
     public OutputFormat outputFormat = OutputFormat.CSV;
 
+    @Option(name = "--resource-estimate", title = "resource-estimate", description = "Resource estimate (property can be used multiple times; format is key=value)")
+    public final List<ClientResourceEstimate> resourceEstimates = new ArrayList<>();
+
     @Option(name = "--session", title = "session", description = "Session property (property can be used multiple times; format is key=value; use 'SHOW SESSION' to see available properties)")
     public final List<ClientSessionProperty> sessionProperties = new ArrayList<>();
 
@@ -148,12 +154,15 @@ public class ClientOptions
                 parseServer(server),
                 user,
                 source,
+                Optional.empty(),
                 parseClientTags(clientTags),
                 clientInfo,
                 catalog,
                 schema,
+                null,
                 TimeZone.getDefault().getID(),
                 Locale.getDefault(),
+                toResourceEstimates(resourceEstimates),
                 toProperties(sessionProperties),
                 emptyMap(),
                 null,
@@ -195,9 +204,80 @@ public class ClientOptions
         return builder.build();
     }
 
+    public static Map<String, String> toResourceEstimates(List<ClientResourceEstimate> estimates)
+    {
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        for (ClientResourceEstimate estimate : estimates) {
+            builder.put(estimate.getResource(), estimate.getEstimate());
+        }
+        return builder.build();
+    }
+
+    public static final class ClientResourceEstimate
+    {
+        private final String resource;
+        private final String estimate;
+
+        public ClientResourceEstimate(String resourceEstimate)
+        {
+            List<String> nameValue = NAME_VALUE_SPLITTER.splitToList(resourceEstimate);
+            checkArgument(nameValue.size() == 2, "Resource estimate: %s", resourceEstimate);
+
+            this.resource = nameValue.get(0);
+            this.estimate = nameValue.get(1);
+            checkArgument(!resource.isEmpty(), "Resource name is empty");
+            checkArgument(!estimate.isEmpty(), "Resource estimate is empty");
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(resource), "Resource contains spaces or is not US_ASCII: %s", resource);
+            checkArgument(resource.indexOf('=') < 0, "Resource must not contain '=': %s", resource);
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(estimate), "Resource estimate contains spaces or is not US_ASCII: %s", resource);
+        }
+
+        @VisibleForTesting
+        public ClientResourceEstimate(String resource, String estimate)
+        {
+            this.resource = requireNonNull(resource, "resource is null");
+            this.estimate = estimate;
+        }
+
+        public String getResource()
+        {
+            return resource;
+        }
+
+        public String getEstimate()
+        {
+            return estimate;
+        }
+
+        @Override
+        public String toString()
+        {
+            return resource + '=' + estimate;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ClientResourceEstimate other = (ClientResourceEstimate) o;
+            return Objects.equals(resource, other.resource) &&
+                    Objects.equals(estimate, other.estimate);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(resource, estimate);
+        }
+    }
+
     public static final class ClientSessionProperty
     {
-        private static final Splitter NAME_VALUE_SPLITTER = Splitter.on('=').limit(2);
         private static final Splitter NAME_SPLITTER = Splitter.on('.');
         private final Optional<String> catalog;
         private final String name;
@@ -236,13 +316,11 @@ public class ClientOptions
         {
             checkArgument(!catalog.isPresent() || !catalog.get().isEmpty(), "Invalid session property: %s.%s:%s", catalog, name, value);
             checkArgument(!name.isEmpty(), "Session property name is empty");
-
-            CharsetEncoder charsetEncoder = US_ASCII.newEncoder();
             checkArgument(catalog.orElse("").indexOf('=') < 0, "Session property catalog must not contain '=': %s", name);
-            checkArgument(charsetEncoder.canEncode(catalog.orElse("")), "Session property catalog is not US_ASCII: %s", name);
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(catalog.orElse("")), "Session property catalog contains spaces or is not US_ASCII: %s", name);
             checkArgument(name.indexOf('=') < 0, "Session property name must not contain '=': %s", name);
-            checkArgument(charsetEncoder.canEncode(name), "Session property name is not US_ASCII: %s", name);
-            checkArgument(charsetEncoder.canEncode(value), "Session property value is not US_ASCII: %s", value);
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(name), "Session property name contains spaces or is not US_ASCII: %s", name);
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(value), "Session property value contains spaces or is not US_ASCII: %s", value);
         }
 
         public Optional<String> getCatalog()

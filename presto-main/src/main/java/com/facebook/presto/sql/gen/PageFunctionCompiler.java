@@ -31,7 +31,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.facebook.presto.sql.planner.CompilerConfig;
-import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.DeterminismEvaluator;
 import com.facebook.presto.sql.relational.Expressions;
@@ -39,7 +38,6 @@ import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.google.common.base.VerifyException;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -64,6 +62,7 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
@@ -74,7 +73,7 @@ import static com.facebook.presto.operator.project.PageFieldsToInputParametersRe
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
-import static com.facebook.presto.sql.gen.LambdaAndTryExpressionExtractor.extractLambdaAndTryExpressions;
+import static com.facebook.presto.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
 import static com.facebook.presto.util.CompilerUtils.defineClass;
 import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.facebook.presto.util.Reflection.constructorMethodHandle;
@@ -95,9 +94,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
 import static io.airlift.bytecode.expression.BytecodeExpressions.not;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.HOURS;
 
 public class PageFunctionCompiler
 {
@@ -121,15 +118,10 @@ public class PageFunctionCompiler
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.determinismEvaluator = new DeterminismEvaluator(metadata.getFunctionRegistry());
 
-        // We have observed deoptimization storms that lead to slowness.
-        // We suspect that it is a JVM bug that is related to stale/corrupted profiling data associated
-        // with generated classes, thus the following cache entries are expired after one hour.
-
         if (expressionCacheSize > 0) {
             projectionCache = CacheBuilder.newBuilder()
                     .recordStats()
                     .maximumSize(expressionCacheSize)
-                    .expireAfterWrite(1, HOURS)
                     .build(CacheLoader.from(projection -> compileProjectionInternal(projection, Optional.empty())));
             projectionCacheStats = new CacheStatsMBean(projectionCache);
         }
@@ -142,7 +134,6 @@ public class PageFunctionCompiler
             filterCache = CacheBuilder.newBuilder()
                     .recordStats()
                     .maximumSize(expressionCacheSize)
-                    .expireAfterWrite(1, HOURS)
                     .build(CacheLoader.from(filter -> compileFilterInternal(filter, Optional.empty())));
             filterCacheStats = new CacheStatsMBean(filterCache);
         }
@@ -245,8 +236,8 @@ public class PageFunctionCompiler
         method.getBody().append(method.getThis().getField(resultField)).ret(Object.class);
 
         // evaluate
-        PreGeneratedExpressions preGeneratedExpressions = generateMethodsForLambdaAndTry(classDefinition, callSiteBinder, cachedInstanceBinder, projection);
-        generateEvaluateMethod(classDefinition, callSiteBinder, cachedInstanceBinder, preGeneratedExpressions, projection, blockBuilderField);
+        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, projection);
+        generateEvaluateMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, projection, blockBuilderField);
 
         // constructor
         Parameter blockBuilder = arg("blockBuilder", BlockBuilder.class);
@@ -346,7 +337,7 @@ public class PageFunctionCompiler
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            PreGeneratedExpressions preGeneratedExpressions,
+            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
             RowExpression projection,
             FieldDefinition blockBuilder)
     {
@@ -378,7 +369,7 @@ public class PageFunctionCompiler
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder),
                 metadata.getFunctionRegistry(),
-                preGeneratedExpressions);
+                compiledLambdaMap);
 
         body.append(thisVariable.getField(blockBuilder))
                 .append(compiler.compile(projection, scope))
@@ -414,7 +405,7 @@ public class PageFunctionCompiler
 
         return () -> {
             try {
-                return functionClass.newInstance();
+                return functionClass.getConstructor().newInstance();
             }
             catch (ReflectiveOperationException e) {
                 throw new PrestoException(COMPILER_ERROR, e);
@@ -437,8 +428,8 @@ public class PageFunctionCompiler
 
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
-        PreGeneratedExpressions preGeneratedExpressions = generateMethodsForLambdaAndTry(classDefinition, callSiteBinder, cachedInstanceBinder, filter);
-        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, preGeneratedExpressions, filter);
+        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter);
+        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter);
 
         FieldDefinition selectedPositions = classDefinition.declareField(a(PRIVATE), "selectedPositions", boolean[].class);
         generatePageFilterMethod(classDefinition, selectedPositions);
@@ -467,7 +458,7 @@ public class PageFunctionCompiler
                 .retObject();
 
         // constructor
-        generateConstructor(classDefinition, cachedInstanceBinder, preGeneratedExpressions, method -> {
+        generateConstructor(classDefinition, cachedInstanceBinder, compiledLambdaMap, method -> {
             Variable thisVariable = method.getScope().getThis();
             method.getBody().append(thisVariable.setField(selectedPositions, newArray(type(boolean[].class), 0)));
         });
@@ -522,7 +513,7 @@ public class PageFunctionCompiler
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            PreGeneratedExpressions preGeneratedExpressions,
+            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
             RowExpression filter)
     {
         Parameter session = arg("session", ConnectorSession.class);
@@ -552,7 +543,7 @@ public class PageFunctionCompiler
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder),
                 metadata.getFunctionRegistry(),
-                preGeneratedExpressions);
+                compiledLambdaMap);
 
         Variable result = scope.declareVariable(boolean.class, "result");
         body.append(compiler.compile(filter, scope))
@@ -562,44 +553,36 @@ public class PageFunctionCompiler
         return method;
     }
 
-    private PreGeneratedExpressions generateMethodsForLambdaAndTry(
+    private Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
             ClassDefinition containerClassDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             RowExpression expression)
     {
-        Set<RowExpression> lambdaAndTryExpressions = ImmutableSet.copyOf(extractLambdaAndTryExpressions(expression));
-        ImmutableMap.Builder<CallExpression, MethodDefinition> tryMethodMap = ImmutableMap.builder();
+        Set<LambdaDefinitionExpression> lambdaExpressions = ImmutableSet.copyOf(extractLambdaExpressions(expression));
         ImmutableMap.Builder<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
 
         int counter = 0;
-        for (RowExpression lambdaOrTryExpression : lambdaAndTryExpressions) {
-            if (lambdaOrTryExpression instanceof LambdaDefinitionExpression) {
-                LambdaDefinitionExpression lambdaExpression = (LambdaDefinitionExpression) lambdaOrTryExpression;
-                PreGeneratedExpressions preGeneratedExpressions = new PreGeneratedExpressions(tryMethodMap.build(), compiledLambdaMap.build());
-                CompiledLambda compiledLambda = LambdaBytecodeGenerator.preGenerateLambdaExpression(
-                        lambdaExpression,
-                        "lambda_" + counter,
-                        containerClassDefinition,
-                        preGeneratedExpressions,
-                        callSiteBinder,
-                        cachedInstanceBinder,
-                        metadata.getFunctionRegistry());
-                compiledLambdaMap.put(lambdaExpression, compiledLambda);
-            }
-            else {
-                throw new VerifyException(format("unexpected expression: %s", lambdaOrTryExpression.toString()));
-            }
+        for (LambdaDefinitionExpression lambdaExpression : lambdaExpressions) {
+            CompiledLambda compiledLambda = LambdaBytecodeGenerator.preGenerateLambdaExpression(
+                    lambdaExpression,
+                    "lambda_" + counter,
+                    containerClassDefinition,
+                    compiledLambdaMap.build(),
+                    callSiteBinder,
+                    cachedInstanceBinder,
+                    metadata.getFunctionRegistry());
+            compiledLambdaMap.put(lambdaExpression, compiledLambda);
             counter++;
         }
 
-        return new PreGeneratedExpressions(tryMethodMap.build(), compiledLambdaMap.build());
+        return compiledLambdaMap.build();
     }
 
     private static void generateConstructor(
             ClassDefinition classDefinition,
             CachedInstanceBinder cachedInstanceBinder,
-            PreGeneratedExpressions preGeneratedExpressions,
+            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
             Consumer<MethodDefinition> additionalStatements)
     {
         MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC));

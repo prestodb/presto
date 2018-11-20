@@ -14,10 +14,11 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.IntersectNode;
@@ -38,7 +39,7 @@ public class SetFlatteningOptimizer
         implements PlanOptimizer
 {
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -132,6 +133,7 @@ public class SetFlatteningOptimizer
                     rewrittenNode,
                     node.getAggregations(),
                     node.getGroupingSets(),
+                    ImmutableList.of(),
                     node.getStep(),
                     node.getHashSymbol(),
                     node.getGroupIdSymbol());

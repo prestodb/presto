@@ -18,21 +18,30 @@ import com.facebook.presto.spi.ColumnHandle;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
-import static com.facebook.presto.spi.statistics.Estimate.unknownValue;
+import static java.lang.String.format;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
 public final class TableStatistics
 {
-    public static final TableStatistics EMPTY_STATISTICS = TableStatistics.builder().build();
+    private static final TableStatistics EMPTY = TableStatistics.builder().build();
 
     private final Estimate rowCount;
     private final Map<ColumnHandle, ColumnStatistics> columnStatistics;
 
+    public static TableStatistics empty()
+    {
+        return EMPTY;
+    }
+
     public TableStatistics(Estimate rowCount, Map<ColumnHandle, ColumnStatistics> columnStatistics)
     {
         this.rowCount = requireNonNull(rowCount, "rowCount can not be null");
+        if (!rowCount.isUnknown() && rowCount.getValue() < 0) {
+            throw new IllegalArgumentException(format("rowCount must be greater than or equal to 0: %s", rowCount.getValue()));
+        }
         this.columnStatistics = unmodifiableMap(requireNonNull(columnStatistics, "columnStatistics can not be null"));
     }
 
@@ -46,6 +55,35 @@ public final class TableStatistics
         return columnStatistics;
     }
 
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        TableStatistics that = (TableStatistics) o;
+        return Objects.equals(rowCount, that.rowCount) &&
+                Objects.equals(columnStatistics, that.columnStatistics);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(rowCount, columnStatistics);
+    }
+
+    @Override
+    public String toString()
+    {
+        return "TableStatistics{" +
+                "rowCount=" + rowCount +
+                ", columnStatistics=" + columnStatistics +
+                '}';
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -53,7 +91,7 @@ public final class TableStatistics
 
     public static final class Builder
     {
-        private Estimate rowCount = unknownValue();
+        private Estimate rowCount = Estimate.unknown();
         private Map<ColumnHandle, ColumnStatistics> columnStatisticsMap = new HashMap<>();
 
         public Builder setRowCount(Estimate rowCount)
@@ -62,11 +100,11 @@ public final class TableStatistics
             return this;
         }
 
-        public Builder setColumnStatistics(ColumnHandle columnName, ColumnStatistics columnStatistics)
+        public Builder setColumnStatistics(ColumnHandle columnHandle, ColumnStatistics columnStatistics)
         {
-            requireNonNull(columnName, "columnName can not be null");
+            requireNonNull(columnHandle, "columnHandle can not be null");
             requireNonNull(columnStatistics, "columnStatistics can not be null");
-            this.columnStatisticsMap.put(columnName, columnStatistics);
+            this.columnStatisticsMap.put(columnHandle, columnStatistics);
             return this;
         }
 

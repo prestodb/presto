@@ -16,7 +16,7 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.ByteArrayBlock;
 import com.facebook.presto.spi.block.RowBlockBuilder;
 import com.facebook.presto.spi.block.SingleRowBlock;
 import com.facebook.presto.spi.type.Type;
@@ -27,7 +27,9 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.spi.block.RowBlock.fromFieldBlocks;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -50,21 +52,66 @@ public class TestRowBlock
         testWith(fieldTypes, (List<Object>[]) alternatingNullValues(testRows));
     }
 
+    @Test
+    public void testEstimatedDataSizeForStats()
+    {
+        List<Type> fieldTypes = ImmutableList.of(VARCHAR, BIGINT);
+        List<Object>[] expectedValues = (List<Object>[]) alternatingNullValues(generateTestRows(fieldTypes, 100));
+        BlockBuilder blockBuilder = createBlockBuilderWithValues(fieldTypes, expectedValues);
+        Block block = blockBuilder.build();
+        assertEquals(block.getPositionCount(), expectedValues.length);
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            int expectedSize = getExpectedEstimatedDataSize(expectedValues[i]);
+            assertEquals(blockBuilder.getEstimatedDataSizeForStats(i), expectedSize);
+            assertEquals(block.getEstimatedDataSizeForStats(i), expectedSize);
+        }
+    }
+
+    private int getExpectedEstimatedDataSize(List<Object> row)
+    {
+        if (row == null) {
+            return 0;
+        }
+        int size = 0;
+        size += row.get(0) == null ? 0 : ((String) row.get(0)).length();
+        size += row.get(1) == null ? 0 : Long.BYTES;
+        return size;
+    }
+
+    @Test
+    public void testCompactBlock()
+    {
+        Block emptyBlock = new ByteArrayBlock(0, Optional.empty(), new byte[0]);
+        Block compactFieldBlock1 = new ByteArrayBlock(5, Optional.empty(), createExpectedValue(5).getBytes());
+        Block compactFieldBlock2 = new ByteArrayBlock(5, Optional.empty(), createExpectedValue(5).getBytes());
+        Block incompactFiledBlock1 = new ByteArrayBlock(5, Optional.empty(), createExpectedValue(6).getBytes());
+        Block incompactFiledBlock2 = new ByteArrayBlock(5, Optional.empty(), createExpectedValue(6).getBytes());
+        boolean[] rowIsNull = {false, true, false, false, false, false};
+
+        assertCompact(fromFieldBlocks(0, Optional.empty(), new Block[] {emptyBlock, emptyBlock}));
+        assertCompact(fromFieldBlocks(rowIsNull.length, Optional.of(rowIsNull), new Block[] {compactFieldBlock1, compactFieldBlock2}));
+        // TODO: add test case for a sliced RowBlock
+
+        // underlying field blocks are not compact
+        testIncompactBlock(fromFieldBlocks(rowIsNull.length, Optional.of(rowIsNull), new Block[] {incompactFiledBlock1, incompactFiledBlock2}));
+        testIncompactBlock(fromFieldBlocks(rowIsNull.length, Optional.of(rowIsNull), new Block[] {incompactFiledBlock1, incompactFiledBlock2}));
+    }
+
     private void testWith(List<Type> fieldTypes, List<Object>[] expectedValues)
     {
         BlockBuilder blockBuilder = createBlockBuilderWithValues(fieldTypes, expectedValues);
 
-        assertBlock(blockBuilder, expectedValues);
-        assertBlock(blockBuilder.build(), expectedValues);
+        assertBlock(blockBuilder, () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
+        assertBlock(blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
 
         IntArrayList positionList = generatePositionList(expectedValues.length, expectedValues.length / 2);
-        assertBlockFilteredPositions(expectedValues, blockBuilder, positionList.toIntArray());
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), positionList.toIntArray());
+        assertBlockFilteredPositions(expectedValues, blockBuilder, () -> blockBuilder.newBlockBuilderLike(null), positionList.toIntArray());
+        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), positionList.toIntArray());
     }
 
     private BlockBuilder createBlockBuilderWithValues(List<Type> fieldTypes, List<Object>[] rows)
     {
-        BlockBuilder rowBlockBuilder = new RowBlockBuilder(fieldTypes, new BlockBuilderStatus(), 1);
+        BlockBuilder rowBlockBuilder = new RowBlockBuilder(fieldTypes, null, 1);
         for (List<Object> row : rows) {
             if (row == null) {
                 rowBlockBuilder.appendNull();

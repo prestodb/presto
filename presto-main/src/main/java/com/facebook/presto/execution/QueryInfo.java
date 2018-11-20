@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.SessionRepresentation;
-import com.facebook.presto.client.FailureInfo;
-import com.facebook.presto.execution.PlanFlattener.FlattenedPlan;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorType;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -36,7 +37,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.execution.QueryState.FAILED;
+import static com.facebook.presto.execution.QueryStats.immediateFailureQueryStats;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
+import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
+import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -54,6 +59,7 @@ public class QueryInfo
     private final QueryStats queryStats;
     private final Optional<String> setCatalog;
     private final Optional<String> setSchema;
+    private final Optional<String> setPath;
     private final Map<String, String> setSessionProperties;
     private final Set<String> resetSessionProperties;
     private final Map<String, String> addedPreparedStatements;
@@ -62,14 +68,14 @@ public class QueryInfo
     private final boolean clearTransactionId;
     private final String updateType;
     private final Optional<StageInfo> outputStage;
-    private final FailureInfo failureInfo;
+    private final ExecutionFailureInfo failureInfo;
     private final ErrorType errorType;
     private final ErrorCode errorCode;
+    private final List<PrestoWarning> warnings;
     private final Set<Input> inputs;
     private final Optional<Output> output;
-    private final Optional<FlattenedPlan> plan;
     private final boolean completeInfo;
-    private final Optional<String> resourceGroupName;
+    private final Optional<ResourceGroupId> resourceGroupId;
 
     @JsonCreator
     public QueryInfo(
@@ -84,6 +90,7 @@ public class QueryInfo
             @JsonProperty("queryStats") QueryStats queryStats,
             @JsonProperty("setCatalog") Optional<String> setCatalog,
             @JsonProperty("setSchema") Optional<String> setSchema,
+            @JsonProperty("setPath") Optional<String> setPath,
             @JsonProperty("setSessionProperties") Map<String, String> setSessionProperties,
             @JsonProperty("resetSessionProperties") Set<String> resetSessionProperties,
             @JsonProperty("addedPreparedStatements") Map<String, String> addedPreparedStatements,
@@ -92,13 +99,13 @@ public class QueryInfo
             @JsonProperty("clearTransactionId") boolean clearTransactionId,
             @JsonProperty("updateType") String updateType,
             @JsonProperty("outputStage") Optional<StageInfo> outputStage,
-            @JsonProperty("failureInfo") FailureInfo failureInfo,
+            @JsonProperty("failureInfo") ExecutionFailureInfo failureInfo,
             @JsonProperty("errorCode") ErrorCode errorCode,
+            @JsonProperty("warnings") List<PrestoWarning> warnings,
             @JsonProperty("inputs") Set<Input> inputs,
             @JsonProperty("output") Optional<Output> output,
-            @JsonProperty("flattenedPlan") Optional<FlattenedPlan> plan,
             @JsonProperty("completeInfo") boolean completeInfo,
-            @JsonProperty("resourceGroupName") Optional<String> resourceGroupName)
+            @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(session, "session is null");
@@ -108,6 +115,7 @@ public class QueryInfo
         requireNonNull(queryStats, "queryStats is null");
         requireNonNull(setCatalog, "setCatalog is null");
         requireNonNull(setSchema, "setSchema is null");
+        requireNonNull(setPath, "setPath is null");
         requireNonNull(setSessionProperties, "setSessionProperties is null");
         requireNonNull(resetSessionProperties, "resetSessionProperties is null");
         requireNonNull(addedPreparedStatements, "addedPreparedStatemetns is null");
@@ -117,8 +125,8 @@ public class QueryInfo
         requireNonNull(outputStage, "outputStage is null");
         requireNonNull(inputs, "inputs is null");
         requireNonNull(output, "output is null");
-        requireNonNull(plan, "plan is null");
-        requireNonNull(resourceGroupName, "resourceGroupName is null");
+        requireNonNull(resourceGroupId, "resourceGroupId is null");
+        requireNonNull(warnings, "warnings is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -131,6 +139,7 @@ public class QueryInfo
         this.queryStats = queryStats;
         this.setCatalog = setCatalog;
         this.setSchema = setSchema;
+        this.setPath = setPath;
         this.setSessionProperties = ImmutableMap.copyOf(setSessionProperties);
         this.resetSessionProperties = ImmutableSet.copyOf(resetSessionProperties);
         this.addedPreparedStatements = ImmutableMap.copyOf(addedPreparedStatements);
@@ -142,11 +151,46 @@ public class QueryInfo
         this.failureInfo = failureInfo;
         this.errorType = errorCode == null ? null : errorCode.getType();
         this.errorCode = errorCode;
+        this.warnings = ImmutableList.copyOf(warnings);
         this.inputs = ImmutableSet.copyOf(inputs);
         this.output = output;
-        this.plan = plan;
         this.completeInfo = completeInfo;
-        this.resourceGroupName = resourceGroupName;
+        this.resourceGroupId = resourceGroupId;
+    }
+
+    public static QueryInfo immediateFailureQueryInfo(Session session, String query, URI self, Optional<ResourceGroupId> resourceGroupId, Throwable throwable)
+    {
+        ExecutionFailureInfo failureCause = toFailure(throwable);
+        QueryInfo queryInfo = new QueryInfo(
+                session.getQueryId(),
+                session.toSessionRepresentation(),
+                FAILED,
+                GENERAL_POOL,
+                false,
+                self,
+                ImmutableList.of(),
+                query,
+                immediateFailureQueryStats(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of(),
+                ImmutableSet.of(),
+                ImmutableMap.of(),
+                ImmutableSet.of(),
+                Optional.empty(),
+                false,
+                null,
+                Optional.empty(),
+                failureCause,
+                failureCause.getErrorCode(),
+                ImmutableList.of(),
+                ImmutableSet.of(),
+                Optional.empty(),
+                true,
+                resourceGroupId);
+
+        return queryInfo;
     }
 
     @JsonProperty
@@ -216,6 +260,12 @@ public class QueryInfo
     }
 
     @JsonProperty
+    public Optional<String> getSetPath()
+    {
+        return setPath;
+    }
+
+    @JsonProperty
     public Map<String, String> getSetSessionProperties()
     {
         return setSessionProperties;
@@ -266,7 +316,7 @@ public class QueryInfo
 
     @Nullable
     @JsonProperty
-    public FailureInfo getFailureInfo()
+    public ExecutionFailureInfo getFailureInfo()
     {
         return failureInfo;
     }
@@ -283,6 +333,12 @@ public class QueryInfo
     public ErrorCode getErrorCode()
     {
         return errorCode;
+    }
+
+    @JsonProperty
+    public List<PrestoWarning> getWarnings()
+    {
+        return warnings;
     }
 
     @JsonProperty
@@ -304,15 +360,9 @@ public class QueryInfo
     }
 
     @JsonProperty
-    public Optional<FlattenedPlan> getPlan()
+    public Optional<ResourceGroupId> getResourceGroupId()
     {
-        return plan;
-    }
-
-    @JsonProperty
-    public Optional<String> getResourceGroupName()
-    {
-        return resourceGroupName;
+        return resourceGroupId;
     }
 
     @Override

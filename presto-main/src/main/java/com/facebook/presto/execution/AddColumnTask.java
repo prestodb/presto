@@ -14,12 +14,14 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.AddColumn;
@@ -33,7 +35,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_ALREADY_EXISTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
@@ -60,20 +64,40 @@ public class AddColumnTask
             throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
         }
 
+        ConnectorId connectorId = metadata.getCatalogHandle(session, tableName.getCatalogName())
+                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + tableName.getCatalogName()));
+
         accessControl.checkCanAddColumns(session.getRequiredTransactionId(), session.getIdentity(), tableName);
 
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
 
         ColumnDefinition element = statement.getColumn();
-        Type type = metadata.getType(parseTypeSignature(element.getType()));
-        if ((type == null) || type.equals(UNKNOWN)) {
-            throw new SemanticException(TYPE_MISMATCH, element, "Unknown type for column '%s' ", element.getName());
+        Type type;
+        try {
+            type = metadata.getType(parseTypeSignature(element.getType()));
+        }
+        catch (IllegalArgumentException e) {
+            throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());
+        }
+        if (type.equals(UNKNOWN)) {
+            throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());
         }
         if (columnHandles.containsKey(element.getName().getValue().toLowerCase(ENGLISH))) {
             throw new SemanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", element.getName());
         }
 
-        metadata.addColumn(session, tableHandle.get(), new ColumnMetadata(element.getName().getValue(), type));
+        Map<String, Expression> sqlProperties = mapFromProperties(element.getProperties());
+        Map<String, Object> columnProperties = metadata.getColumnPropertyManager().getProperties(
+                connectorId,
+                tableName.getCatalogName(),
+                sqlProperties,
+                session,
+                metadata,
+                parameters);
+
+        ColumnMetadata column = new ColumnMetadata(element.getName().getValue(), type, element.getComment().orElse(null), null, false, columnProperties);
+
+        metadata.addColumn(session, tableHandle.get(), column);
 
         return immediateFuture(null);
     }

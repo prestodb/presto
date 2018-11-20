@@ -15,8 +15,9 @@
 package com.facebook.presto.spi.statistics;
 
 import java.util.Objects;
-import java.util.function.Function;
 
+import static java.lang.Double.NaN;
+import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 
 public final class Estimate
@@ -25,26 +26,38 @@ public final class Estimate
     //      Skipping for now as there hard to compute it properly and so far we do not have
     //      usecase for that.
 
-    private static final double UNKNOWN_VALUE = Double.NaN;
+    private static final Estimate UNKNOWN = new Estimate(NaN);
+    private static final Estimate ZERO = new Estimate(0);
 
     private final double value;
 
-    public static final Estimate unknownValue()
+    public static Estimate unknown()
     {
-        return new Estimate(UNKNOWN_VALUE);
+        return UNKNOWN;
     }
 
-    public Estimate(double value)
+    public static Estimate zero()
+    {
+        return ZERO;
+    }
+
+    public static Estimate of(double value)
+    {
+        if (isNaN(value)) {
+            throw new IllegalArgumentException("value is NaN");
+        }
+        if (isInfinite(value)) {
+            throw new IllegalArgumentException("value is infinite");
+        }
+        return new Estimate(value);
+    }
+
+    private Estimate(double value)
     {
         this.value = value;
     }
 
-    public static final Estimate zeroValue()
-    {
-        return new Estimate(0);
-    }
-
-    public boolean isValueUnknown()
+    public boolean isUnknown()
     {
         return isNaN(value);
     }
@@ -52,22 +65,6 @@ public final class Estimate
     public double getValue()
     {
         return value;
-    }
-
-    public Estimate map(Function<Double, Double> mappingFunction)
-    {
-        if (isValueUnknown()) {
-            return this;
-        }
-        else {
-            return new Estimate(mappingFunction.apply(value));
-        }
-    }
-
-    @Override
-    public String toString()
-    {
-        return String.valueOf(value);
     }
 
     @Override
@@ -87,5 +84,11 @@ public final class Estimate
     public int hashCode()
     {
         return Objects.hash(value);
+    }
+
+    @Override
+    public String toString()
+    {
+        return String.valueOf(value);
     }
 }

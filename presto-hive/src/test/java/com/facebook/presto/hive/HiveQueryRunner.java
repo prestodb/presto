@@ -32,6 +32,7 @@ import org.joda.time.DateTimeZone;
 
 import java.io.File;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
@@ -54,7 +55,7 @@ public final class HiveQueryRunner
     public static final String HIVE_BUCKETED_CATALOG = "hive_bucketed";
     public static final String TPCH_SCHEMA = "tpch";
     private static final String TPCH_BUCKETED_SCHEMA = "tpch_bucketed";
-    private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("Asia/Kathmandu");
+    private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
     public static DistributedQueryRunner createQueryRunner(TpchTable<?>... tables)
             throws Exception
@@ -77,7 +78,7 @@ public final class HiveQueryRunner
     public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> extraProperties, String security, Map<String, String> extraHiveProperties)
             throws Exception
     {
-        assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=Asia/Katmandu to your JVM arguments");
+        assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
 
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession(), 4, extraProperties);
 
@@ -94,7 +95,7 @@ public final class HiveQueryRunner
             FileHiveMetastore metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
             metastore.createDatabase(createDatabaseMetastoreObject(TPCH_SCHEMA));
             metastore.createDatabase(createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA));
-            queryRunner.installPlugin(new HivePlugin(HIVE_CATALOG, metastore));
+            queryRunner.installPlugin(new HivePlugin(HIVE_CATALOG, Optional.of(metastore)));
 
             Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
                     .putAll(extraHiveProperties)
@@ -102,6 +103,7 @@ public final class HiveQueryRunner
                     .put("hive.security", security)
                     .put("hive.max-partitions-per-scan", "1000")
                     .put("hive.assume-canonical-partition-keys", "true")
+                    .put("hive.collect-column-statistics-on-write", "true")
                     .build();
             Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
                     .putAll(hiveProperties)

@@ -83,13 +83,12 @@ class PartitioningExchanger
         }
 
         // build a page for each partition
-        Block[] sourceBlocks = page.getBlocks();
-        Block[] outputBlocks = new Block[sourceBlocks.length];
+        Block[] outputBlocks = new Block[page.getChannelCount()];
         for (int partition = 0; partition < buffers.size(); partition++) {
             IntArrayList positions = partitionAssignments[partition];
             if (!positions.isEmpty()) {
-                for (int i = 0; i < sourceBlocks.length; i++) {
-                    outputBlocks[i] = sourceBlocks[i].copyPositions(positions.elements(), 0, positions.size());
+                for (int i = 0; i < page.getChannelCount(); i++) {
+                    outputBlocks[i] = page.getBlock(i).copyPositions(positions.elements(), 0, positions.size());
                 }
 
                 Page pageSplit = new Page(positions.size(), outputBlocks);

@@ -2,8 +2,8 @@
 Geospatial Functions
 ====================
 
-Presto Geospatial functions support the SQL/MM specification.
-They are compliant with the Open Geospatial Consortium’s (OGC) OpenGIS Specifications.
+Presto Geospatial functions that begin with the ``ST_`` prefix support the SQL/MM specification
+and are compliant with the Open Geospatial Consortium’s (OGC) OpenGIS Specifications.
 As such, many Presto Geospatial functions require, or more accurately, assume that
 geometries that are operated on are both simple and valid. For example, it does not
 make sense to calculate the area of a polygon that has a hole defined outside of the
@@ -22,27 +22,47 @@ Presto Geospatial functions support the Well-Known Text (WKT) form of spatial ob
 Constructors
 ------------
 
-.. function:: ST_Point(double, double) -> Point
+.. function:: ST_AsBinary(Geometry) -> varbinary
 
-    Returns a geometry type point object with the given coordinate values.
-
-.. function:: ST_LineFromText(varchar) -> LineString
-
-    Returns a geometry type linestring object from WKT representation.
-
-.. function:: ST_Polygon(varchar) -> Polygon
-
-    Returns a geometry type polygon object from WKT representation.
-
-.. function:: ST_GeometryFromText(varchar) -> Geometry
-
-    Returns a geometry type object from WKT representation.
+    Returns the WKB representation of the geometry.
 
 .. function:: ST_AsText(Geometry) -> varchar
 
     Returns the WKT representation of the geometry. For empty geometries,
     ``ST_AsText(ST_LineFromText('LINESTRING EMPTY'))`` will produce ``'MULTILINESTRING EMPTY'``
     and ``ST_AsText(ST_Polygon('POLYGON EMPTY'))`` will produce ``'MULTIPOLYGON EMPTY'``.
+
+.. function:: ST_GeometryFromText(varchar) -> Geometry
+
+    Returns a geometry type object from WKT representation.
+
+.. function:: ST_GeomFromBinary(varbinary) -> Geometry
+
+    Returns a geometry type object from WKB representation.
+
+.. function:: ST_LineFromText(varchar) -> LineString
+
+    Returns a geometry type linestring object from WKT representation.
+
+.. function:: ST_LineString(array(Point)) -> LineString
+
+    Returns a LineString formed from an array of points. Empty or null points are ignored.  If there are fewer than
+    two non-empty points in the input array, an empty LineString will be returned.  The returned geometry may
+    not be simple, e.g. may self-intersect or may contain duplicate vertexes depending on the input.
+
+.. function:: ST_MultiPoint(array(Point)) -> MultiPoint
+
+    Returns a MultiPoint geometry object formed from the specified points. Return `null` if input array is empty.
+    Throws an exception if any element in the array is `null` or empty.
+    The returned geometry may not be simple and may contain duplicate points if input array has duplicates.
+
+.. function:: ST_Point(double, double) -> Point
+
+    Returns a geometry type point object with the given coordinate values.
+
+.. function:: ST_Polygon(varchar) -> Polygon
+
+    Returns a geometry type polygon object from WKT representation.
 
 Relationship Tests
 ------------------
@@ -69,7 +89,7 @@ Relationship Tests
 .. function:: ST_Intersects(Geometry, Geometry) -> boolean
 
     Returns ``true`` if the given geometries spatially intersect in two dimensions
-    (share any portion of space) and ``false`` if they don not (they are disjoint).
+    (share any portion of space) and ``false`` if they do not (they are disjoint).
 
 .. function:: ST_Overlaps(Geometry, Geometry) -> boolean
 
@@ -92,6 +112,12 @@ Relationship Tests
 Operations
 ----------
 
+.. function:: geometry_union(array(Geometry)) -> Geometry
+
+    Returns a geometry that represents the point set union of the input geometries. Performance
+    of this function, in conjunction with :func:`array_agg` to first aggregate the input geometries,
+    may be better than :func:`geometry_union_agg`, at the expense of higher memory utilization.
+
 .. function:: ST_Boundary(Geometry) -> Geometry
 
     Returns the closure of the combinatorial boundary of this geometry.
@@ -109,6 +135,11 @@ Operations
 
     Returns the bounding rectangular polygon of a geometry.
 
+.. function:: ST_EnvelopeAsPts(Geometry) -> array(Geometry)
+
+    Returns an array of two points: the lower left and upper right corners of the bounding
+    rectangular polygon of a geometry. Returns null if input geometry is empty.
+
 .. function:: ST_ExteriorRing(Geometry) -> Geometry
 
     Returns a line string representing the exterior ring of the input polygon.
@@ -121,17 +152,31 @@ Operations
 
     Returns the geometry value that represents the point set symmetric difference of two geometries.
 
+.. function:: ST_Union(Geometry, Geometry) -> Geometry
+
+    Returns a geometry that represents the point set union of the input geometries.
+
+    See also:  :func:`geometry_union`, :func:`geometry_union_agg`
+
+
 Accessors
 ---------
 
 .. function:: ST_Area(Geometry) -> double
 
-    Returns the area of a polygon using Euclidean measurement on a two dimensional
-    plane (based on spatial ref) in projected units.
+    Returns the 2D Euclidean area of a geometry.
+
+    For Point and LineString types, returns 0.0.
+    For GeometryCollection types, returns the sum of the areas of the individual
+    geometries.
 
 .. function:: ST_Centroid(Geometry) -> Geometry
 
     Returns the point value that is the mathematical centroid of a geometry.
+
+.. function:: ST_ConvexHull(Geometry) -> Geometry
+
+    Returns the minimum convex geometry that encloses all input geometries.
 
 .. function:: ST_CoordDim(Geometry) -> bigint
 
@@ -147,6 +192,29 @@ Accessors
     Returns the 2-dimensional cartesian minimum distance (based on spatial ref)
     between two geometries in projected units.
 
+.. function:: ST_GeometryN(Geometry, index) -> Geometry
+
+    Returns the geometry element at a given index (indices start at 1).
+    If the geometry is a collection of geometries (e.g., GEOMETRYCOLLECTION or MULTI*),
+    returns the geometry at a given index.
+    If the given index is less than 1 or greater than the total number of elements in the collection,
+    returns ``NULL``.
+    Use :func:``ST_NumGeometries`` to find out the total number of elements.
+    Singular geometries (e.g., POINT, LINESTRING, POLYGON), are treated as collections of one element.
+    Empty geometries are treated as empty collections.
+
+.. function:: ST_InteriorRingN(Geometry, index) -> Geometry
+
+   Returns the interior ring element at the specified index (indices start at 1). If
+   the given index is less than 1 or greater than the total number of interior rings
+   in the input geometry, returns ``NULL``. Throws an error if the input geometry is
+   not a polygon.
+   Use :func:``ST_NumInteriorRing`` to find out the total number of elements.
+
+.. function:: ST_GeometryType(Geometry) -> varchar
+
+    Returns the type of the geometry.
+
 .. function:: ST_IsClosed(Geometry) -> boolean
 
     Returns ``true`` if the linestring's start and end points are coincident.
@@ -155,14 +223,30 @@ Accessors
 
     Returns ``true`` if this Geometry is an empty geometrycollection, polygon, point etc.
 
+.. function:: ST_IsSimple(Geometry) -> boolean
+
+    Returns ``true`` if this Geometry has no anomalous geometric points, such as self intersection or self tangency.
+
 .. function:: ST_IsRing(Geometry) -> boolean
 
     Returns ``true`` if and only if the line is closed and simple.
+
+.. function:: ST_IsValid(Geometry) -> boolean
+
+    Returns ``true`` if and only if the input geometry is well formed.
+    Use :func:`geometry_invalid_reason` to determine why the geometry is not well formed.
 
 .. function:: ST_Length(Geometry) -> double
 
     Returns the length of a linestring or multi-linestring using Euclidean measurement on a
     two dimensional plane (based on spatial ref) in projected units.
+
+.. function:: ST_PointN(LineString, index) -> Point
+
+    Returns the vertex of a linestring at a given index (indices start at 1).
+    If the given index is less than 1 or greater than the total number of elements in the collection,
+    returns ``NULL``.
+    Use :func:``ST_NumPoints`` to find out the total number of elements.
 
 .. function:: ST_XMax(Geometry) -> double
 
@@ -183,10 +267,17 @@ Accessors
 .. function:: ST_StartPoint(Geometry) -> point
 
     Returns the first point of a LineString geometry as a Point.
+    This is a shortcut for ST_PointN(geometry, 1).
+
+.. function:: simplify_geometry(Geometry, double) -> Geometry
+
+    Returns a "simplified" version of the input geometry using the Douglas-Peucker algorithm.
+    Will avoid creating derived geometries (polygons in particular) that are invalid.
 
 .. function:: ST_EndPoint(Geometry) -> point
 
     Returns the last point of a LineString geometry as a Point.
+    This is a shortcut for ST_PointN(geometry, ST_NumPoints(geometry)).
 
 .. function:: ST_X(Point) -> double
 
@@ -196,6 +287,25 @@ Accessors
 
     Return the Y coordinate of the point.
 
+.. function:: ST_InteriorRings(Geometry) -> Geometry
+
+   Returns an array of all interior rings found in the input geometry, or an empty
+   array if the polygon has no interior rings. Returns null if the input geometry
+   is empty. Throws an error if the input geometry is not a polygon.
+
+.. function:: ST_NumGeometries(Geometry) -> bigint
+
+    Returns the number of geometries in the collection.
+    If the geometry is a collection of geometries (e.g., GEOMETRYCOLLECTION or MULTI*),
+    returns the number of geometries,
+    for single geometries returns 1,
+    for empty geometries returns 0.
+
+.. function:: ST_Geometries(Geometry) -> Geometry
+
+   Returns an array of geometries in the specified collection. Returns a one-element array
+   if the input geometry is not a multi-geometry. Returns null if input geometry is empty.
+
 .. function:: ST_NumPoints(Geometry) -> bigint
 
     Returns the number of points in a geometry. This is an extension to the SQL/MM
@@ -204,6 +314,32 @@ Accessors
 .. function:: ST_NumInteriorRing(Geometry) -> bigint
 
     Returns the cardinality of the collection of interior rings of a polygon.
+
+.. function:: line_locate_point(LineString, Point) -> double
+
+    Returns a float between 0 and 1 representing the location of the closest point on
+    the LineString to the given Point, as a fraction of total 2d line length.
+
+    Returns ``null`` if a LineString or a Point is empty or ``null``.
+
+.. function:: geometry_invalid_reason(Geometry) -> varchar
+
+    Returns the reason for why the input geometry is not valid.
+    Returns null if the input is valid.
+
+.. function:: great_circle_distance(latitude1, longitude1, latitude2, longitude2) -> double
+
+    Returns the great-circle distance between two points on Earth's surface in kilometers.
+
+Aggregations
+------------
+.. function:: convex_hull_agg(Geometry) -> Geometry
+
+    Returns the minimum convex geometry that encloses all input geometries.
+
+.. function:: geometry_union_agg(Geometry) -> Geometry
+
+    Returns a geometry that represents the point set union of all input geometries.
 
 Bing Tiles
 ----------
@@ -226,6 +362,16 @@ These functions convert between geometries and
     and longitude. Latitude must be within ``[-85.05112878, 85.05112878]`` range.
     Longitude must be within ``[-180, 180]`` range. Zoom levels from 1 to 23 are supported.
 
+.. function:: bing_tiles_around(latitude, longitude, zoom_level) -> array(BingTile)
+
+    Returns a collection of Bing tiles that surround the point specified
+    by the latitude and longitude arguments at a given zoom level.
+
+.. function:: bing_tiles_around(latitude, longitude, zoom_level, radius_in_km) -> array(BingTile)
+
+    Returns a minimum set of Bing tiles at specified zoom level that cover a circle of specified
+    radius in km around a specified (latitude, longitude) point.
+
 .. function:: bing_tile_coordinates(tile) -> row<x, y>
 
     Returns the XY coordinates of a given Bing tile.
@@ -242,7 +388,7 @@ These functions convert between geometries and
 
     Returns the zoom level of a given Bing tile.
 
-.. function:: geometry_to_bing_tiles(geometry, zoom_level) -> array<BingTile>
+.. function:: geometry_to_bing_tiles(geometry, zoom_level) -> array(BingTile)
 
     Returns the minimum set of Bing tiles that fully covers a given geometry at
     a given zoom level. Zoom levels from 1 to 23 are supported.

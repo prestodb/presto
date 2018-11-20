@@ -17,10 +17,10 @@ import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
-import static java.util.Collections.emptyList;
 
 public class TestPushLimitThroughMarkDistinct
         extends BaseRuleTest
@@ -33,7 +33,7 @@ public class TestPushLimitThroughMarkDistinct
                         p.limit(
                                 1,
                                 p.markDistinct(
-                                        p.values(), p.symbol("foo"), emptyList())))
+                                        p.symbol("foo"), ImmutableList.of(p.symbol("bar")), p.values())))
                 .matches(
                         node(MarkDistinctNode.class,
                                 node(LimitNode.class,
@@ -46,11 +46,11 @@ public class TestPushLimitThroughMarkDistinct
         tester().assertThat(new PushLimitThroughMarkDistinct())
                 .on(p ->
                         p.markDistinct(
+                                p.symbol("foo"),
+                                ImmutableList.of(p.symbol("bar")),
                                 p.limit(
                                         1,
-                                        p.values()),
-                                p.symbol("foo"),
-                                emptyList()))
+                                        p.values())))
                 .doesNotFire();
     }
 }

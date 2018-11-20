@@ -13,26 +13,38 @@
  */
 package com.facebook.presto.hive.metastore.file;
 
+import com.facebook.presto.hive.HdfsConfiguration;
+import com.facebook.presto.hive.HdfsConfigurationUpdater;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
+import com.facebook.presto.hive.HiveBasicStatistics;
+import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.PartitionNotFoundException;
+import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
+import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.PrincipalType;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil;
 import com.facebook.presto.spi.ColumnNotFoundException;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.statistics.ColumnStatisticType;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -47,6 +59,7 @@ import org.apache.hadoop.hive.metastore.TableType;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayDeque;
@@ -65,6 +78,8 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
+import static com.facebook.presto.hive.HivePartitionManager.extractPartitionValues;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.Database.DEFAULT_DATABASE_NAME;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
@@ -72,6 +87,8 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static com.facebook.presto.hive.metastore.PrincipalType.ROLE;
 import static com.facebook.presto.hive.metastore.PrincipalType.USER;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -99,6 +116,14 @@ public class FileHiveMetastore
     private final JsonCodec<TableMetadata> tableCodec = JsonCodec.jsonCodec(TableMetadata.class);
     private final JsonCodec<PartitionMetadata> partitionCodec = JsonCodec.jsonCodec(PartitionMetadata.class);
     private final JsonCodec<List<PermissionMetadata>> permissionsCodec = JsonCodec.listJsonCodec(PermissionMetadata.class);
+
+    public static FileHiveMetastore createTestingFileHiveMetastore(File catalogDirectory)
+    {
+        HiveClientConfig hiveClientConfig = new HiveClientConfig();
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig));
+        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig, new NoHdfsAuthentication());
+        return new FileHiveMetastore(hdfsEnvironment, catalogDirectory.toURI().toString(), "test");
+    }
 
     @Inject
     public FileHiveMetastore(HdfsEnvironment hdfsEnvironment, FileHiveMetastoreConfig config)
@@ -255,15 +280,36 @@ public class FileHiveMetastore
     }
 
     @Override
-    public Optional<Map<String, HiveColumnStatistics>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
+    public Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)
     {
-        return Optional.of(ImmutableMap.of());
+        return ThriftMetastoreUtil.getSupportedColumnStatistics(type);
     }
 
     @Override
-    public Optional<Map<String, Map<String, HiveColumnStatistics>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
+    public synchronized PartitionStatistics getTableStatistics(String databaseName, String tableName)
     {
-        return Optional.of(ImmutableMap.of());
+        Path tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
+        TableMetadata tableMetadata = readSchemaFile("table", tableMetadataDirectory, tableCodec)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+        HiveBasicStatistics basicStatistics = getHiveBasicStatistics(tableMetadata.getParameters());
+        Map<String, HiveColumnStatistics> columnStatistics = tableMetadata.getColumnStatistics();
+        return new PartitionStatistics(basicStatistics, columnStatistics);
+    }
+
+    @Override
+    public synchronized Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
+    {
+        Table table = getRequiredTable(databaseName, tableName);
+        ImmutableMap.Builder<String, PartitionStatistics> statistics = ImmutableMap.builder();
+        for (String partitionName : partitionNames) {
+            List<String> partitionValues = extractPartitionValues(partitionName);
+            Path partitionDirectory = getPartitionMetadataDirectory(table, ImmutableList.copyOf(partitionValues));
+            PartitionMetadata partitionMetadata = readSchemaFile("partition", partitionDirectory, partitionCodec)
+                    .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues));
+            HiveBasicStatistics basicStatistics = getHiveBasicStatistics(partitionMetadata.getParameters());
+            statistics.put(partitionName, new PartitionStatistics(basicStatistics, partitionMetadata.getColumnStatistics()));
+        }
+        return statistics.build();
     }
 
     private Table getRequiredTable(String databaseName, String tableName)
@@ -277,6 +323,45 @@ public class FileHiveMetastore
         if (getTable(newDatabaseName, newTableName).isPresent()) {
             throw new TableAlreadyExistsException(new SchemaTableName(newDatabaseName, newTableName));
         }
+    }
+
+    @Override
+    public synchronized void updateTableStatistics(String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
+    {
+        PartitionStatistics originalStatistics = getTableStatistics(databaseName, tableName);
+        PartitionStatistics updatedStatistics = update.apply(originalStatistics);
+
+        Path tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
+        TableMetadata tableMetadata = readSchemaFile("table", tableMetadataDirectory, tableCodec)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+
+        TableMetadata updatedMetadata = tableMetadata
+                .withParameters(updateStatisticsParameters(tableMetadata.getParameters(), updatedStatistics.getBasicStatistics()))
+                .withColumnStatistics(updatedStatistics.getColumnStatistics());
+
+        writeSchemaFile("table", tableMetadataDirectory, tableCodec, updatedMetadata, true);
+    }
+
+    @Override
+    public synchronized void updatePartitionStatistics(String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    {
+        PartitionStatistics originalStatistics = getPartitionStatistics(databaseName, tableName, ImmutableSet.of(partitionName)).get(partitionName);
+        if (originalStatistics == null) {
+            throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Statistics result does not contain entry for partition: " + partitionName);
+        }
+        PartitionStatistics updatedStatistics = update.apply(originalStatistics);
+
+        Table table = getRequiredTable(databaseName, tableName);
+        List<String> partitionValues = extractPartitionValues(partitionName);
+        Path partitionDirectory = getPartitionMetadataDirectory(table, partitionValues);
+        PartitionMetadata partitionMetadata = readSchemaFile("partition", partitionDirectory, partitionCodec)
+                .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues));
+
+        PartitionMetadata updatedMetadata = partitionMetadata
+                .withParameters(updateStatisticsParameters(partitionMetadata.getParameters(), updatedStatistics.getBasicStatistics()))
+                .withColumnStatistics(updatedStatistics.getColumnStatistics());
+
+        writeSchemaFile("partition", partitionDirectory, partitionCodec, updatedMetadata, true);
     }
 
     @Override
@@ -470,7 +555,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void addPartitions(String databaseName, String tableName, List<Partition> partitions)
+    public synchronized void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions)
     {
         requireNonNull(databaseName, "databaseName is null");
         requireNonNull(tableName, "tableName is null");
@@ -483,14 +568,15 @@ public class FileHiveMetastore
 
         try {
             Map<Path, byte[]> schemaFiles = new LinkedHashMap<>();
-            for (Partition partition : partitions) {
+            for (PartitionWithStatistics partitionWithStatistics : partitions) {
+                Partition partition = partitionWithStatistics.getPartition();
                 verifiedPartition(table, partition);
                 Path partitionMetadataDirectory = getPartitionMetadataDirectory(table, partition.getValues());
                 Path schemaPath = new Path(partitionMetadataDirectory, PRESTO_SCHEMA_FILE_NAME);
                 if (metadataFileSystem.exists(schemaPath)) {
                     throw new PrestoException(HIVE_METASTORE_ERROR, "Partition already exists");
                 }
-                byte[] schemaJson = partitionCodec.toJsonBytes(new PartitionMetadata(table, partition));
+                byte[] schemaJson = partitionCodec.toJsonBytes(new PartitionMetadata(table, partitionWithStatistics));
                 schemaFiles.put(schemaPath, schemaJson);
             }
 
@@ -574,14 +660,15 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void alterPartition(String databaseName, String tableName, Partition partition)
+    public synchronized void alterPartition(String databaseName, String tableName, PartitionWithStatistics partitionWithStatistics)
     {
         Table table = getRequiredTable(databaseName, tableName);
 
+        Partition partition = partitionWithStatistics.getPartition();
         verifiedPartition(table, partition);
 
         Path partitionMetadataDirectory = getPartitionMetadataDirectory(table, partition.getValues());
-        writeSchemaFile("partition", partitionMetadataDirectory, partitionCodec, new PartitionMetadata(table, partition), true);
+        writeSchemaFile("partition", partitionMetadataDirectory, partitionCodec, new PartitionMetadata(table, partitionWithStatistics), true);
     }
 
     @Override

@@ -31,9 +31,6 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.LiteralParameter;
@@ -50,9 +47,9 @@ import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.A
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
-import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
-import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
-import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -67,8 +64,8 @@ public class TestAnnotationEngineForScalars
     @Description("Simple scalar with single implementation based on class")
     public static class SingleImplementationScalarFunction
     {
-        @SqlType(DOUBLE)
-        public static double fun(@SqlType(DOUBLE) double v)
+        @SqlType(StandardTypes.DOUBLE)
+        public static double fun(@SqlType(StandardTypes.DOUBLE) double v)
         {
             return v;
         }
@@ -80,8 +77,8 @@ public class TestAnnotationEngineForScalars
         Signature expectedSignature = new Signature(
                 "single_implementation_parametric_scalar",
                 FunctionKind.SCALAR,
-                DoubleType.DOUBLE.getTypeSignature(),
-                ImmutableList.of(DoubleType.DOUBLE.getTypeSignature()));
+                DOUBLE.getTypeSignature(),
+                ImmutableList.of(DOUBLE.getTypeSignature()));
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(SingleImplementationScalarFunction.class);
         assertEquals(functions.size(), 1);
@@ -104,8 +101,8 @@ public class TestAnnotationEngineForScalars
     @Description("Simple scalar with hidden property set")
     public static class HiddenScalarFunction
     {
-        @SqlType(DOUBLE)
-        public static double fun(@SqlType(DOUBLE) double v)
+        @SqlType(StandardTypes.DOUBLE)
+        public static double fun(@SqlType(StandardTypes.DOUBLE) double v)
         {
             return v;
         }
@@ -126,8 +123,8 @@ public class TestAnnotationEngineForScalars
     @Description("Simple scalar with deterministic property reset")
     public static class NonDeterministicScalarFunction
     {
-        @SqlType(DOUBLE)
-        public static double fun(@SqlType(DOUBLE) double v)
+        @SqlType(StandardTypes.DOUBLE)
+        public static double fun(@SqlType(StandardTypes.DOUBLE) double v)
         {
             return v;
         }
@@ -148,10 +145,10 @@ public class TestAnnotationEngineForScalars
     @Description("Simple scalar with nullable primitive")
     public static class WithNullablePrimitiveArgScalarFunction
     {
-        @SqlType(DOUBLE)
+        @SqlType(StandardTypes.DOUBLE)
         public static double fun(
-                @SqlType(DOUBLE) double v,
-                @SqlNullable @SqlType(DOUBLE) double v2,
+                @SqlType(StandardTypes.DOUBLE) double v,
+                @SqlType(StandardTypes.DOUBLE) double v2,
                 @IsNull boolean v2isNull)
         {
             return v;
@@ -164,8 +161,8 @@ public class TestAnnotationEngineForScalars
         Signature expectedSignature = new Signature(
                 "scalar_with_nullable",
                 FunctionKind.SCALAR,
-                DoubleType.DOUBLE.getTypeSignature(),
-                ImmutableList.of(DoubleType.DOUBLE.getTypeSignature(), DoubleType.DOUBLE.getTypeSignature()));
+                DOUBLE.getTypeSignature(),
+                ImmutableList.of(DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(WithNullablePrimitiveArgScalarFunction.class);
         assertEquals(functions.size(), 1);
@@ -187,10 +184,10 @@ public class TestAnnotationEngineForScalars
     @Description("Simple scalar with nullable complex type")
     public static class WithNullableComplexArgScalarFunction
     {
-        @SqlType(DOUBLE)
+        @SqlType(StandardTypes.DOUBLE)
         public static double fun(
-                @SqlType(DOUBLE) double v,
-                @SqlNullable @SqlType(DOUBLE) Double v2)
+                @SqlType(StandardTypes.DOUBLE) double v,
+                @SqlNullable @SqlType(StandardTypes.DOUBLE) Double v2)
         {
             return v;
         }
@@ -202,8 +199,8 @@ public class TestAnnotationEngineForScalars
         Signature expectedSignature = new Signature(
                 "scalar_with_nullable_complex",
                 FunctionKind.SCALAR,
-                DoubleType.DOUBLE.getTypeSignature(),
-                ImmutableList.of(DoubleType.DOUBLE.getTypeSignature(), DoubleType.DOUBLE.getTypeSignature()));
+                DOUBLE.getTypeSignature(),
+                ImmutableList.of(DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(WithNullableComplexArgScalarFunction.class);
         assertEquals(functions.size(), 1);
@@ -225,8 +222,8 @@ public class TestAnnotationEngineForScalars
     {
         @ScalarFunction("static_method_scalar")
         @Description("Simple scalar with single implementation based on method")
-        @SqlType(DOUBLE)
-        public static double fun(@SqlType(DOUBLE) double v)
+        @SqlType(StandardTypes.DOUBLE)
+        public static double fun(@SqlType(StandardTypes.DOUBLE) double v)
         {
             return v;
         }
@@ -238,8 +235,8 @@ public class TestAnnotationEngineForScalars
         Signature expectedSignature = new Signature(
                 "static_method_scalar",
                 FunctionKind.SCALAR,
-                DoubleType.DOUBLE.getTypeSignature(),
-                ImmutableList.of(DoubleType.DOUBLE.getTypeSignature()));
+                DOUBLE.getTypeSignature(),
+                ImmutableList.of(DOUBLE.getTypeSignature()));
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinitions(StaticMethodScalarFunction.class);
         assertEquals(functions.size(), 1);
@@ -255,16 +252,16 @@ public class TestAnnotationEngineForScalars
     {
         @ScalarFunction("static_method_scalar_1")
         @Description("Simple scalar with single implementation based on method 1")
-        @SqlType(DOUBLE)
-        public static double fun1(@SqlType(DOUBLE) double v)
+        @SqlType(StandardTypes.DOUBLE)
+        public static double fun1(@SqlType(StandardTypes.DOUBLE) double v)
         {
             return v;
         }
 
         @ScalarFunction(value = "static_method_scalar_2", hidden = true, deterministic = false)
         @Description("Simple scalar with single implementation based on method 2")
-        @SqlType(BIGINT)
-        public static long fun2(@SqlType(BIGINT) long v)
+        @SqlType(StandardTypes.BIGINT)
+        public static long fun2(@SqlType(StandardTypes.BIGINT) long v)
         {
             return v;
         }
@@ -276,14 +273,14 @@ public class TestAnnotationEngineForScalars
         Signature expectedSignature1 = new Signature(
                 "static_method_scalar_1",
                 FunctionKind.SCALAR,
-                DoubleType.DOUBLE.getTypeSignature(),
-                ImmutableList.of(DoubleType.DOUBLE.getTypeSignature()));
+                DOUBLE.getTypeSignature(),
+                ImmutableList.of(DOUBLE.getTypeSignature()));
 
         Signature expectedSignature2 = new Signature(
                 "static_method_scalar_2",
                 FunctionKind.SCALAR,
-                BigintType.BIGINT.getTypeSignature(),
-                ImmutableList.of(BigintType.BIGINT.getTypeSignature()));
+                BIGINT.getTypeSignature(),
+                ImmutableList.of(BIGINT.getTypeSignature()));
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinitions(MultiScalarFunction.class);
         assertEquals(functions.size(), 2);
@@ -350,14 +347,14 @@ public class TestAnnotationEngineForScalars
     @Description("Parametric scalar with exact and generic implementations")
     public static class ComplexParametricScalarFunction
     {
-        @SqlType(BOOLEAN)
+        @SqlType(StandardTypes.BOOLEAN)
         @LiteralParameters("x")
         public static boolean fun1(@SqlType("array(varchar(x))") Block array)
         {
             return true;
         }
 
-        @SqlType(BOOLEAN)
+        @SqlType(StandardTypes.BOOLEAN)
         public static boolean fun2(@SqlType("array(varchar(17))") Block array)
         {
             return true;
@@ -372,7 +369,7 @@ public class TestAnnotationEngineForScalars
                 FunctionKind.SCALAR,
                 ImmutableList.of(),
                 ImmutableList.of(),
-                BooleanType.BOOLEAN.getTypeSignature(),
+                BOOLEAN.getTypeSignature(),
                 ImmutableList.of(parseTypeSignature("array(varchar(x))", ImmutableSet.of("x"))),
                 false);
 
@@ -381,7 +378,7 @@ public class TestAnnotationEngineForScalars
                 FunctionKind.SCALAR,
                 ImmutableList.of(),
                 ImmutableList.of(),
-                BooleanType.BOOLEAN.getTypeSignature(),
+                BOOLEAN.getTypeSignature(),
                 ImmutableList.of(parseTypeSignature("array(varchar(17))")),
                 false);
 
@@ -401,7 +398,7 @@ public class TestAnnotationEngineForScalars
     @Description("Parametric scalar with literal injected")
     public static class SimpleInjectionScalarFunction
     {
-        @SqlType(BIGINT)
+        @SqlType(StandardTypes.BIGINT)
         @LiteralParameters("x")
         public static long fun(
                 @LiteralParameter("x") Long literalParam,
@@ -419,7 +416,7 @@ public class TestAnnotationEngineForScalars
                 FunctionKind.SCALAR,
                 ImmutableList.of(),
                 ImmutableList.of(),
-                BigintType.BIGINT.getTypeSignature(),
+                BIGINT.getTypeSignature(),
                 ImmutableList.of(parseTypeSignature("varchar(x)", ImmutableSet.of("x"))),
                 false);
 
@@ -449,9 +446,21 @@ public class TestAnnotationEngineForScalars
             this.type = type;
         }
 
-        @SqlType(BIGINT)
+        @SqlType(StandardTypes.BIGINT)
         @TypeParameter("T")
-        public long fun(@SqlType("array(T)") Slice val)
+        public long fun(@SqlType("array(T)") Block val)
+        {
+            return 17L;
+        }
+
+        @SqlType(StandardTypes.BIGINT)
+        public long funBigint(@SqlType("array(bigint)") Block val)
+        {
+            return 17L;
+        }
+
+        @SqlType(StandardTypes.BIGINT)
+        public long funDouble(@SqlType("array(double)") Block val)
         {
             return 17L;
         }
@@ -465,14 +474,14 @@ public class TestAnnotationEngineForScalars
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
-                BigintType.BIGINT.getTypeSignature(),
+                BIGINT.getTypeSignature(),
                 ImmutableList.of(parseTypeSignature("array(T)")),
                 false);
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(ConstructorInjectionScalarFunction.class);
         assertEquals(functions.size(), 1);
         ParametricScalar scalar = (ParametricScalar) functions.get(0);
-        assertImplementationCount(scalar, 0, 0, 1);
+        assertImplementationCount(scalar, 2, 0, 1);
         List<ImplementationDependency> dependencies = scalar.getImplementations().getGenericImplementations().get(0).getDependencies();
         assertEquals(dependencies.size(), 0);
         List<ImplementationDependency> constructorDependencies = scalar.getImplementations().getGenericImplementations().get(0).getConstructorDependencies();
@@ -506,8 +515,8 @@ public class TestAnnotationEngineForScalars
                 FunctionKind.SCALAR,
                 ImmutableList.of(),
                 ImmutableList.of(),
-                BigintType.BIGINT.getTypeSignature(),
-                ImmutableList.of(BigintType.BIGINT.getTypeSignature()),
+                BIGINT.getTypeSignature(),
+                ImmutableList.of(BIGINT.getTypeSignature()),
                 false);
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(FixedTypeParameterScalarFunction.class);
@@ -544,8 +553,8 @@ public class TestAnnotationEngineForScalars
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T1"), typeVariable("T2")),
                 ImmutableList.of(),
-                BigintType.BIGINT.getTypeSignature(),
-                ImmutableList.of(BigintType.BIGINT.getTypeSignature()),
+                BIGINT.getTypeSignature(),
+                ImmutableList.of(BIGINT.getTypeSignature()),
                 false);
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(PartiallyFixedTypeParameterScalarFunction.class);

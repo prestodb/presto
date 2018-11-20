@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
+import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
 import static java.lang.Integer.MAX_VALUE;
@@ -21,6 +22,8 @@ import static java.lang.Integer.MIN_VALUE;
 public class TestDateStatistics
         extends AbstractRangeStatisticsTest<DateStatistics, Integer>
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DateStatistics.class).instanceSize();
+
     @Override
     protected DateStatistics getCreateStatistics(Integer min, Integer max)
     {
@@ -35,5 +38,15 @@ public class TestDateStatistics
         assertMinMax(MIN_VALUE, 42);
         assertMinMax(42, MAX_VALUE);
         assertMinMax(MIN_VALUE, MAX_VALUE);
+    }
+
+    @Test
+    public void testRetainedSize()
+    {
+        assertRetainedSize(0, 42, INSTANCE_SIZE);
+        assertRetainedSize(42, 42, INSTANCE_SIZE);
+        assertRetainedSize(MIN_VALUE, 42, INSTANCE_SIZE);
+        assertRetainedSize(42, MAX_VALUE, INSTANCE_SIZE);
+        assertRetainedSize(MIN_VALUE, MAX_VALUE, INSTANCE_SIZE);
     }
 }

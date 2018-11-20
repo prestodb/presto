@@ -1,4 +1,4 @@
--- delimiter: |; types: LONGNVARCHAR|CHAR|BIGINT|BIGINT
+-- delimiter: |; types: VARCHAR|CHAR|BIGINT|BIGINT
 Bad cards must make.|AAAAAAAAAACDAAAA|1889|2168|
 Bad cards must make.|AAAAAAAAAAHDAAAA|2739|2039|
 Bad cards must make.|AAAAAAAAABDAAAAA|1717|1782|

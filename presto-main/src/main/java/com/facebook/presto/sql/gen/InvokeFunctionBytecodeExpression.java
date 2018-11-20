@@ -16,6 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Primitives;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodGenerationContext;
@@ -43,13 +44,12 @@ public class InvokeFunctionBytecodeExpression
         requireNonNull(scope, "scope is null");
         requireNonNull(function, "function is null");
 
-        Binding binding = cachedInstanceBinder.getCallSiteBinder().bind(function.getMethodHandle());
         Optional<BytecodeNode> instance = Optional.empty();
         if (function.getInstanceFactory().isPresent()) {
             FieldDefinition field = cachedInstanceBinder.getCachedInstance(function.getInstanceFactory().get());
             instance = Optional.of(scope.getThis().getField(field));
         }
-        return new InvokeFunctionBytecodeExpression(scope, binding, name, function, instance, parameters);
+        return new InvokeFunctionBytecodeExpression(scope, cachedInstanceBinder.getCallSiteBinder(), name, function, instance, parameters);
     }
 
     private final BytecodeNode invocation;
@@ -57,15 +57,15 @@ public class InvokeFunctionBytecodeExpression
 
     private InvokeFunctionBytecodeExpression(
             Scope scope,
-            Binding binding,
+            CallSiteBinder binder,
             String name,
             ScalarFunctionImplementation function,
             Optional<BytecodeNode> instance,
             List<BytecodeExpression> parameters)
     {
-        super(type(function.getMethodHandle().type().returnType()));
+        super(type(Primitives.unwrap(function.getMethodHandle().type().returnType())));
 
-        this.invocation = generateInvocation(scope, name, function, instance, parameters.stream().map(BytecodeNode.class::cast).collect(toImmutableList()), binding);
+        this.invocation = generateInvocation(scope, name, function, instance, parameters.stream().map(BytecodeNode.class::cast).collect(toImmutableList()), binder);
         this.oneLineDescription = name + "(" + Joiner.on(", ").join(parameters) + ")";
     }
 

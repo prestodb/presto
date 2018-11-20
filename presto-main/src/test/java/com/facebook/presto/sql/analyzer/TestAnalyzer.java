@@ -14,12 +14,18 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.SystemConnector;
+import com.facebook.presto.execution.QueryManagerConfig;
+import com.facebook.presto.execution.TaskManagerConfig;
+import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.metadata.ColumnPropertyManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -88,6 +94,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS_FROM_SUBQUERY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATION_FUNCTION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_COLUMN_REFERENCE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NONDETERMINISTIC_ORDER_BY_EXPRESSION_WITH_SELECT_DISTINCT;
@@ -100,6 +107,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.REFERENCE_TO_OU
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.STANDALONE_LAMBDA;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TOO_MANY_GROUPING_SETS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_ANALYSIS_ERROR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_RECURSIVE;
@@ -107,8 +115,8 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_STALE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
-import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static org.testng.Assert.fail;
@@ -519,6 +527,36 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testTooManyGroupingElements()
+    {
+        Session session = testSessionBuilder(new SessionPropertyManager(new SystemSessionProperties(
+                new QueryManagerConfig(),
+                new TaskManagerConfig(),
+                new MemoryManagerConfig(),
+                new FeaturesConfig().setMaxGroupingSets(2048)))).build();
+        analyze(session, "SELECT a, b, c, d, e, f, g, h, i, j, k, SUM(l)" +
+                "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12))\n" +
+                "t (a, b, c, d, e, f, g, h, i, j, k, l)\n" +
+                "GROUP BY CUBE (a, b, c, d, e, f), CUBE (g, h, i, j, k)");
+        assertFails(session, TOO_MANY_GROUPING_SETS,
+                "line 3:10: GROUP BY has 4096 grouping sets but can contain at most 2048",
+                "SELECT a, b, c, d, e, f, g, h, i, j, k, l, SUM(m)" +
+                        "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13))\n" +
+                        "t (a, b, c, d, e, f, g, h, i, j, k, l, m)\n" +
+                        "GROUP BY CUBE (a, b, c, d, e, f), CUBE (g, h, i, j, k, l)");
+        assertFails(session, TOO_MANY_GROUPING_SETS,
+                format("line 3:10: GROUP BY has more than %s grouping sets but can contain at most 2048", Integer.MAX_VALUE),
+                "SELECT a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, " +
+                        "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae, SUM(af)" +
+                        "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, " +
+                        "17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32))\n" +
+                        "t (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, " +
+                        "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae, af)\n" +
+                        "GROUP BY CUBE (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, " +
+                        "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae)");
+    }
+
+    @Test
     public void testMismatchedColumnAliasCount()
     {
         assertFails(MISMATCHED_COLUMN_ALIASES, "SELECT * FROM t1 u (x, y)");
@@ -858,6 +896,13 @@ public class TestAnalyzer
         assertFails(TYPE_MISMATCH, "SELECT x.f1 FROM (VALUES 1) t(x)");
     }
 
+    @Test
+    public void testLike()
+    {
+        analyze("SELECT '1' LIKE '1'");
+        analyze("SELECT CAST('1' as CHAR(1)) LIKE '1'");
+    }
+
     @Test(enabled = false) // TODO: need to support widening conversion for numbers
     public void testInWithNumericTypes()
     {
@@ -887,6 +932,36 @@ public class TestAnalyzer
     public void testGroupByEmpty()
     {
         assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT a FROM t1 GROUP BY ()");
+    }
+
+    @Test
+    public void testComplexExpressionInGroupingSet()
+    {
+        assertFails(
+                MUST_BE_COLUMN_REFERENCE,
+                "\\Qline 1:49: GROUP BY expression must be a column reference: (x + 1)\\E",
+                "SELECT 1 FROM (VALUES 1) t(x) GROUP BY ROLLUP(x + 1)");
+        assertFails(
+                MUST_BE_COLUMN_REFERENCE,
+                "\\Qline 1:47: GROUP BY expression must be a column reference: (x + 1)\\E",
+                "SELECT 1 FROM (VALUES 1) t(x) GROUP BY CUBE(x + 1)");
+        assertFails(
+                MUST_BE_COLUMN_REFERENCE,
+                "\\Qline 1:57: GROUP BY expression must be a column reference: (x + 1)\\E",
+                "SELECT 1 FROM (VALUES 1) t(x) GROUP BY GROUPING SETS (x + 1)");
+
+        assertFails(
+                MUST_BE_COLUMN_REFERENCE,
+                "\\Qline 1:52: GROUP BY expression must be a column reference: (x + 1)\\E",
+                "SELECT 1 FROM (VALUES 1) t(x) GROUP BY ROLLUP(x, x + 1)");
+        assertFails(
+                MUST_BE_COLUMN_REFERENCE,
+                "\\Qline 1:50: GROUP BY expression must be a column reference: (x + 1)\\E",
+                "SELECT 1 FROM (VALUES 1) t(x) GROUP BY CUBE(x, x + 1)");
+        assertFails(
+                MUST_BE_COLUMN_REFERENCE,
+                "\\Qline 1:60: GROUP BY expression must be a column reference: (x + 1)\\E",
+                "SELECT 1 FROM (VALUES 1) t(x) GROUP BY GROUPING SETS (x, x + 1)");
     }
 
     @Test
@@ -949,6 +1024,14 @@ public class TestAnalyzer
         assertFails(MISMATCHED_SET_COLUMN_TYPES, "SELECT 1, 2 UNION SELECT 1");
         assertFails(MISMATCHED_SET_COLUMN_TYPES, "SELECT 'a' UNION SELECT 'b', 'c'");
         assertFails(MISMATCHED_SET_COLUMN_TYPES, "TABLE t2 UNION SELECT 'a'");
+        assertFails(
+                TYPE_MISMATCH,
+                ".* column 1 in UNION query has incompatible types.*",
+                "SELECT 123, 'foo' UNION ALL SELECT 'bar', 999");
+        assertFails(
+                TYPE_MISMATCH,
+                ".* column 2 in UNION query has incompatible types.*",
+                "SELECT 123, 123 UNION ALL SELECT 999, 'bar'");
     }
 
     @Test
@@ -1346,7 +1429,6 @@ public class TestAnalyzer
     public void testInvalidAggregationFilter()
     {
         assertFails(NOT_SUPPORTED, "SELECT sum(x) FILTER (WHERE x > 1) OVER (PARTITION BY x) FROM (VALUES (1), (2), (2), (4)) t (x)");
-        assertFails(NOT_SUPPORTED, "SELECT count(DISTINCT x) FILTER (where y = 1) FROM (VALUES (1, 1)) t(x, y)");
         assertFails(MUST_BE_AGGREGATION_FUNCTION, "SELECT abs(x) FILTER (where y = 1) FROM (VALUES (1, 1)) t(x, y)");
         assertFails(MUST_BE_AGGREGATION_FUNCTION, "SELECT abs(x) FILTER (where y = 1) FROM (VALUES (1, 1, 1)) t(x, y, z) GROUP BY z");
     }
@@ -1378,6 +1460,10 @@ public class TestAnalyzer
         // HLL is neither orderable nor comparable
         assertFails(TYPE_MISMATCH, "SELECT cast(NULL AS HyperLogLog) < ALL (VALUES cast(NULL AS HyperLogLog))");
         assertFails(TYPE_MISMATCH, "SELECT cast(NULL AS HyperLogLog) = ANY (VALUES cast(NULL AS HyperLogLog))");
+
+        // qdigest is neither orderable nor comparable
+        assertFails(TYPE_MISMATCH, "SELECT cast(NULL AS qdigest(double)) < ALL (VALUES cast(NULL AS qdigest(double)))");
+        assertFails(TYPE_MISMATCH, "SELECT cast(NULL AS qdigest(double)) = ANY (VALUES cast(NULL AS qdigest(double)))");
     }
 
     @Test
@@ -1413,6 +1499,7 @@ public class TestAnalyzer
                 new SessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
+                new ColumnPropertyManager(),
                 transactionManager);
 
         metadata.getFunctionRegistry().addFunctions(ImmutableList.of(APPLY_FUNCTION));
@@ -1422,8 +1509,8 @@ public class TestAnalyzer
         catalogManager.registerCatalog(createTestingCatalog(THIRD_CATALOG, THIRD_CONNECTOR_ID));
 
         SchemaTableName table1 = new SchemaTableName("s1", "t1");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG, new ConnectorTableMetadata(table1,
-                ImmutableList.of(
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+                new ConnectorTableMetadata(table1, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", BIGINT),
                         new ColumnMetadata("c", BIGINT),
@@ -1431,15 +1518,15 @@ public class TestAnalyzer
                 false));
 
         SchemaTableName table2 = new SchemaTableName("s1", "t2");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG, new ConnectorTableMetadata(table2,
-                ImmutableList.of(
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+                new ConnectorTableMetadata(table2, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", BIGINT))),
                 false));
 
         SchemaTableName table3 = new SchemaTableName("s1", "t3");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG, new ConnectorTableMetadata(table3,
-                ImmutableList.of(
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+                new ConnectorTableMetadata(table3, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", BIGINT),
                         new ColumnMetadata("x", BIGINT, null, true))),
@@ -1447,23 +1534,23 @@ public class TestAnalyzer
 
         // table in different catalog
         SchemaTableName table4 = new SchemaTableName("s2", "t4");
-        inSetupTransaction(session -> metadata.createTable(session, SECOND_CATALOG, new ConnectorTableMetadata(table4,
-                ImmutableList.of(
+        inSetupTransaction(session -> metadata.createTable(session, SECOND_CATALOG,
+                new ConnectorTableMetadata(table4, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT))),
                 false));
 
         // table with a hidden column
         SchemaTableName table5 = new SchemaTableName("s1", "t5");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG, new ConnectorTableMetadata(table5,
-                ImmutableList.of(
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+                new ConnectorTableMetadata(table5, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", BIGINT, null, true))),
                 false));
 
         // table with a varchar column
         SchemaTableName table6 = new SchemaTableName("s1", "t6");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG, new ConnectorTableMetadata(table6,
-                ImmutableList.of(
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+                new ConnectorTableMetadata(table6, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", VARCHAR),
                         new ColumnMetadata("c", BIGINT),
@@ -1472,8 +1559,8 @@ public class TestAnalyzer
 
         // table with bigint, double, array of bigints and array of doubles column
         SchemaTableName table7 = new SchemaTableName("s1", "t7");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG, new ConnectorTableMetadata(table7,
-                ImmutableList.of(
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+                new ConnectorTableMetadata(table7, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", DOUBLE),
                         new ColumnMetadata("c", new ArrayType(BIGINT)),
@@ -1547,7 +1634,8 @@ public class TestAnalyzer
                 SQL_PARSER,
                 new AllowAllAccessControl(),
                 Optional.empty(),
-                emptyList());
+                emptyList(),
+                WarningCollector.NOOP);
     }
 
     private void analyze(@Language("SQL") String query)

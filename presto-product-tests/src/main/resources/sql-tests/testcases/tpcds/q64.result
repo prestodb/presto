@@ -1,4 +1,4 @@
--- delimiter: |; types: CHAR|LONGNVARCHAR|CHAR|CHAR|LONGNVARCHAR|LONGNVARCHAR|CHAR|CHAR|LONGNVARCHAR|LONGNVARCHAR|CHAR|INTEGER|BIGINT|DECIMAL|DECIMAL|DECIMAL|DECIMAL|DECIMAL|DECIMAL|INTEGER|BIGINT
+-- delimiter: |; types: CHAR|VARCHAR|CHAR|CHAR|VARCHAR|VARCHAR|CHAR|CHAR|VARCHAR|VARCHAR|CHAR|INTEGER|BIGINT|DECIMAL|DECIMAL|DECIMAL|DECIMAL|DECIMAL|DECIMAL|INTEGER|BIGINT
 n stableableantiought                             |able|31904     |987       |Hillcrest |Fairbanks|46653     |216       |3rd |Reno|40344     |1999|1|55.42|80.91|954.53|59.08|76.80|0.00|2000|1|
 n stableableantiought                             |ation|31904     |425       |Green |Enterprise|11757     |772       |Valley |null|null|1999|1|16.24|25.17|0.00|7.92|11.80|0.00|2000|1|
 n stableableantiought                             |ation|31904     |425       |Green |Enterprise|11757     |772       |Valley |null|null|1999|1|16.24|25.17|0.00|44.27|58.43|0.00|2000|1|

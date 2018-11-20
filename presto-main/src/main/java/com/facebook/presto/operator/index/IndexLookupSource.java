@@ -16,7 +16,6 @@ package com.facebook.presto.operator.index;
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -35,6 +34,13 @@ public class IndexLookupSource
     {
         this.indexLoader = requireNonNull(indexLoader, "indexLoader is null");
         this.indexedData = indexLoader.getIndexSnapshot();
+    }
+
+    @Override
+    public boolean isEmpty()
+    {
+        // since the data is not loaded, we don't know if it is empty
+        return false;
     }
 
     @Override
@@ -71,11 +77,10 @@ public class IndexLookupSource
     @Override
     public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage)
     {
-        Block[] blocks = hashChannelsPage.getBlocks();
         long joinPosition = indexedData.getJoinPosition(position, hashChannelsPage);
         if (joinPosition == UNLOADED_INDEX_KEY) {
             indexedData.close(); // Close out the old indexedData
-            indexedData = indexLoader.getIndexedDataForKeys(position, blocks);
+            indexedData = indexLoader.getIndexedDataForKeys(position, hashChannelsPage);
             joinPosition = indexedData.getJoinPosition(position, hashChannelsPage);
             checkState(joinPosition != UNLOADED_INDEX_KEY);
         }

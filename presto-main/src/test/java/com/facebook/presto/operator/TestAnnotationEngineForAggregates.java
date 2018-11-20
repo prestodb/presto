@@ -21,8 +21,6 @@ import com.facebook.presto.metadata.LongVariableConstraint;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.AggregationImplementation;
 import com.facebook.presto.operator.aggregation.AggregationMetadata;
-import com.facebook.presto.operator.aggregation.BlockIndex;
-import com.facebook.presto.operator.aggregation.BlockPosition;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.aggregation.LazyAccumulatorFactoryBinder;
 import com.facebook.presto.operator.aggregation.ParametricAggregation;
@@ -39,6 +37,8 @@ import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.AggregationStateSerializerFactory;
+import com.facebook.presto.spi.function.BlockIndex;
+import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.InputFunction;
@@ -260,8 +260,8 @@ public class TestAnnotationEngineForAggregates
         assertTrue(implementation.getStateSerializerFactory().isPresent());
 
         InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().build(), 1, new TypeRegistry(), null);
-        Object createdSerializer = ((LazyAccumulatorFactoryBinder) specialized.getAccumulatorFactoryBinder())
-                .getGenericAccumulatorFactoryBinder().getStateSerializer();
+        AccumulatorStateSerializer<?> createdSerializer = getOnlyElement(((LazyAccumulatorFactoryBinder) specialized.getAccumulatorFactoryBinder())
+                .getGenericAccumulatorFactoryBinder().getStateDescriptors()).getSerializer();
         Class<?> serializerFactory = implementation.getStateSerializerFactory().get().type().returnType();
         assertTrue(serializerFactory.isInstance(createdSerializer));
     }
@@ -1072,7 +1072,7 @@ public class TestAnnotationEngineForAggregates
     }
 
     @AggregationFunction("fixed_type_parameter_injection")
-    @Description("Simple aggregate with fixed paramter type injected")
+    @Description("Simple aggregate with fixed parameter type injected")
     public static class FixedTypeParameterInjectionAggregateFunction
     {
         @InputFunction
@@ -1116,7 +1116,7 @@ public class TestAnnotationEngineForAggregates
                 false);
 
         ParametricAggregation aggregation = parseFunctionDefinition(FixedTypeParameterInjectionAggregateFunction.class);
-        assertEquals(aggregation.getDescription(), "Simple aggregate with fixed paramter type injected");
+        assertEquals(aggregation.getDescription(), "Simple aggregate with fixed parameter type injected");
         assertTrue(aggregation.isDeterministic());
         assertEquals(aggregation.getSignature(), expectedSignature);
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
@@ -1132,7 +1132,7 @@ public class TestAnnotationEngineForAggregates
     }
 
     @AggregationFunction("partially_fixed_type_parameter_injection")
-    @Description("Simple aggregate with fixed paramter type injected")
+    @Description("Simple aggregate with fixed parameter type injected")
     public static class PartiallyFixedTypeParameterInjectionAggregateFunction
     {
         @InputFunction
@@ -1182,7 +1182,7 @@ public class TestAnnotationEngineForAggregates
                 false);
 
         ParametricAggregation aggregation = parseFunctionDefinition(PartiallyFixedTypeParameterInjectionAggregateFunction.class);
-        assertEquals(aggregation.getDescription(), "Simple aggregate with fixed paramter type injected");
+        assertEquals(aggregation.getDescription(), "Simple aggregate with fixed parameter type injected");
         assertTrue(aggregation.isDeterministic());
         assertEquals(aggregation.getSignature(), expectedSignature);
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();

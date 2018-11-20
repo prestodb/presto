@@ -20,8 +20,7 @@ import io.prestodb.tempto.configuration.Configuration;
 import io.prestodb.tempto.fulfillment.table.TableInstance;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
-import static com.facebook.presto.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_REGIONKEY;
+import static com.facebook.presto.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
 import static com.facebook.presto.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT;
 import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
 import static com.facebook.presto.tests.utils.QueryExecutors.onPresto;
@@ -41,10 +40,10 @@ public class TestExternalHiveTable
     {
         return compose(
                 mutableTable(NATION),
-                mutableTable(NATION_PARTITIONED_BY_REGIONKEY));
+                mutableTable(NATION_PARTITIONED_BY_BIGINT_REGIONKEY));
     }
 
-    @Test(groups = {HIVE_CONNECTOR})
+    @Test
     public void testInsertIntoExternalTable()
     {
         TableInstance nation = mutableTablesState().get(NATION.getName());
@@ -55,7 +54,7 @@ public class TestExternalHiveTable
                 .failsWithMessage("Cannot write to non-managed Hive table");
     }
 
-    @Test(groups = {HIVE_CONNECTOR})
+    @Test
     public void testDeleteFromExternalTable()
     {
         TableInstance nation = mutableTablesState().get(NATION.getName());
@@ -65,10 +64,10 @@ public class TestExternalHiveTable
                 .failsWithMessage("Cannot delete from non-managed Hive table");
     }
 
-    @Test(groups = {HIVE_CONNECTOR})
+    @Test
     public void testDeleteFromExternalPartitionedTableTable()
     {
-        TableInstance nation = mutableTablesState().get(NATION_PARTITIONED_BY_REGIONKEY.getName());
+        TableInstance nation = mutableTablesState().get(NATION_PARTITIONED_BY_BIGINT_REGIONKEY.getName());
         onHive().executeQuery("DROP TABLE IF EXISTS " + EXTERNAL_TABLE_NAME);
         onHive().executeQuery("CREATE EXTERNAL TABLE " + EXTERNAL_TABLE_NAME + " LIKE " + nation.getNameInDatabase() + " LOCATION '/tmp/" + EXTERNAL_TABLE_NAME + "_" + nation.getNameInDatabase() + "'");
         insertNationPartition(nation, 1);

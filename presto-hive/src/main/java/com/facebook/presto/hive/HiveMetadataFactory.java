@@ -26,19 +26,21 @@ import org.joda.time.DateTimeZone;
 import javax.inject.Inject;
 
 import java.util.concurrent.ExecutorService;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
 public class HiveMetadataFactory
+        implements Supplier<TransactionalMetadata>
 {
     private static final Logger log = Logger.get(HiveMetadataFactory.class);
 
     private final boolean allowCorruptWritesForTesting;
-    private final boolean bucketWritingEnabled;
     private final boolean skipDeletionForAlter;
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
     private final long perTransactionCacheMaximumSize;
+    private final int maxPartitions;
     private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
@@ -74,10 +76,10 @@ public class HiveMetadataFactory
                 hiveClientConfig.getMaxConcurrentFileRenames(),
                 hiveClientConfig.getAllowCorruptWritesForTesting(),
                 hiveClientConfig.isSkipDeletionForAlter(),
-                hiveClientConfig.isBucketWritingEnabled(),
                 hiveClientConfig.getWritesToNonManagedTablesEnabled(),
                 hiveClientConfig.getCreatesOfNonManagedTablesEnabled(),
                 hiveClientConfig.getPerTransactionMetastoreCacheMaximumSize(),
+                hiveClientConfig.getMaxPartitionsPerScan(),
                 typeManager,
                 locationService,
                 tableParameterCodec,
@@ -95,10 +97,10 @@ public class HiveMetadataFactory
             int maxConcurrentFileRenames,
             boolean allowCorruptWritesForTesting,
             boolean skipDeletionForAlter,
-            boolean bucketWritingEnabled,
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
             long perTransactionCacheMaximumSize,
+            int maxPartitions,
             TypeManager typeManager,
             LocationService locationService,
             TableParameterCodec tableParameterCodec,
@@ -109,7 +111,6 @@ public class HiveMetadataFactory
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
         this.skipDeletionForAlter = skipDeletionForAlter;
-        this.bucketWritingEnabled = bucketWritingEnabled;
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
         this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
@@ -124,6 +125,7 @@ public class HiveMetadataFactory
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
+        this.maxPartitions = maxPartitions;
 
         if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
             log.warn("Hive writes are disabled. " +
@@ -135,7 +137,8 @@ public class HiveMetadataFactory
         renameExecution = new BoundedExecutor(executorService, maxConcurrentFileRenames);
     }
 
-    public HiveMetadata create()
+    @Override
+    public HiveMetadata get()
     {
         SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(
                 hdfsEnvironment,
@@ -149,7 +152,6 @@ public class HiveMetadataFactory
                 partitionManager,
                 timeZone,
                 allowCorruptWritesForTesting,
-                bucketWritingEnabled,
                 writesToNonManagedTablesEnabled,
                 createsOfNonManagedTablesEnabled,
                 typeManager,
@@ -158,6 +160,7 @@ public class HiveMetadataFactory
                 partitionUpdateCodec,
                 typeTranslator,
                 prestoVersion,
-                new MetastoreHiveStatisticsProvider(typeManager, metastore, timeZone));
+                new MetastoreHiveStatisticsProvider(metastore),
+                maxPartitions);
     }
 }

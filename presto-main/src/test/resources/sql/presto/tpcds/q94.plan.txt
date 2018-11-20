@@ -1,0 +1,31 @@
+final aggregation over ()
+    local exchange (GATHER, SINGLE, [])
+        remote exchange (GATHER, SINGLE, [])
+            partial aggregation over ()
+                join (LEFT, PARTITIONED):
+                    final aggregation over (ca_state, d_date, unique, web_company_name, ws_ext_ship_cost, ws_net_profit, ws_order_number, ws_ship_addr_sk, ws_ship_date_sk, ws_warehouse_sk, ws_web_site_sk)
+                        local exchange (GATHER, SINGLE, [])
+                            partial aggregation over (ca_state, d_date, unique, web_company_name, ws_ext_ship_cost, ws_net_profit, ws_order_number, ws_ship_addr_sk, ws_ship_date_sk, ws_warehouse_sk, ws_web_site_sk)
+                                join (RIGHT, PARTITIONED):
+                                    remote exchange (REPARTITION, HASH, ["ws_order_number_17"])
+                                        scan tpcds:web_sales:sf3000.0
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPARTITION, HASH, ["ws_order_number"])
+                                            join (INNER, REPLICATED):
+                                                join (INNER, REPLICATED):
+                                                    join (INNER, REPLICATED):
+                                                        scan tpcds:web_sales:sf3000.0
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                scan tpcds:customer_address:sf3000.0
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            scan tpcds:date_dim:sf3000.0
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        scan tpcds:web_site:sf3000.0
+                    final aggregation over (wr_order_number)
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, ["wr_order_number"])
+                                partial aggregation over (wr_order_number)
+                                    scan tpcds:web_returns:sf3000.0

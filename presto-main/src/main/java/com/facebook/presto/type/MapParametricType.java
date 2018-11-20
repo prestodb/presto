@@ -56,12 +56,14 @@ public final class MapParametricType
         Type valueType = secondParameter.getType();
         MethodHandle keyNativeEquals = typeManager.resolveOperator(OperatorType.EQUAL, ImmutableList.of(keyType, keyType));
         MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(keyType));
+        MethodHandle keyBlockEquals = compose(keyNativeEquals, nativeValueGetter(keyType), nativeValueGetter(keyType));
         MethodHandle keyNativeHashCode = typeManager.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(keyType));
         MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(keyType));
         return new MapType(
                 keyType,
                 valueType,
                 keyBlockNativeEquals,
+                keyBlockEquals,
                 keyNativeHashCode,
                 keyBlockHashCode);
     }

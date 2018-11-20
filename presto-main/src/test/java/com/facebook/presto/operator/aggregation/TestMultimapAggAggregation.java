@@ -16,12 +16,21 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.RowPageBuilder;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInput;
+import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInputBuilder;
+import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestOutput;
+import com.facebook.presto.operator.aggregation.groupByAggregations.GroupByAggregationTestUtils;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.primitives.Ints;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -29,16 +38,18 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.operator.aggregation.MultimapAggregationFunction.NAME;
+import static com.facebook.presto.operator.aggregation.multimapagg.MultimapAggregationFunction.NAME;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static com.google.common.base.Preconditions.checkState;
+import static org.testng.Assert.assertTrue;
 
 public class TestMultimapAggAggregation
 {
@@ -102,18 +113,83 @@ public class TestMultimapAggAggregation
     @Test
     public void testDoubleRowMap()
     {
-        RowType innerRowType = new RowType(ImmutableList.of(BIGINT, DOUBLE), Optional.of(ImmutableList.of("f1", "f2")));
+        RowType innerRowType = RowType.from(ImmutableList.of(
+                RowType.field("f1", BIGINT),
+                RowType.field("f2", DOUBLE)));
         testMultimapAgg(DOUBLE, ImmutableList.of(1.0, 2.0, 3.0), innerRowType, ImmutableList.of(ImmutableList.of(1L, 1.0), ImmutableList.of(2L, 2.0), ImmutableList.of(3L, 3.0)));
+    }
+
+    @Test
+    public void testMultiplePages()
+    {
+        InternalAggregationFunction aggFunction = getInternalAggregationFunction(BIGINT, BIGINT);
+        GroupedAccumulator groupedAccumulator = getGroupedAccumulator(aggFunction);
+
+        testMultimapAggWithGroupBy(aggFunction, groupedAccumulator, 0, BIGINT, ImmutableList.of(1L, 1L), BIGINT, ImmutableList.of(2L, 3L));
+    }
+
+    @Test
+    public void testMultiplePagesAndGroups()
+    {
+        InternalAggregationFunction aggFunction = getInternalAggregationFunction(BIGINT, BIGINT);
+        GroupedAccumulator groupedAccumulator = getGroupedAccumulator(aggFunction);
+
+        testMultimapAggWithGroupBy(aggFunction, groupedAccumulator, 0, BIGINT, ImmutableList.of(1L, 1L), BIGINT, ImmutableList.of(2L, 3L));
+        testMultimapAggWithGroupBy(aggFunction, groupedAccumulator, 300, BIGINT, ImmutableList.of(7L, 7L), BIGINT, ImmutableList.of(8L, 9L));
+    }
+
+    @Test
+    public void testManyValues()
+    {
+        InternalAggregationFunction aggFunction = getInternalAggregationFunction(BIGINT, BIGINT);
+        GroupedAccumulator groupedAccumulator = getGroupedAccumulator(aggFunction);
+
+        int numGroups = 30000;
+        int numKeys = 10;
+        int numValueArraySize = 2;
+        Random random = new Random();
+
+        for (int group = 0; group < numGroups; group++) {
+            ImmutableList.Builder<Long> keyBuilder = ImmutableList.builder();
+            ImmutableList.Builder<Long> valueBuilder = ImmutableList.builder();
+            for (int i = 0; i < numKeys; i++) {
+                long key = random.nextLong();
+                for (int j = 0; j < numValueArraySize; j++) {
+                    long value = random.nextLong();
+                    keyBuilder.add(key);
+                    valueBuilder.add(value);
+                }
+            }
+            testMultimapAggWithGroupBy(aggFunction, groupedAccumulator, group, BIGINT, keyBuilder.build(), BIGINT, valueBuilder.build());
+        }
+    }
+
+    @Test
+    public void testEmptyStateOutputIsNull()
+    {
+        InternalAggregationFunction aggregationFunction = getInternalAggregationFunction(BIGINT, BIGINT);
+        GroupedAccumulator groupedAccumulator = aggregationFunction.bind(Ints.asList(), Optional.empty()).createGroupedAccumulator();
+        BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(null, 1);
+        groupedAccumulator.evaluateFinal(0, blockBuilder);
+        assertTrue(blockBuilder.isNull(0));
     }
 
     private static <K, V> void testMultimapAgg(Type keyType, List<K> expectedKeys, Type valueType, List<V> expectedValues)
     {
         checkState(expectedKeys.size() == expectedValues.size(), "expectedKeys and expectedValues should have equal size");
+        InternalAggregationFunction aggFunc = getInternalAggregationFunction(keyType, valueType);
+        testMultimapAgg(aggFunc, keyType, expectedKeys, valueType, expectedValues);
+    }
 
+    private static InternalAggregationFunction getInternalAggregationFunction(Type keyType, Type valueType)
+    {
         MapType mapType = mapType(keyType, new ArrayType(valueType));
         Signature signature = new Signature(NAME, AGGREGATE, mapType.getTypeSignature(), keyType.getTypeSignature(), valueType.getTypeSignature());
-        InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(signature);
+        return metadata.getFunctionRegistry().getAggregateFunctionImplementation(signature);
+    }
 
+    private static <K, V> void testMultimapAgg(InternalAggregationFunction aggFunc, Type keyType, List<K> expectedKeys, Type valueType, List<V> expectedValues)
+    {
         Map<K, List<V>> map = new HashMap<>();
         for (int i = 0; i < expectedKeys.size(); i++) {
             if (!map.containsKey(expectedKeys.get(i))) {
@@ -127,6 +203,36 @@ public class TestMultimapAggAggregation
             builder.row(expectedKeys.get(i), expectedValues.get(i));
         }
 
-        assertAggregation(aggFunc, map.isEmpty() ? null : map, builder.build().getBlocks());
+        assertAggregation(aggFunc, map.isEmpty() ? null : map, builder.build());
+    }
+
+    private static <K, V> void testMultimapAggWithGroupBy(
+            InternalAggregationFunction aggregationFunction,
+            GroupedAccumulator groupedAccumulator,
+            int groupId,
+            Type keyType,
+            List<K> expectedKeys,
+            Type valueType,
+            List<V> expectedValues)
+    {
+        RowPageBuilder pageBuilder = RowPageBuilder.rowPageBuilder(keyType, valueType);
+        ImmutableMultimap.Builder<K, V> outputBuilder = ImmutableMultimap.builder();
+        for (int i = 0; i < expectedValues.size(); i++) {
+            pageBuilder.row(expectedKeys.get(i), expectedValues.get(i));
+            outputBuilder.put(expectedKeys.get(i), expectedValues.get(i));
+        }
+        Page page = pageBuilder.build();
+
+        AggregationTestInput input = new AggregationTestInputBuilder(
+                new Block[] {page.getBlock(0), page.getBlock(1)},
+                aggregationFunction).build();
+
+        AggregationTestOutput testOutput = new AggregationTestOutput(outputBuilder.build().asMap());
+        input.runPagesOnAccumulatorWithAssertion(groupId, groupedAccumulator, testOutput);
+    }
+
+    private GroupedAccumulator getGroupedAccumulator(InternalAggregationFunction aggFunction)
+    {
+        return aggFunction.bind(Ints.asList(GroupByAggregationTestUtils.createArgs(aggFunction)), Optional.empty()).createGroupedAccumulator();
     }
 }

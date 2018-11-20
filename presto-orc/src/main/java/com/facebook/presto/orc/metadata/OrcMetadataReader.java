@@ -266,13 +266,13 @@ public class OrcMetadataReader
         return new ColumnStatistics(
                 statistics.getNumberOfValues(),
                 minAverageValueBytes,
-                toBooleanStatistics(statistics.getBucketStatistics()),
-                toIntegerStatistics(statistics.getIntStatistics()),
-                toDoubleStatistics(statistics.getDoubleStatistics()),
-                toStringStatistics(hiveWriterVersion, statistics.getStringStatistics(), isRowGroup),
-                toDateStatistics(hiveWriterVersion, statistics.getDateStatistics(), isRowGroup),
-                toDecimalStatistics(statistics.getDecimalStatistics()),
-                toBinaryStatistics(statistics.getBinaryStatistics()),
+                statistics.hasBucketStatistics() ? toBooleanStatistics(statistics.getBucketStatistics()) : null,
+                statistics.hasIntStatistics() ? toIntegerStatistics(statistics.getIntStatistics()) : null,
+                statistics.hasDoubleStatistics() ? toDoubleStatistics(statistics.getDoubleStatistics()) : null,
+                statistics.hasStringStatistics() ? toStringStatistics(hiveWriterVersion, statistics.getStringStatistics(), isRowGroup) : null,
+                statistics.hasDateStatistics() ? toDateStatistics(hiveWriterVersion, statistics.getDateStatistics(), isRowGroup) : null,
+                statistics.hasDecimalStatistics() ? toDecimalStatistics(statistics.getDecimalStatistics()) : null,
+                statistics.hasBinaryStatistics() ? toBinaryStatistics(statistics.getBinaryStatistics()) : null,
                 null);
     }
 
@@ -306,10 +306,6 @@ public class OrcMetadataReader
 
     private static IntegerStatistics toIntegerStatistics(OrcProto.IntegerStatistics integerStatistics)
     {
-        if (!integerStatistics.hasMinimum() && !integerStatistics.hasMaximum()) {
-            return null;
-        }
-
         return new IntegerStatistics(
                 integerStatistics.hasMinimum() ? integerStatistics.getMinimum() : null,
                 integerStatistics.hasMaximum() ? integerStatistics.getMaximum() : null,
@@ -318,10 +314,6 @@ public class OrcMetadataReader
 
     private static DoubleStatistics toDoubleStatistics(OrcProto.DoubleStatistics doubleStatistics)
     {
-        if (!doubleStatistics.hasMinimum() && !doubleStatistics.hasMaximum()) {
-            return null;
-        }
-
         // TODO remove this when double statistics are changed to correctly deal with NaNs
         // if either min, max, or sum is NaN, ignore the stat
         if ((doubleStatistics.hasMinimum() && Double.isNaN(doubleStatistics.getMinimum())) ||
@@ -341,10 +333,6 @@ public class OrcMetadataReader
             return null;
         }
 
-        if (!stringStatistics.hasMinimum() && !stringStatistics.hasMaximum()) {
-            return null;
-        }
-
         Slice maximum = stringStatistics.hasMaximum() ? maxStringTruncateToValidRange(byteStringToSlice(stringStatistics.getMaximumBytes()), hiveWriterVersion) : null;
         Slice minimum = stringStatistics.hasMinimum() ? minStringTruncateToValidRange(byteStringToSlice(stringStatistics.getMinimumBytes()), hiveWriterVersion) : null;
         long sum = stringStatistics.hasSum() ? stringStatistics.getSum() : 0;
@@ -353,14 +341,11 @@ public class OrcMetadataReader
 
     private static DecimalStatistics toDecimalStatistics(OrcProto.DecimalStatistics decimalStatistics)
     {
-        if (!decimalStatistics.hasMinimum() && !decimalStatistics.hasMaximum()) {
-            return null;
-        }
-
         BigDecimal minimum = decimalStatistics.hasMinimum() ? new BigDecimal(decimalStatistics.getMinimum()) : null;
         BigDecimal maximum = decimalStatistics.hasMaximum() ? new BigDecimal(decimalStatistics.getMaximum()) : null;
 
-        return new DecimalStatistics(minimum, maximum);
+        // could be long (16 bytes) or short (8 bytes); use short for estimation
+        return new DecimalStatistics(minimum, maximum, SHORT_DECIMAL_VALUE_BYTES);
     }
 
     private static BinaryStatistics toBinaryStatistics(OrcProto.BinaryStatistics binaryStatistics)
@@ -472,10 +457,6 @@ public class OrcMetadataReader
             return null;
         }
 
-        if (!dateStatistics.hasMinimum() && !dateStatistics.hasMaximum()) {
-            return null;
-        }
-
         return new DateStatistics(
                 dateStatistics.hasMinimum() ? dateStatistics.getMinimum() : null,
                 dateStatistics.hasMaximum() ? dateStatistics.getMaximum() : null);
@@ -566,6 +547,8 @@ public class OrcMetadataReader
                 return StreamKind.ROW_INDEX;
             case BLOOM_FILTER:
                 return StreamKind.BLOOM_FILTER;
+            case BLOOM_FILTER_UTF8:
+                return StreamKind.BLOOM_FILTER_UTF8;
             default:
                 throw new IllegalStateException(streamKind + " stream type not implemented yet");
         }

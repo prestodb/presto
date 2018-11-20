@@ -85,9 +85,14 @@ public final class ViewDefinition
                 .add("catalog", catalog.orElse(null))
                 .add("schema", schema.orElse(null))
                 .add("columns", columns)
-                .add("owner", owner)
+                .add("owner", owner.orElse(null))
                 .omitNullValues()
                 .toString();
+    }
+
+    public ViewDefinition withOwner(String owner)
+    {
+        return new ViewDefinition(originalSql, catalog, schema, columns, Optional.of(owner));
     }
 
     public static final class ViewColumn

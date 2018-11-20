@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.OperatorDependency;
@@ -26,6 +27,7 @@ import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.util.Failures.internalError;
 
@@ -34,13 +36,6 @@ import static com.facebook.presto.util.Failures.internalError;
 public final class ArrayContains
 {
     private ArrayContains() {}
-
-    @SqlType(StandardTypes.BOOLEAN)
-    @SqlNullable
-    public static Boolean arrayWithUnknownType(@SqlType("array(unknown)") Block arrayBlock, @SqlNullable @SqlType("unknown") Void value)
-    {
-        return null;
-    }
 
     @TypeParameter("T")
     @SqlType(StandardTypes.BOOLEAN)
@@ -58,7 +53,9 @@ public final class ArrayContains
                 continue;
             }
             try {
-                if ((boolean) equals.invokeExact((Block) elementType.getObject(arrayBlock, i), value)) {
+                Boolean result = (Boolean) equals.invokeExact((Block) elementType.getObject(arrayBlock, i), value);
+                checkNotIndeterminate(result);
+                if (result) {
                     return true;
                 }
             }
@@ -88,7 +85,9 @@ public final class ArrayContains
                 continue;
             }
             try {
-                if ((boolean) equals.invokeExact(elementType.getSlice(arrayBlock, i), value)) {
+                Boolean result = (Boolean) equals.invokeExact(elementType.getSlice(arrayBlock, i), value);
+                checkNotIndeterminate(result);
+                if (result) {
                     return true;
                 }
             }
@@ -118,7 +117,9 @@ public final class ArrayContains
                 continue;
             }
             try {
-                if ((boolean) equals.invokeExact(elementType.getLong(arrayBlock, i), value)) {
+                Boolean result = (Boolean) equals.invokeExact(elementType.getLong(arrayBlock, i), value);
+                checkNotIndeterminate(result);
+                if (result) {
                     return true;
                 }
             }
@@ -148,7 +149,9 @@ public final class ArrayContains
                 continue;
             }
             try {
-                if ((boolean) equals.invokeExact(elementType.getBoolean(arrayBlock, i), value)) {
+                Boolean result = (Boolean) equals.invokeExact(elementType.getBoolean(arrayBlock, i), value);
+                checkNotIndeterminate(result);
+                if (result) {
                     return true;
                 }
             }
@@ -178,7 +181,9 @@ public final class ArrayContains
                 continue;
             }
             try {
-                if ((boolean) equals.invokeExact(elementType.getDouble(arrayBlock, i), value)) {
+                Boolean result = (Boolean) equals.invokeExact(elementType.getDouble(arrayBlock, i), value);
+                checkNotIndeterminate(result);
+                if (result) {
                     return true;
                 }
             }
@@ -190,5 +195,12 @@ public final class ArrayContains
             return null;
         }
         return false;
+    }
+
+    private static void checkNotIndeterminate(Boolean equalsResult)
+    {
+        if (equalsResult == null) {
+            throw new PrestoException(NOT_SUPPORTED, "contains does not support arrays with elements that are null or contain null");
+        }
     }
 }

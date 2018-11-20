@@ -15,7 +15,6 @@ package com.facebook.presto.orc;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slices;
 
 import java.io.IOException;
@@ -102,10 +101,10 @@ public class CachingOrcDataSource
     }
 
     @Override
-    public <K> Map<K, FixedLengthSliceInput> readFully(Map<K, DiskRange> diskRanges)
+    public <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges)
             throws IOException
     {
-        ImmutableMap.Builder<K, FixedLengthSliceInput> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<K, OrcDataSourceInput> builder = ImmutableMap.builder();
 
         // Assumption here: all disk ranges are in the same region. Therefore, serving them in arbitrary order
         // will not result in eviction of cache that otherwise could have served any of the DiskRanges provided.
@@ -113,7 +112,7 @@ public class CachingOrcDataSource
             DiskRange diskRange = entry.getValue();
             byte[] buffer = new byte[diskRange.getLength()];
             readFully(diskRange.getOffset(), buffer);
-            builder.put(entry.getKey(), Slices.wrappedBuffer(buffer).getInput());
+            builder.put(entry.getKey(), new OrcDataSourceInput(Slices.wrappedBuffer(buffer).getInput(), buffer.length));
         }
         return builder.build();
     }

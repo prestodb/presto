@@ -15,6 +15,7 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
@@ -25,10 +26,12 @@ import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.XX_HASH_64;
 
 public final class VarbinaryOperators
 {
@@ -38,14 +41,16 @@ public final class VarbinaryOperators
 
     @ScalarOperator(EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean equal(@SqlType(StandardTypes.VARBINARY) Slice left, @SqlType(StandardTypes.VARBINARY) Slice right)
+    @SqlNullable
+    public static Boolean equal(@SqlType(StandardTypes.VARBINARY) Slice left, @SqlType(StandardTypes.VARBINARY) Slice right)
     {
         return left.equals(right);
     }
 
     @ScalarOperator(NOT_EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean notEqual(@SqlType(StandardTypes.VARBINARY) Slice left, @SqlType(StandardTypes.VARBINARY) Slice right)
+    @SqlNullable
+    public static Boolean notEqual(@SqlType(StandardTypes.VARBINARY) Slice left, @SqlType(StandardTypes.VARBINARY) Slice right)
     {
         return !left.equals(right);
     }
@@ -92,7 +97,7 @@ public final class VarbinaryOperators
         // This needs to match the hash function for VARBINARY blocks
         // (i.e. AstractVariableWidthBlock.hash(...))
         // TODO: we need to get rid of hash from Block and rely on HASH_CODE operators only
-        return XxHash64.hash(value);
+        return xxHash64(value);
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
@@ -110,5 +115,19 @@ public final class VarbinaryOperators
             return false;
         }
         return notEqual(left, right);
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    @SqlType(StandardTypes.BIGINT)
+    public static long xxHash64(@SqlType(StandardTypes.VARBINARY) Slice value)
+    {
+        return XxHash64.hash(value);
+    }
+
+    @ScalarOperator(INDETERMINATE)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean indeterminate(@SqlType(StandardTypes.VARBINARY) Slice value, @IsNull boolean isNull)
+    {
+        return isNull;
     }
 }

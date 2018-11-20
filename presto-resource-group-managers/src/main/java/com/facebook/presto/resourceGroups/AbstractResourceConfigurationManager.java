@@ -18,7 +18,6 @@ import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -42,7 +41,7 @@ import static java.lang.String.format;
 import static java.util.function.Predicate.isEqual;
 
 public abstract class AbstractResourceConfigurationManager
-        implements ResourceGroupConfigurationManager
+        implements ResourceGroupConfigurationManager<VariableMap>
 {
     @GuardedBy("generalPoolMemoryFraction")
     private final Map<ResourceGroup, Double> generalPoolMemoryFraction = new HashMap<>();
@@ -94,7 +93,13 @@ public abstract class AbstractResourceConfigurationManager
         ImmutableList.Builder<ResourceGroupSelector> selectors = ImmutableList.builder();
         for (SelectorSpec spec : managerSpec.getSelectors()) {
             validateSelectors(managerSpec.getRootGroups(), spec);
-            selectors.add(new StaticSelector(spec.getUserRegex(), spec.getSourceRegex(), spec.getClientTags(), spec.getQueryType(), spec.getGroup()));
+            selectors.add(new StaticSelector(
+                    spec.getUserRegex(),
+                    spec.getSourceRegex(),
+                    spec.getClientTags(),
+                    spec.getResourceEstimate(),
+                    spec.getQueryType(),
+                    spec.getGroup()));
         }
         return selectors.build();
     }
@@ -148,7 +153,7 @@ public abstract class AbstractResourceConfigurationManager
         });
     }
 
-    protected Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> getMatchingSpec(ResourceGroup group, SelectionContext context)
+    protected Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> getMatchingSpec(ResourceGroup group, SelectionContext<VariableMap> context)
     {
         List<ResourceGroupSpec> candidates = getRootGroups();
         List<String> segments = group.getId().getSegments();
@@ -158,7 +163,7 @@ public abstract class AbstractResourceConfigurationManager
             List<ResourceGroupSpec> nextCandidates = null;
             ResourceGroupSpec nextCandidatesParent = null;
             for (ResourceGroupSpec candidate : candidates) {
-                if (candidate.getName().expandTemplate(context).equals(segments.get(i))) {
+                if (candidate.getName().expandTemplate(context.getContext()).equals(segments.get(i))) {
                     templateId.add(candidate.getName());
                     if (i == segments.size() - 1) {
                         if (match != null) {
@@ -200,8 +205,6 @@ public abstract class AbstractResourceConfigurationManager
         group.setMaxQueuedQueries(match.getMaxQueued());
         group.setSoftConcurrencyLimit(match.getSoftConcurrencyLimit().orElse(match.getHardConcurrencyLimit()));
         group.setHardConcurrencyLimit(match.getHardConcurrencyLimit());
-        match.getQueuedTimeLimit().ifPresent(group::setQueuedTimeLimit);
-        match.getRunningTimeLimit().ifPresent(group::setRunningTimeLimit);
         match.getSchedulingPolicy().ifPresent(group::setSchedulingPolicy);
         match.getSchedulingWeight().ifPresent(group::setSchedulingWeight);
         match.getJmxExport().filter(isEqual(group.getJmxExport()).negate()).ifPresent(group::setJmxExport);

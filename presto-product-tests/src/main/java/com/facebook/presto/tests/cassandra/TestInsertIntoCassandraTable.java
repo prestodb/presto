@@ -19,10 +19,13 @@ import io.prestodb.tempto.Requirement;
 import io.prestodb.tempto.RequirementsProvider;
 import io.prestodb.tempto.configuration.Configuration;
 import io.prestodb.tempto.internal.fulfillment.table.TableName;
+import io.prestodb.tempto.internal.query.CassandraQueryExecutor;
 import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tests.TemptoProductTestRunner.PRODUCT_TESTS_TIME_ZONE;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
+
 import static com.facebook.presto.tests.TestGroups.CASSANDRA;
 import static com.facebook.presto.tests.cassandra.DataTypesTableDefinition.CASSANDRA_ALL_TYPES;
 import static com.facebook.presto.tests.cassandra.TestConstants.CONNECTOR_NAME;
@@ -34,7 +37,6 @@ import static io.prestodb.tempto.fulfillment.table.MutableTableRequirement.State
 import static io.prestodb.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
 import static io.prestodb.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.prestodb.tempto.query.QueryExecutor.query;
-import static io.prestodb.tempto.util.DateTimeUtils.parseTimestampInLocalTime;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -43,10 +45,14 @@ public class TestInsertIntoCassandraTable
         implements RequirementsProvider
 {
     private static final String CASSANDRA_INSERT_TABLE = "Insert_All_Types";
+    private static final String CASSANDRA_MATERIALIZED_VIEW = "Insert_All_Types_Mview";
+
+    private Configuration configuration;
 
     @Override
     public Requirement getRequirements(Configuration configuration)
     {
+        this.configuration = configuration;
         return mutableTable(CASSANDRA_ALL_TYPES, CASSANDRA_INSERT_TABLE, CREATED);
     }
 
@@ -103,7 +109,7 @@ public class TestInsertIntoCassandraTable
                         null,
                         null,
                         "text value",
-                        parseTimestampInLocalTime("9999-12-31 23:59:59", PRODUCT_TESTS_TIME_ZONE),
+                        Timestamp.valueOf(LocalDateTime.of(9999, 12, 31, 23, 59, 59)),
                         null,
                         null,
                         "varchar value",
@@ -124,5 +130,40 @@ public class TestInsertIntoCassandraTable
         // negative test: failed to insert null to primary key
         assertThat(() -> query(format("INSERT INTO %s (a) VALUES (null) ", tableNameInDatabase)))
                 .failsWithMessage("Invalid null value in condition for column a");
+    }
+
+    @Test(groups = CASSANDRA)
+    public void testInsertIntoValuesToCassandraMaterizedView()
+            throws Exception
+    {
+        TableName table = mutableTablesState().get(CASSANDRA_INSERT_TABLE).getTableName();
+        onCasssandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, CASSANDRA_MATERIALIZED_VIEW));
+        onCasssandra(format("CREATE MATERIALIZED VIEW %s.%s AS " +
+                        "SELECT * FROM %s " +
+                        "WHERE b IS NOT NULL " +
+                        "PRIMARY KEY (a, b) " +
+                        "WITH CLUSTERING ORDER BY (integer DESC)",
+                KEY_SPACE,
+                CASSANDRA_MATERIALIZED_VIEW,
+                table.getNameInDatabase()));
+
+        assertContainsEventually(() -> query(format("SHOW TABLES FROM %s.%s", CONNECTOR_NAME, KEY_SPACE)),
+                query(format("SELECT lower('%s')", CASSANDRA_MATERIALIZED_VIEW)),
+                new Duration(1, MINUTES));
+
+        assertThat(() -> query(format("INSERT INTO %s.%s.%s (a) VALUES (null) ", CONNECTOR_NAME, KEY_SPACE, CASSANDRA_MATERIALIZED_VIEW)))
+                .failsWithMessage("Inserting into materialized views not yet supported");
+
+        assertThat(() -> query(format("DROP TABLE %s.%s.%s", CONNECTOR_NAME, KEY_SPACE, CASSANDRA_MATERIALIZED_VIEW)))
+                .failsWithMessage("Dropping materialized views not yet supported");
+
+        onCasssandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, CASSANDRA_MATERIALIZED_VIEW));
+    }
+
+    private void onCasssandra(String query)
+    {
+        CassandraQueryExecutor queryExecutor = new CassandraQueryExecutor(configuration);
+        queryExecutor.executeQuery(query);
+        queryExecutor.close();
     }
 }

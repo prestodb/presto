@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.ParametricImplementationsGroup;
+import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
@@ -28,7 +29,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 
@@ -42,22 +42,25 @@ import static com.facebook.presto.operator.aggregation.AggregationUtils.generate
 import static com.facebook.presto.operator.aggregation.state.StateCompiler.generateStateSerializer;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class ParametricAggregation
         extends SqlAggregationFunction
 {
-    AggregationHeader details;
-    ParametricImplementationsGroup<AggregationImplementation> implementations;
+    final AggregationHeader details;
+    final ParametricImplementationsGroup<AggregationImplementation> implementations;
 
-    public ParametricAggregation(Signature signature,
+    public ParametricAggregation(
+            Signature signature,
             AggregationHeader details,
-            ParametricImplementationsGroup implementations)
+            ParametricImplementationsGroup<AggregationImplementation> implementations)
     {
-        super(signature);
-        this.details = details;
-        this.implementations = implementations;
+        super(signature, details.isHidden());
+        this.details = requireNonNull(details, "details is null");
+        this.implementations = requireNonNull(implementations, "implementations is null");
     }
 
     @Override
@@ -70,7 +73,7 @@ public class ParametricAggregation
         AggregationImplementation concreteImplementation = findMatchingImplementation(boundSignature, variables, typeManager, functionRegistry);
 
         // Build argument and return Types from signatures
-        List<Type> inputTypes = boundSignature.getArgumentTypes().stream().map(x -> typeManager.getType(x)).collect(toImmutableList());
+        List<Type> inputTypes = boundSignature.getArgumentTypes().stream().map(typeManager::getType).collect(toImmutableList());
         Type outputType = typeManager.getType(boundSignature.getReturnType());
 
         // Create classloader for additional aggregation dependencies
@@ -100,15 +103,16 @@ public class ParametricAggregation
                 inputHandle,
                 combineHandle,
                 outputHandle,
-                stateClass,
-                stateSerializer,
-                stateFactory,
+                ImmutableList.of(new AccumulatorStateDescriptor(
+                        stateClass,
+                        stateSerializer,
+                        stateFactory)),
                 outputType);
 
         // Create specialized InternalAggregregationFunction for Presto
         return new InternalAggregationFunction(getSignature().getName(),
                 inputTypes,
-                stateSerializer.getSerializedType(),
+                ImmutableList.of(stateSerializer.getSerializedType()),
                 outputType,
                 details.isDecomposable(),
                 details.isOrderSensitive(),
@@ -159,8 +163,9 @@ public class ParametricAggregation
                 MethodHandle factoryHandle = bindDependencies(stateSerializerFactory.get(), implementation.getStateSerializerFactoryDependencies(), variables, typeManager, functionRegistry);
                 stateSerializer = (AccumulatorStateSerializer<?>) factoryHandle.invoke();
             }
-            catch (Throwable e) {
-                throw Throwables.propagate(e);
+            catch (Throwable t) {
+                throwIfUnchecked(t);
+                throw new RuntimeException(t);
             }
         }
         else {
@@ -178,7 +183,7 @@ public class ParametricAggregation
     {
         return types
                 .stream()
-                .map(x -> x.getTypeSignature())
+                .map(Type::getTypeSignature)
                 .collect(toImmutableList());
     }
 

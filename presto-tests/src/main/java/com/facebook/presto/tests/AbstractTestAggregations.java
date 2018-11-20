@@ -14,10 +14,15 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.MaterializedRow;
 import org.testng.annotations.Test;
+
+import java.util.List;
 
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestAggregations
         extends AbstractTestQueryFramework
@@ -71,6 +76,24 @@ public abstract class AbstractTestAggregations
     public void testCountWithNullIfPredicate()
     {
         assertQuery("SELECT COUNT(*) FROM orders WHERE NULLIF(orderstatus, 'F') = orderstatus ");
+    }
+
+    @Test
+    public void testAggregationPushdownThroughOuterJoinNotFiringInCorrelatedAggregatesLeftSide()
+    {
+        assertQuery("SELECT max(x) FROM" +
+                        "(SELECT * from (VALUES 1) t(x) LEFT JOIN (VALUES 1) t2(y) ON t.x = t2.y)" +
+                        "GROUP BY x",
+                "VALUES 1");
+    }
+
+    @Test
+    public void testAggregationPushdownThroughOuterJoinNotFiringInCorrelatedAggregatesRightSide()
+    {
+        assertQuery("SELECT max(y) FROM" +
+                        "(SELECT * from (VALUES 1) t(x) LEFT JOIN (VALUES 1) t2(y) ON t.x = t2.y)" +
+                        "GROUP BY y",
+                "VALUES 1");
     }
 
     @Test
@@ -294,11 +317,9 @@ public abstract class AbstractTestAggregations
 
         assertQuery("SELECT count(1) FILTER (WHERE orderstatus = 'O') FROM orders", "SELECT count(*) FROM orders WHERE orderstatus = 'O'");
 
-        // TODO: enable when DISTINCT is allowed with filtered aggregations
-        // assertQuery("SELECT count(DISTINCT x) FILTER (where y = 1) FROM (VALUES (2, 1), (1, 2), (1,1)) t(x, y)", "SELECT 2");
-        // assertQuery("SELECT sum(DISTINCT x) FILTER (WHERE x > 1) AS x FROM (VALUES (1), (2), (2), (4)) t (x)", "SELECT 6");
-        // assertQuery("SELECT sum(DISTINCT x) FILTER (WHERE y > 3), sum(DISTINCT y) FILTER (WHERE x > 1) FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)", "SELECT 6, 9");
-        // assertQuery("SELECT sum(x) FILTER (WHERE x > 1) AS x, sum(DISTINCT x) FROM (VALUES (1), (2), (2), (4)) t (x)", "SELECT 8, 9");
+        // filter out all rows
+        assertQuery("SELECT sum(x) FILTER (WHERE y > 5) FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)", "SELECT null");
+        assertQuery("SELECT count(*) FILTER (WHERE x > 4), sum(x) FILTER (WHERE y > 5) FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)", "SELECT 0, null");
     }
 
     @Test
@@ -405,100 +426,6 @@ public abstract class AbstractTestAggregations
     public void testAggregationWithHaving()
     {
         assertQuery("SELECT a, count(1) FROM (VALUES 1, 2, 3, 2) t(a) GROUP BY a HAVING count(1) > 1", "SELECT 2, 2");
-    }
-
-    @Test
-    public void testAggregationWithOrderBy()
-    {
-        assertQuery(
-                "SELECT sum(x ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
-                "VALUES (8)");
-        assertQuery(
-                "SELECT array_agg(x ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
-                "VALUES ((4, 1, 3))");
-
-        assertQuery(
-                "SELECT array_agg(x ORDER BY y DESC) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
-                "VALUES ((3, 1, 4))");
-
-        assertQuery(
-                "SELECT array_agg(x ORDER BY x DESC) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
-                "VALUES ((4, 3, 1))");
-
-        assertQuery(
-                "SELECT array_agg(x ORDER BY x) FROM (VALUES ('a', 2), ('bcd', 5), ('abcd', 1)) t(x, y)",
-                "VALUES (('a', 'abcd', 'bcd'))");
-
-        assertQuery(
-                "SELECT array_agg(y ORDER BY x) FROM (VALUES ('a', 2), ('bcd', 5), ('abcd', 1)) t(x, y)",
-                "VALUES ((2, 1, 5))");
-
-        assertQuery(
-                "SELECT array_agg(y ORDER BY x) FROM (VALUES ((1, 2), 2), ((3, 4), 5), ((1, 1), 1)) t(x, y)",
-                "VALUES ((1, 2, 5))");
-
-        assertQuery(
-                "SELECT array_agg(z ORDER BY x, y DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (1, 1, 1)) t(x, y, z)",
-                "VALUES ((2, 1, 5, 3, 4))");
-
-        assertQuery(
-                "SELECT x, array_agg(z ORDER BY y + z DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (3, 2, 1), (1, 1, 1)) t(x, y, z) GROUP BY x",
-                "VALUES (1, (2, 1)), (2, (5, 3)), (3, (4, 1))");
-
-        assertQuery(
-                "SELECT array_agg(y ORDER BY x.a DESC) FROM (VALUES (CAST(ROW(1) AS ROW(a BIGINT)), 1), (CAST(ROW(2) AS ROW(a BIGINT)), 2)) t(x, y)",
-                "VALUES ((2, 1))");
-
-        assertQuery(
-                "SELECT x, y, array_agg(z ORDER BY z DESC NULLS FIRST) FROM (VALUES (1, 2, NULL), (1, 2, 1), (1, 2, 2), (2, 1, 3), (2, 1, 4), (2, 1, NULL)) t(x, y, z) GROUP BY x, y",
-                "VALUES (1, 2, (NULL, 2, 1)), (2, 1, (NULL, 4, 3))");
-
-        assertQuery(
-                "SELECT x, y, array_agg(z ORDER BY z DESC NULLS LAST) FROM (VALUES (1, 2, 3), (1, 2, 1), (1, 2, 2), (2, 1, 3), (2, 1, 4), (2, 1, NULL)) t(x, y, z) GROUP BY GROUPING SETS ((x), (x, y))",
-                "VALUES (1, 2, (3, 2, 1)), (1, NULL, (3, 2, 1)), (2, 1, (4, 3, NULL)), (2, NULL, (4, 3, NULL))");
-
-        assertQuery(
-                "SELECT x, y, array_agg(z ORDER BY z DESC NULLS LAST) FROM (VALUES (1, 2, 3), (1, 2, 1), (1, 2, 2), (2, 1, 3), (2, 1, 4), (2, 1, NULL)) t(x, y, z) GROUP BY GROUPING SETS ((x), (x, y))",
-                "VALUES (1, 2, (3, 2, 1)), (1, NULL, (3, 2, 1)), (2, 1, (4, 3, NULL)), (2, NULL, (4, 3, NULL))");
-
-        assertQuery(
-                "SELECT x, array_agg(DISTINCT z + y ORDER BY z + y DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (3, 2, 1), (1, 1, 1)) t(x, y, z) GROUP BY x",
-                "VALUES (1, (4, 2)), (2, (9, 5)), (3, (8, 3))");
-
-        assertQuery(
-                "SELECT x, sum(cast(x AS double))\n" +
-                        "FROM (VALUES '1.0') t(x)\n" +
-                        "GROUP BY x\n" +
-                        "ORDER BY sum(cast(t.x AS double) ORDER BY t.x)",
-                "VALUES ('1.0', 1.0)");
-
-        assertQuery(
-                "SELECT x, y, array_agg(z ORDER BY z) FROM (VALUES (1, 2, 3), (1, 2, 1), (2, 1, 3), (2, 1, 4)) t(x, y, z) GROUP BY GROUPING SETS ((x), (x, y))",
-                "VALUES (1, NULL, (1, 3)), (2, NULL, (3, 4)), (1, 2, (1, 3)), (2, 1, (3, 4))");
-
-        assertQueryFails(
-                "SELECT x, array_agg(z ORDER BY z) FROM (VALUES (1, 2, 3), (1, 2, 1), (2, 1, 3), (2, 1, 4)) t(x, y, z) GROUP BY ROLLUP (x)",
-                ".* ORDER BY in aggregate function with at least one empty grouping set and at least one non-empty grouping set is not supported");
-
-        assertQueryFails(
-                "SELECT x, y, array_agg(z ORDER BY z) FROM (VALUES (1, 2, 3), (1, 2, 1), (2, 1, 3), (2, 1, 4)) t(x, y, z) GROUP BY CUBE (x, y)",
-                ".* ORDER BY in aggregate function with at least one empty grouping set and at least one non-empty grouping set is not supported");
-
-        assertQueryFails(
-                "SELECT array_agg(z ORDER BY z) OVER (PARTITION BY x) FROM (VALUES (1, 2, 3), (1, 2, 1), (2, 1, 3), (2, 1, 4)) t(x, y, z) GROUP BY x, z",
-                ".* Window function with ORDER BY is not supported");
-
-        assertQueryFails(
-                "SELECT array_agg(DISTINCT x ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
-                ".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
-
-        assertQueryFails(
-                "SELECT array_agg(DISTINCT x+y ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
-                ".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
-
-        assertQueryFails(
-                "SELECT x, array_agg(DISTINCT y ORDER BY z + y DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (3, 2, 1), (1, 1, 1)) t(x, y, z) GROUP BY x",
-                ".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
     }
 
     @Test
@@ -751,14 +678,115 @@ public abstract class AbstractTestAggregations
     @Test
     public void testApproximateCountDistinct()
     {
-        assertQuery("SELECT approx_distinct(custkey) FROM orders", "SELECT 996");
-        assertQuery("SELECT approx_distinct(custkey, 0.023) FROM orders", "SELECT 996");
-        assertQuery("SELECT approx_distinct(CAST(custkey AS DOUBLE)) FROM orders", "SELECT 1031");
-        assertQuery("SELECT approx_distinct(CAST(custkey AS DOUBLE), 0.023) FROM orders", "SELECT 1031");
-        assertQuery("SELECT approx_distinct(CAST(custkey AS VARCHAR)) FROM orders", "SELECT 1011");
-        assertQuery("SELECT approx_distinct(CAST(custkey AS VARCHAR), 0.023) FROM orders", "SELECT 1011");
-        assertQuery("SELECT approx_distinct(to_utf8(CAST(custkey AS VARCHAR))) FROM orders", "SELECT 1011");
-        assertQuery("SELECT approx_distinct(to_utf8(CAST(custkey AS VARCHAR)), 0.023) FROM orders", "SELECT 1011");
+        // test NULL
+        assertQuery("SELECT approx_distinct(NULL)", "SELECT 0");
+        assertQuery("SELECT approx_distinct(NULL, 0.023)", "SELECT 0");
+
+        // test date
+        assertQuery("SELECT approx_distinct(orderdate) FROM orders", "SELECT 2443");
+        assertQuery("SELECT approx_distinct(orderdate, 0.023) FROM orders", "SELECT 2443");
+
+        // test timestamp
+        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP)) FROM orders", "SELECT 2347");
+        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP), 0.023) FROM orders", "SELECT 2347");
+
+        // test timestamp with time zone
+        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP WITH TIME ZONE)) FROM orders", "SELECT 2347");
+        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP WITH TIME ZONE), 0.023) FROM orders", "SELECT 2347");
+
+        // test time
+        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME)) FROM orders", "SELECT 996");
+        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME), 0.023) FROM orders", "SELECT 996");
+
+        // test time with time zone
+        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME WITH TIME ZONE)) FROM orders", "SELECT 996");
+        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME WITH TIME ZONE), 0.023) FROM orders", "SELECT 996");
+
+        // test short decimal
+        assertQuery("SELECT approx_distinct(CAST(custkey AS DECIMAL(18, 0))) FROM orders", "SELECT 990");
+        assertQuery("SELECT approx_distinct(CAST(custkey AS DECIMAL(18, 0)), 0.023) FROM orders", "SELECT 990");
+
+        // test long decimal
+        assertQuery("SELECT approx_distinct(CAST(custkey AS DECIMAL(25, 20))) FROM orders", "SELECT 1013");
+        assertQuery("SELECT approx_distinct(CAST(custkey AS DECIMAL(25, 20)), 0.023) FROM orders", "SELECT 1013");
+
+        // test real
+        assertQuery("SELECT approx_distinct(CAST(custkey AS REAL)) FROM orders", "SELECT 1006");
+        assertQuery("SELECT approx_distinct(CAST(custkey AS REAL), 0.023) FROM orders", "SELECT 1006");
+
+        // test bigint
+        assertQuery("SELECT approx_distinct(custkey) FROM orders", "SELECT 990");
+        assertQuery("SELECT approx_distinct(custkey, 0.023) FROM orders", "SELECT 990");
+
+        // test integer
+        assertQuery("SELECT approx_distinct(CAST(custkey AS INTEGER)) FROM orders", "SELECT 990");
+        assertQuery("SELECT approx_distinct(CAST(custkey AS INTEGER), 0.023) FROM orders", "SELECT 990");
+
+        // test smallint
+        assertQuery("SELECT approx_distinct(CAST(custkey AS SMALLINT)) FROM orders", "SELECT 990");
+        assertQuery("SELECT approx_distinct(CAST(custkey AS SMALLINT), 0.023) FROM orders", "SELECT 990");
+
+        // test tinyint
+        assertQuery("SELECT approx_distinct(CAST((custkey % 128) AS TINYINT)) FROM orders", "SELECT 128");
+        assertQuery("SELECT approx_distinct(CAST((custkey % 128) AS TINYINT), 0.023) FROM orders", "SELECT 128");
+
+        // test double
+        assertQuery("SELECT approx_distinct(CAST(custkey AS DOUBLE)) FROM orders", "SELECT 1014");
+        assertQuery("SELECT approx_distinct(CAST(custkey AS DOUBLE), 0.023) FROM orders", "SELECT 1014");
+
+        // test varchar
+        assertQuery("SELECT approx_distinct(CAST(custkey AS VARCHAR)) FROM orders", "SELECT 1036");
+        assertQuery("SELECT approx_distinct(CAST(custkey AS VARCHAR), 0.023) FROM orders", "SELECT 1036");
+
+        // test char
+        assertQuery("SELECT approx_distinct(CAST(CAST(custkey AS VARCHAR) AS CHAR(20))) FROM orders", "SELECT 1036");
+        assertQuery("SELECT approx_distinct(CAST(CAST(custkey AS VARCHAR) AS CHAR(20)), 0.023) FROM orders", "SELECT 1036");
+
+        // test varbinary
+        assertQuery("SELECT approx_distinct(to_utf8(CAST(custkey AS VARCHAR))) FROM orders", "SELECT 1036");
+        assertQuery("SELECT approx_distinct(to_utf8(CAST(custkey AS VARCHAR)), 0.023) FROM orders", "SELECT 1036");
+    }
+
+    @Test
+    public void testSumDataSizeForStats()
+    {
+        // varchar
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(comment) FROM orders", "SELECT sum(length(comment)) FROM orders");
+
+        // char
+        // Presto removes trailing whitespaces when casting to CHAR.
+        // Hard code the expected data size since there is no easy to way to compute it in H2.
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(CAST(comment AS CHAR(1000))) FROM orders", "SELECT 725468");
+
+        // varbinary
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(CAST(comment AS VARBINARY)) FROM orders", "SELECT sum(length(comment)) FROM orders");
+
+        // array
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(ARRAY[comment]) FROM orders", "SELECT sum(length(comment)) FROM orders");
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(ARRAY[comment, comment]) FROM orders", "SELECT 2 * sum(length(comment)) FROM orders");
+
+        // map
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(map(ARRAY[1], ARRAY[comment])) FROM orders", "SELECT 4 * count(*) + sum(length(comment)) FROM orders");
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(map(ARRAY[1, 2], ARRAY[comment, comment])) FROM orders", "SELECT 2 * 4 * count(*) + 2 * sum(length(comment)) FROM orders");
+
+        // row
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(ROW(comment)) FROM orders", "SELECT sum(length(comment)) FROM orders");
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(ROW(comment, comment)) FROM orders", "SELECT 2 * sum(length(comment)) FROM orders");
+    }
+
+    @Test
+    public void testMaxDataSizeForStats()
+    {
+        // varchar
+        assertQuery("SELECT \"$internal$max_data_size_for_stats\"(comment) FROM orders", "SELECT max(length(comment)) FROM orders");
+
+        // char
+        assertQuery("SELECT \"$internal$max_data_size_for_stats\"(CAST(comment AS CHAR(1000))) FROM orders", "SELECT max(length(comment)) FROM orders");
+
+        // varbinary
+        assertQuery("SELECT \"$internal$max_data_size_for_stats\"(CAST(comment AS VARBINARY)) FROM orders", "SELECT max(length(comment)) FROM orders");
+
+        // $internal$max_data_size_for_stats is not needed for array, map and row
     }
 
     @Test
@@ -766,8 +794,8 @@ public abstract class AbstractTestAggregations
     {
         MaterializedResult actual = computeActual("SELECT orderstatus, approx_distinct(custkey) FROM orders GROUP BY orderstatus");
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
-                .row("O", 995L)
-                .row("F", 993L)
+                .row("O", 990L)
+                .row("F", 990L)
                 .row("P", 303L)
                 .build();
 
@@ -779,12 +807,55 @@ public abstract class AbstractTestAggregations
     {
         MaterializedResult actual = computeActual("SELECT orderstatus, approx_distinct(custkey, 0.023) FROM orders GROUP BY orderstatus");
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
-                .row("O", 995L)
-                .row("F", 993L)
+                .row("O", 990L)
+                .row("F", 990L)
                 .row("P", 303L)
                 .build();
 
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testDistinctNan()
+    {
+        MaterializedResult actual = computeActual("SELECT DISTINCT a/a FROM (VALUES (0.0e0), (0.0e0)) x (a)");
+        assertTrue(Double.isNaN((Double) actual.getOnlyValue()));
+    }
+
+    @Test
+    public void testGroupByNan()
+    {
+        MaterializedResult actual = computeActual("SELECT * FROM (VALUES nan(), nan(), nan()) GROUP BY 1");
+        assertTrue(Double.isNaN((Double) actual.getOnlyValue()));
+    }
+
+    @Test
+    public void testGroupByNanRow()
+    {
+        MaterializedResult actual = computeActual("SELECT a, b, c FROM (VALUES ROW(nan(), 1, 2), ROW(nan(), 1, 2)) t(a, b, c) GROUP BY 1, 2, 3");
+        List<MaterializedRow> actualRows = actual.getMaterializedRows();
+        assertEquals(actualRows.size(), 1);
+        assertTrue(Double.isNaN((Double) actualRows.get(0).getField(0)));
+        assertEquals(actualRows.get(0).getField(1), 1);
+        assertEquals(actualRows.get(0).getField(2), 2);
+    }
+
+    @Test
+    public void testGroupByNanArray()
+    {
+        MaterializedResult actual = computeActual("SELECT a FROM (VALUES (ARRAY[nan(), 2e0, 3e0]), (ARRAY[nan(), 2e0, 3e0])) t(a) GROUP BY a");
+        List<MaterializedRow> actualRows = actual.getMaterializedRows();
+        assertEquals(actualRows.size(), 1);
+        assertTrue(Double.isNaN(((List<Double>) actualRows.get(0).getField(0)).get(0)));
+        assertEquals(((List<Double>) actualRows.get(0).getField(0)).get(1), 2.0);
+        assertEquals(((List<Double>) actualRows.get(0).getField(0)).get(2), 3.0);
+    }
+
+    @Test
+    public void testGroupByNanMap()
+    {
+        MaterializedResult actual = computeActual("SELECT MAP_KEYS(x)[1] FROM (VALUES MAP(ARRAY[nan()], ARRAY[ARRAY[1]]), MAP(ARRAY[nan()], ARRAY[ARRAY[2]])) t(x) GROUP BY 1");
+        assertTrue(Double.isNaN((Double) actual.getOnlyValue()));
     }
 
     @Test
@@ -1178,5 +1249,24 @@ public abstract class AbstractTestAggregations
                         "SELECT orderkey, partkey, NULL, linenumber, SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY orderkey, partkey, linenumber UNION ALL " +
                         "SELECT orderkey, partkey, suppkey, NULL, SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY orderkey, partkey, suppkey UNION ALL " +
                         "SELECT orderkey, partkey, NULL, NULL, SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY orderkey, partkey");
+    }
+
+    @Test
+    public void testOrderedAggregations()
+    {
+        assertQuery(
+                "SELECT orderpriority, custkey, array_agg(orderstatus ORDER BY orderstatus) FILTER (WHERE custkey > 500)" +
+                        "FROM orders " +
+                        "WHERE orderkey IN (1, 2, 3, 4, 5) " +
+                        "GROUP BY GROUPING SETS ((), (orderpriority), (orderpriority, custkey))",
+                "VALUES " +
+                        "(NULL, NULL , ('F', 'O', 'O'))," +
+                        "('5-LOW', NULL , ('F', 'O'))," +
+                        "('1-URGENT', NULL , ('O'))," +
+                        "('5-LOW', 370 , NULL)," +
+                        "('5-LOW', 1234, ('F'))," +
+                        "('5-LOW', 1369, ('O'))," +
+                        "('5-LOW', 445 , NULL)," +
+                        "('1-URGENT', 781 , ('O'))");
     }
 }

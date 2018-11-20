@@ -28,7 +28,13 @@ public @interface AggregationFunction
 
     boolean decomposable() default true;
 
+    /**
+     * Indicates whether the result of the function depends on the order in which data is fed in,
+     * which allows the engine to optimize away ORDER BY clauses in aggregation calls
+     */
     boolean isOrderSensitive() default false;
+
+    boolean hidden() default false;
 
     String[] alias() default {};
 }

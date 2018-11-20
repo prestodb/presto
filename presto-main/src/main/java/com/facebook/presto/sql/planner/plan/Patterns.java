@@ -24,11 +24,15 @@ import java.util.Optional;
 import static com.facebook.presto.matching.Pattern.typeOf;
 import static com.facebook.presto.matching.Property.optionalProperty;
 import static com.facebook.presto.matching.Property.property;
-import static java.util.Optional.empty;
 
 public class Patterns
 {
     private Patterns() {}
+
+    public static Pattern<AssignUniqueId> assignUniqueId()
+    {
+        return typeOf(AssignUniqueId.class);
+    }
 
     public static Pattern<AggregationNode> aggregation()
     {
@@ -50,6 +54,11 @@ public class Patterns
         return typeOf(ExchangeNode.class);
     }
 
+    public static Pattern<EnforceSingleRowNode> enforceSingleRow()
+    {
+        return typeOf(EnforceSingleRowNode.class);
+    }
+
     public static Pattern<FilterNode> filter()
     {
         return typeOf(FilterNode.class);
@@ -63,6 +72,11 @@ public class Patterns
     public static Pattern<JoinNode> join()
     {
         return typeOf(JoinNode.class);
+    }
+
+    public static Pattern<SpatialJoinNode> spatialJoin()
+    {
+        return typeOf(SpatialJoinNode.class);
     }
 
     public static Pattern<LateralJoinNode> lateralJoin()
@@ -144,7 +158,7 @@ public class Patterns
     {
         return optionalProperty("source", node -> node.getSources().size() == 1 ?
                 Optional.of(node.getSources().get(0)) :
-                empty());
+                Optional.empty());
     }
 
     public static Property<PlanNode, List<PlanNode>> sources()
@@ -154,7 +168,7 @@ public class Patterns
 
     public static class Aggregation
     {
-        public static Property<AggregationNode, List<Symbol>> groupingKeys()
+        public static Property<AggregationNode, List<Symbol>> groupingColumns()
         {
             return property("groupingKeys", AggregationNode::getGroupingKeys);
         }
@@ -178,6 +192,11 @@ public class Patterns
         public static Property<LateralJoinNode, List<Symbol>> correlation()
         {
             return property("correlation", LateralJoinNode::getCorrelation);
+        }
+
+        public static Property<LateralJoinNode, PlanNode> subquery()
+        {
+            return property("subquery", LateralJoinNode::getSubquery);
         }
     }
 

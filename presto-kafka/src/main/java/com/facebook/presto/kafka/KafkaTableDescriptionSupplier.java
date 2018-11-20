@@ -29,10 +29,10 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.nio.file.Files.readAllBytes;
@@ -72,7 +72,7 @@ public class KafkaTableDescriptionSupplier
             for (File file : listFiles(tableDescriptionDir)) {
                 if (file.isFile() && file.getName().endsWith(".json")) {
                     KafkaTopicDescription table = topicDescriptionCodec.fromJson(readAllBytes(file.toPath()));
-                    String schemaName = firstNonNull(table.getSchemaName(), defaultSchema);
+                    String schemaName = table.getSchemaName().orElse(defaultSchema);
                     log.debug("Kafka table %s.%s: %s", schemaName, table.getTableName(), table);
                     builder.put(new SchemaTableName(schemaName, table.getTableName()), table);
                 }
@@ -100,11 +100,12 @@ public class KafkaTableDescriptionSupplier
                 else {
                     // A dummy table definition only supports the internal columns.
                     log.debug("Created dummy Table definition for %s", tableName);
-                    builder.put(tableName, new KafkaTopicDescription(tableName.getTableName(),
-                            tableName.getSchemaName(),
+                    builder.put(tableName, new KafkaTopicDescription(
+                            tableName.getTableName(),
+                            Optional.ofNullable(tableName.getSchemaName()),
                             definedTable,
-                            new KafkaTopicFieldGroup(DummyRowDecoder.NAME, ImmutableList.of()),
-                            new KafkaTopicFieldGroup(DummyRowDecoder.NAME, ImmutableList.of())));
+                            Optional.of(new KafkaTopicFieldGroup(DummyRowDecoder.NAME, Optional.empty(), ImmutableList.of())),
+                            Optional.of(new KafkaTopicFieldGroup(DummyRowDecoder.NAME, Optional.empty(), ImmutableList.of()))));
                 }
             }
 

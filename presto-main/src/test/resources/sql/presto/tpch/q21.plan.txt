@@ -1,0 +1,35 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        final aggregation over (name)
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPARTITION, HASH, ["name"])
+                    partial aggregation over (name)
+                        single aggregation over (commitdate, exists, name, name_7, nationkey, orderkey, orderstatus, receiptdate, suppkey, unique)
+                            join (LEFT, PARTITIONED):
+                                final aggregation over (commitdate, name, name_7, nationkey, orderkey, orderstatus, receiptdate, suppkey, unique_189)
+                                    local exchange (GATHER, SINGLE, [])
+                                        partial aggregation over (commitdate, name, name_7, nationkey, orderkey, orderstatus, receiptdate, suppkey, unique_189)
+                                            join (LEFT, PARTITIONED):
+                                                remote exchange (REPARTITION, HASH, ["orderkey"])
+                                                    join (INNER, PARTITIONED):
+                                                        remote exchange (REPARTITION, HASH, ["nationkey"])
+                                                            join (INNER, PARTITIONED):
+                                                                remote exchange (REPARTITION, HASH, ["orderkey"])
+                                                                    join (INNER, PARTITIONED):
+                                                                        remote exchange (REPARTITION, HASH, ["suppkey"])
+                                                                            scan tpch:supplier:sf3000.0
+                                                                        local exchange (GATHER, SINGLE, [])
+                                                                            remote exchange (REPARTITION, HASH, ["suppkey_0"])
+                                                                                scan tpch:lineitem:sf3000.0
+                                                                local exchange (GATHER, SINGLE, [])
+                                                                    remote exchange (REPARTITION, HASH, ["orderkey_3"])
+                                                                        scan tpch:orders:sf3000.0
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPARTITION, HASH, ["nationkey_6"])
+                                                                scan tpch:nation:sf3000.0
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPARTITION, HASH, ["orderkey_10"])
+                                                        scan tpch:lineitem:sf3000.0
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, ["orderkey_92"])
+                                        scan tpch:lineitem:sf3000.0

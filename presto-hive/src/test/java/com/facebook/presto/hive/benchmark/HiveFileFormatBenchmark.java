@@ -19,6 +19,7 @@ import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.HiveSessionProperties;
 import com.facebook.presto.hive.OrcFileWriterConfig;
+import com.facebook.presto.hive.ParquetFileWriterConfig;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
@@ -93,10 +94,9 @@ public class HiveFileFormatBenchmark
     }
 
     @SuppressWarnings("deprecation")
-    private static final HiveClientConfig CONFIG = new HiveClientConfig()
-            .setParquetOptimizedReaderEnabled(true);
+    private static final HiveClientConfig CONFIG = new HiveClientConfig();
 
-    private static final ConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(CONFIG, new OrcFileWriterConfig())
+    private static final ConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(CONFIG, new OrcFileWriterConfig(), new ParquetFileWriterConfig())
             .getSessionProperties());
 
     private static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(CONFIG);
@@ -194,8 +194,7 @@ public class HiveFileFormatBenchmark
             while (!pageSource.isFinished()) {
                 Page page = pageSource.getNextPage();
                 if (page != null) {
-                    page.assureLoaded();
-                    pages.add(page);
+                    pages.add(page.getLoadedPage());
                 }
             }
         }

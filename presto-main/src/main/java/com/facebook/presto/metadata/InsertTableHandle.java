@@ -82,6 +82,6 @@ public final class InsertTableHandle
     @Override
     public String toString()
     {
-        return connectorId + ":" + transactionHandle + ":" + connectorHandle;
+        return connectorId + ":" + connectorHandle;
     }
 }

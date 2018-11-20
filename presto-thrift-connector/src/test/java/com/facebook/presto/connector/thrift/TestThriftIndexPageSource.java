@@ -26,8 +26,6 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftSplit;
 import com.facebook.presto.connector.thrift.api.PrestoThriftSplitBatch;
 import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
 import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftInteger;
-import com.facebook.presto.connector.thrift.clientproviders.PrestoThriftServiceProvider;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.SchemaTableName;
@@ -35,6 +33,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -45,7 +44,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.integerData;
@@ -53,7 +51,6 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Collections.shuffle;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -82,18 +79,17 @@ public class TestThriftIndexPageSource
         {
             @Override
             public ListenableFuture<PrestoThriftPageResult> getRows(PrestoThriftId splitId, List<String> columns, long maxBytes, PrestoThriftNullableToken nextToken)
-                    throws PrestoThriftServiceException
             {
                 int key = Ints.fromByteArray(splitId.getId());
                 signals.get(key).countDown();
                 return futures.get(key);
             }
         };
-        TestingServiceProvider serviceProvider = new TestingServiceProvider(client);
         ThriftConnectorStats stats = new ThriftConnectorStats();
         long pageSizeReceived = 0;
         ThriftIndexPageSource pageSource = new ThriftIndexPageSource(
-                serviceProvider,
+                (context, headers) -> client,
+                ImmutableMap.of(),
                 stats,
                 new ThriftIndexHandle(new SchemaTableName("default", "table1"), TupleDomain.all()),
                 ImmutableList.of(column("a", INTEGER)),
@@ -115,8 +111,6 @@ public class TestThriftIndexPageSource
         assertFalse(pageSource.isFinished());
         assertNull(pageSource.getNextPage());
         assertEquals((long) stats.getIndexPageSize().getAllTime().getTotal(), 0);
-        // splits client is closed
-        assertEquals(client.timesClosed(), 1);
 
         // completing the second request
         futures.get(1).set(pageResult(20, null));
@@ -128,7 +122,6 @@ public class TestThriftIndexPageSource
         assertEquals(page.getBlock(0).getInt(0, 0), 20);
         // not complete yet
         assertFalse(pageSource.isFinished());
-        assertEquals(client.timesClosed(), 2);
 
         // once one of the requests completes the next one should be sent
         signals.get(2).await(1, SECONDS);
@@ -144,7 +137,6 @@ public class TestThriftIndexPageSource
         assertEquals(page.getBlock(0).getInt(0, 0), 10);
         // still not complete
         assertFalse(pageSource.isFinished());
-        assertEquals(client.timesClosed(), 3);
 
         // completing the third request
         futures.get(2).set(pageResult(30, null));
@@ -156,13 +148,10 @@ public class TestThriftIndexPageSource
         assertEquals(page.getBlock(0).getInt(0, 0), 30);
         // finished now
         assertTrue(pageSource.isFinished());
-        assertEquals(client.timesClosed(), 4);
 
         // after completion
         assertNull(pageSource.getNextPage());
         pageSource.close();
-        // no additional close requests expected
-        assertEquals(client.timesClosed(), 4);
     }
 
     @Test
@@ -197,9 +186,9 @@ public class TestThriftIndexPageSource
             throws Exception
     {
         TestingThriftService client = new TestingThriftService(rowsPerSplit, true, twoSplitBatches);
-        TestingServiceProvider serviceProvider = new TestingServiceProvider(client);
         ThriftIndexPageSource pageSource = new ThriftIndexPageSource(
-                serviceProvider,
+                (context, headers) -> client,
+                ImmutableMap.of(),
                 new ThriftConnectorStats(),
                 new ThriftIndexHandle(new SchemaTableName("default", "table1"), TupleDomain.all()),
                 ImmutableList.of(column("a", INTEGER)),
@@ -233,12 +222,7 @@ public class TestThriftIndexPageSource
         // must be null after finish
         assertNull(pageSource.getNextPage());
 
-        // 1 client for getting splits and then 1 client per split to get data
-        assertEquals(client.timesClosed(), splits + 1);
-
         pageSource.close();
-        // all closes must have happened as part of normal operation, so no change
-        assertEquals(client.timesClosed(), splits + 1);
     }
 
     private static class TestingThriftService
@@ -247,7 +231,6 @@ public class TestThriftIndexPageSource
         private final int rowsPerSplit;
         private final boolean shuffleSplits;
         private final boolean twoSplitBatches;
-        private final AtomicInteger closed = new AtomicInteger();
 
         public TestingThriftService(int rowsPerSplit, boolean shuffleSplits, boolean twoSplitBatches)
         {
@@ -258,7 +241,6 @@ public class TestThriftIndexPageSource
 
         @Override
         public ListenableFuture<PrestoThriftSplitBatch> getIndexSplits(PrestoThriftSchemaTableName schemaTableName, List<String> indexColumnNames, List<String> outputColumnNames, PrestoThriftPageResult keys, PrestoThriftTupleDomain outputConstraint, int maxSplitCount, PrestoThriftNullableToken nextToken)
-                throws PrestoThriftServiceException
         {
             if (keys.getRowCount() == 0) {
                 return immediateFuture(new PrestoThriftSplitBatch(ImmutableList.of(), null));
@@ -295,7 +277,6 @@ public class TestThriftIndexPageSource
 
         @Override
         public ListenableFuture<PrestoThriftPageResult> getRows(PrestoThriftId splitId, List<String> columns, long maxBytes, PrestoThriftNullableToken nextToken)
-                throws PrestoThriftServiceException
         {
             if (rowsPerSplit == 0) {
                 return immediateFuture(new PrestoThriftPageResult(ImmutableList.of(), 0, null));
@@ -304,17 +285,6 @@ public class TestThriftIndexPageSource
             int offset = nextToken.getToken() != null ? Ints.fromByteArray(nextToken.getToken().getId()) : 0;
             PrestoThriftId newNextToken = offset + 1 < rowsPerSplit ? new PrestoThriftId(Ints.toByteArray(offset + 1)) : null;
             return immediateFuture(pageResult(key * 10 + offset, newNextToken));
-        }
-
-        @Override
-        public void close()
-        {
-            closed.incrementAndGet();
-        }
-
-        public int timesClosed()
-        {
-            return closed.get();
         }
 
         // methods below are not used for the test
@@ -342,32 +312,8 @@ public class TestThriftIndexPageSource
 
         @Override
         public ListenableFuture<PrestoThriftSplitBatch> getSplits(PrestoThriftSchemaTableName schemaTableName, PrestoThriftNullableColumnSet desiredColumns, PrestoThriftTupleDomain outputConstraint, int maxSplitCount, PrestoThriftNullableToken nextToken)
-                throws PrestoThriftServiceException
         {
             throw new UnsupportedOperationException();
-        }
-    }
-
-    private static class TestingServiceProvider
-            implements PrestoThriftServiceProvider
-    {
-        private final PrestoThriftService client;
-
-        public TestingServiceProvider(PrestoThriftService client)
-        {
-            this.client = requireNonNull(client, "client is null");
-        }
-
-        @Override
-        public PrestoThriftService anyHostClient()
-        {
-            return client;
-        }
-
-        @Override
-        public PrestoThriftService selectedHostClient(List<HostAddress> hosts)
-        {
-            return client;
         }
     }
 

@@ -14,6 +14,8 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -52,7 +54,11 @@ public class QualifiedTablePrefix
         this.tableName = Optional.of(checkTableName(tableName));
     }
 
-    public QualifiedTablePrefix(String catalogName, Optional<String> schemaName, Optional<String> tableName)
+    @JsonCreator
+    public QualifiedTablePrefix(
+            @JsonProperty("catalogName") String catalogName,
+            @JsonProperty("schemaName") Optional<String> schemaName,
+            @JsonProperty("tableName") Optional<String> tableName)
     {
         checkTableName(catalogName, schemaName, tableName);
         this.catalogName = catalogName;
@@ -60,16 +66,19 @@ public class QualifiedTablePrefix
         this.tableName = tableName;
     }
 
+    @JsonProperty
     public String getCatalogName()
     {
         return catalogName;
     }
 
+    @JsonProperty
     public Optional<String> getSchemaName()
     {
         return schemaName;
     }
 
+    @JsonProperty
     public Optional<String> getTableName()
     {
         return tableName;
@@ -96,6 +105,13 @@ public class QualifiedTablePrefix
         else {
             return new SchemaTablePrefix(schemaName.get(), tableName.get());
         }
+    }
+
+    public boolean matches(QualifiedObjectName objectName)
+    {
+        return Objects.equals(catalogName, objectName.getCatalogName())
+                && schemaName.map(schema -> Objects.equals(schema, objectName.getSchemaName())).orElse(true)
+                && tableName.map(table -> Objects.equals(table, objectName.getObjectName())).orElse(true);
     }
 
     @Override

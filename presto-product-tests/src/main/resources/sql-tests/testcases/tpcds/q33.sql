@@ -1,5 +1,4 @@
--- database: presto_tpcds; groups: tpcds, quarantine; requires: io.prestodb.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
---- quarantined due https://github.com/prestodb/presto/issues/6991
+-- database: presto_tpcds; groups: tpcds; requires: io.prestodb.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 WITH
   ss AS (
    SELECT

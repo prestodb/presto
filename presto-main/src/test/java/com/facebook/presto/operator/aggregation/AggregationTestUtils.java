@@ -18,19 +18,20 @@ import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.google.common.primitives.Ints;
+import org.apache.commons.math3.util.Precision;
 
-import java.util.Arrays;
 import java.util.Collections;
+import java.util.Objects;
 import java.util.Optional;
-import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 public final class AggregationTestUtils
 {
@@ -40,76 +41,95 @@ public final class AggregationTestUtils
 
     public static void assertAggregation(InternalAggregationFunction function, Object expectedValue, Block... blocks)
     {
-        int positions = blocks[0].getPositionCount();
-        for (int i = 1; i < blocks.length; i++) {
-            assertEquals(positions, blocks[i].getPositionCount(), "input blocks provided are not equal in position count");
+        assertAggregation(function, expectedValue, new Page(blocks));
+    }
+
+    public static void assertAggregation(InternalAggregationFunction function, Object expectedValue, Page page)
+    {
+        BiFunction<Object, Object, Boolean> equalAssertion;
+        if (expectedValue instanceof Double && !expectedValue.equals(Double.NaN)) {
+            equalAssertion = (actual, expected) -> Precision.equals((double) actual, (double) expected, 1e-10);
+        }
+        else if (expectedValue instanceof Float && !expectedValue.equals(Float.NaN)) {
+            equalAssertion = (actual, expected) -> Precision.equals((float) actual, (float) expected, 1e-10f);
+        }
+        else {
+            equalAssertion = Objects::equals;
+        }
+
+        assertAggregation(function, equalAssertion, null, page, expectedValue);
+    }
+
+    public static void assertAggregation(InternalAggregationFunction function, BiFunction<Object, Object, Boolean> equalAssertion, String testDescription, Page page, Object expectedValue)
+    {
+        int positions = page.getPositionCount();
+        for (int i = 1; i < page.getChannelCount(); i++) {
+            assertEquals(positions, page.getBlock(i).getPositionCount(), "input blocks provided are not equal in position count");
         }
         if (positions == 0) {
-            assertAggregation(function, expectedValue, new Page[] {});
+            assertAggregationInternal(function, equalAssertion, testDescription, expectedValue, new Page[] {});
         }
         else if (positions == 1) {
-            assertAggregation(function, expectedValue, new Page(positions, blocks));
+            assertAggregationInternal(function, equalAssertion, testDescription, expectedValue, page);
         }
         else {
             int split = positions / 2; // [0, split - 1] goes to first list of blocks; [split, positions - 1] goes to second list of blocks.
-            Block[] blockArray1 = new Block[blocks.length];
-            Block[] blockArray2 = new Block[blocks.length];
-            for (int i = 0; i < blocks.length; i++) {
-                blockArray1[i] = blocks[i].getRegion(0, split);
-                blockArray2[i] = blocks[i].getRegion(split, positions - split);
-            }
-            assertAggregation(function, expectedValue, new Page(blockArray1), new Page(blockArray2));
+            Page page1 = page.getRegion(0, split);
+            Page page2 = page.getRegion(split, positions - split);
+            assertAggregationInternal(function, equalAssertion, testDescription, expectedValue, page1, page2);
         }
     }
 
     public static Block getIntermediateBlock(Accumulator accumulator)
     {
-        BlockBuilder blockBuilder = accumulator.getIntermediateType().createBlockBuilder(new BlockBuilderStatus(), 1000);
+        BlockBuilder blockBuilder = accumulator.getIntermediateType().createBlockBuilder(null, 1000);
         accumulator.evaluateIntermediate(blockBuilder);
         return blockBuilder.build();
     }
 
     public static Block getIntermediateBlock(GroupedAccumulator accumulator)
     {
-        BlockBuilder blockBuilder = accumulator.getIntermediateType().createBlockBuilder(new BlockBuilderStatus(), 1000);
+        BlockBuilder blockBuilder = accumulator.getIntermediateType().createBlockBuilder(null, 1000);
         accumulator.evaluateIntermediate(0, blockBuilder);
         return blockBuilder.build();
     }
 
     public static Block getFinalBlock(Accumulator accumulator)
     {
-        BlockBuilder blockBuilder = accumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus(), 1000);
+        BlockBuilder blockBuilder = accumulator.getFinalType().createBlockBuilder(null, 1000);
         accumulator.evaluateFinal(blockBuilder);
         return blockBuilder.build();
     }
 
     public static Block getFinalBlock(GroupedAccumulator accumulator)
     {
-        BlockBuilder blockBuilder = accumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus(), 1000);
+        BlockBuilder blockBuilder = accumulator.getFinalType().createBlockBuilder(null, 1000);
         accumulator.evaluateFinal(0, blockBuilder);
         return blockBuilder.build();
     }
 
-    private static void assertAggregation(InternalAggregationFunction function, Object expectedValue, Page... pages)
+    private static void assertAggregationInternal(InternalAggregationFunction function, BiFunction<Object, Object, Boolean> isEqual, String testDescription, Object expectedValue, Page... pages)
     {
-        BiConsumer<Object, Object> equalAssertion = (actual, expected) -> {
-            assertEquals(actual, expected);
-        };
-        if (expectedValue instanceof Double && !expectedValue.equals(Double.NaN)) {
-            equalAssertion = (actual, expected) -> assertEquals((double) actual, (double) expected, 1e-10);
-        }
-        if (expectedValue instanceof Float && !expectedValue.equals(Float.NaN)) {
-            equalAssertion = (actual, expected) -> assertEquals((float) actual, (float) expected, 1e-10f);
-        }
-
         // This assertAggregation does not try to split up the page to test the correctness of combine function.
         // Do not use this directly. Always use the other assertAggregation.
-        equalAssertion.accept(aggregation(function, pages), expectedValue);
-        equalAssertion.accept(partialAggregation(function, pages), expectedValue);
+        assertFunctionEquals(isEqual, testDescription, aggregation(function, pages), expectedValue);
+        assertFunctionEquals(isEqual, testDescription, partialAggregation(function, pages), expectedValue);
         if (pages.length > 0) {
-            equalAssertion.accept(groupedAggregation(function, pages), expectedValue);
-            equalAssertion.accept(groupedPartialAggregation(function, pages), expectedValue);
-            equalAssertion.accept(distinctAggregation(function, pages), expectedValue);
+            assertFunctionEquals(isEqual, testDescription, groupedAggregation(isEqual, function, pages), expectedValue);
+            assertFunctionEquals(isEqual, testDescription, groupedPartialAggregation(isEqual, function, pages), expectedValue);
+            assertFunctionEquals(isEqual, testDescription, distinctAggregation(function, pages), expectedValue);
+        }
+    }
+
+    private static void assertFunctionEquals(BiFunction<Object, Object, Boolean> isEqual, String testDescription, Object actualValue, Object expectedValue)
+    {
+        if (!isEqual.apply(actualValue, expectedValue)) {
+            StringBuilder sb = new StringBuilder();
+            if (testDescription != null) {
+                sb.append(String.format("Test: %s, ", testDescription));
+            }
+            sb.append(String.format("Expected: %s, actual: %s", expectedValue, actualValue));
+            fail(sb.toString());
         }
     }
 
@@ -136,17 +156,11 @@ public final class AggregationTestUtils
         Page[] maskedPages = new Page[pages.length];
         for (int i = 0; i < pages.length; i++) {
             Page page = pages[i];
-            BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), page.getPositionCount());
+            BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(null, page.getPositionCount());
             for (int j = 0; j < page.getPositionCount(); j++) {
                 BOOLEAN.writeBoolean(blockBuilder, maskValue);
             }
-            Block[] sourceBlocks = page.getBlocks();
-            Block[] outputBlocks = new Block[sourceBlocks.length + 1]; // +1 for the single boolean output channel
-
-            System.arraycopy(sourceBlocks, 0, outputBlocks, 0, sourceBlocks.length);
-            outputBlocks[sourceBlocks.length] = blockBuilder.build();
-
-            maskedPages[i] = new Page(outputBlocks);
+            maskedPages[i] = page.appendColumn(blockBuilder.build());
         }
 
         return maskedPages;
@@ -229,18 +243,23 @@ public final class AggregationTestUtils
 
     public static Object groupedAggregation(InternalAggregationFunction function, Page... pages)
     {
+        return groupedAggregation(Objects::equals, function, pages);
+    }
+
+    public static Object groupedAggregation(BiFunction<Object, Object, Boolean> isEqual, InternalAggregationFunction function, Page... pages)
+    {
         // execute with args in positions: arg0, arg1, arg2
         Object aggregation = groupedAggregation(function, createArgs(function), pages);
 
         // execute with args in reverse order: arg2, arg1, arg0
         if (function.getParameterTypes().size() > 1) {
             Object aggregationWithOffset = groupedAggregation(function, reverseArgs(function), reverseColumns(pages));
-            assertEquals(aggregationWithOffset, aggregation, "Inconsistent results with reversed channels");
+            assertFunctionEquals(isEqual, "Inconsistent results with reversed channels", aggregationWithOffset, aggregation);
         }
 
         // execute with args at an offset (and possibly reversed): null, null, null, arg2, arg1, arg0
         Object aggregationWithOffset = groupedAggregation(function, offsetArgs(function, 3), offsetColumns(pages, 3));
-        assertEquals(aggregationWithOffset, aggregation, "Inconsistent results with channel offset");
+        assertFunctionEquals(isEqual, "Consistent results with channel offset", aggregationWithOffset, aggregation);
 
         return aggregation;
     }
@@ -262,7 +281,7 @@ public final class AggregationTestUtils
         return groupValue;
     }
 
-    public static Object groupedPartialAggregation(InternalAggregationFunction function, Page... pages)
+    public static Object groupedPartialAggregation(BiFunction<Object, Object, Boolean> isEqual, InternalAggregationFunction function, Page... pages)
     {
         // execute with args in positions: arg0, arg1, arg2
         Object aggregation = groupedPartialAggregation(function, createArgs(function), pages);
@@ -270,12 +289,12 @@ public final class AggregationTestUtils
         // execute with args in reverse order: arg2, arg1, arg0
         if (function.getParameterTypes().size() > 1) {
             Object aggregationWithOffset = groupedPartialAggregation(function, reverseArgs(function), reverseColumns(pages));
-            assertEquals(aggregationWithOffset, aggregation, "Inconsistent results with reversed channels");
+            assertFunctionEquals(isEqual, "Consistent results with reversed channels", aggregationWithOffset, aggregation);
         }
 
         // execute with args at an offset (and possibly reversed): null, null, null, arg2, arg1, arg0
         Object aggregationWithOffset = groupedPartialAggregation(function, offsetArgs(function, 3), offsetColumns(pages, 3));
-        assertEquals(aggregationWithOffset, aggregation, "Inconsistent results with channel offset");
+        assertFunctionEquals(isEqual, "Consistent results with channel offset", aggregationWithOffset, aggregation);
 
         return aggregation;
     }
@@ -305,7 +324,7 @@ public final class AggregationTestUtils
 
     public static GroupByIdBlock createGroupByIdBlock(int groupId, int positions)
     {
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), positions);
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, positions);
         for (int i = 0; i < positions; i++) {
             BIGINT.writeLong(blockBuilder, groupId);
         }
@@ -346,8 +365,10 @@ public final class AggregationTestUtils
                 newPages[i] = page;
             }
             else {
-                Block[] newBlocks = Arrays.copyOf(page.getBlocks(), page.getChannelCount());
-                Collections.reverse(Arrays.asList(newBlocks));
+                Block[] newBlocks = new Block[page.getChannelCount()];
+                for (int channel = 0; channel < page.getChannelCount(); channel++) {
+                    newBlocks[channel] = page.getBlock(page.getChannelCount() - channel - 1);
+                }
                 newPages[i] = new Page(page.getPositionCount(), newBlocks);
             }
         }
@@ -363,7 +384,7 @@ public final class AggregationTestUtils
             for (int channel = 0; channel < offset; channel++) {
                 newBlocks[channel] = createNullRLEBlock(page.getPositionCount());
             }
-            for (int channel = 0; channel < page.getBlocks().length; channel++) {
+            for (int channel = 0; channel < page.getChannelCount(); channel++) {
                 newBlocks[channel + offset] = page.getBlock(channel);
             }
             newPages[i] = new Page(page.getPositionCount(), newBlocks);
@@ -373,16 +394,12 @@ public final class AggregationTestUtils
 
     private static RunLengthEncodedBlock createNullRLEBlock(int positionCount)
     {
-        Block value = BOOLEAN.createBlockBuilder(new BlockBuilderStatus(), 1)
-                .appendNull()
-                .build();
-
-        return new RunLengthEncodedBlock(value, positionCount);
+        return (RunLengthEncodedBlock) RunLengthEncodedBlock.create(BOOLEAN, null, positionCount);
     }
 
     public static Object getGroupValue(GroupedAccumulator groupedAggregation, int groupId)
     {
-        BlockBuilder out = groupedAggregation.getFinalType().createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder out = groupedAggregation.getFinalType().createBlockBuilder(null, 1);
         groupedAggregation.evaluateFinal(groupId, out);
         return BlockAssertions.getOnlyValue(groupedAggregation.getFinalType(), out.build());
     }

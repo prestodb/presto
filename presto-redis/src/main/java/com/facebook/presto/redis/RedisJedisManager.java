@@ -15,7 +15,6 @@ package com.facebook.presto.redis;
 
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.NodeManager;
-import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -27,7 +26,6 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -75,12 +73,7 @@ public class RedisJedisManager
     public JedisPool getJedisPool(HostAddress host)
     {
         requireNonNull(host, "host is null");
-        try {
-            return jedisPoolCache.get(host);
-        }
-        catch (ExecutionException e) {
-            throw Throwables.propagate(e.getCause());
-        }
+        return jedisPoolCache.getUnchecked(host);
     }
 
     private JedisPool createConsumer(HostAddress host)

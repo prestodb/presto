@@ -14,22 +14,25 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.metadata.PolymorphicScalarFunctionBuilder;
+import com.facebook.presto.metadata.PolymorphicScalarFunctionBuilder.SpecializeContext;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SignatureBuilder;
 import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.metadata.SqlScalarFunctionBuilder;
-import com.facebook.presto.metadata.SqlScalarFunctionBuilder.SpecializeContext;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+import io.airlift.slice.XxHash64;
 
 import java.math.BigInteger;
 import java.util.List;
@@ -41,10 +44,12 @@ import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RAN
 import static com.facebook.presto.spi.function.OperatorType.ADD;
 import static com.facebook.presto.spi.function.OperatorType.DIVIDE;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.function.OperatorType.MODULUS;
 import static com.facebook.presto.spi.function.OperatorType.MULTIPLY;
 import static com.facebook.presto.spi.function.OperatorType.NEGATION;
 import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
+import static com.facebook.presto.spi.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.longTenToNth;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -90,6 +95,7 @@ public final class DecimalOperators
                 .build();
         return SqlScalarFunction.builder(DecimalOperators.class)
                 .signature(signature)
+                .deterministic(true)
                 .implementation(b -> b
                         .methods("addShortShortShort")
                         .withExtraParameters(DecimalOperators::calculateShortRescaleParameters))
@@ -170,6 +176,7 @@ public final class DecimalOperators
                 .build();
         return SqlScalarFunction.builder(DecimalOperators.class)
                 .signature(signature)
+                .deterministic(true)
                 .implementation(b -> b
                         .methods("subtractShortShortShort")
                         .withExtraParameters(DecimalOperators::calculateShortRescaleParameters))
@@ -246,6 +253,7 @@ public final class DecimalOperators
                 .build();
         return SqlScalarFunction.builder(DecimalOperators.class)
                 .signature(signature)
+                .deterministic(true)
                 .implementation(b -> b.methods("multiplyShortShortShort", "multiplyShortShortLong", "multiplyLongLongLong", "multiplyShortLongLong", "multiplyLongShortLong"))
                 .build();
     }
@@ -308,13 +316,14 @@ public final class DecimalOperators
                 .build();
         return SqlScalarFunction.builder(DecimalOperators.class)
                 .signature(signature)
+                .deterministic(true)
                 .implementation(b -> b
                         .methods("divideShortShortShort", "divideShortLongShort", "divideLongShortShort", "divideShortShortLong", "divideLongLongLong", "divideShortLongLong", "divideLongShortLong")
                         .withExtraParameters(DecimalOperators::divideRescaleFactor))
                 .build();
     }
 
-    private static List<Object> divideRescaleFactor(SqlScalarFunctionBuilder.SpecializeContext context)
+    private static List<Object> divideRescaleFactor(PolymorphicScalarFunctionBuilder.SpecializeContext context)
     {
         DecimalType returnType = (DecimalType) context.getReturnType();
         int dividendScale = toIntExact(requireNonNull(context.getLiteral("a_scale"), "a_scale is null"));
@@ -447,6 +456,7 @@ public final class DecimalOperators
     {
         return SqlScalarFunction.builder(DecimalOperators.class)
                 .signature(signature)
+                .deterministic(true)
                 .implementation(b -> b
                         .methods("modulusShortShortShort", "modulusLongLongLong", "modulusShortLongLong", "modulusShortLongShort", "modulusLongShortShort", "modulusLongShortLong")
                         .withExtraParameters(DecimalOperators::modulusRescaleParameters))
@@ -497,7 +507,7 @@ public final class DecimalOperators
         return ImmutableList.of(rescale, left);
     }
 
-    private static List<Object> modulusRescaleParameters(SqlScalarFunctionBuilder.SpecializeContext context)
+    private static List<Object> modulusRescaleParameters(PolymorphicScalarFunctionBuilder.SpecializeContext context)
     {
         int dividendScale = toIntExact(requireNonNull(context.getLiteral("a_scale"), "a_scale is null"));
         int divisorScale = toIntExact(requireNonNull(context.getLiteral("b_scale"), "b_scale is null"));
@@ -618,17 +628,53 @@ public final class DecimalOperators
     public static final class HashCode
     {
         @LiteralParameters({"p", "s"})
-        @SqlType("bigint")
+        @SqlType(StandardTypes.BIGINT)
         public static long hashCode(@SqlType("decimal(p, s)") long value)
         {
             return value;
         }
 
         @LiteralParameters({"p", "s"})
-        @SqlType("bigint")
+        @SqlType(StandardTypes.BIGINT)
         public static long hashCode(@SqlType("decimal(p, s)") Slice value)
         {
             return UnscaledDecimal128Arithmetic.hash(value);
+        }
+    }
+
+    @ScalarOperator(INDETERMINATE)
+    public static final class Indeterminate
+    {
+        @LiteralParameters({"p", "s"})
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean indeterminate(@SqlType("decimal(p, s)") long value, @IsNull boolean isNull)
+        {
+            return isNull;
+        }
+
+        @LiteralParameters({"p", "s"})
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean indeterminate(@SqlType("decimal(p, s)") Slice value, @IsNull boolean isNull)
+        {
+            return isNull;
+        }
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    public static final class XxHash64Operator
+    {
+        @LiteralParameters({"p", "s"})
+        @SqlType(StandardTypes.BIGINT)
+        public static long xxHash64(@SqlType("decimal(p, s)") long value)
+        {
+            return XxHash64.hash(value);
+        }
+
+        @LiteralParameters({"p", "s"})
+        @SqlType(StandardTypes.BIGINT)
+        public static long xxHash64(@SqlType("decimal(p, s)") Slice value)
+        {
+            return XxHash64.hash(value);
         }
     }
 }

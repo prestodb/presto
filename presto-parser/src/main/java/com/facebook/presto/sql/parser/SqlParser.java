@@ -15,11 +15,15 @@ package com.facebook.presto.sql.parser;
 
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.PathSpecification;
 import com.facebook.presto.sql.tree.Statement;
-import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.BaseErrorListener;
+import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonToken;
 import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.DefaultErrorStrategy;
+import org.antlr.v4.runtime.InputMismatchException;
+import org.antlr.v4.runtime.Parser;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
@@ -40,7 +44,7 @@ import static java.util.Objects.requireNonNull;
 
 public class SqlParser
 {
-    private static final BaseErrorListener ERROR_LISTENER = new BaseErrorListener()
+    private static final BaseErrorListener LEXER_ERROR_LISTENER = new BaseErrorListener()
     {
         @Override
         public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine, String message, RecognitionException e)
@@ -49,7 +53,21 @@ public class SqlParser
         }
     };
 
+    private static final ErrorHandler PARSER_ERROR_HANDLER = ErrorHandler.builder()
+            .specialRule(SqlBaseParser.RULE_expression, "<expression>")
+            .specialRule(SqlBaseParser.RULE_booleanExpression, "<expression>")
+            .specialRule(SqlBaseParser.RULE_valueExpression, "<expression>")
+            .specialRule(SqlBaseParser.RULE_primaryExpression, "<expression>")
+            .specialRule(SqlBaseParser.RULE_identifier, "<identifier>")
+            .specialRule(SqlBaseParser.RULE_string, "<string>")
+            .specialRule(SqlBaseParser.RULE_query, "<query>")
+            .specialRule(SqlBaseParser.RULE_type, "<type>")
+            .specialToken(SqlBaseLexer.INTEGER_VALUE, "<integer>")
+            .ignoredRule(SqlBaseParser.RULE_nonReserved)
+            .build();
+
     private final EnumSet<IdentifierSymbol> allowedIdentifierSymbols;
+    private boolean enhancedErrorHandlerEnabled;
 
     public SqlParser()
     {
@@ -61,6 +79,7 @@ public class SqlParser
     {
         requireNonNull(options, "options is null");
         allowedIdentifierSymbols = EnumSet.copyOf(options.getAllowedIdentifierSymbols());
+        enhancedErrorHandlerEnabled = options.isEnhancedErrorHandlerEnabled();
     }
 
     /**
@@ -88,23 +107,51 @@ public class SqlParser
 
     public Expression createExpression(String expression, ParsingOptions parsingOptions)
     {
-        return (Expression) invokeParser("expression", expression, SqlBaseParser::singleExpression, parsingOptions);
+        return (Expression) invokeParser("expression", expression, SqlBaseParser::standaloneExpression, parsingOptions);
+    }
+
+    public PathSpecification createPathSpecification(String expression)
+    {
+        return (PathSpecification) invokeParser("path specification", expression, SqlBaseParser::standalonePathSpecification, new ParsingOptions());
     }
 
     private Node invokeParser(String name, String sql, Function<SqlBaseParser, ParserRuleContext> parseFunction, ParsingOptions parsingOptions)
     {
         try {
-            SqlBaseLexer lexer = new SqlBaseLexer(new CaseInsensitiveStream(new ANTLRInputStream(sql)));
+            SqlBaseLexer lexer = new SqlBaseLexer(new CaseInsensitiveStream(CharStreams.fromString(sql)));
             CommonTokenStream tokenStream = new CommonTokenStream(lexer);
             SqlBaseParser parser = new SqlBaseParser(tokenStream);
+
+            // Override the default error strategy to not attempt inserting or deleting a token.
+            // Otherwise, it messes up error reporting
+            parser.setErrorHandler(new DefaultErrorStrategy()
+            {
+                @Override
+                public Token recoverInline(Parser recognizer)
+                        throws RecognitionException
+                {
+                    if (nextTokensContext == null) {
+                        throw new InputMismatchException(recognizer);
+                    }
+                    else {
+                        throw new InputMismatchException(recognizer, nextTokensState, nextTokensContext);
+                    }
+                }
+            });
 
             parser.addParseListener(new PostProcessor(Arrays.asList(parser.getRuleNames())));
 
             lexer.removeErrorListeners();
-            lexer.addErrorListener(ERROR_LISTENER);
+            lexer.addErrorListener(LEXER_ERROR_LISTENER);
 
             parser.removeErrorListeners();
-            parser.addErrorListener(ERROR_LISTENER);
+
+            if (enhancedErrorHandlerEnabled) {
+                parser.addErrorListener(PARSER_ERROR_HANDLER);
+            }
+            else {
+                parser.addErrorListener(LEXER_ERROR_LISTENER);
+            }
 
             ParserRuleContext tree;
             try {

@@ -31,6 +31,7 @@ import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.createInp
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.decodeCompressedBlockOffset;
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.decodeDecompressedOffset;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -49,14 +50,12 @@ public final class OrcInputStream
     private byte[] buffer;
     private final LocalMemoryContext bufferMemoryUsage;
 
-    // When uncompressed,
-    // * This tracks the memory usage of `current`.
-    // When compressed,
-    // * This tracks the memory usage of compressedSliceInput.
-    // * Memory pointed to by `current` is always part of `buffer`. It shouldn't be counted again.
-    private final LocalMemoryContext fixedMemoryUsage;
-
-    public OrcInputStream(OrcDataSourceId orcDataSourceId, FixedLengthSliceInput sliceInput, Optional<OrcDecompressor> decompressor, AggregatedMemoryContext systemMemoryContext)
+    public OrcInputStream(
+            OrcDataSourceId orcDataSourceId,
+            FixedLengthSliceInput sliceInput,
+            Optional<OrcDecompressor> decompressor,
+            AggregatedMemoryContext systemMemoryContext,
+            long sliceInputRetainedSizeInBytes)
     {
         this.orcDataSourceId = requireNonNull(orcDataSourceId, "orcDataSource is null");
 
@@ -64,10 +63,12 @@ public final class OrcInputStream
 
         this.decompressor = requireNonNull(decompressor, "decompressor is null");
 
+        // memory reserved in the systemMemoryContext is never release and instead it is
+        // expected that the context itself will be destroyed at the end of the read
         requireNonNull(systemMemoryContext, "systemMemoryContext is null");
-        this.bufferMemoryUsage = systemMemoryContext.newLocalMemoryContext();
-        this.fixedMemoryUsage = systemMemoryContext.newLocalMemoryContext();
-        this.fixedMemoryUsage.setBytes(sliceInput.length());
+        this.bufferMemoryUsage = systemMemoryContext.newLocalMemoryContext(OrcInputStream.class.getSimpleName());
+        checkArgument(sliceInputRetainedSizeInBytes >= 0, "sliceInputRetainedSizeInBytes is negative");
+        systemMemoryContext.newLocalMemoryContext(OrcInputStream.class.getSimpleName()).setBytes(sliceInputRetainedSizeInBytes);
 
         if (!decompressor.isPresent()) {
             this.current = sliceInput;
@@ -82,11 +83,7 @@ public final class OrcInputStream
     @Override
     public void close()
     {
-        current = null;
-        fixedMemoryUsage.setBytes(compressedSliceInput.length()); // see comments above for fixedMemoryUsage
-
-        buffer = null;
-        bufferMemoryUsage.setBytes(0);
+        // close is never called, so do not add code here
     }
 
     @Override

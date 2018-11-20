@@ -26,6 +26,7 @@ import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 public interface TaskManager
 {
@@ -83,7 +84,7 @@ public interface TaskManager
      * Updates the task plan, sources and output buffers.  If the task does not
      * already exist, is is created and then updated.
      */
-    TaskInfo updateTask(Session session, TaskId taskId, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers);
+    TaskInfo updateTask(Session session, TaskId taskId, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers, OptionalInt totalPartitions);
 
     /**
      * Cancels a task.  If the task does not already exist, is is created and then

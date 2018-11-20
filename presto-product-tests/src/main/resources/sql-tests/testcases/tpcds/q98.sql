@@ -12,7 +12,7 @@ FROM
 , item
 , date_dim
 WHERE ("ss_item_sk" = "i_item_sk")
-   AND ("i_category" IN ('Sports                                            ', 'Books                                             ', 'Home                                              '))
+   AND ("i_category" IN ('Sports', 'Books', 'Home'))
    AND ("ss_sold_date_sk" = "d_date_sk")
    AND (CAST("d_date" AS DATE) BETWEEN CAST('1999-02-22' AS DATE) AND (CAST('1999-02-22' AS DATE) + INTERVAL  '30' DAY))
 GROUP BY "i_item_id", "i_item_desc", "i_category", "i_class", "i_current_price"

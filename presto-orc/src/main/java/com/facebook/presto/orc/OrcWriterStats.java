@@ -16,6 +16,8 @@ package com.facebook.presto.orc;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 import static com.facebook.presto.orc.OrcWriterStats.FlushReason.CLOSED;
 import static com.facebook.presto.orc.OrcWriterStats.FlushReason.DICTIONARY_FULL;
 import static com.facebook.presto.orc.OrcWriterStats.FlushReason.MAX_BYTES;
@@ -30,15 +32,21 @@ public class OrcWriterStats
     }
 
     private final OrcWriterFlushStats allFlush = new OrcWriterFlushStats("ALL");
-    private final OrcWriterFlushStats maxRowsFlush = new OrcWriterFlushStats(MAX_BYTES.name());
-    private final OrcWriterFlushStats maxBytesFlush = new OrcWriterFlushStats(MAX_ROWS.name());
+    private final OrcWriterFlushStats maxRowsFlush = new OrcWriterFlushStats(MAX_ROWS.name());
+    private final OrcWriterFlushStats maxBytesFlush = new OrcWriterFlushStats(MAX_BYTES.name());
     private final OrcWriterFlushStats dictionaryFullFlush = new OrcWriterFlushStats(DICTIONARY_FULL.name());
     private final OrcWriterFlushStats closedFlush = new OrcWriterFlushStats(CLOSED.name());
+    private final AtomicLong writerSizeInBytes = new AtomicLong();
 
     public void recordStripeWritten(FlushReason flushReason, long stripeBytes, int stripeRows, int dictionaryBytes)
     {
         getFlushStats(flushReason).recordStripeWritten(stripeBytes, stripeRows, dictionaryBytes);
         allFlush.recordStripeWritten(stripeBytes, stripeRows, dictionaryBytes);
+    }
+
+    public void updateSizeInBytes(long deltaInBytes)
+    {
+        writerSizeInBytes.addAndGet(deltaInBytes);
     }
 
     @Managed
@@ -76,6 +84,12 @@ public class OrcWriterStats
         return closedFlush;
     }
 
+    @Managed
+    public long getWriterSizeInBytes()
+    {
+        return writerSizeInBytes.get();
+    }
+
     private OrcWriterFlushStats getFlushStats(FlushReason flushReason)
     {
         switch (flushReason) {
@@ -101,6 +115,7 @@ public class OrcWriterStats
                 .add("maxBytesFlush", maxBytesFlush)
                 .add("dictionaryFullFlush", dictionaryFullFlush)
                 .add("closedFlush", closedFlush)
+                .add("writerSizeInBytes", writerSizeInBytes.get())
                 .toString();
     }
 }

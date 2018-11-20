@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.block.BlockAssertions.createArrayBigintBlock;
@@ -76,8 +75,46 @@ public class TestMinMaxByAggregation
                 .addAll(simpleTypes)
                 .add(VARCHAR)
                 .add(DecimalType.createDecimalType(1))
-                .add(new RowType(ImmutableList.of(BIGINT, VARCHAR, DOUBLE), Optional.empty()))
+                .add(RowType.anonymous(ImmutableList.of(BIGINT, VARCHAR, DOUBLE)))
                 .build();
+    }
+
+    @Test
+    public void testMinUnknown()
+    {
+        InternalAggregationFunction unknownKey = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("min_by", AGGREGATE, parseTypeSignature(UnknownType.NAME), parseTypeSignature(UnknownType.NAME), parseTypeSignature(StandardTypes.DOUBLE)));
+        assertAggregation(
+                unknownKey,
+                null,
+                createBooleansBlock(null, null),
+                createDoublesBlock(1.0, 2.0));
+        InternalAggregationFunction unknownValue = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("min_by", AGGREGATE, parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(UnknownType.NAME)));
+        assertAggregation(
+                unknownKey,
+                null,
+                createDoublesBlock(1.0, 2.0),
+                createBooleansBlock(null, null));
+    }
+
+    @Test
+    public void testMaxUnknown()
+    {
+        InternalAggregationFunction unknownKey = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("max_by", AGGREGATE, parseTypeSignature(UnknownType.NAME), parseTypeSignature(UnknownType.NAME), parseTypeSignature(StandardTypes.DOUBLE)));
+        assertAggregation(
+                unknownKey,
+                null,
+                createBooleansBlock(null, null),
+                createDoublesBlock(1.0, 2.0));
+        InternalAggregationFunction unknownValue = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("max_by", AGGREGATE, parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(UnknownType.NAME)));
+        assertAggregation(
+                unknownKey,
+                null,
+                createDoublesBlock(1.0, 2.0),
+                createBooleansBlock(null, null));
     }
 
     @Test

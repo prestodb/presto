@@ -52,7 +52,6 @@ public class TestTaskStats
             new DataSize(14, BYTE),
             new Duration(15, NANOSECONDS),
             new Duration(16, NANOSECONDS),
-            new Duration(17, NANOSECONDS),
             new Duration(18, NANOSECONDS),
             false,
             ImmutableSet.of(),
@@ -67,6 +66,9 @@ public class TestTaskStats
             24,
 
             new DataSize(25, BYTE),
+
+            26,
+            new Duration(27, NANOSECONDS),
 
             ImmutableList.of(TestPipelineStats.EXPECTED));
 
@@ -106,7 +108,6 @@ public class TestTaskStats
 
         assertEquals(actual.getTotalScheduledTime(), new Duration(15, NANOSECONDS));
         assertEquals(actual.getTotalCpuTime(), new Duration(16, NANOSECONDS));
-        assertEquals(actual.getTotalUserTime(), new Duration(17, NANOSECONDS));
         assertEquals(actual.getTotalBlockedTime(), new Duration(18, NANOSECONDS));
 
         assertEquals(actual.getRawInputDataSize(), new DataSize(19, BYTE));

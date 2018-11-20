@@ -17,7 +17,6 @@ package com.facebook.presto.operator.aggregation.groupByAggregations;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 
 import java.util.function.BiConsumer;
 
@@ -54,7 +53,7 @@ public class AggregationTestOutput
 
     private static Object getGroupValue(GroupedAccumulator groupedAggregation, int groupId)
     {
-        BlockBuilder out = groupedAggregation.getFinalType().createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder out = groupedAggregation.getFinalType().createBlockBuilder(null, 1);
         groupedAggregation.evaluateFinal(groupId, out);
         return BlockAssertions.getOnlyValue(groupedAggregation.getFinalType(), out.build());
     }

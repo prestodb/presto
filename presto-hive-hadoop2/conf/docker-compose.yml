@@ -2,7 +2,7 @@ version: '2'
 services:
   hadoop-master:
     hostname: hadoop-master
-    image: 'prestodb/hdp2.5-hive:1'
+    image: 'prestodb/hdp2.6-hive:5'
     ports:
       - '1180:1180'
       - '8020:8020'
@@ -16,10 +16,5 @@ services:
     volumes:
       - ../../presto-hive/src/test/sql:/files/sql:ro
       - ./files/words:/usr/share/dict/words:ro
-  dnsmasq:
-    hostname: dnsmasq
-    image: 'prestodb/dns:1'
-    cap_add:
-      - NET_ADMIN
-    ports:
-      - '55353:53/udp'
+      - ./files/core-site.xml.s3-template:/etc/hadoop/conf/core-site.xml.s3-template:ro
+      - ./files/test1.csv:/tmp/test1.csv:ro

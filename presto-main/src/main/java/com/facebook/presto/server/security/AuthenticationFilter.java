@@ -96,7 +96,7 @@ public class AuthenticationFilter
         skipRequestBody(request);
 
         for (String value : authenticateHeaders) {
-            response.setHeader(WWW_AUTHENTICATE, value);
+            response.addHeader(WWW_AUTHENTICATE, value);
         }
 
         if (messages.isEmpty()) {

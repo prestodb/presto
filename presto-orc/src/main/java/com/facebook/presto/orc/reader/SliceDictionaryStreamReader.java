@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -27,14 +28,14 @@ import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.VariableWidthBlock;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import org.openjdk.jol.info.ClassLayout;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
@@ -44,15 +45,21 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
 import static com.facebook.presto.orc.reader.SliceStreamReader.computeTruncatedLength;
+import static com.facebook.presto.orc.reader.SliceStreamReader.getMaxCodePointCount;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class SliceDictionaryStreamReader
         implements StreamReader
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionaryStreamReader.class).instanceSize();
+
     private static final byte[] EMPTY_DICTIONARY_DATA = new byte[0];
     // add one extra entry for null after strip/rowGroup dictionary
     private static final int[] EMPTY_DICTIONARY_OFFSETS = new int[2];
@@ -62,53 +69,45 @@ public class SliceDictionaryStreamReader
     private int readOffset;
     private int nextBatchSize;
 
-    @Nonnull
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
     private BooleanInputStream presentStream;
     private boolean[] isNullVector = new boolean[0];
 
-    @Nonnull
     private InputStreamSource<ByteArrayInputStream> stripeDictionaryDataStreamSource = missingStreamSource(ByteArrayInputStream.class);
     private boolean stripeDictionaryOpen;
     private int stripeDictionarySize;
-    @Nonnull
     private int[] stripeDictionaryLength = new int[0];
-    @Nonnull
     private byte[] stripeDictionaryData = EMPTY_DICTIONARY_DATA;
-    @Nonnull
     private int[] stripeDictionaryOffsetVector = EMPTY_DICTIONARY_OFFSETS;
 
-    private VariableWidthBlock dictionaryBlock = new VariableWidthBlock(1, Slices.wrappedBuffer(EMPTY_DICTIONARY_DATA), EMPTY_DICTIONARY_OFFSETS, new boolean[]{true});
+    private VariableWidthBlock dictionaryBlock = new VariableWidthBlock(1, wrappedBuffer(EMPTY_DICTIONARY_DATA), EMPTY_DICTIONARY_OFFSETS, Optional.of(new boolean[] {true}));
     private byte[] currentDictionaryData = EMPTY_DICTIONARY_DATA;
 
-    @Nonnull
     private InputStreamSource<LongInputStream> stripeDictionaryLengthStreamSource = missingStreamSource(LongInputStream.class);
 
-    @Nonnull
     private InputStreamSource<BooleanInputStream> inDictionaryStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
     private BooleanInputStream inDictionaryStream;
-    private boolean[] inDictionary = new boolean[0];
+    private boolean[] inDictionaryVector = new boolean[0];
 
-    @Nonnull
     private InputStreamSource<ByteArrayInputStream> rowGroupDictionaryDataStreamSource = missingStreamSource(ByteArrayInputStream.class);
 
-    @Nonnull
     private InputStreamSource<RowGroupDictionaryLengthInputStream> rowGroupDictionaryLengthStreamSource = missingStreamSource(RowGroupDictionaryLengthInputStream.class);
-    @Nonnull
     private int[] rowGroupDictionaryLength = new int[0];
 
-    @Nonnull
     private InputStreamSource<LongInputStream> dataStreamSource = missingStreamSource(LongInputStream.class);
     @Nullable
     private LongInputStream dataStream;
 
     private boolean rowGroupOpen;
 
-    public SliceDictionaryStreamReader(StreamDescriptor streamDescriptor)
+    private LocalMemoryContext systemMemoryContext;
+
+    public SliceDictionaryStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
+        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
 
     @Override
@@ -143,54 +142,53 @@ public class SliceDictionaryStreamReader
             }
         }
 
-        if (isNullVector.length < nextBatchSize) {
-            isNullVector = new boolean[nextBatchSize];
-        }
-
-        int[] dataVector = new int[nextBatchSize];
+        int[] idsVector = new int[nextBatchSize];
         if (presentStream == null) {
+            // Data doesn't have nulls
             if (dataStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
             }
-            Arrays.fill(isNullVector, false);
-            dataStream.nextIntVector(nextBatchSize, dataVector);
-        }
-        else {
-            int nullValues = presentStream.getUnsetBits(nextBatchSize, isNullVector);
-            if (nullValues != nextBatchSize) {
-                if (dataStream == null) {
-                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
-                }
-                dataStream.nextIntVector(nextBatchSize, dataVector, isNullVector);
-            }
-        }
-
-        if (inDictionary.length < nextBatchSize) {
-            inDictionary = new boolean[nextBatchSize];
-        }
-        if (inDictionaryStream == null) {
-            Arrays.fill(inDictionary, true);
-        }
-        else {
-            inDictionaryStream.getSetBits(nextBatchSize, inDictionary, isNullVector);
-        }
-
-        // create the dictionary ids
-        for (int i = 0; i < nextBatchSize; i++) {
-            if (isNullVector[i]) {
-                // null is the last entry in the slice dictionary
-                dataVector[i] = dictionaryBlock.getPositionCount() - 1;
-            }
-            else if (inDictionary[i]) {
-                // stripe dictionary elements have the same dictionary id
+            if (inDictionaryStream == null) {
+                dataStream.nextIntVector(nextBatchSize, idsVector, 0);
             }
             else {
-                // row group dictionary elements are after the main dictionary
-                dataVector[i] += stripeDictionarySize;
+                for (int i = 0; i < nextBatchSize; i++) {
+                    idsVector[i] = toIntExact(dataStream.next());
+                    if (!inDictionaryStream.nextBit()) {
+                        // row group dictionary elements are after the main dictionary
+                        idsVector[i] += stripeDictionarySize;
+                    }
+                }
             }
         }
-
-        Block block = new DictionaryBlock(nextBatchSize, dictionaryBlock, dataVector);
+        else {
+            // Data has nulls
+            if (dataStream == null) {
+                // The only valid case for dataStream is null when data has nulls is that all values are nulls.
+                // In that case the only element in the dictionaryBlock is null and the ids in idsVector should
+                // be all 0's, so we don't need to update idVector again.
+                int nullValues = presentStream.getUnsetBits(nextBatchSize);
+                if (nullValues != nextBatchSize) {
+                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
+                }
+            }
+            else {
+                for (int i = 0; i < nextBatchSize; i++) {
+                    if (!presentStream.nextBit()) {
+                        // null is the last entry in the slice dictionary
+                        idsVector[i] = dictionaryBlock.getPositionCount() - 1;
+                    }
+                    else {
+                        idsVector[i] = toIntExact(dataStream.next());
+                        if (inDictionaryStream != null && !inDictionaryStream.nextBit()) {
+                            // row group dictionary elements are after the main dictionary
+                            idsVector[i] += stripeDictionarySize;
+                        }
+                    }
+                }
+            }
+        }
+        Block block = new DictionaryBlock(nextBatchSize, dictionaryBlock, idsVector);
 
         readOffset = 0;
         nextBatchSize = 0;
@@ -206,7 +204,7 @@ public class SliceDictionaryStreamReader
             boolean[] isNullVector = new boolean[positionCount];
             isNullVector[positionCount - 1] = true;
             dictionaryOffsets[positionCount] = dictionaryOffsets[positionCount - 1];
-            dictionaryBlock = new VariableWidthBlock(positionCount, Slices.wrappedBuffer(dictionaryData), dictionaryOffsets, isNullVector);
+            dictionaryBlock = new VariableWidthBlock(positionCount, wrappedBuffer(dictionaryData), dictionaryOffsets, Optional.of(isNullVector));
             currentDictionaryData = dictionaryData;
         }
     }
@@ -227,7 +225,7 @@ public class SliceDictionaryStreamReader
                 if (lengthStream == null) {
                     throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Dictionary is not empty but dictionary length stream is not present");
                 }
-                lengthStream.nextIntVector(stripeDictionarySize, stripeDictionaryLength);
+                lengthStream.nextIntVector(stripeDictionarySize, stripeDictionaryLength, 0);
 
                 long dataLength = 0;
                 for (int i = 0; i < stripeDictionarySize; i++) {
@@ -261,7 +259,7 @@ public class SliceDictionaryStreamReader
             }
 
             // read the lengths
-            dictionaryLengthStream.nextIntVector(rowGroupDictionarySize, rowGroupDictionaryLength);
+            dictionaryLengthStream.nextIntVector(rowGroupDictionarySize, rowGroupDictionaryLength, 0);
             long dataLength = 0;
             for (int i = 0; i < rowGroupDictionarySize; i++) {
                 dataLength += rowGroupDictionaryLength[i];
@@ -300,7 +298,7 @@ public class SliceDictionaryStreamReader
             Type type)
             throws IOException
     {
-        Slice slice = Slices.wrappedBuffer(data);
+        Slice slice = wrappedBuffer(data);
 
         // initialize the offset if necessary;
         // otherwise, use the previous offset
@@ -315,12 +313,14 @@ public class SliceDictionaryStreamReader
             int length = dictionaryLengthVector[i];
 
             int truncatedLength;
+            int maxCodePointCount = getMaxCodePointCount(type);
+            boolean isCharType = isCharType(type);
             if (length > 0) {
                 // read data without truncation
                 dictionaryDataStream.next(data, offset, offset + length);
 
                 // adjust offsets with truncated length
-                truncatedLength = computeTruncatedLength(slice, offset, length, type);
+                truncatedLength = computeTruncatedLength(slice, offset, length, maxCodePointCount, isCharType);
                 verify(truncatedLength >= 0);
             }
             else {
@@ -335,7 +335,9 @@ public class SliceDictionaryStreamReader
     {
         stripeDictionaryDataStreamSource = dictionaryStreamSources.getInputStreamSource(streamDescriptor, DICTIONARY_DATA, ByteArrayInputStream.class);
         stripeDictionaryLengthStreamSource = dictionaryStreamSources.getInputStreamSource(streamDescriptor, LENGTH, LongInputStream.class);
-        stripeDictionarySize = encoding.get(streamDescriptor.getStreamId()).getDictionarySize();
+        stripeDictionarySize = encoding.get(streamDescriptor.getStreamId())
+                .getColumnEncoding(streamDescriptor.getSequence())
+                .getDictionarySize();
         stripeDictionaryOpen = false;
 
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
@@ -382,5 +384,19 @@ public class SliceDictionaryStreamReader
         return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
+    }
+
+    @Override
+    public void close()
+    {
+        systemMemoryContext.close();
+        isNullVector = null;
+        inDictionaryVector = null;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + sizeOf(isNullVector) + sizeOf(inDictionaryVector);
     }
 }

@@ -14,11 +14,13 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.sql.planner.Symbol;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.function.Consumer;
 
 import static com.facebook.presto.cost.EstimateAssertion.assertEstimateEquals;
 import static com.google.common.collect.Sets.union;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class PlanNodeStatsAssertion
@@ -72,6 +74,12 @@ public class PlanNodeStatsAssertion
                         .highValueUnknown()
                         .nullsFractionUnknown()
                         .distinctValuesCountUnknown());
+    }
+
+    public PlanNodeStatsAssertion symbolsWithKnownStats(Symbol... symbols)
+    {
+        assertEquals(actual.getSymbolsWithKnownStatistics(), ImmutableSet.copyOf(symbols), "symbols with known stats");
+        return this;
     }
 
     public PlanNodeStatsAssertion equalTo(PlanNodeStatsEstimate expected)

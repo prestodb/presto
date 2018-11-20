@@ -13,91 +13,23 @@
  */
 package com.facebook.presto.memory.context;
 
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.lang.String.format;
-
-@ThreadSafe
-public abstract class AggregatedMemoryContext
+public interface AggregatedMemoryContext
 {
-    static final ListenableFuture<?> NOT_BLOCKED = Futures.immediateFuture(null);
-
-    @GuardedBy("this")
-    private long usedBytes;
-    @GuardedBy("this")
-    private boolean closed;
-
-    public static AggregatedMemoryContext newSimpleAggregatedMemoryContext()
+    static AggregatedMemoryContext newSimpleAggregatedMemoryContext()
     {
         return new SimpleAggregatedMemoryContext();
     }
 
-    public AggregatedMemoryContext newAggregatedMemoryContext()
-    {
-        return new ChildAggregatedMemoryContext(this);
-    }
-
-    public static AggregatedMemoryContext newRootAggregatedMemoryContext(MemoryReservationHandler reservationHandler, long guaranteedMemoryInBytes)
+    static AggregatedMemoryContext newRootAggregatedMemoryContext(MemoryReservationHandler reservationHandler, long guaranteedMemoryInBytes)
     {
         return new RootAggregatedMemoryContext(reservationHandler, guaranteedMemoryInBytes);
     }
 
-    public LocalMemoryContext newLocalMemoryContext()
-    {
-        return new SimpleLocalMemoryContext(this);
-    }
+    AggregatedMemoryContext newAggregatedMemoryContext();
 
-    public synchronized long getBytes()
-    {
-        return usedBytes;
-    }
+    LocalMemoryContext newLocalMemoryContext(String allocationTag);
 
-    public synchronized void close()
-    {
-        if (closed) {
-            return;
-        }
-        closed = true;
-        closeContext();
-        usedBytes = 0;
-    }
+    long getBytes();
 
-    @Override
-    public synchronized String toString()
-    {
-        return toStringHelper(this)
-                .add("usedBytes", usedBytes)
-                .add("closed", closed)
-                .toString();
-    }
-
-    synchronized void addBytes(long bytes)
-    {
-        usedBytes = addExact(usedBytes, bytes);
-    }
-
-    abstract ListenableFuture<?> updateBytes(long bytes);
-
-    abstract boolean tryUpdateBytes(long delta);
-
-    @Nullable
-    abstract AggregatedMemoryContext getParent();
-
-    abstract void closeContext();
-
-    static long addExact(long usedBytes, long bytes)
-    {
-        try {
-            return Math.addExact(usedBytes, bytes);
-        }
-        catch (ArithmeticException e) {
-            throw new RuntimeException(format("Overflow detected. usedBytes: %d, bytes: %d", usedBytes, bytes), e);
-        }
-    }
+    void close();
 }

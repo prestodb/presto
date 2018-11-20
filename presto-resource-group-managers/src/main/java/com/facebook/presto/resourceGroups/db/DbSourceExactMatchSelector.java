@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.resourceGroups.db;
 
+import com.facebook.presto.resourceGroups.ResourceGroupSelector;
+import com.facebook.presto.resourceGroups.VariableMap;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import org.jdbi.v3.core.JdbiException;
@@ -23,6 +25,7 @@ import org.jdbi.v3.core.JdbiException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.resourceGroups.VariableMap.emptyVariableMap;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
 
@@ -42,13 +45,13 @@ public class DbSourceExactMatchSelector
     }
 
     @Override
-    public Optional<ResourceGroupId> match(SelectionContext context)
+    public Optional<SelectionContext<VariableMap>> match(SelectionCriteria criteria)
     {
-        if (!context.getSource().isPresent()) {
+        if (!criteria.getSource().isPresent()) {
             return Optional.empty();
         }
         try {
-            String resourceGroupId = dao.getExactMatchResourceGroup(environment, context.getSource().get(), context.getQueryType().orElse(""));
+            String resourceGroupId = dao.getExactMatchResourceGroup(environment, criteria.getSource().get(), criteria.getQueryType().orElse(""));
 
             Long start = daoOfflineStart.get();
             if (start != null && daoOfflineStart.compareAndSet(start, null)) {
@@ -60,7 +63,7 @@ public class DbSourceExactMatchSelector
             }
 
             try {
-                return Optional.of(resourceGroupIdCodec.fromJson(resourceGroupId));
+                return Optional.of(new SelectionContext<>(resourceGroupIdCodec.fromJson(resourceGroupId), emptyVariableMap()));
             }
             catch (IllegalArgumentException e) {
                 log.warn("Failed to decode resource group from DB: %s", resourceGroupId);

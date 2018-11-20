@@ -16,7 +16,6 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.ArrayType;
 import com.google.common.collect.ImmutableList;
@@ -465,14 +464,14 @@ public class TestApproximatePercentileAggregation
 
     private static RunLengthEncodedBlock createRLEBlock(double percentile, int positionCount)
     {
-        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(null, 1);
         DOUBLE.writeDouble(blockBuilder, percentile);
         return new RunLengthEncodedBlock(blockBuilder.build(), positionCount);
     }
 
     private static RunLengthEncodedBlock createRLEBlock(Iterable<Double> percentiles, int positionCount)
     {
-        BlockBuilder rleBlockBuilder = new ArrayType(DOUBLE).createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder rleBlockBuilder = new ArrayType(DOUBLE).createBlockBuilder(null, 1);
         BlockBuilder arrayBlockBuilder = rleBlockBuilder.beginBlockEntry();
 
         for (double percentile : percentiles) {

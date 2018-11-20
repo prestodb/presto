@@ -16,7 +16,6 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
@@ -27,7 +26,6 @@ import org.testng.annotations.Test;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
@@ -186,7 +184,7 @@ public class TestMapAggAggregation
                 parseTypeSignature(StandardTypes.DOUBLE),
                 innerMapType.getTypeSignature()));
 
-        BlockBuilder builder = innerMapType.createBlockBuilder(new BlockBuilderStatus(), 3);
+        BlockBuilder builder = innerMapType.createBlockBuilder(null, 3);
         innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("a", "b")));
         innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("c", "d")));
         innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("e", "f")));
@@ -203,7 +201,9 @@ public class TestMapAggAggregation
     @Test
     public void testDoubleRowMap()
     {
-        RowType innerRowType = new RowType(ImmutableList.of(INTEGER, DOUBLE), Optional.of(ImmutableList.of("f1", "f2")));
+        RowType innerRowType = RowType.from(ImmutableList.of(
+                RowType.field("f1", INTEGER),
+                RowType.field("f2", DOUBLE)));
         MapType mapType = mapType(DOUBLE, innerRowType);
         InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME,
                 AGGREGATE,
@@ -211,7 +211,7 @@ public class TestMapAggAggregation
                 parseTypeSignature(StandardTypes.DOUBLE),
                 innerRowType.getTypeSignature()));
 
-        BlockBuilder builder = innerRowType.createBlockBuilder(new BlockBuilderStatus(), 3);
+        BlockBuilder builder = innerRowType.createBlockBuilder(null, 3);
         innerRowType.writeObject(builder, toRow(ImmutableList.of(INTEGER, DOUBLE), 1L, 1.0));
         innerRowType.writeObject(builder, toRow(ImmutableList.of(INTEGER, DOUBLE), 2L, 2.0));
         innerRowType.writeObject(builder, toRow(ImmutableList.of(INTEGER, DOUBLE), 3L, 3.0));

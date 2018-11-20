@@ -51,11 +51,13 @@ public class StorageManagerConfig
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
     private DataSize orcMaxReadSize = new DataSize(8, MEGABYTE);
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
+    private DataSize orcTinyStripeThreshold = new DataSize(8, MEGABYTE);
     private boolean orcLazyReadSmallRanges = true;
     private int deletionThreads = max(1, getRuntime().availableProcessors() / 2);
     private int recoveryThreads = 10;
     private int organizationThreads = 5;
     private boolean organizationEnabled = true;
+    private Duration organizationDiscoveryInterval = new Duration(6, TimeUnit.HOURS);
     private Duration organizationInterval = new Duration(7, TimeUnit.DAYS);
 
     private long maxShardRows = 1_000_000;
@@ -128,6 +130,19 @@ public class StorageManagerConfig
     public StorageManagerConfig setOrcStreamBufferSize(DataSize orcStreamBufferSize)
     {
         this.orcStreamBufferSize = orcStreamBufferSize;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getOrcTinyStripeThreshold()
+    {
+        return orcTinyStripeThreshold;
+    }
+
+    @Config("storage.orc.tiny-stripe-threshold")
+    public StorageManagerConfig setOrcTinyStripeThreshold(DataSize orcTinyStripeThreshold)
+    {
+        this.orcTinyStripeThreshold = orcTinyStripeThreshold;
         return this;
     }
 
@@ -214,6 +229,21 @@ public class StorageManagerConfig
     public StorageManagerConfig setOrganizationInterval(Duration organizationInterval)
     {
         this.organizationInterval = organizationInterval;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("1s")
+    public Duration getOrganizationDiscoveryInterval()
+    {
+        return organizationDiscoveryInterval;
+    }
+
+    @Config("storage.organization-discovery-interval")
+    @ConfigDescription("How long to wait between discovering tables that need to be organized")
+    public StorageManagerConfig setOrganizationDiscoveryInterval(Duration organizationDiscoveryInterval)
+    {
+        this.organizationDiscoveryInterval = organizationDiscoveryInterval;
         return this;
     }
 

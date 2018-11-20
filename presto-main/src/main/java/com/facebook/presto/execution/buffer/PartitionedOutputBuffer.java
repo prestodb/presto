@@ -18,6 +18,7 @@ import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -37,7 +38,6 @@ import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionedOutputBuffer
@@ -156,21 +156,27 @@ public class PartitionedOutputBuffer
     }
 
     @Override
-    public ListenableFuture<?> enqueue(List<SerializedPage> pages)
+    public ListenableFuture<?> isFull()
     {
-        checkState(partitions.size() == 1, "Expected exactly one partition");
-        return enqueue(0, pages);
+        return memoryManager.getBufferBlockedFuture();
     }
 
     @Override
-    public ListenableFuture<?> enqueue(int partitionNumber, List<SerializedPage> pages)
+    public void enqueue(List<SerializedPage> pages)
+    {
+        checkState(partitions.size() == 1, "Expected exactly one partition");
+        enqueue(0, pages);
+    }
+
+    @Override
+    public void enqueue(int partitionNumber, List<SerializedPage> pages)
     {
         requireNonNull(pages, "pages is null");
 
         // ignore pages after "no more pages" is set
         // this can happen with a limit query
         if (!state.get().canAddPages()) {
-            return immediateFuture(true);
+            return;
         }
 
         // reserve memory
@@ -192,8 +198,6 @@ public class PartitionedOutputBuffer
 
         // drop the initial reference
         serializedPageReferences.forEach(SerializedPageReference::dereferencePage);
-
-        return memoryManager.getNotFullFuture();
     }
 
     @Override
@@ -242,6 +246,7 @@ public class PartitionedOutputBuffer
         if (state.setIf(FINISHED, oldState -> !oldState.isTerminal())) {
             partitions.forEach(ClientBuffer::destroy);
             memoryManager.setNoBlockOnFull();
+            forceFreeMemory();
         }
     }
 
@@ -251,18 +256,37 @@ public class PartitionedOutputBuffer
         // ignore fail if the buffer already in a terminal state.
         if (state.setIf(FAILED, oldState -> !oldState.isTerminal())) {
             memoryManager.setNoBlockOnFull();
+            forceFreeMemory();
             // DO NOT destroy buffers or set no more pages.  The coordinator manages the teardown of failed queries.
         }
     }
 
+    @Override
+    public long getPeakMemoryUsage()
+    {
+        return memoryManager.getPeakMemoryUsage();
+    }
+
+    @VisibleForTesting
+    void forceFreeMemory()
+    {
+        memoryManager.close();
+    }
+
     private void checkFlushComplete()
     {
-        if (state.get() != FLUSHING) {
+        if (state.get() != FLUSHING && state.get() != NO_MORE_BUFFERS) {
             return;
         }
 
         if (partitions.stream().allMatch(ClientBuffer::isDestroyed)) {
             destroy();
         }
+    }
+
+    @VisibleForTesting
+    OutputBufferMemoryManager getMemoryManager()
+    {
+        return memoryManager;
     }
 }

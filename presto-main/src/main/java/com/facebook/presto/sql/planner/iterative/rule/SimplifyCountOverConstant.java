@@ -86,6 +86,7 @@ public class SimplifyCountOverConstant
                 child,
                 aggregations,
                 parent.getGroupingSets(),
+                ImmutableList.of(),
                 parent.getStep(),
                 parent.getHashSymbol(),
                 parent.getGroupIdSymbol()));

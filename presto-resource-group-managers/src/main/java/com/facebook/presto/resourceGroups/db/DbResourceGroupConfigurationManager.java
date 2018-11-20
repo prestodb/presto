@@ -16,14 +16,16 @@ package com.facebook.presto.resourceGroups.db;
 import com.facebook.presto.resourceGroups.AbstractResourceConfigurationManager;
 import com.facebook.presto.resourceGroups.ManagerSpec;
 import com.facebook.presto.resourceGroups.ResourceGroupIdTemplate;
+import com.facebook.presto.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.resourceGroups.ResourceGroupSpec;
 import com.facebook.presto.resourceGroups.SelectorSpec;
+import com.facebook.presto.resourceGroups.VariableMap;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
+import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -139,9 +141,9 @@ public class DbResourceGroupConfigurationManager
     }
 
     @Override
-    public void configure(ResourceGroup group, SelectionContext context)
+    public void configure(ResourceGroup group, SelectionContext<VariableMap> criteria)
     {
-        Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> entry = getMatchingSpec(group, context);
+        Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> entry = getMatchingSpec(group, criteria);
         if (groups.putIfAbsent(group.getId(), group) == null) {
             // If a new spec replaces the spec returned from getMatchingSpec the group will be reconfigured on the next run of load().
             configuredGroups.computeIfAbsent(entry.getKey(), v -> new LinkedList<>()).add(group.getId());
@@ -152,15 +154,32 @@ public class DbResourceGroupConfigurationManager
     }
 
     @Override
+    public Optional<SelectionContext<VariableMap>> match(SelectionCriteria criteria)
+    {
+        if (lastRefresh.get() == 0) {
+            throw new PrestoException(CONFIGURATION_UNAVAILABLE, "Selectors cannot be fetched from database");
+        }
+        if (selectors.get().isEmpty()) {
+            throw new PrestoException(CONFIGURATION_INVALID, "No selectors are configured");
+        }
+
+        return selectors.get().stream()
+                .map(s -> s.match(criteria))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .findFirst();
+    }
+
+    @VisibleForTesting
     public List<ResourceGroupSelector> getSelectors()
     {
         if (lastRefresh.get() == 0) {
             throw new PrestoException(CONFIGURATION_UNAVAILABLE, "Selectors cannot be fetched from database");
         }
-        if (this.selectors.get().isEmpty()) {
+        if (selectors.get().isEmpty()) {
             throw new PrestoException(CONFIGURATION_INVALID, "No selectors are configured");
         }
-        return this.selectors.get();
+        return selectors.get();
     }
 
     private synchronized Optional<Duration> getCpuQuotaPeriodFromDb()
@@ -297,13 +316,14 @@ public class DbResourceGroupConfigurationManager
         List<SelectorSpec> selectors = dao.getSelectors(environment)
                 .stream()
                 .map(selectorRecord ->
-                new SelectorSpec(
-                        selectorRecord.getUserRegex(),
-                        selectorRecord.getSourceRegex(),
-                        selectorRecord.getQueryType(),
-                        selectorRecord.getClientTags(),
-                        resourceGroupIdTemplateMap.get(selectorRecord.getResourceGroupId()))
-        ).collect(Collectors.toList());
+                        new SelectorSpec(
+                                selectorRecord.getUserRegex(),
+                                selectorRecord.getSourceRegex(),
+                                selectorRecord.getQueryType(),
+                                selectorRecord.getClientTags(),
+                                selectorRecord.getSelectorResourceEstimate(),
+                                resourceGroupIdTemplateMap.get(selectorRecord.getResourceGroupId()))
+                ).collect(Collectors.toList());
         ManagerSpec managerSpec = new ManagerSpec(rootGroups, selectors, getCpuQuotaPeriodFromDb());
         validateRootGroups(managerSpec);
         return new AbstractMap.SimpleImmutableEntry<>(managerSpec, resourceGroupSpecs);

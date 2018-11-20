@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.planner.Symbol;
@@ -24,7 +25,6 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 
 import java.util.HashSet;
@@ -37,7 +37,10 @@ import static com.facebook.presto.SystemSessionProperties.isPushAggregationThrou
 import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUnique;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
+import static com.facebook.presto.sql.planner.plan.Patterns.join;
+import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
@@ -45,7 +48,25 @@ import static com.google.common.collect.Sets.intersection;
 public class PushPartialAggregationThroughJoin
         implements Rule<AggregationNode>
 {
-    private static final Pattern<AggregationNode> PATTERN = aggregation();
+    private static final Capture<JoinNode> JOIN_NODE = Capture.newCapture();
+
+    private static final Pattern<AggregationNode> PATTERN = aggregation()
+            .matching(PushPartialAggregationThroughJoin::isSupportedAggregationNode)
+            .with(source().matching(join().capturedAs(JOIN_NODE)));
+
+    private static boolean isSupportedAggregationNode(AggregationNode aggregationNode)
+    {
+        // Don't split streaming aggregations
+        if (aggregationNode.isStreamable()) {
+            return false;
+        }
+
+        if (aggregationNode.getHashSymbol().isPresent()) {
+            // TODO: add support for hash symbol in aggregation node
+            return false;
+        }
+        return aggregationNode.getStep() == PARTIAL && aggregationNode.getGroupingSetCount() == 1;
+    }
 
     @Override
     public Pattern<AggregationNode> getPattern()
@@ -62,21 +83,7 @@ public class PushPartialAggregationThroughJoin
     @Override
     public Result apply(AggregationNode aggregationNode, Captures captures, Context context)
     {
-        if (aggregationNode.getStep() != PARTIAL || aggregationNode.getGroupingSets().size() != 1) {
-            return Result.empty();
-        }
-
-        if (aggregationNode.getHashSymbol().isPresent()) {
-            // TODO: add support for hash symbol in aggregation node
-            return Result.empty();
-        }
-
-        PlanNode childNode = context.getLookup().resolve(aggregationNode.getSource());
-        if (!(childNode instanceof JoinNode)) {
-            return Result.empty();
-        }
-
-        JoinNode joinNode = (JoinNode) childNode;
+        JoinNode joinNode = captures.get(JOIN_NODE);
 
         if (joinNode.getType() != JoinNode.Type.INNER) {
             return Result.empty();
@@ -128,7 +135,7 @@ public class PushPartialAggregationThroughJoin
 
     private List<Symbol> getPushedDownGroupingSet(AggregationNode aggregation, Set<Symbol> availableSymbols, Set<Symbol> requiredJoinSymbols)
     {
-        List<Symbol> groupingSet = Iterables.getOnlyElement(aggregation.getGroupingSets());
+        List<Symbol> groupingSet = aggregation.getGroupingKeys();
 
         // keep symbols that are directly from the join's child (availableSymbols)
         List<Symbol> pushedDownGroupingSet = groupingSet.stream()
@@ -147,13 +154,14 @@ public class PushPartialAggregationThroughJoin
     private AggregationNode replaceAggregationSource(
             AggregationNode aggregation,
             PlanNode source,
-            List<Symbol> groupingSet)
+            List<Symbol> groupingKeys)
     {
         return new AggregationNode(
                 aggregation.getId(),
                 source,
                 aggregation.getAggregations(),
-                ImmutableList.of(groupingSet),
+                singleGroupingSet(groupingKeys),
+                ImmutableList.of(),
                 aggregation.getStep(),
                 aggregation.getHashSymbol(),
                 aggregation.getGroupIdSymbol());

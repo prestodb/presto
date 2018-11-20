@@ -42,16 +42,6 @@ public final class ArrayMinFunction
     @TypeParameter("T")
     @SqlType("T")
     @SqlNullable
-    public static Void arrayWithUnknownType(
-            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
-            @SqlType("array(T)") Block block)
-    {
-        return null;
-    }
-
-    @TypeParameter("T")
-    @SqlType("T")
-    @SqlNullable
     public static Long longArrayMin(
             @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,

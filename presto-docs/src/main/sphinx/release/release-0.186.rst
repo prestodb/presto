@@ -34,7 +34,7 @@ General Changes
 Resource Groups Changes
 -----------------------
 
-* :doc:`/admin/queue` are deprecated in favor of :doc:`/admin/resource-groups`
+* Query Queues are deprecated in favor of :doc:`/admin/resource-groups`
   and will be removed in a future release.
 * Rename the ``maxRunning`` property to ``hardConcurrencyLimit``. The old
   property name is deprecated and will be removed in a future release.

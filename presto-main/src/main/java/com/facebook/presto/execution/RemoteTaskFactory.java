@@ -22,6 +22,8 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.Multimap;
 
+import java.util.OptionalInt;
+
 public interface RemoteTaskFactory
 {
     RemoteTask createRemoteTask(Session session,
@@ -29,6 +31,7 @@ public interface RemoteTaskFactory
             Node node,
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
+            OptionalInt totalPartitions,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             boolean summarizeTaskInfo);

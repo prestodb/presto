@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
@@ -27,6 +28,7 @@ import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Scope;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
@@ -56,20 +58,20 @@ public class RowExpressionCompiler
     private final CachedInstanceBinder cachedInstanceBinder;
     private final RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler;
     private final FunctionRegistry registry;
-    private final PreGeneratedExpressions preGeneratedExpressions;
+    private final Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap;
 
     RowExpressionCompiler(
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler,
             FunctionRegistry registry,
-            PreGeneratedExpressions preGeneratedExpressions)
+            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap)
     {
         this.callSiteBinder = callSiteBinder;
         this.cachedInstanceBinder = cachedInstanceBinder;
         this.fieldReferenceCompiler = fieldReferenceCompiler;
         this.registry = registry;
-        this.preGeneratedExpressions = preGeneratedExpressions;
+        this.compiledLambdaMap = compiledLambdaMap;
     }
 
     public BytecodeNode compile(RowExpression rowExpression, Scope scope)
@@ -131,7 +133,7 @@ public class RowExpressionCompiler
                         generator = new RowConstructorCodeGenerator();
                         break;
                     case BIND:
-                        generator = new BindCodeGenerator(preGeneratedExpressions.getCompiledLambdaMap(), context.getLambdaInterface().get());
+                        generator = new BindCodeGenerator(compiledLambdaMap, context.getLambdaInterface().get());
                         break;
                     default:
                         generator = new FunctionCallCodeGenerator();
@@ -143,8 +145,7 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    registry,
-                    preGeneratedExpressions);
+                    registry);
 
             return generator.generateExpression(call.getSignature(), generatorContext, call.getType(), call.getArguments());
         }
@@ -182,9 +183,6 @@ public class RowExpressionCompiler
             if (javaType == String.class) {
                 return block.append(loadString((String) value));
             }
-            if (javaType == void.class) {
-                return block;
-            }
 
             // bind constant object directly into the call-site using invoke dynamic
             Binding binding = callSiteBinder.bind(value, constant.getType().getJavaType());
@@ -204,7 +202,7 @@ public class RowExpressionCompiler
         @Override
         public BytecodeNode visitLambda(LambdaDefinitionExpression lambda, Context context)
         {
-            checkState(preGeneratedExpressions.getCompiledLambdaMap().containsKey(lambda), "lambda expressions map does not contain this lambda definition");
+            checkState(compiledLambdaMap.containsKey(lambda), "lambda expressions map does not contain this lambda definition");
             if (!context.lambdaInterface.get().isAnnotationPresent(FunctionalInterface.class)) {
                 // lambdaInterface is checked to be annotated with FunctionalInterface when generating ScalarFunctionImplementation
                 throw new VerifyException("lambda should be generated as class annotated with FunctionalInterface");
@@ -215,13 +213,12 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    registry,
-                    preGeneratedExpressions);
+                    registry);
 
             return generateLambda(
                     generatorContext,
                     ImmutableList.of(),
-                    preGeneratedExpressions.getCompiledLambdaMap().get(lambda),
+                    compiledLambdaMap.get(lambda),
                     context.getLambdaInterface().get());
         }
 

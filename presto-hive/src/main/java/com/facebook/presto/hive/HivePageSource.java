@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.HivePageSourceProvider.BucketAdaptation;
 import com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
@@ -20,7 +21,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.ColumnarArray;
 import com.facebook.presto.spi.block.ColumnarMap;
 import com.facebook.presto.spi.block.ColumnarRow;
@@ -34,16 +34,23 @@ import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.VarcharType;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 
+import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
+import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
 import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
 import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
 import static com.facebook.presto.hive.HiveType.HIVE_FLOAT;
@@ -85,6 +92,7 @@ import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
@@ -94,7 +102,8 @@ import static java.util.Objects.requireNonNull;
 public class HivePageSource
         implements ConnectorPageSource
 {
-    private List<ColumnMapping> columnMappings;
+    private final List<ColumnMapping> columnMappings;
+    private final Optional<BucketAdapter> bucketAdapter;
     private final Object[] prefilledValues;
     private final Type[] types;
     private final Function<Block, Block>[] coercers;
@@ -103,6 +112,7 @@ public class HivePageSource
 
     public HivePageSource(
             List<ColumnMapping> columnMappings,
+            Optional<BucketAdaptation> bucketAdaptation,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             ConnectorPageSource delegate)
@@ -113,6 +123,7 @@ public class HivePageSource
 
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.columnMappings = columnMappings;
+        this.bucketAdapter = bucketAdaptation.map(BucketAdapter::new);
 
         int size = columnMappings.size();
 
@@ -132,7 +143,7 @@ public class HivePageSource
                 coercers[columnIndex] = createCoercer(typeManager, columnMapping.getCoercionFrom().get(), columnMapping.getHiveColumnHandle().getHiveType());
             }
 
-            if (columnMapping.isPrefilled()) {
+            if (columnMapping.getKind() == PREFILLED) {
                 String columnValue = columnMapping.getPrefilledValue();
                 byte[] bytes = columnValue.getBytes(UTF_8);
 
@@ -210,25 +221,49 @@ public class HivePageSource
     public Page getNextPage()
     {
         try {
-            Block[] blocks = new Block[columnMappings.size()];
             Page dataPage = delegate.getNextPage();
             if (dataPage == null) {
                 return null;
             }
-            int batchSize = dataPage.getPositionCount();
-            for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
-                ColumnMapping columnMapping = columnMappings.get(fieldId);
-                if (columnMapping.isPrefilled()) {
-                    blocks[fieldId] = RunLengthEncodedBlock.create(types[fieldId], prefilledValues[fieldId], batchSize);
-                }
-                else {
-                    blocks[fieldId] = dataPage.getBlock(columnMapping.getIndex());
-                    if (coercers[fieldId] != null) {
-                        blocks[fieldId] = new LazyBlock(batchSize, new CoercionLazyBlockLoader(blocks[fieldId], coercers[fieldId]));
+
+            if (bucketAdapter.isPresent()) {
+                IntArrayList rowsToKeep = bucketAdapter.get().computeEligibleRowIds(dataPage);
+                Block[] adaptedBlocks = new Block[dataPage.getChannelCount()];
+                for (int i = 0; i < adaptedBlocks.length; i++) {
+                    Block block = dataPage.getBlock(i);
+                    if (block instanceof LazyBlock && !((LazyBlock) block).isLoaded()) {
+                        adaptedBlocks[i] = new LazyBlock(rowsToKeep.size(), new RowFilterLazyBlockLoader(dataPage.getBlock(i), rowsToKeep));
+                    }
+                    else {
+                        adaptedBlocks[i] = block.getPositions(rowsToKeep.elements(), 0, rowsToKeep.size());
                     }
                 }
+                dataPage = new Page(rowsToKeep.size(), adaptedBlocks);
             }
-            return new Page(batchSize, blocks);
+
+            int batchSize = dataPage.getPositionCount();
+            List<Block> blocks = new ArrayList<>();
+            for (int fieldId = 0; fieldId < columnMappings.size(); fieldId++) {
+                ColumnMapping columnMapping = columnMappings.get(fieldId);
+                switch (columnMapping.getKind()) {
+                    case PREFILLED:
+                        blocks.add(RunLengthEncodedBlock.create(types[fieldId], prefilledValues[fieldId], batchSize));
+                        break;
+                    case REGULAR:
+                        Block block = dataPage.getBlock(columnMapping.getIndex());
+                        if (coercers[fieldId] != null) {
+                            block = new LazyBlock(batchSize, new CoercionLazyBlockLoader(block, coercers[fieldId]));
+                        }
+                        blocks.add(block);
+                        break;
+                    case INTERIM:
+                        // interim columns don't show up in output
+                        break;
+                    default:
+                        throw new UnsupportedOperationException();
+                }
+            }
+            return new Page(batchSize, blocks.toArray(new Block[0]));
         }
         catch (PrestoException e) {
             closeWithSuppression(e);
@@ -332,7 +367,7 @@ public class HivePageSource
         @Override
         public Block apply(Block block)
         {
-            BlockBuilder blockBuilder = toType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount());
+            BlockBuilder blockBuilder = toType.createBlockBuilder(null, block.getPositionCount());
             for (int i = 0; i < block.getPositionCount(); i++) {
                 if (block.isNull(i)) {
                     blockBuilder.appendNull();
@@ -359,7 +394,7 @@ public class HivePageSource
         @Override
         public Block apply(Block block)
         {
-            BlockBuilder blockBuilder = toType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount());
+            BlockBuilder blockBuilder = toType.createBlockBuilder(null, block.getPositionCount());
             for (int i = 0; i < block.getPositionCount(); i++) {
                 if (block.isNull(i)) {
                     blockBuilder.appendNull();
@@ -409,7 +444,7 @@ public class HivePageSource
         @Override
         public Block apply(Block block)
         {
-            BlockBuilder blockBuilder = toType.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount());
+            BlockBuilder blockBuilder = toType.createBlockBuilder(null, block.getPositionCount());
             for (int i = 0; i < block.getPositionCount(); i++) {
                 if (block.isNull(i)) {
                     blockBuilder.appendNull();
@@ -438,7 +473,7 @@ public class HivePageSource
         @Override
         public Block apply(Block block)
         {
-            BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount());
+            BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(null, block.getPositionCount());
             for (int i = 0; i < block.getPositionCount(); i++) {
                 if (block.isNull(i)) {
                     blockBuilder.appendNull();
@@ -479,7 +514,7 @@ public class HivePageSource
                 valueIsNull[i] = arrayBlock.isNull(i);
                 offsets[i + 1] = offsets[i] + arrayBlock.getLength(i);
             }
-            return new ArrayBlock(arrayBlock.getPositionCount(), valueIsNull, offsets, elementsBlock);
+            return ArrayBlock.fromElementBlock(arrayBlock.getPositionCount(), Optional.of(valueIsNull), offsets, elementsBlock);
         }
     }
 
@@ -515,7 +550,7 @@ public class HivePageSource
                 valueIsNull[i] = mapBlock.isNull(i);
                 offsets[i + 1] = offsets[i] + mapBlock.getEntryCount(i);
             }
-            return ((MapType) toType).createBlockFromKeyValue(valueIsNull, offsets, keysBlock, valuesBlock);
+            return ((MapType) toType).createBlockFromKeyValue(Optional.of(valueIsNull), offsets, keysBlock, valuesBlock);
         }
     }
 
@@ -534,10 +569,9 @@ public class HivePageSource
             List<HiveType> toFieldTypes = extractStructFieldTypes(toHiveType);
             this.coercers = new Function[toFieldTypes.size()];
             this.nullBlocks = new Block[toFieldTypes.size()];
-            BlockBuilderStatus blockBuilderStatus = new BlockBuilderStatus();
             for (int i = 0; i < coercers.length; i++) {
                 if (i >= fromFieldTypes.size()) {
-                    nullBlocks[i] = toFieldTypes.get(i).getType(typeManager).createBlockBuilder(blockBuilderStatus, 1).appendNull().build();
+                    nullBlocks[i] = toFieldTypes.get(i).getType(typeManager).createBlockBuilder(null, 1).appendNull().build();
                 }
                 else if (!fromFieldTypes.get(i).equals(toFieldTypes.get(i))) {
                     coercers[i] = createCoercer(typeManager, fromFieldTypes.get(i), toFieldTypes.get(i));
@@ -563,16 +597,14 @@ public class HivePageSource
                 }
             }
             boolean[] valueIsNull = new boolean[rowBlock.getPositionCount()];
-            int[] offsets = new int[rowBlock.getPositionCount() + 1];
             for (int i = 0; i < rowBlock.getPositionCount(); i++) {
                 valueIsNull[i] = rowBlock.isNull(i);
-                offsets[i + 1] = offsets[i] + (valueIsNull[i] ? 0 : 1);
             }
-            return new RowBlock(0, rowBlock.getPositionCount(), valueIsNull, offsets, fields);
+            return RowBlock.fromFieldBlocks(valueIsNull.length, Optional.of(valueIsNull), fields);
         }
     }
 
-    private final class CoercionLazyBlockLoader
+    private static final class CoercionLazyBlockLoader
             implements LazyBlockLoader<LazyBlock>
     {
         private final Function<Block, Block> coercer;
@@ -591,14 +623,84 @@ public class HivePageSource
                 return;
             }
 
-            if (block instanceof LazyBlock) {
-                block = ((LazyBlock) block).getBlock();
-            }
-            Block coercedBlock = coercer.apply(block);
-            lazyBlock.setBlock(coercedBlock);
+            lazyBlock.setBlock(coercer.apply(block.getLoadedBlock()));
 
             // clear reference to loader to free resources, since load was successful
             block = null;
+        }
+    }
+
+    private static final class RowFilterLazyBlockLoader
+            implements LazyBlockLoader<LazyBlock>
+    {
+        private Block block;
+        private final IntArrayList rowsToKeep;
+
+        public RowFilterLazyBlockLoader(Block block, IntArrayList rowsToKeep)
+        {
+            this.block = requireNonNull(block, "block is null");
+            this.rowsToKeep = requireNonNull(rowsToKeep, "rowsToKeep is null");
+        }
+
+        @Override
+        public void load(LazyBlock lazyBlock)
+        {
+            if (block == null) {
+                return;
+            }
+
+            lazyBlock.setBlock(block.getPositions(rowsToKeep.elements(), 0, rowsToKeep.size()));
+
+            // clear reference to loader to free resources, since load was successful
+            block = null;
+        }
+    }
+
+    private static Page extractColumns(Page page, int[] columns)
+    {
+        Block[] blocks = new Block[columns.length];
+        for (int i = 0; i < columns.length; i++) {
+            int dataColumn = columns[i];
+            blocks[i] = page.getBlock(dataColumn);
+        }
+        return new Page(page.getPositionCount(), blocks);
+    }
+
+    public static class BucketAdapter
+    {
+        public final int[] bucketColumns;
+        public final int bucketToKeep;
+        public final int tableBucketCount;
+        public final int partitionBucketCount; // for sanity check only
+        private final List<TypeInfo> typeInfoList;
+
+        public BucketAdapter(BucketAdaptation bucketAdaptation)
+        {
+            this.bucketColumns = bucketAdaptation.getBucketColumnIndices();
+            this.bucketToKeep = bucketAdaptation.getBucketToKeep();
+            this.typeInfoList = bucketAdaptation.getBucketColumnHiveTypes().stream()
+                    .map(HiveType::getTypeInfo)
+                    .collect(toImmutableList());
+            this.tableBucketCount = bucketAdaptation.getTableBucketCount();
+            this.partitionBucketCount = bucketAdaptation.getPartitionBucketCount();
+        }
+
+        public IntArrayList computeEligibleRowIds(Page page)
+        {
+            IntArrayList ids = new IntArrayList(page.getPositionCount());
+            Page bucketColumnsPage = extractColumns(page, bucketColumns);
+            for (int position = 0; position < page.getPositionCount(); position++) {
+                int bucket = getHiveBucket(tableBucketCount, typeInfoList, bucketColumnsPage, position);
+                if ((bucket - bucketToKeep) % partitionBucketCount != 0) {
+                    throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format(
+                            "A row that is supposed to be in bucket %s is encountered. Only rows in bucket %s (modulo %s) are expected",
+                            bucket, bucketToKeep % partitionBucketCount, partitionBucketCount));
+                }
+                if (bucket == bucketToKeep) {
+                    ids.add(position);
+                }
+            }
+            return ids;
         }
     }
 }

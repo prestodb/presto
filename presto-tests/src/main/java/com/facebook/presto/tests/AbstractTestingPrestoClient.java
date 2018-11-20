@@ -24,6 +24,7 @@ import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -37,9 +38,13 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
+import static com.facebook.presto.spi.session.ResourceEstimates.CPU_TIME;
+import static com.facebook.presto.spi.session.ResourceEstimates.EXECUTION_TIME;
+import static com.facebook.presto.spi.session.ResourceEstimates.PEAK_MEMORY;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkState;
@@ -104,7 +109,8 @@ public abstract class AbstractTestingPrestoClient<T>
             }
 
             if (error.getFailureInfo() != null) {
-                throw error.getFailureInfo().toException();
+                RuntimeException remoteException = error.getFailureInfo().toException();
+                throw new RuntimeException(Optional.ofNullable(remoteException.getMessage()).orElseGet(remoteException::toString), remoteException);
             }
             throw new RuntimeException("Query failed: " + error.getMessage());
 
@@ -124,16 +130,25 @@ public abstract class AbstractTestingPrestoClient<T>
             }
         }
 
+        ImmutableMap.Builder<String, String> resourceEstimates = ImmutableMap.builder();
+        ResourceEstimates estimates = session.getResourceEstimates();
+        estimates.getExecutionTime().ifPresent(e -> resourceEstimates.put(EXECUTION_TIME, e.toString()));
+        estimates.getCpuTime().ifPresent(e -> resourceEstimates.put(CPU_TIME, e.toString()));
+        estimates.getPeakMemory().ifPresent(e -> resourceEstimates.put(PEAK_MEMORY, e.toString()));
+
         return new ClientSession(
                 server,
                 session.getIdentity().getUser(),
                 session.getSource().orElse(null),
+                session.getTraceToken(),
                 session.getClientTags(),
                 session.getClientInfo().orElse(null),
                 session.getCatalog().orElse(null),
                 session.getSchema().orElse(null),
+                session.getPath().toString(),
                 session.getTimeZoneKey().getId(),
                 session.getLocale(),
+                resourceEstimates.build(),
                 properties.build(),
                 session.getPreparedStatements(),
                 session.getTransactionId().map(Object::toString).orElse(null),

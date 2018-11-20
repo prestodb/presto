@@ -55,7 +55,6 @@ public class ScanFilterAndProjectOperator
     private final OperatorContext operatorContext;
     private final PlanNodeId planNodeId;
     private final PageSourceProvider pageSourceProvider;
-    private final List<Type> types;
     private final List<ColumnHandle> columns;
     private final PageBuilder pageBuilder;
     private final CursorProcessor cursorProcessor;
@@ -90,13 +89,12 @@ public class ScanFilterAndProjectOperator
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.planNodeId = requireNonNull(sourceId, "sourceId is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-        this.pageSourceMemoryContext = operatorContext.newLocalSystemMemoryContext();
-        this.pageBuilderMemoryContext = operatorContext.newLocalSystemMemoryContext();
+        this.pageSourceMemoryContext = operatorContext.newLocalSystemMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
+        this.pageBuilderMemoryContext = operatorContext.newLocalSystemMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
         this.mergingOutput = requireNonNull(mergingOutput, "mergingOutput is null");
 
-        this.pageBuilder = new PageBuilder(getTypes());
+        this.pageBuilder = new PageBuilder(ImmutableList.copyOf(requireNonNull(types, "types is null")));
     }
 
     @Override
@@ -149,12 +147,6 @@ public class ScanFilterAndProjectOperator
             mergingOutput.finish();
         }
         blocked.set(null);
-    }
-
-    @Override
-    public final List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override
@@ -340,12 +332,6 @@ public class ScanFilterAndProjectOperator
         public PlanNodeId getSourceId()
         {
             return sourceId;
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override

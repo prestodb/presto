@@ -25,6 +25,21 @@ public class AllowAllAccessControl
         implements ConnectorAccessControl
 {
     @Override
+    public void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+    {
+    }
+
+    @Override
+    public void checkCanDropSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+    {
+    }
+
+    @Override
+    public void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName, String newSchemaName)
+    {
+    }
+
+    @Override
     public void checkCanShowSchemas(ConnectorTransactionHandle transactionHandle, Identity identity)
     {
     }
@@ -77,7 +92,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
+    public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
     {
     }
 
@@ -102,22 +117,12 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
+    public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
     {
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
-    {
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
-    {
-    }
-
-    @Override
-    public void checkCanSetCatalogSessionProperty(Identity identity, String propertyName)
+    public void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transactionHandle, Identity identity, String propertyName)
     {
     }
 

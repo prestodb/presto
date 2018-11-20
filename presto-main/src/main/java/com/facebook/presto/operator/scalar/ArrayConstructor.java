@@ -63,7 +63,6 @@ import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.equal;
-import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Collections.nCopies;
 
@@ -164,21 +163,16 @@ public final class ArrayConstructor
         CallSiteBinder binder = new CallSiteBinder();
 
         BytecodeExpression createBlockBuilder = blockBuilderVariable.set(
-                constantType(binder, elementType).invoke("createBlockBuilder", BlockBuilder.class, newInstance(BlockBuilderStatus.class), constantInt(stackTypes.size())));
+                constantType(binder, elementType).invoke("createBlockBuilder", BlockBuilder.class, constantNull(BlockBuilderStatus.class), constantInt(stackTypes.size())));
         body.append(createBlockBuilder);
 
         for (int i = 0; i < stackTypes.size(); i++) {
-            if (elementType.getJavaType() == void.class) {
-                body.append(blockBuilderVariable.invoke("appendNull", BlockBuilder.class));
-            }
-            else {
-                Variable argument = scope.getVariable("arg" + i);
-                IfStatement ifStatement = new IfStatement()
-                        .condition(equal(argument, constantNull(stackTypes.get(i))))
-                        .ifTrue(blockBuilderVariable.invoke("appendNull", BlockBuilder.class).pop())
-                        .ifFalse(constantType(binder, elementType).writeValue(blockBuilderVariable, argument.cast(elementType.getJavaType())));
-                body.append(ifStatement);
-            }
+            Variable argument = scope.getVariable("arg" + i);
+            IfStatement ifStatement = new IfStatement()
+                    .condition(equal(argument, constantNull(stackTypes.get(i))))
+                    .ifTrue(blockBuilderVariable.invoke("appendNull", BlockBuilder.class).pop())
+                    .ifFalse(constantType(binder, elementType).writeValue(blockBuilderVariable, argument.cast(elementType.getJavaType())));
+            body.append(ifStatement);
         }
 
         body.append(blockBuilderVariable.invoke("build", Block.class).ret());

@@ -80,7 +80,7 @@ public class ExpressionCompiler
         Class<? extends CursorProcessor> cursorProcessor = cursorProcessors.getUnchecked(new CacheKey(filter, projections, uniqueKey));
         return () -> {
             try {
-                return cursorProcessor.newInstance();
+                return cursorProcessor.getConstructor().newInstance();
             }
             catch (ReflectiveOperationException e) {
                 throw new RuntimeException(e);

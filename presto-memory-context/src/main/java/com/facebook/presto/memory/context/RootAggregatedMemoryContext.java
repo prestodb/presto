@@ -15,10 +15,11 @@ package com.facebook.presto.memory.context;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 class RootAggregatedMemoryContext
-        extends AggregatedMemoryContext
+        extends AbstractAggregatedMemoryContext
 {
     private final MemoryReservationHandler reservationHandler;
     private final long guaranteedMemory;
@@ -29,9 +30,11 @@ class RootAggregatedMemoryContext
         this.guaranteedMemory = guaranteedMemory;
     }
 
-    synchronized ListenableFuture<?> updateBytes(long bytes)
+    @Override
+    synchronized ListenableFuture<?> updateBytes(String allocationTag, long bytes)
     {
-        ListenableFuture<?> future = reservationHandler.reserveMemory(bytes);
+        checkState(!isClosed(), "RootAggregatedMemoryContext is already closed");
+        ListenableFuture<?> future = reservationHandler.reserveMemory(allocationTag, bytes);
         addBytes(bytes);
         // make sure we never block queries below guaranteedMemory
         if (getBytes() < guaranteedMemory) {
@@ -40,22 +43,25 @@ class RootAggregatedMemoryContext
         return future;
     }
 
-    synchronized boolean tryUpdateBytes(long delta)
+    @Override
+    synchronized boolean tryUpdateBytes(String allocationTag, long delta)
     {
-        if (reservationHandler.tryReserveMemory(delta)) {
+        if (reservationHandler.tryReserveMemory(allocationTag, delta)) {
             addBytes(delta);
             return true;
         }
         return false;
     }
 
-    synchronized AggregatedMemoryContext getParent()
+    @Override
+    synchronized AbstractAggregatedMemoryContext getParent()
     {
         return null;
     }
 
+    @Override
     void closeContext()
     {
-        reservationHandler.reserveMemory(-getBytes());
+        reservationHandler.reserveMemory(FORCE_FREE_TAG, -getBytes());
     }
 }

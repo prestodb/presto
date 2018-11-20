@@ -14,12 +14,14 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
@@ -75,12 +77,12 @@ public class ExpressionEquivalence
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
     }
 
-    public boolean areExpressionsEquivalent(Session session, Expression leftExpression, Expression rightExpression, Map<Symbol, Type> types)
+    public boolean areExpressionsEquivalent(Session session, Expression leftExpression, Expression rightExpression, TypeProvider types)
     {
         Map<Symbol, Integer> symbolInput = new HashMap<>();
         Map<Integer, Type> inputTypes = new HashMap<>();
         int inputId = 0;
-        for (Entry<Symbol, Type> entry : types.entrySet()) {
+        for (Entry<Symbol, Type> entry : types.allTypes().entrySet()) {
             symbolInput.put(entry.getKey(), inputId);
             inputTypes.put(inputId, entry.getValue());
             inputId++;
@@ -106,7 +108,8 @@ public class ExpressionEquivalence
                 sqlParser,
                 inputTypes,
                 expressionWithInputReferences,
-                emptyList() /* parameters have already been replaced */);
+                emptyList(), /* parameters have already been replaced */
+                WarningCollector.NOOP);
 
         // convert to row expression
         return translate(expressionWithInputReferences, SCALAR, expressionTypes, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, false);
@@ -254,6 +257,18 @@ public class ExpressionEquivalence
                 Object leftValue = leftConstant.getValue();
                 Object rightValue = rightConstant.getValue();
 
+                if (leftValue == null) {
+                    if (rightValue == null) {
+                        return 0;
+                    }
+                    else {
+                        return -1;
+                    }
+                }
+                else if (rightValue == null) {
+                    return 1;
+                }
+
                 Class<?> javaType = leftConstant.getType().getJavaType();
                 if (javaType == boolean.class) {
                     return ((Boolean) leftValue).compareTo((Boolean) rightValue);
@@ -275,6 +290,33 @@ public class ExpressionEquivalence
 
             if (left instanceof InputReferenceExpression) {
                 return Integer.compare(((InputReferenceExpression) left).getField(), ((InputReferenceExpression) right).getField());
+            }
+
+            if (left instanceof LambdaDefinitionExpression) {
+                LambdaDefinitionExpression leftLambda = (LambdaDefinitionExpression) left;
+                LambdaDefinitionExpression rightLambda = (LambdaDefinitionExpression) right;
+
+                return ComparisonChain.start()
+                        .compare(
+                                leftLambda.getArgumentTypes(),
+                                rightLambda.getArgumentTypes(),
+                                new ListComparator<>(Comparator.comparing(Object::toString)))
+                        .compare(
+                                leftLambda.getArguments(),
+                                rightLambda.getArguments(),
+                                new ListComparator<>(Comparator.<String>naturalOrder()))
+                        .compare(leftLambda.getBody(), rightLambda.getBody(), this)
+                        .result();
+            }
+
+            if (left instanceof VariableReferenceExpression) {
+                VariableReferenceExpression leftVariableReference = (VariableReferenceExpression) left;
+                VariableReferenceExpression rightVariableReference = (VariableReferenceExpression) right;
+
+                return ComparisonChain.start()
+                        .compare(leftVariableReference.getName(), rightVariableReference.getName())
+                        .compare(leftVariableReference.getType(), rightVariableReference.getType(), Comparator.comparing(Object::toString))
+                        .result();
             }
 
             throw new IllegalArgumentException("Unsupported RowExpression type " + left.getClass().getSimpleName());

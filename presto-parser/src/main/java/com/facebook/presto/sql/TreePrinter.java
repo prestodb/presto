@@ -54,7 +54,7 @@ import com.google.common.base.Strings;
 
 import java.io.PrintStream;
 import java.util.IdentityHashMap;
-import java.util.Set;
+import java.util.List;
 
 public class TreePrinter
 {
@@ -128,15 +128,15 @@ public class TreePrinter
                     for (GroupingElement groupingElement : node.getGroupBy().get().getGroupingElements()) {
                         print(indentLevel, "SimpleGroupBy");
                         if (groupingElement instanceof SimpleGroupBy) {
-                            for (Expression column : ((SimpleGroupBy) groupingElement).getColumnExpressions()) {
+                            for (Expression column : groupingElement.getExpressions()) {
                                 process(column, indentLevel + 1);
                             }
                         }
                         else if (groupingElement instanceof GroupingSets) {
                             print(indentLevel + 1, "GroupingSets");
-                            for (Set<Expression> column : groupingElement.enumerateGroupingSets()) {
+                            for (List<Expression> set : ((GroupingSets) groupingElement).getSets()) {
                                 print(indentLevel + 2, "GroupingSet[");
-                                for (Expression expression : column) {
+                                for (Expression expression : set) {
                                     process(expression, indentLevel + 3);
                                 }
                                 print(indentLevel + 2, "]");
@@ -144,14 +144,14 @@ public class TreePrinter
                         }
                         else if (groupingElement instanceof Cube) {
                             print(indentLevel + 1, "Cube");
-                            for (QualifiedName column : ((Cube) groupingElement).getColumns()) {
-                                print(indentLevel + 1, column.toString());
+                            for (Expression column : groupingElement.getExpressions()) {
+                                process(column, indentLevel + 1);
                             }
                         }
                         else if (groupingElement instanceof Rollup) {
                             print(indentLevel + 1, "Rollup");
-                            for (QualifiedName column : ((Rollup) groupingElement).getColumns()) {
-                                print(indentLevel + 1, column.toString());
+                            for (Expression column : groupingElement.getExpressions()) {
+                                process(column, indentLevel + 1);
                             }
                         }
                     }
@@ -225,7 +225,7 @@ public class TreePrinter
             @Override
             protected Void visitComparisonExpression(ComparisonExpression node, Integer indentLevel)
             {
-                print(indentLevel, node.getType().toString());
+                print(indentLevel, node.getOperator().toString());
 
                 super.visitComparisonExpression(node, indentLevel + 1);
 
@@ -235,7 +235,7 @@ public class TreePrinter
             @Override
             protected Void visitArithmeticBinary(ArithmeticBinaryExpression node, Integer indentLevel)
             {
-                print(indentLevel, node.getType().toString());
+                print(indentLevel, node.getOperator().toString());
 
                 super.visitArithmeticBinary(node, indentLevel + 1);
 
@@ -245,7 +245,7 @@ public class TreePrinter
             @Override
             protected Void visitLogicalBinaryExpression(LogicalBinaryExpression node, Integer indentLevel)
             {
-                print(indentLevel, node.getType().toString());
+                print(indentLevel, node.getOperator().toString());
 
                 super.visitLogicalBinaryExpression(node, indentLevel + 1);
 

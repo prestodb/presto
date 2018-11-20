@@ -14,11 +14,8 @@ package com.facebook.presto.operator.scalar;
  */
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.SingleMapBlock;
 import com.facebook.presto.spi.type.Type;
-
-import java.lang.invoke.MethodHandle;
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.util.Failures.internalError;
@@ -34,38 +31,31 @@ public final class MapGenericEquality
     }
 
     public static Boolean genericEqual(
-            MethodHandle keyEqualsFunction,
-            MethodHandle keyHashcodeFunction,
             Type keyType,
-            Block leftMapBlock,
-            Block rightMapBlock,
+            Block leftBlock,
+            Block rightBlock,
             EqualityPredicate predicate)
     {
-        Map<KeyWrapper, Integer> wrappedLeftMap = new LinkedHashMap<>();
-        for (int position = 0; position < leftMapBlock.getPositionCount(); position += 2) {
-            wrappedLeftMap.put(new KeyWrapper(readNativeValue(keyType, leftMapBlock, position), keyEqualsFunction, keyHashcodeFunction), position + 1);
-        }
-
-        Map<KeyWrapper, Integer> wrappedRightMap = new LinkedHashMap<>();
-        for (int position = 0; position < rightMapBlock.getPositionCount(); position += 2) {
-            wrappedRightMap.put(new KeyWrapper(readNativeValue(keyType, rightMapBlock, position), keyEqualsFunction, keyHashcodeFunction), position + 1);
-        }
-
-        if (wrappedLeftMap.size() != wrappedRightMap.size()) {
+        if (leftBlock.getPositionCount() != rightBlock.getPositionCount()) {
             return false;
         }
 
-        for (Map.Entry<KeyWrapper, Integer> entry : wrappedRightMap.entrySet()) {
-            KeyWrapper key = entry.getKey();
-            Integer leftValuePosition = wrappedLeftMap.get(key);
-            if (leftValuePosition == null) {
+        SingleMapBlock leftSingleMapLeftBlock = (SingleMapBlock) leftBlock;
+        SingleMapBlock rightSingleMapBlock = (SingleMapBlock) rightBlock;
+
+        boolean indeterminate = false;
+        for (int position = 0; position < leftSingleMapLeftBlock.getPositionCount(); position += 2) {
+            Object key = readNativeValue(keyType, leftBlock, position);
+            int leftPosition = position + 1;
+            int rightPosition = rightSingleMapBlock.seekKey(key);
+            if (rightPosition == -1) {
                 return false;
             }
 
             try {
-                Boolean result = predicate.equals(leftValuePosition, entry.getValue());
+                Boolean result = predicate.equals(leftPosition, rightPosition);
                 if (result == null) {
-                    return null;
+                    indeterminate = true;
                 }
                 else if (!result) {
                     return false;
@@ -75,46 +65,10 @@ public final class MapGenericEquality
                 throw internalError(t);
             }
         }
+
+        if (indeterminate) {
+            return null;
+        }
         return true;
-    }
-
-    private static final class KeyWrapper
-    {
-        private final Object key;
-        private final MethodHandle hashCode;
-        private final MethodHandle equals;
-
-        public KeyWrapper(Object key, MethodHandle equals, MethodHandle hashCode)
-        {
-            this.key = key;
-            this.equals = equals;
-            this.hashCode = hashCode;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            try {
-                return Long.hashCode((long) hashCode.invoke(key));
-            }
-            catch (Throwable t) {
-                throw internalError(t);
-            }
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (obj == null || !getClass().equals(obj.getClass())) {
-                return false;
-            }
-            KeyWrapper other = (KeyWrapper) obj;
-            try {
-                return (boolean) equals.invoke(key, other.key);
-            }
-            catch (Throwable t) {
-                throw internalError(t);
-            }
-        }
     }
 }

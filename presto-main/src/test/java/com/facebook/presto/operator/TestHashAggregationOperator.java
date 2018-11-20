@@ -24,12 +24,12 @@ import com.facebook.presto.operator.aggregation.builder.HashAggregationBuilder;
 import com.facebook.presto.operator.aggregation.builder.InMemoryHashAggregationBuilder;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.PageBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.Spiller;
 import com.facebook.presto.spiller.SpillerFactory;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -64,8 +64,6 @@ import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEqual
 import static com.facebook.presto.operator.OperatorAssertion.dropChannel;
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
-import static com.facebook.presto.operator.OperatorAssertion.without;
-import static com.facebook.presto.spi.block.BlockBuilderStatus.DEFAULT_MAX_BLOCK_SIZE_IN_BYTES;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -75,6 +73,7 @@ import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -86,8 +85,10 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
+import static java.util.Collections.emptyIterator;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -104,9 +105,11 @@ public class TestHashAggregationOperator
     private static final InternalAggregationFunction COUNT = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
             new Signature("count", AGGREGATE, BIGINT.getTypeSignature()));
 
+    private static final int MAX_BLOCK_SIZE_IN_BYTES = 64 * 1024;
+
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
-    private JoinCompiler joinCompiler = new JoinCompiler();
+    private JoinCompiler joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
     private DummySpillerFactory spillerFactory;
 
     @BeforeMethod
@@ -127,10 +130,11 @@ public class TestHashAggregationOperator
     public static Object[][] hashEnabledAndMemoryLimitForMergeValuesProvider()
     {
         return new Object[][] {
-                {true, 8, Integer.MAX_VALUE},
-                {false, 0, 0},
-                {false, 8, 0},
-                {false, 8, Integer.MAX_VALUE}};
+                {true, true, 8, Integer.MAX_VALUE},
+                {false, false, 0, 0},
+                {false, true, 0, 0},
+                {false, true, 8, 0},
+                {false, true, 8, Integer.MAX_VALUE}};
     }
 
     @DataProvider
@@ -148,7 +152,7 @@ public class TestHashAggregationOperator
     }
 
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
-    public void testHashAggregation(boolean hashEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
+    public void testHashAggregation(boolean hashEnabled, boolean spillEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
         InternalAggregationFunction countVarcharColumn = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
@@ -165,7 +169,6 @@ public class TestHashAggregationOperator
                 .addSequencePage(10, 100, 0, 300, 0, 500)
                 .build();
 
-        boolean spillEnabled = memoryLimitForMerge > 0;
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                 0,
                 new PlanNodeId("test"),
@@ -183,12 +186,13 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                new DataSize(16, MEGABYTE),
+                Optional.of(new DataSize(16, MEGABYTE)),
                 spillEnabled,
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
-                joinCompiler);
+                joinCompiler,
+                false);
 
         DriverContext driverContext = createDriverContext(memoryLimitForMerge);
 
@@ -210,7 +214,7 @@ public class TestHashAggregationOperator
     }
 
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
-    public void testHashAggregationWithGlobals(boolean hashEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
+    public void testHashAggregationWithGlobals(boolean hashEnabled, boolean spillEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
         InternalAggregationFunction countVarcharColumn = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
@@ -243,12 +247,13 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 groupIdChannel,
                 100_000,
-                new DataSize(16, MEGABYTE),
-                memoryLimitForMerge > 0,
+                Optional.of(new DataSize(16, MEGABYTE)),
+                spillEnabled,
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
-                joinCompiler);
+                joinCompiler,
+                false);
 
         DriverContext driverContext = createDriverContext(memoryLimitForMerge);
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
@@ -260,7 +265,7 @@ public class TestHashAggregationOperator
     }
 
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
-    public void testHashAggregationMemoryReservation(boolean hashEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
+    public void testHashAggregationMemoryReservation(boolean hashEnabled, boolean spillEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
         InternalAggregationFunction arrayAggColumn = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
@@ -275,7 +280,7 @@ public class TestHashAggregationOperator
                 .build();
 
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(10, Unit.MEGABYTE))
-                .addPipelineContext(0, true, true)
+                .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
@@ -290,19 +295,20 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                new DataSize(16, MEGABYTE),
-                memoryLimitForMerge > 0,
+                Optional.of(new DataSize(16, MEGABYTE)),
+                spillEnabled,
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
-                joinCompiler);
+                joinCompiler,
+                false);
 
         Operator operator = operatorFactory.createOperator(driverContext);
         toPages(operator, input.iterator());
         assertEquals(operator.getOperatorContext().getOperatorStats().getUserMemoryReservation().toBytes(), 0);
     }
 
-    @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of 10B")
+    @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node user memory limit of 10B")
     public void testMemoryLimit(boolean hashEnabled)
     {
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
@@ -318,7 +324,7 @@ public class TestHashAggregationOperator
                 .build();
 
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(10, Unit.BYTE))
-                .addPipelineContext(0, true, true)
+                .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
@@ -335,17 +341,18 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                new DataSize(16, MEGABYTE),
-                joinCompiler);
+                Optional.of(new DataSize(16, MEGABYTE)),
+                joinCompiler,
+                false);
 
         toPages(operatorFactory, driverContext, input);
     }
 
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
-    public void testHashBuilderResize(boolean hashEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
+    public void testHashBuilderResize(boolean hashEnabled, boolean spillEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1, DEFAULT_MAX_BLOCK_SIZE_IN_BYTES);
-        VARCHAR.writeSlice(builder, Slices.allocate(200_000)); // this must be larger than DEFAULT_MAX_BLOCK_SIZE, 64K
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1, MAX_BLOCK_SIZE_IN_BYTES);
+        VARCHAR.writeSlice(builder, Slices.allocate(200_000)); // this must be larger than MAX_BLOCK_SIZE_IN_BYTES, 64K
         builder.build();
 
         List<Integer> hashChannels = Ints.asList(0);
@@ -370,12 +377,13 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                new DataSize(16, MEGABYTE),
-                memoryLimitForMerge > 0,
+                Optional.of(new DataSize(16, MEGABYTE)),
+                spillEnabled,
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
-                joinCompiler);
+                joinCompiler,
+                false);
 
         toPages(operatorFactory, driverContext, input);
     }
@@ -383,23 +391,25 @@ public class TestHashAggregationOperator
     @Test(dataProvider = "dataType")
     public void testMemoryReservationYield(Type type)
     {
-        List<Page> input = createPagesWithDistinctHashKeys(type, 5_000, 500);
+        List<Page> input = createPagesWithDistinctHashKeys(type, 6_000, 600);
         OperatorFactory operatorFactory = new HashAggregationOperatorFactory(
-                        0,
-                        new PlanNodeId("test"),
-                        ImmutableList.of(type),
-                        ImmutableList.of(0),
-                        ImmutableList.of(),
-                        Step.SINGLE,
-                        ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty())),
-                        Optional.of(1),
-                        Optional.empty(),
-                        1,
-                        new DataSize(16, MEGABYTE),
-                        joinCompiler);
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(type),
+                ImmutableList.of(0),
+                ImmutableList.of(),
+                Step.SINGLE,
+                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty())),
+                Optional.of(1),
+                Optional.empty(),
+                1,
+                Optional.of(new DataSize(16, MEGABYTE)),
+                joinCompiler,
+                false);
 
         // get result with yield; pick a relatively small buffer for aggregator's memory usage
-        GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, this::getHashCapacity, 350_000);
+        GroupByHashYieldResult result;
+        result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, this::getHashCapacity, 1_400_000);
         assertGreaterThan(result.getYieldCount(), 5);
         assertGreaterThan(result.getMaxReservedBytes(), 20L << 20);
 
@@ -412,14 +422,14 @@ public class TestHashAggregationOperator
                 count++;
             }
         }
-        assertEquals(count, 5_000 * 500);
+        assertEquals(count, 6_000 * 600);
     }
 
-    @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of 3MB")
+    @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node user memory limit of 3MB")
     public void testHashBuilderResizeLimit(boolean hashEnabled)
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1, DEFAULT_MAX_BLOCK_SIZE_IN_BYTES);
-        VARCHAR.writeSlice(builder, Slices.allocate(5_000_000)); // this must be larger than DEFAULT_MAX_BLOCK_SIZE, 64K
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1, MAX_BLOCK_SIZE_IN_BYTES);
+        VARCHAR.writeSlice(builder, Slices.allocate(5_000_000)); // this must be larger than MAX_BLOCK_SIZE_IN_BYTES, 64K
         builder.build();
 
         List<Integer> hashChannels = Ints.asList(0);
@@ -431,7 +441,7 @@ public class TestHashAggregationOperator
                 .build();
 
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(3, MEGABYTE))
-                .addPipelineContext(0, true, true)
+                .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
@@ -445,8 +455,9 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                new DataSize(16, MEGABYTE),
-                joinCompiler);
+                Optional.of(new DataSize(16, MEGABYTE)),
+                joinCompiler,
+                false);
 
         toPages(operatorFactory, driverContext, input);
     }
@@ -455,9 +466,10 @@ public class TestHashAggregationOperator
     public void testMultiSliceAggregationOutput(boolean hashEnabled)
     {
         // estimate the number of entries required to create 1.5 pages of results
-        int fixedWidthSize = SIZE_OF_LONG + SIZE_OF_DOUBLE + SIZE_OF_DOUBLE;
+        // See InMemoryHashAggregationBuilder.buildTypes()
+        int fixedWidthSize = SIZE_OF_LONG + SIZE_OF_LONG +  // Used by BigintGroupByHash, see BigintGroupByHash.TYPES_WITH_RAW_HASH
+                SIZE_OF_LONG + SIZE_OF_DOUBLE;              // Used by COUNT and LONG_AVERAGE aggregators;
         int multiSlicePositionCount = (int) (1.5 * PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES / fixedWidthSize);
-        multiSlicePositionCount = Math.min((int) (1.5 * DEFAULT_MAX_BLOCK_SIZE_IN_BYTES / SIZE_OF_DOUBLE), multiSlicePositionCount);
 
         List<Integer> hashChannels = Ints.asList(1);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, BIGINT, BIGINT);
@@ -477,8 +489,9 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                new DataSize(16, MEGABYTE),
-                joinCompiler);
+                Optional.of(new DataSize(16, MEGABYTE)),
+                joinCompiler,
+                false);
 
         assertEquals(toPages(operatorFactory, createDriverContext(), input).size(), 2);
     }
@@ -507,10 +520,11 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                new DataSize(1, KILOBYTE),
-                joinCompiler);
+                Optional.of(new DataSize(1, KILOBYTE)),
+                joinCompiler,
+                true);
 
-        DriverContext driverContext = createDriverContext(1024, Integer.MAX_VALUE);
+        DriverContext driverContext = createDriverContext(1024);
 
         try (Operator operator = operatorFactory.createOperator(driverContext)) {
             List<Page> expectedPages = rowPagesBuilder(BIGINT, BIGINT)
@@ -526,6 +540,9 @@ public class TestHashAggregationOperator
             while (operator.needsInput() && inputIterator.hasNext()) {
                 operator.addInput(inputIterator.next());
             }
+
+            assertThat(driverContext.getSystemMemoryUsage()).isGreaterThan(0);
+            assertEquals(driverContext.getMemoryUsage(), 0);
 
             // Drain the output (partial flush)
             List<Page> outputPages = new ArrayList<>();
@@ -549,23 +566,21 @@ public class TestHashAggregationOperator
             MaterializedResult actual;
             if (hashEnabled) {
                 // Drop the hashChannel for all pages
-                List<Page> actualPages = dropChannel(outputPages, ImmutableList.of(1));
-                List<Type> expectedTypes = without(operator.getTypes(), ImmutableList.of(1));
-                actual = toMaterializedResult(operator.getOperatorContext().getSession(), expectedTypes, actualPages);
+                outputPages = dropChannel(outputPages, ImmutableList.of(1));
             }
-            else {
-                actual = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), outputPages);
-            }
+            actual = toMaterializedResult(operator.getOperatorContext().getSession(), expected.getTypes(), outputPages);
 
             assertEquals(actual.getTypes(), expected.getTypes());
             assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
         }
+
+        assertEquals(driverContext.getSystemMemoryUsage(), 0);
+        assertEquals(driverContext.getMemoryUsage(), 0);
     }
 
     @Test
     public void testMergeWithMemorySpill()
     {
-        List<Integer> hashChannels = Ints.asList(0);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(BIGINT);
 
         int smallPagesSpillThresholdSize = 150000;
@@ -579,7 +594,7 @@ public class TestHashAggregationOperator
                 0,
                 new PlanNodeId("test"),
                 ImmutableList.of(BIGINT),
-                hashChannels,
+                ImmutableList.of(0),
                 ImmutableList.of(),
                 Step.SINGLE,
                 false,
@@ -587,21 +602,22 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 1,
-                new DataSize(16, MEGABYTE),
+                Optional.of(new DataSize(16, MEGABYTE)),
                 true,
                 new DataSize(smallPagesSpillThresholdSize, Unit.BYTE),
                 succinctBytes(Integer.MAX_VALUE),
                 spillerFactory,
-                joinCompiler);
+                joinCompiler,
+                false);
 
         DriverContext driverContext = createDriverContext(smallPagesSpillThresholdSize);
 
-        MaterializedResult.Builder resultBuilder = resultBuilder(driverContext.getSession(), BIGINT);
+        MaterializedResult.Builder resultBuilder = resultBuilder(driverContext.getSession(), BIGINT, BIGINT);
         for (int i = 0; i < smallPagesSpillThresholdSize + 10; ++i) {
             resultBuilder.row((long) i, (long) i);
         }
 
-        assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, resultBuilder.build(), false, Optional.of(hashChannels.size()));
+        assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, resultBuilder.build());
     }
 
     @Test
@@ -623,9 +639,8 @@ public class TestHashAggregationOperator
         DriverContext driverContext = TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
                 .setQueryMaxMemory(DataSize.valueOf("7MB"))
                 .setMemoryPoolSize(DataSize.valueOf("1GB"))
-                .setSystemMemoryPoolSize(DataSize.valueOf("10B"))
                 .build()
-                .addPipelineContext(0, true, true)
+                .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
@@ -643,12 +658,13 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                new DataSize(16, MEGABYTE),
+                Optional.of(new DataSize(16, MEGABYTE)),
                 true,
                 succinctBytes(8),
                 succinctBytes(Integer.MAX_VALUE),
                 new FailingSpillerFactory(),
-                joinCompiler);
+                joinCompiler,
+                false);
 
         try {
             toPages(operatorFactory, driverContext, input);
@@ -661,23 +677,69 @@ public class TestHashAggregationOperator
         }
     }
 
+    @Test
+    public void testMemoryTracking()
+            throws Exception
+    {
+        testMemoryTracking(false);
+        testMemoryTracking(true);
+    }
+
+    private void testMemoryTracking(boolean useSystemMemory)
+            throws Exception
+    {
+        List<Integer> hashChannels = Ints.asList(0);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, hashChannels, BIGINT);
+        Page input = getOnlyElement(rowPagesBuilder.addSequencePage(500, 0).build());
+
+        HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(BIGINT),
+                hashChannels,
+                ImmutableList.of(),
+                Step.SINGLE,
+                ImmutableList.of(LONG_SUM.bind(ImmutableList.of(0), Optional.empty())),
+                rowPagesBuilder.getHashChannel(),
+                Optional.empty(),
+                100_000,
+                Optional.of(new DataSize(16, MEGABYTE)),
+                joinCompiler,
+                useSystemMemory);
+
+        DriverContext driverContext = createDriverContext(1024);
+
+        try (Operator operator = operatorFactory.createOperator(driverContext)) {
+            assertTrue(operator.needsInput());
+            operator.addInput(input);
+
+            if (useSystemMemory) {
+                assertThat(driverContext.getSystemMemoryUsage()).isGreaterThan(0);
+                assertEquals(driverContext.getMemoryUsage(), 0);
+            }
+            else {
+                assertEquals(driverContext.getSystemMemoryUsage(), 0);
+                assertThat(driverContext.getMemoryUsage()).isGreaterThan(0);
+            }
+
+            toPages(operator, emptyIterator());
+        }
+
+        assertEquals(driverContext.getSystemMemoryUsage(), 0);
+        assertEquals(driverContext.getMemoryUsage(), 0);
+    }
+
     private DriverContext createDriverContext()
     {
         return createDriverContext(Integer.MAX_VALUE);
     }
 
-    private DriverContext createDriverContext(long systemMemoryLimit)
-    {
-        return createDriverContext(Integer.MAX_VALUE, systemMemoryLimit);
-    }
-
-    private DriverContext createDriverContext(long memoryLimit, long systemMemoryLimit)
+    private DriverContext createDriverContext(long memoryLimit)
     {
         return TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
                 .setMemoryPoolSize(succinctBytes(memoryLimit))
-                .setSystemMemoryPoolSize(succinctBytes(systemMemoryLimit))
                 .build()
-                .addPipelineContext(0, true, true)
+                .addPipelineContext(0, true, true, false)
                 .addDriverContext();
     }
 

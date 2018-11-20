@@ -32,7 +32,11 @@ public class PushLimitThroughProject
     private static final Capture<ProjectNode> CHILD = newCapture();
 
     private static final Pattern<LimitNode> PATTERN = limit()
-            .with(source().matching(project().capturedAs(CHILD)));
+            .with(source().matching(
+                    project()
+                            // do not push limit through identity projection which could be there for column pruning purposes
+                            .matching(projectNode -> !projectNode.isIdentity())
+                            .capturedAs(CHILD)));
 
     @Override
     public Pattern<LimitNode> getPattern()

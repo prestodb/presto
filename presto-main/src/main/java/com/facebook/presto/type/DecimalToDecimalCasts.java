@@ -52,6 +52,7 @@ public final class DecimalToDecimalCasts
     // TODO: filtering mechanism could be used to return NoOp method when only precision is increased
     public static final SqlScalarFunction DECIMAL_TO_DECIMAL_CAST = SqlScalarFunction.builder(DecimalToDecimalCasts.class)
             .signature(SIGNATURE)
+            .deterministic(true)
             .implementation(b -> b
                     .methods("shortToShortCast")
                     .withExtraParameters((context) -> {

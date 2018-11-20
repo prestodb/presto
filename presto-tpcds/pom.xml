@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.197-SNAPSHOT</version>
+        <version>0.214-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-tpcds</artifactId>
@@ -75,7 +75,20 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-parser</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-benchto-queries</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -94,6 +107,18 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>joni</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>bytecode</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

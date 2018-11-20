@@ -18,6 +18,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.AbstractLongType;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -25,8 +26,10 @@ import com.google.common.math.DoubleMath;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
+import io.airlift.slice.XxHash64;
 
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.function.OperatorType.ADD;
 import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
@@ -36,6 +39,7 @@ import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
@@ -45,12 +49,15 @@ import static com.facebook.presto.spi.function.OperatorType.NEGATION;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
+import static com.facebook.presto.spi.function.OperatorType.XX_HASH_64;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.math.RoundingMode.FLOOR;
+import static java.math.RoundingMode.HALF_UP;
 
 public final class DoubleOperators
 {
@@ -122,7 +129,8 @@ public final class DoubleOperators
     @ScalarOperator(EQUAL)
     @SuppressWarnings("FloatingPointEquality")
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean equal(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.DOUBLE) double right)
+    @SqlNullable
+    public static Boolean equal(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.DOUBLE) double right)
     {
         return left == right;
     }
@@ -130,7 +138,8 @@ public final class DoubleOperators
     @ScalarOperator(NOT_EQUAL)
     @SuppressWarnings("FloatingPointEquality")
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean notEqual(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.DOUBLE) double right)
+    @SqlNullable
+    public static Boolean notEqual(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.DOUBLE) double right)
     {
         return left != right;
     }
@@ -217,7 +226,12 @@ public final class DoubleOperators
     @SqlType(StandardTypes.BIGINT)
     public static long castToLong(@SqlType(StandardTypes.DOUBLE) double value)
     {
-        return (long) MathFunctions.round(value);
+        try {
+            return DoubleMath.roundToLong(value, HALF_UP);
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Unable to cast %s to bigint", value), e);
+        }
     }
 
     @ScalarOperator(CAST)
@@ -240,6 +254,13 @@ public final class DoubleOperators
     public static long hashCode(@SqlType(StandardTypes.DOUBLE) double value)
     {
         return AbstractLongType.hash(doubleToLongBits(value));
+    }
+
+    @ScalarOperator(INDETERMINATE)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean indeterminate(@SqlType(StandardTypes.DOUBLE) double value, @IsNull boolean isNull)
+    {
+        return isNull;
     }
 
     @ScalarOperator(SATURATED_FLOOR_CAST)
@@ -310,6 +331,16 @@ public final class DoubleOperators
         if (leftNull) {
             return false;
         }
+        if (Double.isNaN(left) && Double.isNaN(right)) {
+            return false;
+        }
         return notEqual(left, right);
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    @SqlType(StandardTypes.BIGINT)
+    public static long xxHash64(@SqlType(StandardTypes.DOUBLE) double value)
+    {
+        return XxHash64.hash(Double.doubleToLongBits(value));
     }
 }

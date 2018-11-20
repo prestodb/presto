@@ -39,7 +39,7 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.matching.Pattern.empty;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.groupingKeys;
+import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.groupingColumns;
 import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.step;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.google.common.base.Preconditions.checkState;
@@ -75,7 +75,7 @@ public class AddIntermediateAggregations
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             // Only consider FINAL un-grouped aggregations
             .with(step().equalTo(AggregationNode.Step.FINAL))
-            .with(empty(groupingKeys()))
+            .with(empty(groupingColumns()))
             // Only consider aggregations without ORDER BY clause
             .matching(node -> !node.hasOrderings());
 
@@ -117,6 +117,7 @@ public class AddIntermediateAggregations
                     source,
                     inputsAsOutputs(aggregation.getAggregations()),
                     aggregation.getGroupingSets(),
+                    aggregation.getPreGroupedSymbols(),
                     AggregationNode.Step.INTERMEDIATE,
                     aggregation.getHashSymbol(),
                     aggregation.getGroupIdSymbol());
@@ -159,6 +160,7 @@ public class AddIntermediateAggregations
                 gatheringExchange,
                 outputsAsInputs(aggregation.getAggregations()),
                 aggregation.getGroupingSets(),
+                aggregation.getPreGroupedSymbols(),
                 AggregationNode.Step.INTERMEDIATE,
                 aggregation.getHashSymbol(),
                 aggregation.getGroupIdSymbol());

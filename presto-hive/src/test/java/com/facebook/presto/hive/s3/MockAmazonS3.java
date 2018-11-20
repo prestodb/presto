@@ -15,6 +15,7 @@ package com.facebook.presto.hive.s3;
 
 import com.amazonaws.services.s3.AbstractAmazonS3;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
+import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
@@ -30,6 +31,7 @@ public class MockAmazonS3
     private int getObjectHttpCode = SC_OK;
     private int getObjectMetadataHttpCode = SC_OK;
     private GetObjectMetadataRequest getObjectMetadataRequest;
+    private CannedAccessControlList acl;
 
     public void setGetObjectHttpErrorCode(int getObjectHttpErrorCode)
     {
@@ -39,6 +41,11 @@ public class MockAmazonS3
     public void setGetObjectMetadataHttpCode(int getObjectMetadataHttpCode)
     {
         this.getObjectMetadataHttpCode = getObjectMetadataHttpCode;
+    }
+
+    public CannedAccessControlList getAcl()
+    {
+        return this.acl;
     }
 
     public GetObjectMetadataRequest getGetObjectMetadataRequest()
@@ -72,6 +79,7 @@ public class MockAmazonS3
     @Override
     public PutObjectResult putObject(PutObjectRequest putObjectRequest)
     {
+        this.acl = putObjectRequest.getCannedAcl();
         return new PutObjectResult();
     }
 

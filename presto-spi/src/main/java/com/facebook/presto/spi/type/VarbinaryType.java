@@ -30,6 +30,11 @@ public final class VarbinaryType
         super(parseTypeSignature(StandardTypes.VARBINARY), Slice.class);
     }
 
+    public static boolean isVarbinaryType(Type type)
+    {
+        return type instanceof VarbinaryType;
+    }
+
     @Override
     public boolean isComparable()
     {

@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.197-SNAPSHOT</version>
+        <version>0.214-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-hive-hadoop2</artifactId>
@@ -20,6 +20,11 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-hive</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
         </dependency>
 
         <dependency>
@@ -90,27 +95,29 @@
             <artifactId>presto-main</artifactId>
             <scope>test</scope>
         </dependency>
-
-        <dependency>
-            <groupId>dnsjava</groupId>
-            <artifactId>dnsjava</artifactId>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <excludedGroups>hive,hive-s3</excludedGroups>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
-
     <profiles>
+        <profile>
+            <id>default</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/TestHiveClient.java</exclude>
+                                <exclude>**/TestHiveClientS3.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
         <profile>
             <id>test-hive-hadoop2</id>
             <build>
@@ -119,12 +126,25 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <excludedGroups>hive-s3</excludedGroups>
-                            <systemProperties>
-                                <hive.hadoop2.metastoreHost>localhost</hive.hadoop2.metastoreHost>
-                                <hive.hadoop2.metastorePort>9083</hive.hadoop2.metastorePort>
-                                <hive.hadoop2.databaseName>default</hive.hadoop2.databaseName>
-                            </systemProperties>
+                            <includes>
+                                <include>**/TestHiveClient.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>test-hive-hadoop2-s3</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestHiveClientS3.java</include>
+                            </includes>
                         </configuration>
                     </plugin>
                 </plugins>

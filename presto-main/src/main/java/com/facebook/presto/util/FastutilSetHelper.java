@@ -34,13 +34,15 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Verify.verify;
+import static java.lang.Boolean.TRUE;
 import static java.lang.Math.toIntExact;
 
 public final class FastutilSetHelper
 {
     private FastutilSetHelper() {}
 
-    @SuppressWarnings({"unchecked"})
+    @SuppressWarnings("unchecked")
     public static Set<?> toFastutilHashSet(Set<?> set, Type type, FunctionRegistry registry)
     {
         // 0.25 as the load factor is chosen because the argument set is assumed to be small (<10000),
@@ -113,7 +115,10 @@ public final class FastutilSetHelper
         public boolean equals(long a, long b)
         {
             try {
-                return (boolean) equalsHandle.invokeExact(a, b);
+                Boolean result = (Boolean) equalsHandle.invokeExact(a, b);
+                // FastutilHashSet is not intended be used for indeterminate values lookup
+                verify(result != null, "result is null");
+                return TRUE.equals(result);
             }
             catch (Throwable t) {
                 throwIfInstanceOf(t, Error.class);
@@ -152,7 +157,10 @@ public final class FastutilSetHelper
         public boolean equals(double a, double b)
         {
             try {
-                return (boolean) equalsHandle.invokeExact(a, b);
+                Boolean result = (Boolean) equalsHandle.invokeExact(a, b);
+                // FastutilHashSet is not intended be used for indeterminate values lookup
+                verify(result != null, "result is null");
+                return TRUE.equals(result);
             }
             catch (Throwable t) {
                 throwIfInstanceOf(t, Error.class);
@@ -175,7 +183,7 @@ public final class FastutilSetHelper
                     .asType(MethodType.methodType(long.class, Object.class));
             equalsHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(EQUAL, ImmutableList.of(type, type)))
                     .getMethodHandle()
-                    .asType(MethodType.methodType(boolean.class, Object.class, Object.class));
+                    .asType(MethodType.methodType(Boolean.class, Object.class, Object.class));
         }
 
         @Override
@@ -195,7 +203,10 @@ public final class FastutilSetHelper
         public boolean equals(Object a, Object b)
         {
             try {
-                return (boolean) equalsHandle.invokeExact(a, b);
+                Boolean result = (Boolean) equalsHandle.invokeExact(a, b);
+                // FastutilHashSet is not intended be used for indeterminate values lookup
+                verify(result != null, "result is null");
+                return TRUE.equals(result);
             }
             catch (Throwable t) {
                 throwIfInstanceOf(t, Error.class);

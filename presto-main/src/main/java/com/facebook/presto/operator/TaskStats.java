@@ -58,7 +58,6 @@ public class TaskStats
 
     private final Duration totalScheduledTime;
     private final Duration totalCpuTime;
-    private final Duration totalUserTime;
     private final Duration totalBlockedTime;
     private final boolean fullyBlocked;
     private final Set<BlockedReason> blockedReasons;
@@ -73,6 +72,9 @@ public class TaskStats
     private final long outputPositions;
 
     private final DataSize physicalWrittenDataSize;
+
+    private final int fullGcCount;
+    private final Duration fullGcTime;
 
     private final List<PipelineStats> pipelines;
 
@@ -99,7 +101,6 @@ public class TaskStats
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
                 false,
                 ImmutableSet.of(),
                 new DataSize(0, BYTE),
@@ -109,6 +110,8 @@ public class TaskStats
                 new DataSize(0, BYTE),
                 0,
                 new DataSize(0, BYTE),
+                0,
+                new Duration(0, MILLISECONDS),
                 ImmutableList.of());
     }
 
@@ -137,7 +140,6 @@ public class TaskStats
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
-            @JsonProperty("totalUserTime") Duration totalUserTime,
             @JsonProperty("totalBlockedTime") Duration totalBlockedTime,
             @JsonProperty("fullyBlocked") boolean fullyBlocked,
             @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
@@ -152,6 +154,9 @@ public class TaskStats
             @JsonProperty("outputPositions") long outputPositions,
 
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
+
+            @JsonProperty("fullGcCount") int fullGcCount,
+            @JsonProperty("fullGcTime") Duration fullGcTime,
 
             @JsonProperty("pipelines") List<PipelineStats> pipelines)
     {
@@ -181,14 +186,13 @@ public class TaskStats
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
 
-        this.cumulativeUserMemory = requireNonNull(cumulativeUserMemory, "cumulativeUserMemory is null");
+        this.cumulativeUserMemory = cumulativeUserMemory;
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
         this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
 
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
-        this.totalUserTime = requireNonNull(totalUserTime, "totalUserTime is null");
         this.totalBlockedTime = requireNonNull(totalBlockedTime, "totalBlockedTime is null");
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
@@ -206,6 +210,10 @@ public class TaskStats
         this.outputPositions = outputPositions;
 
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "writtenDataSize is null");
+
+        checkArgument(fullGcCount >= 0, "fullGcCount is negative");
+        this.fullGcCount = fullGcCount;
+        this.fullGcTime = requireNonNull(fullGcTime, "fullGcTime is null");
 
         this.pipelines = ImmutableList.copyOf(requireNonNull(pipelines, "pipelines is null"));
     }
@@ -323,12 +331,6 @@ public class TaskStats
     }
 
     @JsonProperty
-    public Duration getTotalUserTime()
-    {
-        return totalUserTime;
-    }
-
-    @JsonProperty
     public Duration getTotalBlockedTime()
     {
         return totalBlockedTime;
@@ -406,6 +408,18 @@ public class TaskStats
         return runningPartitionedDrivers;
     }
 
+    @JsonProperty
+    public int getFullGcCount()
+    {
+        return fullGcCount;
+    }
+
+    @JsonProperty
+    public Duration getFullGcTime()
+    {
+        return fullGcTime;
+    }
+
     public TaskStats summarize()
     {
         return new TaskStats(
@@ -429,7 +443,6 @@ public class TaskStats
                 systemMemoryReservation,
                 totalScheduledTime,
                 totalCpuTime,
-                totalUserTime,
                 totalBlockedTime,
                 fullyBlocked,
                 blockedReasons,
@@ -440,6 +453,8 @@ public class TaskStats
                 outputDataSize,
                 outputPositions,
                 physicalWrittenDataSize,
+                fullGcCount,
+                fullGcTime,
                 ImmutableList.of());
     }
 
@@ -466,7 +481,6 @@ public class TaskStats
                 systemMemoryReservation,
                 totalScheduledTime,
                 totalCpuTime,
-                totalUserTime,
                 totalBlockedTime,
                 fullyBlocked,
                 blockedReasons,
@@ -477,6 +491,8 @@ public class TaskStats
                 outputDataSize,
                 outputPositions,
                 physicalWrittenDataSize,
+                fullGcCount,
+                fullGcTime,
                 pipelines.stream()
                         .map(PipelineStats::summarize)
                         .collect(Collectors.toList()));

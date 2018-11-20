@@ -15,8 +15,11 @@ package com.facebook.presto.hive.metastore.file;
 
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveStorageFormat;
+import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
@@ -32,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionMetadata
@@ -45,6 +49,8 @@ public class PartitionMetadata
 
     private final Optional<String> externalLocation;
 
+    private final Map<String, HiveColumnStatistics> columnStatistics;
+
     @JsonCreator
     public PartitionMetadata(
             @JsonProperty("columns") List<Column> columns,
@@ -52,7 +58,8 @@ public class PartitionMetadata
             @JsonProperty("storageFormat") Optional<HiveStorageFormat> storageFormat,
             @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
             @JsonProperty("serdeParameters") Map<String, String> serdeParameters,
-            @JsonProperty("externalLocation") Optional<String> externalLocation)
+            @JsonProperty("externalLocation") Optional<String> externalLocation,
+            @JsonProperty("columnStatistics") Map<String, HiveColumnStatistics> columnStatistics)
     {
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
@@ -62,12 +69,16 @@ public class PartitionMetadata
         this.serdeParameters = requireNonNull(serdeParameters, "serdeParameters is null");
 
         this.externalLocation = requireNonNull(externalLocation, "externalLocation is null");
+        this.columnStatistics = ImmutableMap.copyOf(requireNonNull(columnStatistics, "columnStatistics is null"));
     }
 
-    public PartitionMetadata(Table table, Partition partition)
+    public PartitionMetadata(Table table, PartitionWithStatistics partitionWithStatistics)
     {
+        Partition partition = partitionWithStatistics.getPartition();
+        PartitionStatistics statistics = partitionWithStatistics.getStatistics();
+
         this.columns = partition.getColumns();
-        this.parameters = partition.getParameters();
+        this.parameters = updateStatisticsParameters(partition.getParameters(), statistics.getBasicStatistics());
 
         StorageFormat tableFormat = partition.getStorage().getStorageFormat();
         storageFormat = Arrays.stream(HiveStorageFormat.values())
@@ -83,6 +94,7 @@ public class PartitionMetadata
 
         bucketProperty = partition.getStorage().getBucketProperty();
         serdeParameters = partition.getStorage().getSerdeParameters();
+        columnStatistics = ImmutableMap.copyOf(statistics.getColumnStatistics());
     }
 
     @JsonProperty
@@ -119,6 +131,22 @@ public class PartitionMetadata
     public Optional<String> getExternalLocation()
     {
         return externalLocation;
+    }
+
+    @JsonProperty
+    public Map<String, HiveColumnStatistics> getColumnStatistics()
+    {
+        return columnStatistics;
+    }
+
+    public PartitionMetadata withParameters(Map<String, String> parameters)
+    {
+        return new PartitionMetadata(columns, parameters, storageFormat, bucketProperty, serdeParameters, externalLocation, columnStatistics);
+    }
+
+    public PartitionMetadata withColumnStatistics(Map<String, HiveColumnStatistics> columnStatistics)
+    {
+        return new PartitionMetadata(columns, parameters, storageFormat, bucketProperty, serdeParameters, externalLocation, columnStatistics);
     }
 
     public Partition toPartition(String databaseName, String tableName, List<String> values, String location)

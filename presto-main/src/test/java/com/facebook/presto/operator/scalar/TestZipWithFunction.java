@@ -19,8 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -43,15 +41,15 @@ public class TestZipWithFunction
     public void testSameLength()
     {
         assertFunction("zip_with(ARRAY[], ARRAY[], (x, y) -> (y, x))",
-                new ArrayType(new RowType(ImmutableList.of(UNKNOWN, UNKNOWN), Optional.empty())),
+                new ArrayType(RowType.anonymous(ImmutableList.of(UNKNOWN, UNKNOWN))),
                 ImmutableList.of());
 
         assertFunction("zip_with(ARRAY[1, 2], ARRAY['a', 'b'], (x, y) -> (y, x))",
-                new ArrayType(new RowType(ImmutableList.of(createVarcharType(1), INTEGER), Optional.empty())),
+                new ArrayType(RowType.anonymous(ImmutableList.of(createVarcharType(1), INTEGER))),
                 ImmutableList.of(ImmutableList.of("a", 1), ImmutableList.of("b", 2)));
 
         assertFunction("zip_with(ARRAY[1, 2], ARRAY[CAST('a' AS VARCHAR), CAST('b' AS VARCHAR)], (x, y) -> (y, x))",
-                new ArrayType(new RowType(ImmutableList.of(VARCHAR, INTEGER), Optional.empty())),
+                new ArrayType(RowType.anonymous(ImmutableList.of(VARCHAR, INTEGER))),
                 ImmutableList.of(ImmutableList.of("a", 1), ImmutableList.of("b", 2)));
 
         assertFunction("zip_with(ARRAY[1, 1], ARRAY[1, 2], (x, y) -> x + y)",
@@ -78,20 +76,29 @@ public class TestZipWithFunction
     @Test
     public void testDifferentLength()
     {
-        assertInvalidFunction("zip_with(ARRAY[1], ARRAY['a', 'b'], (x, y) -> (y, x))", "Arrays must have the same length");
-        assertInvalidFunction("zip_with(ARRAY[NULL, 2], ARRAY['a'], (x, y) -> (y, x))", "Arrays must have the same length");
-        assertInvalidFunction("zip_with(ARRAY[1, NULL], ARRAY[NULL, 2, 1], (x, y) -> x + y)", "Arrays must have the same length");
+        assertFunction(
+                "zip_with(ARRAY[1], ARRAY['a', 'bc'], (x, y) -> (y, x))",
+                new ArrayType(RowType.anonymous(ImmutableList.of(createVarcharType(2), INTEGER))),
+                ImmutableList.of(ImmutableList.of("a", 1), asList("bc", null)));
+        assertFunction(
+                "zip_with(ARRAY[NULL, 2], ARRAY['a'], (x, y) -> (y, x))",
+                new ArrayType(RowType.anonymous(ImmutableList.of(createVarcharType(1), INTEGER))),
+                ImmutableList.of(asList("a", null), asList(null, 2)));
+        assertFunction(
+                "zip_with(ARRAY[NULL, NULL], ARRAY[NULL, 2, 1], (x, y) -> x + y)",
+                new ArrayType(INTEGER),
+                asList(null, null, null));
     }
 
     @Test
     public void testWithNull()
     {
         assertFunction("zip_with(CAST(NULL AS ARRAY(UNKNOWN)), ARRAY[], (x, y) -> (y, x))",
-                new ArrayType(new RowType(ImmutableList.of(UNKNOWN, UNKNOWN), Optional.empty())),
+                new ArrayType(RowType.anonymous(ImmutableList.of(UNKNOWN, UNKNOWN))),
                 null);
 
         assertFunction("zip_with(ARRAY[NULL], ARRAY[NULL], (x, y) -> (y, x))",
-                new ArrayType(new RowType(ImmutableList.of(UNKNOWN, UNKNOWN), Optional.empty())),
+                new ArrayType(RowType.anonymous(ImmutableList.of(UNKNOWN, UNKNOWN))),
                 ImmutableList.of(asList(null, null)));
 
         assertFunction("zip_with(ARRAY[NULL], ARRAY[NULL], (x, y) -> x IS NULL AND y IS NULL)",

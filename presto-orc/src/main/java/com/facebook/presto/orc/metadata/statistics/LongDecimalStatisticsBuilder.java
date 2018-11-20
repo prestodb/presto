@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.statistics.DecimalStatistics.DECIMAL_VALUE_BYTES_OVERHEAD;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class LongDecimalStatisticsBuilder
@@ -85,7 +86,8 @@ public class LongDecimalStatisticsBuilder
         if (nonNullValueCount == 0) {
             return Optional.empty();
         }
-        return Optional.of(new DecimalStatistics(minimum, maximum));
+        checkState(minimum != null && maximum != null);
+        return Optional.of(new DecimalStatistics(minimum, maximum, LONG_DECIMAL_VALUE_BYTES));
     }
 
     @Override

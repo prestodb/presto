@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 
 import javax.inject.Inject;
 import javax.ws.rs.GET;
@@ -29,9 +29,12 @@ import javax.ws.rs.core.MediaType;
 
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.server.QueryStateInfo.createQueryStateInfo;
+import static com.facebook.presto.server.QueryStateInfo.createQueuedQueryStateInfo;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -41,12 +44,12 @@ import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 public class QueryStateInfoResource
 {
     private final QueryManager queryManager;
-    private final ResourceGroupManager resourceGroupManager;
+    private final ResourceGroupManager<?> resourceGroupManager;
 
     @Inject
     public QueryStateInfoResource(
             QueryManager queryManager,
-            ResourceGroupManager resourceGroupManager)
+            ResourceGroupManager<?> resourceGroupManager)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
@@ -56,7 +59,7 @@ public class QueryStateInfoResource
     @Produces(MediaType.APPLICATION_JSON)
     public List<QueryStateInfo> getQueryStateInfos(@QueryParam("user") String user)
     {
-        List<QueryInfo> queryInfos = queryManager.getAllQueryInfo();
+        List<BasicQueryInfo> queryInfos = queryManager.getQueries();
 
         if (!isNullOrEmpty(user)) {
             queryInfos = queryInfos.stream()
@@ -66,8 +69,20 @@ public class QueryStateInfoResource
 
         return queryInfos.stream()
                 .filter(queryInfo -> !queryInfo.getState().isDone())
-                .map(queryInfo -> createQueryStateInfo(queryInfo, queryManager.getQueryResourceGroup(queryInfo.getQueryId()).map(resourceGroupManager::getResourceGroupInfo)))
+                .map(this::getQueryStateInfo)
                 .collect(toImmutableList());
+    }
+
+    private QueryStateInfo getQueryStateInfo(BasicQueryInfo queryInfo)
+    {
+        Optional<ResourceGroupId> groupId = queryInfo.getResourceGroupId();
+        if (queryInfo.getState() == QUEUED) {
+            return createQueuedQueryStateInfo(
+                    queryInfo,
+                    groupId,
+                    groupId.map(resourceGroupManager::getPathToRoot));
+        }
+        return createQueryStateInfo(queryInfo, groupId);
     }
 
     @GET
@@ -77,8 +92,7 @@ public class QueryStateInfoResource
             throws WebApplicationException
     {
         try {
-            QueryInfo queryInfo = queryManager.getQueryInfo(new QueryId(queryId));
-            return createQueryStateInfo(queryInfo, queryManager.getQueryResourceGroup(queryInfo.getQueryId()).map(resourceGroupManager::getResourceGroupInfo));
+            return getQueryStateInfo(queryManager.getQueryInfo(new QueryId(queryId)));
         }
         catch (NoSuchElementException e) {
             throw new WebApplicationException(NOT_FOUND);

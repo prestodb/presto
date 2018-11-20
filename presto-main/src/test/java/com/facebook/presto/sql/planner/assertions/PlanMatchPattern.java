@@ -18,6 +18,7 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
@@ -41,9 +42,11 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -55,6 +58,7 @@ import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 
 import java.util.ArrayList;
@@ -62,6 +66,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
@@ -78,6 +83,7 @@ import static com.facebook.presto.sql.tree.SortItem.NullOrdering.FIRST;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.UNDEFINED;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -121,14 +127,6 @@ public final class PlanMatchPattern
     public static PlanMatchPattern tableScan(String expectedTableName)
     {
         return TableScanMatcher.create(expectedTableName);
-    }
-
-    public static PlanMatchPattern tableScan(String expectedTableName, String originalConstraint)
-    {
-        Expression expectedOriginalConstraint = rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(originalConstraint));
-        return TableScanMatcher.builder(expectedTableName)
-                .expectedOriginalConstraint(expectedOriginalConstraint)
-                .build();
     }
 
     public static PlanMatchPattern tableScan(String expectedTableName, Map<String, String> columnReferences)
@@ -192,14 +190,37 @@ public final class PlanMatchPattern
     }
 
     public static PlanMatchPattern aggregation(
-            List<List<String>> groupingSets,
+            Map<String, ExpectedValueProvider<FunctionCall>> aggregations,
+            Step step,
+            PlanMatchPattern source)
+    {
+        PlanMatchPattern result = node(AggregationNode.class, source).with(new AggregationStepMatcher(step));
+        aggregations.entrySet().forEach(
+                aggregation -> result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue())));
+        return result;
+    }
+
+    public static PlanMatchPattern aggregation(
+            GroupingSetDescriptor groupingSets,
             Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregations,
             Map<Symbol, Symbol> masks,
             Optional<Symbol> groupId,
             Step step,
             PlanMatchPattern source)
     {
-        PlanMatchPattern result = node(AggregationNode.class, source).with(new AggregationMatcher(groupingSets, masks, groupId, step));
+        return aggregation(groupingSets, aggregations, ImmutableList.of(), masks, groupId, step, source);
+    }
+
+    public static PlanMatchPattern aggregation(
+            GroupingSetDescriptor groupingSets,
+            Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregations,
+            List<String> preGroupedSymbols,
+            Map<Symbol, Symbol> masks,
+            Optional<Symbol> groupId,
+            Step step,
+            PlanMatchPattern source)
+    {
+        PlanMatchPattern result = node(AggregationNode.class, source).with(new AggregationMatcher(groupingSets, preGroupedSymbols, masks, groupId, step));
         aggregations.entrySet().forEach(
                 aggregation -> result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue())));
         return result;
@@ -253,6 +274,12 @@ public final class PlanMatchPattern
     public static PlanMatchPattern sort(PlanMatchPattern source)
     {
         return node(SortNode.class, source);
+    }
+
+    public static PlanMatchPattern sort(List<Ordering> orderBy, PlanMatchPattern source)
+    {
+        return node(SortNode.class, source)
+                .with(new SortMatcher(orderBy));
     }
 
     public static PlanMatchPattern topN(long count, List<Ordering> orderBy, PlanMatchPattern source)
@@ -326,6 +353,28 @@ public final class PlanMatchPattern
                         expectedDistributionType));
     }
 
+    public static PlanMatchPattern spatialJoin(String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
+    {
+        return spatialJoin(expectedFilter, Optional.empty(), left, right);
+    }
+
+    public static PlanMatchPattern spatialJoin(String expectedFilter, Optional<String> kdbTree, PlanMatchPattern left, PlanMatchPattern right)
+    {
+        return node(SpatialJoinNode.class, left, right).with(
+                new SpatialJoinMatcher(SpatialJoinNode.Type.INNER, rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(expectedFilter, new ParsingOptions())), kdbTree));
+    }
+
+    public static PlanMatchPattern spatialLeftJoin(String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
+    {
+        return node(SpatialJoinNode.class, left, right).with(
+                new SpatialJoinMatcher(SpatialJoinNode.Type.LEFT, rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(expectedFilter, new ParsingOptions())), Optional.empty()));
+    }
+
+    public static PlanMatchPattern unnest(PlanMatchPattern source)
+    {
+        return node(UnnestNode.class, source);
+    }
+
     public static PlanMatchPattern exchange(PlanMatchPattern... sources)
     {
         return node(ExchangeNode.class, sources);
@@ -333,8 +382,13 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, PlanMatchPattern... sources)
     {
+        return exchange(scope, type, ImmutableList.of(), sources);
+    }
+
+    public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, List<Ordering> orderBy, PlanMatchPattern... sources)
+    {
         return node(ExchangeNode.class, sources)
-                .with(new ExchangeMatcher(scope, type));
+                .with(new ExchangeMatcher(scope, type, orderBy));
     }
 
     public static PlanMatchPattern union(PlanMatchPattern... sources)
@@ -368,9 +422,13 @@ public final class PlanMatchPattern
         return new SymbolAlias(alias);
     }
 
-    public static PlanMatchPattern filter(String predicate, PlanMatchPattern source)
+    public static PlanMatchPattern filter(String expectedPredicate, PlanMatchPattern source)
     {
-        Expression expectedPredicate = rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(predicate));
+        return filter(rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(expectedPredicate)), source);
+    }
+
+    public static PlanMatchPattern filter(Expression expectedPredicate, PlanMatchPattern source)
+    {
         return node(FilterNode.class, source).with(new FilterMatcher(expectedPredicate));
     }
 
@@ -724,6 +782,68 @@ public final class PlanMatchPattern
     private static String indentString(int indent)
     {
         return Strings.repeat("    ", indent);
+    }
+
+    public static GroupingSetDescriptor globalAggregation()
+    {
+        return singleGroupingSet();
+    }
+
+    public static GroupingSetDescriptor singleGroupingSet(String... groupingKeys)
+    {
+        return singleGroupingSet(ImmutableList.copyOf(groupingKeys));
+    }
+
+    public static GroupingSetDescriptor singleGroupingSet(List<String> groupingKeys)
+    {
+        Set<Integer> globalGroupingSets;
+        if (groupingKeys.size() == 0) {
+            globalGroupingSets = ImmutableSet.of(0);
+        }
+        else {
+            globalGroupingSets = ImmutableSet.of();
+        }
+
+        return new GroupingSetDescriptor(groupingKeys, 1, globalGroupingSets);
+    }
+
+    public static class GroupingSetDescriptor
+    {
+        private final List<String> groupingKeys;
+        private final int groupingSetCount;
+        private final Set<Integer> globalGroupingSets;
+
+        private GroupingSetDescriptor(List<String> groupingKeys, int groupingSetCount, Set<Integer> globalGroupingSets)
+        {
+            this.groupingKeys = groupingKeys;
+            this.groupingSetCount = groupingSetCount;
+            this.globalGroupingSets = globalGroupingSets;
+        }
+
+        public List<String> getGroupingKeys()
+        {
+            return groupingKeys;
+        }
+
+        public int getGroupingSetCount()
+        {
+            return groupingSetCount;
+        }
+
+        public Set<Integer> getGlobalGroupingSets()
+        {
+            return globalGroupingSets;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("keys", groupingKeys)
+                    .add("count", groupingSetCount)
+                    .add("globalSets", globalGroupingSets)
+                    .toString();
+        }
     }
 
     public static class Ordering

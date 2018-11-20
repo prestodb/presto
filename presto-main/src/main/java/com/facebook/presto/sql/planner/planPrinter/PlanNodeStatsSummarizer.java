@@ -45,10 +45,11 @@ public class PlanNodeStatsSummarizer
 {
     private PlanNodeStatsSummarizer() {}
 
-    public static Map<PlanNodeId, PlanNodeStats> aggregatePlanNodeStats(StageInfo stageInfo)
+    public static Map<PlanNodeId, PlanNodeStats> aggregatePlanNodeStats(List<StageInfo> stageInfos)
     {
         Map<PlanNodeId, PlanNodeStats> aggregatedStats = new HashMap<>();
-        List<PlanNodeStats> planNodeStats = stageInfo.getTasks().stream()
+        List<PlanNodeStats> planNodeStats = stageInfos.stream()
+                .flatMap(stageInfo -> stageInfo.getTasks().stream())
                 .map(TaskInfo::getStats)
                 .flatMap(taskStats -> getPlanNodeStats(taskStats).stream())
                 .collect(toList());
@@ -65,11 +66,14 @@ public class PlanNodeStatsSummarizer
         // it's possible that some or all of them are missing or out of date.
         // For example, a LIMIT clause can cause a query to finish before stats
         // are collected from the leaf stages.
+        Set<PlanNodeId> planNodeIds = new HashSet<>();
+
         Map<PlanNodeId, Long> planNodeInputPositions = new HashMap<>();
         Map<PlanNodeId, Long> planNodeInputBytes = new HashMap<>();
         Map<PlanNodeId, Long> planNodeOutputPositions = new HashMap<>();
         Map<PlanNodeId, Long> planNodeOutputBytes = new HashMap<>();
-        Map<PlanNodeId, Long> planNodeWallMillis = new HashMap<>();
+        Map<PlanNodeId, Long> planNodeScheduledMillis = new HashMap<>();
+        Map<PlanNodeId, Long> planNodeCpuMillis = new HashMap<>();
 
         Map<PlanNodeId, Map<String, OperatorInputStats>> operatorInputStats = new HashMap<>();
         Map<PlanNodeId, Map<String, OperatorHashCollisionsStats>> operatorHashCollisionsStats = new HashMap<>();
@@ -88,9 +92,13 @@ public class PlanNodeStatsSummarizer
             // Gather input statistics
             for (OperatorStats operatorStats : pipelineStats.getOperatorSummaries()) {
                 PlanNodeId planNodeId = operatorStats.getPlanNodeId();
+                planNodeIds.add(planNodeId);
 
-                long wall = operatorStats.getAddInputWall().toMillis() + operatorStats.getGetOutputWall().toMillis() + operatorStats.getFinishWall().toMillis();
-                planNodeWallMillis.merge(planNodeId, wall, Long::sum);
+                long scheduledMillis = operatorStats.getAddInputWall().toMillis() + operatorStats.getGetOutputWall().toMillis() + operatorStats.getFinishWall().toMillis();
+                planNodeScheduledMillis.merge(planNodeId, scheduledMillis, Long::sum);
+
+                long cpuMillis = operatorStats.getAddInputCpu().toMillis() + operatorStats.getGetOutputCpu().toMillis() + operatorStats.getFinishCpu().toMillis();
+                planNodeCpuMillis.merge(planNodeId, cpuMillis, Long::sum);
 
                 // A pipeline like hash build before join might link to another "internal" pipelines which provide actual input for this plan node
                 if (operatorStats.getPlanNodeId().equals(inputPlanNode) && !pipelineStats.isInputPipeline()) {
@@ -152,17 +160,20 @@ public class PlanNodeStatsSummarizer
         }
 
         List<PlanNodeStats> stats = new ArrayList<>();
-        for (Map.Entry<PlanNodeId, Long> entry : planNodeWallMillis.entrySet()) {
-            PlanNodeId planNodeId = entry.getKey();
+        for (PlanNodeId planNodeId : planNodeIds) {
+            if (!planNodeInputPositions.containsKey(planNodeId)) {
+                continue;
+            }
             stats.add(new PlanNodeStats(
                     planNodeId,
-                    new Duration(planNodeWallMillis.get(planNodeId), MILLISECONDS),
+                    new Duration(planNodeScheduledMillis.get(planNodeId), MILLISECONDS),
+                    new Duration(planNodeCpuMillis.get(planNodeId), MILLISECONDS),
                     planNodeInputPositions.get(planNodeId),
                     succinctDataSize(planNodeInputBytes.get(planNodeId), BYTE),
                     // It's possible there will be no output stats because all the pipelines that we observed were non-output.
                     // For example in a query like SELECT * FROM a JOIN b ON c = d LIMIT 1
                     // It's possible to observe stats after the build starts, but before the probe does
-                    // and therefore only have wall time, but no output stats
+                    // and therefore only have scheduled time, but no output stats
                     planNodeOutputPositions.getOrDefault(planNodeId, 0L),
                     succinctDataSize(planNodeOutputBytes.getOrDefault(planNodeId, 0L), BYTE),
                     operatorInputStats.get(planNodeId),

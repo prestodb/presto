@@ -21,6 +21,7 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.function.BiConsumer;
 
+import static com.facebook.presto.spi.block.ArrayBlock.createArrayBlockInternal;
 import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
@@ -114,7 +115,7 @@ public class ArrayBlockBuilder
     }
 
     @Override
-    protected Block getValues()
+    protected Block getRawElementBlock()
     {
         return values;
     }
@@ -138,24 +139,48 @@ public class ArrayBlockBuilder
     }
 
     @Override
-    public BlockBuilder writeObject(Object value)
+    public BlockBuilder appendStructure(Block block)
     {
         if (currentEntryOpened) {
             throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
+        currentEntryOpened = true;
 
-        Block block = (Block) value;
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (block.isNull(i)) {
                 values.appendNull();
             }
             else {
                 block.writePositionTo(i, values);
-                values.closeEntry();
             }
         }
 
-        currentEntryOpened = true;
+        closeEntry();
+        return this;
+    }
+
+    @Override
+    public BlockBuilder appendStructureInternal(Block block, int position)
+    {
+        if (!(block instanceof AbstractArrayBlock)) {
+            throw new IllegalArgumentException();
+        }
+
+        AbstractArrayBlock arrayBlock = (AbstractArrayBlock) block;
+        BlockBuilder entryBuilder = beginBlockEntry();
+
+        int startValueOffset = arrayBlock.getOffset(position);
+        int endValueOffset = arrayBlock.getOffset(position + 1);
+        for (int i = startValueOffset; i < endValueOffset; i++) {
+            if (arrayBlock.getRawElementBlock().isNull(i)) {
+                entryBuilder.appendNull();
+            }
+            else {
+                arrayBlock.getRawElementBlock().writePositionTo(i, entryBuilder);
+            }
+        }
+
+        closeEntry();
         return this;
     }
 
@@ -236,7 +261,7 @@ public class ArrayBlockBuilder
         if (currentEntryOpened) {
             throw new IllegalStateException("Current entry must be closed before the block can be built");
         }
-        return new ArrayBlock(positionCount, valueIsNull, offsets, values.build());
+        return createArrayBlockInternal(0, positionCount, valueIsNull, offsets, values.build());
     }
 
     @Override

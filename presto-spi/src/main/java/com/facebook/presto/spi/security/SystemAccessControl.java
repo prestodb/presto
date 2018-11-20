@@ -19,6 +19,7 @@ import com.facebook.presto.spi.SchemaTableName;
 
 import java.security.Principal;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
@@ -38,8 +39,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameC
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
-import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
-import static com.facebook.presto.spi.security.AccessDeniedException.denySelectView;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySelectColumns;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowSchemas;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowTablesMetadata;
@@ -51,7 +51,7 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanSetUser(Principal principal, String userName);
+    void checkCanSetUser(Optional<Principal> principal, String userName);
 
     /**
      * Check if identity is allowed to set the specified system property.
@@ -213,13 +213,13 @@ public interface SystemAccessControl
     }
 
     /**
-     * Check if identity is allowed to select from the specified table in a catalog.
+     * Check if identity is allowed to select from the specified columns in a relation.  The column set can be empty.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanSelectFromTable(Identity identity, CatalogSchemaTableName table)
+    default void checkCanSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
     {
-        denySelectTable(table.toString());
+        denySelectColumns(table.toString(), columns);
     }
 
     /**
@@ -263,33 +263,13 @@ public interface SystemAccessControl
     }
 
     /**
-     * Check if identity is allowed to select from the specified view in a catalog.
+     * Check if identity is allowed to create a view that selects from the specified columns in a relation.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanSelectFromView(Identity identity, CatalogSchemaTableName view)
+    default void checkCanCreateViewWithSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
     {
-        denySelectView(view.toString());
-    }
-
-    /**
-     * Check if identity is allowed to create a view that selects from the specified table in a catalog.
-     *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
-     */
-    default void checkCanCreateViewWithSelectFromTable(Identity identity, CatalogSchemaTableName table)
-    {
-        denyCreateViewWithSelect(table.toString());
-    }
-
-    /**
-     * Check if identity is allowed to create a view that selects from the specified view in a catalog.
-     *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
-     */
-    default void checkCanCreateViewWithSelectFromView(Identity identity, CatalogSchemaTableName view)
-    {
-        denyCreateViewWithSelect(view.toString());
+        denyCreateViewWithSelect(table.toString(), identity);
     }
 
     /**

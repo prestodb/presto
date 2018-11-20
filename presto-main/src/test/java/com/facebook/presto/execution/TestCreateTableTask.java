@@ -19,6 +19,7 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.AbstractMockMetadata;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.metadata.ColumnPropertyManager;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TablePropertyManager;
@@ -42,11 +43,11 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
-import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
+import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
@@ -62,6 +63,7 @@ public class TestCreateTableTask
     private TypeManager typeManager;
     private TransactionManager transactionManager;
     private TablePropertyManager tablePropertyManager;
+    private ColumnPropertyManager columnPropertyManager;
     private Catalog testCatalog;
     private Session testSession;
     private MockMetadata metadata;
@@ -73,15 +75,18 @@ public class TestCreateTableTask
         typeManager = new TypeRegistry();
         transactionManager = createTestTransactionManager(catalogManager);
         tablePropertyManager = new TablePropertyManager();
+        columnPropertyManager = new ColumnPropertyManager();
         testCatalog = createBogusTestingCatalog(CATALOG_NAME);
         catalogManager.registerCatalog(testCatalog);
         tablePropertyManager.addProperties(testCatalog.getConnectorId(),
-                ImmutableList.of(stringSessionProperty("baz", "test property", null, false)));
+                ImmutableList.of(stringProperty("baz", "test property", null, false)));
+        columnPropertyManager.addProperties(testCatalog.getConnectorId(), ImmutableList.of());
         testSession = testSessionBuilder()
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
         metadata = new MockMetadata(typeManager,
                 tablePropertyManager,
+                columnPropertyManager,
                 testCatalog.getConnectorId());
     }
 
@@ -89,7 +94,7 @@ public class TestCreateTableTask
     public void testCreateTableNotExistsTrue()
     {
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"),
-                ImmutableList.of(new ColumnDefinition(identifier("a"), "BIGINT", Optional.empty())),
+                ImmutableList.of(new ColumnDefinition(identifier("a"), "BIGINT", emptyList(), Optional.empty())),
                 true,
                 ImmutableList.of(),
                 Optional.empty());
@@ -102,7 +107,7 @@ public class TestCreateTableTask
     public void testCreateTableNotExistsFalse()
     {
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"),
-                ImmutableList.of(new ColumnDefinition(identifier("a"), "BIGINT", Optional.empty())),
+                ImmutableList.of(new ColumnDefinition(identifier("a"), "BIGINT", emptyList(), Optional.empty())),
                 false,
                 ImmutableList.of(),
                 Optional.empty());
@@ -115,7 +120,7 @@ public class TestCreateTableTask
             // Expected
             assertTrue(e instanceof PrestoException);
             PrestoException prestoException = (PrestoException) e;
-            assertTrue(prestoException.getErrorCode().equals(ALREADY_EXISTS.toErrorCode()));
+            assertEquals(prestoException.getErrorCode(), ALREADY_EXISTS.toErrorCode());
         }
         assertEquals(metadata.getCreateTableCallCount(), 1);
     }
@@ -125,16 +130,19 @@ public class TestCreateTableTask
     {
         private final TypeManager typeManager;
         private final TablePropertyManager tablePropertyManager;
+        private final ColumnPropertyManager columnPropertyManager;
         private final ConnectorId catalogHandle;
         private AtomicInteger createTableCallCount = new AtomicInteger();
 
         public MockMetadata(
                 TypeManager typeManager,
                 TablePropertyManager tablePropertyManager,
+                ColumnPropertyManager columnPropertyManager,
                 ConnectorId catalogHandle)
         {
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
             this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
+            this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
             this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         }
 
@@ -151,6 +159,12 @@ public class TestCreateTableTask
         public TablePropertyManager getTablePropertyManager()
         {
             return tablePropertyManager;
+        }
+
+        @Override
+        public ColumnPropertyManager getColumnPropertyManager()
+        {
+            return columnPropertyManager;
         }
 
         @Override

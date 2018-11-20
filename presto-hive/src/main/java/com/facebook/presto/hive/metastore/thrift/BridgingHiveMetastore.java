@@ -15,19 +15,21 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.HiveUtil;
+import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.statistics.ColumnStatisticType;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
-import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 
@@ -37,11 +39,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyCanDropColumn;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.isAvroTableWithSchemaSet;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiDatabase;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiPartition;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiPrivilegeGrantInfo;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -74,33 +78,42 @@ public class BridgingHiveMetastore
     @Override
     public Optional<Table> getTable(String databaseName, String tableName)
     {
-        return delegate.getTable(databaseName, tableName).map(ThriftMetastoreUtil::fromMetastoreApiTable);
+        return delegate.getTable(databaseName, tableName).map(table -> {
+            if (isAvroTableWithSchemaSet(table)) {
+                return fromMetastoreApiTable(table, delegate.getFields(databaseName, tableName).get());
+            }
+            return fromMetastoreApiTable(table);
+        });
     }
 
     @Override
-    public Optional<Map<String, HiveColumnStatistics>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
+    public Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)
     {
-        return delegate.getTableColumnStatistics(databaseName, tableName, columnNames).map(this::groupStatisticsByColumn);
+        return delegate.getSupportedColumnStatistics(type);
     }
 
     @Override
-    public Optional<Map<String, Map<String, HiveColumnStatistics>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
+    public PartitionStatistics getTableStatistics(String databaseName, String tableName)
     {
-        return delegate.getPartitionColumnStatistics(databaseName, tableName, partitionNames, columnNames).map(
-                statistics -> ImmutableMap.copyOf(
-                        statistics.entrySet().stream()
-                                .collect(Collectors.toMap(
-                                        Map.Entry::getKey,
-                                        entry -> groupStatisticsByColumn(entry.getValue())))));
+        return delegate.getTableStatistics(databaseName, tableName);
     }
 
-    private Map<String, HiveColumnStatistics> groupStatisticsByColumn(Set<ColumnStatisticsObj> statistics)
+    @Override
+    public Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
     {
-        return ImmutableMap.copyOf(
-                statistics.stream()
-                        .collect(Collectors.toMap(
-                                ColumnStatisticsObj::getColName,
-                                ThriftMetastoreUtil::fromMetastoreApiColumnStatistics)));
+        return delegate.getPartitionStatistics(databaseName, tableName, partitionNames);
+    }
+
+    @Override
+    public void updateTableStatistics(String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
+    {
+        delegate.updateTableStatistics(databaseName, tableName, update);
+    }
+
+    @Override
+    public void updatePartitionStatistics(String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    {
+        delegate.updatePartitionStatistics(databaseName, tableName, partitionName, update);
     }
 
     @Override
@@ -261,14 +274,9 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void addPartitions(String databaseName, String tableName, List<Partition> partitions)
+    public void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions)
     {
-        delegate.addPartitions(
-                databaseName,
-                tableName,
-                partitions.stream()
-                        .map(ThriftMetastoreUtil::toMetastoreApiPartition)
-                        .collect(Collectors.toList()));
+        delegate.addPartitions(databaseName, tableName, partitions);
     }
 
     @Override
@@ -278,9 +286,9 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void alterPartition(String databaseName, String tableName, Partition partition)
+    public void alterPartition(String databaseName, String tableName, PartitionWithStatistics partition)
     {
-        delegate.alterPartition(databaseName, tableName, toMetastoreApiPartition(partition));
+        delegate.alterPartition(databaseName, tableName, partition);
     }
 
     @Override

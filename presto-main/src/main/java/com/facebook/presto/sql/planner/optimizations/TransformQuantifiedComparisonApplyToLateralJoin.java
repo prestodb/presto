@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.BigintType;
@@ -24,6 +25,7 @@ import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -49,21 +51,21 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.globalAggregation;
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR_EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.NOT_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
 import static com.facebook.presto.sql.tree.QuantifiedComparisonExpression.Quantifier.ALL;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -81,7 +83,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         return rewriteWith(new Rewriter(idAllocator, types, symbolAllocator, metadata), plan, null);
     }
@@ -94,11 +96,11 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
         private static final QualifiedName COUNT = QualifiedName.of("count");
 
         private final PlanNodeIdAllocator idAllocator;
-        private final Map<Symbol, Type> types;
+        private final TypeProvider types;
         private final SymbolAllocator symbolAllocator;
         private final Metadata metadata;
 
-        public Rewriter(PlanNodeIdAllocator idAllocator, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, Metadata metadata)
+        public Rewriter(PlanNodeIdAllocator idAllocator, TypeProvider types, SymbolAllocator symbolAllocator, Metadata metadata)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.types = requireNonNull(types, "types is null");
@@ -160,7 +162,8 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                                     new FunctionCall(COUNT, outputColumnReferences),
                                     functionRegistry.resolveFunction(COUNT, fromTypeSignatures(outputColumnTypeSignature)),
                                     Optional.empty())),
-                    ImmutableList.of(ImmutableList.of()),
+                    globalAggregation(),
+                    ImmutableList.of(),
                     AggregationNode.Step.SINGLE,
                     Optional.empty(),
                     Optional.empty());
@@ -204,20 +207,20 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
 
         private Expression getBoundComparisons(QuantifiedComparisonExpression quantifiedComparison, Symbol minValue, Symbol maxValue)
         {
-            if (quantifiedComparison.getComparisonType() == EQUAL && quantifiedComparison.getQuantifier() == ALL) {
+            if (quantifiedComparison.getOperator() == EQUAL && quantifiedComparison.getQuantifier() == ALL) {
                 // A = ALL B <=> min B = max B && A = min B
                 return combineConjuncts(
                         new ComparisonExpression(EQUAL, minValue.toSymbolReference(), maxValue.toSymbolReference()),
                         new ComparisonExpression(EQUAL, quantifiedComparison.getValue(), maxValue.toSymbolReference()));
             }
 
-            if (EnumSet.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL).contains(quantifiedComparison.getComparisonType())) {
+            if (EnumSet.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL).contains(quantifiedComparison.getOperator())) {
                 // A < ALL B <=> A < min B
                 // A > ALL B <=> A > max B
                 // A < ANY B <=> A < max B
                 // A > ANY B <=> A > min B
                 Symbol boundValue = shouldCompareValueWithLowerBound(quantifiedComparison) ? minValue : maxValue;
-                return new ComparisonExpression(quantifiedComparison.getComparisonType(), quantifiedComparison.getValue(), boundValue.toSymbolReference());
+                return new ComparisonExpression(quantifiedComparison.getOperator(), quantifiedComparison.getValue(), boundValue.toSymbolReference());
             }
             throw new IllegalArgumentException("Unsupported quantified comparison: " + quantifiedComparison);
         }
@@ -226,7 +229,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
         {
             switch (quantifiedComparison.getQuantifier()) {
                 case ALL:
-                    switch (quantifiedComparison.getComparisonType()) {
+                    switch (quantifiedComparison.getOperator()) {
                         case LESS_THAN:
                         case LESS_THAN_OR_EQUAL:
                             return true;
@@ -237,7 +240,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     break;
                 case ANY:
                 case SOME:
-                    switch (quantifiedComparison.getComparisonType()) {
+                    switch (quantifiedComparison.getOperator()) {
                         case LESS_THAN:
                         case LESS_THAN_OR_EQUAL:
                             return false;

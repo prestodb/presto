@@ -185,6 +185,13 @@ public class LazyBlock
     }
 
     @Override
+    public long getEstimatedDataSizeForStats(int position)
+    {
+        assureLoaded();
+        return block.getEstimatedDataSizeForStats(position);
+    }
+
+    @Override
     public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
         assureLoaded();
@@ -193,10 +200,17 @@ public class LazyBlock
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
         assureLoaded();
-        return new LazyBlockEncoding(block.getEncoding());
+        return LazyBlockEncoding.NAME;
+    }
+
+    @Override
+    public Block getPositions(int[] positions, int offset, int length)
+    {
+        assureLoaded();
+        return block.getPositions(positions, offset, length);
     }
 
     @Override
@@ -227,12 +241,6 @@ public class LazyBlock
         return block.isNull(position);
     }
 
-    public Block getBlock()
-    {
-        assureLoaded();
-        return block;
-    }
-
     public void setBlock(Block block)
     {
         if (this.block != null) {
@@ -247,7 +255,13 @@ public class LazyBlock
     }
 
     @Override
-    public void assureLoaded()
+    public Block getLoadedBlock()
+    {
+        assureLoaded();
+        return block;
+    }
+
+    private void assureLoaded()
     {
         if (block != null) {
             return;

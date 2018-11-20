@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.project;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
@@ -23,6 +24,7 @@ import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputParameterRewriter;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.google.common.collect.ImmutableMap;
@@ -47,7 +49,7 @@ public class InterpretedPageFilter
 
     public InterpretedPageFilter(
             Expression expression,
-            Map<Symbol, Type> symbolTypes,
+            TypeProvider symbolTypes,
             Map<Symbol, Integer> symbolToInputMappings,
             Metadata metadata,
             SqlParser sqlParser,
@@ -65,7 +67,7 @@ public class InterpretedPageFilter
             Type type = inputTypes.get(parameter);
             parameterTypes.put(parameter, type);
         }
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, sqlParser, parameterTypes.build(), rewritten, emptyList());
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, sqlParser, parameterTypes.build(), rewritten, emptyList(), WarningCollector.NOOP);
         this.evaluator = ExpressionInterpreter.expressionInterpreter(rewritten, metadata, session, expressionTypes);
     }
 
@@ -97,6 +99,6 @@ public class InterpretedPageFilter
 
     private boolean filter(Page page, int position)
     {
-        return TRUE.equals(evaluator.evaluate(position, page.getBlocks()));
+        return TRUE.equals(evaluator.evaluate(position, page));
     }
 }

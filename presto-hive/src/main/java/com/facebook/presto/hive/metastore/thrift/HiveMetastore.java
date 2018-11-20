@@ -13,9 +13,16 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
+import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
-import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
+import com.facebook.presto.hive.metastore.PartitionWithStatistics;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.statistics.ColumnStatisticType;
+import com.facebook.presto.spi.type.Type;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -24,7 +31,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.metastore.Database.DEFAULT_DATABASE_NAME;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
@@ -51,16 +60,21 @@ public interface HiveMetastore
 
     Optional<Database> getDatabase(String databaseName);
 
-    /**
-     * Adds partitions to the table in a single atomic task.  The implementation
-     * must either add all partitions and return normally, or add no partitions and
-     * throw an exception.
-     */
-    void addPartitions(String databaseName, String tableName, List<Partition> partitions);
+    void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions);
+
+    // TODO: Remove this method by release 0.212.
+    // This method is available to allow smoother transition of the addPartitions API.
+    @Deprecated
+    void addPartitionsWithoutStatistics(String databaseName, String tableName, List<Partition> partitions);
 
     void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData);
 
-    void alterPartition(String databaseName, String tableName, Partition partition);
+    void alterPartition(String databaseName, String tableName, PartitionWithStatistics partition);
+
+    // TODO: Remove this method by release 0.212.
+    // This method is available to allow smoother transition of the addPartitions API.
+    @Deprecated
+    void alterPartitionWithoutStatistics(String databaseName, String tableName, Partition partition);
 
     Optional<List<String>> getPartitionNames(String databaseName, String tableName);
 
@@ -72,9 +86,15 @@ public interface HiveMetastore
 
     Optional<Table> getTable(String databaseName, String tableName);
 
-    Optional<Set<ColumnStatisticsObj>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames);
+    Set<ColumnStatisticType> getSupportedColumnStatistics(Type type);
 
-    Optional<Map<String, Set<ColumnStatisticsObj>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames);
+    PartitionStatistics getTableStatistics(String databaseName, String tableName);
+
+    Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames);
+
+    void updateTableStatistics(String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update);
+
+    void updatePartitionStatistics(String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update);
 
     Set<String> getRoles(String user);
 
@@ -115,5 +135,19 @@ public interface HiveMetastore
         // a table can only be owned by a user
         Optional<Table> table = getTable(databaseName, tableName);
         return table.isPresent() && user.equals(table.get().getOwner());
+    }
+
+    default Optional<List<FieldSchema>> getFields(String databaseName, String tableName)
+    {
+        Optional<Table> table = getTable(databaseName, tableName);
+        if (!table.isPresent()) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+
+        if (table.get().getSd() == null) {
+            throw new PrestoException(HIVE_INVALID_METADATA, "Table is missing storage descriptor");
+        }
+
+        return Optional.of(table.get().getSd().getCols());
     }
 }

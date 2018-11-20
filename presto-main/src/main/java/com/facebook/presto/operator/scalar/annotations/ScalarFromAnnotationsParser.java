@@ -18,20 +18,24 @@ import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.ParametricImplementationsGroup;
 import com.facebook.presto.operator.annotations.FunctionsParserHelper;
 import com.facebook.presto.operator.scalar.ParametricScalar;
+import com.facebook.presto.operator.scalar.annotations.ParametricScalarImplementation.SpecializedSignature;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.function.TypeParameter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.operator.scalar.annotations.OperatorValidator.validateOperator;
+import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -43,7 +47,7 @@ public final class ScalarFromAnnotationsParser
     {
         ImmutableList.Builder<SqlScalarFunction> builder = ImmutableList.builder();
         for (ScalarHeaderAndMethods scalar : findScalarsInFunctionDefinitionClass(clazz)) {
-            builder.add(parseParametricScalar(scalar, FunctionsParserHelper.findConstructors(clazz)));
+            builder.add(parseParametricScalar(scalar, FunctionsParserHelper.findConstructor(clazz)));
         }
         return builder.build();
     }
@@ -52,7 +56,8 @@ public final class ScalarFromAnnotationsParser
     {
         ImmutableList.Builder<SqlScalarFunction> builder = ImmutableList.builder();
         for (ScalarHeaderAndMethods methods : findScalarsInFunctionSetClass(clazz)) {
-            builder.add(parseParametricScalar(methods, FunctionsParserHelper.findConstructors(clazz)));
+            // Non-static function only makes sense in classes annotated @ScalarFunction.
+            builder.add(parseParametricScalar(methods, Optional.empty()));
         }
         return builder.build();
     }
@@ -65,7 +70,7 @@ public final class ScalarFromAnnotationsParser
 
         for (ScalarImplementationHeader header : classHeaders) {
             Set<Method> methods = FunctionsParserHelper.findPublicMethodsWithAnnotation(annotated, SqlType.class, ScalarFunction.class, ScalarOperator.class);
-            checkArgument(!methods.isEmpty(), "Parametric class [%s] does not have any annotated methods", annotated.getName());
+            checkCondition(!methods.isEmpty(), FUNCTION_IMPLEMENTATION_ERROR, "Parametric class [%s] does not have any annotated methods", annotated.getName());
             for (Method method : methods) {
                 checkArgument(method.getAnnotation(ScalarFunction.class) == null, "Parametric class method [%s] is annotated with @ScalarFunction", method);
                 checkArgument(method.getAnnotation(ScalarOperator.class) == null, "Parametric class method [%s] is annotated with @ScalarOperator", method);
@@ -80,8 +85,8 @@ public final class ScalarFromAnnotationsParser
     {
         ImmutableList.Builder<ScalarHeaderAndMethods> builder = ImmutableList.builder();
         for (Method method : FunctionsParserHelper.findPublicMethodsWithAnnotation(annotated, SqlType.class, ScalarFunction.class, ScalarOperator.class)) {
-            checkArgument((method.getAnnotation(ScalarFunction.class) != null) || (method.getAnnotation(ScalarOperator.class) != null),
-                    "Method [%s] annotated with @SqlType is missing @ScalarFunction or @ScalarOperator", method);
+            checkCondition((method.getAnnotation(ScalarFunction.class) != null) || (method.getAnnotation(ScalarOperator.class) != null),
+                    FUNCTION_IMPLEMENTATION_ERROR, "Method [%s] annotated with @SqlType is missing @ScalarFunction or @ScalarOperator", method);
             for (ScalarImplementationHeader header : ScalarImplementationHeader.fromAnnotatedElement(method)) {
                 builder.add(new ScalarHeaderAndMethods(header, ImmutableSet.of(method)));
             }
@@ -91,18 +96,34 @@ public final class ScalarFromAnnotationsParser
         return methods;
     }
 
-    private static SqlScalarFunction parseParametricScalar(ScalarHeaderAndMethods scalar, Map<Set<TypeParameter>, Constructor<?>> constructors)
+    private static SqlScalarFunction parseParametricScalar(ScalarHeaderAndMethods scalar, Optional<Constructor<?>> constructor)
     {
-        ParametricImplementationsGroup.Builder<ScalarImplementation> implementationsBuilder = ParametricImplementationsGroup.builder();
         ScalarImplementationHeader header = scalar.getHeader();
         checkArgument(!header.getName().isEmpty());
 
+        Map<SpecializedSignature, ParametricScalarImplementation.Builder> signatures = new HashMap<>();
         for (Method method : scalar.getMethods()) {
-            ScalarImplementation implementation = ScalarImplementation.Parser.parseImplementation(header.getName(), method, constructors);
-            implementationsBuilder.addImplementation(implementation);
+            ParametricScalarImplementation implementation = ParametricScalarImplementation.Parser.parseImplementation(header.getName(), method, constructor);
+            if (!signatures.containsKey(implementation.getSpecializedSignature())) {
+                ParametricScalarImplementation.Builder builder = new ParametricScalarImplementation.Builder(
+                        implementation.getSignature(),
+                        implementation.getArgumentNativeContainerTypes(),
+                        implementation.getSpecializedTypeParameters(),
+                        implementation.getReturnNativeContainerType());
+                signatures.put(implementation.getSpecializedSignature(), builder);
+                builder.addChoices(implementation);
+            }
+            else {
+                ParametricScalarImplementation.Builder builder = signatures.get(implementation.getSpecializedSignature());
+                builder.addChoices(implementation);
+            }
         }
 
-        ParametricImplementationsGroup<ScalarImplementation> implementations = implementationsBuilder.build();
+        ParametricImplementationsGroup.Builder<ParametricScalarImplementation> implementationsBuilder = ParametricImplementationsGroup.builder();
+        for (ParametricScalarImplementation.Builder implementation : signatures.values()) {
+            implementationsBuilder.addImplementation(implementation.build());
+        }
+        ParametricImplementationsGroup<ParametricScalarImplementation> implementations = implementationsBuilder.build();
         Signature scalarSignature = implementations.getSignature();
 
         header.getOperatorType().ifPresent(operatorType ->

@@ -1,0 +1,48 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        final aggregation over (d_week_seq, i_item_desc, w_warehouse_name)
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPARTITION, HASH, ["d_week_seq", "i_item_desc", "w_warehouse_name"])
+                    partial aggregation over (d_week_seq, i_item_desc, w_warehouse_name)
+                        join (LEFT, REPLICATED):
+                            join (LEFT, REPLICATED):
+                                join (INNER, PARTITIONED):
+                                    remote exchange (REPARTITION, HASH, ["d_week_seq_15", "inv_item_sk"])
+                                        join (INNER, REPLICATED):
+                                            join (INNER, REPLICATED):
+                                                scan tpcds:inventory:sf3000.0
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        scan tpcds:date_dim:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    scan tpcds:warehouse:sf3000.0
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPARTITION, HASH, ["cs_item_sk", "d_week_seq"])
+                                            join (INNER, REPLICATED):
+                                                join (INNER, REPLICATED):
+                                                    join (INNER, REPLICATED):
+                                                        join (INNER, REPLICATED):
+                                                            join (INNER, REPLICATED):
+                                                                scan tpcds:catalog_sales:sf3000.0
+                                                                local exchange (GATHER, SINGLE, [])
+                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                        scan tpcds:customer_demographics:sf3000.0
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                    scan tpcds:household_demographics:sf3000.0
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                scan tpcds:date_dim:sf3000.0
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            scan tpcds:date_dim:sf3000.0
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        scan tpcds:item:sf3000.0
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPLICATE, BROADCAST, [])
+                                        scan tpcds:promotion:sf3000.0
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    scan tpcds:catalog_returns:sf3000.0

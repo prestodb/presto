@@ -20,33 +20,29 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalDouble;
 
-import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
-import static com.facebook.presto.cost.SymbolStatsEstimate.UNKNOWN_STATS;
-import static java.lang.Double.NEGATIVE_INFINITY;
-import static java.lang.Double.POSITIVE_INFINITY;
+import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
 import static java.util.Objects.requireNonNull;
 
 public class TableScanStatsRule
-        implements ComposableStatsCalculator.Rule
+        extends SimpleStatsRule<TableScanNode>
 {
-    private static final Pattern<TableScanNode> PATTERN = Pattern.typeOf(TableScanNode.class);
+    private static final Pattern<TableScanNode> PATTERN = tableScan();
 
     private final Metadata metadata;
 
-    public TableScanStatsRule(Metadata metadata)
+    public TableScanStatsRule(Metadata metadata, StatsNormalizer normalizer)
     {
-        this.metadata = requireNonNull(metadata, "metadata can not be null");
+        super(normalizer); // Use stats normalization since connector can return inconsistent stats values
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     @Override
@@ -56,21 +52,18 @@ public class TableScanStatsRule
     }
 
     @Override
-    public Optional<PlanNodeStatsEstimate> calculate(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(TableScanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
     {
-        TableScanNode tableScanNode = (TableScanNode) node;
-
         // TODO Construct predicate like AddExchanges's LayoutConstraintEvaluator
-        Constraint<ColumnHandle> constraint = new Constraint<>(tableScanNode.getCurrentConstraint(), bindings -> true);
+        Constraint<ColumnHandle> constraint = new Constraint<>(node.getCurrentConstraint());
 
-        TableStatistics tableStatistics = metadata.getTableStatistics(session, tableScanNode.getTable(), constraint);
+        TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable(), constraint);
         Map<Symbol, SymbolStatsEstimate> outputSymbolStats = new HashMap<>();
 
-        for (Map.Entry<Symbol, ColumnHandle> entry : tableScanNode.getAssignments().entrySet()) {
+        for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
             Symbol symbol = entry.getKey();
-            Type symbolType = types.get(symbol);
             Optional<ColumnStatistics> columnStatistics = Optional.ofNullable(tableStatistics.getColumnStatistics().get(entry.getValue()));
-            outputSymbolStats.put(symbol, columnStatistics.map(statistics -> toSymbolStatistics(tableStatistics, statistics, session, symbolType)).orElse(UNKNOWN_STATS));
+            outputSymbolStats.put(symbol, columnStatistics.map(statistics -> toSymbolStatistics(tableStatistics, statistics)).orElse(SymbolStatsEstimate.unknown()));
         }
 
         return Optional.of(PlanNodeStatsEstimate.builder()
@@ -79,23 +72,19 @@ public class TableScanStatsRule
                 .build());
     }
 
-    private SymbolStatsEstimate toSymbolStatistics(TableStatistics tableStatistics, ColumnStatistics columnStatistics, Session session, Type type)
+    private SymbolStatsEstimate toSymbolStatistics(TableStatistics tableStatistics, ColumnStatistics columnStatistics)
     {
-        return SymbolStatsEstimate.builder()
-                .setLowValue(asDouble(session, type, columnStatistics.getOnlyRangeColumnStatistics().getLowValue()).orElse(NEGATIVE_INFINITY))
-                .setHighValue(asDouble(session, type, columnStatistics.getOnlyRangeColumnStatistics().getHighValue()).orElse(POSITIVE_INFINITY))
-                .setNullsFraction(
-                        columnStatistics.getNullsFraction().getValue()
-                                / (columnStatistics.getNullsFraction().getValue() + columnStatistics.getOnlyRangeColumnStatistics().getFraction().getValue()))
-                .setDistinctValuesCount(columnStatistics.getOnlyRangeColumnStatistics().getDistinctValuesCount().getValue())
-                .setAverageRowSize(columnStatistics.getOnlyRangeColumnStatistics().getDataSize().getValue() / tableStatistics.getRowCount().getValue())
-                .build();
-    }
-
-    private OptionalDouble asDouble(Session session, Type type, Optional<Object> optionalValue)
-    {
-        return optionalValue
-                .map(value -> toStatsRepresentation(metadata, session, type, value))
-                .orElseGet(OptionalDouble::empty);
+        double nullsFraction = columnStatistics.getNullsFraction().getValue();
+        double nonNullRowsCount = tableStatistics.getRowCount().getValue() * (1.0 - nullsFraction);
+        double averageRowSize = nonNullRowsCount == 0 ? 0 : columnStatistics.getDataSize().getValue() / nonNullRowsCount;
+        SymbolStatsEstimate.Builder result = SymbolStatsEstimate.builder();
+        result.setNullsFraction(nullsFraction);
+        result.setDistinctValuesCount(columnStatistics.getDistinctValuesCount().getValue());
+        result.setAverageRowSize(averageRowSize);
+        columnStatistics.getRange().ifPresent(range -> {
+            result.setLowValue(range.getMin());
+            result.setHighValue(range.getMax());
+        });
+        return result.build();
     }
 }

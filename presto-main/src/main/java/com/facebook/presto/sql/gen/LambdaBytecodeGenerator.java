@@ -74,7 +74,7 @@ public class LambdaBytecodeGenerator
             LambdaDefinitionExpression lambdaExpression,
             String methodName,
             ClassDefinition classDefinition,
-            PreGeneratedExpressions preGeneratedExpressions,
+            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             FunctionRegistry functionRegistry)
@@ -96,7 +96,7 @@ public class LambdaBytecodeGenerator
                 cachedInstanceBinder,
                 variableReferenceCompiler(parameterMapBuilder.build()),
                 functionRegistry,
-                preGeneratedExpressions);
+                compiledLambdaMap);
 
         return defineLambdaMethod(
                 innerExpressionCompiler,

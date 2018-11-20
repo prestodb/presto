@@ -14,52 +14,41 @@
 package com.facebook.presto.operator.exchange;
 
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.facebook.presto.operator.exchange.LocalExchanger.FINISHED;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class LocalExchangeSink
 {
-    public static LocalExchangeSink finishedLocalExchangeSink(List<Type> types)
+    public static LocalExchangeSink finishedLocalExchangeSink()
     {
-        LocalExchangeSink finishedSink = new LocalExchangeSink(types, FINISHED, sink -> {});
+        LocalExchangeSink finishedSink = new LocalExchangeSink(FINISHED, sink -> {});
         finishedSink.finish();
         return finishedSink;
     }
 
-    private final List<Type> types;
     private final LocalExchanger exchanger;
     private final Consumer<LocalExchangeSink> onFinish;
 
     private final AtomicBoolean finished = new AtomicBoolean();
 
     public LocalExchangeSink(
-            List<Type> types,
             LocalExchanger exchanger,
             Consumer<LocalExchangeSink> onFinish)
     {
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.exchanger = requireNonNull(exchanger, "exchanger is null");
         this.onFinish = requireNonNull(onFinish, "onFinish is null");
-    }
-
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     public void finish()
     {
         if (finished.compareAndSet(false, true)) {
+            exchanger.finish();
             onFinish.accept(this);
         }
     }
@@ -79,7 +68,6 @@ public class LocalExchangeSink
         if (isFinished()) {
             return;
         }
-        checkArgument(page.getChannelCount() == getTypes().size());
 
         // there can be a race where finished is set between the check above and here
         // it is expected that the exchanger ignores pages after finish

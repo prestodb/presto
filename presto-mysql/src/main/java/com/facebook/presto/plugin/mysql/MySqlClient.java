@@ -44,6 +44,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Locale.ENGLISH;
 
 public class MySqlClient
@@ -95,6 +96,15 @@ public class MySqlClient
         catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public void abortReadConnection(Connection connection)
+            throws SQLException
+    {
+        // Abort connection before closing. Without this, the MySQL driver
+        // attempts to drain the connection by reading all the results.
+        connection.abort(directExecutor());
     }
 
     @Override

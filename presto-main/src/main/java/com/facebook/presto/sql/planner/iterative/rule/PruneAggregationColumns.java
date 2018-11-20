@@ -54,6 +54,7 @@ public class PruneAggregationColumns
                         aggregationNode.getSource(),
                         prunedAggregations,
                         aggregationNode.getGroupingSets(),
+                        aggregationNode.getPreGroupedSymbols(),
                         aggregationNode.getStep(),
                         aggregationNode.getHashSymbol(),
                         aggregationNode.getGroupIdSymbol()));

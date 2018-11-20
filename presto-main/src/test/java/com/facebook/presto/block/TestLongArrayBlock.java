@@ -14,11 +14,13 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.LongArrayBlock;
 import com.facebook.presto.spi.block.LongArrayBlockBuilder;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static org.testng.Assert.assertEquals;
@@ -40,16 +42,16 @@ public class TestLongArrayBlock
     {
         Slice[] expectedValues = (Slice[]) alternatingNullValues(createTestValue(17));
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 0, 2, 4, 6, 7, 9, 10, 16);
+        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), 0, 2, 4, 6, 7, 9, 10, 16);
     }
 
     @Test
     public void testLazyBlockBuilderInitialization()
     {
         Slice[] expectedValues = createTestValue(100);
-        BlockBuilder emptyBlockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), 0, 0);
+        BlockBuilder emptyBlockBuilder = new VariableWidthBlockBuilder(null, 0, 0);
 
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), expectedValues.length, 32 * expectedValues.length);
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, expectedValues.length, 32 * expectedValues.length);
         assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
         assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
 
@@ -57,21 +59,39 @@ public class TestLongArrayBlock
         assertTrue(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes());
         assertTrue(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes());
 
-        blockBuilder = blockBuilder.newBlockBuilderLike(new BlockBuilderStatus());
+        blockBuilder = blockBuilder.newBlockBuilderLike(null);
         assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
         assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+    }
+
+    @Test
+    public void testEstimatedDataSizeForStats()
+    {
+        Slice[] expectedValues = createTestValue(100);
+        assertEstimatedDataSizeForStats(createBlockBuilderWithValues(expectedValues), expectedValues);
+    }
+
+    @Test
+    public void testCompactBlock()
+    {
+        long[] longArray = {0L, 0L, 1L, 2L, 3L, 4L};
+        boolean[] valueIsNull = {false, true, false, false, false, false};
+
+        testCompactBlock(new LongArrayBlock(0, Optional.empty(), new long[0]));
+        testCompactBlock(new LongArrayBlock(longArray.length, Optional.of(valueIsNull), longArray));
+        testIncompactBlock(new LongArrayBlock(longArray.length - 1, Optional.of(valueIsNull), longArray));
     }
 
     private void assertFixedWithValues(Slice[] expectedValues)
     {
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
-        assertBlock(blockBuilder, expectedValues);
-        assertBlock(blockBuilder.build(), expectedValues);
+        assertBlock(blockBuilder, () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
+        assertBlock(blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
     }
 
     private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues)
     {
-        LongArrayBlockBuilder blockBuilder = new LongArrayBlockBuilder(new BlockBuilderStatus(), expectedValues.length);
+        LongArrayBlockBuilder blockBuilder = new LongArrayBlockBuilder(null, expectedValues.length);
         writeValues(expectedValues, blockBuilder);
         return blockBuilder;
     }

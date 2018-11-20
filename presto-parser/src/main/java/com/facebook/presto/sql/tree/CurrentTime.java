@@ -24,10 +24,10 @@ import static java.util.Objects.requireNonNull;
 public class CurrentTime
         extends Expression
 {
-    private final Type type;
+    private final Function function;
     private final Integer precision;
 
-    public enum Type
+    public enum Function
     {
         TIME("current_time"),
         DATE("current_date"),
@@ -37,7 +37,7 @@ public class CurrentTime
 
         private final String name;
 
-        Type(String name)
+        Function(String name)
         {
             this.name = name;
         }
@@ -48,37 +48,37 @@ public class CurrentTime
         }
     }
 
-    public CurrentTime(Type type)
+    public CurrentTime(Function function)
     {
-        this(Optional.empty(), type, null);
+        this(Optional.empty(), function, null);
     }
 
-    public CurrentTime(NodeLocation location, Type type)
+    public CurrentTime(NodeLocation location, Function function)
     {
-        this(Optional.of(location), type, null);
+        this(Optional.of(location), function, null);
     }
 
-    public CurrentTime(Type type, Integer precision)
+    public CurrentTime(Function function, Integer precision)
     {
-        this(Optional.empty(), type, precision);
+        this(Optional.empty(), function, precision);
     }
 
-    public CurrentTime(NodeLocation location, Type type, Integer precision)
+    public CurrentTime(NodeLocation location, Function function, Integer precision)
     {
-        this(Optional.of(location), type, precision);
+        this(Optional.of(location), function, precision);
     }
 
-    private CurrentTime(Optional<NodeLocation> location, Type type, Integer precision)
+    private CurrentTime(Optional<NodeLocation> location, Function function, Integer precision)
     {
         super(location);
-        requireNonNull(type, "type is null");
-        this.type = type;
+        requireNonNull(function, "type is null");
+        this.function = function;
         this.precision = precision;
     }
 
-    public Type getType()
+    public Function getFunction()
     {
-        return type;
+        return function;
     }
 
     public Integer getPrecision()
@@ -108,13 +108,13 @@ public class CurrentTime
             return false;
         }
         CurrentTime that = (CurrentTime) o;
-        return (type == that.type) &&
+        return (function == that.function) &&
                 Objects.equals(precision, that.precision);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(type, precision);
+        return Objects.hash(function, precision);
     }
 }

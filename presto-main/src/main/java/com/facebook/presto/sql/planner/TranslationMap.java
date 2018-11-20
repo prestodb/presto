@@ -26,6 +26,7 @@ import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.NodeRef;
+import com.facebook.presto.sql.tree.Parameter;
 import com.google.common.collect.ImmutableList;
 
 import java.util.HashMap;
@@ -119,31 +120,11 @@ class TranslationMap
                 if (expressionToSymbols.containsKey(node)) {
                     return expressionToSymbols.get(node).toSymbolReference();
                 }
-                else if (expressionToExpressions.containsKey(node)) {
-                    Expression mapping = getMapping(node);
-                    mapping = translateNamesToSymbols(mapping);
-                    return treeRewriter.defaultRewrite(mapping, context);
-                }
-                else {
-                    return treeRewriter.defaultRewrite(node, context);
-                }
+
+                Expression translated = expressionToExpressions.getOrDefault(node, node);
+                return treeRewriter.defaultRewrite(translated, context);
             }
         }, mapped);
-    }
-
-    private Expression getMapping(Expression expression)
-    {
-        if (!expressionToExpressions.containsKey(expression)) {
-            return expression;
-        }
-
-        Expression mapped = expressionToExpressions.get(expression);
-        Expression translated = translateNamesToSymbols(mapped);
-        if (!translated.equals(expression) && expressionToExpressions.containsKey(translated)) {
-            mapped = getMapping(translated);
-        }
-
-        return mapped;
     }
 
     public void put(Expression expression, Symbol symbol)
@@ -195,25 +176,6 @@ class TranslationMap
     public void put(Expression expression, Expression rewritten)
     {
         expressionToExpressions.put(translateNamesToSymbols(expression), rewritten);
-    }
-
-    public void addIntermediateMapping(Expression expression, Expression rewritten)
-    {
-        if (rewritten.equals(expression)) {
-            return;
-        }
-
-        Expression translated = translateNamesToSymbols(expression);
-        if (expressionToExpressions.containsKey(translated)) {
-            Expression previousMapping = expressionToExpressions.get(translated);
-            if (!previousMapping.equals(rewritten)) {
-                put(expression, rewritten);
-                addIntermediateMapping(rewritten, previousMapping);
-            }
-        }
-        else {
-            put(expression, rewritten);
-        }
     }
 
     private Expression translateNamesToSymbols(Expression expression)
@@ -285,6 +247,13 @@ class TranslationMap
                 }
                 Expression rewrittenBody = treeRewriter.rewrite(node.getBody(), null);
                 return new LambdaExpression(newArguments.build(), rewrittenBody);
+            }
+
+            @Override
+            public Expression rewriteParameter(Parameter node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                checkState(analysis.getParameters().size() > node.getPosition(), "Too few parameter values");
+                return coerceIfNecessary(node, analysis.getParameters().get(node.getPosition()));
             }
 
             private Expression coerceIfNecessary(Expression original, Expression rewritten)

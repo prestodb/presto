@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
+import org.apache.hadoop.hive.metastore.api.ColumnStatistics;
+import org.apache.hadoop.hive.metastore.api.ColumnStatisticsDesc;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
 import org.apache.hadoop.hive.metastore.api.Partition;
@@ -139,6 +142,13 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
+    public List<FieldSchema> getFields(String databaseName, String tableName)
+            throws TException
+    {
+        return client.get_fields(databaseName, tableName);
+    }
+
+    @Override
     public List<ColumnStatisticsObj> getTableColumnStatistics(String databaseName, String tableName, List<String> columnNames)
             throws TException
     {
@@ -147,11 +157,44 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
-    public Map<String, List<ColumnStatisticsObj>> getPartitionColumnStatistics(String databaseName, String tableName, List<String> columnNames, List<String> partitionValues)
+    public void setTableColumnStatistics(String databaseName, String tableName, List<ColumnStatisticsObj> statistics)
             throws TException
     {
-        PartitionsStatsRequest partitionsStatsRequest = new PartitionsStatsRequest(databaseName, tableName, columnNames, partitionValues);
+        ColumnStatisticsDesc statisticsDescription = new ColumnStatisticsDesc(true, databaseName, tableName);
+        ColumnStatistics request = new ColumnStatistics(statisticsDescription, statistics);
+        client.update_table_column_statistics(request);
+    }
+
+    @Override
+    public void deleteTableColumnStatistics(String databaseName, String tableName, String columnName)
+            throws TException
+    {
+        client.delete_table_column_statistics(databaseName, tableName, columnName);
+    }
+
+    @Override
+    public Map<String, List<ColumnStatisticsObj>> getPartitionColumnStatistics(String databaseName, String tableName, List<String> partitionNames, List<String> columnNames)
+            throws TException
+    {
+        PartitionsStatsRequest partitionsStatsRequest = new PartitionsStatsRequest(databaseName, tableName, columnNames, partitionNames);
         return client.get_partitions_statistics_req(partitionsStatsRequest).getPartStats();
+    }
+
+    @Override
+    public void setPartitionColumnStatistics(String databaseName, String tableName, String partitionName, List<ColumnStatisticsObj> statistics)
+            throws TException
+    {
+        ColumnStatisticsDesc statisticsDescription = new ColumnStatisticsDesc(false, databaseName, tableName);
+        statisticsDescription.setPartName(partitionName);
+        ColumnStatistics request = new ColumnStatistics(statisticsDescription, statistics);
+        client.update_partition_column_statistics(request);
+    }
+
+    @Override
+    public void deletePartitionColumnStatistics(String databaseName, String tableName, String partitionName, String columnName)
+            throws TException
+    {
+        client.delete_partition_column_statistics(databaseName, tableName, partitionName, columnName);
     }
 
     @Override

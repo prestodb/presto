@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.SingleStreamSpiller;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
@@ -57,8 +56,7 @@ public class HashBuilderOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final List<Type> types;
-        private final LookupSourceFactoryManager lookupSourceFactoryManager;
+        private final JoinBridgeManager<LookupSourceFactory> lookupSourceFactoryManager;
         private final List<Integer> outputChannels;
         private final List<Integer> hashChannels;
         private final OptionalInt preComputedHashChannel;
@@ -78,8 +76,7 @@ public class HashBuilderOperator
         public HashBuilderOperatorFactory(
                 int operatorId,
                 PlanNodeId planNodeId,
-                List<Type> types,
-                LookupSourceFactoryManager lookupSourceFactory,
+                JoinBridgeManager<LookupSourceFactory> lookupSourceFactory,
                 List<Integer> outputChannels,
                 List<Integer> hashChannels,
                 OptionalInt preComputedHashChannel,
@@ -93,7 +90,6 @@ public class HashBuilderOperator
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.types = requireNonNull(types, "types is null");
             requireNonNull(sortChannel, "sortChannel can not be null");
             requireNonNull(searchFunctionFactories, "searchFunctionFactories is null");
             checkArgument(sortChannel.isPresent() != searchFunctionFactories.isEmpty(), "both or none sortChannel and searchFunctionFactories must be set");
@@ -113,18 +109,12 @@ public class HashBuilderOperator
         }
 
         @Override
-        public List<Type> getTypes()
-        {
-            return types;
-        }
-
-        @Override
         public HashBuilderOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, HashBuilderOperator.class.getSimpleName());
 
-            LookupSourceFactory lookupSourceFactory = this.lookupSourceFactoryManager.forLifespan(driverContext.getLifespan());
+            LookupSourceFactory lookupSourceFactory = this.lookupSourceFactoryManager.getJoinBridge(driverContext.getLifespan());
             int partitionIndex = getAndIncrementPartitionIndex(driverContext.getLifespan());
             verify(partitionIndex < lookupSourceFactory.partitions());
             return new HashBuilderOperator(
@@ -197,7 +187,7 @@ public class HashBuilderOperator
         /**
          * No longer needed
          */
-        DISPOSED
+        CLOSED
     }
 
     private static final double INDEX_COMPACTION_ON_REVOCATION_TARGET = 0.8;
@@ -225,7 +215,7 @@ public class HashBuilderOperator
 
     private State state = State.CONSUMING_INPUT;
     private Optional<ListenableFuture<?>> lookupSourceNotNeeded = Optional.empty();
-    private SpilledLookupSourceHandle spilledLookupSourceHandle = new SpilledLookupSourceHandle();
+    private final SpilledLookupSourceHandle spilledLookupSourceHandle = new SpilledLookupSourceHandle();
     private Optional<SingleStreamSpiller> spiller = Optional.empty();
     private ListenableFuture<?> spillInProgress = NOT_BLOCKED;
     private Optional<ListenableFuture<List<Page>>> unspillInProgress = Optional.empty();
@@ -281,12 +271,6 @@ public class HashBuilderOperator
         return operatorContext;
     }
 
-    @Override
-    public List<Type> getTypes()
-    {
-        return lookupSourceFactory.getTypes();
-    }
-
     @VisibleForTesting
     public State getState()
     {
@@ -315,8 +299,8 @@ public class HashBuilderOperator
             case INPUT_UNSPILLED_AND_BUILT:
                 return spilledLookupSourceHandle.getDisposeRequested();
 
-            case DISPOSED:
-                return lookupSourceFactoryDestroyed;
+            case CLOSED:
+                return NOT_BLOCKED;
         }
         throw new IllegalStateException("Unhandled state: " + state);
     }
@@ -423,7 +407,7 @@ public class HashBuilderOperator
         spiller = Optional.of(singleStreamSpillerFactory.create(
                 index.getTypes(),
                 operatorContext.getSpillContext().newLocalSpillContext(),
-                operatorContext.newLocalSystemMemoryContext()));
+                operatorContext.newLocalSystemMemoryContext(HashBuilderOperator.class.getSimpleName())));
         return getSpiller().spill(index.getPages());
     }
 
@@ -483,7 +467,7 @@ public class HashBuilderOperator
                 disposeUnspilledLookupSourceIfRequested();
                 return;
 
-            case DISPOSED:
+            case CLOSED:
                 // no-op
                 return;
         }
@@ -523,7 +507,7 @@ public class HashBuilderOperator
         localRevocableMemoryContext.setBytes(0);
         localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes());
         lookupSourceSupplier = null;
-        state = State.DISPOSED;
+        close();
     }
 
     private void finishSpilledInput()
@@ -597,7 +581,7 @@ public class HashBuilderOperator
         index.clear();
         localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes());
 
-        state = State.DISPOSED;
+        close();
     }
 
     private LookupSourceSupplier buildLookupSource()
@@ -618,7 +602,7 @@ public class HashBuilderOperator
             return true;
         }
 
-        return state == State.DISPOSED;
+        return state == State.CLOSED;
     }
 
     private SingleStreamSpiller getSpiller()
@@ -629,10 +613,13 @@ public class HashBuilderOperator
     @Override
     public void close()
     {
+        if (state == State.CLOSED) {
+            return;
+        }
         // close() can be called in any state, due for example to query failure, and must clean resource up unconditionally
 
         lookupSourceSupplier = null;
-        state = State.DISPOSED;
+        state = State.CLOSED;
         finishMemoryRevoke = finishMemoryRevoke.map(ifPresent -> () -> {});
 
         try (Closer closer = Closer.create()) {

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
@@ -41,55 +40,5 @@ public class PrincipalPrivileges
     public SetMultimap<String, HivePrivilegeInfo> getRolePrivileges()
     {
         return rolePrivileges;
-    }
-
-    public static Builder builder()
-    {
-        return new Builder();
-    }
-
-    public static Builder builder(PrincipalPrivileges table)
-    {
-        return new Builder(table);
-    }
-
-    public static class Builder
-    {
-        private Multimap<String, HivePrivilegeInfo> userPrivileges = ArrayListMultimap.create();
-        private Multimap<String, HivePrivilegeInfo> rolePrivileges = ArrayListMultimap.create();
-
-        public Builder()
-        {
-        }
-
-        public Builder(PrincipalPrivileges principalPrivileges)
-        {
-            userPrivileges.putAll(principalPrivileges.getUserPrivileges());
-            rolePrivileges.putAll(principalPrivileges.getRolePrivileges());
-        }
-
-        public Builder setUserPrivileges(Multimap<String, HivePrivilegeInfo> userPrivileges)
-        {
-            this.userPrivileges = ArrayListMultimap.create(userPrivileges);
-            return this;
-        }
-
-        public Builder addUserPriviledge(String userName, HivePrivilegeInfo privilege)
-        {
-            userPrivileges.put(userName, privilege);
-            return this;
-        }
-
-        public Builder setRolePrivileges(Multimap<String, HivePrivilegeInfo> rolePrivileges)
-        {
-            this.rolePrivileges = ArrayListMultimap.create(rolePrivileges);
-            return this;
-        }
-
-        public Builder addRolePriviledge(String roleName, HivePrivilegeInfo privilege)
-        {
-            rolePrivileges.put(roleName, privilege);
-            return this;
-        }
     }
 }

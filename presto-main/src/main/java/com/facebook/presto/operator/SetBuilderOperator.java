@@ -21,14 +21,12 @@ import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -102,12 +100,6 @@ public class SetBuilderOperator
         }
 
         @Override
-        public List<Type> getTypes()
-        {
-            return ImmutableList.of();
-        }
-
-        @Override
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
@@ -167,12 +159,6 @@ public class SetBuilderOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return ImmutableList.of();
     }
 
     @Override

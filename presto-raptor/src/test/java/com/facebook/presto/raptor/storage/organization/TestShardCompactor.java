@@ -72,7 +72,7 @@ public class TestShardCompactor
 {
     private static final int MAX_SHARD_ROWS = 1000;
     private static final PagesIndexPageSorter PAGE_SORTER = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
-    private static final ReaderAttributes READER_ATTRIBUTES = new ReaderAttributes(new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
+    private static final ReaderAttributes READER_ATTRIBUTES = new ReaderAttributes(new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
 
     private OrcStorageManager storageManager;
     private ShardCompactor compactor;
@@ -210,11 +210,11 @@ public class TestShardCompactor
         }
 
         // extract the sortIndexes and reorder the blocks by sort indexes (useful for debugging)
-        Block[] blocks = pageBuilder.build().getBlocks();
-        Block[] outputBlocks = new Block[blocks.length];
+        Page buildPage = pageBuilder.build();
+        Block[] outputBlocks = new Block[buildPage.getChannelCount()];
 
         for (int i = 0; i < sortIndexes.size(); i++) {
-            outputBlocks[i] = blocks[sortIndexes.get(i)];
+            outputBlocks[i] = buildPage.getBlock(sortIndexes.get(i));
         }
 
         MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(SESSION, sortTypes);
@@ -234,8 +234,7 @@ public class TestShardCompactor
                     if (outputPage == null) {
                         break;
                     }
-                    outputPage.assureLoaded();
-                    pages.add(outputPage);
+                    pages.add(outputPage.getLoadedPage());
                 }
             }
         }

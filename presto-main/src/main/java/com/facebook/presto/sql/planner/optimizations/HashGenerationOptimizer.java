@@ -15,14 +15,16 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -40,6 +42,7 @@ import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
@@ -47,6 +50,7 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -70,7 +74,6 @@ import java.util.function.Function;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
@@ -80,6 +83,7 @@ import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -98,7 +102,7 @@ public class HashGenerationOptimizer
             ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -117,9 +121,9 @@ public class HashGenerationOptimizer
     {
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;
-        private final Map<Symbol, Type> types;
+        private final TypeProvider types;
 
-        private Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Map<Symbol, Type> types)
+        private Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, TypeProvider types)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
@@ -159,7 +163,7 @@ public class HashGenerationOptimizer
         public PlanWithProperties visitAggregation(AggregationNode node, HashComputationSet parentPreference)
         {
             Optional<HashComputation> groupByHash = Optional.empty();
-            if (!canSkipHashGeneration(node.getGroupingKeys())) {
+            if (!node.isStreamable() && !canSkipHashGeneration(node.getGroupingKeys())) {
                 groupByHash = computeHash(node.getGroupingKeys());
             }
 
@@ -175,6 +179,7 @@ public class HashGenerationOptimizer
                             child.getNode(),
                             node.getAggregations(),
                             node.getGroupingSets(),
+                            node.getPreGroupedSymbols(),
                             node.getStep(),
                             hashSymbol,
                             node.getGroupIdSymbol()),
@@ -198,7 +203,7 @@ public class HashGenerationOptimizer
         public PlanWithProperties visitDistinctLimit(DistinctLimitNode node, HashComputationSet parentPreference)
         {
             // skip hash symbol generation for single bigint
-            if (!canSkipHashGeneration(node.getDistinctSymbols())) {
+            if (canSkipHashGeneration(node.getDistinctSymbols())) {
                 return planSimpleNodeWithProperties(node, parentPreference);
             }
 
@@ -210,16 +215,19 @@ public class HashGenerationOptimizer
                     parentPreference.withHashComputation(node, hashComputation));
             Symbol hashSymbol = child.getRequiredHashSymbol(hashComputation.get());
 
+            // TODO: we need to reason about how pre-computed hashes from child relate to distinct symbols. We should be able to include any precomputed hash
+            // that's functionally dependent on the distinct field in the set of distinct fields of the new node to be able to propagate it downstream.
+            // Currently, such precomputed hashes will be dropped by this operation.
             return new PlanWithProperties(
                     new DistinctLimitNode(node.getId(), child.getNode(), node.getLimit(), node.isPartial(), node.getDistinctSymbols(), Optional.of(hashSymbol)),
-                    child.getHashSymbols());
+                    ImmutableMap.of(hashComputation.get(), hashSymbol));
         }
 
         @Override
         public PlanWithProperties visitMarkDistinct(MarkDistinctNode node, HashComputationSet parentPreference)
         {
             // skip hash symbol generation for single bigint
-            if (!canSkipHashGeneration(node.getDistinctSymbols())) {
+            if (canSkipHashGeneration(node.getDistinctSymbols())) {
                 return planSimpleNodeWithProperties(node, parentPreference);
             }
 
@@ -394,6 +402,18 @@ public class HashGenerationOptimizer
         }
 
         @Override
+        public PlanWithProperties visitSpatialJoin(SpatialJoinNode node, HashComputationSet parentPreference)
+        {
+            PlanWithProperties left = planAndEnforce(node.getLeft(), new HashComputationSet(), true, new HashComputationSet());
+            PlanWithProperties right = planAndEnforce(node.getRight(), new HashComputationSet(), true, new HashComputationSet());
+            verify(left.getHashSymbols().isEmpty(), "probe side of the spatial join should not include hash symbols");
+            verify(right.getHashSymbols().isEmpty(), "build side of the spatial join should not include hash symbols");
+            return new PlanWithProperties(
+                    replaceChildren(node, ImmutableList.of(left.getNode(), right.getNode())),
+                    ImmutableMap.of());
+        }
+
+        @Override
         public PlanWithProperties visitIndexJoin(IndexJoinNode node, HashComputationSet parentPreference)
         {
             List<IndexJoinNode.EquiJoinClause> clauses = node.getCriteria();
@@ -533,7 +553,8 @@ public class HashGenerationOptimizer
                             node.getScope(),
                             partitioningScheme,
                             newSources.build(),
-                            newInputs.build()),
+                            newInputs.build(),
+                            node.getOrderingScheme()),
                     newHashSymbols);
         }
 
@@ -668,7 +689,16 @@ public class HashGenerationOptimizer
 
             boolean preferenceSatisfied;
             if (pruneExtraHashSymbols) {
-                preferenceSatisfied = result.getHashSymbols().keySet().equals(requiredHashes.getHashes());
+                // Make sure that
+                // (1) result has all required hashes
+                // (2) any extra hashes are preferred hashes (e.g. no pruning is needed)
+                Set<HashComputation> resultHashes = result.getHashSymbols().keySet();
+                Set<HashComputation> requiredAndPreferredHashes = ImmutableSet.<HashComputation>builder()
+                        .addAll(requiredHashes.getHashes())
+                        .addAll(preferredHashes.getHashes())
+                        .build();
+                preferenceSatisfied = resultHashes.containsAll(requiredHashes.getHashes()) &&
+                        requiredAndPreferredHashes.containsAll(resultHashes);
             }
             else {
                 preferenceSatisfied = result.getHashSymbols().keySet().containsAll(requiredHashes.getHashes());
@@ -859,7 +889,7 @@ public class HashGenerationOptimizer
 
         private Expression getHashExpression()
         {
-            Expression hashExpression = toExpression(INITIAL_HASH_VALUE, BIGINT);
+            Expression hashExpression = new GenericLiteral(StandardTypes.BIGINT, Integer.toString(INITIAL_HASH_VALUE));
             for (Symbol field : fields) {
                 hashExpression = getHashFunctionCall(hashExpression, field);
             }

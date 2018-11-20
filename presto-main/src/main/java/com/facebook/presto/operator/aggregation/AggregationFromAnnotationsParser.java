@@ -97,9 +97,10 @@ public class AggregationFromAnnotationsParser
             Method combineFunction = getCombineFunction(aggregationDefinition, stateClass);
             Optional<Method> aggregationStateSerializerFactory = getAggregationStateSerializerFactory(aggregationDefinition, stateClass);
             Method outputFunction = getOnlyElement(getOutputFunctions(aggregationDefinition, stateClass));
-            Method inputFunction = getOnlyElement(getInputFunctions(aggregationDefinition, stateClass));
-            AggregationImplementation implementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
-            implementationsBuilder.addImplementation(implementation);
+            for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
+                AggregationImplementation implementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
+                implementationsBuilder.addImplementation(implementation);
+            }
         }
 
         ParametricImplementationsGroup<AggregationImplementation> implementations = implementationsBuilder.build();
@@ -130,7 +131,12 @@ public class AggregationFromAnnotationsParser
     {
         AggregationFunction aggregationAnnotation = aggregationDefinition.getAnnotation(AggregationFunction.class);
         requireNonNull(aggregationAnnotation, "aggregationAnnotation is null");
-        return new AggregationHeader(aggregationAnnotation.value(), parseDescription(aggregationDefinition), aggregationAnnotation.decomposable(), aggregationAnnotation.isOrderSensitive());
+        return new AggregationHeader(
+                aggregationAnnotation.value(),
+                parseDescription(aggregationDefinition),
+                aggregationAnnotation.decomposable(),
+                aggregationAnnotation.isOrderSensitive(),
+                aggregationAnnotation.hidden());
     }
 
     private static List<AggregationHeader> parseHeaders(AnnotatedElement aggregationDefinition, AnnotatedElement toParse)
@@ -143,7 +149,8 @@ public class AggregationFromAnnotationsParser
                                 name,
                                 parseDescription(aggregationDefinition, toParse),
                                 aggregationAnnotation.decomposable(),
-                                aggregationAnnotation.isOrderSensitive()))
+                                aggregationAnnotation.isOrderSensitive(),
+                                aggregationAnnotation.hidden()))
                 .collect(toImmutableList());
     }
 

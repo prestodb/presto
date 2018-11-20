@@ -19,7 +19,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.LongArrayBlock;
@@ -330,7 +329,7 @@ public class TestDictionaryAwarePageProjection
                 this.yieldSignal = yieldSignal;
                 this.block = page.getBlock(0);
                 this.selectedPositions = selectedPositions;
-                this.blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), selectedPositions.size());
+                this.blockBuilder = BIGINT.createBlockBuilder(null, selectedPositions.size());
             }
 
             @Override
@@ -359,7 +358,7 @@ public class TestDictionaryAwarePageProjection
                     }
                 }
                 result = blockBuilder.build();
-                blockBuilder = blockBuilder.newBlockBuilderLike(new BlockBuilderStatus());
+                blockBuilder = blockBuilder.newBlockBuilderLike(null);
                 return true;
             }
 

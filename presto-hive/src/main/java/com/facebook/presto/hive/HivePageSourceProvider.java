@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
+import com.facebook.presto.hive.HiveSplit.BucketConversion;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -33,6 +34,7 @@ import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -40,11 +42,14 @@ import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
 
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.extractRegularColumnHandles;
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
+import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -101,7 +106,8 @@ public class HivePageSourceProvider
                 hiveSplit.getPartitionKeys(),
                 hiveStorageTimeZone,
                 typeManager,
-                hiveSplit.getColumnCoercions());
+                hiveSplit.getColumnCoercions(),
+                hiveSplit.getBucketConversion());
         if (pageSource.isPresent()) {
             return pageSource.get();
         }
@@ -124,10 +130,28 @@ public class HivePageSourceProvider
             List<HivePartitionKey> partitionKeys,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
-            Map<Integer, HiveType> columnCoercions)
+            Map<Integer, HiveType> columnCoercions,
+            Optional<BucketConversion> bucketConversion)
     {
-        List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(partitionKeys, hiveColumns, columnCoercions, path, bucketNumber);
-        List<ColumnMapping> regularColumnMappings = ColumnMapping.extractRegularColumnMappings(columnMappings);
+        List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(
+                partitionKeys,
+                hiveColumns,
+                bucketConversion.map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()),
+                columnCoercions,
+                path,
+                bucketNumber);
+        List<ColumnMapping> regularAndInterimColumnMappings = ColumnMapping.extractRegularAndInterimColumnMappings(columnMappings);
+
+        Optional<BucketAdaptation> bucketAdaptation = bucketConversion.map(conversion -> {
+            Map<Integer, ColumnMapping> hiveIndexToBlockIndex = uniqueIndex(regularAndInterimColumnMappings, columnMapping -> columnMapping.getHiveColumnHandle().getHiveColumnIndex());
+            int[] bucketColumnIndices = conversion.getBucketColumnHandles().stream()
+                    .mapToInt(columnHandle -> hiveIndexToBlockIndex.get(columnHandle.getHiveColumnIndex()).getIndex())
+                    .toArray();
+            List<HiveType> bucketColumnHiveTypes = conversion.getBucketColumnHandles().stream()
+                    .map(columnHandle -> hiveIndexToBlockIndex.get(columnHandle.getHiveColumnIndex()).getHiveColumnHandle().getHiveType())
+                    .collect(toImmutableList());
+            return new BucketAdaptation(bucketColumnIndices, bucketColumnHiveTypes, conversion.getTableBucketCount(), conversion.getPartitionBucketCount(), bucketNumber.getAsInt());
+        });
 
         for (HivePageSourceFactory pageSourceFactory : pageSourceFactories) {
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
@@ -138,13 +162,14 @@ public class HivePageSourceProvider
                     length,
                     fileSize,
                     schema,
-                    extractRegularColumnHandles(regularColumnMappings, true),
+                    toColumnHandles(regularAndInterimColumnMappings, true),
                     effectivePredicate,
                     hiveStorageTimeZone);
             if (pageSource.isPresent()) {
                 return Optional.of(
                         new HivePageSource(
                                 columnMappings,
+                                bucketAdaptation,
                                 hiveStorageTimeZone,
                                 typeManager,
                                 pageSource.get()));
@@ -163,7 +188,7 @@ public class HivePageSourceProvider
                     length,
                     fileSize,
                     schema,
-                    extractRegularColumnHandles(regularColumnMappings, doCoercion),
+                    toColumnHandles(regularAndInterimColumnMappings, doCoercion),
                     effectivePredicate,
                     hiveStorageTimeZone,
                     typeManager);
@@ -171,9 +196,20 @@ public class HivePageSourceProvider
             if (cursor.isPresent()) {
                 RecordCursor delegate = cursor.get();
 
+                if (bucketAdaptation.isPresent()) {
+                    delegate = new HiveBucketAdapterRecordCursor(
+                            bucketAdaptation.get().getBucketColumnIndices(),
+                            bucketAdaptation.get().getBucketColumnHiveTypes(),
+                            bucketAdaptation.get().getTableBucketCount(),
+                            bucketAdaptation.get().getPartitionBucketCount(),
+                            bucketAdaptation.get().getBucketToKeep(),
+                            typeManager,
+                            delegate);
+                }
+
                 // Need to wrap RcText and RcBinary into a wrapper, which will do the coercion for mismatch columns
                 if (doCoercion) {
-                    delegate = new HiveCoercionRecordCursor(regularColumnMappings, typeManager, delegate);
+                    delegate = new HiveCoercionRecordCursor(regularAndInterimColumnMappings, typeManager, delegate);
                 }
 
                 HiveRecordCursor hiveRecordCursor = new HiveRecordCursor(
@@ -194,37 +230,51 @@ public class HivePageSourceProvider
 
     public static class ColumnMapping
     {
+        private final ColumnMappingKind kind;
         private final HiveColumnHandle hiveColumnHandle;
-        private final String prefilledValue;
-        private final int index;
+        private final Optional<String> prefilledValue;
+        /**
+         * ordinal of this column in the underlying page source or record cursor
+         */
+        private final OptionalInt index;
         private final Optional<HiveType> coercionFrom;
 
-        private ColumnMapping(HiveColumnHandle hiveColumnHandle, String prefilledValue, int index, Optional<HiveType> coercionFrom)
+        public static ColumnMapping regular(HiveColumnHandle hiveColumnHandle, int index, Optional<HiveType> coerceFrom)
         {
-            requireNonNull(hiveColumnHandle, "hiveColumnHandle is null");
-            if (isPrefilled(hiveColumnHandle)) {
-                requireNonNull(prefilledValue, "prefilledValue is null when it is a prefilled column");
-                checkArgument(index == -1, "index should be -1");
-            }
-            else {
-                checkArgument(index >= 0, "index should be greater than or equal to 0");
-            }
-
-            this.hiveColumnHandle = hiveColumnHandle;
-            this.prefilledValue = prefilledValue;
-            this.index = index;
-            this.coercionFrom = requireNonNull(coercionFrom, "coercionFrom is null while coercion is needed");
+            checkArgument(hiveColumnHandle.getColumnType() == REGULAR);
+            return new ColumnMapping(ColumnMappingKind.REGULAR, hiveColumnHandle, Optional.empty(), OptionalInt.of(index), coerceFrom);
         }
 
-        public boolean isPrefilled()
+        public static ColumnMapping prefilled(HiveColumnHandle hiveColumnHandle, String prefilledValue, Optional<HiveType> coerceFrom)
         {
-            return isPrefilled(hiveColumnHandle);
+            checkArgument(hiveColumnHandle.getColumnType() == PARTITION_KEY || hiveColumnHandle.getColumnType() == SYNTHESIZED);
+            return new ColumnMapping(ColumnMappingKind.PREFILLED, hiveColumnHandle, Optional.of(prefilledValue), OptionalInt.empty(), coerceFrom);
+        }
+
+        public static ColumnMapping interim(HiveColumnHandle hiveColumnHandle, int index)
+        {
+            checkArgument(hiveColumnHandle.getColumnType() == REGULAR);
+            return new ColumnMapping(ColumnMappingKind.INTERIM, hiveColumnHandle, Optional.empty(), OptionalInt.of(index), Optional.empty());
+        }
+
+        private ColumnMapping(ColumnMappingKind kind, HiveColumnHandle hiveColumnHandle, Optional<String> prefilledValue, OptionalInt index, Optional<HiveType> coerceFrom)
+        {
+            this.kind = requireNonNull(kind, "kind is null");
+            this.hiveColumnHandle = requireNonNull(hiveColumnHandle, "hiveColumnHandle is null");
+            this.prefilledValue = requireNonNull(prefilledValue, "prefilledValue is null");
+            this.index = requireNonNull(index, "index is null");
+            this.coercionFrom = requireNonNull(coerceFrom, "coerceFrom is null");
+        }
+
+        public ColumnMappingKind getKind()
+        {
+            return kind;
         }
 
         public String getPrefilledValue()
         {
-            checkState(isPrefilled(), "This is column is not prefilled");
-            return prefilledValue;
+            checkState(kind == ColumnMappingKind.PREFILLED);
+            return prefilledValue.get();
         }
 
         public HiveColumnHandle getHiveColumnHandle()
@@ -234,7 +284,8 @@ public class HivePageSourceProvider
 
         public int getIndex()
         {
-            return index;
+            checkState(kind == ColumnMappingKind.REGULAR || kind == ColumnMappingKind.INTERIM);
+            return index.getAsInt();
         }
 
         public Optional<HiveType> getCoercionFrom()
@@ -242,52 +293,60 @@ public class HivePageSourceProvider
             return coercionFrom;
         }
 
-        private static boolean isPrefilled(HiveColumnHandle hiveColumnHandle)
-        {
-            return hiveColumnHandle.getColumnType() != REGULAR;
-        }
-
+        /**
+         * @param columns columns that need to be returned to engine
+         * @param requiredInterimColumns columns that are needed for processing, but shouldn't be returned to engine (may overlaps with columns)
+         * @param columnCoercions map from hive column index to hive type
+         * @param bucketNumber empty if table is not bucketed, a number within [0, # bucket in table) otherwise
+         */
         public static List<ColumnMapping> buildColumnMappings(
                 List<HivePartitionKey> partitionKeys,
                 List<HiveColumnHandle> columns,
+                List<HiveColumnHandle> requiredInterimColumns,
                 Map<Integer, HiveType> columnCoercions,
                 Path path,
                 OptionalInt bucketNumber)
         {
             Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey::getName);
             int regularIndex = 0;
+            Set<Integer> regularColumnIndices = new HashSet<>();
             ImmutableList.Builder<ColumnMapping> columnMappings = ImmutableList.builder();
-            for (int i = 0; i < columns.size(); i++) {
-                HiveColumnHandle column = columns.get(i);
-                int currentIndex;
-                String prefilledValue = null;
+            for (HiveColumnHandle column : columns) {
+                Optional<HiveType> coercionFrom = Optional.ofNullable(columnCoercions.get(column.getHiveColumnIndex()));
                 if (column.getColumnType() == REGULAR) {
-                    currentIndex = regularIndex;
+                    checkArgument(regularColumnIndices.add(column.getHiveColumnIndex()), "duplicate hiveColumnIndex in columns list");
+                    columnMappings.add(regular(column, regularIndex, coercionFrom));
                     regularIndex++;
                 }
                 else {
-                    currentIndex = -1;
-
-                    // prepare the prefilled value
-                    HivePartitionKey partitionKey = partitionKeysByName.get(column.getName());
-                    prefilledValue = getPrefilledColumnValue(column, partitionKey, path, bucketNumber);
+                    columnMappings.add(prefilled(
+                            column,
+                            getPrefilledColumnValue(column, partitionKeysByName.get(column.getName()), path, bucketNumber),
+                            coercionFrom));
                 }
-
-                Optional<HiveType> coercionFrom = Optional.ofNullable(columnCoercions.get(column.getHiveColumnIndex()));
-
-                columnMappings.add(new ColumnMapping(column, prefilledValue, currentIndex, coercionFrom));
+            }
+            for (HiveColumnHandle column : requiredInterimColumns) {
+                checkArgument(column.getColumnType() == REGULAR);
+                if (regularColumnIndices.contains(column.getHiveColumnIndex())) {
+                    continue; // This column exists in columns. Do not add it again.
+                }
+                // If coercion does not affect bucket number calculation, coercion doesn't need to be applied here.
+                // Otherwise, read of this partition should not be allowed.
+                // (Alternatively, the partition could be read as an unbucketed partition. This is not implemented.)
+                columnMappings.add(interim(column, regularIndex));
+                regularIndex++;
             }
             return columnMappings.build();
         }
 
-        public static List<ColumnMapping> extractRegularColumnMappings(List<ColumnMapping> columnMappings)
+        public static List<ColumnMapping> extractRegularAndInterimColumnMappings(List<ColumnMapping> columnMappings)
         {
             return columnMappings.stream()
-                    .filter(columnMapping -> !columnMapping.isPrefilled())
-                    .collect(toList());
+                    .filter(columnMapping -> columnMapping.getKind() == ColumnMappingKind.REGULAR || columnMapping.getKind() == ColumnMappingKind.INTERIM)
+                    .collect(toImmutableList());
         }
 
-        public static List<HiveColumnHandle> extractRegularColumnHandles(List<ColumnMapping> regularColumnMappings, boolean doCoercion)
+        public static List<HiveColumnHandle> toColumnHandles(List<ColumnMapping> regularColumnMappings, boolean doCoercion)
         {
             return regularColumnMappings.stream()
                     .map(columnMapping -> {
@@ -304,6 +363,56 @@ public class HivePageSourceProvider
                                 Optional.empty());
                     })
                     .collect(toList());
+        }
+    }
+
+    public enum ColumnMappingKind
+    {
+        REGULAR,
+        PREFILLED,
+        INTERIM,
+    }
+
+    public static class BucketAdaptation
+    {
+        private final int[] bucketColumnIndices;
+        private final List<HiveType> bucketColumnHiveTypes;
+        private final int tableBucketCount;
+        private final int partitionBucketCount;
+        private final int bucketToKeep;
+
+        public BucketAdaptation(int[] bucketColumnIndices, List<HiveType> bucketColumnHiveTypes, int tableBucketCount, int partitionBucketCount, int bucketToKeep)
+        {
+            this.bucketColumnIndices = bucketColumnIndices;
+            this.bucketColumnHiveTypes = bucketColumnHiveTypes;
+            this.tableBucketCount = tableBucketCount;
+            this.partitionBucketCount = partitionBucketCount;
+            this.bucketToKeep = bucketToKeep;
+        }
+
+        public int[] getBucketColumnIndices()
+        {
+            return bucketColumnIndices;
+        }
+
+        public List<HiveType> getBucketColumnHiveTypes()
+        {
+            return bucketColumnHiveTypes;
+        }
+
+        public int getTableBucketCount()
+        {
+            return tableBucketCount;
+        }
+
+        public int getPartitionBucketCount()
+        {
+            return partitionBucketCount;
+        }
+
+        public int getBucketToKeep()
+        {
+            return bucketToKeep;
         }
     }
 }

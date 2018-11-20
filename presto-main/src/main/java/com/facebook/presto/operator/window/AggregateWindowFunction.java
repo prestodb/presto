@@ -30,7 +30,6 @@ import static java.util.Objects.requireNonNull;
 public class AggregateWindowFunction
         implements WindowFunction
 {
-    private final InternalAggregationFunction function;
     private final List<Integer> argumentChannels;
     private final AccumulatorFactory accumulatorFactory;
 
@@ -41,7 +40,6 @@ public class AggregateWindowFunction
 
     private AggregateWindowFunction(InternalAggregationFunction function, List<Integer> argumentChannels)
     {
-        this.function = requireNonNull(function, "function is null");
         this.argumentChannels = ImmutableList.copyOf(argumentChannels);
         this.accumulatorFactory = function.bind(createArgs(function), Optional.empty());
     }

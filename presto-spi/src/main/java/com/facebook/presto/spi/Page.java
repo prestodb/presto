@@ -16,6 +16,7 @@ package com.facebook.presto.spi;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.DictionaryId;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -25,16 +26,21 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class Page
 {
+    public static final int INSTANCE_SIZE = ClassLayout.parseClass(Page.class).instanceSize() +
+            (2 * ClassLayout.parseClass(AtomicLong.class).instanceSize());
+
     private final Block[] blocks;
     private final int positionCount;
     private final AtomicLong sizeInBytes = new AtomicLong(-1);
     private final AtomicLong retainedSizeInBytes = new AtomicLong(-1);
+    private final AtomicLong logicalSizeInBytes = new AtomicLong(-1);
 
     public Page(Block... blocks)
     {
@@ -71,22 +77,25 @@ public class Page
         return sizeInBytes;
     }
 
-    public long getRetainedSizeInBytes()
+    public long getLogicalSizeInBytes()
     {
-        long retainedSizeInBytes = this.retainedSizeInBytes.get();
-        if (retainedSizeInBytes < 0) {
-            retainedSizeInBytes = 0;
+        long size = logicalSizeInBytes.get();
+        if (size < 0) {
+            size = 0;
             for (Block block : blocks) {
-                retainedSizeInBytes += block.getRetainedSizeInBytes();
+                size += block.getLogicalSizeInBytes();
             }
-            this.retainedSizeInBytes.set(retainedSizeInBytes);
+            logicalSizeInBytes.set(size);
         }
-        return retainedSizeInBytes;
+        return size;
     }
 
-    public Block[] getBlocks()
+    public long getRetainedSizeInBytes()
     {
-        return blocks.clone();
+        if (retainedSizeInBytes.get() < 0) {
+            updateRetainedSize();
+        }
+        return retainedSizeInBytes.get();
     }
 
     public Block getBlock(int channel)
@@ -121,6 +130,18 @@ public class Page
         return new Page(length, slicedBlocks);
     }
 
+    public Page appendColumn(Block block)
+    {
+        requireNonNull(block, "block is null");
+        if (positionCount != block.getPositionCount()) {
+            throw new IllegalArgumentException("Block does not have same position count");
+        }
+
+        Block[] newBlocks = Arrays.copyOf(blocks, blocks.length + 1);
+        newBlocks[blocks.length] = block;
+        return new Page(newBlocks);
+    }
+
     public void compact()
     {
         if (getRetainedSizeInBytes() <= getSizeInBytes()) {
@@ -145,11 +166,7 @@ public class Page
             }
         }
 
-        long retainedSize = 0;
-        for (Block block : blocks) {
-            retainedSize += block.getRetainedSizeInBytes();
-        }
-        retainedSizeInBytes.set(retainedSize);
+        updateRetainedSize();
     }
 
     private Map<DictionaryId, DictionaryBlockIndexes> getRelatedDictionaryBlocks()
@@ -230,16 +247,28 @@ public class Page
     }
 
     /**
-     * Assures that all data for the block is in memory.
+     * Returns a page that assures all data is in memory.
+     * May return the same page if all page data is already in memory.
      * <p>
      * This allows streaming data sources to skip sections that are not
      * accessed in a query.
      */
-    public void assureLoaded()
+    public Page getLoadedPage()
     {
-        for (Block block : blocks) {
-            block.assureLoaded();
+        boolean allLoaded = true;
+        Block[] loadedBlocks = new Block[blocks.length];
+        for (int i = 0; i < blocks.length; i++) {
+            loadedBlocks[i] = blocks[i].getLoadedBlock();
+            if (loadedBlocks[i] != blocks[i]) {
+                allLoaded = false;
+            }
         }
+
+        if (allLoaded) {
+            return this;
+        }
+
+        return new Page(loadedBlocks);
     }
 
     @Override
@@ -267,10 +296,31 @@ public class Page
     {
         requireNonNull(retainedPositions, "retainedPositions is null");
 
-        Block[] blocks = Arrays.stream(getBlocks())
-                .map(block -> block.getPositions(retainedPositions, offset, length))
-                .toArray(Block[]::new);
+        Block[] blocks = new Block[this.blocks.length];
+        Arrays.setAll(blocks, i -> this.blocks[i].getPositions(retainedPositions, offset, length));
         return new Page(length, blocks);
+    }
+
+    public Page prependColumn(Block column)
+    {
+        if (column.getPositionCount() != positionCount) {
+            throw new IllegalArgumentException(String.format("Column does not have same position count (%s) as page (%s)", column.getPositionCount(), positionCount));
+        }
+
+        Block[] result = new Block[blocks.length + 1];
+        result[0] = column;
+        System.arraycopy(blocks, 0, result, 1, blocks.length);
+
+        return new Page(positionCount, result);
+    }
+
+    private void updateRetainedSize()
+    {
+        long retainedSizeInBytes = INSTANCE_SIZE + sizeOf(blocks);
+        for (Block block : blocks) {
+            retainedSizeInBytes += block.getRetainedSizeInBytes();
+        }
+        this.retainedSizeInBytes.set(retainedSizeInBytes);
     }
 
     private static class DictionaryBlockIndexes

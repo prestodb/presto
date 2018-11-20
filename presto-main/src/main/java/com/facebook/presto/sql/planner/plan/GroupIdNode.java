@@ -45,28 +45,29 @@ public class GroupIdNode
     // in terms of output symbols
     private final List<List<Symbol>> groupingSets;
 
-    // from output to input symbols
-    private final Map<Symbol, Symbol> groupingSetMappings;
-    private final Map<Symbol, Symbol> argumentMappings;
+    // tracks how each grouping set column is derived from an input column
+    private final Map<Symbol, Symbol> groupingColumns;
+    private final List<Symbol> aggregationArguments;
 
     private final Symbol groupIdSymbol;
 
     @JsonCreator
-    public GroupIdNode(@JsonProperty("id") PlanNodeId id,
+    public GroupIdNode(
+            @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("groupingSets") List<List<Symbol>> groupingSets,
-            @JsonProperty("groupingSetMappings") Map<Symbol, Symbol> groupingSetMappings,
-            @JsonProperty("argumentMappings") Map<Symbol, Symbol> argumentMappings,
+            @JsonProperty("groupingColumns") Map<Symbol, Symbol> groupingColumns,
+            @JsonProperty("aggregationArguments") List<Symbol> aggregationArguments,
             @JsonProperty("groupIdSymbol") Symbol groupIdSymbol)
     {
         super(id);
         this.source = requireNonNull(source);
         this.groupingSets = listOfListsCopy(requireNonNull(groupingSets, "groupingSets is null"));
-        this.groupingSetMappings = ImmutableMap.copyOf(requireNonNull(groupingSetMappings));
-        this.argumentMappings = ImmutableMap.copyOf(requireNonNull(argumentMappings));
+        this.groupingColumns = ImmutableMap.copyOf(requireNonNull(groupingColumns));
+        this.aggregationArguments = ImmutableList.copyOf(aggregationArguments);
         this.groupIdSymbol = requireNonNull(groupIdSymbol);
 
-        checkArgument(Sets.intersection(groupingSetMappings.keySet(), argumentMappings.keySet()).isEmpty(), "argument outputs and grouping outputs must be a disjoint set");
+        checkArgument(Sets.intersection(groupingColumns.keySet(), ImmutableSet.copyOf(aggregationArguments)).isEmpty(), "aggregation columns and grouping set columns must be a disjoint set");
     }
 
     @Override
@@ -76,7 +77,7 @@ public class GroupIdNode
                 .addAll(groupingSets.stream()
                         .flatMap(Collection::stream)
                         .collect(toSet()))
-                .addAll(argumentMappings.keySet())
+                .addAll(aggregationArguments)
                 .add(groupIdSymbol)
                 .build();
     }
@@ -100,15 +101,15 @@ public class GroupIdNode
     }
 
     @JsonProperty
-    public Map<Symbol, Symbol> getGroupingSetMappings()
+    public Map<Symbol, Symbol> getGroupingColumns()
     {
-        return groupingSetMappings;
+        return groupingColumns;
     }
 
     @JsonProperty
-    public Map<Symbol, Symbol> getArgumentMappings()
+    public List<Symbol> getAggregationArguments()
     {
-        return argumentMappings;
+        return aggregationArguments;
     }
 
     @JsonProperty
@@ -126,10 +127,10 @@ public class GroupIdNode
     public Set<Symbol> getInputSymbols()
     {
         return ImmutableSet.<Symbol>builder()
-                .addAll(argumentMappings.values())
+                .addAll(aggregationArguments)
                 .addAll(groupingSets.stream()
                         .map(set -> set.stream()
-                                .map(groupingSetMappings::get).collect(Collectors.toList()))
+                                .map(groupingColumns::get).collect(Collectors.toList()))
                         .flatMap(Collection::stream)
                         .collect(toSet()))
                 .build();
@@ -148,6 +149,6 @@ public class GroupIdNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new GroupIdNode(getId(), Iterables.getOnlyElement(newChildren), groupingSets, groupingSetMappings, argumentMappings, groupIdSymbol);
+        return new GroupIdNode(getId(), Iterables.getOnlyElement(newChildren), groupingSets, groupingColumns, aggregationArguments, groupIdSymbol);
     }
 }

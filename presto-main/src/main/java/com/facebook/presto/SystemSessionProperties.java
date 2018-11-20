@@ -17,9 +17,10 @@ import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -27,32 +28,48 @@ import io.airlift.units.Duration;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.stream.Stream;
 
-import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
-import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
-import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public final class SystemSessionProperties
 {
     public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
+    public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
+    public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
     public static final String DISTRIBUTED_JOIN = "distributed_join";
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
+    public static final String GROUPED_EXECUTION_FOR_AGGREGATION = "grouped_execution_for_aggregation";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
     public static final String TASK_WRITER_COUNT = "task_writer_count";
     public static final String TASK_CONCURRENCY = "task_concurrency";
     public static final String TASK_SHARE_INDEX_LOADING = "task_share_index_loading";
     public static final String QUERY_MAX_MEMORY = "query_max_memory";
+    public static final String QUERY_MAX_TOTAL_MEMORY = "query_max_total_memory";
     public static final String QUERY_MAX_EXECUTION_TIME = "query_max_execution_time";
     public static final String QUERY_MAX_RUN_TIME = "query_max_run_time";
     public static final String RESOURCE_OVERCOMMIT = "resource_overcommit";
     public static final String QUERY_MAX_CPU_TIME = "query_max_cpu_time";
+    public static final String QUERY_MAX_STAGE_COUNT = "query_max_stage_count";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
     public static final String SCALE_WRITERS = "scale_writers";
     public static final String WRITER_MIN_SIZE = "writer_min_size";
@@ -60,9 +77,13 @@ public final class SystemSessionProperties
     public static final String EXECUTION_POLICY = "execution_policy";
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
     public static final String PLAN_WITH_TABLE_NODE_PARTITIONING = "plan_with_table_node_partitioning";
+    public static final String SPATIAL_JOIN = "spatial_join";
+    public static final String SPATIAL_PARTITIONING_TABLE_NAME = "spatial_partitioning_table_name";
     public static final String COLOCATED_JOIN = "colocated_join";
     public static final String CONCURRENT_LIFESPANS_PER_NODE = "concurrent_lifespans_per_task";
     public static final String REORDER_JOINS = "reorder_joins";
+    public static final String JOIN_REORDERING_STRATEGY = "join_reordering_strategy";
+    public static final String MAX_REORDERED_JOINS = "max_reordered_joins";
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
     public static final String OPTIMIZE_METADATA_QUERIES = "optimize_metadata_queries";
@@ -71,11 +92,9 @@ public final class SystemSessionProperties
     public static final String SPILL_ENABLED = "spill_enabled";
     public static final String AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT = "aggregation_operator_unspill_memory_limit";
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
-    public static final String LEGACY_ORDER_BY = "legacy_order_by";
-    public static final String LEGACY_JOIN_USING = "legacy_join_using";
+    public static final String LEGACY_ROW_FIELD_ORDINAL_ACCESS = "legacy_row_field_ordinal_access";
     public static final String ITERATIVE_OPTIMIZER = "iterative_optimizer_enabled";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
-    public static final String ENABLE_NEW_STATS_CALCULATOR = "enable_new_stats_calculator";
     public static final String EXCHANGE_COMPRESSION = "exchange_compression";
     public static final String LEGACY_TIMESTAMP = "legacy_timestamp";
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
@@ -85,6 +104,16 @@ public final class SystemSessionProperties
     public static final String FORCE_SINGLE_NODE_OUTPUT = "force_single_node_output";
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE = "filter_and_project_min_output_page_size";
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT = "filter_and_project_min_output_page_row_count";
+    public static final String DISTRIBUTED_SORT = "distributed_sort";
+    public static final String USE_MARK_DISTINCT = "use_mark_distinct";
+    public static final String PREFER_PARTITIAL_AGGREGATION = "prefer_partial_aggregation";
+    public static final String OPTIMIZE_TOP_N_ROW_NUMBER = "optimize_top_n_row_number";
+    public static final String MAX_GROUPING_SETS = "max_grouping_sets";
+    public static final String LEGACY_UNNEST = "legacy_unnest";
+    public static final String STATISTICS_CPU_TIMER_ENABLED = "statistics_cpu_timer_enabled";
+    public static final String ENABLE_STATS_CALCULATOR = "enable_stats_calculator";
+    public static final String IGNORE_STATS_CALCULATOR_FAILURES = "ignore_stats_calculator_failures";
+    public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -101,32 +130,58 @@ public final class SystemSessionProperties
             FeaturesConfig featuresConfig)
     {
         sessionProperties = ImmutableList.of(
-                stringSessionProperty(
+                stringProperty(
                         EXECUTION_POLICY,
                         "Policy used for scheduling query tasks",
                         queryManagerConfig.getQueryExecutionPolicy(),
                         false),
-                booleanSessionProperty(
+                booleanProperty(
                         OPTIMIZE_HASH_GENERATION,
                         "Compute hash codes for distribution, joins, and aggregations early in query plan",
                         featuresConfig.isOptimizeHashGeneration(),
                         false),
-                booleanSessionProperty(
+                booleanProperty(
                         DISTRIBUTED_JOIN,
-                        "Use a distributed join instead of a broadcast join",
-                        featuresConfig.isDistributedJoinsEnabled(),
+                        "(DEPRECATED) Use a distributed join instead of a broadcast join. If this is set, join_distribution_type is ignored.",
+                        null,
                         false),
-                booleanSessionProperty(
+                new PropertyMetadata<>(
+                        JOIN_DISTRIBUTION_TYPE,
+                        format("The join method to use. Options are %s",
+                                Stream.of(JoinDistributionType.values())
+                                        .map(JoinDistributionType::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        JoinDistributionType.class,
+                        featuresConfig.getJoinDistributionType(),
+                        false,
+                        value -> JoinDistributionType.valueOf(((String) value).toUpperCase()),
+                        JoinDistributionType::name),
+                new PropertyMetadata<>(
+                        JOIN_MAX_BROADCAST_TABLE_SIZE,
+                        "Maximum estimated size of a table that can be broadcast for JOIN.",
+                        VARCHAR,
+                        DataSize.class,
+                        featuresConfig.getJoinMaxBroadcastTableSize(),
+                        true,
+                        value -> DataSize.valueOf((String) value),
+                        DataSize::toString),
+                booleanProperty(
                         DISTRIBUTED_INDEX_JOIN,
                         "Distribute index joins on join keys instead of executing inline",
                         featuresConfig.isDistributedIndexJoinsEnabled(),
                         false),
-                integerSessionProperty(
+                integerProperty(
                         HASH_PARTITION_COUNT,
                         "Number of partitions for distributed joins and aggregations",
                         queryManagerConfig.getInitialHashPartitions(),
                         false),
-                booleanSessionProperty(
+                booleanProperty(
+                        GROUPED_EXECUTION_FOR_AGGREGATION,
+                        "Use grouped execution for aggregation when possible",
+                        featuresConfig.isGroupedExecutionForAggregationEnabled(),
+                        false),
+                booleanProperty(
                         PREFER_STREAMING_OPERATORS,
                         "Prefer source table layouts that produce streaming operators",
                         false,
@@ -138,22 +193,14 @@ public final class SystemSessionProperties
                         Integer.class,
                         taskManagerConfig.getWriterCount(),
                         false,
-                        value -> {
-                            int concurrency = ((Number) value).intValue();
-                            if (Integer.bitCount(concurrency) != 1) {
-                                throw new PrestoException(
-                                        StandardErrorCode.INVALID_SESSION_PROPERTY,
-                                        format("%s must be a power of 2: %s", TASK_WRITER_COUNT, concurrency));
-                            }
-                            return concurrency;
-                        },
+                        value -> validateValueIsPowerOfTwo(value, TASK_WRITER_COUNT),
                         value -> value),
-                booleanSessionProperty(
+                booleanProperty(
                         REDISTRIBUTE_WRITES,
                         "Force parallel distributed writes",
                         featuresConfig.isRedistributeWrites(),
                         false),
-                booleanSessionProperty(
+                booleanProperty(
                         SCALE_WRITERS,
                         "Scale out writers based on throughput (use minimum necessary)",
                         featuresConfig.isScaleWriters(),
@@ -167,7 +214,7 @@ public final class SystemSessionProperties
                         false,
                         value -> DataSize.valueOf((String) value),
                         DataSize::toString),
-                booleanSessionProperty(
+                booleanProperty(
                         PUSH_TABLE_WRITE_THROUGH_UNION,
                         "Parallelize writes when using UNION ALL in queries that write data",
                         featuresConfig.isPushTableWriteThroughUnion(),
@@ -179,17 +226,9 @@ public final class SystemSessionProperties
                         Integer.class,
                         taskManagerConfig.getTaskConcurrency(),
                         false,
-                        value -> {
-                            int concurrency = ((Number) value).intValue();
-                            if (Integer.bitCount(concurrency) != 1) {
-                                throw new PrestoException(
-                                        StandardErrorCode.INVALID_SESSION_PROPERTY,
-                                        format("%s must be a power of 2: %s", TASK_CONCURRENCY, concurrency));
-                            }
-                            return concurrency;
-                        },
+                        value -> validateValueIsPowerOfTwo(value, TASK_CONCURRENCY),
                         value -> value),
-                booleanSessionProperty(
+                booleanProperty(
                         TASK_SHARE_INDEX_LOADING,
                         "Share index join lookups and caching within a task",
                         taskManagerConfig.isShareIndexLoading(),
@@ -230,17 +269,31 @@ public final class SystemSessionProperties
                         true,
                         value -> DataSize.valueOf((String) value),
                         DataSize::toString),
-                booleanSessionProperty(
+                new PropertyMetadata<>(
+                        QUERY_MAX_TOTAL_MEMORY,
+                        "Maximum amount of distributed total memory a query can use",
+                        VARCHAR,
+                        DataSize.class,
+                        memoryManagerConfig.getMaxQueryTotalMemory(),
+                        true,
+                        value -> DataSize.valueOf((String) value),
+                        DataSize::toString),
+                booleanProperty(
                         RESOURCE_OVERCOMMIT,
                         "Use resources which are not guaranteed to be available to the query",
                         false,
                         false),
-                booleanSessionProperty(
+                integerProperty(
+                        QUERY_MAX_STAGE_COUNT,
+                        "Temporary: Maximum number of stages a query can have",
+                        queryManagerConfig.getMaxStageCount(),
+                        true),
+                booleanProperty(
                         DICTIONARY_AGGREGATION,
                         "Enable optimization for aggregations on dictionaries",
                         featuresConfig.isDictionaryAggregation(),
                         false),
-                integerSessionProperty(
+                integerProperty(
                         INITIAL_SPLITS_PER_NODE,
                         "The number of splits each node will run per task, initially",
                         taskManagerConfig.getInitialSplitsPerNode(),
@@ -254,40 +307,77 @@ public final class SystemSessionProperties
                         false,
                         value -> Duration.valueOf((String) value),
                         Duration::toString),
-                booleanSessionProperty(
+                booleanProperty(
                         OPTIMIZE_METADATA_QUERIES,
                         "Enable optimization for metadata queries",
                         featuresConfig.isOptimizeMetadataQueries(),
                         false),
-                integerSessionProperty(
+                integerProperty(
                         QUERY_PRIORITY,
                         "The priority of queries. Larger numbers are higher priority",
                         1,
                         false),
-                booleanSessionProperty(
+                booleanProperty(
                         PLAN_WITH_TABLE_NODE_PARTITIONING,
                         "Experimental: Adapt plan to pre-partitioned tables",
                         true,
                         false),
-                booleanSessionProperty(
+                booleanProperty(
                         REORDER_JOINS,
-                        "Experimental: Reorder joins to optimize plan",
-                        featuresConfig.isJoinReorderingEnabled(),
+                        "(DEPRECATED) Reorder joins to remove unnecessary cross joins. If this is set, join_reordering_strategy will be ignored",
+                        null,
                         false),
-                booleanSessionProperty(
+                new PropertyMetadata<>(
+                        JOIN_REORDERING_STRATEGY,
+                        format("The join reordering strategy to use. Options are %s",
+                                Stream.of(JoinReorderingStrategy.values())
+                                        .map(JoinReorderingStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        JoinReorderingStrategy.class,
+                        featuresConfig.getJoinReorderingStrategy(),
+                        false,
+                        value -> JoinReorderingStrategy.valueOf(((String) value).toUpperCase()),
+                        JoinReorderingStrategy::name),
+                new PropertyMetadata<>(
+                        MAX_REORDERED_JOINS,
+                        "The maximum number of joins to reorder as one group in cost-based join reordering",
+                        BIGINT,
+                        Integer.class,
+                        featuresConfig.getMaxReorderedJoins(),
+                        false,
+                        value -> {
+                            int intValue = ((Number) requireNonNull(value, "value is null")).intValue();
+                            if (intValue < 2) {
+                                throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must be greater than or equal to 2: %s", MAX_REORDERED_JOINS, intValue));
+                            }
+                            return intValue;
+                        },
+                        value -> value),
+                booleanProperty(
                         FAST_INEQUALITY_JOINS,
                         "Use faster handling of inequality join if it is possible",
                         featuresConfig.isFastInequalityJoins(),
                         false),
-                booleanSessionProperty(
+                booleanProperty(
                         COLOCATED_JOIN,
                         "Experimental: Use a colocated join when possible",
                         featuresConfig.isColocatedJoinsEnabled(),
                         false),
-                integerSessionProperty(
+                booleanProperty(
+                        SPATIAL_JOIN,
+                        "Use spatial index for spatial join when possible",
+                        featuresConfig.isSpatialJoinsEnabled(),
+                        false),
+                stringProperty(
+                        SPATIAL_PARTITIONING_TABLE_NAME,
+                        "Name of the table containing spatial partitioning scheme",
+                        null,
+                        false),
+                integerProperty(
                         CONCURRENT_LIFESPANS_PER_NODE,
                         "Experimental: Run a fixed number of groups concurrently for eligible JOINs",
-                        -1,
+                        featuresConfig.getConcurrentLifespansPerTask(),
                         false),
                 new PropertyMetadata<>(
                         SPILL_ENABLED,
@@ -300,7 +390,7 @@ public final class SystemSessionProperties
                             boolean spillEnabled = (Boolean) value;
                             if (spillEnabled && featuresConfig.getSpillerSpillPaths().isEmpty()) {
                                 throw new PrestoException(
-                                        StandardErrorCode.INVALID_SESSION_PROPERTY,
+                                        INVALID_SESSION_PROPERTY,
                                         format("%s cannot be set to true; no spill paths configured", SPILL_ENABLED));
                             }
                             return spillEnabled;
@@ -315,22 +405,17 @@ public final class SystemSessionProperties
                         false,
                         value -> DataSize.valueOf((String) value),
                         DataSize::toString),
-                booleanSessionProperty(
+                booleanProperty(
                         OPTIMIZE_DISTINCT_AGGREGATIONS,
                         "Optimize mixed non-distinct and distinct aggregations",
                         featuresConfig.isOptimizeMixedDistinctAggregations(),
                         false),
-                booleanSessionProperty(
-                        LEGACY_ORDER_BY,
-                        "Use legacy rules for column resolution in ORDER BY clause",
-                        featuresConfig.isLegacyOrderBy(),
+                booleanProperty(
+                        LEGACY_ROW_FIELD_ORDINAL_ACCESS,
+                        "Allow accessing anonymous row field with .field0, .field1, ...",
+                        featuresConfig.isLegacyRowFieldOrdinalAccess(),
                         false),
-                booleanSessionProperty(
-                        LEGACY_JOIN_USING,
-                        "Use legacy behavior for JOIN ... USING clause",
-                        featuresConfig.isLegacyJoinUsing(),
-                        false),
-                booleanSessionProperty(
+                booleanProperty(
                         ITERATIVE_OPTIMIZER,
                         "Experimental: enable iterative optimizer",
                         featuresConfig.isIterativeOptimizerEnabled(),
@@ -344,42 +429,37 @@ public final class SystemSessionProperties
                         false,
                         value -> Duration.valueOf((String) value),
                         Duration::toString),
-                booleanSessionProperty(
-                        ENABLE_NEW_STATS_CALCULATOR,
-                        "Use new experimental statistics calculator",
-                        featuresConfig.isEnableNewStatsCalculator(),
-                        true),
-                booleanSessionProperty(
+                booleanProperty(
                         EXCHANGE_COMPRESSION,
                         "Enable compression in exchanges",
                         featuresConfig.isExchangeCompressionEnabled(),
                         false),
-                booleanSessionProperty(
+                booleanProperty(
                         LEGACY_TIMESTAMP,
-                        "Use legacy TIME & TIMESTAMP semantics",
+                        "Use legacy TIME & TIMESTAMP semantics (warning: this will be removed)",
                         featuresConfig.isLegacyTimestamp(),
                         true),
-                booleanSessionProperty(
+                booleanProperty(
                         ENABLE_INTERMEDIATE_AGGREGATIONS,
                         "Enable the use of intermediate aggregations",
                         featuresConfig.isEnableIntermediateAggregations(),
                         false),
-                booleanSessionProperty(
+                booleanProperty(
                         PUSH_AGGREGATION_THROUGH_JOIN,
                         "Allow pushing aggregations below joins",
                         featuresConfig.isPushAggregationThroughJoin(),
                         false),
-                booleanSessionProperty(
+                booleanProperty(
                         PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN,
                         "Push partial aggregations below joins",
                         false,
                         false),
-                booleanSessionProperty(
+                booleanProperty(
                         PARSE_DECIMAL_LITERALS_AS_DOUBLE,
                         "Parse decimal literals as DOUBLE instead of DECIMAL",
                         featuresConfig.isParseDecimalLiteralsAsDouble(),
                         false),
-                booleanSessionProperty(
+                booleanProperty(
                         FORCE_SINGLE_NODE_OUTPUT,
                         "Force single node output",
                         featuresConfig.isForceSingleNodeOutput(),
@@ -393,10 +473,64 @@ public final class SystemSessionProperties
                         false,
                         value -> DataSize.valueOf((String) value),
                         DataSize::toString),
-                integerSessionProperty(
+                integerProperty(
                         FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT,
                         "Experimental: Minimum output page row count for filter and project operators",
                         featuresConfig.getFilterAndProjectMinOutputPageRowCount(),
+                        false),
+                booleanProperty(
+                        DISTRIBUTED_SORT,
+                        "Parallelize sort across multiple nodes",
+                        featuresConfig.isDistributedSortEnabled(),
+                        false),
+                booleanProperty(
+                        USE_MARK_DISTINCT,
+                        "Implement DISTINCT aggregations using MarkDistinct",
+                        featuresConfig.isUseMarkDistinct(),
+                        false),
+                booleanProperty(
+                        PREFER_PARTITIAL_AGGREGATION,
+                        "Prefer splitting aggregations into partial and final stages",
+                        featuresConfig.isPreferPartialAggregation(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_TOP_N_ROW_NUMBER,
+                        "Use top N row number optimization",
+                        featuresConfig.isOptimizeTopNRowNumber(),
+                        false),
+                integerProperty(
+                        MAX_GROUPING_SETS,
+                        "Maximum number of grouping sets in a GROUP BY",
+                        featuresConfig.getMaxGroupingSets(),
+                        true),
+                booleanProperty(
+                        LEGACY_UNNEST,
+                        "Using legacy unnest semantic, where unnest(array(row)) will create one column of type row",
+                        featuresConfig.isLegacyUnnestArrayRows(),
+                        false),
+                booleanProperty(
+                        STATISTICS_CPU_TIMER_ENABLED,
+                        "Experimental: Enable cpu time tracking for automatic column statistics collection on write",
+                        taskManagerConfig.isStatisticsCpuTimerEnabled(),
+                        false),
+                booleanProperty(
+                        ENABLE_STATS_CALCULATOR,
+                        "Experimental: Enable statistics calculator",
+                        featuresConfig.isEnableStatsCalculator(),
+                        false),
+                new PropertyMetadata<>(
+                        MAX_DRIVERS_PER_TASK,
+                        "Maximum number of drivers per task",
+                        INTEGER,
+                        Integer.class,
+                        null,
+                        false,
+                        value -> min(taskManagerConfig.getMaxDriversPerTask(), validateNullablePositiveIntegerValue(value, MAX_DRIVERS_PER_TASK)),
+                        object -> object),
+                booleanProperty(
+                        IGNORE_STATS_CALCULATOR_FAILURES,
+                        "Ignore statistics calculator failures",
+                        featuresConfig.isIgnoreStatsCalculatorFailures(),
                         false));
     }
 
@@ -415,9 +549,23 @@ public final class SystemSessionProperties
         return session.getSystemProperty(OPTIMIZE_HASH_GENERATION, Boolean.class);
     }
 
-    public static boolean isDistributedJoinEnabled(Session session)
+    public static JoinDistributionType getJoinDistributionType(Session session)
     {
-        return session.getSystemProperty(DISTRIBUTED_JOIN, Boolean.class);
+        // distributed_join takes precedence until we remove it
+        Boolean distributedJoin = session.getSystemProperty(DISTRIBUTED_JOIN, Boolean.class);
+        if (distributedJoin != null) {
+            if (!distributedJoin) {
+                return BROADCAST;
+            }
+            return PARTITIONED;
+        }
+
+        return session.getSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.class);
+    }
+
+    public static Optional<DataSize> getJoinMaxBroadcastTableSize(Session session)
+    {
+        return Optional.ofNullable(session.getSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, DataSize.class));
     }
 
     public static boolean isDistributedIndexJoinEnabled(Session session)
@@ -428,6 +576,11 @@ public final class SystemSessionProperties
     public static int getHashPartitionCount(Session session)
     {
         return session.getSystemProperty(HASH_PARTITION_COUNT, Integer.class);
+    }
+
+    public static boolean isGroupedExecutionForAggregationEnabled(Session session)
+    {
+        return session.getSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, Boolean.class);
     }
 
     public static boolean preferStreamingOperators(Session session)
@@ -485,6 +638,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(QUERY_MAX_MEMORY, DataSize.class);
     }
 
+    public static DataSize getQueryMaxTotalMemory(Session session)
+    {
+        return session.getSystemProperty(QUERY_MAX_TOTAL_MEMORY, DataSize.class);
+    }
+
     public static Duration getQueryMaxRunTime(Session session)
     {
         return session.getSystemProperty(QUERY_MAX_RUN_TIME, Duration.class);
@@ -500,6 +658,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(RESOURCE_OVERCOMMIT, Boolean.class);
     }
 
+    public static int getQueryMaxStageCount(Session session)
+    {
+        return session.getSystemProperty(QUERY_MAX_STAGE_COUNT, Integer.class);
+    }
+
     public static boolean planWithTableNodePartitioning(Session session)
     {
         return session.getSystemProperty(PLAN_WITH_TABLE_NODE_PARTITIONING, Boolean.class);
@@ -510,9 +673,21 @@ public final class SystemSessionProperties
         return session.getSystemProperty(FAST_INEQUALITY_JOINS, Boolean.class);
     }
 
-    public static boolean isJoinReorderingEnabled(Session session)
+    public static JoinReorderingStrategy getJoinReorderingStrategy(Session session)
     {
-        return session.getSystemProperty(REORDER_JOINS, Boolean.class);
+        Boolean reorderJoins = session.getSystemProperty(REORDER_JOINS, Boolean.class);
+        if (reorderJoins != null) {
+            if (!reorderJoins) {
+                return NONE;
+            }
+            return ELIMINATE_CROSS_JOINS;
+        }
+        return session.getSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.class);
+    }
+
+    public static int getMaxReorderedJoins(Session session)
+    {
+        return session.getSystemProperty(MAX_REORDERED_JOINS, Integer.class);
     }
 
     public static boolean isColocatedJoinEnabled(Session session)
@@ -520,14 +695,24 @@ public final class SystemSessionProperties
         return session.getSystemProperty(COLOCATED_JOIN, Boolean.class);
     }
 
+    public static boolean isSpatialJoinEnabled(Session session)
+    {
+        return session.getSystemProperty(SPATIAL_JOIN, Boolean.class);
+    }
+
+    public static Optional<String> getSpatialPartitioningTableName(Session session)
+    {
+        return Optional.ofNullable(session.getSystemProperty(SPATIAL_PARTITIONING_TABLE_NAME, String.class));
+    }
+
     public static OptionalInt getConcurrentLifespansPerNode(Session session)
     {
         Integer result = session.getSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, Integer.class);
-        if (result == -1) {
+        if (result == 0) {
             return OptionalInt.empty();
         }
         else {
-            checkArgument(result > 0, "Concurrent lifespans per node must be positive if set");
+            checkArgument(result > 0, "Concurrent lifespans per node must be positive if set to non-zero");
             return OptionalInt.of(result);
         }
     }
@@ -571,14 +756,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, Boolean.class);
     }
 
-    public static boolean isLegacyOrderByEnabled(Session session)
+    public static boolean isLegacyRowFieldOrdinalAccessEnabled(Session session)
     {
-        return session.getSystemProperty(LEGACY_ORDER_BY, Boolean.class);
-    }
-
-    public static boolean isLegacyJoinUsingEnabled(Session session)
-    {
-        return session.getSystemProperty(LEGACY_JOIN_USING, Boolean.class);
+        return session.getSystemProperty(LEGACY_ROW_FIELD_ORDINAL_ACCESS, Boolean.class);
     }
 
     public static boolean isNewOptimizerEnabled(Session session)
@@ -595,11 +775,6 @@ public final class SystemSessionProperties
     public static Duration getOptimizerTimeout(Session session)
     {
         return session.getSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, Duration.class);
-    }
-
-    public static boolean isEnableNewStatsCalculator(Session session)
-    {
-        return session.getSystemProperty(ENABLE_NEW_STATS_CALCULATOR, Boolean.class);
     }
 
     public static boolean isExchangeCompressionEnabled(Session session)
@@ -640,5 +815,92 @@ public final class SystemSessionProperties
     public static int getFilterAndProjectMinOutputPageRowCount(Session session)
     {
         return session.getSystemProperty(FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT, Integer.class);
+    }
+
+    public static boolean useMarkDistinct(Session session)
+    {
+        return session.getSystemProperty(USE_MARK_DISTINCT, Boolean.class);
+    }
+
+    public static boolean preferPartialAggregation(Session session)
+    {
+        return session.getSystemProperty(PREFER_PARTITIAL_AGGREGATION, Boolean.class);
+    }
+
+    public static boolean isOptimizeTopNRowNumber(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_TOP_N_ROW_NUMBER, Boolean.class);
+    }
+
+    public static boolean isDistributedSortEnabled(Session session)
+    {
+        return session.getSystemProperty(DISTRIBUTED_SORT, Boolean.class);
+    }
+
+    public static int getMaxGroupingSets(Session session)
+    {
+        return session.getSystemProperty(MAX_GROUPING_SETS, Integer.class);
+    }
+
+    public static boolean isLegacyUnnest(Session session)
+    {
+        return session.getSystemProperty(LEGACY_UNNEST, Boolean.class);
+    }
+
+    public static OptionalInt getMaxDriversPerTask(Session session)
+    {
+        Integer value = session.getSystemProperty(MAX_DRIVERS_PER_TASK, Integer.class);
+        if (value == null) {
+            return OptionalInt.empty();
+        }
+        return OptionalInt.of(value);
+    }
+
+    private static int validateValueIsPowerOfTwo(Object value, String property)
+    {
+        int intValue = ((Number) requireNonNull(value, "value is null")).intValue();
+        if (Integer.bitCount(intValue) != 1) {
+            throw new PrestoException(
+                    INVALID_SESSION_PROPERTY,
+                    format("%s must be a power of 2: %s", property, intValue));
+        }
+        return intValue;
+    }
+
+    private static Integer validateNullablePositiveIntegerValue(Object value, String property)
+    {
+        return validateIntegerValue(value, property, 1, true);
+    }
+
+    private static Integer validateIntegerValue(Object value, String property, int lowerBoundIncluded, boolean allowNull)
+    {
+        if (value == null && !allowNull) {
+            throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must be non-null", property));
+        }
+
+        if (value == null) {
+            return null;
+        }
+
+        int intValue = ((Number) value).intValue();
+        if (intValue < lowerBoundIncluded) {
+            throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must be equal or greater than %s", property, lowerBoundIncluded));
+        }
+        return intValue;
+    }
+
+    public static boolean isStatisticsCpuTimerEnabled(Session session)
+    {
+        return session.getSystemProperty(STATISTICS_CPU_TIMER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isEnableStatsCalculator(Session session)
+    {
+        return session.getSystemProperty(ENABLE_STATS_CALCULATOR, Boolean.class);
+    }
+
+    public static boolean isIgnoreStatsCalculatorFailures(Session session)
+    {
+        return session.getSystemProperty(IGNORE_STATS_CALCULATOR_FAILURES, Boolean.class);
     }
 }

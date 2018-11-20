@@ -19,13 +19,18 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
+import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
@@ -38,20 +43,36 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.globalAggregation;
 import static com.facebook.presto.sql.planner.plan.LateralJoinNode.Type.INNER;
+import static com.facebook.presto.sql.planner.plan.LateralJoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
+import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Exists is modeled as:
+ * EXISTS is modeled as (if correlated predicates are equality comparisons):
  * <pre>
- *     - Project($0 > 0)
- *       - Aggregation(COUNT(*))
- *         - Limit(1)
- *           -- subquery
+ *     - Project(exists := COALESCE(subqueryTrue, false))
+ *       - LateralJoin(LEFT)
+ *         - input
+ *         - Project(subqueryTrue := true)
+ *           - Limit(count=1)
+ *             - subquery
  * </pre>
+ * or:
+ * <pre>
+ *     - LateralJoin(LEFT)
+ *       - input
+ *       - Project($0 > 0)
+ *         - Aggregation(COUNT(*))
+ *           - subquery
+ * </pre>
+ * otherwise
  */
 public class TransformExistsApplyToLateralNode
         implements Rule<ApplyNode>
@@ -86,26 +107,70 @@ public class TransformExistsApplyToLateralNode
             return Result.empty();
         }
 
+        Optional<PlanNode> nonDefaultAggregation = rewriteToNonDefaultAggregation(parent, context);
+        return nonDefaultAggregation
+                .map(Result::ofPlanNode)
+                .orElseGet(() -> Result.ofPlanNode(rewriteToDefaultAggregation(parent, context)));
+    }
+
+    private Optional<PlanNode> rewriteToNonDefaultAggregation(ApplyNode applyNode, Context context)
+    {
+        checkState(applyNode.getSubquery().getOutputSymbols().isEmpty(), "Expected subquery output symbols to be pruned");
+
+        Symbol exists = getOnlyElement(applyNode.getSubqueryAssignments().getSymbols());
+        Symbol subqueryTrue = context.getSymbolAllocator().newSymbol("subqueryTrue", BOOLEAN);
+
+        Assignments.Builder assignments = Assignments.builder();
+        assignments.putIdentities(applyNode.getInput().getOutputSymbols());
+        assignments.put(exists, new CoalesceExpression(ImmutableList.of(subqueryTrue.toSymbolReference(), BooleanLiteral.FALSE_LITERAL)));
+
+        PlanNode subquery = new ProjectNode(
+                context.getIdAllocator().getNextId(),
+                new LimitNode(
+                        context.getIdAllocator().getNextId(),
+                        applyNode.getSubquery(),
+                        1L,
+                        false),
+                Assignments.of(subqueryTrue, TRUE_LITERAL));
+
+        PlanNodeDecorrelator decorrelator = new PlanNodeDecorrelator(context.getIdAllocator(), context.getLookup());
+        if (!decorrelator.decorrelateFilters(subquery, applyNode.getCorrelation()).isPresent()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new ProjectNode(context.getIdAllocator().getNextId(),
+                new LateralJoinNode(
+                        applyNode.getId(),
+                        applyNode.getInput(),
+                        subquery,
+                        applyNode.getCorrelation(),
+                        LEFT,
+                        applyNode.getOriginSubquery()),
+                assignments.build()));
+    }
+
+    private PlanNode rewriteToDefaultAggregation(ApplyNode parent, Context context)
+    {
         Symbol count = context.getSymbolAllocator().newSymbol(COUNT.toString(), BIGINT);
         Symbol exists = getOnlyElement(parent.getSubqueryAssignments().getSymbols());
 
-        return Result.ofPlanNode(
-                new LateralJoinNode(
-                        parent.getId(),
-                        parent.getInput(),
-                        new ProjectNode(
+        return new LateralJoinNode(
+                parent.getId(),
+                parent.getInput(),
+                new ProjectNode(
+                        context.getIdAllocator().getNextId(),
+                        new AggregationNode(
                                 context.getIdAllocator().getNextId(),
-                                new AggregationNode(
-                                        context.getIdAllocator().getNextId(),
-                                        parent.getSubquery(),
-                                        ImmutableMap.of(count, new Aggregation(COUNT_CALL, countSignature, Optional.empty())),
-                                        ImmutableList.of(ImmutableList.of()),
-                                        AggregationNode.Step.SINGLE,
-                                        Optional.empty(),
-                                        Optional.empty()),
-                                Assignments.of(exists, new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral("0"), BIGINT.toString())))),
-                        parent.getCorrelation(),
-                        INNER,
-                        parent.getOriginSubquery()));
+                                parent.getSubquery(),
+                                ImmutableMap.of(count, new Aggregation(COUNT_CALL, countSignature, Optional.empty())),
+                                globalAggregation(),
+                                ImmutableList.of(),
+                                AggregationNode.Step.SINGLE,
+                                Optional.empty(),
+                                Optional.empty()),
+                        Assignments.of(exists, new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral("0"), BIGINT.toString())))),
+                parent.getCorrelation(),
+                INNER,
+                parent.getOriginSubquery());
     }
 }

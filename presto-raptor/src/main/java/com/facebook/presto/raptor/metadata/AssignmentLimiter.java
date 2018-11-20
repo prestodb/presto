@@ -65,7 +65,7 @@ public class AssignmentLimiter
     @Inject
     public AssignmentLimiter(NodeSupplier nodeSupplier, Ticker ticker, MetadataConfig config)
     {
-        this(nodeSupplier, ticker, config.getReassignmentDelay(), config.getReassignmentDelay());
+        this(nodeSupplier, ticker, config.getReassignmentDelay(), config.getReassignmentInterval());
     }
 
     public AssignmentLimiter(NodeSupplier nodeSupplier, Ticker ticker, Duration reassignmentDelay, Duration reassignmentInterval)

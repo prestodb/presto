@@ -22,6 +22,7 @@ import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableSet;
 
 import java.security.Principal;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
@@ -41,8 +42,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameC
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
-import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
-import static com.facebook.presto.spi.security.AccessDeniedException.denySelectView;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySelectColumns;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
@@ -53,7 +53,7 @@ public class DenyAllAccessControl
         implements AccessControl
 {
     @Override
-    public void checkCanSetUser(Principal principal, String userName)
+    public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
         denySetUser(principal, userName);
     }
@@ -149,12 +149,6 @@ public class DenyAllAccessControl
     }
 
     @Override
-    public void checkCanSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
-    {
-        denySelectTable(tableName.toString());
-    }
-
-    @Override
     public void checkCanInsertIntoTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
         denyInsertTable(tableName.toString());
@@ -179,21 +173,9 @@ public class DenyAllAccessControl
     }
 
     @Override
-    public void checkCanSelectFromView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
+    public void checkCanCreateViewWithSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames)
     {
-        denySelectView(viewName.toString());
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
-    {
-        denyCreateViewWithSelect(tableName.toString());
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
-    {
-        denyCreateViewWithSelect(viewName.toString());
+        denyCreateViewWithSelect(tableName.toString(), identity);
     }
 
     @Override
@@ -218,5 +200,11 @@ public class DenyAllAccessControl
     public void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, String catalogName, String propertyName)
     {
         denySetCatalogSessionProperty(catalogName, propertyName);
+    }
+
+    @Override
+    public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames)
+    {
+        denySelectColumns(tableName.toString(), columnNames);
     }
 }

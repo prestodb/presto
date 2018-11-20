@@ -16,7 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -45,57 +44,17 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
-import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
+import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Maps.immutableEntry;
-import static io.airlift.slice.Slices.utf8Slice;
-import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static java.util.Arrays.asList;
 import static java.util.Map.Entry;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestHiveBucketing
 {
-    @Test
-    public void testHashingBooleanLong()
-    {
-        List<Entry<ObjectInspector, Object>> bindings = ImmutableList.<Entry<ObjectInspector, Object>>builder()
-                .add(entry(javaBooleanObjectInspector, true))
-                .add(entry(javaLongObjectInspector, 123L))
-                .build();
-
-        Optional<HiveBucket> bucket = HiveBucketing.getHiveBucket(bindings, 32);
-        assertTrue(bucket.isPresent());
-        assertEquals(bucket.get().getBucketCount(), 32);
-        assertEquals(bucket.get().getBucketNumber(), 26);
-    }
-
-    @Test
-    public void testHashingString()
-    {
-        List<Entry<ObjectInspector, Object>> bindings = ImmutableList.<Entry<ObjectInspector, Object>>builder()
-                .add(entry(javaStringObjectInspector, utf8Slice("sequencefile test")))
-                .build();
-
-        Optional<HiveBucket> bucket = HiveBucketing.getHiveBucket(bindings, 32);
-        assertTrue(bucket.isPresent());
-        assertEquals(bucket.get().getBucketCount(), 32);
-        assertEquals(bucket.get().getBucketNumber(), 21);
-    }
-
-    private static Entry<ObjectInspector, Object> entry(ObjectInspector inspector, Object value)
-    {
-        return immutableEntry(inspector, value);
-    }
-
     @Test
     public void testHashingCompare()
             throws Exception
@@ -169,14 +128,14 @@ public class TestHiveBucketing
                 asList(null, ImmutableList.of((short) 5, (short) 8, (short) 13), null, ImmutableMap.of("key", 123L), null));
     }
 
-    private static void assertBucketEquals(String hiveTypeStrings, Object javaValues)
+    private static void assertBucketEquals(String hiveTypeStrings, Object hiveValues)
             throws HiveException
     {
         // Use asList to allow nulls
-        assertBucketEquals(ImmutableList.of(hiveTypeStrings), asList(javaValues));
+        assertBucketEquals(ImmutableList.of(hiveTypeStrings), asList(hiveValues));
     }
 
-    private static void assertBucketEquals(List<String> hiveTypeStrings, List<Object> javaValues)
+    private static void assertBucketEquals(List<String> hiveTypeStrings, List<Object> hiveValues)
             throws HiveException
     {
         List<HiveType> hiveTypes = hiveTypeStrings.stream()
@@ -187,18 +146,18 @@ public class TestHiveBucketing
                 .collect(toImmutableList());
 
         for (int bucketCount : new int[] {1, 2, 500, 997}) {
-            int actual = computeActual(hiveTypeStrings, javaValues, bucketCount, hiveTypes, hiveTypeInfos);
-            int expected = computeExpected(hiveTypeStrings, javaValues, bucketCount, hiveTypeInfos);
+            int actual = computeActual(hiveTypeStrings, hiveValues, bucketCount, hiveTypes, hiveTypeInfos);
+            int expected = computeExpected(hiveTypeStrings, hiveValues, bucketCount, hiveTypeInfos);
             assertEquals(actual, expected);
         }
     }
 
-    private static int computeExpected(List<String> hiveTypeStrings, List<Object> javaValues, int bucketCount, List<TypeInfo> hiveTypeInfos)
+    private static int computeExpected(List<String> hiveTypeStrings, List<Object> hiveValues, int bucketCount, List<TypeInfo> hiveTypeInfos)
             throws HiveException
     {
         ImmutableList.Builder<Entry<ObjectInspector, Object>> columnBindingsBuilder = ImmutableList.builder();
         for (int i = 0; i < hiveTypeStrings.size(); i++) {
-            Object javaValue = javaValues.get(i);
+            Object javaValue = hiveValues.get(i);
 
             columnBindingsBuilder.add(Maps.immutableEntry(
                     TypeInfoUtils.getStandardJavaObjectInspectorFromTypeInfo(hiveTypeInfos.get(i)),
@@ -207,23 +166,29 @@ public class TestHiveBucketing
         return getHiveBucket(columnBindingsBuilder.build(), bucketCount);
     }
 
-    private static int computeActual(List<String> hiveTypeStrings, List<Object> javaValues, int bucketCount, List<HiveType> hiveTypes, List<TypeInfo> hiveTypeInfos)
+    private static int computeActual(List<String> hiveTypeStrings, List<Object> hiveValues, int bucketCount, List<HiveType> hiveTypes, List<TypeInfo> hiveTypeInfos)
     {
         ImmutableList.Builder<Block> blockListBuilder = ImmutableList.builder();
+        Object[] nativeContainerValues = new Object[hiveValues.size()];
         for (int i = 0; i < hiveTypeStrings.size(); i++) {
-            Object javaValue = javaValues.get(i);
+            Object hiveValue = hiveValues.get(i);
             Type type = hiveTypes.get(i).getType(TYPE_MANAGER);
 
-            BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 3);
+            BlockBuilder blockBuilder = type.createBlockBuilder(null, 3);
             // prepend 2 nulls to make sure position is respected when HiveBucketing function
             blockBuilder.appendNull();
             blockBuilder.appendNull();
-            appendToBlockBuilder(type, javaValue, blockBuilder);
+            appendToBlockBuilder(type, hiveValue, blockBuilder);
             Block block = blockBuilder.build();
             blockListBuilder.add(block);
+
+            nativeContainerValues[i] = toNativeContainerValue(type, hiveValue);
         }
         ImmutableList<Block> blockList = blockListBuilder.build();
-        return HiveBucketing.getHiveBucket(hiveTypeInfos, new Page(blockList.toArray(new Block[blockList.size()])), 2, bucketCount);
+        int result1 = HiveBucketing.getHiveBucket(bucketCount, hiveTypeInfos, new Page(blockList.toArray(new Block[blockList.size()])), 2);
+        int result2 = HiveBucketing.getHiveBucket(bucketCount, hiveTypeInfos, nativeContainerValues);
+        assertEquals(result1, result2, "Overloads of getHiveBucket produced different result");
+        return result1;
     }
 
     public static int getHiveBucket(List<Entry<ObjectInspector, Object>> columnBindings, int bucketCount)
@@ -256,82 +221,76 @@ public class TestHiveBucketing
         return new DefaultHivePartitioner<>().getBucket(hiveKey, null, bucketCount);
     }
 
-    /**
-     * @param element java representation of the element (e.g. int, double, List, Date, String) to be added
-     */
-    public static void appendToBlockBuilder(Type type, Object element, BlockBuilder blockBuilder)
+    private static Object toNativeContainerValue(Type type, Object hiveValue)
     {
         String typeBase = type.getTypeSignature().getBase();
-        if (element == null) {
-            blockBuilder.appendNull();
-            return;
+        if (hiveValue == null) {
+            return null;
         }
         switch (typeBase) {
             case StandardTypes.ARRAY: {
+                BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
                 BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
-                for (Object subElement : (Iterable<?>) element) {
+                for (Object subElement : (Iterable<?>) hiveValue) {
                     appendToBlockBuilder(type.getTypeParameters().get(0), subElement, subBlockBuilder);
                 }
                 blockBuilder.closeEntry();
-                break;
+                return type.getObject(blockBuilder, 0);
             }
             case StandardTypes.ROW: {
+                BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
                 BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
                 int field = 0;
-                for (Object subElement : (Iterable<?>) element) {
+                for (Object subElement : (Iterable<?>) hiveValue) {
                     appendToBlockBuilder(type.getTypeParameters().get(field), subElement, subBlockBuilder);
                     field++;
                 }
                 blockBuilder.closeEntry();
-                break;
+                return type.getObject(blockBuilder, 0);
             }
             case StandardTypes.MAP: {
+                BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
                 BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
-                for (Entry<?, ?> entry : ((Map<?, ?>) element).entrySet()) {
+                for (Entry<?, ?> entry : ((Map<?, ?>) hiveValue).entrySet()) {
                     appendToBlockBuilder(type.getTypeParameters().get(0), entry.getKey(), subBlockBuilder);
                     appendToBlockBuilder(type.getTypeParameters().get(1), entry.getValue(), subBlockBuilder);
                 }
                 blockBuilder.closeEntry();
-                break;
+                return type.getObject(blockBuilder, 0);
             }
             case StandardTypes.BOOLEAN:
-                type.writeBoolean(blockBuilder, (Boolean) element);
-                break;
+                return hiveValue;
             case StandardTypes.TINYINT:
-                type.writeLong(blockBuilder, ((Number) element).byteValue());
-                break;
+                return (long) (byte) hiveValue;
             case StandardTypes.SMALLINT:
-                type.writeLong(blockBuilder, ((Number) element).shortValue());
-                break;
+                return (long) (short) hiveValue;
             case StandardTypes.INTEGER:
-                type.writeLong(blockBuilder, ((Number) element).intValue());
-                break;
+                return (long) (int) hiveValue;
             case StandardTypes.BIGINT:
-                type.writeLong(blockBuilder, ((Number) element).longValue());
-                break;
+                return hiveValue;
             case StandardTypes.REAL:
-                type.writeLong(blockBuilder, floatToRawIntBits(((Number) element).floatValue()));
-                break;
+                return (long) Float.floatToRawIntBits((float) hiveValue);
             case StandardTypes.DOUBLE:
-                type.writeDouble(blockBuilder, ((Number) element).doubleValue());
-                break;
+                return hiveValue;
             case StandardTypes.VARCHAR:
-                type.writeSlice(blockBuilder, Slices.utf8Slice(element.toString()));
-                break;
+                return Slices.utf8Slice(hiveValue.toString());
             case StandardTypes.DATE:
-                long daysSinceEpochInLocalZone = ((Date) element).toLocalDate().toEpochDay();
-                assertEquals(daysSinceEpochInLocalZone, DateWritable.dateToDays((Date) element));
-                type.writeLong(blockBuilder, daysSinceEpochInLocalZone);
-                break;
+                long daysSinceEpochInLocalZone = ((Date) hiveValue).toLocalDate().toEpochDay();
+                assertEquals(daysSinceEpochInLocalZone, DateWritable.dateToDays((Date) hiveValue));
+                return daysSinceEpochInLocalZone;
             case StandardTypes.TIMESTAMP:
-                Instant instant = ((Timestamp) element).toInstant();
+                Instant instant = ((Timestamp) hiveValue).toInstant();
                 long epochSecond = instant.getEpochSecond();
                 int nano = instant.getNano();
                 assertEquals(nano % 1_000_000, 0);
-                type.writeLong(blockBuilder, epochSecond * 1000 + nano / 1_000_000);
-                break;
+                return epochSecond * 1000 + nano / 1_000_000;
             default:
                 throw new UnsupportedOperationException("unknown type");
         }
+    }
+
+    private static void appendToBlockBuilder(Type type, Object hiveValue, BlockBuilder blockBuilder)
+    {
+        writeNativeValue(type, blockBuilder, toNativeContainerValue(type, hiveValue));
     }
 }

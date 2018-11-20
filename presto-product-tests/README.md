@@ -119,7 +119,7 @@ and deficiencies of `extends:` syntax (see the note
 To ease the pain of passing multiple `-f` arguments to `docker-compose`,
 each environment has a `compose.sh` wrapper script. Thanks to it, instead of e.g.
 
-`docker-compose -f ./docker-compose.yml -f ../common/standard.yml -f ../common/jdbc_db.yml [compose commands]`
+`docker-compose -f ./docker-compose.yml -f ../common/standard.yml [compose commands]`
 
 one can simply write
 
@@ -145,11 +145,17 @@ where profile is one of either:
  single Docker container and a distributed Presto installation running on
  multiple Docker containers. For multinode the default configuration is
  1 coordinator and 1 worker.
-- **multinode-tls** - psuedo-distributed Hadoop installation running on a
+- **multinode-tls** - pseudo-distributed Hadoop installation running on a
  single Docker container and a distributed Presto installation running on
  multiple Docker containers. Presto is configured to only accept connections
  on the HTTPS port (7878), and both coordinator and worker traffic is encrypted.
  For multinode-tls, the default configuration is 1 coordinator and 2 workers.
+- **multinode-tls-kerberos** - pseudo-distributed Hadoop installation running on a
+  single Docker container and a distributed installation of kerberized Presto
+  running on multiple Docker containers. Presto is configured to only accept
+  connections on the HTTPS port (7778), and both coordinator and worker traffic
+  is encrypted and kerberized. For multinode-tls-kerberos, the default configuration
+  is 1 coordinator and 2 workers.
 - **singlenode** - pseudo-distributed Hadoop installation running on a
  single Docker container and a single node installation of Presto also running
  on a single Docker container.

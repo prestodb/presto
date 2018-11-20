@@ -46,6 +46,7 @@ public class TestingConnectorSession
     private final Optional<String> source;
     private final TimeZoneKey timeZoneKey;
     private final Locale locale;
+    private final Optional<String> traceToken;
     private final long startTime;
     private final Map<String, PropertyMetadata<?>> properties;
     private final Map<String, Object> propertyValues;
@@ -53,12 +54,13 @@ public class TestingConnectorSession
 
     public TestingConnectorSession(List<PropertyMetadata<?>> properties)
     {
-        this("user", Optional.of("test"), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FeaturesConfig().isLegacyTimestamp());
+        this("user", Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FeaturesConfig().isLegacyTimestamp());
     }
 
     public TestingConnectorSession(
             String user,
             Optional<String> source,
+            Optional<String> traceToken,
             TimeZoneKey timeZoneKey,
             Locale locale,
             long startTime,
@@ -69,6 +71,7 @@ public class TestingConnectorSession
         this.queryId = queryIdGenerator.createNextQueryId().toString();
         this.identity = new Identity(requireNonNull(user, "user is null"), Optional.empty());
         this.source = requireNonNull(source, "source is null");
+        this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
         this.startTime = startTime;
@@ -114,6 +117,12 @@ public class TestingConnectorSession
     }
 
     @Override
+    public Optional<String> getTraceToken()
+    {
+        return traceToken;
+    }
+
+    @Override
     public boolean isLegacyTimestamp()
     {
         return isLegacyTimestamp;
@@ -139,6 +148,7 @@ public class TestingConnectorSession
         return toStringHelper(this)
                 .add("user", getUser())
                 .add("source", source.orElse(null))
+                .add("traceToken", traceToken.orElse(null))
                 .add("timeZoneKey", timeZoneKey)
                 .add("locale", locale)
                 .add("startTime", startTime)

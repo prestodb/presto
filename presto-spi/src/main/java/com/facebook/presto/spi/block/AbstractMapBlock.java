@@ -16,13 +16,17 @@ package com.facebook.presto.spi.block;
 
 import com.facebook.presto.spi.type.Type;
 
+import javax.annotation.Nullable;
+
 import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
+import static com.facebook.presto.spi.block.MapBlock.createMapBlockInternal;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractMapBlock
@@ -34,20 +38,23 @@ public abstract class AbstractMapBlock
     protected final Type keyType;
     protected final MethodHandle keyNativeHashCode;
     protected final MethodHandle keyBlockNativeEquals;
+    protected final MethodHandle keyBlockHashCode;
 
-    public AbstractMapBlock(Type keyType, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals)
+    public AbstractMapBlock(Type keyType, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode)
     {
         this.keyType = requireNonNull(keyType, "keyType is null");
         // keyNativeHashCode can only be null due to map block kill switch. deprecated.new-map-block
         this.keyNativeHashCode = keyNativeHashCode;
         // keyBlockNativeEquals can only be null due to map block kill switch. deprecated.new-map-block
         this.keyBlockNativeEquals = keyBlockNativeEquals;
+        this.keyBlockHashCode = requireNonNull(keyBlockHashCode, "keyBlockHashCode is null");
     }
 
-    protected abstract Block getKeys();
+    protected abstract Block getRawKeyBlock();
 
-    protected abstract Block getValues();
+    protected abstract Block getRawValueBlock();
 
+    @Nullable
     protected abstract int[] getHashTables();
 
     /**
@@ -64,15 +71,17 @@ public abstract class AbstractMapBlock
 
     protected abstract boolean[] getMapIsNull();
 
+    protected abstract void ensureHashTableLoaded();
+
     int getOffset(int position)
     {
         return getOffsets()[position + getOffsetBase()];
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new MapBlockEncoding(keyType, keyBlockNativeEquals, keyNativeHashCode, getKeys().getEncoding(), getValues().getEncoding());
+        return MapBlockEncoding.NAME;
     }
 
     @Override
@@ -106,21 +115,35 @@ public abstract class AbstractMapBlock
         }
 
         int[] hashTable = getHashTables();
-        int[] newHashTable = new int[newOffsets[newOffsets.length - 1] * HASH_MULTIPLIER];
-        int newHashIndex = 0;
-        for (int i = offset; i < offset + length; ++i) {
-            int position = positions[i];
-            int entriesStartOffset = getOffset(position);
-            int entriesEndOffset = getOffset(position + 1);
-            for (int hashIndex = entriesStartOffset * HASH_MULTIPLIER; hashIndex < entriesEndOffset * HASH_MULTIPLIER; hashIndex++) {
-                newHashTable[newHashIndex] = hashTable[hashIndex];
-                newHashIndex++;
+        int[] newHashTable = null;
+        if (hashTable != null) {
+            newHashTable = new int[newOffsets[newOffsets.length - 1] * HASH_MULTIPLIER];
+            int newHashIndex = 0;
+            for (int i = offset; i < offset + length; ++i) {
+                int position = positions[i];
+                int entriesStartOffset = getOffset(position);
+                int entriesEndOffset = getOffset(position + 1);
+                for (int hashIndex = entriesStartOffset * HASH_MULTIPLIER; hashIndex < entriesEndOffset * HASH_MULTIPLIER; hashIndex++) {
+                    newHashTable[newHashIndex] = hashTable[hashIndex];
+                    newHashIndex++;
+                }
             }
         }
 
-        Block newKeys = getKeys().copyPositions(entriesPositions.elements(), 0, entriesPositions.size());
-        Block newValues = getValues().copyPositions(entriesPositions.elements(), 0, entriesPositions.size());
-        return new MapBlock(0, length, newMapIsNull, newOffsets, newKeys, newValues, newHashTable, keyType, keyBlockNativeEquals, keyNativeHashCode);
+        Block newKeys = getRawKeyBlock().copyPositions(entriesPositions.elements(), 0, entriesPositions.size());
+        Block newValues = getRawValueBlock().copyPositions(entriesPositions.elements(), 0, entriesPositions.size());
+        return createMapBlockInternal(
+                0,
+                length,
+                Optional.of(newMapIsNull),
+                newOffsets,
+                newKeys,
+                newValues,
+                Optional.ofNullable(newHashTable),
+                keyType,
+                keyBlockNativeEquals,
+                keyNativeHashCode,
+                keyBlockHashCode);
     }
 
     @Override
@@ -129,17 +152,18 @@ public abstract class AbstractMapBlock
         int positionCount = getPositionCount();
         checkValidRegion(positionCount, position, length);
 
-        return new MapBlock(
+        return createMapBlockInternal(
                 position + getOffsetBase(),
                 length,
-                getMapIsNull(),
+                Optional.ofNullable(getMapIsNull()),
                 getOffsets(),
-                getKeys(),
-                getValues(),
-                getHashTables(),
+                getRawKeyBlock(),
+                getRawValueBlock(),
+                Optional.ofNullable(getHashTables()),
                 keyType,
                 keyBlockNativeEquals,
-                keyNativeHashCode);
+                keyNativeHashCode,
+                keyBlockHashCode);
     }
 
     @Override
@@ -152,8 +176,8 @@ public abstract class AbstractMapBlock
         int entriesEnd = getOffsets()[getOffsetBase() + position + length];
         int entryCount = entriesEnd - entriesStart;
 
-        return getKeys().getRegionSizeInBytes(entriesStart, entryCount) +
-                getValues().getRegionSizeInBytes(entriesStart, entryCount) +
+        return getRawKeyBlock().getRegionSizeInBytes(entriesStart, entryCount) +
+                getRawValueBlock().getRegionSizeInBytes(entriesStart, entryCount) +
                 (Integer.BYTES + Byte.BYTES) * (long) length +
                 Integer.BYTES * HASH_MULTIPLIER * (long) entryCount;
     }
@@ -166,27 +190,34 @@ public abstract class AbstractMapBlock
 
         int startValueOffset = getOffset(position);
         int endValueOffset = getOffset(position + length);
-        Block newKeys = getKeys().copyRegion(startValueOffset, endValueOffset - startValueOffset);
-        Block newValues = getValues().copyRegion(startValueOffset, endValueOffset - startValueOffset);
+        Block newKeys = getRawKeyBlock().copyRegion(startValueOffset, endValueOffset - startValueOffset);
+        Block newValues = getRawValueBlock().copyRegion(startValueOffset, endValueOffset - startValueOffset);
 
         int[] newOffsets = compactOffsets(getOffsets(), position + getOffsetBase(), length);
-        boolean[] newMapIsNull = compactArray(getMapIsNull(), position + getOffsetBase(), length);
-        int[] newHashTable = compactArray(getHashTables(), startValueOffset * HASH_MULTIPLIER, (endValueOffset - startValueOffset) * HASH_MULTIPLIER);
+        boolean[] mapIsNull = getMapIsNull();
+        boolean[] newMapIsNull = mapIsNull == null ? null : compactArray(mapIsNull, position + getOffsetBase(), length);
 
-        if (newKeys == getKeys() && newValues == getValues() && newOffsets == getOffsets() && newMapIsNull == getMapIsNull() && newHashTable == getHashTables()) {
+        int[] hashTables = getHashTables();
+        int[] newHashTable = null;
+        if (hashTables != null) {
+            newHashTable = compactArray(hashTables, startValueOffset * HASH_MULTIPLIER, (endValueOffset - startValueOffset) * HASH_MULTIPLIER);
+        }
+
+        if (newKeys == getRawKeyBlock() && newValues == getRawValueBlock() && newOffsets == getOffsets() && newMapIsNull == mapIsNull && newHashTable == getHashTables()) {
             return this;
         }
-        return new MapBlock(
+        return createMapBlockInternal(
                 0,
                 length,
-                newMapIsNull,
+                Optional.ofNullable(newMapIsNull),
                 newOffsets,
                 newKeys,
                 newValues,
-                newHashTable,
+                Optional.ofNullable(newHashTable),
                 keyType,
                 keyBlockNativeEquals,
-                keyNativeHashCode);
+                keyNativeHashCode,
+                keyBlockHashCode);
     }
 
     @Override
@@ -202,37 +233,14 @@ public abstract class AbstractMapBlock
         return clazz.cast(new SingleMapBlock(
                 startEntryOffset * 2,
                 (endEntryOffset - startEntryOffset) * 2,
-                getKeys(),
-                getValues(),
-                getHashTables(),
-                keyType,
-                keyNativeHashCode,
-                keyBlockNativeEquals));
+                this));
     }
 
     @Override
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         checkReadablePosition(position);
-        BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
-        int startValueOffset = getOffset(position);
-        int endValueOffset = getOffset(position + 1);
-        for (int i = startValueOffset; i < endValueOffset; i++) {
-            if (getKeys().isNull(i)) {
-                entryBuilder.appendNull();
-            }
-            else {
-                getKeys().writePositionTo(i, entryBuilder);
-                entryBuilder.closeEntry();
-            }
-            if (getValues().isNull(i)) {
-                entryBuilder.appendNull();
-            }
-            else {
-                getValues().writePositionTo(i, entryBuilder);
-                entryBuilder.closeEntry();
-            }
-        }
+        blockBuilder.appendStructureInternal(this, position);
     }
 
     @Override
@@ -243,28 +251,57 @@ public abstract class AbstractMapBlock
         int startValueOffset = getOffset(position);
         int endValueOffset = getOffset(position + 1);
         int valueLength = endValueOffset - startValueOffset;
-        Block newKeys = getKeys().copyRegion(startValueOffset, valueLength);
-        Block newValues = getValues().copyRegion(startValueOffset, valueLength);
-        int[] newHashTable = Arrays.copyOfRange(getHashTables(), startValueOffset * HASH_MULTIPLIER, endValueOffset * HASH_MULTIPLIER);
+        Block newKeys = getRawKeyBlock().copyRegion(startValueOffset, valueLength);
+        Block newValues = getRawValueBlock().copyRegion(startValueOffset, valueLength);
 
-        return new MapBlock(
+        int[] hashTables = getHashTables();
+        int[] newHashTable = null;
+        if (hashTables != null) {
+            newHashTable = Arrays.copyOfRange(hashTables, startValueOffset * HASH_MULTIPLIER, endValueOffset * HASH_MULTIPLIER);
+        }
+
+        return createMapBlockInternal(
                 0,
                 1,
-                new boolean[] {isNull(position)},
+                Optional.of(new boolean[] {isNull(position)}),
                 new int[] {0, valueLength},
                 newKeys,
                 newValues,
-                newHashTable,
+                Optional.ofNullable(newHashTable),
                 keyType,
                 keyBlockNativeEquals,
-                keyNativeHashCode);
+                keyNativeHashCode,
+                keyBlockHashCode);
+    }
+
+    @Override
+    public long getEstimatedDataSizeForStats(int position)
+    {
+        checkReadablePosition(position);
+
+        if (isNull(position)) {
+            return 0;
+        }
+
+        int startValueOffset = getOffset(position);
+        int endValueOffset = getOffset(position + 1);
+
+        long size = 0;
+        Block rawKeyBlock = getRawKeyBlock();
+        Block rawValueBlock = getRawValueBlock();
+        for (int i = startValueOffset; i < endValueOffset; i++) {
+            size += rawKeyBlock.getEstimatedDataSizeForStats(i);
+            size += rawValueBlock.getEstimatedDataSizeForStats(i);
+        }
+        return size;
     }
 
     @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(position);
-        return getMapIsNull()[position + getOffsetBase()];
+        boolean[] mapIsNull = getMapIsNull();
+        return mapIsNull != null && mapIsNull[position + getOffsetBase()];
     }
 
     private void checkReadablePosition(int position)

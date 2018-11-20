@@ -68,7 +68,7 @@ public class TestFilterAndProjectOperator
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
 
         driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
-                .addPipelineContext(0, true, true)
+                .addPipelineContext(0, true, true, false)
                 .addDriverContext();
     }
 
@@ -163,6 +163,6 @@ public class TestFilterAndProjectOperator
                 .row(10L)
                 .build();
 
-        assertOperatorEquals(operatorFactory, driverContext, input, expected);
+        assertOperatorEquals(operatorFactory, ImmutableList.of(BIGINT), driverContext, input, expected);
     }
 }

@@ -31,7 +31,6 @@ public final class Help
                 "SHOW CATALOGS [LIKE <pattern>]\n" +
                 "SHOW SCHEMAS [FROM <catalog>] [LIKE <pattern>]\n" +
                 "SHOW TABLES [FROM <schema>] [LIKE <pattern>]\n" +
-                "SHOW PARTITIONS FROM <table> [WHERE ...] [ORDER BY ...] [LIMIT n]\n" +
                 "USE [<catalog>.]<schema>\n" +
                 "";
     }

@@ -48,11 +48,9 @@ public interface Type
 
     /**
      * Gets the Java class type used to represent this value on the stack during
-     * expression execution. This value is used to determine which method should
-     * be called on Cursor, RecordSet or RandomAccessBlock to fetch a value of
-     * this type.
+     * expression execution.
      * <p>
-     * Currently, this must be boolean, long, double, or Slice.
+     * Currently, this must be boolean, long, double, Slice or Block.
      */
     Class<?> getJavaType();
 
@@ -142,6 +140,8 @@ public interface Type
 
     /**
      * Are the values in the specified blocks at the specified positions equal?
+     * <p>
+     * This method assumes input is not null.
      */
     boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition);
 

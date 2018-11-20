@@ -19,8 +19,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.OptionalInt;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class HivePartitioningHandle
@@ -28,14 +29,17 @@ public class HivePartitioningHandle
 {
     private final int bucketCount;
     private final List<HiveType> hiveTypes;
+    private final OptionalInt maxCompatibleBucketCount;
 
     @JsonCreator
     public HivePartitioningHandle(
             @JsonProperty("bucketCount") int bucketCount,
-            @JsonProperty("hiveTypes") List<HiveType> hiveTypes)
+            @JsonProperty("hiveTypes") List<HiveType> hiveTypes,
+            @JsonProperty("maxCompatibleBucketCount") OptionalInt maxCompatibleBucketCount)
     {
         this.bucketCount = bucketCount;
         this.hiveTypes = requireNonNull(hiveTypes, "hiveTypes is null");
+        this.maxCompatibleBucketCount = maxCompatibleBucketCount;
     }
 
     @JsonProperty
@@ -50,13 +54,16 @@ public class HivePartitioningHandle
         return hiveTypes;
     }
 
+    @JsonProperty
+    public OptionalInt getMaxCompatibleBucketCount()
+    {
+        return maxCompatibleBucketCount;
+    }
+
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("bucketCount", bucketCount)
-                .add("hiveTypes", hiveTypes)
-                .toString();
+        return format("buckets=%s, hiveTypes=%s", bucketCount, hiveTypes);
     }
 
     @Override

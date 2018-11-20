@@ -22,7 +22,6 @@ import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -69,12 +68,6 @@ public class PageConsumerOperator
         }
 
         @Override
-        public List<Type> getTypes()
-        {
-            return ImmutableList.of();
-        }
-
-        @Override
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
@@ -117,12 +110,6 @@ public class PageConsumerOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return ImmutableList.of();
     }
 
     @Override

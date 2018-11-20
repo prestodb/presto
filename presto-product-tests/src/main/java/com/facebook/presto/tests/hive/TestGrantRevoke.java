@@ -22,14 +22,13 @@ import io.prestodb.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tests.TestGroups.AUTHORIZATION;
-import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static com.facebook.presto.tests.utils.QueryExecutors.connectToPresto;
+import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
 import static io.prestodb.tempto.assertions.QueryAssert.Row;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.context.ContextDsl.executeWith;
-import static io.prestodb.tempto.context.ThreadLocalTestContextHolder.testContext;
 import static io.prestodb.tempto.sql.SqlContexts.createViewAs;
 import static java.lang.String.format;
 
@@ -49,7 +48,7 @@ public class TestGrantRevoke
      *          - "alice@presto" that has "jdbc_user: alice"
      *          - "bob@presto" that has "jdbc_user: bob"
      *     (all other values of the connection are same as that of the default "presto" connection).
-    */
+     */
 
     @BeforeTestWithContext
     public void setup()
@@ -77,7 +76,7 @@ public class TestGrantRevoke
         }
     }
 
-    @Test(groups = {HIVE_CONNECTOR, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testGrantRevoke()
     {
         // test GRANT
@@ -99,7 +98,7 @@ public class TestGrantRevoke
                 .failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testShowGrants()
     {
         assertThat(aliceExecutor.executeQuery(format("SHOW GRANTS ON %s", tableName)))
@@ -118,7 +117,7 @@ public class TestGrantRevoke
                         row("bob", "hive", "default", tableName, "INSERT", Boolean.FALSE)));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAll()
     {
         aliceExecutor.executeQuery(format("GRANT ALL PRIVILEGES ON %s TO bob", tableName));
@@ -133,7 +132,7 @@ public class TestGrantRevoke
         assertThat(bobExecutor.executeQuery(format("SHOW GRANTS ON %s", tableName))).hasNoRows();
     }
 
-    @Test(groups = {HIVE_CONNECTOR, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testPublic()
     {
         aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO PUBLIC", tableName));
@@ -144,7 +143,7 @@ public class TestGrantRevoke
         assertThat(aliceExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
     }
 
-    @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testTableOwnerPrivileges()
     {
         onHive().executeQuery("set role admin;");
@@ -153,7 +152,7 @@ public class TestGrantRevoke
                 .containsOnly(ownerGrants());
     }
 
-    @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testViewOwnerPrivileges()
     {
         onHive().executeQuery("set role admin;");
@@ -167,11 +166,6 @@ public class TestGrantRevoke
     private ImmutableList<Row> ownerGrants()
     {
         return ImmutableList.of(row("SELECT", Boolean.TRUE), row("INSERT", Boolean.TRUE), row("UPDATE", Boolean.TRUE), row("DELETE", Boolean.TRUE));
-    }
-
-    public static QueryExecutor onHive()
-    {
-        return testContext().getDependency(QueryExecutor.class, "hive");
     }
 
     private static void assertAccessDeniedOnAllOperationsOnTable(QueryExecutor queryExecutor, String tableName)

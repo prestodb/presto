@@ -22,7 +22,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
-import com.google.common.base.Throwables;
 import com.google.common.base.Ticker;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -32,7 +31,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.common.util.concurrent.ExecutionError;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -551,7 +549,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public void assignShard(long tableId, UUID shardUuid, String nodeIdentifier, boolean gracePeriod)
+    public void replaceShardAssignment(long tableId, UUID shardUuid, String nodeIdentifier, boolean gracePeriod)
     {
         if (gracePeriod && (nanosSince(startTime).compareTo(startupGracePeriod) < 0)) {
             throw new PrestoException(SERVER_STARTING_UP, "Cannot reassign shards while server is starting");
@@ -562,30 +560,11 @@ public class DatabaseShardManager
         runTransaction(dbi, (handle, status) -> {
             ShardDao dao = shardDaoSupplier.attach(handle);
 
-            Set<Integer> nodes = new HashSet<>(fetchLockedNodeIds(handle, tableId, shardUuid));
-            if (nodes.add(nodeId)) {
-                updateNodeIds(handle, tableId, shardUuid, nodes);
-                dao.insertShardNode(shardUuid, nodeId);
-            }
+            Set<Integer> oldAssignments = new HashSet<>(fetchLockedNodeIds(handle, tableId, shardUuid));
+            updateNodeIds(handle, tableId, shardUuid, ImmutableSet.of(nodeId));
 
-            return null;
-        });
-    }
-
-    @Override
-    public void unassignShard(long tableId, UUID shardUuid, String nodeIdentifier)
-    {
-        int nodeId = getOrCreateNodeId(nodeIdentifier);
-
-        runTransaction(dbi, (handle, status) -> {
-            ShardDao dao = shardDaoSupplier.attach(handle);
-
-            Set<Integer> nodes = new HashSet<>(fetchLockedNodeIds(handle, tableId, shardUuid));
-            if (nodes.remove(nodeId)) {
-                updateNodeIds(handle, tableId, shardUuid, nodes);
-                dao.deleteShardNode(shardUuid, nodeId);
-            }
-
+            dao.deleteShardNodes(shardUuid, oldAssignments);
+            dao.insertShardNode(shardUuid, nodeId);
             return null;
         });
     }
@@ -630,8 +609,9 @@ public class DatabaseShardManager
         try {
             return bucketAssignmentsCache.getUnchecked(distributionId);
         }
-        catch (UncheckedExecutionException | ExecutionError e) {
-            throw Throwables.propagate(e.getCause());
+        catch (UncheckedExecutionException e) {
+            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throw e;
         }
     }
 
@@ -692,11 +672,14 @@ public class DatabaseShardManager
     private Map<Integer, String> loadBucketAssignments(long distributionId)
     {
         Set<String> nodeIds = getNodeIdentifiers();
-        Iterator<String> nodeIterator = cyclingShuffledIterator(nodeIds);
+        List<BucketNode> bucketNodes = getBuckets(distributionId);
+        BucketReassigner reassigner = new BucketReassigner(nodeIds, bucketNodes);
 
         ImmutableMap.Builder<Integer, String> assignments = ImmutableMap.builder();
+        PrestoException limiterException = null;
+        Set<String> offlineNodes = new HashSet<>();
 
-        for (BucketNode bucketNode : getBuckets(distributionId)) {
+        for (BucketNode bucketNode : bucketNodes) {
             int bucket = bucketNode.getBucketNumber();
             String nodeId = bucketNode.getNodeIdentifier();
 
@@ -704,16 +687,30 @@ public class DatabaseShardManager
                 if (nanosSince(startTime).compareTo(startupGracePeriod) < 0) {
                     throw new PrestoException(SERVER_STARTING_UP, "Cannot reassign buckets while server is starting");
                 }
-                assignmentLimiter.checkAssignFrom(nodeId);
+
+                try {
+                    if (offlineNodes.add(nodeId)) {
+                        assignmentLimiter.checkAssignFrom(nodeId);
+                    }
+                }
+                catch (PrestoException e) {
+                    if (limiterException == null) {
+                        limiterException = e;
+                    }
+                    continue;
+                }
 
                 String oldNodeId = nodeId;
-                // TODO: use smarter system to choose replacement node
-                nodeId = nodeIterator.next();
+                nodeId = reassigner.getNextReassignmentDestination();
                 dao.updateBucketNode(distributionId, bucket, getOrCreateNodeId(nodeId));
                 log.info("Reassigned bucket %s for distribution ID %s from %s to %s", bucket, distributionId, oldNodeId, nodeId);
             }
 
             assignments.put(bucket, nodeId);
+        }
+
+        if (limiterException != null) {
+            throw limiterException;
         }
 
         return assignments.build();
@@ -735,8 +732,9 @@ public class DatabaseShardManager
         try {
             return nodeIdCache.getUnchecked(nodeIdentifier);
         }
-        catch (UncheckedExecutionException | ExecutionError e) {
-            throw Throwables.propagate(e.getCause());
+        catch (UncheckedExecutionException e) {
+            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throw e;
         }
     }
 

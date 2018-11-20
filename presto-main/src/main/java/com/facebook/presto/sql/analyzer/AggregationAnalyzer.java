@@ -81,7 +81,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGA
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATION_FUNCTION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_BE_IN_AGGREGATE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_GROUPING;
@@ -333,13 +332,6 @@ class AggregationAnalyzer
                                 "Cannot nest window functions inside aggregation '%s': %s",
                                 node.getName(),
                                 windowFunctions);
-                    }
-
-                    if (node.getFilter().isPresent() && node.isDistinct()) {
-                        throw new SemanticException(NOT_SUPPORTED,
-                                node,
-                                "Filtered aggregations not supported with DISTINCT: '%s'",
-                                node);
                     }
 
                     if (node.getOrderBy().isPresent()) {

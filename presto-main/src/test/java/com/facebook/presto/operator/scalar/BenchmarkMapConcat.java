@@ -21,7 +21,6 @@ import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
@@ -165,7 +164,7 @@ public class BenchmarkMapConcat
             for (int i = 0; i < offsets.length; i++) {
                 offsets[i] = mapSize * i;
             }
-            return mapType.createBlockFromKeyValue(new boolean[positionCount], offsets, keyBlock, valueBlock);
+            return mapType.createBlockFromKeyValue(Optional.empty(), offsets, keyBlock, valueBlock);
         }
 
         private static Block createKeyBlock(int positionCount, List<String> keys)
@@ -180,7 +179,7 @@ public class BenchmarkMapConcat
 
         private static Block createValueBlock(int positionCount, int mapSize)
         {
-            BlockBuilder valueBlockBuilder = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), positionCount * mapSize);
+            BlockBuilder valueBlockBuilder = DOUBLE.createBlockBuilder(null, positionCount * mapSize);
             for (int i = 0; i < positionCount * mapSize; i++) {
                 DOUBLE.writeDouble(valueBlockBuilder, ThreadLocalRandom.current().nextDouble());
             }

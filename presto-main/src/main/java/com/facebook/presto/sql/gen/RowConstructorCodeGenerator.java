@@ -30,7 +30,7 @@ import java.util.List;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
-import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 
 public class RowConstructorCodeGenerator
         implements BytecodeGenerator
@@ -50,28 +50,21 @@ public class RowConstructorCodeGenerator
                 constantType(binder, rowType).invoke(
                         "createBlockBuilder",
                         BlockBuilder.class,
-                        newInstance(BlockBuilderStatus.class),
+                        constantNull(BlockBuilderStatus.class),
                         constantInt(1))));
         block.append(singleRowBlockWriter.set(blockBuilder.invoke("beginBlockEntry", BlockBuilder.class)));
 
         for (int i = 0; i < arguments.size(); ++i) {
             Type fieldType = types.get(i);
-            Class<?> javaType = fieldType.getJavaType();
-            if (javaType == void.class) {
-                block.comment(i + "-th field type of row is undefined");
-                block.append(singleRowBlockWriter.invoke("appendNull", BlockBuilder.class).pop());
-            }
-            else {
-                Variable field = scope.createTempVariable(javaType);
-                block.comment("Clean wasNull and Generate + " + i + "-th field of row");
-                block.append(context.wasNull().set(constantFalse()));
-                block.append(context.generate(arguments.get(i)));
-                block.putVariable(field);
-                block.append(new IfStatement()
-                        .condition(context.wasNull())
-                        .ifTrue(singleRowBlockWriter.invoke("appendNull", BlockBuilder.class).pop())
-                        .ifFalse(constantType(binder, fieldType).writeValue(singleRowBlockWriter, field).pop()));
-            }
+            Variable field = scope.createTempVariable(fieldType.getJavaType());
+            block.comment("Clean wasNull and Generate + " + i + "-th field of row");
+            block.append(context.wasNull().set(constantFalse()));
+            block.append(context.generate(arguments.get(i)));
+            block.putVariable(field);
+            block.append(new IfStatement()
+                    .condition(context.wasNull())
+                    .ifTrue(singleRowBlockWriter.invoke("appendNull", BlockBuilder.class).pop())
+                    .ifFalse(constantType(binder, fieldType).writeValue(singleRowBlockWriter, field).pop()));
         }
         block.comment("closeEntry; slice the SingleRowBlock; wasNull = false;");
         block.append(blockBuilder.invoke("closeEntry", BlockBuilder.class).pop());

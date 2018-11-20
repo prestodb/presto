@@ -15,7 +15,6 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
@@ -23,7 +22,6 @@ import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeParameterSpecialization;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.lambda.LambdaFunctionInterface;
-import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
 
 import static java.lang.Boolean.TRUE;
@@ -43,20 +41,14 @@ public final class ArrayFilterFunction
             @SqlType("function(T, boolean)") FilterLongLambda function)
     {
         int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), positionCount);
+        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
         for (int position = 0; position < positionCount; position++) {
             Long input = null;
             if (!arrayBlock.isNull(position)) {
                 input = elementType.getLong(arrayBlock, position);
             }
 
-            Boolean keep;
-            try {
-                keep = function.apply(input);
-            }
-            catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
-            }
+            Boolean keep = function.apply(input);
             if (TRUE.equals(keep)) {
                 elementType.appendTo(arrayBlock, position, resultBuilder);
             }
@@ -73,20 +65,14 @@ public final class ArrayFilterFunction
             @SqlType("function(T, boolean)") FilterDoubleLambda function)
     {
         int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), positionCount);
+        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
         for (int position = 0; position < positionCount; position++) {
             Double input = null;
             if (!arrayBlock.isNull(position)) {
                 input = elementType.getDouble(arrayBlock, position);
             }
 
-            Boolean keep;
-            try {
-                keep = function.apply(input);
-            }
-            catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
-            }
+            Boolean keep = function.apply(input);
             if (TRUE.equals(keep)) {
                 elementType.appendTo(arrayBlock, position, resultBuilder);
             }
@@ -103,20 +89,14 @@ public final class ArrayFilterFunction
             @SqlType("function(T, boolean)") FilterBooleanLambda function)
     {
         int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), positionCount);
+        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
         for (int position = 0; position < positionCount; position++) {
             Boolean input = null;
             if (!arrayBlock.isNull(position)) {
                 input = elementType.getBoolean(arrayBlock, position);
             }
 
-            Boolean keep;
-            try {
-                keep = function.apply(input);
-            }
-            catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
-            }
+            Boolean keep = function.apply(input);
             if (TRUE.equals(keep)) {
                 elementType.appendTo(arrayBlock, position, resultBuilder);
             }
@@ -133,20 +113,14 @@ public final class ArrayFilterFunction
             @SqlType("function(T, boolean)") FilterSliceLambda function)
     {
         int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), positionCount);
+        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
         for (int position = 0; position < positionCount; position++) {
             Slice input = null;
             if (!arrayBlock.isNull(position)) {
                 input = elementType.getSlice(arrayBlock, position);
             }
 
-            Boolean keep;
-            try {
-                keep = function.apply(input);
-            }
-            catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
-            }
+            Boolean keep = function.apply(input);
             if (TRUE.equals(keep)) {
                 elementType.appendTo(arrayBlock, position, resultBuilder);
             }
@@ -163,47 +137,16 @@ public final class ArrayFilterFunction
             @SqlType("function(T, boolean)") FilterBlockLambda function)
     {
         int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), positionCount);
+        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
         for (int position = 0; position < positionCount; position++) {
             Block input = null;
             if (!arrayBlock.isNull(position)) {
                 input = (Block) elementType.getObject(arrayBlock, position);
             }
 
-            Boolean keep;
-            try {
-                keep = function.apply(input);
-            }
-            catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
-            }
+            Boolean keep = function.apply(input);
             if (TRUE.equals(keep)) {
                 elementType.appendTo(arrayBlock, position, resultBuilder);
-            }
-        }
-        return resultBuilder.build();
-    }
-
-    @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = void.class)
-    @SqlType("array(T)")
-    public static Block filterVoid(
-            @TypeParameter("T") Type elementType,
-            @SqlType("array(T)") Block arrayBlock,
-            @SqlType("function(T, boolean)") FilterVoidLambda function)
-    {
-        int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), positionCount);
-        for (int position = 0; position < positionCount; position++) {
-            Boolean keep;
-            try {
-                keep = function.apply(null);
-            }
-            catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
-            }
-            if (TRUE.equals(keep)) {
-                resultBuilder.appendNull();
             }
         }
         return resultBuilder.build();

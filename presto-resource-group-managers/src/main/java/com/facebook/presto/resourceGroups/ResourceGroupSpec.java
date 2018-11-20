@@ -48,8 +48,6 @@ public class ResourceGroupSpec
     private final Optional<Boolean> jmxExport;
     private final Optional<Duration> softCpuLimit;
     private final Optional<Duration> hardCpuLimit;
-    private final Optional<Duration> queuedTimeLimit;
-    private final Optional<Duration> runningTimeLimit;
 
     @JsonCreator
     public ResourceGroupSpec(
@@ -64,15 +62,11 @@ public class ResourceGroupSpec
             @JsonProperty("subGroups") Optional<List<ResourceGroupSpec>> subGroups,
             @JsonProperty("jmxExport") Optional<Boolean> jmxExport,
             @JsonProperty("softCpuLimit") Optional<Duration> softCpuLimit,
-            @JsonProperty("hardCpuLimit") Optional<Duration> hardCpuLimit,
-            @JsonProperty("queuedTimeLimit") Optional<Duration> queuedTimeLimit,
-            @JsonProperty("runningTimeLimit") Optional<Duration> runningTimeLimit)
+            @JsonProperty("hardCpuLimit") Optional<Duration> hardCpuLimit)
     {
         this.softCpuLimit = requireNonNull(softCpuLimit, "softCpuLimit is null");
         this.hardCpuLimit = requireNonNull(hardCpuLimit, "hardCpuLimit is null");
         this.jmxExport = requireNonNull(jmxExport, "jmxExport is null");
-        this.queuedTimeLimit = requireNonNull(queuedTimeLimit, "queuedTimeLimit is null");
-        this.runningTimeLimit = requireNonNull(runningTimeLimit, "runningTimeLimit is null");
         this.name = requireNonNull(name, "name is null");
         checkArgument(maxQueued >= 0, "maxQueued is negative");
         this.maxQueued = maxQueued;
@@ -170,16 +164,6 @@ public class ResourceGroupSpec
         return hardCpuLimit;
     }
 
-    public Optional<Duration> getQueuedTimeLimit()
-    {
-        return queuedTimeLimit;
-    }
-
-    public Optional<Duration> getRunningTimeLimit()
-    {
-        return runningTimeLimit;
-    }
-
     @Override
     public boolean equals(Object other)
     {
@@ -200,9 +184,7 @@ public class ResourceGroupSpec
                 subGroups.equals(that.subGroups) &&
                 jmxExport.equals(that.jmxExport) &&
                 softCpuLimit.equals(that.softCpuLimit) &&
-                hardCpuLimit.equals(that.hardCpuLimit) &&
-                queuedTimeLimit.equals(that.queuedTimeLimit) &&
-                runningTimeLimit.equals(that.runningTimeLimit));
+                hardCpuLimit.equals(that.hardCpuLimit));
     }
 
     // Subgroups not included, used to determine whether a group needs to be reconfigured
@@ -220,9 +202,7 @@ public class ResourceGroupSpec
                 schedulingWeight.equals(other.schedulingWeight) &&
                 jmxExport.equals(other.jmxExport) &&
                 softCpuLimit.equals(other.softCpuLimit) &&
-                hardCpuLimit.equals(other.hardCpuLimit) &&
-                queuedTimeLimit.equals(other.queuedTimeLimit) &&
-                runningTimeLimit.equals(other.runningTimeLimit));
+                hardCpuLimit.equals(other.hardCpuLimit));
     }
 
     @Override
@@ -239,9 +219,7 @@ public class ResourceGroupSpec
                 subGroups,
                 jmxExport,
                 softCpuLimit,
-                hardCpuLimit,
-                queuedTimeLimit,
-                runningTimeLimit);
+                hardCpuLimit);
     }
 
     @Override
@@ -258,8 +236,6 @@ public class ResourceGroupSpec
                 .add("jmxExport", jmxExport)
                 .add("softCpuLimit", softCpuLimit)
                 .add("hardCpuLimit", hardCpuLimit)
-                .add("queuedTimeLimit", queuedTimeLimit)
-                .add("runningTimeLimit", runningTimeLimit)
                 .toString();
     }
 }

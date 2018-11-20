@@ -20,14 +20,12 @@ import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.UpdatablePageSource;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.Closeable;
 import java.net.URI;
-import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -47,7 +45,6 @@ public class ExchangeOperator
         private final PlanNodeId sourceId;
         private final ExchangeClientSupplier exchangeClientSupplier;
         private final PagesSerdeFactory serdeFactory;
-        private final List<Type> types;
         private ExchangeClient exchangeClient;
         private boolean closed;
 
@@ -55,26 +52,18 @@ public class ExchangeOperator
                 int operatorId,
                 PlanNodeId sourceId,
                 ExchangeClientSupplier exchangeClientSupplier,
-                PagesSerdeFactory serdeFactory,
-                List<Type> types)
+                PagesSerdeFactory serdeFactory)
         {
             this.operatorId = operatorId;
             this.sourceId = sourceId;
             this.exchangeClientSupplier = exchangeClientSupplier;
             this.serdeFactory = serdeFactory;
-            this.types = types;
         }
 
         @Override
         public PlanNodeId getSourceId()
         {
             return sourceId;
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
         }
 
         @Override
@@ -88,7 +77,6 @@ public class ExchangeOperator
 
             return new ExchangeOperator(
                     operatorContext,
-                    types,
                     sourceId,
                     serdeFactory.createPagesSerde(),
                     exchangeClient);
@@ -104,12 +92,10 @@ public class ExchangeOperator
     private final OperatorContext operatorContext;
     private final PlanNodeId sourceId;
     private final ExchangeClient exchangeClient;
-    private final List<Type> types;
     private final PagesSerde serde;
 
     public ExchangeOperator(
             OperatorContext operatorContext,
-            List<Type> types,
             PlanNodeId sourceId,
             PagesSerde serde,
             ExchangeClient exchangeClient)
@@ -118,7 +104,6 @@ public class ExchangeOperator
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
         this.exchangeClient = requireNonNull(exchangeClient, "exchangeClient is null");
         this.serde = requireNonNull(serde, "serde is null");
-        this.types = requireNonNull(types, "types is null");
 
         operatorContext.setInfoSupplier(exchangeClient::getStatus);
     }
@@ -151,12 +136,6 @@ public class ExchangeOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override

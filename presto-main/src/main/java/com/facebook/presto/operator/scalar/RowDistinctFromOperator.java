@@ -14,9 +14,11 @@ package com.facebook.presto.operator.scalar;
  */
 
 import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.FunctionInvoker;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlOperator;
+import com.facebook.presto.spi.InvocationConvention;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -25,10 +27,12 @@ import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.metadata.Signature.comparableWithVariadicBound;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
+import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
+import static com.facebook.presto.spi.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
@@ -40,7 +44,7 @@ public class RowDistinctFromOperator
         extends SqlOperator
 {
     public static final RowDistinctFromOperator ROW_DISTINCT_FROM = new RowDistinctFromOperator();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(RowDistinctFromOperator.class, "isDistinctFrom", Type.class, List.class, Block.class, Block.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(RowDistinctFromOperator.class, "isDistinctFrom", Type.class, List.class, Block.class, boolean.class, Block.class, boolean.class);
 
     private RowDistinctFromOperator()
     {
@@ -58,21 +62,25 @@ public class RowDistinctFromOperator
         Type type = boundVariables.getTypeVariable("T");
         for (Type parameterType : type.getTypeParameters()) {
             Signature signature = functionRegistry.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(parameterType, parameterType));
-            argumentMethods.add(functionRegistry.getScalarFunctionImplementation(signature).getMethodHandle());
+            FunctionInvoker functionInvoker = functionRegistry.getFunctionInvokerProvider().createFunctionInvoker(
+                    signature,
+                    Optional.of(new InvocationConvention(
+                            ImmutableList.of(NULL_FLAG, NULL_FLAG),
+                            InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL,
+                            false)));
+            argumentMethods.add(functionInvoker.methodHandle());
         }
         return new ScalarFunctionImplementation(
                 false,
                 ImmutableList.of(
-                        valueTypeArgumentProperty(USE_BOXED_TYPE),
-                        valueTypeArgumentProperty(USE_BOXED_TYPE)),
+                        valueTypeArgumentProperty(USE_NULL_FLAG),
+                        valueTypeArgumentProperty(USE_NULL_FLAG)),
                 METHOD_HANDLE.bindTo(type).bindTo(argumentMethods.build()),
                 isDeterministic());
     }
 
-    public static boolean isDistinctFrom(Type rowType, List<MethodHandle> argumentMethods, Block leftRow, Block rightRow)
+    public static boolean isDistinctFrom(Type rowType, List<MethodHandle> argumentMethods, Block leftRow, boolean leftNull, Block rightRow, boolean rightNull)
     {
-        boolean leftNull = leftRow == null;
-        boolean rightNull = rightRow == null;
         if (leftNull != rightNull) {
             return true;
         }

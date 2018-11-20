@@ -78,7 +78,7 @@ public final class Metrics
             @Override
             public String toString()
             {
-                return "NULLS_FRACTION(" + columnName + ")";
+                return "nullsFraction(\"" + columnName + "\")";
             }
         };
     }
@@ -108,7 +108,7 @@ public final class Metrics
             @Override
             public String toString()
             {
-                return "DISTINCT_VALUES_COUNT(" + columnName + ")";
+                return "distinctValuesCount(\"" + columnName + "\")";
             }
         };
     }
@@ -146,7 +146,7 @@ public final class Metrics
             @Override
             public String toString()
             {
-                return "LOW_VALUE(" + columnName + ")";
+                return "lowValue(\"" + columnName + "\")";
             }
         };
     }
@@ -184,7 +184,7 @@ public final class Metrics
             @Override
             public String toString()
             {
-                return "HIGH_VALUE(" + columnName + ")";
+                return "highValue(\"" + columnName + "\")";
             }
         };
     }

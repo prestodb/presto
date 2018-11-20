@@ -1,0 +1,21 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        local exchange (GATHER, SINGLE, [])
+            remote exchange (REPARTITION, HASH, ["expr_13", "expr_14"])
+                final aggregation over (groupid, i_category$gid, i_class$gid)
+                    local exchange (REPARTITION, HASH, ["groupid", "i_category$gid", "i_class$gid"])
+                        remote exchange (REPARTITION, HASH, ["groupid", "i_category$gid", "i_class$gid"])
+                            partial aggregation over (groupid, i_category$gid, i_class$gid)
+                                join (INNER, REPLICATED):
+                                    join (INNER, REPLICATED):
+                                        join (INNER, REPLICATED):
+                                            scan tpcds:store_sales:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    scan tpcds:store:sf3000.0
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                scan tpcds:date_dim:sf3000.0
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            scan tpcds:item:sf3000.0

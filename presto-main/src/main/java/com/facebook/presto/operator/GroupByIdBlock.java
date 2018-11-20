@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockEncoding;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -183,6 +182,12 @@ public class GroupByIdBlock
     }
 
     @Override
+    public long getEstimatedDataSizeForStats(int position)
+    {
+        return block.getEstimatedDataSizeForStats(position);
+    }
+
+    @Override
     public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
         consumer.accept(block, block.getRetainedSizeInBytes());
@@ -190,9 +195,9 @@ public class GroupByIdBlock
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return block.getEncoding();
+        throw new UnsupportedOperationException("GroupByIdBlock does not support serialization");
     }
 
     @Override
@@ -202,16 +207,17 @@ public class GroupByIdBlock
     }
 
     @Override
-    public void assureLoaded()
-    {
-    }
-
-    @Override
     public String toString()
     {
         return toStringHelper(this)
                 .add("groupCount", groupCount)
                 .add("positionCount", getPositionCount())
                 .toString();
+    }
+
+    @Override
+    public Block getLoadedBlock()
+    {
+        return block.getLoadedBlock();
     }
 }

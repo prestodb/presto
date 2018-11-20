@@ -43,6 +43,7 @@ public interface S3ConfigurationUpdater
     String S3_ENDPOINT = "presto.s3.endpoint";
     String S3_SECRET_KEY = "presto.s3.secret-key";
     String S3_ACCESS_KEY = "presto.s3.access-key";
+    String S3_ACL_TYPE = "presto.s3.upload-acl-type";
 
     void updateConfiguration(Configuration config);
 }

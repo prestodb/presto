@@ -20,7 +20,6 @@ import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import com.google.inject.multibindings.Multibinder;
 
 import javax.inject.Inject;
 
@@ -54,16 +53,6 @@ public class RedisConnectorModule
         jsonCodecBinder(binder).bindJsonCodec(RedisTableDescription.class);
 
         binder.install(new RedisDecoderModule());
-
-        for (RedisInternalFieldDescription internalFieldDescription : RedisInternalFieldDescription.getInternalFields()) {
-            bindInternalColumn(binder, internalFieldDescription);
-        }
-    }
-
-    private static void bindInternalColumn(Binder binder, RedisInternalFieldDescription fieldDescription)
-    {
-        Multibinder<RedisInternalFieldDescription> fieldDescriptionBinder = Multibinder.newSetBinder(binder, RedisInternalFieldDescription.class);
-        fieldDescriptionBinder.addBinding().toInstance(fieldDescription);
     }
 
     public static final class TypeDeserializer

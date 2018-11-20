@@ -14,18 +14,17 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.DomainTranslator.ExtractionResult;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -46,16 +45,18 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.FunctionRegistry.getMagicLiteralFunctionSignature;
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -74,16 +75,15 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.or;
-import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.IS_DISTINCT_FROM;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR_EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.NOT_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.type.ColorType.COLOR;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -96,8 +96,6 @@ import static org.testng.Assert.fail;
 
 public class TestDomainTranslator
 {
-    private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
-
     private static final Symbol C_BIGINT = new Symbol("c_bigint");
     private static final Symbol C_DOUBLE = new Symbol("c_double");
     private static final Symbol C_VARCHAR = new Symbol("c_varchar");
@@ -123,7 +121,7 @@ public class TestDomainTranslator
     private static final Symbol C_TINYINT = new Symbol("c_tinyint");
     private static final Symbol C_REAL = new Symbol("c_real");
 
-    private static final Map<Symbol, Type> TYPES = ImmutableMap.<Symbol, Type>builder()
+    private static final TypeProvider TYPES = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
             .put(C_BIGINT, BIGINT)
             .put(C_DOUBLE, DOUBLE)
             .put(C_VARCHAR, VARCHAR)
@@ -148,12 +146,32 @@ public class TestDomainTranslator
             .put(C_SMALLINT, SMALLINT)
             .put(C_TINYINT, TINYINT)
             .put(C_REAL, REAL)
-            .build();
+            .build());
 
     private static final long TIMESTAMP_VALUE = new DateTime(2013, 3, 30, 1, 5, 0, 0, DateTimeZone.UTC).getMillis();
     private static final long DATE_VALUE = TimeUnit.MILLISECONDS.toDays(new DateTime(2001, 1, 22, 0, 0, 0, 0, DateTimeZone.UTC).getMillis());
     private static final long COLOR_VALUE_1 = 1;
     private static final long COLOR_VALUE_2 = 2;
+
+    private Metadata metadata;
+    private LiteralEncoder literalEncoder;
+    private DomainTranslator domainTranslator;
+
+    @BeforeClass
+    public void setup()
+    {
+        metadata = createTestMetadataManager();
+        literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
+        domainTranslator = new DomainTranslator(literalEncoder);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        metadata = null;
+        literalEncoder = null;
+        domainTranslator = null;
+    }
 
     @Test
     public void testNoneRoundTrip()
@@ -797,26 +815,11 @@ public class TestDomainTranslator
     @Test
     public void testFromUnprocessableInPredicate()
     {
-        Expression originalExpression = new InPredicate(unprocessableExpression1(C_BIGINT), new InListExpression(ImmutableList.of(TRUE_LITERAL)));
-        ExtractionResult result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), equal(unprocessableExpression1(C_BIGINT), TRUE_LITERAL));
-        assertTrue(result.getTupleDomain().isAll());
-
-        originalExpression = new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(unprocessableExpression1(C_BOOLEAN))));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), equal(C_BOOLEAN, unprocessableExpression1(C_BOOLEAN)));
-        assertTrue(result.getTupleDomain().isAll());
-
-        originalExpression = new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(TRUE_LITERAL, unprocessableExpression1(C_BOOLEAN))));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), or(equal(C_BOOLEAN, TRUE_LITERAL), equal(C_BOOLEAN, unprocessableExpression1(C_BOOLEAN))));
-        assertTrue(result.getTupleDomain().isAll());
-
-        // Test complement
-        originalExpression = not(new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(unprocessableExpression1(C_BOOLEAN)))));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), not(equal(C_BOOLEAN, unprocessableExpression1(C_BOOLEAN))));
-        assertTrue(result.getTupleDomain().isAll());
+        assertUnsupportedPredicate(new InPredicate(unprocessableExpression1(C_BIGINT), new InListExpression(ImmutableList.of(TRUE_LITERAL))));
+        assertUnsupportedPredicate(new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(unprocessableExpression1(C_BOOLEAN)))));
+        assertUnsupportedPredicate(
+                new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(TRUE_LITERAL, unprocessableExpression1(C_BOOLEAN)))));
+        assertUnsupportedPredicate(not(new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(unprocessableExpression1(C_BOOLEAN))))));
     }
 
     @Test
@@ -855,13 +858,13 @@ public class TestDomainTranslator
                 withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false))));
 
         assertPredicateIsAlwaysFalse(not(in(C_BIGINT, Arrays.asList(1L, 2L, null))));
-        assertPredicateIsAlwaysFalse(in(C_BIGINT, Arrays.asList(new Long[]{null})));
-        assertPredicateIsAlwaysFalse(not(in(C_BIGINT, Arrays.asList(new Long[]{null}))));
+        assertPredicateIsAlwaysFalse(in(C_BIGINT, Arrays.asList(new Long[] {null})));
+        assertPredicateIsAlwaysFalse(not(in(C_BIGINT, Arrays.asList(new Long[] {null}))));
 
         assertUnsupportedPredicate(isNull(in(C_BIGINT, Arrays.asList(1L, 2L, null))));
         assertUnsupportedPredicate(isNotNull(in(C_BIGINT, Arrays.asList(1L, 2L, null))));
-        assertUnsupportedPredicate(isNull(in(C_BIGINT, Arrays.asList(new Long[]{null}))));
-        assertUnsupportedPredicate(isNotNull(in(C_BIGINT, Arrays.asList(new Long[]{null}))));
+        assertUnsupportedPredicate(isNull(in(C_BIGINT, Arrays.asList(new Long[] {null}))));
+        assertUnsupportedPredicate(isNotNull(in(C_BIGINT, Arrays.asList(new Long[] {null}))));
     }
 
     @Test
@@ -879,11 +882,9 @@ public class TestDomainTranslator
                         new InListExpression(ImmutableList.of(toExpression(1L, BIGINT)))),
                 withColumnDomains(ImmutableMap.of(C_SMALLINT, Domain.singleValue(SMALLINT, 1L))));
 
-        ExtractionResult result = fromPredicate(new InPredicate(
+        assertUnsupportedPredicate(new InPredicate(
                 cast(C_BIGINT, INTEGER),
                 new InListExpression(ImmutableList.of(toExpression(1L, INTEGER)))));
-        assertEquals(result.getRemainingExpression(), equal(cast(C_BIGINT, INTEGER), toExpression(1L, INTEGER)));
-        assertEquals(result.getTupleDomain(), TupleDomain.all());
     }
 
     @Test
@@ -893,19 +894,15 @@ public class TestDomainTranslator
                 C_BIGINT.toSymbolReference(),
                 new InListExpression(ImmutableList.of(cast(toExpression(null, SMALLINT), BIGINT)))));
 
-        Expression originalExpression = not(new InPredicate(
+        assertUnsupportedPredicate(not(new InPredicate(
                 cast(C_SMALLINT, BIGINT),
-                new InListExpression(ImmutableList.of(toExpression(null, BIGINT)))));
-        ExtractionResult result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), not(equal(cast(C_SMALLINT, BIGINT), toExpression(null, BIGINT))));
-        assertEquals(result.getTupleDomain(), TupleDomain.all());
+                new InListExpression(ImmutableList.of(toExpression(null, BIGINT))))));
 
-        originalExpression = new InPredicate(
-                C_BIGINT.toSymbolReference(),
-                new InListExpression(ImmutableList.of(cast(toExpression(null, SMALLINT), BIGINT), toExpression(1L, BIGINT))));
-        result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L)), false))));
+        assertPredicateTranslates(
+                new InPredicate(
+                        C_BIGINT.toSymbolReference(),
+                        new InListExpression(ImmutableList.of(cast(toExpression(null, SMALLINT), BIGINT), toExpression(1L, BIGINT)))),
+                withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L)), false))));
 
         assertPredicateIsAlwaysFalse(not(new InPredicate(
                 C_BIGINT.toSymbolReference(),
@@ -1071,7 +1068,7 @@ public class TestDomainTranslator
     {
         Type columnType = columnValues.getType();
         Type literalType = literalValues.getType();
-        Type superType = METADATA.getTypeManager().getCommonSuperType(columnType, literalType).orElseThrow(() -> new IllegalArgumentException("uncompatible types in test (" + columnType + ", " + literalType + ")"));
+        Type superType = metadata.getTypeManager().getCommonSuperType(columnType, literalType).orElseThrow(() -> new IllegalArgumentException("incompatible types in test (" + columnType + ", " + literalType + ")"));
 
         Expression max = toExpression(literalValues.getMax(), literalType);
         Expression min = toExpression(literalValues.getMin(), literalType);
@@ -1168,8 +1165,12 @@ public class TestDomainTranslator
     }
 
     @Test
-    public void testVarcharComparedToCharExpression()
+    public void testLegacyCharComparedToVarcharExpression()
     {
+        metadata = createTestMetadataManager(new FeaturesConfig().setLegacyCharToVarcharCoercion(true));
+        literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
+        domainTranslator = new DomainTranslator(literalEncoder);
+
         String maxCodePoint = new String(Character.toChars(Character.MAX_CODE_POINT));
 
         // greater than or equal
@@ -1210,6 +1211,18 @@ public class TestDomainTranslator
         testSimpleComparison(isDistinctFrom(cast(C_CHAR, VARCHAR), stringLiteral("12345678901", VARCHAR)), C_CHAR, Domain.all(createCharType(10)));
     }
 
+    @Test
+    public void testCharComparedToVarcharExpression()
+    {
+        Type charType = createCharType(10);
+        // varchar literal is coerced to column (char) type
+        testSimpleComparison(equal(C_CHAR, cast(stringLiteral("abc"), charType)), C_CHAR, Range.equal(charType, Slices.utf8Slice("abc")));
+
+        // both sides got coerced to char(11)
+        charType = createCharType(11);
+        assertUnsupportedPredicate(equal(cast(C_CHAR, charType), cast(stringLiteral("abc12345678"), charType)));
+    }
+
     private void assertPredicateIsAlwaysTrue(Expression expression)
     {
         assertPredicateTranslates(expression, TupleDomain.all());
@@ -1236,14 +1249,14 @@ public class TestDomainTranslator
         assertEquals(result.getTupleDomain(), tupleDomain);
     }
 
-    private static ExtractionResult fromPredicate(Expression originalPredicate)
+    private ExtractionResult fromPredicate(Expression originalPredicate)
     {
-        return DomainTranslator.fromPredicate(METADATA, TEST_SESSION, originalPredicate, TYPES);
+        return DomainTranslator.fromPredicate(metadata, TEST_SESSION, originalPredicate, TYPES);
     }
 
-    private static Expression toPredicate(TupleDomain<Symbol> tupleDomain)
+    private Expression toPredicate(TupleDomain<Symbol> tupleDomain)
     {
-        return DomainTranslator.toPredicate(tupleDomain);
+        return domainTranslator.toPredicate(tupleDomain);
     }
 
     private static Expression unprocessableExpression1(Symbol symbol)
@@ -1306,7 +1319,7 @@ public class TestDomainTranslator
         return new IsNullPredicate(symbol.toSymbolReference());
     }
 
-    private static InPredicate in(Symbol symbol, List<?> values)
+    private InPredicate in(Symbol symbol, List<?> values)
     {
         return in(symbol.toSymbolReference(), TYPES.get(symbol), values);
     }
@@ -1326,10 +1339,10 @@ public class TestDomainTranslator
         return new IsNullPredicate(expression);
     }
 
-    private static InPredicate in(Expression expression, Type expressisonType, List<?> values)
+    private InPredicate in(Expression expression, Type expressisonType, List<?> values)
     {
         List<Type> types = nCopies(values.size(), expressisonType);
-        List<Expression> expressions = LiteralInterpreter.toExpressions(values, types);
+        List<Expression> expressions = literalEncoder.toExpressions(values, types);
         return new InPredicate(expression, new InListExpression(expressions));
     }
 
@@ -1378,9 +1391,9 @@ public class TestDomainTranslator
         return new NotExpression(expression);
     }
 
-    private static ComparisonExpression comparison(ComparisonExpressionType type, Expression expression1, Expression expression2)
+    private static ComparisonExpression comparison(ComparisonExpression.Operator operator, Expression expression1, Expression expression2)
     {
-        return new ComparisonExpression(type, expression1, expression2);
+        return new ComparisonExpression(operator, expression1, expression2);
     }
 
     private static Literal bigintLiteral(long value)
@@ -1431,7 +1444,7 @@ public class TestDomainTranslator
         return new FunctionCall(QualifiedName.of(getMagicLiteralFunctionSignature(COLOR).getName()), ImmutableList.of(bigintLiteral(value)));
     }
 
-    private static Expression varbinaryLiteral(Slice value)
+    private Expression varbinaryLiteral(Slice value)
     {
         return toExpression(value, VARBINARY);
     }
@@ -1456,12 +1469,12 @@ public class TestDomainTranslator
         return (long) Float.floatToIntBits(value);
     }
 
-    private static void testSimpleComparison(Expression expression, Symbol symbol, Range expectedDomainRange)
+    private void testSimpleComparison(Expression expression, Symbol symbol, Range expectedDomainRange)
     {
         testSimpleComparison(expression, symbol, Domain.create(ValueSet.ofRanges(expectedDomainRange), false));
     }
 
-    private static void testSimpleComparison(Expression expression, Symbol symbol, Domain domain)
+    private void testSimpleComparison(Expression expression, Symbol symbol, Domain domain)
     {
         ExtractionResult result = fromPredicate(expression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
@@ -1470,6 +1483,16 @@ public class TestDomainTranslator
         if (!actual.equals(expected)) {
             fail(format("for comparison [%s] expected %s but found %s", expression.toString(), expected.toString(SESSION), actual.toString(SESSION)));
         }
+    }
+
+    private Expression toExpression(Object object, Type type)
+    {
+        return literalEncoder.toExpression(object, type);
+    }
+
+    private List<Expression> toExpressions(List<?> objects, List<? extends Type> types)
+    {
+        return literalEncoder.toExpressions(objects, types);
     }
 
     private static class NumericValues<T>

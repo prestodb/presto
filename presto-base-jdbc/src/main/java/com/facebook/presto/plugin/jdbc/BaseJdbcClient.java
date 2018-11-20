@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.FixedSplitSource;
@@ -190,7 +191,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public List<JdbcColumnHandle> getColumns(JdbcTableHandle tableHandle)
+    public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         try (Connection connection = connectionFactory.openConnection()) {
             try (ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
@@ -200,7 +201,7 @@ public class BaseJdbcClient
                             resultSet.getInt("DATA_TYPE"),
                             resultSet.getInt("COLUMN_SIZE"),
                             resultSet.getInt("DECIMAL_DIGITS"));
-                    Optional<ReadMapping> columnMapping = toPrestoType(typeHandle);
+                    Optional<ReadMapping> columnMapping = toPrestoType(session, typeHandle);
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
                         String columnName = resultSet.getString("COLUMN_NAME");
@@ -220,7 +221,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public Optional<ReadMapping> toPrestoType(JdbcTypeHandle typeHandle)
+    public Optional<ReadMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
     {
         return jdbcTypeToPrestoType(typeHandle);
     }

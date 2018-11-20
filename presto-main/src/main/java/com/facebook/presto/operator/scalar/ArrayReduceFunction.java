@@ -23,7 +23,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.gen.lambda.BinaryFunctionInterface;
 import com.facebook.presto.sql.gen.lambda.UnaryFunctionInterface;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 
@@ -107,18 +106,8 @@ public final class ArrayReduceFunction
         Object intermediateValue = initialIntermediateValue;
         for (int position = 0; position < positionCount; position++) {
             Object input = readNativeValue(inputType, block, position);
-            try {
-                intermediateValue = inputFunction.apply(intermediateValue, input);
-            }
-            catch (Throwable throwable) {
-                throw Throwables.propagate(throwable);
-            }
+            intermediateValue = inputFunction.apply(intermediateValue, input);
         }
-        try {
-            return outputFunction.apply(intermediateValue);
-        }
-        catch (Throwable throwable) {
-            throw Throwables.propagate(throwable);
-        }
+        return outputFunction.apply(intermediateValue);
     }
 }

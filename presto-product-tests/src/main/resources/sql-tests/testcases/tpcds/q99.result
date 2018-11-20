@@ -1,4 +1,4 @@
--- delimiter: |; types: LONGNVARCHAR|CHAR|LONGNVARCHAR|BIGINT|BIGINT|BIGINT|BIGINT|BIGINT
+-- delimiter: |; types: VARCHAR|CHAR|VARCHAR|BIGINT|BIGINT|BIGINT|BIGINT|BIGINT
 Bad cards must make.|EXPRESS                       |Mid Atlantic|1270|1318|1281|0|0|
 Bad cards must make.|EXPRESS                       |NY Metro|1226|1287|1282|0|0|
 Bad cards must make.|EXPRESS                       |North Midwest|1208|1242|1294|0|0|

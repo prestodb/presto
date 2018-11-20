@@ -15,19 +15,19 @@ package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
+import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
 import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
-import com.facebook.presto.orc.stream.OutputDataStream;
 import com.facebook.presto.orc.stream.PresentOutputStream;
+import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.ColumnarRow;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
@@ -168,7 +168,7 @@ public class StructColumnWriter
     }
 
     @Override
-    public List<Stream> writeIndexStreams(SliceOutput outputStream, MetadataWriter metadataWriter)
+    public List<StreamDataOutput> getIndexStreams(CompressedMetadataWriter metadataWriter)
             throws IOException
     {
         checkState(closed);
@@ -184,13 +184,13 @@ public class StructColumnWriter
             rowGroupIndexes.add(new RowGroupIndex(positions, columnStatistics));
         }
 
-        int length = metadataWriter.writeRowIndexes(outputStream, rowGroupIndexes.build());
-        Stream stream = new Stream(column, StreamKind.ROW_INDEX, length, false);
+        Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes.build());
+        Stream stream = new Stream(column, StreamKind.ROW_INDEX, slice.length(), false);
 
-        ImmutableList.Builder<Stream> indexStreams = ImmutableList.builder();
-        indexStreams.add(stream);
+        ImmutableList.Builder<StreamDataOutput> indexStreams = ImmutableList.builder();
+        indexStreams.add(new StreamDataOutput(slice, stream));
         for (ColumnWriter structField : structFields) {
-            indexStreams.addAll(structField.writeIndexStreams(outputStream, metadataWriter));
+            indexStreams.addAll(structField.getIndexStreams(metadataWriter));
         }
         return indexStreams.build();
     }
@@ -205,14 +205,14 @@ public class StructColumnWriter
     }
 
     @Override
-    public List<OutputDataStream> getOutputDataStreams()
+    public List<StreamDataOutput> getDataStreams()
     {
         checkState(closed);
 
-        ImmutableList.Builder<OutputDataStream> outputDataStreams = ImmutableList.builder();
-        outputDataStreams.add(new OutputDataStream(sliceOutput -> presentStream.writeDataStreams(column, sliceOutput), presentStream.getBufferedBytes()));
+        ImmutableList.Builder<StreamDataOutput> outputDataStreams = ImmutableList.builder();
+        presentStream.getStreamDataOutput(column).ifPresent(outputDataStreams::add);
         for (ColumnWriter structField : structFields) {
-            outputDataStreams.addAll(structField.getOutputDataStreams());
+            outputDataStreams.addAll(structField.getDataStreams());
         }
         return outputDataStreams.build();
     }
@@ -230,10 +230,12 @@ public class StructColumnWriter
     @Override
     public long getRetainedBytes()
     {
-        // NOTE: we do not include stats because they should be small and it would be annoying to calculate the size
         long retainedBytes = INSTANCE_SIZE + presentStream.getRetainedBytes();
         for (ColumnWriter structField : structFields) {
             retainedBytes += structField.getRetainedBytes();
+        }
+        for (ColumnStatistics statistics : rowGroupColumnStatistics) {
+            retainedBytes += statistics.getRetainedSizeInBytes();
         }
         return retainedBytes;
     }

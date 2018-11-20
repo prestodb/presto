@@ -16,7 +16,6 @@ package com.facebook.presto.type;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.google.re2j.Matcher;
 import com.google.re2j.Options;
 import com.google.re2j.Pattern;
@@ -94,7 +93,7 @@ public final class Re2JRegexp
         int group = toIntExact(groupIndex);
         validateGroup(group, matcher.groupCount());
 
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 32);
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 32);
         while (true) {
             if (!matcher.find()) {
                 break;
@@ -126,7 +125,7 @@ public final class Re2JRegexp
     public Block split(Slice source)
     {
         Matcher matcher = re2jPattern.matcher(source);
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 32);
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 32);
 
         int lastEnd = 0;
         while (matcher.find()) {

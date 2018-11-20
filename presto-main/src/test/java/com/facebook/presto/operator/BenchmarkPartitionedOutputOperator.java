@@ -30,7 +30,6 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.TestingTaskContext;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -97,7 +96,7 @@ public class BenchmarkPartitionedOutputOperator
         private static final int PARTITION_COUNT = 512;
         private static final int ENTRIES_PER_PAGE = 256;
         private static final DataSize MAX_MEMORY = new DataSize(1, GIGABYTE);
-        private static final RowType rowType = new RowType(ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR), Optional.empty());
+        private static final RowType rowType = RowType.anonymous(ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR));
         private static final List<Type> TYPES = ImmutableList.of(BIGINT, rowType, rowType, rowType);
         private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-EXECUTOR-%s"));
         private static final ScheduledExecutorService SCHEDULER = newScheduledThreadPool(1, daemonThreadsNamed("test-%s"));
@@ -117,7 +116,7 @@ public class BenchmarkPartitionedOutputOperator
         private PartitionedOutputOperator createPartitionedOutputOperator()
         {
             PartitionFunction partitionFunction = new LocalPartitionGenerator(new InterpretedHashGenerator(ImmutableList.of(BIGINT), new int[] {0}), PARTITION_COUNT);
-            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(new TypeRegistry(ImmutableSet.copyOf(TYPES))), false);
+            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(new TypeRegistry()), false);
             OutputBuffers buffers = createInitialEmptyOutputBuffers(PARTITIONED);
             for (int partition = 0; partition < PARTITION_COUNT; partition++) {
                 buffers = buffers.withBuffer(new OutputBuffers.OutputBufferId(partition), partition);
@@ -195,9 +194,8 @@ public class BenchmarkPartitionedOutputOperator
         {
             return TestingTaskContext.builder(EXECUTOR, SCHEDULER, TEST_SESSION)
                     .setMemoryPoolSize(MAX_MEMORY)
-                    .setSystemMemoryPoolSize(MAX_MEMORY)
                     .build()
-                    .addPipelineContext(0, true, true)
+                    .addPipelineContext(0, true, true, false)
                     .addDriverContext();
         }
 
@@ -208,7 +206,7 @@ public class BenchmarkPartitionedOutputOperator
                     new StateMachine<>("bufferState", SCHEDULER, OPEN, TERMINAL_BUFFER_STATES),
                     buffers,
                     dataSize,
-                    () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()),
+                    () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                     SCHEDULER);
         }
     }

@@ -24,6 +24,7 @@ import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
@@ -36,77 +37,76 @@ public final class UnknownOperators
     }
 
     @ScalarOperator(EQUAL)
-    @SqlNullable
     @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean equal(@SqlType("unknown") @SqlNullable Void left, @SqlType("unknown") @SqlNullable Void right)
+    public static boolean equal(@SqlType("unknown") boolean left, @SqlType("unknown") boolean right)
     {
-        return null;
+        throw new AssertionError("value of unknown type should all be NULL");
     }
 
     @ScalarOperator(NOT_EQUAL)
-    @SqlNullable
     @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean notEqual(@SqlType("unknown") @SqlNullable Void left, @SqlType("unknown") @SqlNullable Void right)
+    public static boolean notEqual(@SqlType("unknown") boolean left, @SqlType("unknown") boolean right)
     {
-        return null;
+        throw new AssertionError("value of unknown type should all be NULL");
     }
 
     @ScalarOperator(LESS_THAN)
-    @SqlNullable
     @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean lessThan(@SqlType("unknown") @SqlNullable Void left, @SqlType("unknown") @SqlNullable Void right)
+    public static boolean lessThan(@SqlType("unknown") boolean left, @SqlType("unknown") boolean right)
     {
-        return null;
+        throw new AssertionError("value of unknown type should all be NULL");
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
-    @SqlNullable
     @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean lessThanOrEqual(@SqlType("unknown") @SqlNullable Void left, @SqlType("unknown") @SqlNullable Void right)
+    public static boolean lessThanOrEqual(@SqlType("unknown") boolean left, @SqlType("unknown") boolean right)
     {
-        return null;
+        throw new AssertionError("value of unknown type should all be NULL");
     }
 
     @ScalarOperator(GREATER_THAN)
-    @SqlNullable
     @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean greaterThan(@SqlType("unknown") @SqlNullable Void left, @SqlType("unknown") @SqlNullable Void right)
+    public static boolean greaterThan(@SqlType("unknown") boolean left, @SqlType("unknown") boolean right)
     {
-        return null;
+        throw new AssertionError("value of unknown type should all be NULL");
     }
 
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    @SqlNullable
     @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean greaterThanOrEqual(@SqlType("unknown") @SqlNullable Void left, @SqlType("unknown") @SqlNullable Void right)
+    public static boolean greaterThanOrEqual(@SqlType("unknown") boolean left, @SqlType("unknown") boolean right)
     {
-        return null;
+        throw new AssertionError("value of unknown type should all be NULL");
     }
 
     @ScalarOperator(BETWEEN)
-    @SqlNullable
     @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean between(@SqlType("unknown") @SqlNullable Void value, @SqlType("unknown") @SqlNullable Void min, @SqlType("unknown") @SqlNullable Void max)
+    public static boolean between(@SqlType("unknown") boolean value, @SqlType("unknown") boolean min, @SqlType("unknown") boolean max)
     {
-        return null;
+        throw new AssertionError("value of unknown type should all be NULL");
     }
 
     @ScalarOperator(HASH_CODE)
-    @SqlNullable
     @SqlType(StandardTypes.BIGINT)
-    public static Long hashCode(@SqlType("unknown") @SqlNullable Void value)
+    public static long hashCode(@SqlType("unknown") boolean value)
     {
-        return null;
+        throw new AssertionError("value of unknown type should all be NULL");
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean isDistinctFrom(
-            @SqlType("unknown") @SqlNullable Void left,
+            @SqlType("unknown") boolean left,
             @IsNull boolean leftNull,
-            @SqlType("unknown") @SqlNullable Void right,
+            @SqlType("unknown") boolean right,
             @IsNull boolean rightNull)
     {
         return false;
+    }
+
+    @ScalarOperator(INDETERMINATE)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean indeterminate(@SqlType("unknown") @SqlNullable Boolean value)
+    {
+        return true;
     }
 }

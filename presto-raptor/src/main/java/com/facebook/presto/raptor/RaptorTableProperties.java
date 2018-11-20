@@ -24,8 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 
-import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
-import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Locale.ENGLISH;
@@ -53,7 +53,7 @@ public class RaptorTableProperties
                 .add(lowerCaseStringSessionProperty(
                         TEMPORAL_COLUMN_PROPERTY,
                         "Temporal column of the table"))
-                .add(integerSessionProperty(
+                .add(integerProperty(
                         BUCKET_COUNT_PROPERTY,
                         "Number of buckets into which to divide the table",
                         null,
@@ -65,7 +65,7 @@ public class RaptorTableProperties
                 .add(lowerCaseStringSessionProperty(
                         DISTRIBUTION_NAME_PROPERTY,
                         "Shared distribution name for colocated tables"))
-                .add(booleanSessionProperty(
+                .add(booleanProperty(
                         ORGANIZED_PROPERTY,
                         "Keep the table organized using the sort order",
                         null,

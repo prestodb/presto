@@ -35,6 +35,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String> PASSWORD = new Password();
     public static final ConnectionProperty<HostAndPort> SOCKS_PROXY = new SocksProxy();
     public static final ConnectionProperty<HostAndPort> HTTP_PROXY = new HttpProxy();
+    public static final ConnectionProperty<String> APPLICATION_NAME_PREFIX = new ApplicationNamePrefix();
     public static final ConnectionProperty<Boolean> SSL = new Ssl();
     public static final ConnectionProperty<String> SSL_KEY_STORE_PATH = new SslKeyStorePath();
     public static final ConnectionProperty<String> SSL_KEY_STORE_PASSWORD = new SslKeyStorePassword();
@@ -46,12 +47,14 @@ final class ConnectionProperties
     public static final ConnectionProperty<File> KERBEROS_CONFIG_PATH = new KerberosConfigPath();
     public static final ConnectionProperty<File> KERBEROS_KEYTAB_PATH = new KerberosKeytabPath();
     public static final ConnectionProperty<File> KERBEROS_CREDENTIAL_CACHE_PATH = new KerberosCredentialCachePath();
+    public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
 
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
             .add(USER)
             .add(PASSWORD)
             .add(SOCKS_PROXY)
             .add(HTTP_PROXY)
+            .add(APPLICATION_NAME_PREFIX)
             .add(SSL)
             .add(SSL_KEY_STORE_PATH)
             .add(SSL_KEY_STORE_PASSWORD)
@@ -63,6 +66,7 @@ final class ConnectionProperties
             .add(KERBEROS_CONFIG_PATH)
             .add(KERBEROS_KEYTAB_PATH)
             .add(KERBEROS_CREDENTIAL_CACHE_PATH)
+            .add(ACCESS_TOKEN)
             .build();
 
     private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -134,6 +138,15 @@ final class ConnectionProperties
         public HttpProxy()
         {
             super("httpProxy", NOT_REQUIRED, NO_SOCKS_PROXY, HostAndPort::fromString);
+        }
+    }
+
+    private static class ApplicationNamePrefix
+            extends AbstractConnectionProperty<String>
+    {
+        public ApplicationNamePrefix()
+        {
+            super("applicationNamePrefix", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 
@@ -250,6 +263,15 @@ final class ConnectionProperties
         public KerberosCredentialCachePath()
         {
             super("KerberosCredentialCachePath", NOT_REQUIRED, isKerberosEnabled(), FILE_CONVERTER);
+        }
+    }
+
+    private static class AccessToken
+            extends AbstractConnectionProperty<String>
+    {
+        public AccessToken()
+        {
+            super("accessToken", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 }

@@ -17,6 +17,7 @@ import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.type.Type;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
@@ -213,5 +214,12 @@ public class TestIntervalYearMonth
         assertFunction("cast(INTERVAL '124' YEAR as varchar)", VARCHAR, new SqlIntervalYearMonth(124, 0).toString());
 
         assertFunction("cast(INTERVAL '30' MONTH as varchar)", VARCHAR, new SqlIntervalYearMonth(0, 30).toString());
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as INTERVAL YEAR TO MONTH)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "INTERVAL '124' YEAR TO MONTH", BOOLEAN, false);
     }
 }

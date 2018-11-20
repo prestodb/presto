@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.operator.PipelineExecutionStrategy;
+import com.facebook.presto.operator.StageExecutionStrategy;
 import com.facebook.presto.split.SampledSplitSource;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
@@ -42,6 +42,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -60,7 +61,6 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -105,7 +105,7 @@ public class DistributedExecutionPlanner
         PlanFragment currentFragment = root.getFragment();
 
         // get splits for this fragment, this is lazy so split assignments aren't actually calculated here
-        Map<PlanNodeId, SplitSource> splitSources = currentFragment.getRoot().accept(new Visitor(session, currentFragment.getPipelineExecutionStrategy(), allSplitSources), null);
+        Map<PlanNodeId, SplitSource> splitSources = currentFragment.getRoot().accept(new Visitor(session, currentFragment.getStageExecutionStrategy(), allSplitSources), null);
 
         // create child stages
         ImmutableList.Builder<StageExecutionPlan> dependencies = ImmutableList.builder();
@@ -123,13 +123,13 @@ public class DistributedExecutionPlanner
             extends PlanVisitor<Map<PlanNodeId, SplitSource>, Void>
     {
         private final Session session;
-        private final PipelineExecutionStrategy pipelineExecutionStrategy;
+        private final StageExecutionStrategy stageExecutionStrategy;
         private final ImmutableList.Builder<SplitSource> splitSources;
 
-        private Visitor(Session session, PipelineExecutionStrategy pipelineExecutionStrategy, ImmutableList.Builder<SplitSource> allSplitSources)
+        private Visitor(Session session, StageExecutionStrategy stageExecutionStrategy, ImmutableList.Builder<SplitSource> allSplitSources)
         {
             this.session = session;
-            this.pipelineExecutionStrategy = pipelineExecutionStrategy;
+            this.stageExecutionStrategy = stageExecutionStrategy;
             this.splitSources = allSplitSources;
         }
 
@@ -146,7 +146,7 @@ public class DistributedExecutionPlanner
             SplitSource splitSource = splitManager.getSplits(
                     session,
                     node.getLayout().get(),
-                    pipelineExecutionStrategy == GROUPED_EXECUTION ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING);
+                    stageExecutionStrategy.isGroupedExecution(node.getId()) ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING);
 
             splitSources.add(splitSource);
 
@@ -172,6 +172,17 @@ public class DistributedExecutionPlanner
             return ImmutableMap.<PlanNodeId, SplitSource>builder()
                     .putAll(sourceSplits)
                     .putAll(filteringSourceSplits)
+                    .build();
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitSpatialJoin(SpatialJoinNode node, Void context)
+        {
+            Map<PlanNodeId, SplitSource> leftSplits = node.getLeft().accept(this, context);
+            Map<PlanNodeId, SplitSource> rightSplits = node.getRight().accept(this, context);
+            return ImmutableMap.<PlanNodeId, SplitSource>builder()
+                    .putAll(leftSplits)
+                    .putAll(rightSplits)
                     .build();
         }
 

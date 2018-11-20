@@ -34,13 +34,12 @@ import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
-import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static java.lang.Math.max;
 
 public final class ZipWithFunction
         extends SqlScalarFunction
@@ -112,8 +111,10 @@ public final class ZipWithFunction
             Block rightBlock,
             BinaryFunctionInterface function)
     {
-        checkCondition(leftBlock.getPositionCount() == rightBlock.getPositionCount(), INVALID_FUNCTION_ARGUMENT, "Arrays must have the same length");
         Type outputElementType = outputArrayType.getElementType();
+        int leftPositionCount = leftBlock.getPositionCount();
+        int rightPositionCount = rightBlock.getPositionCount();
+        int outputPositionCount = max(leftPositionCount, rightPositionCount);
 
         PageBuilder pageBuilder = (PageBuilder) state;
         if (pageBuilder.isFull()) {
@@ -122,9 +123,9 @@ public final class ZipWithFunction
         BlockBuilder arrayBlockBuilder = pageBuilder.getBlockBuilder(0);
         BlockBuilder blockBuilder = arrayBlockBuilder.beginBlockEntry();
 
-        for (int position = 0; position < leftBlock.getPositionCount(); position++) {
-            Object left = readNativeValue(leftElementType, leftBlock, position);
-            Object right = readNativeValue(rightElementType, rightBlock, position);
+        for (int position = 0; position < outputPositionCount; position++) {
+            Object left = position < leftPositionCount ? readNativeValue(leftElementType, leftBlock, position) : null;
+            Object right = position < rightPositionCount ? readNativeValue(rightElementType, rightBlock, position) : null;
             Object output;
             try {
                 output = function.apply(left, right);

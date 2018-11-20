@@ -17,9 +17,7 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupState;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 
@@ -43,21 +41,17 @@ public class ResourceGroupInfo
     private final int softConcurrencyLimit;
     private final int hardConcurrencyLimit;
     private final int maxQueuedQueries;
-    private final Duration runningTimeLimit;
-    private final Duration queuedTimeLimit;
 
     private final DataSize memoryUsage;
     private final int numQueuedQueries;
     private final int numRunningQueries;
     private final int numEligibleSubGroups;
 
-    private final List<ResourceGroupInfo> subGroups;
-
     // Summaries do not include the following fields
+    private final List<ResourceGroupInfo> subGroups;
     private final List<QueryStateInfo> runningQueries;
-    private final List<ResourceGroupInfo> pathToRoot;
 
-    private ResourceGroupInfo(
+    public ResourceGroupInfo(
             ResourceGroupId id,
             ResourceGroupState state,
 
@@ -68,8 +62,6 @@ public class ResourceGroupInfo
             int softConcurrencyLimit,
             int hardConcurrencyLimit,
             int maxQueuedQueries,
-            Duration runningTimeLimit,
-            Duration queuedTimeLimit,
 
             DataSize memoryUsage,
             int numQueuedQueries,
@@ -78,8 +70,7 @@ public class ResourceGroupInfo
 
             List<ResourceGroupInfo> subGroups,
 
-            List<QueryStateInfo> runningQueries,
-            List<ResourceGroupInfo> pathToRoot)
+            List<QueryStateInfo> runningQueries)
     {
         this.id = requireNonNull(id, "id is null");
         this.state = requireNonNull(state, "state is null");
@@ -92,8 +83,6 @@ public class ResourceGroupInfo
         this.softConcurrencyLimit = softConcurrencyLimit;
         this.hardConcurrencyLimit = hardConcurrencyLimit;
         this.maxQueuedQueries = maxQueuedQueries;
-        this.runningTimeLimit = requireNonNull(runningTimeLimit, "runningTimeLimit is null");
-        this.queuedTimeLimit = requireNonNull(queuedTimeLimit, "queuedTimeLimit is null");
 
         this.memoryUsage = requireNonNull(memoryUsage, "memoryUsage is null");
         this.numQueuedQueries = numQueuedQueries;
@@ -102,88 +91,7 @@ public class ResourceGroupInfo
 
         this.runningQueries = runningQueries;
 
-        this.pathToRoot = pathToRoot;
         this.subGroups = subGroups;
-    }
-
-    public static ResourceGroupInfo resourceGroupInfo(
-            ResourceGroupId id,
-            ResourceGroupState state,
-
-            SchedulingPolicy schedulingPolicy,
-            int schedulingWeight,
-
-            DataSize softMemoryLimit,
-            int softConcurrencyLimit,
-            int hardConcurrencyLimit,
-            int maxQueuedQueries,
-            Duration runningTimeLimit,
-            Duration queuedTimeLimit,
-
-            DataSize memoryUsage,
-            int numQueuedQueries,
-            int numEligibleSubGroups,
-
-            List<ResourceGroupInfo> subGroups,
-
-            List<QueryStateInfo> runningQueries,
-            List<ResourceGroupInfo> pathToRoot)
-    {
-        return new ResourceGroupInfo(
-                id,
-                state,
-                schedulingPolicy,
-                schedulingWeight,
-                softMemoryLimit,
-                softConcurrencyLimit,
-                hardConcurrencyLimit,
-                maxQueuedQueries,
-                runningTimeLimit,
-                queuedTimeLimit,
-                memoryUsage,
-                numQueuedQueries,
-                runningQueries.size(),
-                numEligibleSubGroups,
-                ImmutableList.copyOf(requireNonNull(subGroups, "subGroups is null")),
-                ImmutableList.copyOf(requireNonNull(runningQueries, "runningQueries is null")),
-                ImmutableList.copyOf(requireNonNull(pathToRoot, "pathToRoot is null")));
-    }
-
-    public static ResourceGroupInfo summaryResourceGroupInfo(
-            ResourceGroupId id,
-            ResourceGroupState state,
-            SchedulingPolicy schedulingPolicy,
-            int schedulingWeight,
-            DataSize softMemoryLimit,
-            int softConcurrencyLimit,
-            int hardConcurrencyLimit,
-            int maxQueuedQueries,
-            Duration runningTimeLimit,
-            Duration queuedTimeLimit,
-            DataSize memoryUsage,
-            int numQueuedQueries,
-            int numRunningQueries,
-            int numEligibleSubGroups,
-            List<ResourceGroupInfo> subGroups)
-    {
-        return new ResourceGroupInfo(
-                id,
-                state,
-                schedulingPolicy,
-                schedulingWeight,
-                softMemoryLimit,
-                softConcurrencyLimit,
-                hardConcurrencyLimit,
-                maxQueuedQueries,
-                runningTimeLimit,
-                queuedTimeLimit,
-                memoryUsage,
-                numQueuedQueries,
-                numRunningQueries,
-                numEligibleSubGroups,
-                subGroups,
-                null,
-                null);
     }
 
     @JsonProperty
@@ -241,18 +149,6 @@ public class ResourceGroupInfo
     }
 
     @JsonProperty
-    public Duration getQueuedTimeLimit()
-    {
-        return queuedTimeLimit;
-    }
-
-    @JsonProperty
-    public Duration getRunningTimeLimit()
-    {
-        return runningTimeLimit;
-    }
-
-    @JsonProperty
     public int getNumQueuedQueries()
     {
         return numQueuedQueries;
@@ -289,13 +185,6 @@ public class ResourceGroupInfo
     public List<QueryStateInfo> getRunningQueries()
     {
         return runningQueries;
-    }
-
-    @JsonProperty
-    @Nullable
-    public List<ResourceGroupInfo> getPathToRoot()
-    {
-        return pathToRoot;
     }
 
     @JsonProperty

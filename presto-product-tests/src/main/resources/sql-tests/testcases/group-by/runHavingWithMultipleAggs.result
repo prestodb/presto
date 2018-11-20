@@ -1,4 +1,4 @@
--- delimiter: |; types: LONGNVARCHAR|BIGINT; ignoreOrder: true
+-- delimiter: |; types: VARCHAR|BIGINT; ignoreOrder: true
 STANDARD POLISHED TIN|1298|
 STANDARD PLATED BRASS|1362|
 LARGE BRUSHED TIN|1328|

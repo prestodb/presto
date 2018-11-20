@@ -20,7 +20,6 @@ import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Throwables;
 import com.google.inject.Injector;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
@@ -31,6 +30,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -59,9 +59,9 @@ public class KafkaConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "config is null");
 
         try {
@@ -69,7 +69,7 @@ public class KafkaConnectorFactory
                     new JsonModule(),
                     new KafkaConnectorModule(),
                     binder -> {
-                        binder.bind(KafkaConnectorId.class).toInstance(new KafkaConnectorId(connectorId));
+                        binder.bind(KafkaConnectorId.class).toInstance(new KafkaConnectorId(catalogName));
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
 
@@ -89,7 +89,8 @@ public class KafkaConnectorFactory
             return injector.getInstance(KafkaConnector.class);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throwIfUnchecked(e);
+            throw new RuntimeException(e);
         }
     }
 }

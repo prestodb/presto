@@ -1,0 +1,168 @@
+ {
+    "rowCount" : 4.32018033E8,
+     "columns" : {
+        "cr_return_ship_cost" : {
+             "distinctValuesCount" : 621548.0,
+             "nullsCount" : 8648206.0,
+             "min" : 0,
+             "max" : 1427328
+        },
+        "cr_store_credit" : {
+             "distinctValuesCount" : 1190394.0,
+             "nullsCount" : 8643766.0,
+             "min" : 0,
+             "max" : 2488613
+        },
+        "cr_return_amt_inc_tax" : {
+             "distinctValuesCount" : 2001996.0,
+             "nullsCount" : 8647001.0,
+             "min" : 0,
+             "max" : 3041806
+        },
+        "cr_return_amount" : {
+             "distinctValuesCount" : 1000998.0,
+             "nullsCount" : 8638795.0,
+             "min" : 0,
+             "max" : 2880504
+        },
+        "cr_return_tax" : {
+             "distinctValuesCount" : 142490.0,
+             "nullsCount" : 8646336.0,
+             "min" : 0,
+             "max" : 251158
+        },
+        "cr_returning_customer_sk" : {
+             "distinctValuesCount" : 4.5300013E7,
+             "nullsCount" : 8638960.0,
+             "min" : 1,
+             "max" : 30000000
+        },
+        "cr_fee" : {
+             "distinctValuesCount" : 10590.0,
+             "nullsCount" : 8647422.0,
+             "min" : 50,
+             "max" : 10000
+        },
+        "cr_returned_time_sk" : {
+             "distinctValuesCount" : 125124.0,
+             "nullsCount" : 0.0,
+             "min" : 0,
+             "max" : 86399
+        },
+        "cr_item_sk" : {
+             "distinctValuesCount" : 385937.0,
+             "nullsCount" : 0.0,
+             "min" : 1,
+             "max" : 360000
+        },
+        "cr_returning_hdemo_sk" : {
+             "distinctValuesCount" : 9299.0,
+             "nullsCount" : 8645966.0,
+             "min" : 1,
+             "max" : 7200
+        },
+        "cr_warehouse_sk" : {
+             "distinctValuesCount" : 18.0,
+             "nullsCount" : 8647042.0,
+             "min" : 1,
+             "max" : 22
+        },
+        "cr_order_number" : {
+             "distinctValuesCount" : 2.15484394E8,
+             "nullsCount" : 0.0,
+             "min" : 2,
+             "max" : 479999998
+        },
+        "cr_refunded_addr_sk" : {
+             "distinctValuesCount" : 1.9889561E7,
+             "nullsCount" : 8645217.0,
+             "min" : 1,
+             "max" : 15000000
+        },
+        "cr_net_loss" : {
+             "distinctValuesCount" : 1355607.0,
+             "nullsCount" : 8645354.0,
+             "min" : 50,
+             "max" : 1611866
+        },
+        "cr_ship_mode_sk" : {
+             "distinctValuesCount" : 18.0,
+             "nullsCount" : 8640537.0,
+             "min" : 1,
+             "max" : 20
+        },
+        "cr_reason_sk" : {
+             "distinctValuesCount" : 47.0,
+             "nullsCount" : 8647007.0,
+             "min" : 1,
+             "max" : 67
+        },
+        "cr_refunded_hdemo_sk" : {
+             "distinctValuesCount" : 9299.0,
+             "nullsCount" : 8647744.0,
+             "min" : 1,
+             "max" : 7200
+        },
+        "cr_refunded_cdemo_sk" : {
+             "distinctValuesCount" : 1835839.0,
+             "nullsCount" : 8643595.0,
+             "min" : 1,
+             "max" : 1920800
+        },
+        "cr_catalog_page_sk" : {
+             "distinctValuesCount" : 27468.0,
+             "nullsCount" : 8646402.0,
+             "min" : 1,
+             "max" : 30303
+        },
+        "cr_refunded_cash" : {
+             "distinctValuesCount" : 1543750.0,
+             "nullsCount" : 8638178.0,
+             "min" : 0,
+             "max" : 2695524
+        },
+        "cr_return_quantity" : {
+             "distinctValuesCount" : 63.0,
+             "nullsCount" : 8639534.0,
+             "min" : 1,
+             "max" : 100
+        },
+        "cr_returning_cdemo_sk" : {
+             "distinctValuesCount" : 1835839.0,
+             "nullsCount" : 8641134.0,
+             "min" : 1,
+             "max" : 1920800
+        },
+        "cr_call_center_sk" : {
+             "distinctValuesCount" : 36.0,
+             "nullsCount" : 8644652.0,
+             "min" : 1,
+             "max" : 48
+        },
+        "cr_returning_addr_sk" : {
+             "distinctValuesCount" : 1.9889561E7,
+             "nullsCount" : 8648349.0,
+             "min" : 1,
+             "max" : 15000000
+        },
+        "cr_reversed_charge" : {
+             "distinctValuesCount" : 1091596.0,
+             "nullsCount" : 8643839.0,
+             "min" : 0,
+             "max" : 2403384
+        },
+        "cr_returned_date_sk" : {
+             "distinctValuesCount" : 2535.0,
+             "nullsCount" : 0.0,
+             "min" : 2450821,
+             "max" : 2452924
+        },
+        "cr_refunded_customer_sk" : {
+             "distinctValuesCount" : 4.5300013E7,
+             "nullsCount" : 8638060.0,
+             "min" : 1,
+             "max" : 30000000
+        },
+        "dummyColumn" : {}
+    }
+}

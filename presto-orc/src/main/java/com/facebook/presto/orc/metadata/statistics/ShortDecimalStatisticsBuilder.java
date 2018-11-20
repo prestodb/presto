@@ -51,7 +51,8 @@ public class ShortDecimalStatisticsBuilder
         }
         return Optional.of(new DecimalStatistics(
                 new BigDecimal(BigInteger.valueOf(minimum), scale),
-                new BigDecimal(BigInteger.valueOf(maximum), scale)));
+                new BigDecimal(BigInteger.valueOf(maximum), scale),
+                SHORT_DECIMAL_VALUE_BYTES));
     }
 
     @Override

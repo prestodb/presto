@@ -35,6 +35,7 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -254,10 +255,11 @@ public class CassandraMetadata
         }
 
         CassandraTableHandle cassandraTableHandle = (CassandraTableHandle) tableHandle;
-        String schemaName = cassandraTableHandle.getSchemaName();
-        String tableName = cassandraTableHandle.getTableName();
+        if (cassandraSession.isMaterializedView(cassandraTableHandle.getSchemaTableName())) {
+            throw new PrestoException(NOT_SUPPORTED, "Dropping materialized views not yet supported");
+        }
 
-        cassandraSession.execute(String.format("DROP TABLE \"%s\".\"%s\"", schemaName, tableName));
+        cassandraSession.execute(String.format("DROP TABLE \"%s\".\"%s\"", cassandraTableHandle.getSchemaName(), cassandraTableHandle.getTableName()));
     }
 
     @Override
@@ -311,7 +313,7 @@ public class CassandraMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         return Optional.empty();
     }
@@ -320,6 +322,10 @@ public class CassandraMetadata
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         CassandraTableHandle table = (CassandraTableHandle) tableHandle;
+        if (cassandraSession.isMaterializedView(table.getSchemaTableName())) {
+            throw new PrestoException(NOT_SUPPORTED, "Inserting into materialized views not yet supported");
+        }
+
         SchemaTableName schemaTableName = new SchemaTableName(table.getSchemaName(), table.getTableName());
         List<CassandraColumnHandle> columns = cassandraSession.getTable(schemaTableName).getColumns();
         List<String> columnNames = columns.stream().map(CassandraColumnHandle::getName).map(CassandraCqlUtils::validColumnName).collect(Collectors.toList());
@@ -334,7 +340,7 @@ public class CassandraMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         return Optional.empty();
     }

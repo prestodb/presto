@@ -18,6 +18,9 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
+import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
@@ -26,7 +29,6 @@ import static com.facebook.presto.spi.block.BlockUtil.compactArray;
 import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
 import static com.facebook.presto.spi.block.BlockUtil.compactSlice;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.util.Arrays.stream;
 
 public class VariableWidthBlock
         extends AbstractVariableWidthBlock
@@ -37,14 +39,15 @@ public class VariableWidthBlock
     private final int positionCount;
     private final Slice slice;
     private final int[] offsets;
+    @Nullable
     private final boolean[] valueIsNull;
 
     private final long retainedSizeInBytes;
     private final long sizeInBytes;
 
-    public VariableWidthBlock(int positionCount, Slice slice, int[] offsets, boolean[] valueIsNull)
+    public VariableWidthBlock(int positionCount, Slice slice, int[] offsets, Optional<boolean[]> valueIsNull)
     {
-        this(0, positionCount, slice, offsets, valueIsNull);
+        this(0, positionCount, slice, offsets, valueIsNull.orElse(null));
     }
 
     VariableWidthBlock(int arrayOffset, int positionCount, Slice slice, int[] offsets, boolean[] valueIsNull)
@@ -68,7 +71,7 @@ public class VariableWidthBlock
         }
         this.offsets = offsets;
 
-        if (valueIsNull.length - arrayOffset < positionCount) {
+        if (valueIsNull != null && valueIsNull.length - arrayOffset < positionCount) {
             throw new IllegalArgumentException("valueIsNull length is less than positionCount");
         }
         this.valueIsNull = valueIsNull;
@@ -91,9 +94,15 @@ public class VariableWidthBlock
     }
 
     @Override
+    public boolean mayHaveNull()
+    {
+        return valueIsNull != null;
+    }
+
+    @Override
     protected boolean isEntryNull(int position)
     {
-        return valueIsNull[position + arrayOffset];
+        return valueIsNull != null && valueIsNull[position + arrayOffset];
     }
 
     @Override
@@ -125,7 +134,9 @@ public class VariableWidthBlock
     {
         consumer.accept(slice, slice.getRetainedSize());
         consumer.accept(offsets, sizeOf(offsets));
-        consumer.accept(valueIsNull, sizeOf(valueIsNull));
+        if (valueIsNull != null) {
+            consumer.accept(valueIsNull, sizeOf(valueIsNull));
+        }
         consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
@@ -134,24 +145,28 @@ public class VariableWidthBlock
     {
         checkArrayRange(positions, offset, length);
 
-        int finalLength = stream(positions, offset, offset + length)
-                .map(this::getSliceLength)
-                .sum();
+        int finalLength = 0;
+        for (int i = offset; i < offset + length; i++) {
+            finalLength += getSliceLength(positions[i]);
+        }
         SliceOutput newSlice = Slices.allocate(finalLength).getOutput();
         int[] newOffsets = new int[length + 1];
-        boolean[] newValueIsNull = new boolean[length];
+        boolean[] newValueIsNull = null;
+        if (valueIsNull != null) {
+            newValueIsNull = new boolean[length];
+        }
 
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
-            if (isEntryNull(position)) {
-                newValueIsNull[i] = true;
+            if (!isEntryNull(position)) {
+                newSlice.writeBytes(slice, getPositionOffset(position), getSliceLength(position));
             }
-            else {
-                newSlice.appendBytes(slice.getBytes(getPositionOffset(position), getSliceLength(position)));
+            else if (newValueIsNull != null) {
+                newValueIsNull[i] = true;
             }
             newOffsets[i + 1] = newSlice.size();
         }
-        return new VariableWidthBlock(length, newSlice.slice(), newOffsets, newValueIsNull);
+        return new VariableWidthBlock(0, length, newSlice.slice(), newOffsets, newValueIsNull);
     }
 
     @Override
@@ -176,12 +191,12 @@ public class VariableWidthBlock
 
         int[] newOffsets = compactOffsets(offsets, positionOffset, length);
         Slice newSlice = compactSlice(slice, offsets[positionOffset], newOffsets[length]);
-        boolean[] newValueIsNull = compactArray(valueIsNull, positionOffset, length);
+        boolean[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
 
         if (newOffsets == offsets && newSlice == slice && newValueIsNull == valueIsNull) {
             return this;
         }
-        return new VariableWidthBlock(length, newSlice, newOffsets, newValueIsNull);
+        return new VariableWidthBlock(0, length, newSlice, newOffsets, newValueIsNull);
     }
 
     @Override

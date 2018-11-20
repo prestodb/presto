@@ -64,7 +64,7 @@ public class LineReader
     @Override
     public void close()
     {
-        shutdown();
+        super.close();
     }
 
     public boolean interrupted()

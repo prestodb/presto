@@ -14,6 +14,7 @@
 package com.facebook.presto.server.remotetask;
 
 import com.facebook.presto.execution.StateMachine;
+import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskStatus;
@@ -30,9 +31,11 @@ import io.airlift.units.Duration;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.net.URI;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
@@ -51,6 +54,7 @@ public class TaskInfoFetcher
     private final TaskId taskId;
     private final Consumer<Throwable> onFail;
     private final StateMachine<TaskInfo> taskInfo;
+    private final StateMachine<Optional<TaskInfo>> finalTaskInfo;
     private final JsonCodec<TaskInfo> taskInfoCodec;
 
     private final long updateIntervalMillis;
@@ -96,6 +100,7 @@ public class TaskInfoFetcher
         this.taskId = initialTask.getTaskStatus().getTaskId();
         this.onFail = requireNonNull(onFail, "onFail is null");
         this.taskInfo = new StateMachine<>("task " + taskId, executor, initialTask);
+        this.finalTaskInfo = new StateMachine<>("task-" + taskId, executor, Optional.empty());
         this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
 
         this.updateIntervalMillis = requireNonNull(updateInterval, "updateInterval is null").toMillis();
@@ -134,6 +139,18 @@ public class TaskInfoFetcher
         if (scheduledFuture != null) {
             scheduledFuture.cancel(true);
         }
+    }
+
+    public void addFinalTaskInfoListener(StateChangeListener<TaskInfo> stateChangeListener)
+    {
+        AtomicBoolean done = new AtomicBoolean();
+        StateChangeListener<Optional<TaskInfo>> fireOnceStateChangeListener = finalTaskInfo -> {
+            if (finalTaskInfo.isPresent() && done.compareAndSet(false, true)) {
+                stateChangeListener.stateChanged(finalTaskInfo.get());
+            }
+        };
+        finalTaskInfo.addStateChangeListener(fireOnceStateChangeListener);
+        fireOnceStateChangeListener.stateChanged(finalTaskInfo.get());
     }
 
     private synchronized void scheduleUpdate()
@@ -204,6 +221,7 @@ public class TaskInfoFetcher
         });
 
         if (updated && newValue.getTaskStatus().getState().isDone()) {
+            finalTaskInfo.compareAndSet(Optional.empty(), Optional.of(newValue));
             stop();
         }
     }

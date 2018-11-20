@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.metadata.SqlScalarFunctionBuilder.MethodsGroup;
-import com.facebook.presto.metadata.SqlScalarFunctionBuilder.SpecializeContext;
+import com.facebook.presto.metadata.PolymorphicScalarFunctionBuilder.MethodsGroup;
+import com.facebook.presto.metadata.PolymorphicScalarFunctionBuilder.SpecializeContext;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention;
@@ -34,7 +34,6 @@ import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
@@ -100,12 +99,8 @@ class PolymorphicScalarFunction
         Optional<MethodsGroup> matchingMethodsGroup = Optional.empty();
         for (MethodsGroup candidateMethodsGroup : methodsGroups) {
             for (Method candidateMethod : candidateMethodsGroup.getMethods()) {
-                if (matchesParameterAndReturnTypes(candidateMethod, resolvedParameterTypes, resolvedReturnType) &&
-                        predicateIsTrue(candidateMethodsGroup, context)) {
+                if (matchesParameterAndReturnTypes(candidateMethod, resolvedParameterTypes, resolvedReturnType)) {
                     if (matchingMethod.isPresent()) {
-                        if (onlyFirstMatchedMethodHasPredicate(matchingMethodsGroup.get(), candidateMethodsGroup)) {
-                            continue;
-                        }
                         throw new IllegalStateException("two matching methods (" + matchingMethod.get().getName() + " and " + candidateMethod.getName() + ") for parameter types " + resolvedParameterTypeSignatures);
                     }
 
@@ -138,19 +133,9 @@ class PolymorphicScalarFunction
             if (!methodParameterJavaTypes[methodParameterIndex].equals(type)) {
                 return false;
             }
-            methodParameterIndex += nullConvention == USE_NULL_FLAG ? 2 : 1;
+            methodParameterIndex += nullConvention.getParameterCount();
         }
         return method.getReturnType().equals(getNullAwareContainerType(returnType.getJavaType(), nullableResult));
-    }
-
-    private static boolean onlyFirstMatchedMethodHasPredicate(MethodsGroup matchingMethodsGroup, MethodsGroup methodsGroup)
-    {
-        return matchingMethodsGroup.getPredicate().isPresent() && !methodsGroup.getPredicate().isPresent();
-    }
-
-    private static boolean predicateIsTrue(MethodsGroup methodsGroup, SpecializeContext context)
-    {
-        return methodsGroup.getPredicate().map(predicate -> predicate.test(context)).orElse(true);
     }
 
     private static List<Object> computeExtraParameters(MethodsGroup methodsGroup, SpecializeContext context)
@@ -186,7 +171,6 @@ class PolymorphicScalarFunction
         if (nullable) {
             return Primitives.wrap(clazz);
         }
-        checkArgument(clazz != void.class);
         return clazz;
     }
 }

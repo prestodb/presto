@@ -22,6 +22,7 @@ import com.facebook.presto.spi.security.SystemAccessControlFactory;
 
 import java.security.Principal;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -53,7 +54,7 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
-    public void checkCanSetUser(Principal principal, String userName)
+    public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
     }
 
@@ -68,12 +69,7 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
-    public void checkCanSelectFromTable(Identity identity, CatalogSchemaTableName table)
-    {
-    }
-
-    @Override
-    public void checkCanSelectFromView(Identity identity, CatalogSchemaTableName view)
+    public void checkCanSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
     {
     }
 
@@ -83,12 +79,7 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromTable(Identity identity, CatalogSchemaTableName table)
-    {
-    }
-
-    @Override
-    public void checkCanCreateViewWithSelectFromView(Identity identity, CatalogSchemaTableName view)
+    public void checkCanCreateViewWithSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
     {
     }
 

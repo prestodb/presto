@@ -30,6 +30,7 @@ import org.testng.annotations.Test;
 import java.math.BigDecimal;
 
 import static com.facebook.presto.orc.TupleDomainOrcPredicate.getDomain;
+import static com.facebook.presto.orc.metadata.statistics.ShortDecimalStatisticsBuilder.SHORT_DECIMAL_VALUE_BYTES;
 import static com.facebook.presto.spi.predicate.Domain.all;
 import static com.facebook.presto.spi.predicate.Domain.create;
 import static com.facebook.presto.spi.predicate.Domain.none;
@@ -320,7 +321,7 @@ public class TestTupleDomainOrcPredicate
     {
         BigDecimal minimumDecimal = minimum == null ? null : new BigDecimal(minimum);
         BigDecimal maximumDecimal = maximum == null ? null : new BigDecimal(maximum);
-        return new ColumnStatistics(numberOfValues, 9L, null, null, null, null, null, new DecimalStatistics(minimumDecimal, maximumDecimal), null, null);
+        return new ColumnStatistics(numberOfValues, 9L, null, null, null, null, null, new DecimalStatistics(minimumDecimal, maximumDecimal, SHORT_DECIMAL_VALUE_BYTES), null, null);
     }
 
     @Test

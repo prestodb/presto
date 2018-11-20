@@ -15,10 +15,10 @@ package com.facebook.presto.execution.resourceGroups;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -29,6 +29,8 @@ final class WeightedFairQueue<E>
 {
     private final Map<E, Node<E>> index = new LinkedHashMap<>();
 
+    private long currentLogicalTime;
+
     public boolean addOrUpdate(E element, Usage usage)
     {
         Node<E> node = index.get(element);
@@ -37,7 +39,7 @@ final class WeightedFairQueue<E>
             return false;
         }
 
-        node = new Node<>(element, usage);
+        node = new Node<>(element, usage, currentLogicalTime++);
         index.put(element, node);
         return true;
     }
@@ -93,35 +95,14 @@ final class WeightedFairQueue<E>
             }
         }
 
-        E winner = pickWinner(winners);
-        index.remove(winner);
-        return winner;
-    }
-
-    private E pickWinner(List<Node<E>> winners)
-    {
         if (winners.isEmpty()) {
             return null;
         }
 
-        if (winners.size() == 1) {
-            return winners.get(0).getValue();
-        }
-
-        long totalShares = winners.stream()
-                .mapToLong(Node::getShare)
-                .sum();
-
-        long winningTicket = ThreadLocalRandom.current().nextLong(0, totalShares);
-        long cumulativeShare = 0;
-        for (Node<E> winner : winners) {
-            if (cumulativeShare + winner.getShare() > winningTicket) {
-                return winner.getValue();
-            }
-            cumulativeShare += winner.getShare();
-        }
-
-        throw new IllegalStateException("A winner should already have been picked");
+        Node<E> winner = Collections.min(winners);
+        E value = winner.getValue();
+        index.remove(value);
+        return value;
     }
 
     @Override
@@ -176,15 +157,18 @@ final class WeightedFairQueue<E>
     }
 
     private static final class Node<E>
+            implements Comparable<Node<E>>
     {
         private final E value;
+        private final long logicalCreateTime;
 
         private Usage usage;
 
-        private Node(E value, Usage usage)
+        private Node(E value, Usage usage, long logicalCreateTime)
         {
             this.value = requireNonNull(value, "value is null");
             this.usage = requireNonNull(usage, "usage is null");
+            this.logicalCreateTime = logicalCreateTime;
         }
 
         public E getValue()
@@ -208,11 +192,18 @@ final class WeightedFairQueue<E>
         }
 
         @Override
+        public int compareTo(Node<E> o)
+        {
+            return Long.compare(logicalCreateTime, o.logicalCreateTime);
+        }
+
+        @Override
         public String toString()
         {
             return toStringHelper(this)
                     .add("value", value)
                     .add("usage", usage)
+                    .add("logicalCreateTime", logicalCreateTime)
                     .toString();
         }
     }

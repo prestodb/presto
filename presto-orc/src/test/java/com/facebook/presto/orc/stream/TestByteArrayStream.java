@@ -28,7 +28,6 @@ import java.util.Optional;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
-import static com.facebook.presto.orc.OrcWriter.COMPRESSION_BLOCK_SIZE;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 
 public class TestByteArrayStream
@@ -70,7 +69,7 @@ public class TestByteArrayStream
             throws OrcCorruptionException
     {
         Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, COMPRESSION_BLOCK_SIZE);
-        return new ByteArrayInputStream(new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, newSimpleAggregatedMemoryContext()));
+        return new ByteArrayInputStream(new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, newSimpleAggregatedMemoryContext(), slice.getRetainedSize()));
     }
 
     @Override

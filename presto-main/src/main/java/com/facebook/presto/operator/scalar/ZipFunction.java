@@ -22,7 +22,6 @@ import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -31,7 +30,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
@@ -47,7 +45,7 @@ public final class ZipFunction
         extends SqlScalarFunction
 {
     public static final int MIN_ARITY = 2;
-    public static final int MAX_ARITY = 4;
+    public static final int MAX_ARITY = 5;
     public static final ZipFunction[] ZIP_FUNCTIONS;
 
     private static final MethodHandle METHOD_HANDLE = methodHandle(ZipFunction.class, "zip", List.class, Block[].class);
@@ -113,8 +111,8 @@ public final class ZipFunction
         for (Block array : arrays) {
             biggestCardinality = Math.max(biggestCardinality, array.getPositionCount());
         }
-        RowType rowType = new RowType(types, Optional.empty());
-        BlockBuilder outputBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), biggestCardinality);
+        RowType rowType = RowType.anonymous(types);
+        BlockBuilder outputBuilder = rowType.createBlockBuilder(null, biggestCardinality);
         for (int outputPosition = 0; outputPosition < biggestCardinality; outputPosition++) {
             BlockBuilder rowBuilder = outputBuilder.beginBlockEntry();
             for (int fieldIndex = 0; fieldIndex < arrays.length; fieldIndex++) {

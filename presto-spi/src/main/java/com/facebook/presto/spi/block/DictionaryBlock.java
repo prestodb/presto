@@ -41,6 +41,7 @@ public class DictionaryBlock
     private final int[] ids;
     private final long retainedSizeInBytes;
     private volatile long sizeInBytes = -1;
+    private volatile long logicalSizeInBytes = -1;
     private volatile int uniqueIds = -1;
     private final DictionaryId dictionarySourceId;
 
@@ -220,6 +221,32 @@ public class DictionaryBlock
     }
 
     @Override
+    public long getLogicalSizeInBytes()
+    {
+        if (logicalSizeInBytes >= 0) {
+            return logicalSizeInBytes;
+        }
+
+        // Calculation of logical size can be performed as part of calculateCompactSize() with minor modifications.
+        // Keeping this calculation separate as this is a little more expensive and may not be called as often.
+        long sizeInBytes = 0;
+        long[] seenSizes = new long[dictionary.getPositionCount()];
+        Arrays.fill(seenSizes, -1L);
+        for (int i = 0; i < getPositionCount(); i++) {
+            int position = getId(i);
+            if (!dictionary.isNull(position)) {
+                if (seenSizes[position] < 0) {
+                    seenSizes[position] = dictionary.getRegionSizeInBytes(position, 1);
+                }
+                sizeInBytes += seenSizes[position];
+            }
+        }
+
+        logicalSizeInBytes = sizeInBytes;
+        return sizeInBytes;
+    }
+
+    @Override
     public long getRegionSizeInBytes(int positionOffset, int length)
     {
         if (positionOffset == 0 && length == getPositionCount()) {
@@ -250,6 +277,12 @@ public class DictionaryBlock
     }
 
     @Override
+    public long getEstimatedDataSizeForStats(int position)
+    {
+        return dictionary.getEstimatedDataSizeForStats(getId(position));
+    }
+
+    @Override
     public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
         consumer.accept(dictionary, dictionary.getRetainedSizeInBytes());
@@ -258,9 +291,9 @@ public class DictionaryBlock
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new DictionaryBlockEncoding(dictionary.getEncoding());
+        return DictionaryBlockEncoding.NAME;
     }
 
     @Override
@@ -288,7 +321,7 @@ public class DictionaryBlock
     public Block getRegion(int positionOffset, int length)
     {
         checkValidRegion(positionCount, positionOffset, length);
-        return new DictionaryBlock(idsOffset + positionOffset, length, dictionary, ids, false, randomDictionaryId());
+        return new DictionaryBlock(idsOffset + positionOffset, length, dictionary, ids, false, dictionarySourceId);
     }
 
     @Override
@@ -336,6 +369,17 @@ public class DictionaryBlock
         sb.append("positionCount=").append(getPositionCount());
         sb.append('}');
         return sb.toString();
+    }
+
+    @Override
+    public Block getLoadedBlock()
+    {
+        Block loadedDictionary = dictionary.getLoadedBlock();
+
+        if (loadedDictionary == dictionary) {
+            return this;
+        }
+        return new DictionaryBlock(idsOffset, getPositionCount(), loadedDictionary, ids, false, randomDictionaryId());
     }
 
     public Block getDictionary()

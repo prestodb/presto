@@ -22,7 +22,7 @@ import java.util.Optional;
 public class ArithmeticBinaryExpression
         extends Expression
 {
-    public enum Type
+    public enum Operator
     {
         ADD("+"),
         SUBTRACT("-"),
@@ -31,7 +31,7 @@ public class ArithmeticBinaryExpression
         MODULUS("%");
         private final String value;
 
-        Type(String value)
+        Operator(String value)
         {
             this.value = value;
         }
@@ -42,31 +42,31 @@ public class ArithmeticBinaryExpression
         }
     }
 
-    private final Type type;
+    private final Operator operator;
     private final Expression left;
     private final Expression right;
 
-    public ArithmeticBinaryExpression(Type type, Expression left, Expression right)
+    public ArithmeticBinaryExpression(Operator operator, Expression left, Expression right)
     {
-        this(Optional.empty(), type, left, right);
+        this(Optional.empty(), operator, left, right);
     }
 
-    public ArithmeticBinaryExpression(NodeLocation location, Type type, Expression left, Expression right)
+    public ArithmeticBinaryExpression(NodeLocation location, Operator operator, Expression left, Expression right)
     {
-        this(Optional.of(location), type, left, right);
+        this(Optional.of(location), operator, left, right);
     }
 
-    private ArithmeticBinaryExpression(Optional<NodeLocation> location, Type type, Expression left, Expression right)
+    private ArithmeticBinaryExpression(Optional<NodeLocation> location, Operator operator, Expression left, Expression right)
     {
         super(location);
-        this.type = type;
+        this.operator = operator;
         this.left = left;
         this.right = right;
     }
 
-    public Type getType()
+    public Operator getOperator()
     {
-        return type;
+        return operator;
     }
 
     public Expression getLeft()
@@ -102,7 +102,7 @@ public class ArithmeticBinaryExpression
         }
 
         ArithmeticBinaryExpression that = (ArithmeticBinaryExpression) o;
-        return (type == that.type) &&
+        return (operator == that.operator) &&
                 Objects.equals(left, that.left) &&
                 Objects.equals(right, that.right);
     }
@@ -110,6 +110,6 @@ public class ArithmeticBinaryExpression
     @Override
     public int hashCode()
     {
-        return Objects.hash(type, left, right);
+        return Objects.hash(operator, left, right);
     }
 }

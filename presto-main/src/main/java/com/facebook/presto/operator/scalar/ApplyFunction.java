@@ -21,7 +21,6 @@ import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.gen.lambda.UnaryFunctionInterface;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
@@ -93,11 +92,6 @@ public final class ApplyFunction
 
     public static Object apply(Object input, UnaryFunctionInterface function)
     {
-        try {
-            return function.apply(input);
-        }
-        catch (Throwable throwable) {
-            throw Throwables.propagate(throwable);
-        }
+        return function.apply(input);
     }
 }

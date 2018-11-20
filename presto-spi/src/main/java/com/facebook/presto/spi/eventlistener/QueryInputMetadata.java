@@ -22,15 +22,15 @@ import static java.util.Objects.requireNonNull;
 
 public class QueryInputMetadata
 {
-    private final String connectorId;
+    private final String catalogName;
     private final String schema;
     private final String table;
     private final List<String> columns;
     private final Optional<Object> connectorInfo;
 
-    public QueryInputMetadata(String connectorId, String schema, String table, List<String> columns, Optional<Object> connectorInfo)
+    public QueryInputMetadata(String catalogName, String schema, String table, List<String> columns, Optional<Object> connectorInfo)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
         this.columns = requireNonNull(columns, "columns is null");
@@ -38,9 +38,9 @@ public class QueryInputMetadata
     }
 
     @JsonProperty
-    public String getConnectorId()
+    public String getCatalogName()
     {
-        return connectorId;
+        return catalogName;
     }
 
     @JsonProperty

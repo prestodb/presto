@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.197-SNAPSHOT</version>
+        <version>0.214-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-server</artifactId>
@@ -14,10 +14,11 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+
+        <air.check.skip-enforcer>true</air.check.skip-enforcer>
         <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
         <air.check.skip-findbugs>true</air.check.skip-findbugs>
         <air.check.skip-dependency>true</air.check.skip-dependency>
-        <air.check.skip-dependency-version-check>true</air.check.skip-dependency-version-check>
 
         <!-- Launcher properties -->
         <main-class>com.facebook.presto.server.PrestoServer</main-class>

@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.toIntExact;
@@ -192,10 +193,20 @@ public class DwrfMetadataWriter
         }
 
         if (columnStatistics.getStringStatistics() != null) {
-            builder.setStringStatistics(DwrfProto.StringStatistics.newBuilder()
-                    .setMinimumBytes(ByteString.copyFrom(columnStatistics.getStringStatistics().getMin().getBytes()))
-                    .setMaximumBytes(ByteString.copyFrom(columnStatistics.getStringStatistics().getMax().getBytes()))
-                    .setSum(columnStatistics.getStringStatistics().getSum())
+            DwrfProto.StringStatistics.Builder statisticsBuilder = DwrfProto.StringStatistics.newBuilder();
+            if (columnStatistics.getStringStatistics().getMin() != null) {
+                statisticsBuilder.setMinimumBytes(ByteString.copyFrom(columnStatistics.getStringStatistics().getMin().getBytes()));
+            }
+            if (columnStatistics.getStringStatistics().getMax() != null) {
+                statisticsBuilder.setMaximumBytes(ByteString.copyFrom(columnStatistics.getStringStatistics().getMax().getBytes()));
+            }
+            statisticsBuilder.setSum(columnStatistics.getStringStatistics().getSum());
+            builder.setStringStatistics(statisticsBuilder.build());
+        }
+
+        if (columnStatistics.getBinaryStatistics() != null) {
+            builder.setBinaryStatistics(DwrfProto.BinaryStatistics.newBuilder()
+                    .setSum(columnStatistics.getBinaryStatistics().getSum())
                     .build());
         }
 
@@ -259,6 +270,10 @@ public class DwrfMetadataWriter
 
     private static DwrfProto.ColumnEncoding toColumnEncoding(ColumnEncoding columnEncodings)
     {
+        checkArgument(
+                !columnEncodings.getAdditionalSequenceEncodings().isPresent(),
+                "DWRF writer doesn't support writing columns with non-zero sequence IDs: " + columnEncodings);
+
         return DwrfProto.ColumnEncoding.newBuilder()
                 .setKind(toColumnEncoding(columnEncodings.getColumnEncodingKind()))
                 .setDictionarySize(columnEncodings.getDictionarySize())
@@ -288,12 +303,6 @@ public class DwrfMetadataWriter
         return writeProtobufObject(output, rowIndexProtobuf);
     }
 
-    @Override
-    public MetadataReader getMetadataReader()
-    {
-        return new DwrfMetadataReader();
-    }
-
     private static RowIndexEntry toRowGroupIndex(RowGroupIndex rowGroupIndex)
     {
         return RowIndexEntry.newBuilder()
@@ -315,6 +324,8 @@ public class DwrfMetadataWriter
                 return DwrfProto.CompressionKind.SNAPPY;
             case LZ4:
                 return DwrfProto.CompressionKind.LZ4;
+            case ZSTD:
+                return DwrfProto.CompressionKind.ZSTD;
         }
         throw new IllegalArgumentException("Unsupported compression kind: " + compressionKind);
     }

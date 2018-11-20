@@ -36,6 +36,8 @@ public interface ConnectorSession
 
     Locale getLocale();
 
+    Optional<String> getTraceToken();
+
     long getStartTime();
 
     @Deprecated

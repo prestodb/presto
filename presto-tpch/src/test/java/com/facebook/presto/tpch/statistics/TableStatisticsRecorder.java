@@ -59,7 +59,7 @@ class TableStatisticsRecorder
     private <E extends TpchEntity> Map<TpchColumn<E>, ColumnStatisticsRecorder> createStatisticsRecorders(List<TpchColumn<E>> columns)
     {
         return columns.stream()
-                .collect(toImmutableMap(identity(), (column) -> new ColumnStatisticsRecorder()));
+                .collect(toImmutableMap(identity(), (column) -> new ColumnStatisticsRecorder(column.getType())));
     }
 
     private <E extends TpchEntity> Comparable<?> getTpchValue(E row, TpchColumn<E> column)

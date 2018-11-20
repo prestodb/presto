@@ -14,15 +14,17 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.ResolvedIndex;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DomainTranslator;
+import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -75,11 +77,10 @@ public class IndexJoinOptimizer
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider type, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
-        requireNonNull(types, "types is null");
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
@@ -225,11 +226,13 @@ public class IndexJoinOptimizer
         private final SymbolAllocator symbolAllocator;
         private final PlanNodeIdAllocator idAllocator;
         private final Metadata metadata;
+        private final DomainTranslator domainTranslator;
         private final Session session;
 
         private IndexSourceRewriter(SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, Session session)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
+            this.domainTranslator = new DomainTranslator(new LiteralEncoder(metadata.getBlockEncodingSerde()));
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.session = requireNonNull(session, "session is null");
@@ -275,7 +278,7 @@ public class IndexJoinOptimizer
 
             TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain()
                     .transform(node.getAssignments()::get)
-                    .intersect(node.getCurrentConstraint());
+                    .intersect(node.getEnforcedConstraint());
 
             checkState(node.getOutputSymbols().containsAll(context.getLookupSymbols()));
 
@@ -305,7 +308,7 @@ public class IndexJoinOptimizer
                     simplifiedConstraint);
 
             Expression resultingPredicate = combineConjuncts(
-                    DomainTranslator.toPredicate(resolvedIndex.getUnresolvedTupleDomain().transform(inverseAssignments::get)),
+                    domainTranslator.toPredicate(resolvedIndex.getUnresolvedTupleDomain().transform(inverseAssignments::get)),
                     decomposedPredicate.getRemainingExpression());
 
             if (!resultingPredicate.equals(TRUE_LITERAL)) {

@@ -18,13 +18,12 @@ import com.facebook.presto.operator.InternalJoinFilterFunction;
 import com.facebook.presto.operator.JoinFilterFunction;
 import com.facebook.presto.operator.StandardJoinFilterFunction;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
-import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.google.common.base.VerifyException;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -49,11 +48,12 @@ import javax.inject.Inject;
 
 import java.lang.reflect.Constructor;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
-import static com.facebook.presto.sql.gen.LambdaAndTryExpressionExtractor.extractLambdaAndTryExpressions;
+import static com.facebook.presto.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
 import static com.facebook.presto.util.CompilerUtils.defineClass;
 import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -64,7 +64,7 @@ import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
-import static java.lang.String.format;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static java.util.Objects.requireNonNull;
 
 public class JoinFilterFunctionCompiler
@@ -132,17 +132,16 @@ public class JoinFilterFunctionCompiler
 
         FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", ConnectorSession.class);
 
-        PreGeneratedExpressions preGeneratedExpressions = generateMethodsForLambdaAndTry(classDefinition, callSiteBinder, cachedInstanceBinder, leftBlocksSize, filter);
-        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, preGeneratedExpressions, filter, leftBlocksSize, sessionField);
+        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, leftBlocksSize, filter);
+        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, leftBlocksSize, sessionField);
 
-        generateConstructor(classDefinition, sessionField, cachedInstanceBinder, preGeneratedExpressions);
+        generateConstructor(classDefinition, sessionField, cachedInstanceBinder);
     }
 
     private static void generateConstructor(
             ClassDefinition classDefinition,
             FieldDefinition sessionField,
-            CachedInstanceBinder cachedInstanceBinder,
-            PreGeneratedExpressions preGeneratedExpressions)
+            CachedInstanceBinder cachedInstanceBinder)
     {
         Parameter sessionParameter = arg("session", ConnectorSession.class);
         MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), sessionParameter);
@@ -163,16 +162,16 @@ public class JoinFilterFunctionCompiler
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            PreGeneratedExpressions preGeneratedExpressions,
+            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
             RowExpression filter,
             int leftBlocksSize,
             FieldDefinition sessionField)
     {
-        // int leftPosition, Block[] leftBlocks, int rightPosition, Block[] rightBlocks
+        // int leftPosition, Page leftPage, int rightPosition, Page rightPage
         Parameter leftPosition = arg("leftPosition", int.class);
-        Parameter leftBlocks = arg("leftBlocks", Block[].class);
+        Parameter leftPage = arg("leftPage", Page.class);
         Parameter rightPosition = arg("rightPosition", int.class);
-        Parameter rightBlocks = arg("rightBlocks", Block[].class);
+        Parameter rightPage = arg("rightPage", Page.class);
 
         MethodDefinition method = classDefinition.declareMethod(
                 a(PUBLIC),
@@ -180,9 +179,9 @@ public class JoinFilterFunctionCompiler
                 type(boolean.class),
                 ImmutableList.<Parameter>builder()
                         .add(leftPosition)
-                        .add(leftBlocks)
+                        .add(leftPage)
                         .add(rightPosition)
-                        .add(rightBlocks)
+                        .add(rightPage)
                         .build());
 
         method.comment("filter: %s", filter.toString());
@@ -195,9 +194,9 @@ public class JoinFilterFunctionCompiler
         RowExpressionCompiler compiler = new RowExpressionCompiler(
                 callSiteBinder,
                 cachedInstanceBinder,
-                fieldReferenceCompiler(callSiteBinder, leftPosition, leftBlocks, rightPosition, rightBlocks, leftBlocksSize),
+                fieldReferenceCompiler(callSiteBinder, leftPosition, leftPage, rightPosition, rightPage, leftBlocksSize),
                 metadata.getFunctionRegistry(),
-                preGeneratedExpressions);
+                compiledLambdaMap);
 
         BytecodeNode visitorBody = compiler.compile(filter, scope);
 
@@ -210,39 +209,31 @@ public class JoinFilterFunctionCompiler
                         .ifFalse(result.ret()));
     }
 
-    private PreGeneratedExpressions generateMethodsForLambdaAndTry(
+    private Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
             ClassDefinition containerClassDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             int leftBlocksSize,
             RowExpression filter)
     {
-        Set<RowExpression> lambdaAndTryExpressions = ImmutableSet.copyOf(extractLambdaAndTryExpressions(filter));
-        ImmutableMap.Builder<CallExpression, MethodDefinition> tryMethodMap = ImmutableMap.builder();
+        Set<LambdaDefinitionExpression> lambdaExpressions = ImmutableSet.copyOf(extractLambdaExpressions(filter));
         ImmutableMap.Builder<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
 
         int counter = 0;
-        for (RowExpression expression : lambdaAndTryExpressions) {
-            if (expression instanceof LambdaDefinitionExpression) {
-                LambdaDefinitionExpression lambdaExpression = (LambdaDefinitionExpression) expression;
-                PreGeneratedExpressions preGeneratedExpressions = new PreGeneratedExpressions(tryMethodMap.build(), compiledLambdaMap.build());
-                CompiledLambda compiledLambda = LambdaBytecodeGenerator.preGenerateLambdaExpression(
-                        lambdaExpression,
-                        "lambda_" + counter,
-                        containerClassDefinition,
-                        preGeneratedExpressions,
-                        callSiteBinder,
-                        cachedInstanceBinder,
-                        metadata.getFunctionRegistry());
-                compiledLambdaMap.put(lambdaExpression, compiledLambda);
-            }
-            else {
-                throw new VerifyException(format("unexpected expression: %s", expression.toString()));
-            }
+        for (LambdaDefinitionExpression lambdaExpression : lambdaExpressions) {
+            CompiledLambda compiledLambda = LambdaBytecodeGenerator.preGenerateLambdaExpression(
+                    lambdaExpression,
+                    "lambda_" + counter,
+                    containerClassDefinition,
+                    compiledLambdaMap.build(),
+                    callSiteBinder,
+                    cachedInstanceBinder,
+                    metadata.getFunctionRegistry());
+            compiledLambdaMap.put(lambdaExpression, compiledLambda);
             counter++;
         }
 
-        return new PreGeneratedExpressions(tryMethodMap.build(), compiledLambdaMap.build());
+        return compiledLambdaMap.build();
     }
 
     private static void generateToString(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String string)
@@ -256,19 +247,24 @@ public class JoinFilterFunctionCompiler
 
     public interface JoinFilterFunctionFactory
     {
-        JoinFilterFunction create(ConnectorSession session, LongArrayList addresses, List<List<Block>> channels);
+        JoinFilterFunction create(ConnectorSession session, LongArrayList addresses, List<Page> pages);
     }
 
     private static RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler(
             final CallSiteBinder callSiteBinder,
             final Variable leftPosition,
-            final Variable leftBlocks,
+            final Variable leftPage,
             final Variable rightPosition,
-            final Variable rightBlocks,
+            final Variable rightPage,
             final int leftBlocksSize)
     {
         return new InputReferenceCompiler(
-                (scope, field) -> field < leftBlocksSize ? leftBlocks.getElement(field) : rightBlocks.getElement(field - leftBlocksSize),
+                (scope, field) -> {
+                    if (field < leftBlocksSize) {
+                        return leftPage.invoke("getBlock", Block.class, constantInt(field));
+                    }
+                    return rightPage.invoke("getBlock", Block.class, constantInt(field - leftBlocksSize));
+                },
                 (scope, field) -> field < leftBlocksSize ? leftPosition : rightPosition,
                 callSiteBinder);
     }
@@ -348,11 +344,11 @@ public class JoinFilterFunctionCompiler
         }
 
         @Override
-        public JoinFilterFunction create(ConnectorSession session, LongArrayList addresses, List<List<Block>> channels)
+        public JoinFilterFunction create(ConnectorSession session, LongArrayList addresses, List<Page> pages)
         {
             try {
                 InternalJoinFilterFunction internalJoinFilterFunction = internalJoinFilterFunctionConstructor.newInstance(session);
-                return isolatedJoinFilterFunctionConstructor.newInstance(internalJoinFilterFunction, addresses, channels);
+                return isolatedJoinFilterFunctionConstructor.newInstance(internalJoinFilterFunction, addresses, pages);
             }
             catch (ReflectiveOperationException e) {
                 throw new RuntimeException(e);

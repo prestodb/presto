@@ -18,22 +18,23 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.IntArrayBlock;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.swift.codec.ThriftConstructor;
-import com.facebook.swift.codec.ThriftField;
-import com.facebook.swift.codec.ThriftStruct;
+import io.airlift.drift.annotations.ThriftConstructor;
+import io.airlift.drift.annotations.ThriftField;
+import io.airlift.drift.annotations.ThriftStruct;
 
 import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.dateData;
 import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTypeUtils.fromIntBasedBlock;
 import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTypeUtils.fromIntBasedColumn;
 import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.swift.codec.ThriftField.Requiredness.OPTIONAL;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 
 /**
  * Elements of {@code nulls} array determine if a value for a corresponding row is null.
@@ -79,7 +80,7 @@ public final class PrestoThriftDate
         int numberOfRecords = numberOfRecords();
         return new IntArrayBlock(
                 numberOfRecords,
-                nulls == null ? new boolean[numberOfRecords] : nulls,
+                Optional.ofNullable(nulls),
                 dates == null ? new int[numberOfRecords] : dates);
     }
 

@@ -1,4 +1,4 @@
--- delimiter: |; ignoreOrder: false; types: LONGNVARCHAR|LONGNVARCHAR
+-- delimiter: |; ignoreOrder: false; types: VARCHAR|VARCHAR
 Supplier#000000020|iybAE,RmTymrZVYaFZva2SH,j|
 Supplier#000000091|YV45D7TkfdQanOOZ7q9QxkyGUapU1oOWU6q3|
 Supplier#000000205|rF uV8d0JNEk|

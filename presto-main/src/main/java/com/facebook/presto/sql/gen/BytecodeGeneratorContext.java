@@ -34,7 +34,6 @@ public class BytecodeGeneratorContext
     private final CallSiteBinder callSiteBinder;
     private final CachedInstanceBinder cachedInstanceBinder;
     private final FunctionRegistry registry;
-    private final PreGeneratedExpressions preGeneratedExpressions;
     private final Variable wasNull;
 
     public BytecodeGeneratorContext(
@@ -42,8 +41,7 @@ public class BytecodeGeneratorContext
             Scope scope,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            FunctionRegistry registry,
-            PreGeneratedExpressions preGeneratedExpressions)
+            FunctionRegistry registry)
     {
         requireNonNull(rowExpressionCompiler, "bytecodeGenerator is null");
         requireNonNull(cachedInstanceBinder, "cachedInstanceBinder is null");
@@ -56,7 +54,6 @@ public class BytecodeGeneratorContext
         this.callSiteBinder = callSiteBinder;
         this.cachedInstanceBinder = cachedInstanceBinder;
         this.registry = registry;
-        this.preGeneratedExpressions = preGeneratedExpressions;
         this.wasNull = scope.getVariable("wasNull");
     }
 
@@ -90,13 +87,12 @@ public class BytecodeGeneratorContext
      */
     public BytecodeNode generateCall(String name, ScalarFunctionImplementation function, List<BytecodeNode> arguments)
     {
-        Binding binding = callSiteBinder.bind(function.getMethodHandle());
         Optional<BytecodeNode> instance = Optional.empty();
         if (function.getInstanceFactory().isPresent()) {
             FieldDefinition field = cachedInstanceBinder.getCachedInstance(function.getInstanceFactory().get());
             instance = Optional.of(scope.getThis().getField(field));
         }
-        return generateInvocation(scope, name, function, instance, arguments, binding);
+        return generateInvocation(scope, name, function, instance, arguments, callSiteBinder);
     }
 
     public Variable wasNull()

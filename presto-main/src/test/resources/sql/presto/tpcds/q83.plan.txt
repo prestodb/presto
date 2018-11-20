@@ -1,0 +1,73 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        join (INNER, PARTITIONED):
+            final aggregation over (i_item_id)
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (REPARTITION, HASH, ["i_item_id"])
+                        partial aggregation over (i_item_id)
+                            semijoin (PARTITIONED):
+                                remote exchange (REPARTITION, HASH, ["d_date"])
+                                    join (INNER, REPLICATED):
+                                        join (INNER, REPLICATED):
+                                            scan tpcds:store_returns:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    scan tpcds:date_dim:sf3000.0
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                scan tpcds:item:sf3000.0
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, ["d_date_3"])
+                                        semijoin (PARTITIONED):
+                                            remote exchange (REPARTITION, HASH, ["d_week_seq_5"])
+                                                scan tpcds:date_dim:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPARTITION, HASH, ["d_week_seq_34"])
+                                                    scan tpcds:date_dim:sf3000.0
+            join (INNER, PARTITIONED):
+                final aggregation over (i_item_id_82)
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPARTITION, HASH, ["i_item_id_82"])
+                            partial aggregation over (i_item_id_82)
+                                semijoin (PARTITIONED):
+                                    remote exchange (REPARTITION, HASH, ["d_date_105"])
+                                        join (INNER, REPLICATED):
+                                            join (INNER, REPLICATED):
+                                                scan tpcds:catalog_returns:sf3000.0
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        scan tpcds:date_dim:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    scan tpcds:item:sf3000.0
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPARTITION, HASH, ["d_date_134"])
+                                            semijoin (PARTITIONED):
+                                                remote exchange (REPARTITION, HASH, ["d_week_seq_136"])
+                                                    scan tpcds:date_dim:sf3000.0
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPARTITION, HASH, ["d_week_seq_165"])
+                                                        scan tpcds:date_dim:sf3000.0
+                final aggregation over (i_item_id_216)
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPARTITION, HASH, ["i_item_id_216"])
+                            partial aggregation over (i_item_id_216)
+                                semijoin (PARTITIONED):
+                                    remote exchange (REPARTITION, HASH, ["d_date_239"])
+                                        join (INNER, REPLICATED):
+                                            join (INNER, REPLICATED):
+                                                scan tpcds:web_returns:sf3000.0
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        scan tpcds:date_dim:sf3000.0
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    scan tpcds:item:sf3000.0
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPARTITION, HASH, ["d_date_268"])
+                                            semijoin (PARTITIONED):
+                                                remote exchange (REPARTITION, HASH, ["d_week_seq_270"])
+                                                    scan tpcds:date_dim:sf3000.0
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPARTITION, HASH, ["d_week_seq_299"])
+                                                        scan tpcds:date_dim:sf3000.0

@@ -925,6 +925,23 @@ public class TestArbitraryOutputBuffer
         assertBufferResultEquals(TYPES, getBufferResult(buffer, SECOND, 0, sizeOfPages(1), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, true));
     }
 
+    @Test
+    public void testForceFreeMemory()
+            throws Throwable
+    {
+        ArbitraryOutputBuffer buffer = createArbitraryBuffer(createInitialEmptyOutputBuffers(ARBITRARY), sizeOfPages(10));
+        for (int i = 0; i < 3; i++) {
+            addPage(buffer, createPage(i));
+        }
+        OutputBufferMemoryManager memoryManager = buffer.getMemoryManager();
+        assertTrue(memoryManager.getBufferedBytes() > 0);
+        buffer.forceFreeMemory();
+        assertEquals(memoryManager.getBufferedBytes(), 0);
+        // adding a page after forceFreeMemory() should be NOOP
+        addPage(buffer, createPage(1));
+        assertEquals(memoryManager.getBufferedBytes(), 0);
+    }
+
     private static BufferResult getBufferResult(OutputBuffer buffer, OutputBufferId bufferId, long sequenceId, DataSize maxSize, Duration maxWait)
     {
         ListenableFuture<BufferResult> future = buffer.get(bufferId, sequenceId, maxSize);
@@ -933,14 +950,16 @@ public class TestArbitraryOutputBuffer
 
     private static ListenableFuture<?> enqueuePage(OutputBuffer buffer, Page page)
     {
-        ListenableFuture<?> future = buffer.enqueue(ImmutableList.of(PAGES_SERDE.serialize(page)));
+        buffer.enqueue(ImmutableList.of(PAGES_SERDE.serialize(page)));
+        ListenableFuture<?> future = buffer.isFull();
         assertFalse(future.isDone());
         return future;
     }
 
     private static void addPage(OutputBuffer buffer, Page page)
     {
-        assertTrue(buffer.enqueue(ImmutableList.of(PAGES_SERDE.serialize(page))).isDone(), "Expected add page to not block");
+        buffer.enqueue(ImmutableList.of(PAGES_SERDE.serialize(page)));
+        assertTrue(buffer.isFull().isDone(), "Expected add page to not block");
     }
 
     private static void assertQueueState(
@@ -1006,7 +1025,7 @@ public class TestArbitraryOutputBuffer
                 TASK_INSTANCE_ID,
                 new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
                 dataSize,
-                () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext()),
+                () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 stateNotificationExecutor);
         buffer.setOutputBuffers(buffers);
         return buffer;

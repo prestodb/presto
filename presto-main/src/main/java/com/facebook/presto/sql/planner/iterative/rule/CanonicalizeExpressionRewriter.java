@@ -67,7 +67,7 @@ public class CanonicalizeExpressionRewriter
                 throw new UnsupportedOperationException("not yet implemented: non-default precision");
             }
 
-            switch (node.getType()) {
+            switch (node.getFunction()) {
                 case DATE:
                     return new FunctionCall(QualifiedName.of("current_date"), ImmutableList.of());
                 case TIME:
@@ -79,7 +79,7 @@ public class CanonicalizeExpressionRewriter
                 case LOCALTIMESTAMP:
                     return new FunctionCall(QualifiedName.of("localtimestamp"), ImmutableList.of());
                 default:
-                    throw new UnsupportedOperationException("not yet implemented: " + node.getType());
+                    throw new UnsupportedOperationException("not yet implemented: " + node.getFunction());
             }
         }
 

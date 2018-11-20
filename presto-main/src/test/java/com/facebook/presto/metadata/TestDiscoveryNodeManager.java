@@ -14,8 +14,8 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.failureDetector.NoOpFailureDetector;
 import com.facebook.presto.server.InternalCommunicationConfig;
-import com.facebook.presto.server.NoOpFailureDetector;
 import com.facebook.presto.spi.Node;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;

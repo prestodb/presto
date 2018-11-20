@@ -16,7 +16,6 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.OperatorType;
@@ -328,7 +327,7 @@ public final class StringFunctions
         checkCondition(limit > 0, INVALID_FUNCTION_ARGUMENT, "Limit must be positive");
         checkCondition(limit <= Integer.MAX_VALUE, INVALID_FUNCTION_ARGUMENT, "Limit is too large");
         checkCondition(delimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "The delimiter may not be the empty string");
-        BlockBuilder parts = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1, string.length());
+        BlockBuilder parts = VARCHAR.createBlockBuilder(null, 1, string.length());
         // If limit is one, the last and only element is the complete string
         if (limit == 1) {
             VARCHAR.writeSlice(parts, string);
@@ -814,5 +813,28 @@ public final class StringFunctions
     public static Slice toUtf8(@SqlType("varchar(x)") Slice slice)
     {
         return slice;
+    }
+
+    // TODO: implement N arguments char concat
+    @Description("concatenates given character strings")
+    @ScalarFunction
+    @LiteralParameters({"x", "y", "u"})
+    @Constraint(variable = "u", expression = "x + y")
+    @SqlType("char(u)")
+    public static Slice concat(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice left, @SqlType("char(y)") Slice right)
+    {
+        int rightLength = right.length();
+        if (rightLength == 0) {
+            return left;
+        }
+
+        Slice paddedLeft = padSpaces(left, x.intValue());
+        int leftLength = paddedLeft.length();
+
+        Slice result = Slices.allocate(leftLength + rightLength);
+        result.setBytes(0, paddedLeft);
+        result.setBytes(leftLength, right);
+
+        return result;
     }
 }

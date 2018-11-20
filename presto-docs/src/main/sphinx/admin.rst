@@ -9,5 +9,6 @@ Administration
     admin/tuning
     admin/properties
     admin/spill
-    admin/queue
     admin/resource-groups
+    admin/session-property-managers
+    admin/dist-sort

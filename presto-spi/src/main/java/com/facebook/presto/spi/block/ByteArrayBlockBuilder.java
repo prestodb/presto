@@ -20,6 +20,7 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.function.BiConsumer;
 
+import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -29,6 +30,7 @@ public class ByteArrayBlockBuilder
         implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ByteArrayBlockBuilder.class).instanceSize();
+    private static final Block NULL_VALUE_BLOCK = new ByteArrayBlock(0, 1, new boolean[] {true}, new byte[1]);
 
     @Nullable
     private BlockBuilderStatus blockBuilderStatus;
@@ -36,6 +38,8 @@ public class ByteArrayBlockBuilder
     private int initialEntryCount;
 
     private int positionCount;
+    private boolean hasNullValue;
+    private boolean hasNonNullValue;
 
     // it is assumed that these arrays are the same length
     private boolean[] valueIsNull = new boolean[0];
@@ -60,9 +64,10 @@ public class ByteArrayBlockBuilder
 
         values[positionCount] = (byte) value;
 
+        hasNonNullValue = true;
         positionCount++;
         if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes((Byte.BYTES + Byte.BYTES));
+            blockBuilderStatus.addBytes(Byte.BYTES + Byte.BYTES);
         }
         return this;
     }
@@ -82,9 +87,10 @@ public class ByteArrayBlockBuilder
 
         valueIsNull[positionCount] = true;
 
+        hasNullValue = true;
         positionCount++;
         if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes((Byte.BYTES + Byte.BYTES));
+            blockBuilderStatus.addBytes(Byte.BYTES + Byte.BYTES);
         }
         return this;
     }
@@ -92,13 +98,16 @@ public class ByteArrayBlockBuilder
     @Override
     public Block build()
     {
-        return new ByteArrayBlock(positionCount, valueIsNull, values);
+        if (!hasNonNullValue) {
+            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
+        }
+        return new ByteArrayBlock(0, positionCount, hasNullValue ? valueIsNull : null, values);
     }
 
     @Override
     public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
     {
-        return new ByteArrayBlockBuilder(blockBuilderStatus, positionCount);
+        return new ByteArrayBlockBuilder(blockBuilderStatus, calculateBlockResetSize(positionCount));
     }
 
     private void growCapacity()
@@ -144,6 +153,12 @@ public class ByteArrayBlockBuilder
     }
 
     @Override
+    public long getEstimatedDataSizeForStats(int position)
+    {
+        return isNull(position) ? 0 : Byte.BYTES;
+    }
+
+    @Override
     public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
     {
         consumer.accept(values, sizeOf(values));
@@ -168,6 +183,12 @@ public class ByteArrayBlockBuilder
     }
 
     @Override
+    public boolean mayHaveNull()
+    {
+        return hasNullValue;
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(position);
@@ -179,6 +200,7 @@ public class ByteArrayBlockBuilder
     {
         checkReadablePosition(position);
         blockBuilder.writeByte(values[position]);
+        blockBuilder.closeEntry();
     }
 
     @Override
@@ -186,8 +208,9 @@ public class ByteArrayBlockBuilder
     {
         checkReadablePosition(position);
         return new ByteArrayBlock(
+                0,
                 1,
-                new boolean[] {valueIsNull[position]},
+                valueIsNull[position] ? new boolean[] {true} : null,
                 new byte[] {values[position]});
     }
 
@@ -196,15 +219,23 @@ public class ByteArrayBlockBuilder
     {
         checkArrayRange(positions, offset, length);
 
-        boolean[] newValueIsNull = new boolean[length];
+        if (!hasNonNullValue) {
+            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+        }
+        boolean[] newValueIsNull = null;
+        if (hasNullValue) {
+            newValueIsNull = new boolean[length];
+        }
         byte[] newValues = new byte[length];
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
             checkReadablePosition(position);
-            newValueIsNull[i] = valueIsNull[position];
+            if (hasNullValue) {
+                newValueIsNull[i] = valueIsNull[position];
+            }
             newValues[i] = values[position];
         }
-        return new ByteArrayBlock(length, newValueIsNull, newValues);
+        return new ByteArrayBlock(0, length, newValueIsNull, newValues);
     }
 
     @Override
@@ -212,7 +243,10 @@ public class ByteArrayBlockBuilder
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
-        return new ByteArrayBlock(positionOffset, length, valueIsNull, values);
+        if (!hasNonNullValue) {
+            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+        }
+        return new ByteArrayBlock(positionOffset, length, hasNullValue ? valueIsNull : null, values);
     }
 
     @Override
@@ -220,15 +254,21 @@ public class ByteArrayBlockBuilder
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
-        boolean[] newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
+        if (!hasNonNullValue) {
+            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+        }
+        boolean[] newValueIsNull = null;
+        if (hasNullValue) {
+            newValueIsNull = Arrays.copyOfRange(valueIsNull, positionOffset, positionOffset + length);
+        }
         byte[] newValues = Arrays.copyOfRange(values, positionOffset, positionOffset + length);
-        return new ByteArrayBlock(length, newValueIsNull, newValues);
+        return new ByteArrayBlock(0, length, newValueIsNull, newValues);
     }
 
     @Override
-    public BlockEncoding getEncoding()
+    public String getEncodingName()
     {
-        return new ByteArrayBlockEncoding();
+        return ByteArrayBlockEncoding.NAME;
     }
 
     @Override
