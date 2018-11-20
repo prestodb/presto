@@ -977,7 +977,7 @@ public class AddExchanges
             return symbol -> Optional.of(node.getSymbolMapping().get(symbol).get(sourceIndex));
         }
 
-        private Partitioning selectUnionPartitioning(UnionNode node, PreferredProperties preferredProperties, PreferredProperties.PartitioningProperties parentPreference)
+        private Partitioning selectUnionPartitioning(UnionNode node, PreferredProperties.PartitioningProperties parentPreference)
         {
             // Use the parent's requested partitioning if available
             if (parentPreference.getPartitioning().isPresent()) {
@@ -1009,7 +1009,7 @@ public class AddExchanges
             if (parentGlobal.isPresent() && parentGlobal.get().isDistributed() && parentGlobal.get().getPartitioningProperties().isPresent()) {
                 PreferredProperties.PartitioningProperties parentPartitioningPreference = parentGlobal.get().getPartitioningProperties().get();
                 boolean nullsAndAnyReplicated = parentPartitioningPreference.isNullsAndAnyReplicated();
-                Partitioning desiredParentPartitioning = selectUnionPartitioning(node, parentPreference, parentPartitioningPreference);
+                Partitioning desiredParentPartitioning = selectUnionPartitioning(node, parentPartitioningPreference);
 
                 ImmutableList.Builder<PlanNode> partitionedSources = ImmutableList.builder();
                 ImmutableListMultimap.Builder<Symbol, Symbol> outputToSourcesMapping = ImmutableListMultimap.builder();
