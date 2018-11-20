@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.operator;
 
+import com.esri.core.geometry.Geometry;
+import com.esri.core.geometry.Operator;
+import com.esri.core.geometry.OperatorFactoryLocal;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.Session;
 import com.facebook.presto.geospatial.Rectangle;
@@ -97,6 +100,8 @@ public class PagesSpatialIndexSupplier
     {
         STRtree rtree = new STRtree();
 
+        Operator relateOperator = OperatorFactoryLocal.getInstance().getOperator(Operator.Type.Relate);
+
         for (int position = 0; position < addresses.size(); position++) {
             long pageAddress = addresses.getLong(position);
             int blockIndex = decodeSliceIndex(pageAddress);
@@ -125,6 +130,8 @@ public class PagesSpatialIndexSupplier
                 Block partitionBlock = channels.get(partitionChannel.get()).get(blockIndex);
                 partition = toIntExact(INTEGER.getLong(partitionBlock, blockPosition));
             }
+
+            relateOperator.accelerateGeometry(ogcGeometry.getEsriGeometry(), null, Geometry.GeometryAccelerationDegree.enumMild);
 
             rtree.insert(getEnvelope(ogcGeometry, radius), new GeometryWithPosition(ogcGeometry, partition, position));
         }
