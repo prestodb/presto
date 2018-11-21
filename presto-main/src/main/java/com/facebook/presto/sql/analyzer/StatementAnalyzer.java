@@ -248,12 +248,6 @@ class StatementAnalyzer
         return new Visitor(outerQueryScope, warningCollector).process(node, Optional.empty());
     }
 
-    private void analyzeWhere(Node node, Scope outerQueryScope, Expression predicate)
-    {
-        Visitor visitor = new Visitor(Optional.of(outerQueryScope), warningCollector);
-        visitor.analyzeWhere(node, outerQueryScope, predicate);
-    }
-
     /**
      * Visitor context represents local query scope (if exists). The invariant is
      * that the local query scopes hierarchy should always have outer query scope
