@@ -1044,11 +1044,8 @@ public class AddExchanges
             List<PlanNode> partitionedChildren = new ArrayList<>();
             List<List<Symbol>> partitionedOutputLayouts = new ArrayList<>();
 
-            List<PlanWithProperties> plannedChildren = new ArrayList<>();
-
             for (int i = 0; i < node.getSources().size(); i++) {
                 PlanWithProperties child = node.getSources().get(i).accept(this, PreferredProperties.any());
-                plannedChildren.add(child);
                 if (child.getProperties().isSingleNode()) {
                     unpartitionedChildren.add(child.getNode());
                     unpartitionedOutputLayouts.add(node.sourceOutputLayout(i));
@@ -1066,7 +1063,7 @@ public class AddExchanges
                 // children partitioning and don't GATHER partitioned inputs
                 // TODO: add FIXED_ARBITRARY_DISTRIBUTION support on non empty unpartitionedChildren
                 if (!parentGlobal.isPresent() || parentGlobal.get().isDistributed()) {
-                    return arbitraryDistributeUnion(node, plannedChildren, partitionedChildren, partitionedOutputLayouts);
+                    return arbitraryDistributeUnion(node, partitionedChildren, partitionedOutputLayouts);
                 }
 
                 // add a gathering exchange above partitioned inputs
@@ -1124,7 +1121,6 @@ public class AddExchanges
 
         private PlanWithProperties arbitraryDistributeUnion(
                 UnionNode node,
-                List<PlanWithProperties> plannedChildren,
                 List<PlanNode> partitionedChildren,
                 List<List<Symbol>> partitionedOutputLayouts)
         {
@@ -1133,10 +1129,7 @@ public class AddExchanges
                 // No source distributed child, we can use insert LOCAL exchange
                 // TODO: if all children have the same partitioning, pass this partitioning to the parent
                 // instead of "arbitraryPartition".
-                return new PlanWithProperties(node.replaceChildren(
-                        plannedChildren.stream()
-                                .map(PlanWithProperties::getNode)
-                                .collect(toList())));
+                return new PlanWithProperties(node.replaceChildren(partitionedChildren));
             }
             else {
                 // Presto currently can not execute stage that has multiple table scans, so in that case
