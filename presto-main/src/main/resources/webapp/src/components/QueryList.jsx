@@ -111,9 +111,9 @@ export class QueryListItem extends React.Component {
                     <span className="glyphicon glyphicon-fire" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
                     {query.queryStats.peakUserMemoryReservation}
                 </span>
-                <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Cumulative memory">
+                <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Cumulative user memory">
                     <span className="glyphicon glyphicon-equalizer" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
-                    {formatDataSizeBytes(query.queryStats.cumulativeUserMemory)}
+                    {formatDataSizeBytes(query.queryStats.cumulativeUserMemory / 1000.0)}
                 </span>
             </div>);
 
@@ -596,7 +596,7 @@ export class QueryList extends React.Component {
                                     {this.renderSortListItem(SORT_TYPE.CPU, "CPU Time")}
                                     {this.renderSortListItem(SORT_TYPE.EXECUTION, "Execution Time")}
                                     {this.renderSortListItem(SORT_TYPE.CURRENT_MEMORY, "Current Memory")}
-                                    {this.renderSortListItem(SORT_TYPE.CUMULATIVE_MEMORY, "Cumulative Memory")}
+                                    {this.renderSortListItem(SORT_TYPE.CUMULATIVE_MEMORY, "Cumulative User Memory")}
                                 </ul>
                             </div>
                             &nbsp;
