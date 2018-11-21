@@ -55,6 +55,7 @@
         <dep.tempto.version>1.50</dep.tempto.version>
         <dep.testng.version>6.10</dep.testng.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
+        <dep.logback.version>1.2.3</dep.logback.version>
 
         <!--
           America/Bahia_Banderas has:
