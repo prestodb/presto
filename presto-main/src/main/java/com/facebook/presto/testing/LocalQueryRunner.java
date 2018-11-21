@@ -131,7 +131,6 @@ import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.sql.planner.sanity.PlanSanityChecker;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateTable;
@@ -241,7 +240,6 @@ public class LocalQueryRunner
     private final boolean alwaysRevokeMemory;
     private final NodeSpillConfig nodeSpillConfig;
     private final NodeSchedulerConfig nodeSchedulerConfig;
-    private boolean printPlan;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
@@ -538,12 +536,6 @@ public class LocalQueryRunner
         throw new UnsupportedOperationException();
     }
 
-    public LocalQueryRunner printPlan()
-    {
-        printPlan = true;
-        return this;
-    }
-
     @Override
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
     {
@@ -673,10 +665,6 @@ public class LocalQueryRunner
 
     private List<Driver> createDrivers(Session session, Plan plan, OutputFactory outputFactory, TaskContext taskContext)
     {
-        if (printPlan) {
-            System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionRegistry(), plan.getStatsAndCosts(), session, 0, false));
-        }
-
         SubPlan subplan = planFragmenter.createSubPlans(session, metadata, nodePartitioningManager, plan, true);
         if (!subplan.getChildren().isEmpty()) {
             throw new AssertionError("Expected subplan to have no children");
