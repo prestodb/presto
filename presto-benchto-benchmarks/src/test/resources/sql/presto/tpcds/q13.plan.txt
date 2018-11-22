@@ -7,19 +7,19 @@ final aggregation over ()
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
-                                    scan tpcds:store_sales:sf3000.0
+                                    scan store_sales
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
-                                            scan tpcds:customer_address:sf3000.0
+                                            scan customer_address
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        scan tpcds:date_dim:sf3000.0
+                                        scan date_dim
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
-                                    scan tpcds:household_demographics:sf3000.0
+                                    scan household_demographics
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPLICATE, BROADCAST, [])
-                                scan tpcds:customer_demographics:sf3000.0
+                                scan customer_demographics
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPLICATE, BROADCAST, [])
-                            scan tpcds:store:sf3000.0
+                            scan store

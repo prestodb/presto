@@ -4,27 +4,27 @@ remote exchange (GATHER, SINGLE, [])
             semijoin (PARTITIONED):
                 remote exchange (REPARTITION, HASH, ["suppkey"])
                     join (INNER, REPLICATED):
-                        scan tpch:supplier:sf3000.0
+                        scan supplier
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPLICATE, BROADCAST, [])
-                                scan tpch:nation:sf3000.0
+                                scan nation
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, ["suppkey_4"])
                         cross join:
                             join (LEFT, PARTITIONED):
                                 semijoin (PARTITIONED):
                                     remote exchange (REPARTITION, HASH, ["partkey"])
-                                        scan tpch:partsupp:sf3000.0
+                                        scan partsupp
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["partkey_8"])
-                                            scan tpch:part:sf3000.0
+                                            scan part
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["partkey_18"])
                                         final aggregation over (partkey_18, suppkey_19)
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, ["partkey_18", "suppkey_19"])
                                                     partial aggregation over (partkey_18, suppkey_19)
-                                                        scan tpch:lineitem:sf3000.0
+                                                        scan lineitem
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
                                     single aggregation over ()

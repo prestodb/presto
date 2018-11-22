@@ -10,20 +10,20 @@ local exchange (GATHER, SINGLE, [])
                                     join (INNER, PARTITIONED):
                                         remote exchange (REPARTITION, HASH, ["wr_returning_addr_sk"])
                                             join (INNER, REPLICATED):
-                                                scan tpcds:web_returns:sf3000.0
+                                                scan web_returns
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan tpcds:date_dim:sf3000.0
+                                                        scan date_dim
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, ["ca_address_sk"])
-                                                scan tpcds:customer_address:sf3000.0
+                                                scan customer_address
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPLICATE, BROADCAST, [])
                             join (INNER, REPLICATED):
-                                scan tpcds:customer:sf3000.0
+                                scan customer
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        scan tpcds:customer_address:sf3000.0
+                                        scan customer_address
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPLICATE, BROADCAST, [])
                         final aggregation over (ca_state_90)
@@ -37,13 +37,13 @@ local exchange (GATHER, SINGLE, [])
                                                         join (INNER, PARTITIONED):
                                                             remote exchange (REPARTITION, HASH, ["wr_returning_addr_sk_40"])
                                                                 join (INNER, REPLICATED):
-                                                                    scan tpcds:web_returns:sf3000.0
+                                                                    scan web_returns
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                                            scan tpcds:date_dim:sf3000.0
+                                                                            scan date_dim
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPARTITION, HASH, ["ca_address_sk_82"])
-                                                                    scan tpcds:customer_address:sf3000.0
+                                                                    scan customer_address
             local exchange (GATHER, SINGLE, [])
                 remote exchange (REPLICATE, BROADCAST, [])
                     single aggregation over ()

@@ -14,6 +14,7 @@
 
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -21,6 +22,8 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.facebook.presto.tpcds.TpcdsTableHandle;
+import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.base.Strings;
 import com.google.common.base.VerifyException;
 import com.google.common.io.Resources;
@@ -202,7 +205,17 @@ public abstract class AbstractCostBasedPlanTest
         @Override
         public Void visitTableScan(TableScanNode node, Integer indent)
         {
-            output(indent, "scan %s", node.getTable().getConnectorHandle());
+            ConnectorTableHandle connectorTableHandle = node.getTable().getConnectorHandle();
+            if (connectorTableHandle instanceof TpcdsTableHandle) {
+                output(indent, "scan %s", ((TpcdsTableHandle) connectorTableHandle).getTableName());
+            }
+            else if (connectorTableHandle instanceof TpchTableHandle) {
+                output(indent, "scan %s", ((TpchTableHandle) connectorTableHandle).getTableName());
+            }
+            else {
+                throw new IllegalStateException(format("Unexpected ConnectorTableHandle: %s", connectorTableHandle.getClass()));
+            }
+
             return null;
         }
 

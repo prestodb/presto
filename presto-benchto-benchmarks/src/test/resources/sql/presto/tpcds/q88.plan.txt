@@ -12,16 +12,16 @@ cross join:
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        scan tpcds:store_sales:sf3000.0
+                                                        scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan tpcds:time_dim:sf3000.0
+                                                                scan time_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan tpcds:store:sf3000.0
+                                                            scan store
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan tpcds:household_demographics:sf3000.0
+                                                        scan household_demographics
                             final aggregation over ()
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (GATHER, SINGLE, [])
@@ -29,16 +29,16 @@ cross join:
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        scan tpcds:store_sales:sf3000.0
+                                                        scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan tpcds:time_dim:sf3000.0
+                                                                scan time_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan tpcds:store:sf3000.0
+                                                            scan store
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan tpcds:household_demographics:sf3000.0
+                                                        scan household_demographics
                         final aggregation over ()
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (GATHER, SINGLE, [])
@@ -46,16 +46,16 @@ cross join:
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
-                                                    scan tpcds:store_sales:sf3000.0
+                                                    scan store_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan tpcds:time_dim:sf3000.0
+                                                            scan time_dim
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan tpcds:store:sf3000.0
+                                                        scan store
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan tpcds:household_demographics:sf3000.0
+                                                    scan household_demographics
                     final aggregation over ()
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (GATHER, SINGLE, [])
@@ -63,16 +63,16 @@ cross join:
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
-                                                scan tpcds:store_sales:sf3000.0
+                                                scan store_sales
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan tpcds:time_dim:sf3000.0
+                                                        scan time_dim
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan tpcds:store:sf3000.0
+                                                    scan store
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                scan tpcds:household_demographics:sf3000.0
+                                                scan household_demographics
                 final aggregation over ()
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (GATHER, SINGLE, [])
@@ -80,16 +80,16 @@ cross join:
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
-                                            scan tpcds:store_sales:sf3000.0
+                                            scan store_sales
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan tpcds:time_dim:sf3000.0
+                                                    scan time_dim
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                scan tpcds:store:sf3000.0
+                                                scan store
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
-                                            scan tpcds:household_demographics:sf3000.0
+                                            scan household_demographics
             final aggregation over ()
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (GATHER, SINGLE, [])
@@ -97,16 +97,16 @@ cross join:
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
-                                        scan tpcds:store_sales:sf3000.0
+                                        scan store_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                scan tpcds:time_dim:sf3000.0
+                                                scan time_dim
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
-                                            scan tpcds:store:sf3000.0
+                                            scan store
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        scan tpcds:household_demographics:sf3000.0
+                                        scan household_demographics
         final aggregation over ()
             local exchange (GATHER, SINGLE, [])
                 remote exchange (GATHER, SINGLE, [])
@@ -114,16 +114,16 @@ cross join:
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
-                                    scan tpcds:store_sales:sf3000.0
+                                    scan store_sales
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
-                                            scan tpcds:time_dim:sf3000.0
+                                            scan time_dim
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        scan tpcds:store:sf3000.0
+                                        scan store
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
-                                    scan tpcds:household_demographics:sf3000.0
+                                    scan household_demographics
     final aggregation over ()
         local exchange (GATHER, SINGLE, [])
             remote exchange (GATHER, SINGLE, [])
@@ -131,13 +131,13 @@ cross join:
                     join (INNER, REPLICATED):
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
-                                scan tpcds:store_sales:sf3000.0
+                                scan store_sales
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        scan tpcds:time_dim:sf3000.0
+                                        scan time_dim
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
-                                    scan tpcds:store:sf3000.0
+                                    scan store
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPLICATE, BROADCAST, [])
-                                scan tpcds:household_demographics:sf3000.0
+                                scan household_demographics

@@ -11,19 +11,19 @@ local exchange (GATHER, SINGLE, [])
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
-                                                    scan tpcds:web_sales:sf3000.0
+                                                    scan web_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan tpcds:ship_mode:sf3000.0
+                                                            scan ship_mode
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan tpcds:time_dim:sf3000.0
+                                                        scan time_dim
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan tpcds:date_dim:sf3000.0
+                                                    scan date_dim
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                scan tpcds:warehouse:sf3000.0
+                                                scan warehouse
                 partial aggregation over (concat_242, d_year_136, w_city_124, w_country_128, w_county_125, w_state_126, w_warehouse_name_118, w_warehouse_sq_ft_119)
                     final aggregation over (d_year_136, w_city_124, w_country_128, w_county_125, w_state_126, w_warehouse_name_118, w_warehouse_sq_ft_119)
                         local exchange (GATHER, SINGLE, [])
@@ -33,16 +33,16 @@ local exchange (GATHER, SINGLE, [])
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
-                                                    scan tpcds:catalog_sales:sf3000.0
+                                                    scan catalog_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan tpcds:ship_mode:sf3000.0
+                                                            scan ship_mode
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan tpcds:time_dim:sf3000.0
+                                                        scan time_dim
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan tpcds:date_dim:sf3000.0
+                                                    scan date_dim
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                scan tpcds:warehouse:sf3000.0
+                                                scan warehouse

@@ -8,14 +8,14 @@ final aggregation over ()
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["partkey_4"])
                                     partial aggregation over (partkey_4)
-                                        scan tpch:lineitem:sf3000.0
+                                        scan lineitem
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["partkey"])
                                 join (INNER, REPLICATED):
-                                    scan tpch:lineitem:sf3000.0
+                                    scan lineitem
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
-                                            scan tpch:part:sf3000.0
+                                            scan part
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPLICATE, BROADCAST, [])
                             single aggregation over ()

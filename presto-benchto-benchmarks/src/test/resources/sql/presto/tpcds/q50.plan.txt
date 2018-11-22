@@ -7,17 +7,17 @@ local exchange (GATHER, SINGLE, [])
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
-                                    scan tpcds:store_sales:sf3000.0
+                                    scan store_sales
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             join (INNER, REPLICATED):
-                                                scan tpcds:store_returns:sf3000.0
+                                                scan store_returns
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan tpcds:date_dim:sf3000.0
+                                                        scan date_dim
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        scan tpcds:date_dim:sf3000.0
+                                        scan date_dim
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
-                                    scan tpcds:store:sf3000.0
+                                    scan store

@@ -7,7 +7,7 @@ remote exchange (GATHER, SINGLE, [])
                         partial aggregation over (shipmode)
                             join (INNER, PARTITIONED):
                                 remote exchange (REPARTITION, HASH, ["orderkey"])
-                                    scan tpch:orders:sf3000.0
+                                    scan orders
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["orderkey_0"])
-                                        scan tpch:lineitem:sf3000.0
+                                        scan lineitem

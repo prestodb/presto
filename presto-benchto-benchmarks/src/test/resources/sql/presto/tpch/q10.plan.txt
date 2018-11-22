@@ -6,14 +6,14 @@ local exchange (GATHER, SINGLE, [])
                     join (INNER, PARTITIONED):
                         remote exchange (REPARTITION, HASH, ["custkey_3"])
                             join (INNER, REPLICATED):
-                                scan tpch:customer:sf3000.0
+                                scan customer
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        scan tpch:nation:sf3000.0
+                                        scan nation
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["custkey"])
                                 join (INNER, REPLICATED):
-                                    scan tpch:lineitem:sf3000.0
+                                    scan lineitem
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
-                                            scan tpch:orders:sf3000.0
+                                            scan orders

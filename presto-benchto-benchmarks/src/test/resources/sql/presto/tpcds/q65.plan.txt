@@ -7,15 +7,15 @@ local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, ["ss_item_sk_26", "ss_store_sk_31"])
                             partial aggregation over (ss_item_sk_26, ss_store_sk_31)
                                 join (INNER, REPLICATED):
-                                    scan tpcds:store_sales:sf3000.0
+                                    scan store_sales
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
-                                            scan tpcds:date_dim:sf3000.0
+                                            scan date_dim
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPLICATE, BROADCAST, [])
                         join (INNER, PARTITIONED):
                             remote exchange (REPARTITION, HASH, ["s_store_sk"])
-                                scan tpcds:store:sf3000.0
+                                scan store
                             final aggregation over (ss_store_sk)
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["ss_store_sk"])
@@ -25,10 +25,10 @@ local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, ["ss_item_sk", "ss_store_sk"])
                                                         partial aggregation over (ss_item_sk, ss_store_sk)
                                                             join (INNER, REPLICATED):
-                                                                scan tpcds:store_sales:sf3000.0
+                                                                scan store_sales
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                                        scan tpcds:date_dim:sf3000.0
+                                                                        scan date_dim
             local exchange (GATHER, SINGLE, [])
                 remote exchange (REPLICATE, BROADCAST, [])
-                    scan tpcds:item:sf3000.0
+                    scan item

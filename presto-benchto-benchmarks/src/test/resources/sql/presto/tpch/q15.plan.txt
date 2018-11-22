@@ -4,12 +4,12 @@ remote exchange (GATHER, SINGLE, [])
             join (INNER, REPLICATED):
                 join (INNER, PARTITIONED):
                     remote exchange (REPARTITION, HASH, ["suppkey"])
-                        scan tpch:supplier:sf3000.0
+                        scan supplier
                     final aggregation over (suppkey_0)
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["suppkey_0"])
                                 partial aggregation over (suppkey_0)
-                                    scan tpch:lineitem:sf3000.0
+                                    scan lineitem
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPLICATE, BROADCAST, [])
                         final aggregation over ()
@@ -20,4 +20,4 @@ remote exchange (GATHER, SINGLE, [])
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, ["suppkey_16"])
                                                     partial aggregation over (suppkey_16)
-                                                        scan tpch:lineitem:sf3000.0
+                                                        scan lineitem

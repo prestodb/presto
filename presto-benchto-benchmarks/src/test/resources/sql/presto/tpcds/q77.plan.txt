@@ -12,36 +12,36 @@ local exchange (GATHER, SINGLE, [])
                                             partial aggregation over (s_store_sk)
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        scan tpcds:store_sales:sf3000.0
+                                                        scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan tpcds:date_dim:sf3000.0
+                                                                scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan tpcds:store:sf3000.0
+                                                            scan store
                                 final aggregation over (s_store_sk_46)
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["s_store_sk_46"])
                                             partial aggregation over (s_store_sk_46)
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        scan tpcds:store_returns:sf3000.0
+                                                        scan store_returns
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan tpcds:date_dim:sf3000.0
+                                                                scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan tpcds:store:sf3000.0
+                                                            scan store
                             cross join:
                                 final aggregation over (cs_call_center_sk)
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["cs_call_center_sk"])
                                             partial aggregation over (cs_call_center_sk)
                                                 join (INNER, REPLICATED):
-                                                    scan tpcds:catalog_sales:sf3000.0
+                                                    scan catalog_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan tpcds:date_dim:sf3000.0
+                                                            scan date_dim
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
                                         final aggregation over (cr_call_center_sk)
@@ -49,10 +49,10 @@ local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, ["cr_call_center_sk"])
                                                     partial aggregation over (cr_call_center_sk)
                                                         join (INNER, REPLICATED):
-                                                            scan tpcds:catalog_returns:sf3000.0
+                                                            scan catalog_returns
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                                    scan tpcds:date_dim:sf3000.0
+                                                                    scan date_dim
                             join (LEFT, PARTITIONED):
                                 final aggregation over (wp_web_page_sk)
                                     local exchange (GATHER, SINGLE, [])
@@ -60,23 +60,23 @@ local exchange (GATHER, SINGLE, [])
                                             partial aggregation over (wp_web_page_sk)
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        scan tpcds:web_sales:sf3000.0
+                                                        scan web_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan tpcds:date_dim:sf3000.0
+                                                                scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan tpcds:web_page:sf3000.0
+                                                            scan web_page
                                 final aggregation over (wp_web_page_sk_298)
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["wp_web_page_sk_298"])
                                             partial aggregation over (wp_web_page_sk_298)
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        scan tpcds:web_returns:sf3000.0
+                                                        scan web_returns
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan tpcds:date_dim:sf3000.0
+                                                                scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan tpcds:web_page:sf3000.0
+                                                            scan web_page
