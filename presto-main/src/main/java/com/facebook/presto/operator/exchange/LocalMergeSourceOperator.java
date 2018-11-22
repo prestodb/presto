@@ -166,7 +166,6 @@ public class LocalMergeSourceOperator
         }
 
         Page page = mergedPages.getResult();
-        operatorContext.recordRawInput(page.getSizeInBytes());
         operatorContext.recordProcessedInput(page.getSizeInBytes(), page.getPositionCount());
         return page;
     }
