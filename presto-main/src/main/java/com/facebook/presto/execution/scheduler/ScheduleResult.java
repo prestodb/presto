@@ -110,7 +110,7 @@ public class ScheduleResult
         return toStringHelper(this)
                 .add("finished", finished)
                 .add("newTasks", newTasks.size())
-                .add("blocked", blocked.isDone())
+                .add("blocked", !blocked.isDone())
                 .add("splitsScheduled", splitsScheduled)
                 .add("blockedReason", blockedReason)
                 .toString();
