@@ -92,7 +92,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 @ThreadSafe
 public class QueryStateMachine
 {
-    public static final Logger log = Logger.get(QueryStateMachine.class);
+    public static final Logger QUERY_STATE_LOG = Logger.get(QueryStateMachine.class);
 
     private final DateTime createTime = DateTime.now();
     private final long createNanos;
@@ -247,7 +247,7 @@ public class QueryStateMachine
                 ticker,
                 metadata,
                 warningCollector);
-        queryStateMachine.addStateChangeListener(newState -> log.debug("Query %s is %s", queryStateMachine.getQueryId(), newState));
+        queryStateMachine.addStateChangeListener(newState -> QUERY_STATE_LOG.debug("Query %s is %s", queryStateMachine.getQueryId(), newState));
 
         return queryStateMachine;
     }
@@ -795,7 +795,7 @@ public class QueryStateMachine
 
         boolean failed = queryState.setIf(FAILED, currentState -> !currentState.isDone());
         if (failed) {
-            log.debug(throwable, "Query %s failed", queryId);
+            QUERY_STATE_LOG.debug(throwable, "Query %s failed", queryId);
             session.getTransactionId().ifPresent(transactionId -> {
                 if (transactionManager.isAutoCommit(transactionId)) {
                     transactionManager.asyncAbort(transactionId);
@@ -806,7 +806,7 @@ public class QueryStateMachine
             });
         }
         else {
-            log.debug(throwable, "Failure after query %s finished", queryId);
+            QUERY_STATE_LOG.debug(throwable, "Failure after query %s finished", queryId);
         }
 
         return failed;
@@ -843,7 +843,7 @@ public class QueryStateMachine
             metadata.cleanupQuery(session);
         }
         catch (Throwable t) {
-            log.error("Error cleaning up query: %s", t);
+            QUERY_STATE_LOG.error("Error cleaning up query: %s", t);
         }
     }
 
