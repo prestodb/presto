@@ -8,26 +8,26 @@ local exchange (GATHER, SINGLE, [])
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
-                                        scan tpcds:catalog_sales:sf3000.0
+                                        scan catalog_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                scan tpcds:customer_demographics:sf3000.0
+                                                scan customer_demographics
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, ["c_current_cdemo_sk"])
                                                     join (INNER, PARTITIONED):
                                                         remote exchange (REPARTITION, HASH, ["c_current_addr_sk"])
-                                                            scan tpcds:customer:sf3000.0
+                                                            scan customer
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, ["ca_address_sk"])
-                                                                scan tpcds:customer_address:sf3000.0
+                                                                scan customer_address
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, ["cd_demo_sk_0"])
-                                                        scan tpcds:customer_demographics:sf3000.0
+                                                        scan customer_demographics
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        scan tpcds:date_dim:sf3000.0
+                                        scan date_dim
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
-                                    scan tpcds:item:sf3000.0
+                                    scan item

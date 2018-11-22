@@ -5,4 +5,4 @@ remote exchange (GATHER, SINGLE, [])
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, ["linestatus", "returnflag"])
                         partial aggregation over (linestatus, returnflag)
-                            scan tpch:lineitem:sf3000.0
+                            scan lineitem

@@ -6,10 +6,10 @@ local exchange (GATHER, SINGLE, [])
                     partial aggregation over (groupid, i_brand$gid, i_category$gid, i_class$gid, i_product_name$gid)
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
-                                scan tpcds:inventory:sf3000.0
+                                scan inventory
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        scan tpcds:date_dim:sf3000.0
+                                        scan date_dim
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
-                                    scan tpcds:item:sf3000.0
+                                    scan item

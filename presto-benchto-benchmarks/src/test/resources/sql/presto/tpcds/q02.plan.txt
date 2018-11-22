@@ -10,15 +10,15 @@ remote exchange (GATHER, SINGLE, [])
                                     join (INNER, PARTITIONED):
                                         local exchange (REPARTITION, ROUND_ROBIN, [])
                                             remote exchange (REPARTITION, HASH, ["ws_sold_date_sk"])
-                                                scan tpcds:web_sales:sf3000.0
+                                                scan web_sales
                                             remote exchange (REPARTITION, HASH, ["cs_sold_date_sk"])
-                                                scan tpcds:catalog_sales:sf3000.0
+                                                scan catalog_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, ["d_date_sk"])
-                                                scan tpcds:date_dim:sf3000.0
+                                                scan date_dim
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, ["d_week_seq_83"])
-                            scan tpcds:date_dim:sf3000.0
+                            scan date_dim
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, ["expr_395"])
                         join (INNER, PARTITIONED):
@@ -29,12 +29,12 @@ remote exchange (GATHER, SINGLE, [])
                                             join (INNER, PARTITIONED):
                                                 local exchange (REPARTITION, ROUND_ROBIN, [])
                                                     remote exchange (REPARTITION, HASH, ["ws_sold_date_sk_132"])
-                                                        scan tpcds:web_sales:sf3000.0
+                                                        scan web_sales
                                                     remote exchange (REPARTITION, HASH, ["cs_sold_date_sk_178"])
-                                                        scan tpcds:catalog_sales:sf3000.0
+                                                        scan catalog_sales
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, ["d_date_sk_228"])
-                                                        scan tpcds:date_dim:sf3000.0
+                                                        scan date_dim
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["d_week_seq_316"])
-                                    scan tpcds:date_dim:sf3000.0
+                                    scan date_dim
