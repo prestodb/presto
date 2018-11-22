@@ -79,7 +79,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
  */
 public class ColumnCardinalityCache
 {
-    private static final Logger LOG = Logger.get(ColumnCardinalityCache.class);
+    private static final Logger log = Logger.get(ColumnCardinalityCache.class);
     private final Connector connector;
     private final ExecutorService coreExecutor;
     private final BoundedExecutor executorService;
@@ -96,7 +96,7 @@ public class ColumnCardinalityCache
         this.coreExecutor = newCachedThreadPool(daemonThreadsNamed("cardinality-lookup-%s"));
         this.executorService = new BoundedExecutor(coreExecutor, 4 * Runtime.getRuntime().availableProcessors());
 
-        LOG.debug("Created new cache size %d expiry %s", size, expireDuration);
+        log.debug("Created new cache size %d expiry %s", size, expireDuration);
         cache = CacheBuilder.newBuilder()
                 .maximumSize(size)
                 .expireAfterWrite(expireDuration.toMillis(), MILLISECONDS)
@@ -129,7 +129,7 @@ public class ColumnCardinalityCache
         CompletionService<Pair<Long, AccumuloColumnConstraint>> executor = new ExecutorCompletionService<>(executorService);
         idxConstraintRangePairs.asMap().forEach((key, value) -> executor.submit(() -> {
             long cardinality = getColumnCardinality(schema, table, auths, key.getFamily(), key.getQualifier(), value);
-            LOG.debug("Cardinality for column %s is %s", key.getName(), cardinality);
+            log.debug("Cardinality for column %s is %s", key.getName(), cardinality);
             return Pair.of(cardinality, key);
         }));
 
@@ -155,7 +155,7 @@ public class ColumnCardinalityCache
                 Optional<Entry<Long, AccumuloColumnConstraint>> smallestCardinality = cardinalityToConstraints.entries().stream().findFirst();
                 if (smallestCardinality.isPresent()) {
                     if (smallestCardinality.get().getKey() <= earlyReturnThreshold) {
-                        LOG.info("Cardinality %s, is below threshold. Returning early while other tasks finish", smallestCardinality);
+                        log.info("Cardinality %s, is below threshold. Returning early while other tasks finish", smallestCardinality);
                         earlyReturn = true;
                     }
                 }
@@ -188,7 +188,7 @@ public class ColumnCardinalityCache
     public long getColumnCardinality(String schema, String table, Authorizations auths, String family, String qualifier, Collection<Range> colValues)
             throws ExecutionException
     {
-        LOG.debug("Getting cardinality for %s:%s", family, qualifier);
+        log.debug("Getting cardinality for %s:%s", family, qualifier);
 
         // Collect all exact Accumulo Ranges, i.e. single value entries vs. a full scan
         Collection<CacheKey> exactRanges = colValues.stream()
@@ -196,7 +196,7 @@ public class ColumnCardinalityCache
                 .map(range -> new CacheKey(schema, table, family, qualifier, range, auths))
                 .collect(Collectors.toList());
 
-        LOG.debug("Column values contain %s exact ranges of %s", exactRanges.size(), colValues.size());
+        log.debug("Column values contain %s exact ranges of %s", exactRanges.size(), colValues.size());
 
         // Sum the cardinalities for the exact-value Ranges
         // This is where the reach-out to Accumulo occurs for all Ranges that have not
@@ -336,7 +336,7 @@ public class ColumnCardinalityCache
         public Long load(CacheKey key)
                 throws Exception
         {
-            LOG.debug("Loading a non-exact range from Accumulo: %s", key);
+            log.debug("Loading a non-exact range from Accumulo: %s", key);
             // Get metrics table name and the column family for the scanner
             String metricsTable = getMetricsTableName(key.getSchema(), key.getTable());
             Text columnFamily = new Text(getIndexColumnFamily(key.getFamily().getBytes(UTF_8), key.getQualifier().getBytes(UTF_8)).array());
@@ -367,7 +367,7 @@ public class ColumnCardinalityCache
                 return ImmutableMap.of();
             }
 
-            LOG.debug("Loading %s exact ranges from Accumulo", size);
+            log.debug("Loading %s exact ranges from Accumulo", size);
 
             // In order to simplify the implementation, we are making a (safe) assumption
             // that the CacheKeys will all contain the same combination of schema/table/family/qualifier
@@ -378,7 +378,7 @@ public class ColumnCardinalityCache
             }
 
             Map<Range, CacheKey> rangeToKey = stream(keys).collect(Collectors.toMap(CacheKey::getRange, Function.identity()));
-            LOG.debug("rangeToKey size is %s", rangeToKey.size());
+            log.debug("rangeToKey size is %s", rangeToKey.size());
 
             // Get metrics table name and the column family for the scanner
             String metricsTable = getMetricsTableName(anyKey.getSchema(), anyKey.getTable());

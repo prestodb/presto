@@ -46,7 +46,7 @@ import static java.util.Objects.requireNonNull;
 public class AccumuloConnector
         implements Connector
 {
-    private static final Logger LOG = Logger.get(AccumuloConnector.class);
+    private static final Logger log = Logger.get(AccumuloConnector.class);
 
     private final LifeCycleManager lifeCycleManager;
     private final AccumuloMetadataFactory metadataFactory;
@@ -144,7 +144,7 @@ public class AccumuloConnector
             lifeCycleManager.stop();
         }
         catch (Exception e) {
-            LOG.error(e, "Error shutting down connector");
+            log.error(e, "Error shutting down connector");
         }
     }
 }

@@ -64,7 +64,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class JdbcTests
         extends ProductTest
 {
-    private static final Logger LOGGER = Logger.get(JdbcTests.class);
+    private static final Logger log = Logger.get(JdbcTests.class);
     private static final String TABLE_NAME = "nation_table_name";
 
     @Inject
@@ -121,7 +121,7 @@ public class JdbcTests
             throws SQLException
     {
         if (usingTeradataJdbc4Driver(connection())) {
-            LOGGER.warn("connection().setSchema() is not supported in JDBC 4");
+            log.warn("connection().setSchema() is not supported in JDBC 4");
         }
         else {
             connection().setCatalog("hive");
@@ -177,7 +177,7 @@ public class JdbcTests
             }
         }
         else {
-            LOGGER.warn("shouldSetLocale() only applies to PrestoJdbcDriver");
+            log.warn("shouldSetLocale() only applies to PrestoJdbcDriver");
         }
     }
 
@@ -265,7 +265,7 @@ public class JdbcTests
             assertThat(query("select {fn ucase('ABC def 123')}")).containsExactly(row("ABC DEF 123"));
         }
         else {
-            LOGGER.warn("testSqlEscapeFunctions() only applies to TeradataJdbcDriver");
+            log.warn("testSqlEscapeFunctions() only applies to TeradataJdbcDriver");
         }
     }
 

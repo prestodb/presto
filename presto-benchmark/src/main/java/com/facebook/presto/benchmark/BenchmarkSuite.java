@@ -31,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 
 public class BenchmarkSuite
 {
-    private static final Logger LOGGER = Logger.get(BenchmarkSuite.class);
+    private static final Logger log = Logger.get(BenchmarkSuite.class);
 
     public static List<AbstractBenchmark> createBenchmarks(LocalQueryRunner localQueryRunner)
     {
@@ -123,12 +123,12 @@ public class BenchmarkSuite
     {
         List<AbstractBenchmark> benchmarks = createBenchmarks(localQueryRunner);
 
-        LOGGER.info("=== Pre-running all benchmarks for JVM warmup ===");
+        log.info("=== Pre-running all benchmarks for JVM warmup ===");
         for (AbstractBenchmark benchmark : benchmarks) {
             benchmark.runBenchmark();
         }
 
-        LOGGER.info("=== Actually running benchmarks for metrics ===");
+        log.info("=== Actually running benchmarks for metrics ===");
         for (AbstractBenchmark benchmark : benchmarks) {
             try (OutputStream jsonOut = new FileOutputStream(createOutputFile(String.format("%s/json/%s.json", outputDirectory, benchmark.getBenchmarkName())));
                     OutputStream jsonAvgOut = new FileOutputStream(createOutputFile(String.format("%s/json-avg/%s.json", outputDirectory, benchmark.getBenchmarkName())));

@@ -49,7 +49,7 @@ import static org.antlr.v4.runtime.atn.ATNState.RULE_START;
 class ErrorHandler
         extends BaseErrorListener
 {
-    private static final Logger LOG = Logger.get(ErrorHandler.class);
+    private static final Logger log = Logger.get(ErrorHandler.class);
 
     private final Map<Integer, String> specialRules;
     private final Map<Integer, String> specialTokens;
@@ -103,7 +103,7 @@ class ErrorHandler
             message = String.format("mismatched input '%s'. Expecting: %s", ((Token) offendingSymbol).getText(), expected);
         }
         catch (Exception exception) {
-            LOG.error(exception, "Unexpected failure when handling parsing error. This is likely a bug in the implementation");
+            log.error(exception, "Unexpected failure when handling parsing error. This is likely a bug in the implementation");
         }
 
         throw new ParsingException(message, e, line, charPositionInLine);

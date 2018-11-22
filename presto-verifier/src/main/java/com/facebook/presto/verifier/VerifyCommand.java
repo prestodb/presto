@@ -89,7 +89,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 public class VerifyCommand
         implements Runnable
 {
-    private static final Logger LOG = Logger.get(VerifyCommand.class);
+    private static final Logger log = Logger.get(VerifyCommand.class);
 
     @Arguments(description = "Config filename")
     public String configFilename;
@@ -267,7 +267,7 @@ public class VerifyCommand
                 config.getDoublePrecision(),
                 config.getControlTimeout());
 
-        LOG.info("Rewriting %s queries using %s threads", queries.size(), config.getThreadCount());
+        log.info("Rewriting %s queries using %s threads", queries.size(), config.getThreadCount());
         ExecutorService executor = newFixedThreadPool(config.getThreadCount());
         CompletionService<Optional<QueryPair>> completionService = new ExecutorCompletionService<>(executor);
 
@@ -283,7 +283,7 @@ public class VerifyCommand
                 }
                 catch (QueryRewriteException | SQLException e) {
                     if (!config.isQuiet()) {
-                        LOG.warn(e, "Failed to rewrite %s for shadowing. Skipping.", pair.getName());
+                        log.warn(e, "Failed to rewrite %s for shadowing. Skipping.", pair.getName());
                     }
                     return Optional.empty();
                 }
@@ -299,7 +299,7 @@ public class VerifyCommand
 
                 if (!config.isQuiet() && (stopwatch.elapsed(MINUTES) > 0)) {
                     stopwatch.reset().start();
-                    LOG.info("Rewrite progress: %s valid, %s skipped, %.2f%% done",
+                    log.info("Rewrite progress: %s valid, %s skipped, %.2f%% done",
                             rewritten.size(),
                             n - rewritten.size(),
                             (((double) n) / queries.size()) * 100);
@@ -310,7 +310,7 @@ public class VerifyCommand
             throw new RuntimeException("Query rewriting failed", e);
         }
 
-        LOG.info("Rewrote %s queries into %s queries", queries.size(), rewritten.size());
+        log.info("Rewrote %s queries into %s queries", queries.size(), rewritten.size());
         return rewritten;
     }
 

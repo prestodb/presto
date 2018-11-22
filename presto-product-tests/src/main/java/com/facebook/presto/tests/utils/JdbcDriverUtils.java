@@ -24,7 +24,7 @@ import java.sql.Statement;
 
 public class JdbcDriverUtils
 {
-    private static final Logger LOGGER = Logger.get(JdbcDriverUtils.class);
+    private static final Logger log = Logger.get(JdbcDriverUtils.class);
     private static final String IS_NUMERIC_REGEX = "-?\\d*[\\.\\d]*";
 
     public static String getSessionProperty(Connection connection, String key)
@@ -88,7 +88,7 @@ public class JdbcDriverUtils
             return false;
         }
         catch (NumberFormatException e) {
-            LOGGER.info("'%s' is not a number", value, e);
+            log.info("'%s' is not a number", value, e);
         }
 
         return true;

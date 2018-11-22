@@ -86,7 +86,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class AccumuloClient
 {
-    private static final Logger LOG = Logger.get(AccumuloClient.class);
+    private static final Logger log = Logger.get(AccumuloClient.class);
     private static final Splitter COMMA_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
 
     private final ZooKeeperMetadataManager metaManager;
@@ -338,7 +338,7 @@ public class AccumuloClient
     {
         Optional<Map<String, Set<String>>> groups = AccumuloTableProperties.getLocalityGroups(tableProperties);
         if (!groups.isPresent()) {
-            LOG.debug("No locality groups to set");
+            log.debug("No locality groups to set");
             return;
         }
 
@@ -361,7 +361,7 @@ public class AccumuloClient
         }
 
         Map<String, Set<Text>> localityGroups = localityGroupsBuilder.build();
-        LOG.debug("Setting locality groups: {}", localityGroups);
+        log.debug("Setting locality groups: {}", localityGroups);
         tableManager.setLocalityGroups(table.getFullTableName(), localityGroups);
     }
 
@@ -659,7 +659,7 @@ public class AccumuloClient
     {
         try {
             String tableName = AccumuloTable.getFullTableName(schema, table);
-            LOG.debug("Getting tablet splits for table %s", tableName);
+            log.debug("Getting tablet splits for table %s", tableName);
 
             // Get the initial Range based on the row ID domain
             Collection<Range> rowIdRanges = getRangesFromDomain(rowIdDomain, serializer);
@@ -692,7 +692,7 @@ public class AccumuloClient
             // Create TabletSplitMetadata objects for each range
             boolean fetchTabletLocations = AccumuloSessionProperties.isOptimizeLocalityEnabled(session);
 
-            LOG.debug("Fetching tablet locations: %s", fetchTabletLocations);
+            log.debug("Fetching tablet locations: %s", fetchTabletLocations);
 
             for (Range range : splitRanges) {
                 // If locality is enabled, then fetch tablet location
@@ -706,7 +706,7 @@ public class AccumuloClient
             }
 
             // Log some fun stuff and return the tablet splits
-            LOG.debug("Number of splits for table %s is %d with %d ranges", tableName, tabletSplits.size(), splitRanges.size());
+            log.debug("Number of splits for table %s is %d with %d ranges", tableName, tabletSplits.size(), splitRanges.size());
             return tabletSplits;
         }
         catch (Exception e) {
@@ -733,7 +733,7 @@ public class AccumuloClient
         String sessionScanUser = AccumuloSessionProperties.getScanUsername(session);
         if (sessionScanUser != null) {
             Authorizations scanAuths = connector.securityOperations().getUserAuthorizations(sessionScanUser);
-            LOG.debug("Using session scan auths for user %s: %s", sessionScanUser, scanAuths);
+            log.debug("Using session scan auths for user %s: %s", sessionScanUser, scanAuths);
             return scanAuths;
         }
 
@@ -745,11 +745,11 @@ public class AccumuloClient
         Optional<String> strAuths = accumuloTable.getScanAuthorizations();
         if (strAuths.isPresent()) {
             Authorizations scanAuths = new Authorizations(Iterables.toArray(COMMA_SPLITTER.split(strAuths.get()), String.class));
-            LOG.debug("scan_auths table property set, using: %s", scanAuths);
+            log.debug("scan_auths table property set, using: %s", scanAuths);
             return scanAuths;
         }
 
-        LOG.debug("scan_auths table property not set, using connector auths: %s", this.auths);
+        log.debug("scan_auths table property not set, using connector auths: %s", this.auths);
         return this.auths;
     }
 
@@ -848,7 +848,7 @@ public class AccumuloClient
             // Swallow this exception so the query does not fail due to being unable
             // to locate the tablet server for the provided Key.
             // This is purely an optimization, but we will want to log the error.
-            LOG.error("Failed to get tablet location, returning dummy location", e);
+            log.error("Failed to get tablet location, returning dummy location", e);
             return Optional.empty();
         }
     }
@@ -879,7 +879,7 @@ public class AccumuloClient
         catch (Exception e) {
             // Swallow this exception so the query does not fail due to being unable to locate the tablet server for the default tablet.
             // This is purely an optimization, but we will want to log the error.
-            LOG.error("Failed to get tablet location, returning dummy location", e);
+            log.error("Failed to get tablet location, returning dummy location", e);
             return Optional.empty();
         }
     }

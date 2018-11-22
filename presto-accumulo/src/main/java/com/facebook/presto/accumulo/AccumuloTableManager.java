@@ -42,7 +42,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class AccumuloTableManager
 {
-    private static final Logger LOG = Logger.get(AccumuloTableManager.class);
+    private static final Logger log = Logger.get(AccumuloTableManager.class);
     private static final String DEFAULT = "default";
     private final Connector connector;
 
@@ -70,7 +70,7 @@ public class AccumuloTableManager
         }
         catch (NamespaceExistsException e) {
             // Suppress race condition between test for existence and creation
-            LOG.warn("NamespaceExistsException suppressed when creating " + schema);
+            log.warn("NamespaceExistsException suppressed when creating " + schema);
         }
     }
 
@@ -100,7 +100,7 @@ public class AccumuloTableManager
 
         try {
             connector.tableOperations().setLocalityGroups(tableName, groups);
-            LOG.debug("Set locality groups for %s to %s", tableName, groups);
+            log.debug("Set locality groups for %s to %s", tableName, groups);
         }
         catch (AccumuloException | AccumuloSecurityException e) {
             throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to set locality groups", e);

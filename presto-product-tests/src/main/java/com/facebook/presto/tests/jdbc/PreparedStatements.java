@@ -61,7 +61,7 @@ import static java.sql.JDBCType.VARCHAR;
 public class PreparedStatements
         extends ProductTest
 {
-    private static final Logger LOGGER = Logger.get(PreparedStatements.class);
+    private static final Logger log = Logger.get(PreparedStatements.class);
     private static final String TABLE_NAME = "textfile_all_types";
     private static final String TABLE_NAME_MUTABLE = "all_types_table_name";
     private static final String INSERT_SQL = "INSERT INTO %s VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
@@ -102,7 +102,7 @@ public class PreparedStatements
             assertThat(query(selectSql, param(INTEGER, 2))).hasNoRows();
         }
         else {
-            LOGGER.warn("preparedSelectApi() only applies to TeradataJdbcDriver");
+            log.warn("preparedSelectApi() only applies to TeradataJdbcDriver");
         }
     }
 
@@ -127,7 +127,7 @@ public class PreparedStatements
                     .hasNoRows();
         }
         else {
-            LOGGER.warn("preparedSelectSql() only applies to TeradataJdbcDriver");
+            log.warn("preparedSelectSql() only applies to TeradataJdbcDriver");
         }
     }
 
@@ -165,7 +165,7 @@ public class PreparedStatements
                             "a290IGJpbmFybnk=".getBytes()));
         }
         else {
-            LOGGER.warn("preparedInsertVarbinaryApi() only applies to TeradataJdbcDriver");
+            log.warn("preparedInsertVarbinaryApi() only applies to TeradataJdbcDriver");
         }
     }
 
@@ -270,7 +270,7 @@ public class PreparedStatements
                     row(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
         }
         else {
-            LOGGER.warn("preparedInsertApi() only applies to TeradataJdbcDriver");
+            log.warn("preparedInsertApi() only applies to TeradataJdbcDriver");
         }
     }
 
@@ -376,7 +376,7 @@ public class PreparedStatements
                     row(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
         }
         else {
-            LOGGER.warn("preparedInsertSql() only applies to TeradataJdbcDriver");
+            log.warn("preparedInsertSql() only applies to TeradataJdbcDriver");
         }
     }
 
@@ -417,7 +417,7 @@ public class PreparedStatements
                             "a290IGJpbmFybnk=".getBytes()));
         }
         else {
-            LOGGER.warn("preparedInsertVarbinarySql() only applies to TeradataJdbcDriver");
+            log.warn("preparedInsertVarbinarySql() only applies to TeradataJdbcDriver");
         }
     }
 

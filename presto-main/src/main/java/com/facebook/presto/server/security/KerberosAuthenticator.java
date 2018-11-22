@@ -50,7 +50,7 @@ import static org.ietf.jgss.GSSCredential.INDEFINITE_LIFETIME;
 public class KerberosAuthenticator
         implements Authenticator
 {
-    private static final Logger LOG = Logger.get(KerberosAuthenticator.class);
+    private static final Logger log = Logger.get(KerberosAuthenticator.class);
 
     private static final String NEGOTIATE_SCHEME = "Negotiate";
 
@@ -74,7 +74,7 @@ public class KerberosAuthenticator
                     Map<String, String> options = new HashMap<>();
                     options.put("refreshKrb5Config", "true");
                     options.put("doNotPrompt", "true");
-                    if (LOG.isDebugEnabled()) {
+                    if (log.isDebugEnabled()) {
                         options.put("debug", "true");
                     }
                     if (config.getKeytab() != null) {
@@ -159,11 +159,11 @@ public class KerberosAuthenticator
             if (context.isEstablished()) {
                 return Optional.of(new KerberosPrincipal(context.getSrcName().toString()));
             }
-            LOG.debug("Failed to establish GSS context for token %s", token);
+            log.debug("Failed to establish GSS context for token %s", token);
         }
         catch (GSSException e) {
             // ignore and fail the authentication
-            LOG.debug(e, "Authentication failed for token %s", token);
+            log.debug(e, "Authentication failed for token %s", token);
         }
         finally {
             try {

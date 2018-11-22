@@ -54,7 +54,7 @@ import static org.apache.accumulo.minicluster.MemoryUnit.MEGABYTE;
 
 public final class AccumuloQueryRunner
 {
-    private static final Logger LOG = Logger.get(AccumuloQueryRunner.class);
+    private static final Logger log = Logger.get(AccumuloQueryRunner.class);
     private static final String MAC_PASSWORD = "secret";
     private static final String MAC_USER = "root";
 
@@ -100,12 +100,12 @@ public final class AccumuloQueryRunner
             Session session,
             Iterable<TpchTable<?>> tables)
     {
-        LOG.info("Loading data from %s.%s...", sourceCatalog, sourceSchema);
+        log.info("Loading data from %s.%s...", sourceCatalog, sourceSchema);
         long startTime = System.nanoTime();
         for (TpchTable<?> table : tables) {
             copyTable(queryRunner, sourceCatalog, session, sourceSchema, table);
         }
-        LOG.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
+        log.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
     }
 
     private static void copyTable(
@@ -144,11 +144,11 @@ public final class AccumuloQueryRunner
                 break;
         }
 
-        LOG.info("Running import for %s", target, sql);
-        LOG.info("%s", sql);
+        log.info("Running import for %s", target, sql);
+        log.info("%s", sql);
         long start = System.nanoTime();
         long rows = queryRunner.execute(session, sql).getUpdateCount().getAsLong();
-        LOG.info("Imported %s rows for %s in %s", rows, target, nanosSince(start));
+        log.info("Imported %s rows for %s in %s", rows, target, nanosSince(start));
     }
 
     public static Session createSession()
@@ -172,7 +172,7 @@ public final class AccumuloQueryRunner
             MiniAccumuloCluster accumulo = createMiniAccumuloCluster();
             Instance instance = new ZooKeeperInstance(accumulo.getInstanceName(), accumulo.getZooKeepers());
             connector = instance.getConnector(MAC_USER, new PasswordToken(MAC_PASSWORD));
-            LOG.info("Connection to MAC instance %s at %s established, user %s password %s", accumulo.getInstanceName(), accumulo.getZooKeepers(), MAC_USER, MAC_PASSWORD);
+            log.info("Connection to MAC instance %s at %s established, user %s password %s", accumulo.getInstanceName(), accumulo.getZooKeepers(), MAC_USER, MAC_PASSWORD);
             return connector;
         }
         catch (AccumuloException | AccumuloSecurityException | InterruptedException | IOException e) {
@@ -190,7 +190,7 @@ public final class AccumuloQueryRunner
     {
         // Create MAC directory
         File macDir = Files.createTempDirectory("mac-").toFile();
-        LOG.info("MAC is enabled, starting MiniAccumuloCluster at %s", macDir);
+        log.info("MAC is enabled, starting MiniAccumuloCluster at %s", macDir);
 
         // Start MAC and connect to it
         MiniAccumuloCluster accumulo = new MiniAccumuloCluster(macDir, MAC_PASSWORD);
@@ -201,7 +201,7 @@ public final class AccumuloQueryRunner
         // Add shutdown hook to stop MAC and cleanup temporary files
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
-                LOG.info("Shutting down MAC");
+                log.info("Shutting down MAC");
                 accumulo.stop();
             }
             catch (IOException | InterruptedException e) {
@@ -210,7 +210,7 @@ public final class AccumuloQueryRunner
             }
 
             try {
-                LOG.info("Cleaning up MAC directory");
+                log.info("Cleaning up MAC directory");
                 FileUtils.forceDelete(macDir);
             }
             catch (IOException e) {

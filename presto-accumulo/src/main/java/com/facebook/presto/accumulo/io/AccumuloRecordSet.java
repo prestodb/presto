@@ -50,7 +50,7 @@ import static java.util.Objects.requireNonNull;
 public class AccumuloRecordSet
         implements RecordSet
 {
-    private static final Logger LOG = Logger.get(AccumuloRecordSet.class);
+    private static final Logger log = Logger.get(AccumuloRecordSet.class);
     private static final Splitter COMMA_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
 
     private final List<AccumuloColumnHandle> columnHandles;
@@ -119,19 +119,19 @@ public class AccumuloRecordSet
         String sessionScanUser = AccumuloSessionProperties.getScanUsername(session);
         if (sessionScanUser != null) {
             Authorizations scanAuths = connector.securityOperations().getUserAuthorizations(sessionScanUser);
-            LOG.debug("Using session scanner auths for user %s: %s", sessionScanUser, scanAuths);
+            log.debug("Using session scanner auths for user %s: %s", sessionScanUser, scanAuths);
             return scanAuths;
         }
 
         Optional<String> scanAuths = split.getScanAuthorizations();
         if (scanAuths.isPresent()) {
             Authorizations auths = new Authorizations(Iterables.toArray(COMMA_SPLITTER.split(scanAuths.get()), String.class));
-            LOG.debug("scan_auths table property set: %s", auths);
+            log.debug("scan_auths table property set: %s", auths);
             return auths;
         }
         else {
             Authorizations auths = connector.securityOperations().getUserAuthorizations(username);
-            LOG.debug("scan_auths table property not set, using user auths: %s", auths);
+            log.debug("scan_auths table property not set, using user auths: %s", auths);
             return auths;
         }
     }
