@@ -6,19 +6,19 @@ local exchange (GATHER, SINGLE, [])
                     semijoin (PARTITIONED):
                         join (INNER, PARTITIONED):
                             remote exchange (REPARTITION, HASH, ["orderkey_3"])
-                                scan tpch:lineitem:sf3000.0
+                                scan lineitem
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["orderkey"])
                                     join (INNER, PARTITIONED):
                                         remote exchange (REPARTITION, HASH, ["custkey_0"])
-                                            scan tpch:orders:sf3000.0
+                                            scan orders
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, ["custkey"])
-                                                scan tpch:customer:sf3000.0
+                                                scan customer
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["orderkey_6"])
                                 final aggregation over (orderkey_6)
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["orderkey_6"])
                                             partial aggregation over (orderkey_6)
-                                                scan tpch:lineitem:sf3000.0
+                                                scan lineitem

@@ -14,19 +14,19 @@ remote exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, ["suppkey_4"])
                                                         join (INNER, PARTITIONED):
                                                             remote exchange (REPARTITION, HASH, ["partkey"])
-                                                                scan tpch:part:sf3000.0
+                                                                scan part
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPARTITION, HASH, ["partkey_3"])
-                                                                    scan tpch:lineitem:sf3000.0
+                                                                    scan lineitem
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, ["suppkey"])
-                                                            scan tpch:supplier:sf3000.0
+                                                            scan supplier
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, ["suppkey_8"])
-                                                        scan tpch:partsupp:sf3000.0
+                                                        scan partsupp
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, ["orderkey_11"])
-                                                scan tpch:orders:sf3000.0
+                                                scan orders
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["nationkey_14"])
-                                        scan tpch:nation:sf3000.0
+                                        scan nation

@@ -10,7 +10,7 @@ remote exchange (GATHER, SINGLE, [])
                                     partial aggregation over (custkey)
                                         join (LEFT, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, ["custkey"])
-                                                scan tpch:customer:sf3000.0
+                                                scan customer
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, ["custkey_0"])
-                                                    scan tpch:orders:sf3000.0
+                                                    scan orders

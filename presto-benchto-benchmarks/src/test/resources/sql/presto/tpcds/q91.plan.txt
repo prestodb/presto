@@ -6,27 +6,27 @@ remote exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, ["cc_call_center_id", "cc_manager", "cc_name", "cd_education_status", "cd_marital_status"])
                         partial aggregation over (cc_call_center_id, cc_manager, cc_name, cd_education_status, cd_marital_status)
                             join (INNER, REPLICATED):
-                                scan tpcds:call_center:sf3000.0
+                                scan call_center
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
                                         join (INNER, REPLICATED):
-                                            scan tpcds:household_demographics:sf3000.0
+                                            scan household_demographics
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     join (INNER, REPLICATED):
-                                                        scan tpcds:customer_demographics:sf3000.0
+                                                        scan customer_demographics
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 join (INNER, REPLICATED):
-                                                                    scan tpcds:date_dim:sf3000.0
+                                                                    scan date_dim
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                                             join (INNER, REPLICATED):
-                                                                                scan tpcds:catalog_returns:sf3000.0
+                                                                                scan catalog_returns
                                                                                 local exchange (GATHER, SINGLE, [])
                                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                                         join (INNER, REPLICATED):
-                                                                                            scan tpcds:customer:sf3000.0
+                                                                                            scan customer
                                                                                             local exchange (GATHER, SINGLE, [])
                                                                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                                                                    scan tpcds:customer_address:sf3000.0
+                                                                                                    scan customer_address

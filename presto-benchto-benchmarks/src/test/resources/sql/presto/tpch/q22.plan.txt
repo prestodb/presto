@@ -8,16 +8,16 @@ remote exchange (GATHER, SINGLE, [])
                             join (LEFT, PARTITIONED):
                                 remote exchange (REPARTITION, HASH, ["custkey"])
                                     cross join:
-                                        scan tpch:customer:sf3000.0
+                                        scan customer
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 final aggregation over ()
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (GATHER, SINGLE, [])
                                                             partial aggregation over ()
-                                                                scan tpch:customer:sf3000.0
+                                                                scan customer
                                 final aggregation over (custkey_13)
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["custkey_13"])
                                             partial aggregation over (custkey_13)
-                                                scan tpch:orders:sf3000.0
+                                                scan orders

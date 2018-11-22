@@ -8,16 +8,16 @@ local exchange (GATHER, SINGLE, [])
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
-                                        scan tpcds:store_sales:sf3000.0
+                                        scan store_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                scan tpcds:date_dim:sf3000.0
+                                                scan date_dim
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
-                                            scan tpcds:household_demographics:sf3000.0
+                                            scan household_demographics
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        scan tpcds:store:sf3000.0
+                                        scan store
             local exchange (GATHER, SINGLE, [])
                 remote exchange (REPLICATE, BROADCAST, [])
-                    scan tpcds:customer:sf3000.0
+                    scan customer

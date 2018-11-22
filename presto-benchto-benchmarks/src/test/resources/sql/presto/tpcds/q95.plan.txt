@@ -9,33 +9,33 @@ final aggregation over ()
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
-                                            scan tpcds:web_sales:sf3000.0
+                                            scan web_sales
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan tpcds:customer_address:sf3000.0
+                                                    scan customer_address
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                scan tpcds:date_dim:sf3000.0
+                                                scan date_dim
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
-                                            scan tpcds:web_site:sf3000.0
+                                            scan web_site
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["ws_order_number_17"])
                                     join (INNER, PARTITIONED):
                                         remote exchange (REPARTITION, HASH, ["ws_order_number_17"])
-                                            scan tpcds:web_sales:sf3000.0
+                                            scan web_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, ["ws_order_number_51"])
-                                                scan tpcds:web_sales:sf3000.0
+                                                scan web_sales
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["wr_order_number"])
                                 join (INNER, PARTITIONED):
                                     remote exchange (REPARTITION, HASH, ["wr_order_number"])
                                         join (INNER, REPLICATED):
-                                            scan tpcds:web_sales:sf3000.0
+                                            scan web_sales
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan tpcds:web_returns:sf3000.0
+                                                    scan web_returns
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["ws_order_number_141"])
-                                            scan tpcds:web_sales:sf3000.0
+                                            scan web_sales

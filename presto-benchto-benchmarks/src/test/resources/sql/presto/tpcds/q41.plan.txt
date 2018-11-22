@@ -6,14 +6,14 @@ local exchange (GATHER, SINGLE, [])
                     partial aggregation over (i_product_name)
                         cross join:
                             join (LEFT, REPLICATED):
-                                scan tpcds:item:sf3000.0
+                                scan item
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
                                         final aggregation over (i_manufact_14)
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, ["i_manufact_14"])
                                                     partial aggregation over (i_manufact_14)
-                                                        scan tpcds:item:sf3000.0
+                                                        scan item
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
                                     single aggregation over ()
