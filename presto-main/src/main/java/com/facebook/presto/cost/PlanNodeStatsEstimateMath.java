@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.cost;
 
-import java.util.stream.Stream;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.stream.Stream.concat;
 
 public class PlanNodeStatsEstimateMath
 {
@@ -41,7 +42,7 @@ public class PlanNodeStatsEstimateMath
         PlanNodeStatsEstimate.Builder statsBuilder = PlanNodeStatsEstimate.builder();
         double newRowCount = left.getOutputRowCount() - right.getOutputRowCount();
 
-        Stream.concat(left.getSymbolsWithKnownStatistics().stream(), right.getSymbolsWithKnownStatistics().stream())
+        concat(left.getSymbolsWithKnownStatistics().stream(), right.getSymbolsWithKnownStatistics().stream())
                 .forEach(symbol -> {
                     statsBuilder.addSymbolStatistics(
                             symbol,
@@ -118,20 +119,27 @@ public class PlanNodeStatsEstimateMath
 
     private static PlanNodeStatsEstimate addStats(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right, RangeAdditionStrategy strategy)
     {
+        if (left.isOutputRowCountUnknown() || right.isOutputRowCountUnknown()) {
+            return PlanNodeStatsEstimate.unknown();
+        }
+
         PlanNodeStatsEstimate.Builder statsBuilder = PlanNodeStatsEstimate.builder();
         double newRowCount = left.getOutputRowCount() + right.getOutputRowCount();
 
-        Stream.concat(left.getSymbolsWithKnownStatistics().stream(), right.getSymbolsWithKnownStatistics().stream())
+        concat(left.getSymbolsWithKnownStatistics().stream(), right.getSymbolsWithKnownStatistics().stream())
                 .distinct()
                 .forEach(symbol -> {
-                    statsBuilder.addSymbolStatistics(symbol,
-                            addColumnStats(
-                                    left.getSymbolStatistics(symbol),
-                                    left.getOutputRowCount(),
-                                    right.getSymbolStatistics(symbol),
-                                    right.getOutputRowCount(),
-                                    newRowCount,
-                                    strategy));
+                    SymbolStatsEstimate symbolStats = SymbolStatsEstimate.zero();
+                    if (newRowCount > 0) {
+                        symbolStats = addColumnStats(
+                                left.getSymbolStatistics(symbol),
+                                left.getOutputRowCount(),
+                                right.getSymbolStatistics(symbol),
+                                right.getOutputRowCount(),
+                                newRowCount,
+                                strategy);
+                    }
+                    statsBuilder.addSymbolStatistics(symbol, symbolStats);
                 });
 
         return statsBuilder.setOutputRowCount(newRowCount).build();
@@ -139,6 +147,8 @@ public class PlanNodeStatsEstimateMath
 
     private static SymbolStatsEstimate addColumnStats(SymbolStatsEstimate leftStats, double leftRows, SymbolStatsEstimate rightStats, double rightRows, double newRowCount, RangeAdditionStrategy strategy)
     {
+        checkArgument(newRowCount > 0, "newRowCount must be greater than zero");
+
         StatisticRange leftRange = StatisticRange.from(leftStats);
         StatisticRange rightRange = StatisticRange.from(rightStats);
 
@@ -150,9 +160,12 @@ public class PlanNodeStatsEstimateMath
         double newNullsFraction = (nullsCountLeft + nullsCountRight) / newRowCount;
         double newNonNullsRowCount = newRowCount * (1.0 - newNullsFraction);
 
+        // FIXME, weights to average. left and right should be equal in most cases anyway
+        double newAverageRowSize = newNonNullsRowCount == 0 ? 0 : ((totalSizeLeft + totalSizeRight) / newNonNullsRowCount);
+
         return SymbolStatsEstimate.builder()
                 .setStatisticsRange(sum)
-                .setAverageRowSize((totalSizeLeft + totalSizeRight) / newNonNullsRowCount) // FIXME, weights to average. left and right should be equal in most cases anyway
+                .setAverageRowSize(newAverageRowSize)
                 .setNullsFraction(newNullsFraction)
                 .build();
     }
