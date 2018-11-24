@@ -244,6 +244,11 @@ class ContinuousTaskStatusFetcher
         return running;
     }
 
+    /**
+     * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
+     * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
+     * possible notifications are observed out of order due to the asynchronous execution.
+     */
     public void addStateChangeListener(StateMachine.StateChangeListener<TaskStatus> stateChangeListener)
     {
         taskStatus.addStateChangeListener(stateChangeListener);

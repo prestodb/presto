@@ -134,6 +134,11 @@ public class StageStateMachine
         return fragment;
     }
 
+    /**
+     * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
+     * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
+     * possible notifications are observed out of order due to the asynchronous execution.
+     */
     public void addStateChangeListener(StateChangeListener<StageState> stateChangeListener)
     {
         stageState.addStateChangeListener(stateChangeListener);
@@ -190,6 +195,13 @@ public class StageStateMachine
         return failed;
     }
 
+    /**
+     * Add a listener which is notified when the final stage status is ready.  This notification is
+     * guaranteed to be fired only once.
+     * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
+     * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
+     * possible notifications are observed out of order due to the asynchronous execution.
+     */
     public void addFinalStatusListener(StateChangeListener<?> finalStatusListener)
     {
         AtomicBoolean done = new AtomicBoolean();

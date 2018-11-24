@@ -68,6 +68,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
+import static com.facebook.presto.execution.SqlTask.createSqlTask;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_TASK;
@@ -150,7 +151,7 @@ public class SqlTaskManager
                 queryId -> createQueryContext(queryId, localMemoryManager, nodeMemoryConfig, localSpillManager, gcMonitor, maxQueryUserMemoryPerNode, maxQueryTotalMemoryPerNode, maxQuerySpillPerNode)));
 
         tasks = CacheBuilder.newBuilder().build(CacheLoader.from(
-                taskId -> new SqlTask(
+                taskId -> createSqlTask(
                         taskId,
                         locationFactory.createLocalTaskLocation(taskId),
                         nodeInfo.getNodeId(),

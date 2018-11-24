@@ -253,6 +253,9 @@ public class StateMachine<T>
 
     /**
      * Adds a listener to be notified when the state instance changes according to {@code .equals()}.
+     * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
+     * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
+     * possible notifications are observed out of order due to the asynchronous execution.
      */
     public void addStateChangeListener(StateChangeListener<T> stateChangeListener)
     {
@@ -268,7 +271,7 @@ public class StateMachine<T>
 
         // state machine will never transition from a terminal state, so fire state change immediately
         if (inTerminalState) {
-            // always fire listener callbacks from a different thread
+        // always fire listener callbacks from a different thread
             // the direct access of state is ok here, because we always want to notify listeners of the most recent value
             //noinspection FieldAccessNotGuarded
             safeExecute(() -> stateChangeListener.stateChanged(state));

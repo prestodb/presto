@@ -82,6 +82,7 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
+import static com.facebook.presto.execution.scheduler.SqlQueryScheduler.createSqlQueryScheduler;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -208,6 +209,7 @@ public class SqlQueryExecution
             stateMachine.setUpdateType(analysis.getUpdateType());
 
             // when the query finishes cache the final query info, and clear the reference to the output stage
+            AtomicReference<SqlQueryScheduler> queryScheduler = this.queryScheduler;
             stateMachine.addStateChangeListener(state -> {
                 if (!state.isDone()) {
                     return;
@@ -481,7 +483,7 @@ public class SqlQueryExecution
                 .withNoMoreBufferIds();
 
         // build the stage execution objects (this doesn't schedule execution)
-        SqlQueryScheduler scheduler = new SqlQueryScheduler(
+        SqlQueryScheduler scheduler = createSqlQueryScheduler(
                 stateMachine,
                 locationFactory,
                 outputStageExecutionPlan,

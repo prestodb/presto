@@ -141,6 +141,12 @@ public class TaskInfoFetcher
         }
     }
 
+    /**
+     * Add a listener for the final task info.  This notification is guaranteed to be fired only once.
+     * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
+     * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
+     * possible notifications are observed out of order due to the asynchronous execution.
+     */
     public void addFinalTaskInfoListener(StateChangeListener<TaskInfo> stateChangeListener)
     {
         AtomicBoolean done = new AtomicBoolean();

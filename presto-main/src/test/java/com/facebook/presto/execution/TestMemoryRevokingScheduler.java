@@ -50,6 +50,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.facebook.presto.execution.SqlTask.createSqlTask;
 import static com.facebook.presto.execution.TaskTestUtils.createTestSplitMonitor;
 import static com.facebook.presto.execution.TaskTestUtils.createTestingPlanner;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
@@ -288,7 +289,7 @@ public class TestMemoryRevokingScheduler
         TaskId taskId = new TaskId("query", 0, idGeneator.incrementAndGet());
         URI location = URI.create("fake://task/" + taskId);
 
-        return new SqlTask(
+        return createSqlTask(
                 taskId,
                 location,
                 "fake",

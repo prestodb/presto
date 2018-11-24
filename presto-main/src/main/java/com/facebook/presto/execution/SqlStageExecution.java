@@ -104,7 +104,7 @@ public final class SqlStageExecution
 
     private final ListenerManager<Set<Lifespan>> completedLifespansChangeListeners = new ListenerManager<>();
 
-    public SqlStageExecution(
+    public static SqlStageExecution createSqlStageExecution(
             StageId stageId,
             URI location,
             PlanFragment fragment,
@@ -116,21 +116,28 @@ public final class SqlStageExecution
             FailureDetector failureDetector,
             SplitSchedulerStats schedulerStats)
     {
-        this(new StageStateMachine(
-                        requireNonNull(stageId, "stageId is null"),
-                        requireNonNull(location, "location is null"),
-                        requireNonNull(session, "session is null"),
-                        requireNonNull(fragment, "fragment is null"),
-                        requireNonNull(executor, "executor is null"),
-                        requireNonNull(schedulerStats, "schedulerStats is null")),
+        requireNonNull(stageId, "stageId is null");
+        requireNonNull(location, "location is null");
+        requireNonNull(fragment, "fragment is null");
+        requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
+        requireNonNull(session, "session is null");
+        requireNonNull(nodeTaskMap, "nodeTaskMap is null");
+        requireNonNull(executor, "executor is null");
+        requireNonNull(failureDetector, "failureDetector is null");
+        requireNonNull(schedulerStats, "schedulerStats is null");
+
+        SqlStageExecution sqlStageExecution = new SqlStageExecution(
+                new StageStateMachine(stageId, location, session, fragment, executor, schedulerStats),
                 remoteTaskFactory,
                 nodeTaskMap,
                 summarizeTaskInfo,
                 executor,
                 failureDetector);
+        sqlStageExecution.initialize();
+        return sqlStageExecution;
     }
 
-    public SqlStageExecution(StageStateMachine stateMachine, RemoteTaskFactory remoteTaskFactory, NodeTaskMap nodeTaskMap, boolean summarizeTaskInfo, Executor executor, FailureDetector failureDetector)
+    private SqlStageExecution(StageStateMachine stateMachine, RemoteTaskFactory remoteTaskFactory, NodeTaskMap nodeTaskMap, boolean summarizeTaskInfo, Executor executor, FailureDetector failureDetector)
     {
         this.stateMachine = stateMachine;
         this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
@@ -146,7 +153,11 @@ public final class SqlStageExecution
             }
         }
         this.exchangeSources = fragmentToExchangeSource.build();
+    }
 
+    // this is a separate method to ensure that the `this` reference is not leaked during construction
+    private void initialize()
+    {
         stateMachine.addStateChangeListener(newState -> checkAllTaskFinal());
     }
 
@@ -160,11 +171,22 @@ public final class SqlStageExecution
         return stateMachine.getState();
     }
 
+    /**
+     * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
+     * be taken to avoid leaking {@code this} when adding a listener in a constructor.
+     */
     public void addStateChangeListener(StateChangeListener<StageState> stateChangeListener)
     {
         stateMachine.addStateChangeListener(stateChangeListener);
     }
 
+    /**
+     * Add a listener which is notified when the final stage status is ready.  This notification is
+     * guaranteed to be fired only once.
+     * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
+     * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
+     * possible notifications are observed out of order due to the asynchronous execution.
+     */
     public void addFinalStatusListener(StateChangeListener<BasicStageStats> stateChangeListener)
     {
         stateMachine.addFinalStatusListener(ignored -> stateChangeListener.stateChanged(getBasicStageStats()));

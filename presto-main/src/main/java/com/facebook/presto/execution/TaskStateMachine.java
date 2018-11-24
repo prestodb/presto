@@ -49,7 +49,7 @@ public class TaskStateMachine
             @Override
             public void stateChanged(TaskState newState)
             {
-                log.debug("Task %s is %s", TaskStateMachine.this.taskId, newState);
+                log.debug("Task %s is %s", taskId, newState);
             }
         });
     }
@@ -116,6 +116,11 @@ public class TaskStateMachine
         taskState.setIf(doneState, currentState -> !currentState.isDone());
     }
 
+    /**
+     * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
+     * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
+     * possible notifications are observed out of order due to the asynchronous execution.
+     */
     public void addStateChangeListener(StateChangeListener<TaskState> stateChangeListener)
     {
         taskState.addStateChangeListener(stateChangeListener);

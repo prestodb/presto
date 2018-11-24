@@ -46,6 +46,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.facebook.presto.OutputBuffers.BufferType.PARTITIONED;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.execution.SqlTask.createSqlTask;
 import static com.facebook.presto.execution.TaskTestUtils.EMPTY_SOURCES;
 import static com.facebook.presto.execution.TaskTestUtils.PLAN_FRAGMENT;
 import static com.facebook.presto.execution.TaskTestUtils.SPLIT;
@@ -313,7 +314,7 @@ public class TestSqlTask
 
         queryContext.addTaskContext(new TaskStateMachine(taskId, taskNotificationExecutor), testSessionBuilder().build(), false, false, OptionalInt.empty());
 
-        return new SqlTask(
+        return createSqlTask(
                 taskId,
                 location,
                 "fake",

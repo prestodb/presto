@@ -50,6 +50,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.facebook.presto.OutputBuffers.BufferType.ARBITRARY;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.execution.SqlStageExecution.createSqlStageExecution;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -99,7 +100,7 @@ public class TestSqlStageExecution
         NodeTaskMap nodeTaskMap = new NodeTaskMap(new FinalizerService());
 
         StageId stageId = new StageId(new QueryId("query"), 0);
-        SqlStageExecution stage = new SqlStageExecution(
+        SqlStageExecution stage = createSqlStageExecution(
                 stageId,
                 new MockLocationFactory().createStageLocation(stageId),
                 createExchangePlanFragment(),

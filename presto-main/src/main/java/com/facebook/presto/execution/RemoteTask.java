@@ -40,8 +40,19 @@ public interface RemoteTask
 
     void setOutputBuffers(OutputBuffers outputBuffers);
 
+    /**
+     * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
+     * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
+     * possible notifications are observed out of order due to the asynchronous execution.
+     */
     void addStateChangeListener(StateChangeListener<TaskStatus> stateChangeListener);
 
+    /**
+     * Add a listener for the final task info.  This notification is guaranteed to be fired only once.
+     * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
+     * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
+     * possible notifications are observed out of order due to the asynchronous execution.
+     */
     void addFinalTaskInfoListener(StateChangeListener<TaskInfo> stateChangeListener);
 
     ListenableFuture<?> whenSplitQueueHasSpace(int threshold);

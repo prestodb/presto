@@ -76,6 +76,7 @@ import static com.facebook.presto.SystemSessionProperties.getWriterMinSize;
 import static com.facebook.presto.SystemSessionProperties.isDynamicSchduleForGroupedExecution;
 import static com.facebook.presto.connector.ConnectorId.isInternalSystemConnector;
 import static com.facebook.presto.execution.BasicStageStats.aggregateBasicStageStats;
+import static com.facebook.presto.execution.SqlStageExecution.createSqlStageExecution;
 import static com.facebook.presto.execution.StageState.ABORTED;
 import static com.facebook.presto.execution.StageState.CANCELED;
 import static com.facebook.presto.execution.StageState.FAILED;
@@ -122,7 +123,47 @@ public class SqlQueryScheduler
     private final boolean summarizeTaskInfo;
     private final AtomicBoolean started = new AtomicBoolean();
 
-    public SqlQueryScheduler(QueryStateMachine queryStateMachine,
+    public static SqlQueryScheduler createSqlQueryScheduler(
+            QueryStateMachine queryStateMachine,
+            LocationFactory locationFactory,
+            StageExecutionPlan plan,
+            NodePartitioningManager nodePartitioningManager,
+            NodeScheduler nodeScheduler,
+            RemoteTaskFactory remoteTaskFactory,
+            Session session,
+            boolean summarizeTaskInfo,
+            int splitBatchSize,
+            ExecutorService queryExecutor,
+            ScheduledExecutorService schedulerExecutor,
+            FailureDetector failureDetector,
+            OutputBuffers rootOutputBuffers,
+            NodeTaskMap nodeTaskMap,
+            ExecutionPolicy executionPolicy,
+            SplitSchedulerStats schedulerStats)
+    {
+        SqlQueryScheduler sqlQueryScheduler = new SqlQueryScheduler(
+                queryStateMachine,
+                locationFactory,
+                plan,
+                nodePartitioningManager,
+                nodeScheduler,
+                remoteTaskFactory,
+                session,
+                summarizeTaskInfo,
+                splitBatchSize,
+                queryExecutor,
+                schedulerExecutor,
+                failureDetector,
+                rootOutputBuffers,
+                nodeTaskMap,
+                executionPolicy,
+                schedulerStats);
+        sqlQueryScheduler.initialize();
+        return sqlQueryScheduler;
+    }
+
+    private SqlQueryScheduler(
+            QueryStateMachine queryStateMachine,
             LocationFactory locationFactory,
             StageExecutionPlan plan,
             NodePartitioningManager nodePartitioningManager,
@@ -181,7 +222,12 @@ public class SqlQueryScheduler
         this.stageLinkages = stageLinkages.build();
 
         this.executor = queryExecutor;
+    }
 
+    // this is a separate method to ensure that the `this` reference is not leaked during construction
+    private void initialize()
+    {
+        SqlStageExecution rootStage = stages.get(rootStageId);
         rootStage.addStateChangeListener(state -> {
             if (state == FINISHED) {
                 queryStateMachine.transitionToFinishing();
@@ -192,7 +238,7 @@ public class SqlQueryScheduler
             }
         });
 
-        for (SqlStageExecution stage : stages) {
+        for (SqlStageExecution stage : stages.values()) {
             stage.addStateChangeListener(state -> {
                 if (queryStateMachine.isDone()) {
                     return;
@@ -219,7 +265,7 @@ public class SqlQueryScheduler
                 queryStateMachine.updateQueryInfo(Optional.ofNullable(getStageInfo()));
             }
         });
-        for (SqlStageExecution stage : stages) {
+        for (SqlStageExecution stage : stages.values()) {
             stage.addFinalStatusListener(status -> queryStateMachine.updateQueryInfo(Optional.ofNullable(getStageInfo())));
         }
     }
@@ -254,7 +300,7 @@ public class SqlQueryScheduler
         ImmutableList.Builder<SqlStageExecution> stages = ImmutableList.builder();
 
         StageId stageId = new StageId(queryStateMachine.getQueryId(), nextStageId.getAndIncrement());
-        SqlStageExecution stage = new SqlStageExecution(
+        SqlStageExecution stage = createSqlStageExecution(
                 stageId,
                 locationFactory.createStageLocation(stageId),
                 plan.getFragment(),

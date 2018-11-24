@@ -240,20 +240,7 @@ public class SqlTaskExecution
 
             // don't register the task if it is already completed (most likely failed during planning above)
             if (!taskStateMachine.getState().isDone()) {
-                taskHandle = taskExecutor.addTask(
-                        taskId,
-                        outputBuffer::getUtilization,
-                        getInitialSplitsPerNode(taskContext.getSession()),
-                        getSplitConcurrencyAdjustmentInterval(taskContext.getSession()),
-                        getMaxDriversPerTask(taskContext.getSession()));
-                taskStateMachine.addStateChangeListener(state -> {
-                    if (state.isDone()) {
-                        taskExecutor.removeTask(taskHandle);
-                        for (DriverFactory factory : localExecutionPlan.getDriverFactories()) {
-                            factory.noMoreDrivers();
-                        }
-                    }
-                });
+                taskHandle = createTaskHandle(taskStateMachine, taskContext, outputBuffer, localExecutionPlan, taskExecutor);
             }
             else {
                 taskHandle = null;
@@ -261,6 +248,31 @@ public class SqlTaskExecution
 
             outputBuffer.addStateChangeListener(new CheckTaskCompletionOnBufferFinish(SqlTaskExecution.this));
         }
+    }
+
+    // this is a separate method to ensure that the `this` reference is not leaked during construction
+    private static TaskHandle createTaskHandle(
+            TaskStateMachine taskStateMachine,
+            TaskContext taskContext,
+            OutputBuffer outputBuffer,
+            LocalExecutionPlan localExecutionPlan,
+            TaskExecutor taskExecutor)
+    {
+        TaskHandle taskHandle = taskExecutor.addTask(
+                taskStateMachine.getTaskId(),
+                outputBuffer::getUtilization,
+                getInitialSplitsPerNode(taskContext.getSession()),
+                getSplitConcurrencyAdjustmentInterval(taskContext.getSession()),
+                getMaxDriversPerTask(taskContext.getSession()));
+        taskStateMachine.addStateChangeListener(state -> {
+            if (state.isDone()) {
+                taskExecutor.removeTask(taskHandle);
+                for (DriverFactory factory : localExecutionPlan.getDriverFactories()) {
+                    factory.noMoreDrivers();
+                }
+            }
+        });
+        return taskHandle;
     }
 
     public TaskId getTaskId()

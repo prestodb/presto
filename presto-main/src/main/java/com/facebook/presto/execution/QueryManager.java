@@ -38,6 +38,9 @@ public interface QueryManager
 
     /**
      * Add a listener that fires each time the query state changes.
+     * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
+     * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
+     * possible notifications are observed out of order due to the asynchronous execution.
      *
      * @throws NoSuchElementException if query does not exist
      */

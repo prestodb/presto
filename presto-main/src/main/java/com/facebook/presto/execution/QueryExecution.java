@@ -56,6 +56,11 @@ public interface QueryExecution
 
     void recordHeartbeat();
 
+    /**
+     * Add a listener for the final query info.  This notification is guaranteed to be fired only once.
+     * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
+     * be taken to avoid leaking {@code this} when adding a listener in a constructor.
+     */
     void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener);
 
     interface QueryExecutionFactory<T extends QueryExecution>
