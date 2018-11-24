@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.ExecutorService;
 
+import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -225,16 +226,7 @@ public class TestStateMachine
         State initialState = stateMachine.get();
         ListenableFuture<State> futureChange = stateMachine.getStateChange(initialState);
 
-        SettableFuture<State> listenerChange = SettableFuture.create();
-        Thread addingThread = Thread.currentThread();
-        stateMachine.addStateChangeListener(value -> {
-            if (Thread.currentThread() == addingThread) {
-                listenerChange.setException(new AssertionError("Listener was not called back on a different thread"));
-            }
-            else {
-                listenerChange.set(value);
-            }
-        });
+        SettableFuture<State> listenerChange = addTestListener(stateMachine);
 
         stateChange.run();
 
@@ -251,40 +243,56 @@ public class TestStateMachine
     }
 
     private static void assertNoStateChange(StateMachine<State> stateMachine, StateChanger stateChange)
-            throws Exception
     {
         State initialState = stateMachine.get();
         ListenableFuture<State> futureChange = stateMachine.getStateChange(initialState);
 
-        SettableFuture<State> listenerChange = SettableFuture.create();
-        Thread addingThread = Thread.currentThread();
-        stateMachine.addStateChangeListener(value -> {
-            Thread callbackThread = Thread.currentThread();
-            if (callbackThread == addingThread) {
-                listenerChange.setException(new AssertionError("Listener was not called back on a different thread"));
-            }
-            else {
-                listenerChange.set(value);
-            }
-        });
+        SettableFuture<State> listenerChange = addTestListener(stateMachine);
 
         // listeners should not be added if we are in a terminal state, but listener should fire
         boolean isTerminalState = stateMachine.isTerminalState(initialState);
         if (isTerminalState) {
             assertEquals(stateMachine.getStateChangeListeners(), ImmutableSet.of());
-            assertEquals(listenerChange.get(10, SECONDS), initialState);
         }
 
         stateChange.run();
 
         assertEquals(stateMachine.get(), initialState);
 
-        // the state change listeners will trigger if the state machine is in a terminal state
+        // the future change will trigger if the state machine is in a terminal state
         // this is to prevent waiting for state changes that will never occur
         assertEquals(futureChange.isDone(), isTerminalState);
         futureChange.cancel(true);
-        assertEquals(listenerChange.isDone(), isTerminalState);
+
+        // test listener future only completes if the state actually changed
+        assertFalse(listenerChange.isDone());
         listenerChange.cancel(true);
+    }
+
+    private static SettableFuture<State> addTestListener(StateMachine<State> stateMachine)
+    {
+        State initialState = stateMachine.get();
+        SettableFuture<Boolean> initialStateNotified = SettableFuture.create();
+        SettableFuture<State> stateChanged = SettableFuture.create();
+        Thread addingThread = Thread.currentThread();
+        stateMachine.addStateChangeListener(newState -> {
+            Thread callbackThread = Thread.currentThread();
+            if (callbackThread == addingThread) {
+                stateChanged.setException(new AssertionError("Listener was not called back on a different thread"));
+                return;
+            }
+
+            if (newState == initialState) {
+                initialStateNotified.set(true);
+            }
+            else {
+                stateChanged.set(newState);
+            }
+        });
+
+        assertTrue(tryGetFutureValue(initialStateNotified, 10, SECONDS).isPresent(), "Initial state notification not fired");
+
+        return stateChanged;
     }
 
     private interface StateChanger

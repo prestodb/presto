@@ -211,9 +211,6 @@ public class StageStateMachine
             }
         };
         finalStatusReady.addStateChangeListener(fireOnceStateChangeListener);
-        if (finalStatusReady.get()) {
-            fireOnceStateChangeListener.stateChanged(null);
-        }
     }
 
     public void setAllTasksFinal()
@@ -224,7 +221,6 @@ public class StageStateMachine
             }
         };
         stageState.addStateChangeListener(stateChangeListener);
-        stateChangeListener.stateChanged(getState());
     }
 
     public long getUserMemoryReservation()

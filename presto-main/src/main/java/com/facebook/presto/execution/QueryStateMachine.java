@@ -886,7 +886,6 @@ public class QueryStateMachine
             }
         };
         finalQueryInfo.addStateChangeListener(fireOnceStateChangeListener);
-        fireOnceStateChangeListener.stateChanged(finalQueryInfo.get());
     }
 
     public ListenableFuture<QueryState> getStateChange(QueryState currentState)

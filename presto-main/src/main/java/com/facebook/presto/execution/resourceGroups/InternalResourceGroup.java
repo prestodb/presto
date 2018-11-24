@@ -614,9 +614,6 @@ public class InternalResourceGroup
                     queryFinished(query);
                 }
             });
-            if (query.isDone()) {
-                queryFinished(query);
-            }
         }
     }
 

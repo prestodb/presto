@@ -537,12 +537,6 @@ public class SqlQueryManager
                 }
             }
         });
-        synchronized (lock) {
-            // Need to do this check in case the state changed before we added the previous state change listener
-            if (queryExecution.getState() == RUNNING && !started.getAndSet(true)) {
-                stats.queryStarted();
-            }
-        }
 
         AtomicBoolean stopped = new AtomicBoolean();
         queryExecution.addStateChangeListener(newValue -> {
@@ -552,12 +546,6 @@ public class SqlQueryManager
                 }
             }
         });
-        synchronized (lock) {
-            // Need to do this check in case the state changed before we added the previous state change listener
-            if (queryExecution.getState().isDone() && !stopped.getAndSet(true) && started.get()) {
-                stats.queryStopped();
-            }
-        }
     }
 
     private static class QueryCreationFuture
