@@ -509,7 +509,12 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern limit(long limit, PlanMatchPattern source)
     {
-        return node(LimitNode.class, source).with(new LimitMatcher(limit));
+        return limit(limit, false, source);
+    }
+
+    public static PlanMatchPattern limit(long limit, boolean partial, PlanMatchPattern source)
+    {
+        return node(LimitNode.class, source).with(new LimitMatcher(limit, partial));
     }
 
     public static PlanMatchPattern enforceSingleRow(PlanMatchPattern source)

@@ -25,10 +25,12 @@ public class LimitMatcher
         implements Matcher
 {
     private final long limit;
+    private final boolean partial;
 
-    public LimitMatcher(long limit)
+    public LimitMatcher(long limit, boolean partial)
     {
         this.limit = limit;
+        this.partial = partial;
     }
 
     @Override
@@ -39,7 +41,7 @@ public class LimitMatcher
         }
 
         LimitNode limitNode = (LimitNode) node;
-        return limitNode.getCount() == limit;
+        return limitNode.getCount() == limit && limitNode.isPartial() == partial;
     }
 
     @Override
