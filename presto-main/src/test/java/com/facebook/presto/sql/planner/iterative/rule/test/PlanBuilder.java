@@ -168,6 +168,11 @@ public class PlanBuilder
         return values(id, 0, columns);
     }
 
+    public ValuesNode values(int rows, Symbol... columns)
+    {
+        return values(idAllocator.getNextId(), rows, columns);
+    }
+
     public ValuesNode values(PlanNodeId id, int rows, Symbol... columns)
     {
         return values(
