@@ -205,10 +205,6 @@ public class RowFilterColumnMaskingRewrite
             // TODO: Handle views
             boolean hasColumnMasking = false;
 
-            if (!MetadataUtil.tableExists(metadata, session, table.getName().getSuffix())) {
-                return table;
-            }
-
             QualifiedObjectName qualifiedObjectName = MetadataUtil.createQualifiedObjectName(session, table, table.getName());
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, qualifiedObjectName);
 
