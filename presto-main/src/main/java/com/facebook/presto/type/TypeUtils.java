@@ -31,6 +31,9 @@ import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
+import static com.facebook.presto.util.Failures.internalError;
+import static com.google.common.base.Defaults.defaultValue;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -98,6 +101,20 @@ public final class TypeUtils
             return leftIsNull && rightIsNull;
         }
         return type.equalTo(leftBlock, leftPosition, rightBlock, rightPosition);
+    }
+
+    public static boolean positionDistinctFromPosition(Type type, Block leftBlock, int leftPosition, Block rightBlock, int rightPosition, MethodHandle isDistinctFrom)
+    {
+        boolean firstValueNull = leftBlock.isNull(leftPosition);
+        Object firstValue = firstValueNull ? defaultValue(type.getJavaType()) : readNativeValue(type, leftBlock, leftPosition);
+        boolean secondValueNull = rightBlock.isNull(rightPosition);
+        Object secondValue = secondValueNull ? defaultValue(type.getJavaType()) : readNativeValue(type, rightBlock, rightPosition);
+        try {
+            return (boolean) isDistinctFrom.invoke(firstValue, firstValueNull, secondValue, secondValueNull);
+        }
+        catch (Throwable t) {
+            throw internalError(t);
+        }
     }
 
     public static Type resolveType(TypeSignature typeName, TypeManager typeManager)

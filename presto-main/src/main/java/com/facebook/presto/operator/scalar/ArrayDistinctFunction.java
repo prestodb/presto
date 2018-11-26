@@ -18,6 +18,7 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
@@ -26,7 +27,12 @@ import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 
+import java.lang.invoke.MethodHandle;
+
+import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
+import static com.facebook.presto.type.TypeUtils.positionDistinctFromPosition;
 
 @ScalarFunction("array_distinct")
 @Description("Remove duplicate values from the given array")
@@ -42,22 +48,23 @@ public final class ArrayDistinctFunction
 
     @TypeParameter("E")
     @SqlType("array(E)")
-    public Block distinct(@TypeParameter("E") Type type, @SqlType("array(E)") Block array)
+    public Block distinct(
+            @TypeParameter("E") Type type,
+            @OperatorDependency(operator = IS_DISTINCT_FROM, returnType = BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle elementIsDistinctFrom,
+            @SqlType("array(E)") Block array)
     {
         if (array.getPositionCount() < 2) {
             return array;
         }
 
         if (array.getPositionCount() == 2) {
-            if (type.equalTo(array, 0, array, 1)) {
-                return array.getSingleValueBlock(0);
-            }
-            else {
+            if (positionDistinctFromPosition(type, array, 0, array, 1, elementIsDistinctFrom)) {
                 return array;
             }
+            return array.getSingleValueBlock(0);
         }
 
-        TypedSet typedSet = new TypedSet(type, array.getPositionCount(), "array_distinct");
+        TypedSet typedSet = new TypedSet(type, elementIsDistinctFrom, array.getPositionCount(), "array_distinct");
         int distinctCount = 0;
 
         if (pageBuilder.isFull()) {

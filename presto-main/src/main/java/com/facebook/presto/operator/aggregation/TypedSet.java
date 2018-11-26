@@ -22,9 +22,13 @@ import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.lang.invoke.MethodHandle;
+import java.util.Optional;
+
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
+import static com.facebook.presto.type.TypeUtils.positionDistinctFromPosition;
 import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -43,6 +47,7 @@ public class TypedSet
     static final long FOUR_MEGABYTES = MAX_FUNCTION_MEMORY.toBytes();
 
     private final Type elementType;
+    private final Optional<MethodHandle> elementIsDistinctFrom;
     private final IntArrayList blockPositionByHash;
     private final BlockBuilder elementBlock;
     private final String functionName;
@@ -56,8 +61,20 @@ public class TypedSet
 
     public TypedSet(Type elementType, int expectedSize, String functionName)
     {
+        // TODO revise other usages of TypedSet and determine whether they should use equality or distinctness semantics
+        this(elementType, Optional.empty(), expectedSize, functionName);
+    }
+
+    public TypedSet(Type elementType, MethodHandle elementIsDistinctFrom, int expectedSize, String functionName)
+    {
+        this(elementType, Optional.of(elementIsDistinctFrom), expectedSize, functionName);
+    }
+
+    private TypedSet(Type elementType, Optional<MethodHandle> elementIsDistinctFrom, int expectedSize, String functionName)
+    {
         checkArgument(expectedSize >= 0, "expectedSize must not be negative");
         this.elementType = requireNonNull(elementType, "elementType must not be null");
+        this.elementIsDistinctFrom = requireNonNull(elementIsDistinctFrom, "elementIsDistinctFrom is null");
         this.elementBlock = elementType.createBlockBuilder(null, expectedSize);
         this.functionName = functionName;
 
@@ -126,17 +143,25 @@ public class TypedSet
         int hashPosition = getMaskedHash(hashPosition(elementType, block, position));
         while (true) {
             int blockPosition = blockPositionByHash.get(hashPosition);
-            // Doesn't have this element
             if (blockPosition == EMPTY_SLOT) {
+                // Doesn't have this element
                 return hashPosition;
             }
-            // Already has this element
-            else if (positionEqualsPosition(elementType, elementBlock, blockPosition, block, position)) {
+            if (isContainedAt(block, position, blockPosition)) {
+                // Already has this element
                 return hashPosition;
             }
 
             hashPosition = getMaskedHash(hashPosition + 1);
         }
+    }
+
+    private boolean isContainedAt(Block block, int position, int atPosition)
+    {
+        if (elementIsDistinctFrom.isPresent()) {
+            return !positionDistinctFromPosition(elementType, elementBlock, atPosition, block, position, elementIsDistinctFrom.get());
+        }
+        return positionEqualsPosition(elementType, elementBlock, atPosition, block, position);
     }
 
     private void addNewElement(int hashPosition, Block block, int position)
