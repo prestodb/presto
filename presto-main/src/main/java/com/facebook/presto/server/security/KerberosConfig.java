@@ -23,6 +23,7 @@ public class KerberosConfig
 {
     private File kerberosConfig;
     private String serviceName;
+    private String serviceHostName;
     private File keytab;
 
     @NotNull
@@ -35,6 +36,18 @@ public class KerberosConfig
     public KerberosConfig setKerberosConfig(File kerberosConfig)
     {
         this.kerberosConfig = kerberosConfig;
+        return this;
+    }
+
+    public String getServiceHostName()
+    {
+        return serviceHostName;
+    }
+
+    @Config("http.server.authentication.krb5.host-name")
+    public KerberosConfig setServiceHostName(String serviceHostName)
+    {
+        this.serviceHostName = serviceHostName;
         return this;
     }
 

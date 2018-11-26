@@ -28,6 +28,7 @@ public class TestKerberosConfig
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(KerberosConfig.class)
                 .setKerberosConfig(null)
                 .setServiceName(null)
+                .setServiceHostName(null)
                 .setKeytab(null));
     }
 
@@ -37,12 +38,14 @@ public class TestKerberosConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("http.authentication.krb5.config", "/etc/krb5.conf")
                 .put("http.server.authentication.krb5.service-name", "airlift")
+                .put("http.server.authentication.krb5.host-name", "presto.example.com")
                 .put("http.server.authentication.krb5.keytab", "/tmp/presto.keytab")
                 .build();
 
         KerberosConfig expected = new KerberosConfig()
                 .setKerberosConfig(new File("/etc/krb5.conf"))
                 .setServiceName("airlift")
+                .setServiceHostName("presto.example.com")
                 .setKeytab(new File("/tmp/presto.keytab"));
 
         ConfigAssertions.assertFullMapping(properties, expected);

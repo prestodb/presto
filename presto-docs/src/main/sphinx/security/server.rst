@@ -87,6 +87,7 @@ Kerberos authentication is configured in the coordinator node's
     http-server.authentication.type=KERBEROS
 
     http.server.authentication.krb5.service-name=presto
+    http.server.authentication.krb5.service-hostname=presto.example.com
     http.server.authentication.krb5.keytab=/etc/presto/presto.keytab
     http.authentication.krb5.config=/etc/krb5.conf
 
@@ -101,7 +102,10 @@ Property                                                Description
 ======================================================= ======================================================
 ``http-server.authentication.type``                     Authentication type for the Presto
                                                         coordinator. Must be set to ``KERBEROS``.
-``http.server.authentication.krb5.service-name``        The Kerberos server name for the Presto coordinator.
+``http.server.authentication.krb5.service-name``        The Kerberos service name for the Presto coordinator.
+                                                        Must match the Kerberos principal.
+``http.server.authentication.krb5.host-name``           Optional Kerberos service hostname for the Presto
+                                                        coordinator if different from server hostname.
                                                         Must match the Kerberos principal.
 ``http.server.authentication.krb5.keytab``              The location of the keytab that can be used to
                                                         authenticate the Kerberos principal specified in
