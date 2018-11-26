@@ -634,9 +634,9 @@ public final class MathFunctions
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
     public static double inverseBetaCdf(
-          @SqlType(StandardTypes.DOUBLE) double a,
-          @SqlType(StandardTypes.DOUBLE) double b,
-          @SqlType(StandardTypes.DOUBLE) double p)
+            @SqlType(StandardTypes.DOUBLE) double a,
+            @SqlType(StandardTypes.DOUBLE) double b,
+            @SqlType(StandardTypes.DOUBLE) double p)
     {
         checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be 0 >= p >= 1");
         checkCondition(a > 0 && b > 0, INVALID_FUNCTION_ARGUMENT, "a, b must be > 0");

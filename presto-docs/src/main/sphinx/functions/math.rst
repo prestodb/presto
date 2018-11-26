@@ -76,13 +76,13 @@ Mathematical Functions
 .. function:: inverse_beta_cdf(a, b, p) -> double
 
     Compute the inverse of the Beta cdf with given a, b parameters for the cumulative
-    probability (p): P(N < n). The a, b mean must be positive real values.
+    probability (p): P(N < n). The a, b parameters must be positive real values.
     The probability p must lie on the interval [0, 1].
 
 .. function:: beta_cdf(a, b, v) -> double
 
     Compute the Beta cdf with given a, b parameters:  P(N < v; a, b).
-    The a, b must be positive real numbers and value v must be a real value.
+    The a, b parameters must be positive real numbers and value v must be a real value.
     The value v must lie on the interval [0, 1].
 
 .. function:: ln(x) -> double
