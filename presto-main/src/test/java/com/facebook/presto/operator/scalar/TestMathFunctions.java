@@ -1344,6 +1344,35 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testInverseBetaCdf()
+    {
+        assertFunction("inverse_beta_cdf(3, 3.6, 0.)", DOUBLE, 0.);
+        assertFunction("inverse_beta_cdf(3, 3.6, 1.)", DOUBLE, 1.);
+        assertFunction("inverse_beta_cdf(3, 3.6, 0.3)", DOUBLE, 0.3469675485440618);
+        assertFunction("inverse_beta_cdf(3, 3.6, 0.95)", DOUBLE, 0.7600272463100223);
+
+        assertInvalidFunction("inverse_beta_cdf(0, 3, 0.5)", "a, b must be > 0");
+        assertInvalidFunction("inverse_beta_cdf(3, 0, 0.5)", "a, b must be > 0");
+        assertInvalidFunction("inverse_beta_cdf(3, 5, -0.1)", "p must be 0 >= p >= 1");
+        assertInvalidFunction("inverse_beta_cdf(3, 5, 1.1)", "p must be 0 >= p >= 1");
+    }
+
+    @Test
+    public void testBetaCdf()
+            throws Exception
+    {
+        assertFunction("beta_cdf(3, 3.6, 0.)", DOUBLE, 0.);
+        assertFunction("beta_cdf(3, 3.6, 1.)", DOUBLE, 1.);
+        assertFunction("beta_cdf(3, 3.6, 0.3)", DOUBLE, 0.21764809997679938);
+        assertFunction("beta_cdf(3, 3.6, 0.9)", DOUBLE, 0.9972502881611551);
+
+        assertInvalidFunction("beta_cdf(0, 3, 0.5)", "a, b must be > 0");
+        assertInvalidFunction("beta_cdf(3, 0, 0.5)", "a, b must be > 0");
+        assertInvalidFunction("beta_cdf(3, 5, -0.1)", "value must be 0 >= v >= 1");
+        assertInvalidFunction("beta_cdf(3, 5, 1.1)", "value must be 0 >= v >= 1");
+    }
+
+    @Test
     public void testWilsonInterval()
     {
         assertInvalidFunction("wilson_interval_lower(-1, 100, 2.575)", "number of successes must not be negative");
