@@ -75,13 +75,11 @@ export class WorkerThreadList extends React.Component {
             }
 
             const match = THREAD_GROUP_REGEXP.exec(thread.name);
-            if (!match) {
-                result[thread.name].push(thread);
+            const threadGroup = match ? match[1] : thread.name;
+            if (!result[threadGroup]) {
+                result[threadGroup] = [];
             }
-            else {
-                const [, namePrefix, ...ignored] = match;
-                result[namePrefix].push(thread);
-            }
+            result[threadGroup].push(thread);
         }
 
         return result
