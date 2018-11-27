@@ -17,6 +17,7 @@ import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
@@ -146,7 +147,8 @@ public class PlanOptimizers
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
             @EstimatedExchanges CostCalculator estimatedExchangesCostCalculator,
-            CostComparator costComparator)
+            CostComparator costComparator,
+            TaskCountEstimator taskCountEstimator)
     {
         this(metadata,
                 sqlParser,
@@ -158,7 +160,8 @@ public class PlanOptimizers
                 statsCalculator,
                 costCalculator,
                 estimatedExchangesCostCalculator,
-                costComparator);
+                costComparator,
+                taskCountEstimator);
     }
 
     @PostConstruct
@@ -186,7 +189,8 @@ public class PlanOptimizers
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
             CostCalculator estimatedExchangesCostCalculator,
-            CostComparator costComparator)
+            CostComparator costComparator,
+            TaskCountEstimator taskCountEstimator)
     {
         this.exporter = exporter;
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
@@ -433,7 +437,7 @@ public class PlanOptimizers
                     ruleStats,
                     statsCalculator,
                     estimatedExchangesCostCalculator,
-                    ImmutableSet.of(new DetermineJoinDistributionType(costComparator))))); // Must run before AddExchanges
+                    ImmutableSet.of(new DetermineJoinDistributionType(costComparator, taskCountEstimator))))); // Must run before AddExchanges
             builder.add(new DetermineSemiJoinDistributionType()); // Must run before AddExchanges
             builder.add(
                     new IterativeOptimizer(

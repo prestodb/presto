@@ -348,7 +348,8 @@ public abstract class AbstractTestQueryFramework
                 queryRunner.getStatsCalculator(),
                 costCalculator,
                 new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator),
-                new CostComparator(featuresConfig)).get();
+                new CostComparator(featuresConfig),
+                taskCountEstimator).get();
         return new QueryExplainer(
                 optimizers,
                 new PlanFragmenter(new QueryManagerConfig()),
