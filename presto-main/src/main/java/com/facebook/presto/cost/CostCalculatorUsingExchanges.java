@@ -245,7 +245,7 @@ public class CostCalculatorUsingExchanges
                     node,
                     node.getLeft(),
                     node.getRight(),
-                    Objects.equals(node.getDistributionType(), Optional.of(JoinNode.DistributionType.REPLICATED)));
+                    node.getDistributionType() == SpatialJoinNode.DistributionType.REPLICATED);
         }
 
         @Override

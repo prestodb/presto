@@ -148,7 +148,7 @@ public class CostCalculatorWithEstimatedExchanges
             return calculateJoinCost(
                     node.getLeft(),
                     node.getRight(),
-                    Objects.equals(node.getDistributionType(), Optional.of(JoinNode.DistributionType.REPLICATED)));
+                    node.getDistributionType() == SpatialJoinNode.DistributionType.REPLICATED);
         }
 
         private PlanNodeCostEstimate calculateJoinCost(PlanNode probe, PlanNode build, boolean replicated)
