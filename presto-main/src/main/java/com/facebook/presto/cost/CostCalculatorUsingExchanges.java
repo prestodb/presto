@@ -36,6 +36,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.google.common.collect.ImmutableList;
 
@@ -268,6 +269,15 @@ public class CostCalculatorUsingExchanges
             // of the source, true cost estimation should be implemented as a "constraint" enforced on a sub-tree and
             // evaluated in context of actual source node type (and their sources).
             return cpuCost(getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types));
+        }
+
+        @Override
+        public PlanNodeCostEstimate visitUnion(UnionNode node, Void context)
+        {
+            // Cost will be accounted either in CostCalculatorUsingExchanges#CostEstimator#visitExchanged
+            // or in CostCalculatorWithEstimatedExchanges#CostEstimator#visitUnion
+            // This stub is needed just to avoid the cumulative cost being set to unknown
+            return PlanNodeCostEstimate.zero();
         }
 
         private PlanNodeStatsEstimate getStats(PlanNode node)

@@ -46,6 +46,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -57,6 +58,7 @@ import com.facebook.presto.tpch.TpchTableLayoutHandle;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterClass;
@@ -379,6 +381,36 @@ public class TestCostCalculator
                 "orderkey_0", BIGINT);
 
         assertFragmentedEqualsUnfragmented(join, stats, types);
+    }
+
+    @Test
+    public void testUnion()
+    {
+        TableScanNode ts1 = tableScan("ts1", "orderkey");
+        TableScanNode ts2 = tableScan("ts2", "orderkey_0");
+        ImmutableListMultimap.Builder<Symbol, Symbol> outputMappings = ImmutableListMultimap.builder();
+        outputMappings.put(new Symbol("orderkey_1"), new Symbol("orderkey"));
+        outputMappings.put(new Symbol("orderkey_1"), new Symbol("orderkey_0"));
+        UnionNode union = new UnionNode(new PlanNodeId("union"), ImmutableList.of(ts1, ts2), outputMappings.build(), ImmutableList.of(new Symbol("orderkey_1")));
+        Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
+                "ts1", statsEstimate(ts1, 4000),
+                "ts2", statsEstimate(ts2, 1000),
+                "union", statsEstimate(ts1, 5000));
+        Map<String, PlanNodeCostEstimate> costs = ImmutableMap.of(
+                "ts1", cpuCost(1000),
+                "ts2", cpuCost(1000));
+        Map<String, Type> types = ImmutableMap.of(
+                "orderkey", BIGINT,
+                "orderkey_0", BIGINT,
+                "orderkey_1", BIGINT);
+        assertCost(union, costs, stats, types)
+                .cpu(2000)
+                .memory(0)
+                .network(0);
+        assertCostEstimatedExchanges(union, costs, stats, types)
+                .cpu(2000)
+                .memory(0)
+                .network(5000 * IS_NULL_OVERHEAD);
     }
 
     private CostAssertionBuilder assertCost(
