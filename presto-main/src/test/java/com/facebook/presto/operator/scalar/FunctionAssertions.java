@@ -92,6 +92,8 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -261,6 +263,38 @@ public final class FunctionAssertions
         }
 
         Object actual = selectSingleValue(projection, expectedType, compiler);
+        assertEquals(actual, expected);
+    }
+
+    public void assertFunctionWithSortedResults(String projection, Type expectedType, Object expected)
+    {
+        if (expected instanceof Slice) {
+            expected = ((Slice) expected).toStringUtf8();
+        }
+
+        Object actual = selectSingleValue(projection, expectedType, compiler);
+        if (actual instanceof List) {
+            Collections.sort((List) actual);
+        }
+        else {
+            throw new AssertionError("Actual is supposed to be a List, but it's " + actual.getClass());
+        }
+        assertEquals(actual, expected);
+    }
+
+    public void assertFunctionWithSortedResults(String projection, Type expectedType, Object expected, Comparator comparator)
+    {
+        if (expected instanceof Slice) {
+            expected = ((Slice) expected).toStringUtf8();
+        }
+
+        Object actual = selectSingleValue(projection, expectedType, compiler);
+        if (actual instanceof List) {
+            Collections.sort((List) actual, comparator);
+        }
+        else {
+            throw new AssertionError("Actual is supposed to be a List, but it's " + actual.getClass());
+        }
         assertEquals(actual, expected);
     }
 

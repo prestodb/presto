@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.operator.aggregation.TypedSet;
+import com.facebook.presto.operator.aggregation.HashTable;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.Description;
@@ -21,6 +22,7 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 
@@ -32,32 +34,47 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 @Description("Union elements of the two given arrays")
 public final class ArrayUnionFunction
 {
-    private ArrayUnionFunction() {}
+    private final PageBuilder pageBuilder;
+
+    @TypeParameter("E")
+    public ArrayUnionFunction(@TypeParameter("E") Type elementType)
+    {
+        pageBuilder = new PageBuilder(ImmutableList.of(elementType));
+    }
 
     @TypeParameter("E")
     @SqlType("array(E)")
-    public static Block union(
+    public Block union(
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block leftArray,
             @SqlType("array(E)") Block rightArray)
     {
         int leftArrayCount = leftArray.getPositionCount();
         int rightArrayCount = rightArray.getPositionCount();
-        TypedSet typedSet = new TypedSet(type, leftArrayCount + rightArrayCount, "array_union");
-        BlockBuilder distinctElementBlockBuilder = type.createBlockBuilder(null, leftArrayCount + rightArrayCount);
-        appendTypedArray(leftArray, type, typedSet, distinctElementBlockBuilder);
-        appendTypedArray(rightArray, type, typedSet, distinctElementBlockBuilder);
 
-        return distinctElementBlockBuilder.build();
+        if (pageBuilder.isFull()) {
+            pageBuilder.reset();
+        }
+
+        BlockBuilder distinctElementBlockBuilder = pageBuilder.getBlockBuilder(0);
+
+        int positionCountBefore = distinctElementBlockBuilder.getPositionCount();
+
+        HashTable hashTable = new HashTable(type, distinctElementBlockBuilder, leftArrayCount + rightArrayCount);
+        appendTypedArray(leftArray, hashTable);
+        appendTypedArray(rightArray, hashTable);
+
+        int positionCountAfter = distinctElementBlockBuilder.getPositionCount();
+
+        pageBuilder.declarePositions(positionCountAfter - positionCountBefore);
+
+        return hashTable.getBlock();
     }
 
-    private static void appendTypedArray(Block array, Type type, TypedSet typedSet, BlockBuilder blockBuilder)
+    private static void appendTypedArray(Block array, HashTable hashTable)
     {
         for (int i = 0; i < array.getPositionCount(); i++) {
-            if (!typedSet.contains(array, i)) {
-                typedSet.add(array, i);
-                type.appendTo(array, i, blockBuilder);
-            }
+            hashTable.addIfAbsent(array, i);
         }
     }
 

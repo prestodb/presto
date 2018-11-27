@@ -277,6 +277,7 @@ public class VariableWidthBlockBuilder
     private void growCapacity()
     {
         int newSize = BlockUtil.calculateNewArraySize(valueIsNull.length);
+        //System.out.println("newSize " + newSize + " current retained size " + getSizeInBytes());
         valueIsNull = Arrays.copyOf(valueIsNull, newSize);
         offsets = Arrays.copyOf(offsets, newSize + 1);
         updateArraysDataSize();

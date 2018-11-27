@@ -65,13 +65,13 @@ import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 @Warmup(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
-public class BenchmarkArrayDistinct
+public class BenchmarkArrayIntersect
 {
     private static final int POSITIONS = 1000;
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS)
-    public List<Optional<Page>> arrayDistinct(BenchmarkData data)
+    public List<Optional<Page>> arrayIntersect(BenchmarkData data)
     {
         return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, new DriverYieldSignal(), data.getPage()));
     }
@@ -80,13 +80,13 @@ public class BenchmarkArrayDistinct
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        private String name = "array_distinct";
+        private String name = "array_intersect";
 
         @Param({"BIGINT", "VARCHAR", "DOUBLE", "BOOLEAN"})
         private String type = "BIGINT";
 
-        @Param({"10", "100", "1000"})
-        private String arraySizeString = "100";
+        @Param({"10", "100", "1000", "10000"})
+        private String arraySizeString = "10";
 
         private Page page;
         private PageProcessor pageProcessor;
@@ -97,7 +97,7 @@ public class BenchmarkArrayDistinct
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
-            Block[] blocks = new Block[1];
+            Block[] blocks = new Block[2]; // create two blocks for each type
 
             Type elementType;
             switch (type) {
@@ -118,9 +118,11 @@ public class BenchmarkArrayDistinct
             }
 
             ArrayType arrayType = new ArrayType(elementType);
-            Signature signature = new Signature(name, FunctionKind.SCALAR, arrayType.getTypeSignature(), arrayType.getTypeSignature());
-            projectionsBuilder.add(new CallExpression(signature, arrayType, ImmutableList.of(field(0, arrayType))));
-            blocks[0] = createChannel(POSITIONS, Integer.parseInt(arraySizeString), elementType);
+            Signature signature = new Signature(name, FunctionKind.SCALAR, arrayType.getTypeSignature(), arrayType.getTypeSignature(), arrayType.getTypeSignature());
+            projectionsBuilder.add(new CallExpression(signature, arrayType, ImmutableList.of(field(0, arrayType), field(1, arrayType))));
+            int arraySize = Integer.parseInt(arraySizeString);
+            blocks[0] = createChannel(POSITIONS, arraySize, elementType);
+            blocks[1] = createChannel(POSITIONS, arraySize, elementType);
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
             pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
@@ -172,11 +174,11 @@ public class BenchmarkArrayDistinct
         // assure the benchmarks are valid before running
         BenchmarkData data = new BenchmarkData();
         data.setup();
-        new BenchmarkArrayDistinct().arrayDistinct(data);
+        new BenchmarkArrayIntersect().arrayIntersect(data);
 
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkArrayDistinct.class.getSimpleName() + ".*")
+                .include(".*" + BenchmarkArrayIntersect.class.getSimpleName() + ".*")
                 .build();
         new Runner(options).run();
     }

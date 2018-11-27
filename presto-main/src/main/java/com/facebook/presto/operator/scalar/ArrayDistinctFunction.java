@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.operator.aggregation.TypedSet;
+import com.facebook.presto.operator.aggregation.HashTable;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -22,6 +22,7 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
@@ -49,7 +50,7 @@ public final class ArrayDistinctFunction
         }
 
         if (array.getPositionCount() == 2) {
-            if (type.equalTo(array, 0, array, 1)) {
+            if (TypeUtils.positionEqualsPosition(type, array, 0, array, 1)) {
                 return array.getSingleValueBlock(0);
             }
             else {
@@ -57,25 +58,12 @@ public final class ArrayDistinctFunction
             }
         }
 
-        TypedSet typedSet = new TypedSet(type, array.getPositionCount(), "array_distinct");
-        int distinctCount = 0;
-
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-
-        BlockBuilder distinctElementBlockBuilder = pageBuilder.getBlockBuilder(0);
+        HashTable hashTable = new HashTable(type, array, array.getPositionCount());
         for (int i = 0; i < array.getPositionCount(); i++) {
-            if (!typedSet.contains(array, i)) {
-                typedSet.add(array, i);
-                distinctCount++;
-                type.appendTo(array, i, distinctElementBlockBuilder);
-            }
+            hashTable.addIfAbsent(array, i);
         }
 
-        pageBuilder.declarePositions(distinctCount);
-
-        return distinctElementBlockBuilder.getRegion(distinctElementBlockBuilder.getPositionCount() - distinctCount, distinctCount);
+        return hashTable.getBlock();
     }
 
     @SqlType("array(bigint)")

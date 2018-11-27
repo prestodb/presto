@@ -35,6 +35,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
 import java.math.BigInteger;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -94,6 +95,16 @@ public abstract class AbstractTestFunctions
     protected void assertFunction(String projection, Type expectedType, Object expected)
     {
         functionAssertions.assertFunction(projection, expectedType, expected);
+    }
+
+    protected void assertFunctionWithSortedResults(String projection, Type expectedType, Object expected)
+    {
+        functionAssertions.assertFunctionWithSortedResults(projection, expectedType, expected);
+    }
+
+    protected void assertFunctionWithSortedResults(String projection, Type expectedType, Object expected, Comparator comparator)
+    {
+        functionAssertions.assertFunctionWithSortedResults(projection, expectedType, expected, comparator);
     }
 
     protected void assertOperator(OperatorType operator, String value, Type expectedType, Object expected)
