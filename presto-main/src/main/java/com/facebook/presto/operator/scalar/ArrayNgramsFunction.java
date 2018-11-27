@@ -41,17 +41,17 @@ public final class ArrayNgramsFunction
         checkCondition(n > 0, INVALID_FUNCTION_ARGUMENT, "N must be positive");
 
         // n should not be larger than the array length
-        int elementsPreRecord = toIntExact(min(array.getPositionCount(), n));
-        int totalRecords = array.getPositionCount() - elementsPreRecord + 1;
-        int[] ids = new int[totalRecords * elementsPreRecord];
+        int elementsPerRecord = toIntExact(min(array.getPositionCount(), n));
+        int totalRecords = array.getPositionCount() - elementsPerRecord + 1;
+        int[] ids = new int[totalRecords * elementsPerRecord];
         int[] offset = new int[totalRecords + 1];
         for (int recordIndex = 0; recordIndex < totalRecords; recordIndex++) {
-            for (int elementIndex = 0; elementIndex < elementsPreRecord; elementIndex++) {
-                ids[recordIndex * elementsPreRecord + elementIndex] = recordIndex + elementIndex;
+            for (int elementIndex = 0; elementIndex < elementsPerRecord; elementIndex++) {
+                ids[recordIndex * elementsPerRecord + elementIndex] = recordIndex + elementIndex;
             }
-            offset[recordIndex + 1] = (recordIndex + 1) * elementsPreRecord;
+            offset[recordIndex + 1] = (recordIndex + 1) * elementsPerRecord;
         }
 
-        return ArrayBlock.fromElementBlock(totalRecords, Optional.empty(), offset, array.getPositions(ids, 0, totalRecords * elementsPreRecord));
+        return ArrayBlock.fromElementBlock(totalRecords, Optional.empty(), offset, array.getPositions(ids, 0, totalRecords * elementsPerRecord));
     }
 }
