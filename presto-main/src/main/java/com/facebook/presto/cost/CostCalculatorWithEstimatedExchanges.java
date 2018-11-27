@@ -36,7 +36,18 @@ import static com.facebook.presto.cost.PlanNodeCostEstimate.networkCost;
 import static java.util.Objects.requireNonNull;
 
 /**
+ * HACK!
+ *
  * This is a wrapper class around CostCalculator that estimates ExchangeNodes cost.
+ *
+ * The ReorderJoins and DetermineJoinDistributionType rules are run before exchanges
+ * are introduced. This cost calculator adds the implied costs for the exchanges that
+ * will be added later. It is needed to account for the differences in exchange costs
+ * for different types of joins.
+ *
+ * Ideally the optimizer would produce different variations of a plan with all the
+ * exchanges already introduced, so that the cost could be computed on the whole plan
+ * and this class would not be needed.
  */
 @ThreadSafe
 public class CostCalculatorWithEstimatedExchanges
@@ -218,6 +229,16 @@ public class CostCalculatorWithEstimatedExchanges
 
         double cpuCost = probeSideSize + buildSideSize * buildSizeMultiplier;
 
+        /*
+         * HACK!
+         *
+         * Stats model doesn't multiply the number of rows by the number of tasks for replicated
+         * exchange to avoid misestimation of the JOIN output.
+         *
+         * Thus the cost estimation for the operations that come after a replicated exchange is
+         * underestimated. And the cost of operations over the replicated copies must be explicitly
+         * added here.
+         */
         if (replicated) {
             // add the cost of a local repartitioning of build side copies
             // cost of the repartitioning of a single data copy has been already added in calculateExchangeCost

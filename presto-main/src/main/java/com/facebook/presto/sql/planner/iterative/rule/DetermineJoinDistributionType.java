@@ -15,12 +15,14 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.cost.CostComparator;
-import com.facebook.presto.cost.CostProvider;
 import com.facebook.presto.cost.PlanNodeCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.StatsProvider;
+import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -33,6 +35,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
 import static com.facebook.presto.SystemSessionProperties.getJoinMaxBroadcastTableSize;
+import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateJoinExchangeCost;
+import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateJoinInputCost;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
@@ -50,10 +54,12 @@ public class DetermineJoinDistributionType
     private static final Pattern<JoinNode> PATTERN = join().matching(joinNode -> !joinNode.getDistributionType().isPresent());
 
     private final CostComparator costComparator;
+    private final TaskCountEstimator taskCountEstimator;
 
-    public DetermineJoinDistributionType(CostComparator costComparator)
+    public DetermineJoinDistributionType(CostComparator costComparator, TaskCountEstimator taskCountEstimator)
     {
         this.costComparator = requireNonNull(costComparator, "costComparator is null");
+        this.taskCountEstimator = requireNonNull(taskCountEstimator, "exchangeCostCalculator is null");
     }
 
     @Override
@@ -109,10 +115,10 @@ public class DetermineJoinDistributionType
     private void addJoinsWithDifferentDistributions(JoinNode joinNode, List<PlanNodeWithCost> possibleJoinNodes, Context context)
     {
         if (!mustPartition(joinNode) && canReplicate(joinNode, context)) {
-            possibleJoinNodes.add(getJoinNodeWithCost(context.getCostProvider(), joinNode.withDistributionType(REPLICATED)));
+            possibleJoinNodes.add(getJoinNodeWithCost(context, joinNode.withDistributionType(REPLICATED)));
         }
         if (!mustReplicate(joinNode, context)) {
-            possibleJoinNodes.add(getJoinNodeWithCost(context.getCostProvider(), joinNode.withDistributionType(PARTITIONED)));
+            possibleJoinNodes.add(getJoinNodeWithCost(context, joinNode.withDistributionType(PARTITIONED)));
         }
     }
 
@@ -147,9 +153,48 @@ public class DetermineJoinDistributionType
         return isAtMostScalar(joinNode.getRight(), context.getLookup());
     }
 
-    private static PlanNodeWithCost getJoinNodeWithCost(CostProvider costProvider, JoinNode possibleJoinNode)
+    private PlanNodeWithCost getJoinNodeWithCost(Context context, JoinNode possibleJoinNode)
     {
-        return new PlanNodeWithCost(costProvider.getCumulativeCost(possibleJoinNode), possibleJoinNode);
+        TypeProvider types = context.getSymbolAllocator().getTypes();
+        StatsProvider stats = context.getStatsProvider();
+        boolean replicated = possibleJoinNode.getDistributionType().get().equals(REPLICATED);
+        /*
+         *   HACK!
+         *
+         *   Currently cost model always has to compute the total cost of an operation.
+         *   For JOIN the total cost consist of 4 parts:
+         *     - Cost of exchanges that have to be introduced to execute a JOIN
+         *     - Cost of building a hash table
+         *     - Cost of probing a hash table
+         *     - Cost of building an output for matched rows
+         *
+         *   When output size for a JOIN cannot be estimated the cost model returns
+         *   UNKNOWN cost for the join.
+         *
+         *   However assuming the cost of JOIN output is always the same, we can still make
+         *   cost based decisions based on the input cost for different types of JOINs.
+         *
+         *   Although the side flipping can be made purely based on stats (smaller side
+         *   always goes to the right), determining JOIN type is not that simple. As when
+         *   choosing REPLICATED over REPARTITIONED join the cost of exchanging and building
+         *   the hash table scales with the number of nodes where the build side is replicated.
+         */
+        int estimatedSourceDistributedTaskCount = taskCountEstimator.estimateSourceDistributedTaskCount();
+        PlanNodeCostEstimate exchangesCost = calculateJoinExchangeCost(
+                possibleJoinNode.getLeft(),
+                possibleJoinNode.getRight(),
+                stats,
+                types,
+                replicated,
+                estimatedSourceDistributedTaskCount);
+        PlanNodeCostEstimate inputCost = calculateJoinInputCost(
+                possibleJoinNode.getLeft(),
+                possibleJoinNode.getRight(),
+                stats,
+                types,
+                replicated,
+                estimatedSourceDistributedTaskCount);
+        return new PlanNodeWithCost(exchangesCost.add(inputCost), possibleJoinNode);
     }
 
     private static class PlanNodeWithCost
