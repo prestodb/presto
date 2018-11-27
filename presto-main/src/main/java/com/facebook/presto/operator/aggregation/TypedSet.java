@@ -47,6 +47,11 @@ public class TypedSet
     private final BlockBuilder elementBlock;
     private final String functionName;
 
+    private int initialElementBlockOffset;
+    private long initialElementBlockSizeInBytes;
+    // size is the number of elements added to the TypedSet (including null).
+    // It equals to elementBlock.size() - initialElementBlockOffset
+    private int size;
     private int hashCapacity;
     private int maxFill;
     private int hashMask;
@@ -56,12 +61,21 @@ public class TypedSet
 
     public TypedSet(Type elementType, int expectedSize, String functionName)
     {
+        this(elementType, elementType.createBlockBuilder(null, expectedSize), expectedSize, functionName);
+    }
+
+    public TypedSet(Type elementType, BlockBuilder blockBuilder, int expectedSize, String functionName)
+    {
         checkArgument(expectedSize >= 0, "expectedSize must not be negative");
         this.elementType = requireNonNull(elementType, "elementType must not be null");
-        this.elementBlock = elementType.createBlockBuilder(null, expectedSize);
+        this.elementBlock = requireNonNull(blockBuilder, "blockBuilder must not be null");
         this.functionName = functionName;
 
-        hashCapacity = arraySize(expectedSize, FILL_RATIO);
+        initialElementBlockOffset = elementBlock.getPositionCount();
+        initialElementBlockSizeInBytes = elementBlock.getSizeInBytes();
+
+        this.size = 0;
+        this.hashCapacity = arraySize(expectedSize, FILL_RATIO);
         this.maxFill = calculateMaxFill(hashCapacity);
         this.hashMask = hashCapacity - 1;
 
@@ -97,20 +111,20 @@ public class TypedSet
         requireNonNull(block, "block must not be null");
         checkArgument(position >= 0, "position must be >= 0");
 
+        // containsNullElement flag is maintained so contains() method can have shortcut for null value
         if (block.isNull(position)) {
             containsNullElement = true;
         }
-        else {
-            int hashPosition = getHashPositionOfElement(block, position);
-            if (blockPositionByHash.get(hashPosition) == EMPTY_SLOT) {
-                addNewElement(hashPosition, block, position);
-            }
+
+        int hashPosition = getHashPositionOfElement(block, position);
+        if (blockPositionByHash.get(hashPosition) == EMPTY_SLOT) {
+            addNewElement(hashPosition, block, position);
         }
     }
 
     public int size()
     {
-        return elementBlock.getPositionCount() + (containsNullElement ? 1 : 0);
+        return size;
     }
 
     public int positionOf(Block block, int position)
@@ -142,7 +156,7 @@ public class TypedSet
     private void addNewElement(int hashPosition, Block block, int position)
     {
         elementType.appendTo(block, position, elementBlock);
-        if (elementBlock.getSizeInBytes() > FOUR_MEGABYTES) {
+        if (elementBlock.getSizeInBytes() - initialElementBlockSizeInBytes > FOUR_MEGABYTES) {
             throw new PrestoException(
                     EXCEEDED_FUNCTION_MEMORY_LIMIT,
                     format("The input to %s is too large. More than %s of memory is needed to hold the intermediate hash set.\n",
@@ -152,7 +166,8 @@ public class TypedSet
         blockPositionByHash.set(hashPosition, elementBlock.getPositionCount() - 1);
 
         // increase capacity, if necessary
-        if (elementBlock.getPositionCount() >= maxFill) {
+        size++;
+        if (size >= maxFill) {
             rehash();
         }
     }
@@ -173,13 +188,8 @@ public class TypedSet
             blockPositionByHash.set(i, EMPTY_SLOT);
         }
 
-        rehashBlock(elementBlock);
-    }
-
-    private void rehashBlock(Block block)
-    {
-        for (int blockPosition = 0; blockPosition < block.getPositionCount(); blockPosition++) {
-            blockPositionByHash.set(getHashPositionOfElement(block, blockPosition), blockPosition);
+        for (int blockPosition = initialElementBlockOffset; blockPosition < elementBlock.getPositionCount(); blockPosition++) {
+            blockPositionByHash.set(getHashPositionOfElement(elementBlock, blockPosition), blockPosition);
         }
     }
 
