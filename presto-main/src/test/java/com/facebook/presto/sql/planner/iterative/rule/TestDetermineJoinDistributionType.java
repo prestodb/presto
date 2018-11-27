@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.SymbolStatsEstimate;
+import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;
@@ -52,13 +53,14 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 public class TestDetermineJoinDistributionType
 {
     private static final CostComparator COST_COMPARATOR = new CostComparator(1, 1, 1);
+    private static final int NODES_COUNT = 4;
 
     private RuleTester tester;
 
     @BeforeClass
     public void setUp()
     {
-        tester = new RuleTester(ImmutableList.of(), ImmutableMap.of(), Optional.of(4));
+        tester = new RuleTester(ImmutableList.of(), ImmutableMap.of(), Optional.of(NODES_COUNT));
     }
 
     @AfterClass(alwaysRun = true)
@@ -220,6 +222,40 @@ public class TestDetermineJoinDistributionType
                 .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(bRows)
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
+                        .build())
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
+                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                Optional.empty()))
+                .matches(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("B1", "A1")),
+                        Optional.empty(),
+                        Optional.of(REPLICATED),
+                        values(ImmutableMap.of("B1", 0)),
+                        values(ImmutableMap.of("A1", 0))));
+    }
+
+    @Test
+    public void testFlipAndReplicateWhenOneTableMuchSmallerAndJoinCardinalityUnknown()
+    {
+        int aRows = 100;
+        int bRows = 10_000;
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(aRows)
+                        // set symbol stats to unknown, so the join cardinality cannot be estimated
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), SymbolStatsEstimate.unknown()))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(bRows)
+                        // set symbol stats to unknown, so the join cardinality cannot be estimated
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), SymbolStatsEstimate.unknown()))
                         .build())
                 .on(p ->
                         p.join(
@@ -465,6 +501,40 @@ public class TestDetermineJoinDistributionType
     }
 
     @Test
+    public void testFlipAndReplicateRightOuterJoinWhenJoinCardinalityUnknown()
+    {
+        int aRows = 10;
+        int bRows = 1_000_000;
+        assertDetermineJoinDistributionType(new CostComparator(75, 10, 15))
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(aRows)
+                        // set symbol stats to unknown, so the join cardinality cannot be estimated
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), SymbolStatsEstimate.unknown()))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(bRows)
+                        // set symbol stats to unknown, so the join cardinality cannot be estimated
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), SymbolStatsEstimate.unknown()))
+                        .build())
+                .on(p ->
+                        p.join(
+                                RIGHT,
+                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
+                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                Optional.empty()))
+                .matches(join(
+                        LEFT,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(REPLICATED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))));
+    }
+
+    @Test
     public void testReplicatesWhenNotRestricted()
     {
         int aRows = 10_000;
@@ -540,6 +610,6 @@ public class TestDetermineJoinDistributionType
 
     private RuleAssert assertDetermineJoinDistributionType(CostComparator costComparator)
     {
-        return tester.assertThat(new DetermineJoinDistributionType(costComparator));
+        return tester.assertThat(new DetermineJoinDistributionType(costComparator, new TaskCountEstimator(() -> NODES_COUNT)));
     }
 }
