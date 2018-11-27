@@ -26,6 +26,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
+import com.facebook.presto.sql.planner.plan.UnionNode;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -38,6 +39,7 @@ import java.util.function.IntSupplier;
 import static com.facebook.presto.cost.CostCalculatorUsingExchanges.currentNumberOfWorkerNodes;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static java.util.Objects.requireNonNull;
@@ -197,6 +199,22 @@ public class CostCalculatorWithEstimatedExchanges
                         .add(buildRemoteRepartitionCost)
                         .add(buildLocalRepartitionCost);
             }
+        }
+
+        @Override
+        public PlanNodeCostEstimate visitUnion(UnionNode node, Void context)
+        {
+            // this assumes that all union inputs will be gathered over the network
+            // that is not aways true
+            // but this estimate is better that returning UNKNOWN, as it sets
+            // cumulative cost to unknown
+            return CostCalculatorUsingExchanges.calculateExchangeCost(
+                    numberOfNodes,
+                    getStats(node),
+                    node.getOutputSymbols(),
+                    GATHER,
+                    REMOTE,
+                    types);
         }
 
         private PlanNodeStatsEstimate getStats(PlanNode node)
