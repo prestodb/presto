@@ -1346,8 +1346,8 @@ public class TestMathFunctions
     @Test
     public void testInverseBetaCdf()
     {
-        assertFunction("inverse_beta_cdf(3, 3.6, 0.)", DOUBLE, 0.);
-        assertFunction("inverse_beta_cdf(3, 3.6, 1.)", DOUBLE, 1.);
+        assertFunction("inverse_beta_cdf(3, 3.6, 0.0)", DOUBLE, 0.0);
+        assertFunction("inverse_beta_cdf(3, 3.6, 1.0)", DOUBLE, 1.0);
         assertFunction("inverse_beta_cdf(3, 3.6, 0.3)", DOUBLE, 0.3469675485440618);
         assertFunction("inverse_beta_cdf(3, 3.6, 0.95)", DOUBLE, 0.7600272463100223);
 
@@ -1361,8 +1361,8 @@ public class TestMathFunctions
     public void testBetaCdf()
             throws Exception
     {
-        assertFunction("beta_cdf(3, 3.6, 0.)", DOUBLE, 0.);
-        assertFunction("beta_cdf(3, 3.6, 1.)", DOUBLE, 1.);
+        assertFunction("beta_cdf(3, 3.6, 0.0)", DOUBLE, 0.0);
+        assertFunction("beta_cdf(3, 3.6, 1.0)", DOUBLE, 1.0);
         assertFunction("beta_cdf(3, 3.6, 0.3)", DOUBLE, 0.21764809997679938);
         assertFunction("beta_cdf(3, 3.6, 0.9)", DOUBLE, 0.9972502881611551);
 

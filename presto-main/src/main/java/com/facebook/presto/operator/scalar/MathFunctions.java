@@ -640,8 +640,8 @@ public final class MathFunctions
     {
         checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be 0 >= p >= 1");
         checkCondition(a > 0 && b > 0, INVALID_FUNCTION_ARGUMENT, "a, b must be > 0");
-        BetaDistribution dist = new BetaDistribution(a, b);
-        return dist.inverseCumulativeProbability(p);
+        BetaDistribution distribution = new BetaDistribution(null, a, b, BetaDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
+        return distribution.inverseCumulativeProbability(p);
     }
 
     @Description("Beta cdf given the a, b parameters and value")
@@ -654,8 +654,8 @@ public final class MathFunctions
     {
         checkCondition(value >= 0 && value <= 1, INVALID_FUNCTION_ARGUMENT, "value must be 0 >= v >= 1");
         checkCondition(a > 0 && b > 0, INVALID_FUNCTION_ARGUMENT, "a, b must be > 0");
-        BetaDistribution dist = new BetaDistribution(a, b);
-        return dist.cumulativeProbability(value);
+        BetaDistribution distribution = new BetaDistribution(null, a, b, BetaDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
+        return distribution.cumulativeProbability(value);
     }
 
     @Description("round to nearest integer")
