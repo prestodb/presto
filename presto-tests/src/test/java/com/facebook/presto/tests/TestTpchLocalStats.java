@@ -23,7 +23,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SystemSessionProperties.PREFER_PARTITIAL_AGGREGATION;
+import static com.facebook.presto.SystemSessionProperties.PREFER_PARTIAL_AGGREGATION;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.absoluteError;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.defaultTolerance;
@@ -48,7 +48,7 @@ public class TestTpchLocalStats
                 .setCatalog("tpch")
                 .setSchema(TINY_SCHEMA_NAME)
                 // We are not able to calculate stats for PARTIAL aggregations
-                .setSystemProperty(PREFER_PARTITIAL_AGGREGATION, "false")
+                .setSystemProperty(PREFER_PARTIAL_AGGREGATION, "false")
                 .build();
 
         LocalQueryRunner queryRunner = new LocalQueryRunner(defaultSession);

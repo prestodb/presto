@@ -107,7 +107,7 @@ public final class SystemSessionProperties
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT = "filter_and_project_min_output_page_row_count";
     public static final String DISTRIBUTED_SORT = "distributed_sort";
     public static final String USE_MARK_DISTINCT = "use_mark_distinct";
-    public static final String PREFER_PARTITIAL_AGGREGATION = "prefer_partial_aggregation";
+    public static final String PREFER_PARTIAL_AGGREGATION = "prefer_partial_aggregation";
     public static final String OPTIMIZE_TOP_N_ROW_NUMBER = "optimize_top_n_row_number";
     public static final String MAX_GROUPING_SETS = "max_grouping_sets";
     public static final String LEGACY_UNNEST = "legacy_unnest";
@@ -496,7 +496,7 @@ public final class SystemSessionProperties
                         featuresConfig.isUseMarkDistinct(),
                         false),
                 booleanProperty(
-                        PREFER_PARTITIAL_AGGREGATION,
+                        PREFER_PARTIAL_AGGREGATION,
                         "Prefer splitting aggregations into partial and final stages",
                         featuresConfig.isPreferPartialAggregation(),
                         false),
@@ -841,7 +841,7 @@ public final class SystemSessionProperties
 
     public static boolean preferPartialAggregation(Session session)
     {
-        return session.getSystemProperty(PREFER_PARTITIAL_AGGREGATION, Boolean.class);
+        return session.getSystemProperty(PREFER_PARTIAL_AGGREGATION, Boolean.class);
     }
 
     public static boolean isOptimizeTopNRowNumber(Session session)
