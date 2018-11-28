@@ -17,20 +17,16 @@ import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.DriverYieldSignal;
-import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.RowExpression;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -55,7 +51,9 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
@@ -67,20 +65,14 @@ import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 @Warmup(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
-public class BenchmarkArrayDistinct
+public class BenchmarkArrayUnion
 {
-    private static final int POSITIONS = 10_000;
-    private static final int ARRAY_SIZE = 20;
-    private static final int NUM_TYPES = 1;
-    private static final List<Type> TYPES = ImmutableList.of(VARCHAR);
-
-    static {
-        Verify.verify(NUM_TYPES == TYPES.size());
-    }
+    private static final int POSITIONS = 1_000;
+    private static final int ARRAY_SIZE = 10000;
 
     @Benchmark
-    @OperationsPerInvocation(POSITIONS * ARRAY_SIZE * NUM_TYPES)
-    public List<Optional<Page>> arrayDistinct(BenchmarkData data)
+    @OperationsPerInvocation(POSITIONS * ARRAY_SIZE)
+    public List<Optional<Page>> arrayUnion(BenchmarkData data)
     {
         return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, new DriverYieldSignal(), data.getPage()));
     }
@@ -89,8 +81,11 @@ public class BenchmarkArrayDistinct
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        @Param({"array_distinct", "old_array_distinct"})
-        private String name = "array_distinct";
+        private String name = "array_union";
+
+        @Param({"BIGINT", "VARCHAR", "DOUBLE", "BOOLEAN"})
+        //@Param({"BOOLEAN"})
+        private String type = "BIGINT";
 
         private Page page;
         private PageProcessor pageProcessor;
@@ -99,34 +94,58 @@ public class BenchmarkArrayDistinct
         public void setup()
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
-            metadata.addFunctions(extractFunctions(BenchmarkArrayDistinct.class));
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
-            Block[] blocks = new Block[TYPES.size()];
-            for (int i = 0; i < TYPES.size(); i++) {
-                Type elementType = TYPES.get(i);
-                ArrayType arrayType = new ArrayType(elementType);
-                Signature signature = new Signature(name, FunctionKind.SCALAR, arrayType.getTypeSignature(), arrayType.getTypeSignature());
-                projectionsBuilder.add(new CallExpression(signature, arrayType, ImmutableList.of(field(i, arrayType))));
-                blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
+            Block[] blocks = new Block[2]; // create two blocks for each type
+
+            Type elementType;
+            switch (type) {
+                case "BIGINT":
+                    elementType = BIGINT;
+                    break;
+                case "VARCHAR":
+                    elementType = VARCHAR;
+                    break;
+                case "DOUBLE":
+                    elementType = DOUBLE;
+                    break;
+                case "BOOLEAN":
+                    elementType = BOOLEAN;
+                    break;
+                default:
+                    throw new UnsupportedOperationException();
             }
+
+            ArrayType arrayType = new ArrayType(elementType);
+            Signature signature = new Signature(name, FunctionKind.SCALAR, arrayType.getTypeSignature(), arrayType.getTypeSignature(), arrayType.getTypeSignature());
+            projectionsBuilder.add(new CallExpression(signature, arrayType, ImmutableList.of(field(0, arrayType), field(1, arrayType))));
+            blocks[0] = createChannel(POSITIONS, ARRAY_SIZE, elementType);
+            blocks[1] = createChannel(POSITIONS, ARRAY_SIZE, elementType);
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
             pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
             page = new Page(blocks);
         }
 
-        private static Block createChannel(int positionCount, int arraySize, ArrayType arrayType)
+        private static Block createChannel(int positionCount, int arraySize, Type elementType)
         {
+            ArrayType arrayType = new ArrayType(elementType);
             BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
                 BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
                 for (int i = 0; i < arraySize; i++) {
-                    if (arrayType.getElementType().getJavaType() == long.class) {
-                        arrayType.getElementType().writeLong(entryBuilder, ThreadLocalRandom.current().nextLong());
+                    if (elementType.getJavaType() == long.class) {
+                        elementType.writeLong(entryBuilder, ThreadLocalRandom.current().nextLong());
                     }
-                    else if (arrayType.getElementType().equals(VARCHAR)) {
-                        arrayType.getElementType().writeSlice(entryBuilder, Slices.utf8Slice("test_string"));
+                    else if (elementType.getJavaType() == double.class) {
+                        elementType.writeDouble(entryBuilder, ThreadLocalRandom.current().nextDouble());
+                    }
+                    else if (elementType.getJavaType() == boolean.class) {
+                        elementType.writeBoolean(entryBuilder, ThreadLocalRandom.current().nextBoolean());
+                    }
+                    else if (elementType.equals(VARCHAR)) {
+                        // make sure the size of a varchar is rather small; otherwise the aggregated slice may overflow
+                        elementType.writeSlice(entryBuilder, Slices.utf8Slice(Long.toString(ThreadLocalRandom.current().nextLong() % 100)));
                     }
                     else {
                         throw new UnsupportedOperationException();
@@ -154,32 +173,12 @@ public class BenchmarkArrayDistinct
         // assure the benchmarks are valid before running
         BenchmarkData data = new BenchmarkData();
         data.setup();
-        new BenchmarkArrayDistinct().arrayDistinct(data);
+        new BenchmarkArrayUnion().arrayUnion(data);
 
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkArrayDistinct.class.getSimpleName() + ".*")
+                .include(".*" + BenchmarkArrayUnion.class.getSimpleName() + ".*")
                 .build();
         new Runner(options).run();
-    }
-
-    @ScalarFunction
-    @SqlType("array(varchar)")
-    public static Block oldArrayDistinct(@SqlType("array(varchar)") Block array)
-    {
-        if (array.getPositionCount() == 0) {
-            return array;
-        }
-
-        TypedSet typedSet = new TypedSet(VARCHAR, array.getPositionCount(), "old_array_distinct");
-        BlockBuilder distinctElementBlockBuilder = VARCHAR.createBlockBuilder(null, array.getPositionCount());
-        for (int i = 0; i < array.getPositionCount(); i++) {
-            if (!typedSet.contains(array, i)) {
-                typedSet.add(array, i);
-                VARCHAR.appendTo(array, i, distinctElementBlockBuilder);
-            }
-        }
-
-        return distinctElementBlockBuilder.build();
     }
 }

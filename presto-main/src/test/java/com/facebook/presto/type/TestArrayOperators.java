@@ -1131,11 +1131,17 @@ public class TestArrayOperators
     @Test
     public void testArrayUnion()
     {
+        assertFunction("ARRAY_UNION(ARRAY [], ARRAY [])", new ArrayType(UNKNOWN), asList());
+        assertFunction("ARRAY_UNION(ARRAY [NULL], ARRAY [])", new ArrayType(UNKNOWN), singletonList(null));
+        assertFunction("ARRAY_UNION(ARRAY [TRUE, NULL, TRUE], ARRAY [NULL, TRUE, NULL, NULL, FALSE])", new ArrayType(BOOLEAN), asList(null, true, false));
+        assertFunction("ARRAY_UNION(ARRAY [TRUE, NULL], ARRAY [])", new ArrayType(BOOLEAN), asList(null, true));
+        assertFunction("ARRAY_UNION(ARRAY [cast(0 as bigint), NULL, cast(12 as bigint), NULL], ARRAY [NULL, cast(10 as bigint), NULL, NULL])", new ArrayType(BIGINT), asList(0L, null, 12L, 10L));
+        assertFunction("ARRAY_UNION(ARRAY [cast(0 as bigint), cast(0 as bigint), NULL, cast(12 as bigint), NULL], ARRAY [NULL, cast(10 as bigint), NULL, NULL])", new ArrayType(BIGINT), asList(0L, null, 12L, 10L));
         assertFunction("ARRAY_UNION(ARRAY [cast(10 as bigint), NULL, cast(12 as bigint), NULL], ARRAY [NULL, cast(10 as bigint), NULL, NULL])", new ArrayType(BIGINT), asList(10L, null, 12L));
         assertFunction("ARRAY_UNION(ARRAY [12], ARRAY [10])", new ArrayType(INTEGER), ImmutableList.of(12, 10));
         assertFunction("ARRAY_UNION(ARRAY ['foo', 'bar', 'baz'], ARRAY ['foo', 'test', 'bar'])", new ArrayType(createVarcharType(4)), ImmutableList.of("foo", "bar", "baz", "test"));
         assertFunction("ARRAY_UNION(ARRAY [NULL], ARRAY [NULL, NULL])", new ArrayType(UNKNOWN), asList((Object) null));
-        assertFunction("ARRAY_UNION(ARRAY ['abc', NULL, 'xyz', NULL], ARRAY [NULL, 'abc', NULL, NULL])", new ArrayType(createVarcharType(3)), asList("abc", null, "xyz"));
+        assertFunction("ARRAY_UNION(ARRAY ['abc', NULL, 'xyz', NULL], ARRAY [NULL, 'abc', NULL, NULL])", new ArrayType(createVarcharType(3)), asList("abc", "xyz", null));
         assertFunction("ARRAY_UNION(ARRAY [1, 5], ARRAY [1])", new ArrayType(INTEGER), ImmutableList.of(1, 5));
         assertFunction("ARRAY_UNION(ARRAY [1, 1, 2, 4], ARRAY [1, 1, 4, 4])", new ArrayType(INTEGER), ImmutableList.of(1, 2, 4));
         assertFunction("ARRAY_UNION(ARRAY [2, 8], ARRAY [8, 3])", new ArrayType(INTEGER), ImmutableList.of(2, 8, 3));

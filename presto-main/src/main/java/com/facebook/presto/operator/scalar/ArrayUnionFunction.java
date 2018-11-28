@@ -27,6 +27,7 @@ import it.unimi.dsi.fastutil.longs.LongSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 
 @ScalarFunction("array_union")
 @Description("Union elements of the two given arrays")
@@ -44,21 +45,9 @@ public final class ArrayUnionFunction
         int leftArrayCount = leftArray.getPositionCount();
         int rightArrayCount = rightArray.getPositionCount();
         TypedSet typedSet = new TypedSet(type, leftArrayCount + rightArrayCount, "array_union");
-        BlockBuilder distinctElementBlockBuilder = type.createBlockBuilder(null, leftArrayCount + rightArrayCount);
-        appendTypedArray(leftArray, type, typedSet, distinctElementBlockBuilder);
-        appendTypedArray(rightArray, type, typedSet, distinctElementBlockBuilder);
-
-        return distinctElementBlockBuilder.build();
-    }
-
-    private static void appendTypedArray(Block array, Type type, TypedSet typedSet, BlockBuilder blockBuilder)
-    {
-        for (int i = 0; i < array.getPositionCount(); i++) {
-            if (!typedSet.contains(array, i)) {
-                typedSet.add(array, i);
-                type.appendTo(array, i, blockBuilder);
-            }
-        }
+        appendTypedArray(leftArray, typedSet);
+        appendTypedArray(rightArray, typedSet);
+        return typedSet.getBlock();
     }
 
     @SqlType("array(bigint)")
@@ -71,6 +60,29 @@ public final class ArrayUnionFunction
         AtomicBoolean containsNull = new AtomicBoolean(false);
         appendBigintArray(leftArray, containsNull, set, distinctElementBlockBuilder);
         appendBigintArray(rightArray, containsNull, set, distinctElementBlockBuilder);
+
+        return distinctElementBlockBuilder.build();
+    }
+
+    @SqlType("array(boolean)")
+    public static Block booleanUnion(@SqlType("array(boolean)") Block leftArray, @SqlType("array(boolean)") Block rightArray)
+    {
+        boolean[] leftDistinctBooleanValues = getDistinctBooleanValues(leftArray);
+        boolean[] rightDistinctBooleanValues = getDistinctBooleanValues(rightArray);
+
+        BlockBuilder distinctElementBlockBuilder = BOOLEAN.createBlockBuilder(null, 3);
+
+        if (leftDistinctBooleanValues[0] || rightDistinctBooleanValues[0]) {
+            distinctElementBlockBuilder.appendNull();
+        }
+
+        if (leftDistinctBooleanValues[1] || rightDistinctBooleanValues[1]) {
+            BOOLEAN.writeBoolean(distinctElementBlockBuilder, true);
+        }
+
+        if (leftDistinctBooleanValues[2] || rightDistinctBooleanValues[2]) {
+            BOOLEAN.writeBoolean(distinctElementBlockBuilder, false);
+        }
 
         return distinctElementBlockBuilder.build();
     }
@@ -90,5 +102,29 @@ public final class ArrayUnionFunction
                 BIGINT.writeLong(blockBuilder, value);
             }
         }
+    }
+
+    private static void appendTypedArray(Block array, TypedSet typedSet)
+    {
+        for (int i = 0; i < array.getPositionCount(); i++) {
+            typedSet.add(array, i);
+        }
+    }
+
+    private static boolean[] getDistinctBooleanValues(Block block)
+    {
+        boolean[] results = new boolean[3];
+
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            if (block.isNull(i)) {
+                results[0] = true;
+            }
+            else {
+                boolean value = BOOLEAN.getBoolean(block, i);
+                results[1] |= value;
+                results[2] |= !value;
+            }
+        }
+        return results;
     }
 }
