@@ -114,8 +114,9 @@ public class TestCostCalculator
     @BeforeClass
     public void setUp()
     {
-        costCalculatorUsingExchanges = new CostCalculatorUsingExchanges(() -> NUMBER_OF_NODES);
-        costCalculatorWithEstimatedExchanges = new CostCalculatorWithEstimatedExchanges(costCalculatorUsingExchanges, () -> NUMBER_OF_NODES);
+        TaskCountEstimator taskCountEstimator = new TaskCountEstimator(() -> NUMBER_OF_NODES);
+        costCalculatorUsingExchanges = new CostCalculatorUsingExchanges(taskCountEstimator);
+        costCalculatorWithEstimatedExchanges = new CostCalculatorWithEstimatedExchanges(costCalculatorUsingExchanges, taskCountEstimator);
         planFragmenter = new PlanFragmenter(new QueryManagerConfig());
 
         session = testSessionBuilder().setCatalog("tpch").build();
