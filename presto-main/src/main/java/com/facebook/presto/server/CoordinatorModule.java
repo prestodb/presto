@@ -20,6 +20,7 @@ import com.facebook.presto.cost.CostCalculatorUsingExchanges;
 import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.StatsCalculatorModule;
+import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.event.QueryMonitorConfig;
 import com.facebook.presto.execution.AddColumnTask;
@@ -226,6 +227,7 @@ public class CoordinatorModule
         binder.install(new StatsCalculatorModule());
 
         // cost calculator
+        binder.bind(TaskCountEstimator.class).in(Scopes.SINGLETON);
         binder.bind(CostCalculator.class).to(CostCalculatorUsingExchanges.class).in(Scopes.SINGLETON);
         binder.bind(CostCalculator.class).annotatedWith(EstimatedExchanges.class).to(CostCalculatorWithEstimatedExchanges.class).in(Scopes.SINGLETON);
         binder.bind(CostComparator.class).in(Scopes.SINGLETON);
