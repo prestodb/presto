@@ -15,9 +15,6 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
-import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.spi.Node;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
@@ -46,15 +43,15 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
-import java.util.function.IntSupplier;
 
+import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateJoinInputCost;
+import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateLocalRepartitionCost;
+import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateRemoteGatherCost;
+import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateRemoteRepartitionCost;
+import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateRemoteReplicateCost;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.cpuCost;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
-import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -64,52 +61,33 @@ import static java.util.Objects.requireNonNull;
 public class CostCalculatorUsingExchanges
         implements CostCalculator
 {
-    private final IntSupplier numberOfNodes;
+    private final TaskCountEstimator taskCountEstimator;
 
     @Inject
-    public CostCalculatorUsingExchanges(NodeSchedulerConfig nodeSchedulerConfig, InternalNodeManager nodeManager)
+    public CostCalculatorUsingExchanges(TaskCountEstimator taskCountEstimator)
     {
-        this(currentNumberOfWorkerNodes(nodeSchedulerConfig.isIncludeCoordinator(), nodeManager));
-    }
-
-    static IntSupplier currentNumberOfWorkerNodes(boolean includeCoordinator, InternalNodeManager nodeManager)
-    {
-        requireNonNull(nodeManager, "nodeManager is null");
-        return () -> {
-            Set<Node> activeNodes = nodeManager.getAllNodes().getActiveNodes();
-            if (includeCoordinator) {
-                return activeNodes.size();
-            }
-            return toIntExact(activeNodes.stream()
-                    .filter(node -> !node.isCoordinator())
-                    .count());
-        };
-    }
-
-    public CostCalculatorUsingExchanges(IntSupplier numberOfNodes)
-    {
-        this.numberOfNodes = requireNonNull(numberOfNodes, "numberOfNodes is null");
+        this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
     }
 
     @Override
     public PlanNodeCostEstimate calculateCost(PlanNode node, StatsProvider stats, Session session, TypeProvider types)
     {
-        CostEstimator costEstimator = new CostEstimator(numberOfNodes.getAsInt(), stats, types);
+        CostEstimator costEstimator = new CostEstimator(stats, types, taskCountEstimator);
         return node.accept(costEstimator, null);
     }
 
     private static class CostEstimator
             extends PlanVisitor<PlanNodeCostEstimate, Void>
     {
-        private final int numberOfNodes;
         private final StatsProvider stats;
         private final TypeProvider types;
+        private final TaskCountEstimator taskCountEstimator;
 
-        CostEstimator(int numberOfNodes, StatsProvider stats, TypeProvider types)
+        CostEstimator(StatsProvider stats, TypeProvider types, TaskCountEstimator taskCountEstimator)
         {
-            this.numberOfNodes = numberOfNodes;
             this.stats = requireNonNull(stats, "stats is null");
             this.types = requireNonNull(types, "types is null");
+            this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
         }
 
         @Override
@@ -198,35 +176,57 @@ public class CostCalculatorUsingExchanges
 
         private PlanNodeCostEstimate calculateJoinCost(PlanNode join, PlanNode probe, PlanNode build, boolean replicated)
         {
-            int numberOfNodesMultiplier = replicated ? numberOfNodes : 1;
+            PlanNodeCostEstimate joinInputCost = calculateJoinInputCost(
+                    probe,
+                    build,
+                    stats,
+                    types,
+                    replicated,
+                    taskCountEstimator.estimateSourceDistributedTaskCount());
+            PlanNodeCostEstimate joinOutputCost = calculateJoinOutputCost(join);
+            return joinInputCost.add(joinOutputCost);
+        }
 
-            PlanNodeStatsEstimate probeStats = getStats(probe);
-            PlanNodeStatsEstimate buildStats = getStats(build);
+        private PlanNodeCostEstimate calculateJoinOutputCost(PlanNode join)
+        {
             PlanNodeStatsEstimate outputStats = getStats(join);
-
-            double buildSideSize = buildStats.getOutputSizeInBytes(build.getOutputSymbols(), types);
-            double probeSideSize = probeStats.getOutputSizeInBytes(probe.getOutputSymbols(), types);
             double joinOutputSize = outputStats.getOutputSizeInBytes(join.getOutputSymbols(), types);
-
-            double cpuCost = probeSideSize +
-                    buildSideSize * numberOfNodesMultiplier +
-                    joinOutputSize;
-
-            if (replicated) {
-                // add the cost of a local repartitioning of build side copies
-                // cost of the repartitioning of a single data copy has been already added in calculateExchangeCost
-                cpuCost += buildSideSize * (numberOfNodesMultiplier - 1);
-            }
-
-            double memoryCost = buildSideSize * numberOfNodesMultiplier;
-
-            return new PlanNodeCostEstimate(cpuCost, memoryCost, 0);
+            return cpuCost(joinOutputSize);
         }
 
         @Override
         public PlanNodeCostEstimate visitExchange(ExchangeNode node, Void context)
         {
-            return calculateExchangeCost(numberOfNodes, getStats(node), node.getOutputSymbols(), node.getType(), node.getScope(), types);
+            double inputSizeInBytes = getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types);
+            switch (node.getScope()) {
+                case LOCAL:
+                    switch (node.getType()) {
+                        case GATHER:
+                            return PlanNodeCostEstimate.zero();
+                        case REPARTITION:
+                            return calculateLocalRepartitionCost(inputSizeInBytes);
+                        case REPLICATE:
+                            return PlanNodeCostEstimate.zero();
+                        default:
+                            throw new IllegalArgumentException("Unexpected type: " + node.getType());
+                    }
+                case REMOTE:
+                    switch (node.getType()) {
+                        case GATHER:
+                            return calculateRemoteGatherCost(inputSizeInBytes);
+                        case REPARTITION:
+                            return calculateRemoteRepartitionCost(inputSizeInBytes);
+                        case REPLICATE:
+                            // assuming that destination is always source distributed
+                            // it is true as now replicated exchange is used for joins only
+                            // for replicated join probe side is usually source distributed
+                            return calculateRemoteReplicateCost(inputSizeInBytes, taskCountEstimator.estimateSourceDistributedTaskCount());
+                        default:
+                            throw new IllegalArgumentException("Unexpected type: " + node.getType());
+                    }
+                default:
+                    throw new IllegalArgumentException("Unexpected scope: " + node.getScope());
+            }
         }
 
         @Override
@@ -284,40 +284,5 @@ public class CostCalculatorUsingExchanges
         {
             return stats.getStats(node);
         }
-    }
-
-    public static PlanNodeCostEstimate calculateExchangeCost(
-            int numberOfNodes,
-            PlanNodeStatsEstimate exchangeStats,
-            List<Symbol> symbols,
-            ExchangeNode.Type type,
-            ExchangeNode.Scope scope,
-            TypeProvider types)
-    {
-        double exchangeSize = exchangeStats.getOutputSizeInBytes(symbols, types);
-
-        double network;
-        double cpu = 0;
-
-        switch (type) {
-            case GATHER:
-                network = exchangeSize;
-                break;
-            case REPARTITION:
-                network = exchangeSize;
-                cpu = exchangeSize;
-                break;
-            case REPLICATE:
-                network = exchangeSize * numberOfNodes;
-                break;
-            default:
-                throw new UnsupportedOperationException(format("Unsupported type [%s] of the exchange", type));
-        }
-
-        if (scope == LOCAL) {
-            network = 0;
-        }
-
-        return new PlanNodeCostEstimate(cpu, 0, network);
     }
 }
