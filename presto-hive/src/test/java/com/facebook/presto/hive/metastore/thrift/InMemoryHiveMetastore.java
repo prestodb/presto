@@ -28,10 +28,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.Database;
-import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
@@ -343,35 +341,6 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public void addPartitionsWithoutStatistics(String databaseName, String tableName, List<Partition> partitions)
-    {
-        Optional<Table> table = getTable(databaseName, tableName);
-        if (!table.isPresent()) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-        }
-        for (Partition partition : partitions) {
-            String partitionName = createPartitionName(partition, table.get());
-            partition = partition.deepCopy();
-            if (partition.getParameters() == null) {
-                partition.setParameters(ImmutableMap.of());
-            }
-            this.partitions.put(PartitionName.partition(databaseName, tableName, partitionName), partition);
-        }
-    }
-
-    private static String createPartitionName(Partition partition, Table table)
-    {
-        return makePartName(table.getPartitionKeys(), partition.getValues());
-    }
-
-    private static String makePartName(List<FieldSchema> partitionColumns, List<String> values)
-    {
-        checkArgument(partitionColumns.size() == values.size());
-        List<String> partitionColumnNames = partitionColumns.stream().map(FieldSchema::getName).collect(toList());
-        return FileUtils.makePartName(partitionColumnNames, values);
-    }
-
-    @Override
     public synchronized void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData)
     {
         partitions.entrySet().removeIf(entry ->
@@ -388,17 +357,6 @@ public class InMemoryHiveMetastore
         PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionWithStatistics.getPartitionName());
         partitions.put(partitionKey, partition);
         partitionColumnStatistics.put(partitionKey, partitionWithStatistics.getStatistics());
-    }
-
-    @Override
-    public void alterPartitionWithoutStatistics(String databaseName, String tableName, Partition partition)
-    {
-        Optional<Table> table = getTable(databaseName, tableName);
-        if (!table.isPresent()) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-        }
-        String partitionName = createPartitionName(partition, table.get());
-        partitions.put(PartitionName.partition(databaseName, tableName, partitionName), partition);
     }
 
     @Override

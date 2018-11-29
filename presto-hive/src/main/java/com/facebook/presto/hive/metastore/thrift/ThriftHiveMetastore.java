@@ -800,8 +800,7 @@ public class ThriftHiveMetastore
         }
     }
 
-    @Override
-    public void addPartitionsWithoutStatistics(String databaseName, String tableName, List<Partition> partitions)
+    private void addPartitionsWithoutStatistics(String databaseName, String tableName, List<Partition> partitions)
     {
         if (partitions.isEmpty()) {
             return;
@@ -868,8 +867,7 @@ public class ThriftHiveMetastore
         dropExtraColumnStatisticsAfterAlterPartition(databaseName, tableName, partitionWithStatistics);
     }
 
-    @Override
-    public void alterPartitionWithoutStatistics(String databaseName, String tableName, Partition partition)
+    private void alterPartitionWithoutStatistics(String databaseName, String tableName, Partition partition)
     {
         try {
             retry()

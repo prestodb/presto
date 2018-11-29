@@ -62,19 +62,9 @@ public interface HiveMetastore
 
     void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions);
 
-    // TODO: Remove this method by release 0.212.
-    // This method is available to allow smoother transition of the addPartitions API.
-    @Deprecated
-    void addPartitionsWithoutStatistics(String databaseName, String tableName, List<Partition> partitions);
-
     void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData);
 
     void alterPartition(String databaseName, String tableName, PartitionWithStatistics partition);
-
-    // TODO: Remove this method by release 0.212.
-    // This method is available to allow smoother transition of the addPartitions API.
-    @Deprecated
-    void alterPartitionWithoutStatistics(String databaseName, String tableName, Partition partition);
 
     Optional<List<String>> getPartitionNames(String databaseName, String tableName);
 
