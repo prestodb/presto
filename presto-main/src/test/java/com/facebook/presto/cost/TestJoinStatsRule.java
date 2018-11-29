@@ -277,11 +277,11 @@ public class TestJoinStatsRule
     public void testLeftJoinMissingStats()
     {
         PlanNodeStatsEstimate leftStats = planNodeStats(
-                0,
+                1,
                 new SymbolStatistics(LEFT_JOIN_COLUMN, SymbolStatsEstimate.unknown()),
                 new SymbolStatistics(LEFT_OTHER_COLUMN, SymbolStatsEstimate.unknown()));
         PlanNodeStatsEstimate rightStats = planNodeStats(
-                0,
+                1,
                 new SymbolStatistics(RIGHT_JOIN_COLUMN, SymbolStatsEstimate.unknown()),
                 new SymbolStatistics(RIGHT_OTHER_COLUMN, SymbolStatsEstimate.unknown()));
         assertJoinStats(LEFT, leftStats, rightStats, PlanNodeStatsEstimate.unknown());

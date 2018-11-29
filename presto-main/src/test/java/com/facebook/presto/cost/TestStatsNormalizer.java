@@ -56,6 +56,7 @@ public class TestStatsNormalizer
     {
         Symbol a = new Symbol("a");
         PlanNodeStatsEstimate estimate = PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(30)
                 .addSymbolStatistics(a, SymbolStatsEstimate.builder().setDistinctValuesCount(20).build())
                 .build();
 
@@ -70,6 +71,7 @@ public class TestStatsNormalizer
         Symbol b = new Symbol("b");
         Symbol c = new Symbol("c");
         PlanNodeStatsEstimate estimate = PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(40)
                 .addSymbolStatistics(a, SymbolStatsEstimate.builder().setDistinctValuesCount(20).build())
                 .addSymbolStatistics(b, SymbolStatsEstimate.builder().setDistinctValuesCount(30).build())
                 .addSymbolStatistics(c, SymbolStatsEstimate.unknown())
@@ -138,7 +140,9 @@ public class TestStatsNormalizer
                 .setLowValue(asStatsValue(low, type))
                 .setHighValue(asStatsValue(high, type))
                 .build();
-        PlanNodeStatsEstimate estimate = PlanNodeStatsEstimate.builder().addSymbolStatistics(symbol, symbolStats).build();
+        PlanNodeStatsEstimate estimate = PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(10000000000L)
+                .addSymbolStatistics(symbol, symbolStats).build();
 
         assertNormalized(estimate, TypeProvider.copyOf(ImmutableMap.of(symbol, type)))
                 .symbolStats(symbol, symbolAssert -> symbolAssert.distinctValuesCount(expectedNormalizedNdv));
