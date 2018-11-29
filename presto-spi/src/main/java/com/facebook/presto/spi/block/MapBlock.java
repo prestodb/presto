@@ -332,14 +332,9 @@ public class MapBlock
                 return;
             }
 
-            int[] offsets = getOffsets();
-            int elementCount = getRawKeyBlock().getPositionCount();
-            int mapCount = getPositionCount();
-            boolean[] mapIsNull = getMapIsNull();
-
-            int[] hashTables = new int[elementCount * HASH_MULTIPLIER];
+            int[] hashTables = new int[getRawKeyBlock().getPositionCount() * HASH_MULTIPLIER];
             Arrays.fill(hashTables, -1);
-            for (int i = 0; i < mapCount; i++) {
+            for (int i = 0; i < offsets.length - 1; i++) {
                 int keyOffset = offsets[i];
                 int keyCount = offsets[i + 1] - keyOffset;
                 if (keyCount < 0) {
