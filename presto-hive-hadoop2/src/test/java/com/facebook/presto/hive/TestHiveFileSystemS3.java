@@ -24,7 +24,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static org.testng.util.Strings.isNullOrEmpty;
 
-public class TestHiveClientS3
+public class TestHiveFileSystemS3
         extends AbstractTestHiveFileSystem
 {
     private String awsAccessKey;
