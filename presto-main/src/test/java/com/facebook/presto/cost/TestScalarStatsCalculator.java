@@ -317,6 +317,40 @@ public class TestScalarStatsCalculator
     }
 
     @Test
+    public void testArithmeticBinaryWithAllNullsSymbol()
+    {
+        SymbolStatsEstimate allNullStats = SymbolStatsEstimate.zero();
+        PlanNodeStatsEstimate relationStats = PlanNodeStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol("x"), SymbolStatsEstimate.builder()
+                        .setLowValue(-1)
+                        .setHighValue(10)
+                        .setDistinctValuesCount(4)
+                        .setNullsFraction(0.1)
+                        .setAverageRowSize(0)
+                        .build())
+                .addSymbolStatistics(new Symbol("all_null"), allNullStats)
+                .setOutputRowCount(10)
+                .build();
+
+        assertCalculate(expression("x + all_null"), relationStats)
+                .isEqualTo(allNullStats);
+        assertCalculate(expression("x - all_null"), relationStats)
+                .isEqualTo(allNullStats);
+        assertCalculate(expression("all_null - x"), relationStats)
+                .isEqualTo(allNullStats);
+        assertCalculate(expression("all_null * x"), relationStats)
+                .isEqualTo(allNullStats);
+        assertCalculate(expression("x % all_null"), relationStats)
+                .isEqualTo(allNullStats);
+        assertCalculate(expression("all_null % x"), relationStats)
+                .isEqualTo(allNullStats);
+        assertCalculate(expression("x / all_null"), relationStats)
+                .isEqualTo(allNullStats);
+        assertCalculate(expression("all_null / x"), relationStats)
+                .isEqualTo(allNullStats);
+    }
+
+    @Test
     public void testDivideArithmeticBinaryExpression()
     {
         assertCalculate(expression("x / y"), xyStats(-11, -3, -5, -4)).lowValue(0.6).highValue(2.75);
