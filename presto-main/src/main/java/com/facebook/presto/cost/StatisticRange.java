@@ -96,12 +96,12 @@ public class StatisticRange
     {
         requireNonNull(other, "other is null");
 
-        if (this.equals(other)) {
-            return 1.0;
+        if (this.isEmpty() || other.isEmpty() || this.distinctValues == 0 || other.distinctValues == 0) {
+            return 0.0; // zero is better than NaN as it will behave properly for calculating row count
         }
 
-        if (this.isEmpty() || other.isEmpty()) {
-            return 0.0; // zero is better than NaN as it will behave properly for calculating row count
+        if (this.equals(other)) {
+            return 1.0;
         }
 
         double lengthOfIntersect = min(this.high, other.high) - max(this.low, other.low);
