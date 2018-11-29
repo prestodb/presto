@@ -52,6 +52,10 @@ public class TestStatisticRange
         // Unbounded (infinite), NDV-based
         assertOverlap(unboundedRange(10), unboundedRange(20), 1);
         assertOverlap(unboundedRange(20), unboundedRange(10), 0.5);
+
+        assertOverlap(unboundedRange(0.1), unboundedRange(1), 1);
+        assertOverlap(unboundedRange(0.0), unboundedRange(1), 0);
+        assertOverlap(unboundedRange(0.0), unboundedRange(0), 0);
     }
 
     @Test
