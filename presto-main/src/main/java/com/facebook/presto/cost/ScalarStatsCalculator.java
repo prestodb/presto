@@ -49,6 +49,7 @@ import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.evaluate;
 import static com.facebook.presto.util.MoreMath.max;
 import static com.facebook.presto.util.MoreMath.min;
+import static java.lang.Double.NaN;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.abs;
@@ -241,7 +242,11 @@ public class ScalarStatsCalculator
             double leftHigh = left.getHighValue();
             double rightLow = right.getLowValue();
             double rightHigh = right.getHighValue();
-            if (node.getOperator() == ArithmeticBinaryExpression.Operator.DIVIDE && rightLow < 0 && rightHigh > 0) {
+            if (isNaN(leftLow) || isNaN(leftHigh) || isNaN(rightLow) || isNaN(rightHigh)) {
+                result.setLowValue(NaN)
+                        .setHighValue(NaN);
+            }
+            else if (node.getOperator() == ArithmeticBinaryExpression.Operator.DIVIDE && rightLow < 0 && rightHigh > 0) {
                 result.setLowValue(Double.NEGATIVE_INFINITY)
                         .setHighValue(Double.POSITIVE_INFINITY);
             }
