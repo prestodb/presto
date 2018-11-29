@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.operator;
 
+import com.esri.core.geometry.Geometry;
+import com.esri.core.geometry.GeometryCursor;
+import com.esri.core.geometry.Operator;
+import com.esri.core.geometry.OperatorFactoryLocal;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.Session;
 import com.facebook.presto.geospatial.Rectangle;
@@ -96,6 +100,7 @@ public class PagesSpatialIndexSupplier
     private static STRtree buildRTree(LongArrayList addresses, List<List<Block>> channels, int geometryChannel, Optional<Integer> radiusChannel, Optional<Integer> partitionChannel)
     {
         STRtree rtree = new STRtree();
+        Operator relateOperator = OperatorFactoryLocal.getInstance().getOperator(Operator.Type.Relate);
 
         for (int position = 0; position < addresses.size(); position++) {
             long pageAddress = addresses.getLong(position);
@@ -118,6 +123,11 @@ public class PagesSpatialIndexSupplier
             double radius = radiusChannel.map(channel -> DOUBLE.getDouble(channels.get(channel).get(blockIndex), blockPosition)).orElse(0.0);
             if (radius < 0) {
                 continue;
+            }
+
+            if (!radiusChannel.isPresent()) {
+                // If radiusChannel is supplied, this is a distance query, for which our acceleration won't help.
+                accelerateGeometry(ogcGeometry, relateOperator);
             }
 
             int partition = -1;
@@ -152,6 +162,19 @@ public class PagesSpatialIndexSupplier
     private long computeMemorySizeInBytes(ItemBoundable item)
     {
         return ENVELOPE_INSTANCE_SIZE + ((GeometryWithPosition) item.getItem()).getEstimatedMemorySizeInBytes();
+    }
+
+    private static void accelerateGeometry(OGCGeometry ogcGeometry, Operator relateOperator)
+    {
+        // Recurse into GeometryCollections
+        GeometryCursor cursor = ogcGeometry.getEsriGeometryCursor();
+        while (true) {
+            com.esri.core.geometry.Geometry esriGeometry = cursor.next();
+            if (esriGeometry == null) {
+                break;
+            }
+            relateOperator.accelerateGeometry(esriGeometry, null, Geometry.GeometryAccelerationDegree.enumMild);
+        }
     }
 
     // doesn't include memory used by channels and addresses which are shared with PagesIndex
