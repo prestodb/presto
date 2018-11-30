@@ -1351,10 +1351,10 @@ public class TestMathFunctions
         assertFunction("inverse_beta_cdf(3, 3.6, 0.3)", DOUBLE, 0.3469675485440618);
         assertFunction("inverse_beta_cdf(3, 3.6, 0.95)", DOUBLE, 0.7600272463100223);
 
-        assertInvalidFunction("inverse_beta_cdf(0, 3, 0.5)", "a, b must be > 0");
-        assertInvalidFunction("inverse_beta_cdf(3, 0, 0.5)", "a, b must be > 0");
-        assertInvalidFunction("inverse_beta_cdf(3, 5, -0.1)", "p must be 0 >= p >= 1");
-        assertInvalidFunction("inverse_beta_cdf(3, 5, 1.1)", "p must be 0 >= p >= 1");
+        assertInvalidFunction("inverse_beta_cdf(0, 3, 0.5)", "a must be > 0");
+        assertInvalidFunction("inverse_beta_cdf(3, 0, 0.5)", "b must be > 0");
+        assertInvalidFunction("inverse_beta_cdf(3, 5, -0.1)", "p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_beta_cdf(3, 5, 1.1)", "p must be in the interval [0, 1]");
     }
 
     @Test
@@ -1366,10 +1366,10 @@ public class TestMathFunctions
         assertFunction("beta_cdf(3, 3.6, 0.3)", DOUBLE, 0.21764809997679938);
         assertFunction("beta_cdf(3, 3.6, 0.9)", DOUBLE, 0.9972502881611551);
 
-        assertInvalidFunction("beta_cdf(0, 3, 0.5)", "a, b must be > 0");
-        assertInvalidFunction("beta_cdf(3, 0, 0.5)", "a, b must be > 0");
-        assertInvalidFunction("beta_cdf(3, 5, -0.1)", "value must be 0 >= v >= 1");
-        assertInvalidFunction("beta_cdf(3, 5, 1.1)", "value must be 0 >= v >= 1");
+        assertInvalidFunction("beta_cdf(0, 3, 0.5)", "a must be > 0");
+        assertInvalidFunction("beta_cdf(3, 0, 0.5)", "b must be > 0");
+        assertInvalidFunction("beta_cdf(3, 5, -0.1)", "value must be in the interval [0, 1]");
+        assertInvalidFunction("beta_cdf(3, 5, 1.1)", "value must be in the interval [0, 1]");
     }
 
     @Test

@@ -638,8 +638,9 @@ public final class MathFunctions
             @SqlType(StandardTypes.DOUBLE) double b,
             @SqlType(StandardTypes.DOUBLE) double p)
     {
-        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be 0 >= p >= 1");
-        checkCondition(a > 0 && b > 0, INVALID_FUNCTION_ARGUMENT, "a, b must be > 0");
+        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval [0, 1]");
+        checkCondition(a > 0, INVALID_FUNCTION_ARGUMENT, "a must be > 0");
+        checkCondition(b > 0, INVALID_FUNCTION_ARGUMENT, "b must be > 0");
         BetaDistribution distribution = new BetaDistribution(null, a, b, BetaDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
         return distribution.inverseCumulativeProbability(p);
     }
@@ -652,8 +653,9 @@ public final class MathFunctions
             @SqlType(StandardTypes.DOUBLE) double b,
             @SqlType(StandardTypes.DOUBLE) double value)
     {
-        checkCondition(value >= 0 && value <= 1, INVALID_FUNCTION_ARGUMENT, "value must be 0 >= v >= 1");
-        checkCondition(a > 0 && b > 0, INVALID_FUNCTION_ARGUMENT, "a, b must be > 0");
+        checkCondition(value >= 0 && value <= 1, INVALID_FUNCTION_ARGUMENT, "value must be in the interval [0, 1]");
+        checkCondition(a > 0, INVALID_FUNCTION_ARGUMENT, "a must be > 0");
+        checkCondition(b > 0, INVALID_FUNCTION_ARGUMENT, "b must be > 0");
         BetaDistribution distribution = new BetaDistribution(null, a, b, BetaDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
         return distribution.cumulativeProbability(value);
     }
