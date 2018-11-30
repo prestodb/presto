@@ -245,7 +245,7 @@ public class PageProcessor
             ReferenceCountMap referenceCountMap = new ReferenceCountMap();
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
                 Block block = page.getBlock(channel);
-                if (!isUnloadedLazyBlock(block)) {
+                if (!isNotLoadedLazyBlock(block)) {
                     block.retainedBytesForEachPart((object, size) -> {
                         if (referenceCountMap.incrementAndGet(object) == 1) {
                             retainedSizeInBytes += size;
@@ -312,7 +312,7 @@ public class PageProcessor
         return projections;
     }
 
-    private static boolean isUnloadedLazyBlock(Block block)
+    private static boolean isNotLoadedLazyBlock(Block block)
     {
         return (block instanceof LazyBlock) && !((LazyBlock) block).isLoaded();
     }
