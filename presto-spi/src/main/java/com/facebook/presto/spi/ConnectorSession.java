@@ -44,4 +44,9 @@ public interface ConnectorSession
     boolean isLegacyTimestamp();
 
     <T> T getProperty(String name, Class<T> type);
+
+    default <T> T getSystemProperty(String name, Class<T> type)
+    {
+        throw new UnsupportedOperationException();
+    }
 }

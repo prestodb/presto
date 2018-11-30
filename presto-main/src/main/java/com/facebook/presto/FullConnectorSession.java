@@ -129,6 +129,12 @@ public class FullConnectorSession
     }
 
     @Override
+    public <T> T getSystemProperty(String name, Class<T> type)
+    {
+        return getSession().getSystemProperty(name, type);
+    }
+
+    @Override
     public String toString()
     {
         return toStringHelper(this)
