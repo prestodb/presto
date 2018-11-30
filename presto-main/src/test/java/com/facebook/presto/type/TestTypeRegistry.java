@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 import java.util.Set;
 
@@ -58,6 +59,7 @@ import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.Re2JRegexpType.RE2J_REGEXP;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -84,6 +86,14 @@ public class TestTypeRegistry
         catch (Throwable t) {
             fail("Expect to throw IllegalArgumentException, got " + t.getClass());
         }
+    }
+
+    @Test
+    public void testResolveCast()
+            throws Throwable
+    {
+        MethodHandle method = typeRegistry.resolveCast(VARCHAR, BIGINT);
+        assertEquals(method.invoke(utf8Slice("123")), 123L);
     }
 
     @Test

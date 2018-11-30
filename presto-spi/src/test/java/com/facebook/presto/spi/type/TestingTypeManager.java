@@ -92,4 +92,10 @@ public class TestingTypeManager
     {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public MethodHandle resolveCast(Type fromType, Type toType)
+    {
+        throw new UnsupportedOperationException();
+    }
 }
