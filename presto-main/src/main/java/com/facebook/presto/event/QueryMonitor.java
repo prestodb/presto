@@ -16,6 +16,7 @@ package com.facebook.presto.event;
 import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.eventlistener.DefaultQueryContext;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.Column;
 import com.facebook.presto.execution.ExecutionFailureInfo;
@@ -231,7 +232,7 @@ public class QueryMonitor
 
     private QueryContext createQueryContext(SessionRepresentation session, Optional<ResourceGroupId> resourceGroup)
     {
-        return new QueryContext(
+        return new DefaultQueryContext(
                 session.getUser(),
                 session.getPrincipal(),
                 session.getRemoteUserAddress(),
@@ -247,7 +248,8 @@ public class QueryMonitor
                 session.getResourceEstimates(),
                 serverAddress,
                 serverVersion,
-                environment);
+                environment,
+                sessionPropertyManager);
     }
 
     private Optional<String> createTextQueryPlan(QueryInfo queryInfo)
