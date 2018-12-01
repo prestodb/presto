@@ -105,6 +105,7 @@ public class MockQueryExecution
                 URI.create("http://test"),
                 ImmutableList.of(),
                 "SELECT 1",
+                Optional.empty(),
                 new QueryStats(
                         new DateTime(1),
                         new DateTime(2),

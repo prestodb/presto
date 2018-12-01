@@ -56,6 +56,7 @@ public class QueryInfo
     private final URI self;
     private final List<String> fieldNames;
     private final String query;
+    private final Optional<String> preparedQuery;
     private final QueryStats queryStats;
     private final Optional<String> setCatalog;
     private final Optional<String> setSchema;
@@ -87,6 +88,7 @@ public class QueryInfo
             @JsonProperty("self") URI self,
             @JsonProperty("fieldNames") List<String> fieldNames,
             @JsonProperty("query") String query,
+            @JsonProperty("preparedQuery") Optional<String> preparedQuery,
             @JsonProperty("queryStats") QueryStats queryStats,
             @JsonProperty("setCatalog") Optional<String> setCatalog,
             @JsonProperty("setSchema") Optional<String> setSchema,
@@ -122,6 +124,7 @@ public class QueryInfo
         requireNonNull(deallocatedPreparedStatements, "deallocatedPreparedStatements is null");
         requireNonNull(startedTransactionId, "startedTransactionId is null");
         requireNonNull(query, "query is null");
+        requireNonNull(preparedQuery, "preparedQuery is null");
         requireNonNull(outputStage, "outputStage is null");
         requireNonNull(inputs, "inputs is null");
         requireNonNull(output, "output is null");
@@ -136,6 +139,7 @@ public class QueryInfo
         this.self = self;
         this.fieldNames = ImmutableList.copyOf(fieldNames);
         this.query = query;
+        this.preparedQuery = preparedQuery;
         this.queryStats = queryStats;
         this.setCatalog = setCatalog;
         this.setSchema = setSchema;
@@ -170,6 +174,7 @@ public class QueryInfo
                 self,
                 ImmutableList.of(),
                 query,
+                Optional.empty(),
                 immediateFailureQueryStats(),
                 Optional.empty(),
                 Optional.empty(),
@@ -239,6 +244,12 @@ public class QueryInfo
     public String getQuery()
     {
         return query;
+    }
+
+    @JsonProperty
+    public Optional<String> getPreparedQuery()
+    {
+        return preparedQuery;
     }
 
     @JsonProperty

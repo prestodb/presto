@@ -34,6 +34,7 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -104,6 +105,7 @@ public class TestPrepareTask
         TransactionManager transactionManager = createTestTransactionManager();
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 sqlString,
+                Optional.empty(),
                 session,
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),

@@ -125,6 +125,7 @@ public class TestCommitTask
     {
         return QueryStateMachine.begin(
                 query,
+                Optional.empty(),
                 session,
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),

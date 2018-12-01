@@ -181,8 +181,11 @@ public class SqlQueryExecution
             requireNonNull(query, "query is null");
             requireNonNull(session, "session is null");
             requireNonNull(self, "self is null");
+            requireNonNull(preparedQuery, "preparedQuery is null");
+
             this.stateMachine = QueryStateMachine.begin(
                     query,
+                    preparedQuery.getPrepareSql(),
                     session,
                     self,
                     resourceGroup,
@@ -194,7 +197,6 @@ public class SqlQueryExecution
                     warningCollector);
 
             // analyze query
-            requireNonNull(preparedQuery, "preparedQuery is null");
             Analyzer analyzer = new Analyzer(
                     stateMachine.getSession(),
                     metadata,

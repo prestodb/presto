@@ -46,6 +46,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -180,6 +181,7 @@ public class TestSetSessionTask
         QualifiedName qualifiedPropName = QualifiedName.of(CATALOG_NAME, property);
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 format("set %s = 'old_value'", qualifiedPropName),
+                Optional.empty(),
                 TEST_SESSION,
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),

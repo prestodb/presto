@@ -77,6 +77,7 @@ public class TestClusterMemoryLeakDetector
                 true,
                 URI.create("1"),
                 "",
+                Optional.empty(),
                 new BasicQueryStats(
                         DateTime.parse("1991-09-06T05:00-05:30"),
                         DateTime.parse("1991-09-06T05:01-05:30"),

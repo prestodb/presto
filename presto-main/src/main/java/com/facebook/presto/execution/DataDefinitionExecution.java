@@ -311,11 +311,12 @@ public class DataDefinitionExecution<T extends Statement>
                 ResourceGroupId resourceGroup,
                 WarningCollector warningCollector)
         {
-            return createDataDefinitionExecution(query, session, resourceGroup, preparedQuery.getStatement(), preparedQuery.getParameters(), warningCollector);
+            return createDataDefinitionExecution(query, preparedQuery.getPrepareSql(), session, resourceGroup, preparedQuery.getStatement(), preparedQuery.getParameters(), warningCollector);
         }
 
         private <T extends Statement> DataDefinitionExecution<T> createDataDefinitionExecution(
                 String query,
+                Optional<String> preparedQuery,
                 Session session,
                 ResourceGroupId resourceGroup,
                 T statement,
@@ -328,6 +329,7 @@ public class DataDefinitionExecution<T extends Statement>
 
             QueryStateMachine stateMachine = QueryStateMachine.begin(
                     query,
+                    preparedQuery,
                     session,
                     locationFactory.createQueryLocation(session.getQueryId()),
                     resourceGroup,
