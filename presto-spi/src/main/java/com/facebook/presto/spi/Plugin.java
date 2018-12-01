@@ -19,10 +19,12 @@ import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
 import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.Type;
 
+import java.util.List;
 import java.util.Set;
 
 import static java.util.Collections.emptyList;
@@ -76,6 +78,14 @@ public interface Plugin
     }
 
     default Iterable<SessionPropertyConfigurationManagerFactory> getSessionPropertyConfigurationManagerFactories()
+    {
+        return emptyList();
+    }
+
+    /**
+     * @return the system properties for this plugin
+     */
+    default List<PropertyMetadata<?>> getPluginSessionProperties()
     {
         return emptyList();
     }

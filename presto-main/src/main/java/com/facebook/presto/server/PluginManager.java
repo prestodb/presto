@@ -18,6 +18,7 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.spi.Plugin;
@@ -28,6 +29,7 @@ import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
 import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.Type;
@@ -82,6 +84,7 @@ public class PluginManager
     private final BlockEncodingManager blockEncodingManager;
     private final SessionPropertyDefaults sessionPropertyDefaults;
     private final TypeRegistry typeRegistry;
+    private final SessionPropertyManager sessionPropertyManager;
     private final ArtifactResolver resolver;
     private final File installedPluginsDir;
     private final List<String> plugins;
@@ -100,7 +103,8 @@ public class PluginManager
             EventListenerManager eventListenerManager,
             BlockEncodingManager blockEncodingManager,
             SessionPropertyDefaults sessionPropertyDefaults,
-            TypeRegistry typeRegistry)
+            TypeRegistry typeRegistry,
+            SessionPropertyManager sessionPropertyManager)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -123,6 +127,7 @@ public class PluginManager
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
         this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
+        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
     }
 
     public void loadPlugins()
@@ -223,6 +228,11 @@ public class PluginManager
         for (EventListenerFactory eventListenerFactory : plugin.getEventListenerFactories()) {
             log.info("Registering event listener %s", eventListenerFactory.getName());
             eventListenerManager.addEventListenerFactory(eventListenerFactory);
+        }
+
+        for (PropertyMetadata<?> propertyMetadata : plugin.getPluginSessionProperties()) {
+            log.info("Registering plugin session property %s", propertyMetadata.getName());
+            sessionPropertyManager.addSystemSessionProperty(propertyMetadata);
         }
     }
 
