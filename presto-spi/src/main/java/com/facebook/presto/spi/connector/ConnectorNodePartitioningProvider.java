@@ -71,16 +71,16 @@ public interface ConnectorNodePartitioningProvider
         public static ConnectorBucketNodeMap createBucketNodeMap(Map<Integer, Node> bucketToNode)
         {
             requireNonNull(bucketToNode, "bucketToNode is null");
-            if (bucketToNode.isEmpty()) {
-                throw new IllegalArgumentException("bucketToNode is empty");
-            }
-
-            return new ConnectorBucketNodeMap(
-                    bucketToNode.keySet().stream()
-                            .mapToInt(Integer::intValue)
-                            .max()
-                            .getAsInt() + 1,
-                    Optional.of(bucketToNode));
+            int maxBucket = bucketToNode.keySet().stream()
+                    .mapToInt(Integer::intValue)
+                    .peek(bucket -> {
+                        if (bucket < 0) {
+                            throw new IllegalArgumentException("Bucket number must be positive: " + bucket);
+                        }
+                    })
+                    .max()
+                    .orElseThrow(() -> new IllegalArgumentException("bucketToNode is empty"));
+            return new ConnectorBucketNodeMap(maxBucket + 1, Optional.of(bucketToNode));
         }
 
         private ConnectorBucketNodeMap(int bucketCount, Optional<Map<Integer, Node>> bucketToNode)
