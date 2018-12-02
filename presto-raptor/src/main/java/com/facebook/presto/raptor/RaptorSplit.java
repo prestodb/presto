@@ -13,15 +13,20 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.raptor.storage.CompressionType;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -39,6 +44,8 @@ public class RaptorSplit
     private final List<HostAddress> addresses;
     private final TupleDomain<RaptorColumnHandle> effectivePredicate;
     private final OptionalLong transactionId;
+    private final Map<Long, Type> chunkColumnTypes;
+    private final Optional<CompressionType> compressionType;
 
     @JsonCreator
     public RaptorSplit(
@@ -46,9 +53,11 @@ public class RaptorSplit
             @JsonProperty("shardUuids") Set<UUID> shardUuids,
             @JsonProperty("bucketNumber") OptionalInt bucketNumber,
             @JsonProperty("effectivePredicate") TupleDomain<RaptorColumnHandle> effectivePredicate,
-            @JsonProperty("transactionId") OptionalLong transactionId)
+            @JsonProperty("transactionId") OptionalLong transactionId,
+            @JsonProperty("chunkColumnTypes") Map<Long, Type> chunkColumnTypes,
+            @JsonProperty("compressionType") Optional<CompressionType> compressionType)
     {
-        this(connectorId, shardUuids, bucketNumber, ImmutableList.of(), effectivePredicate, transactionId);
+        this(connectorId, shardUuids, bucketNumber, ImmutableList.of(), effectivePredicate, transactionId, chunkColumnTypes, compressionType);
     }
 
     public RaptorSplit(
@@ -56,9 +65,11 @@ public class RaptorSplit
             UUID shardUuid,
             List<HostAddress> addresses,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
-            OptionalLong transactionId)
+            OptionalLong transactionId,
+            Map<Long, Type> chunkColumnTypes,
+            Optional<CompressionType> compressionType)
     {
-        this(connectorId, ImmutableSet.of(shardUuid), OptionalInt.empty(), addresses, effectivePredicate, transactionId);
+        this(connectorId, ImmutableSet.of(shardUuid), OptionalInt.empty(), addresses, effectivePredicate, transactionId ,chunkColumnTypes, compressionType);
     }
 
     public RaptorSplit(
@@ -67,9 +78,11 @@ public class RaptorSplit
             int bucketNumber,
             HostAddress address,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
-            OptionalLong transactionId)
+            OptionalLong transactionId,
+            Map<Long, Type> chunkColumnTypes,
+            Optional<CompressionType> compressionType)
     {
-        this(connectorId, shardUuids, OptionalInt.of(bucketNumber), ImmutableList.of(address), effectivePredicate, transactionId);
+        this(connectorId, shardUuids, OptionalInt.of(bucketNumber), ImmutableList.of(address), effectivePredicate, transactionId ,chunkColumnTypes, compressionType);
     }
 
     private RaptorSplit(
@@ -78,7 +91,9 @@ public class RaptorSplit
             OptionalInt bucketNumber,
             List<HostAddress> addresses,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
-            OptionalLong transactionId)
+            OptionalLong transactionId,
+            Map<Long, Type> chunkColumnTypes,
+            Optional<CompressionType> compressionType)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.shardUuids = ImmutableSet.copyOf(requireNonNull(shardUuids, "shardUuid is null"));
@@ -86,6 +101,8 @@ public class RaptorSplit
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
         this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
+        this.chunkColumnTypes = ImmutableMap.copyOf(requireNonNull(chunkColumnTypes, "chunkColumnTypes is null"));
+        this.compressionType = requireNonNull(compressionType, "compressionType is null");
     }
 
     @Override
@@ -128,6 +145,19 @@ public class RaptorSplit
     public OptionalLong getTransactionId()
     {
         return transactionId;
+    }
+
+
+    @JsonProperty
+    public Map<Long, Type> getChunkColumnTypes()
+    {
+        return chunkColumnTypes;
+    }
+
+    @JsonProperty
+    public Optional<CompressionType> getCompressionType()
+    {
+        return compressionType;
     }
 
     @Override

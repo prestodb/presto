@@ -106,7 +106,7 @@ public class TestShardWriter
                 .row(456L, "bye \u2603", wrappedBuffer(bytes3), Double.NaN, false, arrayBlockOf(BIGINT), mapBlockOf(createVarcharType(5), BOOLEAN, "k3", false), arrayBlockOf(arrayType, arrayBlockOf(BIGINT)));
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(new EmptyClassLoader());
-                OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
+                OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file, typeManager)) {
             writer.appendPages(rowPagesBuilder.build());
         }
 
@@ -180,7 +180,7 @@ public class TestShardWriter
             assertEquals(reader.getReaderPosition(), 3);
             assertEquals(reader.getFilePosition(), reader.getFilePosition());
 
-            OrcFileMetadata orcFileMetadata = METADATA_CODEC.fromJson(reader.getUserMetadata().get(OrcFileMetadata.KEY).getBytes());
+            OrcFileMetadata orcFileMetadata = OrcFileMetadata.from(reader.getUserMetadata());
             assertEquals(orcFileMetadata, new OrcFileMetadata(ImmutableMap.<Long, TypeSignature>builder()
                     .put(1L, BIGINT.getTypeSignature())
                     .put(2L, createVarcharType(10).getTypeSignature())
@@ -207,7 +207,7 @@ public class TestShardWriter
 
         File file = new File(directory, System.nanoTime() + ".orc");
 
-        try (OrcFileWriter ignored = new OrcFileWriter(columnIds, columnTypes, file)) {
+        try (OrcFileWriter ignored = new OrcFileWriter(columnIds, columnTypes, file, new TypeRegistry())) {
             // no rows
         }
 

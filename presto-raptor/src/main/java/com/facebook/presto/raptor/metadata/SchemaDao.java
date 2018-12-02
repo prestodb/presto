@@ -36,6 +36,7 @@ public interface SchemaDao
             "  distribution_id BIGINT,\n" +
             "  create_time BIGINT NOT NULL,\n" +
             "  update_time BIGINT NOT NULL,\n" +
+            "  compression_type VARCHAR(16) NOT NULL,\n" +
             "  table_version BIGINT NOT NULL,\n" +
             "  shard_count BIGINT NOT NULL,\n" +
             "  row_count BIGINT NOT NULL,\n" +

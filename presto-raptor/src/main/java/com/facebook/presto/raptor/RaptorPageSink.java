@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.metadata.ShardInfo;
+import com.facebook.presto.raptor.storage.CompressionType;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.storage.organization.TemporalFunction;
 import com.facebook.presto.raptor.util.PageBuffer;
@@ -63,6 +64,7 @@ public class RaptorPageSink
     private final List<SortOrder> sortOrders;
     private final OptionalInt bucketCount;
     private final int[] bucketFields;
+    private final CompressionType compressionType;
     private final long maxBufferBytes;
     private final OptionalInt temporalColumnIndex;
     private final Optional<Type> temporalColumnType;
@@ -82,6 +84,7 @@ public class RaptorPageSink
             OptionalInt bucketCount,
             List<Long> bucketColumnIds,
             Optional<RaptorColumnHandle> temporalColumnHandle,
+            CompressionType compressionType,
             DataSize maxBufferSize)
     {
         this.transactionId = transactionId;
@@ -90,6 +93,7 @@ public class RaptorPageSink
         this.columnIds = ImmutableList.copyOf(requireNonNull(columnIds, "columnIds is null"));
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         this.storageManager = requireNonNull(storageManager, "storageManager is null");
+        this.compressionType = requireNonNull(compressionType, "compressionType is null");
         this.maxBufferBytes = requireNonNull(maxBufferSize, "maxBufferSize is null").toBytes();
 
         this.sortFields = ImmutableList.copyOf(sortColumnIds.stream().map(columnIds::indexOf).collect(toList()));
@@ -163,7 +167,7 @@ public class RaptorPageSink
     {
         return new PageBuffer(
                 maxBufferBytes,
-                storageManager.createStoragePageSink(transactionId, bucketNumber, columnIds, columnTypes, true),
+                storageManager.createStoragePageSink(transactionId, bucketNumber, columnIds, columnTypes, true, compressionType),
                 columnTypes,
                 sortFields,
                 sortOrders,

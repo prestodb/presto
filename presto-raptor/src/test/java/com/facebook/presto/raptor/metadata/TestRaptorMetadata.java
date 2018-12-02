@@ -21,6 +21,7 @@ import com.facebook.presto.raptor.RaptorMetadata;
 import com.facebook.presto.raptor.RaptorPartitioningHandle;
 import com.facebook.presto.raptor.RaptorSessionProperties;
 import com.facebook.presto.raptor.RaptorTableHandle;
+import com.facebook.presto.raptor.storage.CompressionType;
 import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -138,6 +139,7 @@ public class TestRaptorMetadata
     {
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
         metadata.createTable(SESSION, buildTable(ImmutableMap.of(), tableMetadataBuilder(DEFAULT_TEST_ORDERS)
+                        .property("compression_type", CompressionType.SNAPPY)
                         .column("orderkey", BIGINT)
                         .column("price", BIGINT)),
                 false);
@@ -803,6 +805,7 @@ public class TestRaptorMetadata
     private static ConnectorTableMetadata getOrdersTable(Map<String, Object> properties)
     {
         return buildTable(properties, tableMetadataBuilder(DEFAULT_TEST_ORDERS)
+                .property("compression_type", CompressionType.SNAPPY)
                 .column("orderkey", BIGINT)
                 .column("custkey", BIGINT)
                 .column("totalprice", DOUBLE)
@@ -812,6 +815,7 @@ public class TestRaptorMetadata
     private static ConnectorTableMetadata getLineItemsTable(Map<String, Object> properties)
     {
         return buildTable(properties, tableMetadataBuilder(DEFAULT_TEST_LINEITEMS)
+                .property("compression_type", CompressionType.SNAPPY)
                 .column("orderkey", BIGINT)
                 .column("partkey", BIGINT)
                 .column("quantity", DOUBLE)

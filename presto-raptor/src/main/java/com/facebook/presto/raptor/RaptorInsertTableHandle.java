@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.raptor.storage.CompressionType;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
@@ -41,6 +42,7 @@ public class RaptorInsertTableHandle
     private final OptionalInt bucketCount;
     private final List<RaptorColumnHandle> bucketColumnHandles;
     private final Optional<RaptorColumnHandle> temporalColumnHandle;
+    private final CompressionType compressionType;
 
     @JsonCreator
     public RaptorInsertTableHandle(
@@ -54,7 +56,8 @@ public class RaptorInsertTableHandle
             @JsonProperty("sortOrders") List<SortOrder> sortOrders,
             @JsonProperty("bucketCount") OptionalInt bucketCount,
             @JsonProperty("bucketColumnHandles") List<RaptorColumnHandle> bucketColumnHandles,
-            @JsonProperty("temporalColumnHandle") Optional<RaptorColumnHandle> temporalColumnHandle)
+            @JsonProperty("temporalColumnHandle") Optional<RaptorColumnHandle> temporalColumnHandle,
+            @JsonProperty("compressionType") CompressionType compressionType)
     {
         checkArgument(tableId > 0, "tableId must be greater than zero");
 
@@ -70,6 +73,7 @@ public class RaptorInsertTableHandle
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
         this.bucketColumnHandles = ImmutableList.copyOf(requireNonNull(bucketColumnHandles, "bucketColumnHandles is null"));
         this.temporalColumnHandle = requireNonNull(temporalColumnHandle, "temporalColumnHandle is null");
+        this.compressionType = requireNonNull(compressionType, "compressionType is null");
     }
 
     @JsonProperty
@@ -136,6 +140,12 @@ public class RaptorInsertTableHandle
     public Optional<RaptorColumnHandle> getTemporalColumnHandle()
     {
         return temporalColumnHandle;
+    }
+
+    @JsonProperty
+    public CompressionType getCompressionType()
+    {
+        return compressionType;
     }
 
     @Override

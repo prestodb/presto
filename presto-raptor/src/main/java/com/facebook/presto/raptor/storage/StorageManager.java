@@ -19,6 +19,8 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
@@ -31,9 +33,11 @@ public interface StorageManager
             List<Long> columnIds,
             List<Type> columnTypes,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
-            ReaderAttributes readerAttributes)
+            ReaderAttributes readerAttributes,
+            Map<Long, Type> chunkColumnTypes,
+            Optional<CompressionType> compressionType)
     {
-        return getPageSource(shardUuid, bucketNumber, columnIds, columnTypes, effectivePredicate, readerAttributes, OptionalLong.empty());
+        return getPageSource(shardUuid, bucketNumber, columnIds, columnTypes, effectivePredicate, readerAttributes, OptionalLong.empty(), chunkColumnTypes, compressionType);
     }
 
     ConnectorPageSource getPageSource(
@@ -43,12 +47,15 @@ public interface StorageManager
             List<Type> columnTypes,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
             ReaderAttributes readerAttributes,
-            OptionalLong transactionId);
+            OptionalLong transactionId,
+            Map<Long, Type> chunkColumnTypes,
+            Optional<CompressionType> compressionType);
 
     StoragePageSink createStoragePageSink(
             long transactionId,
             OptionalInt bucketNumber,
             List<Long> columnIds,
             List<Type> columnTypes,
-            boolean checkSpace);
+            boolean checkSpace,
+            CompressionType compressionType);
 }

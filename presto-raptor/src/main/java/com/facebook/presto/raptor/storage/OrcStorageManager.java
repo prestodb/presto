@@ -19,6 +19,7 @@ import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcRecordReader;
+import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.metadata.OrcType;
@@ -32,6 +33,8 @@ import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardRecorder;
 import com.facebook.presto.raptor.storage.OrcFileRewriter.OrcFileInfo;
+import com.facebook.presto.raptor.storage.organization.PageIndexInfo;
+import com.facebook.presto.raptor.storage.organization.SortedRowSource;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Page;
@@ -74,6 +77,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -94,6 +98,7 @@ import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_LOCAL_DISK_FULL;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_TIMEOUT;
+import static com.facebook.presto.raptor.storage.OrcFileRewriter.rewrite;
 import static com.facebook.presto.raptor.storage.OrcPageSource.BUCKET_NUMBER_COLUMN;
 import static com.facebook.presto.raptor.storage.OrcPageSource.NULL_COLUMN;
 import static com.facebook.presto.raptor.storage.OrcPageSource.ROWID_COLUMN;
@@ -109,6 +114,7 @@ import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.collect.Maps.transformValues;
 import static io.airlift.concurrent.MoreFutures.allAsList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -134,6 +140,7 @@ public class OrcStorageManager
     private static final DataSize HUGE_MAX_READ_BLOCK_SIZE = new DataSize(1, PETABYTE);
     private static final JsonCodec<OrcFileMetadata> METADATA_CODEC = jsonCodec(OrcFileMetadata.class);
 
+    private final OrcWriterStats stats = new OrcWriterStats();
     private final String nodeId;
     private final StorageService storageService;
     private final Optional<BackupStore> backupStore;
@@ -228,7 +235,9 @@ public class OrcStorageManager
             List<Type> columnTypes,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
             ReaderAttributes readerAttributes,
-            OptionalLong transactionId)
+            OptionalLong transactionId,
+            Map<Long, Type> chunkColumnTypes,
+            Optional<CompressionType> compressionType)
     {
         OrcDataSource dataSource = openShard(shardUuid, readerAttributes);
 
@@ -263,7 +272,7 @@ public class OrcStorageManager
 
             Optional<ShardRewriter> shardRewriter = Optional.empty();
             if (transactionId.isPresent()) {
-                shardRewriter = Optional.of(createShardRewriter(transactionId.getAsLong(), bucketNumber, shardUuid));
+                shardRewriter = Optional.of(createShardRewriter(transactionId.getAsLong(), bucketNumber, shardUuid, chunkColumnTypes, compressionType));
             }
 
             return new OrcPageSource(shardRewriter, recordReader, dataSource, columnIds, columnTypes, columnIndexes.build(), shardUuid, bucketNumber, systemMemoryUsage);
@@ -293,21 +302,21 @@ public class OrcStorageManager
     }
 
     @Override
-    public StoragePageSink createStoragePageSink(long transactionId, OptionalInt bucketNumber, List<Long> columnIds, List<Type> columnTypes, boolean checkSpace)
+    public StoragePageSink createStoragePageSink(long transactionId, OptionalInt bucketNumber, List<Long> columnIds, List<Type> columnTypes, boolean checkSpace, CompressionType compressionType)
     {
         if (checkSpace && storageService.getAvailableBytes() < minAvailableSpace.toBytes()) {
             throw new PrestoException(RAPTOR_LOCAL_DISK_FULL, "Local disk is full on node " + nodeId);
         }
-        return new OrcStoragePageSink(transactionId, columnIds, columnTypes, bucketNumber);
+        return new OrcStoragePageSink(transactionId, columnIds, columnTypes, bucketNumber, compressionType);
     }
 
-    private ShardRewriter createShardRewriter(long transactionId, OptionalInt bucketNumber, UUID shardUuid)
+    private ShardRewriter createShardRewriter(long transactionId, OptionalInt bucketNumber, UUID shardUuid, Map<Long, Type> chunkColumnTypes, Optional<CompressionType> compressionType)
     {
         return rowsToDelete -> {
             if (rowsToDelete.isEmpty()) {
                 return completedFuture(ImmutableList.of());
             }
-            return supplyAsync(() -> rewriteShard(transactionId, bucketNumber, shardUuid, rowsToDelete), deletionExecutor);
+            return supplyAsync(() -> rewriteShard(transactionId, bucketNumber, shardUuid, rowsToDelete, chunkColumnTypes, compressionType), deletionExecutor);
         };
     }
 
@@ -380,8 +389,8 @@ public class OrcStorageManager
             OrcReader reader = new OrcReader(dataSource, ORC, defaultReaderAttributes.getMaxMergeDistance(), defaultReaderAttributes.getMaxReadSize(), defaultReaderAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE);
 
             ImmutableList.Builder<ColumnStats> list = ImmutableList.builder();
-            for (ColumnInfo info : getColumnInfo(reader)) {
-                computeColumnStats(reader, info.getColumnId(), info.getType()).ifPresent(list::add);
+            for (Map.Entry<Long, Type> entry : getColumnTypes(reader).entrySet()) {
+                computeColumnStats(reader, entry.getKey(), entry.getValue()).ifPresent(list::add);
             }
             return list.build();
         }
@@ -391,7 +400,7 @@ public class OrcStorageManager
     }
 
     @VisibleForTesting
-    Collection<Slice> rewriteShard(long transactionId, OptionalInt bucketNumber, UUID shardUuid, BitSet rowsToDelete)
+    Collection<Slice> rewriteShard(long transactionId, OptionalInt bucketNumber, UUID shardUuid, BitSet rowsToDelete, Map<Long, Type> columnTypes, Optional<CompressionType> compressionType)
     {
         if (rowsToDelete.isEmpty()) {
             return ImmutableList.of();
@@ -401,7 +410,15 @@ public class OrcStorageManager
         File input = storageService.getStorageFile(shardUuid);
         File output = storageService.getStagingFile(newShardUuid);
 
-        OrcFileInfo info = rewriteFile(input, output, rowsToDelete);
+        OrcFileInfo info = rewrite(
+                input,
+                output,
+                columnTypes,
+                compressionType,
+                rowsToDelete,
+                defaultReaderAttributes,
+                typeManager,
+                stats);
         long rowCount = info.getRowCount();
 
         if (rowCount == 0) {
@@ -430,14 +447,9 @@ public class OrcStorageManager
         return ImmutableList.of(Slices.wrappedBuffer(SHARD_DELTA_CODEC.toJsonBytes(delta)));
     }
 
-    private static OrcFileInfo rewriteFile(File input, File output, BitSet rowsToDelete)
+    private Map<Long, Type> getColumnTypes(OrcReader reader)
     {
-        try {
-            return OrcFileRewriter.rewrite(input, output, rowsToDelete);
-        }
-        catch (IOException e) {
-            throw new PrestoException(RAPTOR_ERROR, "Failed to rewrite shard file: " + input, e);
-        }
+        return ImmutableMap.copyOf(transformValues(OrcFileMetadata.from(reader).getColumnTypes(), typeManager::getType));
     }
 
     private List<ColumnInfo> getColumnInfo(OrcReader reader)
@@ -558,6 +570,7 @@ public class OrcStorageManager
         private final List<Long> columnIds;
         private final List<Type> columnTypes;
         private final OptionalInt bucketNumber;
+        private final CompressionType compressionType;
 
         private final List<File> stagingFiles = new ArrayList<>();
         private final List<ShardInfo> shards = new ArrayList<>();
@@ -567,12 +580,13 @@ public class OrcStorageManager
         private OrcFileWriter writer;
         private UUID shardUuid;
 
-        public OrcStoragePageSink(long transactionId, List<Long> columnIds, List<Type> columnTypes, OptionalInt bucketNumber)
+        public OrcStoragePageSink(long transactionId, List<Long> columnIds, List<Type> columnTypes, OptionalInt bucketNumber, CompressionType compressionType)
         {
             this.transactionId = transactionId;
             this.columnIds = ImmutableList.copyOf(requireNonNull(columnIds, "columnIds is null"));
             this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
             this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
+            this.compressionType = requireNonNull(compressionType, "compressionType is null");
         }
 
         @Override
@@ -587,6 +601,13 @@ public class OrcStorageManager
         {
             createWriterIfNecessary();
             writer.appendPages(inputPages, pageIndexes, positionIndexes);
+        }
+
+        @Override
+        public void appendPageIndexInfos(List<PageIndexInfo> pageIndexInfo)
+        {
+            createWriterIfNecessary();
+            writer.appendPageIndexInfos(pageIndexInfo);
         }
 
         @Override
@@ -677,7 +698,7 @@ public class OrcStorageManager
                 File stagingFile = storageService.getStagingFile(shardUuid);
                 storageService.createParents(stagingFile);
                 stagingFiles.add(stagingFile);
-                writer = new OrcFileWriter(columnIds, columnTypes, stagingFile);
+                writer = new OrcFileWriter(columnIds, columnTypes, stagingFile, typeManager, compressionType);
             }
         }
     }

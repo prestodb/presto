@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.facebook.presto.raptor.storage.CompressionType;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -26,12 +27,14 @@ public final class TableMetadata
     private final long tableId;
     private final List<ColumnInfo> columns;
     private final List<Long> sortColumnIds;
+    private final CompressionType compressionType;
 
-    public TableMetadata(long tableId, List<ColumnInfo> columns, List<Long> sortColumnIds)
+    public TableMetadata(long tableId, List<ColumnInfo> columns, List<Long> sortColumnIds, CompressionType compressionType)
     {
         this.tableId = tableId;
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.sortColumnIds = ImmutableList.copyOf(requireNonNull(sortColumnIds, "sortColumnIds is null"));
+        this.compressionType = requireNonNull(compressionType, "compressionType is null");
     }
 
     public long getTableId()
@@ -47,6 +50,11 @@ public final class TableMetadata
     public List<Long> getSortColumnIds()
     {
         return sortColumnIds;
+    }
+
+    public CompressionType getCompressionType()
+    {
+        return compressionType;
     }
 
     @Override

@@ -22,6 +22,7 @@ import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardMetadata;
 import com.facebook.presto.raptor.metadata.Table;
 import com.facebook.presto.raptor.metadata.TableColumn;
+import com.facebook.presto.raptor.storage.CompressionType;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.type.Type;
@@ -110,6 +111,7 @@ public class TestShardOrganizerUtil
                         .column("orderstatus", createVarcharType(3))
                         .property("ordering", ImmutableList.of("orderstatus", "orderkey"))
                         .property("temporal_column", "orderdate")
+                        .property("compression_type", CompressionType.SNAPPY)
                         .build(),
                 false);
         Table tableInfo = metadataDao.getTableInformation(tableName.getSchemaName(), tableName.getTableName());

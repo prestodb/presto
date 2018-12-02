@@ -71,7 +71,7 @@ final class OrcTestingUtil
     {
         OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
 
-        assertEquals(orcReader.getColumnNames().size(), 0);
+        assertEquals(orcReader.getColumnNames().size(), 1);
 
         return createRecordReader(orcReader, ImmutableMap.of());
     }

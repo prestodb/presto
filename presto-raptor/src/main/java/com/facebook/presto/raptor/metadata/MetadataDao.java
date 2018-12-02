@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.metadata.Table.TableMapper;
+import com.facebook.presto.raptor.storage.CompressionType;
 import com.facebook.presto.spi.SchemaTableName;
 import org.skife.jdbi.v2.sqlobject.Bind;
 import org.skife.jdbi.v2.sqlobject.GetGeneratedKeys;
@@ -27,7 +28,7 @@ import java.util.Set;
 public interface MetadataDao
 {
     String TABLE_INFORMATION_SELECT = "" +
-            "SELECT t.table_id, t.distribution_id, d.distribution_name, d.bucket_count, t.temporal_column_id, t.organization_enabled\n" +
+            "SELECT t.table_id, t.distribution_id, d.distribution_name, d.bucket_count, t.temporal_column_id, t.organization_enabled, t.compression_type\n" +
             "FROM tables t\n" +
             "LEFT JOIN distributions d ON (t.distribution_id = d.distribution_id)\n";
 
@@ -114,11 +115,11 @@ public interface MetadataDao
 
     @SqlUpdate("INSERT INTO tables (\n" +
             "  schema_name, table_name, compaction_enabled, organization_enabled, distribution_id,\n" +
-            "  create_time, update_time, table_version,\n" +
+            "  create_time, update_time, compression_type, table_version,\n" +
             "  shard_count, row_count, compressed_size, uncompressed_size)\n" +
             "VALUES (\n" +
             "  :schemaName, :tableName, :compactionEnabled, :organizationEnabled, :distributionId,\n" +
-            "  :createTime, :createTime, 0,\n" +
+            "  :createTime, :createTime, :compression_type, 0,\n" +
             "  0, 0, 0, 0)\n")
     @GetGeneratedKeys
     long insertTable(
@@ -127,7 +128,8 @@ public interface MetadataDao
             @Bind("compactionEnabled") boolean compactionEnabled,
             @Bind("organizationEnabled") boolean organizationEnabled,
             @Bind("distributionId") Long distributionId,
-            @Bind("createTime") long createTime);
+            @Bind("createTime") long createTime,
+            @Bind("compression_type") String compressionType);
 
     @SqlUpdate("UPDATE tables SET\n" +
             "  update_time = :updateTime\n" +

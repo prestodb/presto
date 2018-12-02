@@ -15,13 +15,12 @@ package com.facebook.presto.raptor.storage.organization;
 
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.ShardInfo;
+import com.facebook.presto.raptor.storage.CompressionType;
 import com.facebook.presto.raptor.storage.ReaderAttributes;
-import com.facebook.presto.raptor.storage.Row;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.storage.StoragePageSink;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -33,18 +32,17 @@ import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
-import java.io.Closeable;
 import java.io.IOException;
-import java.util.Iterator;
 import java.util.List;
-import java.util.NoSuchElementException;
+import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
-import static com.facebook.presto.raptor.storage.Row.extractRow;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.units.Duration.nanosSince;
@@ -70,18 +68,19 @@ public final class ShardCompactor
         this.readerAttributes = requireNonNull(readerAttributes, "readerAttributes is null");
     }
 
-    public List<ShardInfo> compact(long transactionId, OptionalInt bucketNumber, Set<UUID> uuids, List<ColumnInfo> columns)
+    public List<ShardInfo> compact(long transactionId, OptionalInt bucketNumber, Set<UUID> uuids, List<ColumnInfo> columns, CompressionType compressionType)
             throws IOException
     {
         long start = System.nanoTime();
         List<Long> columnIds = columns.stream().map(ColumnInfo::getColumnId).collect(toList());
         List<Type> columnTypes = columns.stream().map(ColumnInfo::getType).collect(toList());
+        Map<Long, Type> chunkColumnTypes = columns.stream().collect(Collectors.toMap(ColumnInfo::getColumnId, ColumnInfo::getType));
 
-        StoragePageSink storagePageSink = storageManager.createStoragePageSink(transactionId, bucketNumber, columnIds, columnTypes, false);
+        StoragePageSink storagePageSink = storageManager.createStoragePageSink(transactionId, bucketNumber, columnIds, columnTypes, false, compressionType);
 
         List<ShardInfo> shardInfos;
         try {
-            shardInfos = compact(storagePageSink, bucketNumber, uuids, columnIds, columnTypes);
+            shardInfos = compact(storagePageSink, bucketNumber, uuids, columnIds, columnTypes, chunkColumnTypes );
         }
         catch (IOException | RuntimeException e) {
             storagePageSink.rollback();
@@ -92,11 +91,11 @@ public final class ShardCompactor
         return shardInfos;
     }
 
-    private List<ShardInfo> compact(StoragePageSink storagePageSink, OptionalInt bucketNumber, Set<UUID> uuids, List<Long> columnIds, List<Type> columnTypes)
+    private List<ShardInfo> compact(StoragePageSink storagePageSink, OptionalInt bucketNumber, Set<UUID> uuids, List<Long> columnIds, List<Type> columnTypes, Map<Long, Type> chunkColumnTypes )
             throws IOException
     {
         for (UUID uuid : uuids) {
-            try (ConnectorPageSource pageSource = storageManager.getPageSource(uuid, bucketNumber, columnIds, columnTypes, TupleDomain.all(), readerAttributes)) {
+            try (ConnectorPageSource pageSource = storageManager.getPageSource(uuid, bucketNumber, columnIds, columnTypes, TupleDomain.all(), readerAttributes, chunkColumnTypes, Optional.empty())) {
                 while (!pageSource.isFinished()) {
                     Page page = pageSource.getNextPage();
                     if (isNullOrEmptyPage(page)) {
@@ -112,7 +111,7 @@ public final class ShardCompactor
         return getFutureValue(storagePageSink.commit());
     }
 
-    public List<ShardInfo> compactSorted(long transactionId, OptionalInt bucketNumber, Set<UUID> uuids, List<ColumnInfo> columns, List<Long> sortColumnIds, List<SortOrder> sortOrders)
+    public List<ShardInfo> compactSorted(long transactionId, OptionalInt bucketNumber, Set<UUID> uuids, List<ColumnInfo> columns, List<Long> sortColumnIds, CompressionType compressionType, List<SortOrder> sortOrders)
             throws IOException
     {
         checkArgument(sortColumnIds.size() == sortOrders.size(), "sortColumnIds and sortOrders must be of the same size");
@@ -121,6 +120,7 @@ public final class ShardCompactor
 
         List<Long> columnIds = columns.stream().map(ColumnInfo::getColumnId).collect(toList());
         List<Type> columnTypes = columns.stream().map(ColumnInfo::getType).collect(toList());
+        Map<Long, Type> chunkColumnTypes = columns.stream().collect(Collectors.toMap(ColumnInfo::getColumnId, ColumnInfo::getType));
 
         checkArgument(columnIds.containsAll(sortColumnIds), "sortColumnIds must be a subset of columnIds");
 
@@ -129,27 +129,26 @@ public final class ShardCompactor
                 .collect(toList());
 
         Queue<SortedRowSource> rowSources = new PriorityQueue<>();
-        StoragePageSink outputPageSink = storageManager.createStoragePageSink(transactionId, bucketNumber, columnIds, columnTypes, false);
+        StoragePageSink outputPageSink = storageManager.createStoragePageSink(transactionId, bucketNumber, columnIds, columnTypes, false, compressionType);
         try {
             for (UUID uuid : uuids) {
-                ConnectorPageSource pageSource = storageManager.getPageSource(uuid, bucketNumber, columnIds, columnTypes, TupleDomain.all(), readerAttributes);
+                ConnectorPageSource pageSource = storageManager.getPageSource(uuid, bucketNumber, columnIds, columnTypes, TupleDomain.all(), readerAttributes, chunkColumnTypes, Optional.empty());
                 SortedRowSource rowSource = new SortedRowSource(pageSource, columnTypes, sortIndexes, sortOrders);
                 rowSources.add(rowSource);
             }
             while (!rowSources.isEmpty()) {
+                ImmutableList.Builder<PageIndexInfo> pageIndexInfoBuilder = ImmutableList.builder();
                 SortedRowSource rowSource = rowSources.poll();
                 if (!rowSource.hasNext()) {
                     // rowSource is empty, close it
                     rowSource.close();
                     continue;
                 }
-
-                outputPageSink.appendRow(rowSource.next());
-
+                pageIndexInfoBuilder.add(rowSource.next());
+                outputPageSink.appendPageIndexInfos(pageIndexInfoBuilder.build());
                 if (outputPageSink.isFull()) {
                     outputPageSink.flush();
                 }
-
                 rowSources.add(rowSource);
             }
             outputPageSink.flush();
@@ -168,120 +167,7 @@ public final class ShardCompactor
         }
     }
 
-    private static class SortedRowSource
-            implements Iterator<Row>, Comparable<SortedRowSource>, Closeable
-    {
-        private final ConnectorPageSource pageSource;
-        private final List<Type> columnTypes;
-        private final List<Integer> sortIndexes;
-        private final List<SortOrder> sortOrders;
-
-        private Page currentPage;
-        private int currentPosition;
-
-        public SortedRowSource(ConnectorPageSource pageSource, List<Type> columnTypes, List<Integer> sortIndexes, List<SortOrder> sortOrders)
-        {
-            this.pageSource = requireNonNull(pageSource, "pageSource is null");
-            this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
-            this.sortIndexes = ImmutableList.copyOf(requireNonNull(sortIndexes, "sortIndexes is null"));
-            this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
-
-            currentPage = pageSource.getNextPage();
-            currentPosition = 0;
-        }
-
-        @Override
-        public boolean hasNext()
-        {
-            if (hasMorePositions(currentPage, currentPosition)) {
-                return true;
-            }
-
-            Page page = getNextPage(pageSource);
-            if (isNullOrEmptyPage(page)) {
-                return false;
-            }
-            currentPage = page.getLoadedPage();
-            currentPosition = 0;
-            return true;
-        }
-
-        private static Page getNextPage(ConnectorPageSource pageSource)
-        {
-            Page page = null;
-            while (isNullOrEmptyPage(page) && !pageSource.isFinished()) {
-                page = pageSource.getNextPage();
-                if (page != null) {
-                    page = page.getLoadedPage();
-                }
-            }
-            return page;
-        }
-
-        @Override
-        public Row next()
-        {
-            if (!hasNext()) {
-                throw new NoSuchElementException();
-            }
-
-            Row row = extractRow(currentPage, currentPosition, columnTypes);
-            currentPosition++;
-            return row;
-        }
-
-        @Override
-        public int compareTo(SortedRowSource other)
-        {
-            if (!hasNext()) {
-                return 1;
-            }
-
-            if (!other.hasNext()) {
-                return -1;
-            }
-
-            for (int i = 0; i < sortIndexes.size(); i++) {
-                int channel = sortIndexes.get(i);
-                Type type = columnTypes.get(channel);
-
-                Block leftBlock = currentPage.getBlock(channel);
-                int leftBlockPosition = currentPosition;
-
-                Block rightBlock = other.currentPage.getBlock(channel);
-                int rightBlockPosition = other.currentPosition;
-
-                int compare = sortOrders.get(i).compareBlockValue(type, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
-                if (compare != 0) {
-                    return compare;
-                }
-            }
-            return 0;
-        }
-
-        private static boolean hasMorePositions(Page currentPage, int currentPosition)
-        {
-            return currentPage != null && currentPosition < currentPage.getPositionCount();
-        }
-
-        void closeQuietly()
-        {
-            try {
-                close();
-            }
-            catch (IOException ignored) {
-            }
-        }
-
-        @Override
-        public void close()
-                throws IOException
-        {
-            pageSource.close();
-        }
-    }
-
-    private static boolean isNullOrEmptyPage(Page nextPage)
+    public static boolean isNullOrEmptyPage(Page nextPage)
     {
         return nextPage == null || nextPage.getPositionCount() == 0;
     }

@@ -24,6 +24,7 @@ import com.facebook.presto.raptor.RaptorSplitManager;
 import com.facebook.presto.raptor.RaptorTableHandle;
 import com.facebook.presto.raptor.RaptorTableLayoutHandle;
 import com.facebook.presto.raptor.RaptorTransactionHandle;
+import com.facebook.presto.raptor.storage.CompressionType;
 import com.facebook.presto.raptor.util.DaoSupplier;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -56,6 +57,7 @@ import java.util.UUID;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.shardInfo;
+import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
@@ -79,6 +81,7 @@ public class TestRaptorSplitManager
             .column("ds", createVarcharType(10))
             .column("foo", createVarcharType(10))
             .column("bar", BigintType.BIGINT)
+            .property("compression_type", CompressionType.SNAPPY)
             .build();
 
     private Handle dummyHandle;
@@ -88,6 +91,7 @@ public class TestRaptorSplitManager
     private ConnectorTableHandle tableHandle;
     private ShardManager shardManager;
     private long tableId;
+    private MetadataDao metadataDao;
 
     @BeforeMethod
     public void setup()
@@ -112,6 +116,7 @@ public class TestRaptorSplitManager
 
         metadata.createTable(SESSION, TEST_TABLE, false);
         tableHandle = metadata.getTableHandle(SESSION, TEST_TABLE.getTable());
+        metadataDao = onDemandDao(dbi, MetadataDao.class);
 
         List<ShardInfo> shards = ImmutableList.<ShardInfo>builder()
                 .add(shardInfo(UUID.randomUUID(), nodeName))
@@ -130,7 +135,7 @@ public class TestRaptorSplitManager
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty(), 0);
 
-        raptorSplitManager = new RaptorSplitManager(connectorId, nodeSupplier, shardManager, false);
+        raptorSplitManager = new RaptorSplitManager(connectorId, nodeSupplier, shardManager, false, metadataDao);
     }
 
     @AfterMethod
@@ -176,7 +181,7 @@ public class TestRaptorSplitManager
         NodeSupplier nodeSupplier = nodeManager::getWorkerNodes;
         PrestoNode node = new PrestoNode(UUID.randomUUID().toString(), new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, false);
         nodeManager.addNode(node);
-        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(connectorId, nodeSupplier, shardManager, true);
+        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(connectorId, nodeSupplier, shardManager, true, metadataDao);
 
         deleteShardNodes();
 
@@ -191,7 +196,7 @@ public class TestRaptorSplitManager
     {
         deleteShardNodes();
 
-        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), ImmutableSet::of, shardManager, true);
+        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), ImmutableSet::of, shardManager, true, metadataDao);
         ConnectorTableLayoutResult layout = getOnlyElement(metadata.getTableLayouts(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty()));
         ConnectorSplitSource splitSource = getSplits(raptorSplitManagerWithBackup, layout);
         getSplits(splitSource, 1000);
