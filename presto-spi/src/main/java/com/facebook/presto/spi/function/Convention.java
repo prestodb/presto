@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.spi.function;
 
-import com.facebook.presto.spi.InvocationConvention;
+import com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention;
+import com.facebook.presto.spi.function.InvocationConvention.InvocationReturnConvention;
 
 public @interface Convention
 {
-    InvocationConvention.InvocationArgumentConvention[] arguments();
+    InvocationArgumentConvention[] arguments();
 
-    InvocationConvention.InvocationReturnConvention result();
+    InvocationReturnConvention result();
 
     boolean session() default false;
 

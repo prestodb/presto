@@ -15,8 +15,8 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
-import com.facebook.presto.spi.InvocationConvention;
-import com.facebook.presto.spi.InvocationConvention.InvocationReturnConvention;
+import com.facebook.presto.spi.function.InvocationConvention;
+import com.facebook.presto.spi.function.InvocationConvention.InvocationReturnConvention;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -28,10 +28,10 @@ import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.N
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
-import static com.facebook.presto.spi.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
-import static com.facebook.presto.spi.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
-import static com.facebook.presto.spi.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static com.facebook.presto.spi.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
+import static com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 

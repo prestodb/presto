@@ -28,10 +28,10 @@ import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.spi.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
-import static com.facebook.presto.spi.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static com.facebook.presto.spi.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static com.facebook.presto.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 
