@@ -17,6 +17,7 @@ import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
+import com.facebook.presto.raptor.metadata.Table;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.raptor.metadata.TableMetadata;
 import io.airlift.log.Logger;
@@ -87,6 +88,7 @@ class OrganizationJob
 
     private TableMetadata getTableMetadata(long tableId)
     {
+        Table table = metadataDao.getTableInformation(tableId);
         List<TableColumn> sortColumns = metadataDao.listSortColumns(tableId);
 
         List<Long> sortColumnIds = sortColumns.stream()
@@ -96,14 +98,14 @@ class OrganizationJob
         List<ColumnInfo> columns = metadataDao.listTableColumns(tableId).stream()
                 .map(TableColumn::toColumnInfo)
                 .collect(toList());
-        return new TableMetadata(tableId, columns, sortColumnIds);
+        return new TableMetadata(tableId, columns, sortColumnIds, table.getCompressionType());
     }
 
     private List<ShardInfo> performCompaction(long transactionId, OptionalInt bucketNumber, Set<UUID> shardUuids, TableMetadata tableMetadata)
             throws IOException
     {
         if (tableMetadata.getSortColumnIds().isEmpty()) {
-            return compactor.compact(transactionId, bucketNumber, shardUuids, tableMetadata.getColumns());
+            return compactor.compact(transactionId, bucketNumber, shardUuids, tableMetadata.getColumns(), tableMetadata.getCompressionType());
         }
         return compactor.compactSorted(
                 transactionId,
@@ -111,6 +113,7 @@ class OrganizationJob
                 shardUuids,
                 tableMetadata.getColumns(),
                 tableMetadata.getSortColumnIds(),
+                tableMetadata.getCompressionType(),
                 nCopies(tableMetadata.getSortColumnIds().size(), ASC_NULLS_FIRST));
     }
 }

@@ -13,9 +13,12 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.raptor.storage.CompressionType;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+
+import javax.print.attribute.standard.Compression;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -40,6 +43,7 @@ public final class RaptorTableHandle
     private final boolean organized;
     private final OptionalLong transactionId;
     private final boolean delete;
+    private final CompressionType compressionType;
 
     @JsonCreator
     public RaptorTableHandle(
@@ -52,7 +56,8 @@ public final class RaptorTableHandle
             @JsonProperty("bucketCount") OptionalInt bucketCount,
             @JsonProperty("organized") boolean organized,
             @JsonProperty("transactionId") OptionalLong transactionId,
-            @JsonProperty("delete") boolean delete)
+            @JsonProperty("delete") boolean delete,
+            @JsonProperty("compression_type") CompressionType compressionType)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaName = checkSchemaName(schemaName);
@@ -68,6 +73,7 @@ public final class RaptorTableHandle
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
 
         this.delete = delete;
+        this.compressionType = compressionType;
     }
 
     public boolean isBucketed()
@@ -134,6 +140,9 @@ public final class RaptorTableHandle
     {
         return delete;
     }
+
+    @JsonProperty
+    public CompressionType getCompressionType() { return compressionType; }
 
     @Override
     public String toString()

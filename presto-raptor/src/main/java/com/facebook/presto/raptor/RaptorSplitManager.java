@@ -15,8 +15,14 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.backup.BackupService;
 import com.facebook.presto.raptor.metadata.BucketShards;
+import com.facebook.presto.raptor.metadata.ColumnInfo;
+import com.facebook.presto.raptor.metadata.ForMetadata;
+import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardNodes;
+import com.facebook.presto.raptor.metadata.TableColumn;
+import com.facebook.presto.raptor.storage.CompressionType;
+import com.facebook.presto.raptor.storage.organization.ShardCompactor;
 import com.facebook.presto.raptor.util.SynchronizedResultIterator;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -30,7 +36,9 @@ import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.ResultIterator;
 
 import javax.annotation.PreDestroy;
@@ -47,9 +55,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_NO_HOST_FOR_SHARD;
 import static com.facebook.presto.raptor.RaptorSessionProperties.getOneSplitPerBucketThreshold;
+import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -60,6 +70,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
 public class RaptorSplitManager
@@ -70,20 +81,23 @@ public class RaptorSplitManager
     private final ShardManager shardManager;
     private final boolean backupAvailable;
     private final ExecutorService executor;
+    private final MetadataDao metadataDao;
 
     @Inject
-    public RaptorSplitManager(RaptorConnectorId connectorId, NodeSupplier nodeSupplier, ShardManager shardManager, BackupService backupService)
+    public RaptorSplitManager(RaptorConnectorId connectorId, NodeSupplier nodeSupplier, ShardManager shardManager, BackupService backupService, @ForMetadata IDBI dbi)
     {
-        this(connectorId, nodeSupplier, shardManager, requireNonNull(backupService, "backupService is null").isBackupAvailable());
+
+        this(connectorId, nodeSupplier, shardManager, requireNonNull(backupService, "backupService is null").isBackupAvailable(), onDemandDao(dbi, MetadataDao.class));
     }
 
-    public RaptorSplitManager(RaptorConnectorId connectorId, NodeSupplier nodeSupplier, ShardManager shardManager, boolean backupAvailable)
+    public RaptorSplitManager(RaptorConnectorId connectorId, NodeSupplier nodeSupplier, ShardManager shardManager, boolean backupAvailable, MetadataDao metadataDao)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.nodeSupplier = requireNonNull(nodeSupplier, "nodeSupplier is null");
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
         this.backupAvailable = backupAvailable;
         this.executor = newCachedThreadPool(daemonThreadsNamed("raptor-split-" + connectorId + "-%s"));
+        this.metadataDao = metadataDao;
     }
 
     @PreDestroy
@@ -104,7 +118,12 @@ public class RaptorSplitManager
         OptionalLong transactionId = table.getTransactionId();
         Optional<Map<Integer, String>> bucketToNode = handle.getPartitioning().map(RaptorPartitioningHandle::getBucketToNode);
         verify(bucketed == bucketToNode.isPresent(), "mismatched bucketCount and bucketToNode presence");
-        return new RaptorSplitSource(tableId, merged, effectivePredicate, transactionId, bucketToNode);
+
+        Map<Long, Type> chunkColumnTypes = metadataDao.listTableColumns(tableId).stream()
+                .map(TableColumn::toColumnInfo)
+                .collect(Collectors.toMap(ColumnInfo::getColumnId, ColumnInfo::getType));
+
+        return new RaptorSplitSource(tableId, merged, effectivePredicate, transactionId, bucketToNode, chunkColumnTypes, table.getCompressionType());
     }
 
     private static List<HostAddress> getAddressesForNodes(Map<String, Node> nodeMap, Iterable<String> nodeIdentifiers)
@@ -140,6 +159,8 @@ public class RaptorSplitManager
         private final OptionalLong transactionId;
         private final Optional<Map<Integer, String>> bucketToNode;
         private final ResultIterator<BucketShards> iterator;
+        private final Map<Long, Type> chunkColumnTypes;
+        private final CompressionType compressionType;
 
         @GuardedBy("this")
         private CompletableFuture<ConnectorSplitBatch> future;
@@ -149,12 +170,16 @@ public class RaptorSplitManager
                 boolean merged,
                 TupleDomain<RaptorColumnHandle> effectivePredicate,
                 OptionalLong transactionId,
-                Optional<Map<Integer, String>> bucketToNode)
+                Optional<Map<Integer, String>> bucketToNode,
+                Map<Long, Type> chunkColumnTypes,
+                CompressionType compressionType)
         {
             this.tableId = tableId;
             this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
             this.transactionId = requireNonNull(transactionId, "transactionId is null");
             this.bucketToNode = requireNonNull(bucketToNode, "bucketToNode is null");
+            this.chunkColumnTypes = requireNonNull(chunkColumnTypes, "chunkColumnTypes is null");
+            this.compressionType = requireNonNull(compressionType, "chunkColumnTypes is null");
 
             ResultIterator<BucketShards> iterator;
             if (bucketToNode.isPresent()) {
@@ -235,7 +260,7 @@ public class RaptorSplitManager
                 addresses = ImmutableList.of(node.getHostAndPort());
             }
 
-            return new RaptorSplit(connectorId, shardId, addresses, effectivePredicate, transactionId);
+            return new RaptorSplit(connectorId, shardId, addresses, effectivePredicate, transactionId, chunkColumnTypes, Optional.of(compressionType));
         }
 
         private ConnectorSplit createBucketSplit(int bucketNumber, Set<ShardNodes> shards)
@@ -254,7 +279,7 @@ public class RaptorSplitManager
                     .collect(toSet());
             HostAddress address = node.getHostAndPort();
 
-            return new RaptorSplit(connectorId, shardUuids, bucketNumber, address, effectivePredicate, transactionId);
+            return new RaptorSplit(connectorId, shardUuids, bucketNumber, address, effectivePredicate, transactionId, chunkColumnTypes, Optional.of(compressionType));
         }
     }
 }

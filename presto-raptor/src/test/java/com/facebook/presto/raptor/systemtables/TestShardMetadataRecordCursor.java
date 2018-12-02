@@ -19,6 +19,7 @@ import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.TableColumn;
+import com.facebook.presto.raptor.storage.CompressionType;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordCursor;
@@ -86,6 +87,7 @@ public class TestShardMetadataRecordCursor
                 .column("orderkey", BIGINT)
                 .column("orderdate", DATE)
                 .property("temporal_column", "orderdate")
+                .property("compression_type", CompressionType.SNAPPY)
                 .build();
         createTable(table);
     }
@@ -157,11 +159,13 @@ public class TestShardMetadataRecordCursor
         // Create "orders" table in a different schema
         createTable(tableMetadataBuilder(new SchemaTableName("other", "orders"))
                 .column("orderkey", BIGINT)
+                .property("compression_type", CompressionType.SNAPPY)
                 .build());
 
         // Create another table that should not be selected
         createTable(tableMetadataBuilder(new SchemaTableName("schema1", "foo"))
                 .column("orderkey", BIGINT)
+                .property("compression_type", CompressionType.SNAPPY)
                 .build());
 
         TupleDomain<Integer> tupleDomain = TupleDomain.withColumnDomains(
@@ -183,11 +187,13 @@ public class TestShardMetadataRecordCursor
         // Create "orders" table in a different schema
         createTable(tableMetadataBuilder(new SchemaTableName("test", "orders2"))
                 .column("orderkey", BIGINT)
+                .property("compression_type", CompressionType.SNAPPY)
                 .build());
 
         // Create another table that should not be selected
         createTable(tableMetadataBuilder(new SchemaTableName("schema1", "foo"))
                 .column("orderkey", BIGINT)
+                .property("compression_type", CompressionType.SNAPPY)
                 .build());
 
         TupleDomain<Integer> tupleDomain = TupleDomain.withColumnDomains(

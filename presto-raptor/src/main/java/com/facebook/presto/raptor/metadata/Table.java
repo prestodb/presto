@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.facebook.presto.raptor.storage.CompressionType;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
@@ -35,6 +36,7 @@ public final class Table
     private final OptionalInt bucketCount;
     private final OptionalLong temporalColumnId;
     private final boolean organized;
+    private final CompressionType compressionType;
 
     public Table(
             long tableId,
@@ -42,7 +44,8 @@ public final class Table
             Optional<String> distributionName,
             OptionalInt bucketCount,
             OptionalLong temporalColumnId,
-            boolean organized)
+            boolean organized,
+            CompressionType compressionType)
     {
         this.tableId = tableId;
         this.distributionId = requireNonNull(distributionId, "distributionId is null");
@@ -50,6 +53,7 @@ public final class Table
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
         this.temporalColumnId = requireNonNull(temporalColumnId, "temporalColumnId is null");
         this.organized = organized;
+        this.compressionType = compressionType;
     }
 
     public long getTableId()
@@ -82,6 +86,11 @@ public final class Table
         return organized;
     }
 
+    public CompressionType getCompressionType()
+    {
+        return compressionType;
+    }
+
     @Override
     public String toString()
     {
@@ -108,7 +117,8 @@ public final class Table
                     Optional.ofNullable(r.getString("distribution_name")),
                     getOptionalInt(r, "bucket_count"),
                     getOptionalLong(r, "temporal_column_id"),
-                    r.getBoolean("organization_enabled"));
+                    r.getBoolean("organization_enabled"),
+                    CompressionType.valueOf(r.getString("compression_type")));
         }
     }
 }

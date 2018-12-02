@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.raptor.storage.CompressionType;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
@@ -45,6 +46,7 @@ public class RaptorOutputTableHandle
     private final OptionalInt bucketCount;
     private final List<RaptorColumnHandle> bucketColumnHandles;
     private final boolean organized;
+    private final CompressionType compressionType;
 
     @JsonCreator
     public RaptorOutputTableHandle(
@@ -60,7 +62,8 @@ public class RaptorOutputTableHandle
             @JsonProperty("distributionId") OptionalLong distributionId,
             @JsonProperty("bucketCount") OptionalInt bucketCount,
             @JsonProperty("organized") boolean organized,
-            @JsonProperty("bucketColumnHandles") List<RaptorColumnHandle> bucketColumnHandles)
+            @JsonProperty("bucketColumnHandles") List<RaptorColumnHandle> bucketColumnHandles,
+            @JsonProperty("compressionType") CompressionType compressionType)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.transactionId = transactionId;
@@ -75,6 +78,7 @@ public class RaptorOutputTableHandle
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
         this.bucketColumnHandles = ImmutableList.copyOf(requireNonNull(bucketColumnHandles, "bucketColumnHandles is null"));
         this.organized = organized;
+        this.compressionType = compressionType == null? CompressionType.SNAPPY : compressionType;
     }
 
     @JsonProperty
@@ -153,6 +157,12 @@ public class RaptorOutputTableHandle
     public boolean isOrganized()
     {
         return organized;
+    }
+
+    @JsonProperty
+    public CompressionType getCompressionType()
+    {
+        return compressionType;
     }
 
     @Override

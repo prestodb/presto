@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.raptor.storage.CompressionType;
 import com.facebook.presto.raptor.storage.ReaderAttributes;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.util.ConcatPageSource;
@@ -29,6 +30,8 @@ import javax.inject.Inject;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
@@ -57,13 +60,16 @@ public class RaptorPageSourceProvider
         ReaderAttributes attributes = ReaderAttributes.from(session);
         OptionalLong transactionId = raptorSplit.getTransactionId();
 
+        Map<Long, Type> chunkColumnTypes = raptorSplit.getChunkColumnTypes();
+        Optional<CompressionType> compressionType = raptorSplit.getCompressionType();
+
         if (raptorSplit.getShardUuids().size() == 1) {
             UUID shardUuid = raptorSplit.getShardUuids().iterator().next();
-            return createPageSource(shardUuid, bucketNumber, columns, predicate, attributes, transactionId);
+            return createPageSource(shardUuid, bucketNumber, columns, predicate, attributes, transactionId, chunkColumnTypes, compressionType);
         }
 
         Iterator<ConnectorPageSource> iterator = raptorSplit.getShardUuids().stream()
-                .map(shardUuid -> createPageSource(shardUuid, bucketNumber, columns, predicate, attributes, transactionId))
+                .map(shardUuid -> createPageSource(shardUuid, bucketNumber, columns, predicate, attributes, transactionId, chunkColumnTypes, compressionType))
                 .iterator();
 
         return new ConcatPageSource(iterator);
@@ -75,12 +81,14 @@ public class RaptorPageSourceProvider
             List<ColumnHandle> columns,
             TupleDomain<RaptorColumnHandle> predicate,
             ReaderAttributes attributes,
-            OptionalLong transactionId)
+            OptionalLong transactionId,
+            Map<Long, Type> chunkColumnTypes,
+            Optional<CompressionType> compressionType)
     {
         List<RaptorColumnHandle> columnHandles = columns.stream().map(RaptorColumnHandle.class::cast).collect(toList());
         List<Long> columnIds = columnHandles.stream().map(RaptorColumnHandle::getColumnId).collect(toList());
         List<Type> columnTypes = columnHandles.stream().map(RaptorColumnHandle::getColumnType).collect(toList());
 
-        return storageManager.getPageSource(shardUuid, bucketNumber, columnIds, columnTypes, predicate, attributes, transactionId);
+        return storageManager.getPageSource(shardUuid, bucketNumber, columnIds, columnTypes, predicate, attributes, transactionId, chunkColumnTypes, compressionType);
     }
 }

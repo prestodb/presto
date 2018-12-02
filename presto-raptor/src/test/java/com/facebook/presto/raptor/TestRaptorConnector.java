@@ -106,7 +106,7 @@ public class TestRaptorConnector
                 new LifeCycleManager(ImmutableList.of(), null),
                 new TestingNodeManager(),
                 new RaptorMetadataFactory(connectorId, dbi, shardManager),
-                new RaptorSplitManager(connectorId, nodeSupplier, shardManager, false),
+                new RaptorSplitManager(connectorId, nodeSupplier, shardManager, false, metadataDao),
                 new RaptorPageSourceProvider(storageManager),
                 new RaptorPageSinkProvider(storageManager,
                         new PagesIndexPageSorter(new PagesIndex.TestingFactory(false)),

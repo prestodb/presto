@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.raptor.storage.CompressionType;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
@@ -27,12 +28,14 @@ import java.util.OptionalInt;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toList;
 
 public class RaptorTableProperties
 {
+    public static final String COMPRESSION_TYPE_PROPERTY = "compression_type";
     public static final String ORDERING_PROPERTY = "ordering";
     public static final String TEMPORAL_COLUMN_PROPERTY = "temporal_column";
     public static final String BUCKET_COUNT_PROPERTY = "bucket_count";
@@ -46,6 +49,11 @@ public class RaptorTableProperties
     public RaptorTableProperties(TypeManager typeManager)
     {
         tableProperties = ImmutableList.<PropertyMetadata<?>>builder()
+                .add(upperCaseEnumProperty(
+                        CompressionType.class,
+                        COMPRESSION_TYPE_PROPERTY,
+                        "Type of compression to use for table data",
+                        CompressionType.SNAPPY))
                 .add(stringListSessionProperty(
                         typeManager,
                         ORDERING_PROPERTY,
@@ -136,6 +144,19 @@ public class RaptorTableProperties
                         .map(s -> s.toLowerCase(ENGLISH))
                         .collect(toList())),
                 value -> value);
+    }
+
+    private static <T extends Enum<T>> PropertyMetadata<T> upperCaseEnumProperty(Class<T> enumType, String name, String description, T defaultValue)
+    {
+        return new PropertyMetadata<>(
+                name,
+                description,
+                VARCHAR,
+                enumType,
+                defaultValue,
+                false,
+                value -> Enum.valueOf(enumType, ((String) value).toUpperCase(ENGLISH)),
+                Enum::name);
     }
 
     @SuppressWarnings("unchecked")

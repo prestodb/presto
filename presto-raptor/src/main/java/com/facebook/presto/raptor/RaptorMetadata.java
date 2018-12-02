@@ -22,6 +22,7 @@ import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.Table;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.raptor.metadata.ViewResult;
+import com.facebook.presto.raptor.storage.CompressionType;
 import com.facebook.presto.raptor.systemtables.ColumnRangesSystemTable;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -89,6 +90,7 @@ import static com.facebook.presto.raptor.RaptorSessionProperties.getExternalBatc
 import static com.facebook.presto.raptor.RaptorSessionProperties.getOneSplitPerBucketThreshold;
 import static com.facebook.presto.raptor.RaptorTableProperties.BUCKETED_ON_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.BUCKET_COUNT_PROPERTY;
+import static com.facebook.presto.raptor.RaptorTableProperties.COMPRESSION_TYPE_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.DISTRIBUTION_NAME_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.ORDERING_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.ORGANIZED_PROPERTY;
@@ -188,7 +190,8 @@ public class RaptorMetadata
                 table.getBucketCount(),
                 table.isOrganized(),
                 OptionalLong.empty(),
-                false);
+                false,
+                table.getCompressionType());
     }
 
     @Override
@@ -227,6 +230,8 @@ public class RaptorMetadata
         if (!ordering.isEmpty()) {
             properties.put(ORDERING_PROPERTY, ImmutableList.copyOf(ordering.values()));
         }
+
+        properties.put(COMPRESSION_TYPE_PROPERTY, handle.getCompressionType());
 
         handle.getBucketCount().ifPresent(bucketCount -> properties.put(BUCKET_COUNT_PROPERTY, bucketCount));
         handle.getDistributionName().ifPresent(distributionName -> properties.put(DISTRIBUTION_NAME_PROPERTY, distributionName));
@@ -348,18 +353,18 @@ public class RaptorMetadata
             columnId++;
         }
 
-        Optional<DistributionInfo> distribution = getOrCreateDistribution(map.build(), metadata.getProperties());
+    Optional<DistributionInfo> distribution = getOrCreateDistribution(map.build(), metadata.getProperties());
         if (!distribution.isPresent()) {
-            return Optional.empty();
-        }
+    return Optional.empty();
+}
 
-        List<String> partitionColumns = distribution.get().getBucketColumns().stream()
-                .map(RaptorColumnHandle::getColumnName)
-                .collect(toList());
+    List<String> partitionColumns = distribution.get().getBucketColumns().stream()
+            .map(RaptorColumnHandle::getColumnName)
+            .collect(toList());
 
-        ConnectorPartitioningHandle partitioning = getPartitioningHandle(distribution.get().getDistributionId());
+    ConnectorPartitioningHandle partitioning = getPartitioningHandle(distribution.get().getDistributionId());
         return Optional.of(new ConnectorNewTableLayout(partitioning, partitionColumns));
-    }
+}
 
     private RaptorPartitioningHandle getPartitioningHandle(long distributionId)
     {
@@ -586,7 +591,8 @@ public class RaptorMetadata
                 distribution.map(info -> OptionalLong.of(info.getDistributionId())).orElse(OptionalLong.empty()),
                 distribution.map(info -> OptionalInt.of(info.getBucketCount())).orElse(OptionalInt.empty()),
                 organized,
-                distribution.map(DistributionInfo::getBucketColumns).orElse(ImmutableList.of()));
+                distribution.map(DistributionInfo::getBucketColumns).orElse(ImmutableList.of()),
+                getCompressionType(tableMetadata.getProperties()));
     }
 
     private DistributionInfo getDistributionInfo(long distributionId, Map<String, RaptorColumnHandle> columnHandleMap, Map<String, Object> properties)
@@ -648,7 +654,7 @@ public class RaptorMetadata
 
             Long distributionId = table.getDistributionId().isPresent() ? table.getDistributionId().getAsLong() : null;
             // TODO: update default value of organization_enabled to true
-            long tableId = dao.insertTable(table.getSchemaName(), table.getTableName(), true, table.isOrganized(), distributionId, updateTime);
+            long tableId = dao.insertTable(table.getSchemaName(), table.getTableName(), true, table.isOrganized(), distributionId, updateTime, table.getCompressionType().name());
 
             List<RaptorColumnHandle> sortColumnHandles = table.getSortColumnHandles();
             List<RaptorColumnHandle> bucketColumnHandles = table.getBucketColumnHandles();
@@ -722,7 +728,8 @@ public class RaptorMetadata
                 nCopies(sortColumnHandles.size(), ASC_NULLS_FIRST),
                 handle.getBucketCount(),
                 bucketColumnHandles,
-                temporalColumnHandle);
+                temporalColumnHandle,
+                CompressionType.SNAPPY);
     }
 
     private List<RaptorColumnHandle> getSortColumnHandles(long tableId)
@@ -785,7 +792,8 @@ public class RaptorMetadata
                 handle.getBucketCount(),
                 handle.isOrganized(),
                 OptionalLong.of(transactionId),
-                true);
+                true,
+                handle.getCompressionType());
     }
 
     @Override
@@ -946,5 +954,10 @@ public class RaptorMetadata
         {
             return bucketColumns;
         }
+    }
+
+    public static CompressionType getCompressionType(Map<String, Object> tableProperties)
+    {
+        return (CompressionType) tableProperties.get(COMPRESSION_TYPE_PROPERTY);
     }
 }

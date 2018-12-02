@@ -172,7 +172,7 @@ public class TestShardEjector
 
     private long createTable(String name)
     {
-        return dbi.onDemand(MetadataDao.class).insertTable("test", name, false, false, null, 0);
+        return dbi.onDemand(MetadataDao.class).insertTable("test", name, false, false, null, 0, "SNAPPY");
     }
 
     private static Set<UUID> uuids(Set<ShardMetadata> metadata)
