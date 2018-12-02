@@ -16,14 +16,11 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.Type;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.function.ToIntFunction;
@@ -31,19 +28,10 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider.ConnectorBucketNodeMap.createBucketNodeMap;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Objects.requireNonNull;
 
 public class HiveNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
 {
-    private final NodeManager nodeManager;
-
-    @Inject
-    public HiveNodePartitioningProvider(NodeManager nodeManager)
-    {
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-    }
-
     @Override
     public BucketFunction getBucketFunction(
             ConnectorTransactionHandle transactionHandle,
@@ -70,7 +58,8 @@ public class HiveNodePartitioningProvider
             ConnectorSession session,
             ConnectorPartitioningHandle partitioningHandle)
     {
-        return value -> ((HiveSplit) value).getBucketNumber().getAsInt();
+        return value -> ((HiveSplit) value).getBucketNumber()
+                .orElseThrow(() -> new IllegalArgumentException("Bucket number not set in split"));
     }
 
     @Override
