@@ -17,10 +17,10 @@ import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
-import com.facebook.presto.spi.InvocationConvention;
-import com.facebook.presto.spi.InvocationConvention.InvocationArgumentConvention;
-import com.facebook.presto.spi.InvocationConvention.InvocationReturnConvention;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.InvocationConvention;
+import com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention;
+import com.facebook.presto.spi.function.InvocationConvention.InvocationReturnConvention;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.util.List;

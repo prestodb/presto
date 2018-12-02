@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.annotations;
 
-import com.facebook.presto.spi.InvocationConvention;
+import com.facebook.presto.spi.function.InvocationConvention;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.TypeSignature;
 

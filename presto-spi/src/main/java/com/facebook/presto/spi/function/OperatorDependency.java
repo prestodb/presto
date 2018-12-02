@@ -16,7 +16,7 @@ package com.facebook.presto.spi.function;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
-import static com.facebook.presto.spi.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static com.facebook.presto.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
