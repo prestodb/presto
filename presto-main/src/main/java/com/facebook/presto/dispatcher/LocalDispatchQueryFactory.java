@@ -121,6 +121,6 @@ public class LocalDispatchQueryFactory
                 queryExecutionFuture,
                 clusterSizeMonitor,
                 executor,
-                queryExecution -> executor.submit(() -> queryManager.createQuery(queryExecution)));
+                queryManager::createQuery);
     }
 }
