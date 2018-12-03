@@ -24,22 +24,20 @@ import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import java.util.Optional;
 import java.util.concurrent.Executor;
-import java.util.function.Function;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.execution.QueryState.FAILED;
-import static com.facebook.presto.execution.QueryState.PLANNING;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
@@ -57,14 +55,15 @@ public class LocalDispatchQuery
 
     private final Executor queryExecutor;
 
-    private final Function<QueryExecution, ListenableFuture<?>> querySubmitter;
+    private final Consumer<QueryExecution> querySubmitter;
+    private final SettableFuture<?> submitted = SettableFuture.create();
 
     public LocalDispatchQuery(
             QueryStateMachine stateMachine,
             ListenableFuture<QueryExecution> queryExecutionFuture,
             ClusterSizeMonitor clusterSizeMonitor,
             Executor queryExecutor,
-            Function<QueryExecution, ListenableFuture<?>> querySubmitter)
+            Consumer<QueryExecution> querySubmitter)
     {
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.queryExecutionFuture = requireNonNull(queryExecutionFuture, "queryExecutionFuture is null");
@@ -73,6 +72,11 @@ public class LocalDispatchQuery
         this.querySubmitter = requireNonNull(querySubmitter, "querySubmitter is null");
 
         addExceptionCallback(queryExecutionFuture, stateMachine::transitionToFailed);
+        stateMachine.addStateChangeListener(state -> {
+            if (state.isDone()) {
+                submitted.set(null);
+            }
+        });
     }
 
     @Override
@@ -95,7 +99,12 @@ public class LocalDispatchQuery
     {
         queryExecutor.execute(() -> {
             if (stateMachine.transitionToDispatching()) {
-                querySubmitter.apply(queryExecution);
+                try {
+                    querySubmitter.accept(queryExecution);
+                }
+                finally {
+                    submitted.set(null);
+                }
             }
         });
     }
@@ -115,27 +124,22 @@ public class LocalDispatchQuery
     @Override
     public ListenableFuture<?> getDispatchedFuture()
     {
-        return queryDispatchFuture(stateMachine.getQueryState());
-    }
-
-    private ListenableFuture<?> queryDispatchFuture(QueryState currentState)
-    {
-        if (currentState.ordinal() >= PLANNING.ordinal()) {
-            return immediateFuture(null);
-        }
-        return Futures.transformAsync(stateMachine.getStateChange(currentState), this::queryDispatchFuture, directExecutor());
+        return nonCancellationPropagating(submitted);
     }
 
     @Override
     public DispatchInfo getDispatchInfo()
     {
+        // observe submitted before getting the state, to ensure a failed query stat is visible
+        boolean dispatched = submitted.isDone();
         BasicQueryInfo queryInfo = stateMachine.getBasicQueryInfo(Optional.empty());
+
         if (queryInfo.getState() == FAILED) {
             ExecutionFailureInfo failureInfo = stateMachine.getFailureInfo()
                     .orElseGet(() -> toFailure(new PrestoException(GENERIC_INTERNAL_ERROR, "Query failed for an unknown reason")));
             return DispatchInfo.failed(failureInfo, queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getQueuedTime());
         }
-        if (queryInfo.getState().ordinal() >= PLANNING.ordinal()) {
+        if (dispatched) {
             return DispatchInfo.dispatched(new LocalCoordinatorLocation(), queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getQueuedTime());
         }
         return DispatchInfo.queued(queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getQueuedTime());
