@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.google.common.collect.Range;
 
@@ -142,6 +143,18 @@ public final class QueryCardinalityUtil
 
         @Override
         public Range<Long> visitLimit(LimitNode node, Void context)
+        {
+            Range<Long> sourceCardinalityRange = node.getSource().accept(this, null);
+            long upper = node.getCount();
+            if (sourceCardinalityRange.hasUpperBound()) {
+                upper = min(sourceCardinalityRange.upperEndpoint(), node.getCount());
+            }
+            long lower = min(upper, sourceCardinalityRange.lowerEndpoint());
+            return Range.closed(lower, upper);
+        }
+
+        @Override
+        public Range<Long> visitTopN(TopNNode node, Void context)
         {
             Range<Long> sourceCardinalityRange = node.getSource().accept(this, null);
             long upper = node.getCount();
