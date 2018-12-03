@@ -3,6 +3,7 @@ module.exports = {
         'index': __dirname +'/index.jsx',
         'query': __dirname +'/query.jsx',
         'plan': __dirname +'/plan.jsx',
+        'embedded_plan': __dirname +'/embedded_plan.jsx',
         'stage': __dirname +'/stage.jsx',
         'worker': __dirname +'/worker.jsx',
     },

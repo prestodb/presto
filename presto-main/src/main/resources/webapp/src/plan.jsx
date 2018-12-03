@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom";
 import {LivePlan} from "./components/LivePlan";
 import {PageTitle} from "./components/PageTitle";
+import {getFirstParameter} from "./utils";
 
 ReactDOM.render(
     <PageTitle title="Query Details" />,
@@ -9,6 +10,6 @@ ReactDOM.render(
 );
 
 ReactDOM.render(
-    <LivePlan />,
+    <LivePlan queryId={getFirstParameter(window.location.search)} isEmbedded={false}/>,
     document.getElementById('live-plan-header')
 );

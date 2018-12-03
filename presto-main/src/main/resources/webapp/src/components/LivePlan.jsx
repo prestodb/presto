@@ -111,7 +111,11 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
     }
 }
 
-type LivePlanProps = {}
+type LivePlanProps = {
+    queryId: string,
+    isEmbedded: boolean,
+}
+
 type LivePlanState = {
     initialized: boolean,
     ended: boolean,
@@ -150,8 +154,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
 
     refreshLoop() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
-        const queryId = getFirstParameter(window.location.search);
-        fetch('/v1/query/' + queryId)
+        fetch('/v1/query/' + this.props.queryId)
             .then(response => response.json())
             .then(query => {
                 this.setState({
@@ -259,6 +262,17 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
         }
         else {
             this.updateD3Graph();
+        }
+
+        // TODO: Refactor components to move refreshLoop to parent rather than using this property
+        if (this.props.isEmbedded) {
+            return (
+                <div className="row">
+                    <div className="col-xs-12">
+                        {livePlanGraph}
+                    </div>
+                </div>
+            )
         }
 
         return (
