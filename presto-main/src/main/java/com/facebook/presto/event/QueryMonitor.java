@@ -151,7 +151,7 @@ public class QueryMonitor
                         ofMillis(0),
                         ofMillis(0),
                         ofMillis(0),
-                        ofMillis(0),
+                        ofMillis(queryInfo.getQueryStats().getQueuedTime().toMillis()),
                         Optional.empty(),
                         0,
                         0,
@@ -179,7 +179,7 @@ public class QueryMonitor
                 queryInfo.getQueryType(),
                 ImmutableList.of(),
                 ofEpochMilli(queryInfo.getQueryStats().getCreateTime().getMillis()),
-                ofEpochMilli(queryInfo.getQueryStats().getCreateTime().getMillis()),
+                ofEpochMilli(queryInfo.getQueryStats().getEndTime().getMillis()),
                 ofEpochMilli(queryInfo.getQueryStats().getEndTime().getMillis())));
 
         logQueryTimeline(queryInfo);
