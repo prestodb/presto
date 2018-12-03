@@ -60,6 +60,7 @@ public class LocalDispatchQueryFactory
 
     private final CoordinatorLocation coordinatorLocation;
     private final ClusterSizeMonitor clusterSizeMonitor;
+    private final LocalDispatchMemoryPacker localDispatchMemoryPacker;
 
     private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
     private final WarningCollectorFactory warningCollectorFactory;
@@ -77,6 +78,7 @@ public class LocalDispatchQueryFactory
             InternalNodeManager internalNodeManager,
             WarningCollectorFactory warningCollectorFactory,
             ClusterSizeMonitor clusterSizeMonitor,
+            LocalDispatchMemoryPacker localDispatchMemoryPacker,
             @ForQueryExecution ExecutorService executorService)
 
     {
@@ -92,6 +94,7 @@ public class LocalDispatchQueryFactory
         Node currentNode = requireNonNull(internalNodeManager, "internalNodeManager is null").getCurrentNode();
         this.coordinatorLocation = new CoordinatorLocation(Optional.of(currentNode.getHttpUri()), Optional.of(currentNode.getHttpUri()));
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
+        this.localDispatchMemoryPacker = requireNonNull(localDispatchMemoryPacker, "localDispatchMemoryPacker is null");
 
         this.executorService = listeningDecorator(requireNonNull(executorService, "executorService is null"));
     }
@@ -134,6 +137,7 @@ public class LocalDispatchQueryFactory
                 queryExecutionFuture,
                 coordinatorLocation,
                 clusterSizeMonitor,
+                localDispatchMemoryPacker,
                 queryExecution -> executorService.submit(() -> queryManager.createQuery(queryExecution)));
     }
 }

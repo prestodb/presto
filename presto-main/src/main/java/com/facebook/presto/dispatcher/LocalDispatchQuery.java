@@ -53,7 +53,7 @@ public class LocalDispatchQuery
     private final CoordinatorLocation coordinatorLocation;
 
     private final ClusterSizeMonitor clusterSizeMonitor;
-
+    private final LocalDispatchMemoryPacker localDispatchMemoryPacker;
     private final Function<QueryExecution, ListenableFuture<?>> querySubmitter;
 
     public LocalDispatchQuery(
@@ -61,12 +61,14 @@ public class LocalDispatchQuery
             ListenableFuture<QueryExecution> queryExecutionFuture,
             CoordinatorLocation coordinatorLocation,
             ClusterSizeMonitor clusterSizeMonitor,
+            LocalDispatchMemoryPacker localDispatchMemoryPacker,
             Function<QueryExecution, ListenableFuture<?>> querySubmitter)
     {
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.queryExecutionFuture = requireNonNull(queryExecutionFuture, "queryExecutionFuture is null");
         this.coordinatorLocation = requireNonNull(coordinatorLocation, "coordinatorLocation is null");
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
+        this.localDispatchMemoryPacker = requireNonNull(localDispatchMemoryPacker, "querySubmitter is null");
         this.querySubmitter = requireNonNull(querySubmitter, "querySubmitter is null");
 
         addExceptionCallback(queryExecutionFuture, stateMachine::transitionToFailed);
@@ -84,11 +86,16 @@ public class LocalDispatchQuery
     {
         ListenableFuture<?> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers();
         // when worker requirement is met, wait for query execution to finish construction and then start the execution
-        addSuccessCallback(minimumWorkerFuture, () -> addSuccessCallback(queryExecutionFuture, this::startExecution));
+        addSuccessCallback(minimumWorkerFuture, () -> addSuccessCallback(queryExecutionFuture, this::waitForMemory));
         addExceptionCallback(minimumWorkerFuture, stateMachine::transitionToFailed);
     }
 
-    private void startExecution(QueryExecution queryExecution)
+    private void waitForMemory(QueryExecution queryExecution)
+    {
+        localDispatchMemoryPacker.addToQueue(this, () -> startExecution(queryExecution));
+    }
+
+    public void startExecution(QueryExecution queryExecution)
     {
         if (stateMachine.transitionToDispatching()) {
             ListenableFuture<?> submissionFuture = querySubmitter.apply(queryExecution);
