@@ -149,7 +149,6 @@ import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
-import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
 import static com.facebook.presto.util.DateTimeUtils.timeHasTimeZone;
@@ -721,13 +720,11 @@ public class ExpressionAnalyzer
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
 
-            if (!JSON.equals(type)) {
-                try {
-                    functionRegistry.getCoercion(VARCHAR, type);
-                }
-                catch (IllegalArgumentException e) {
-                    throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
-                }
+            try {
+                functionRegistry.resolveConstructor(type);
+            }
+            catch (IllegalArgumentException e) {
+                throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
             }
 
             return setExpressionType(node, type);

@@ -92,4 +92,10 @@ public class TestingTypeManager
     {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public MethodHandle resolveConstructor(Type type)
+    {
+        throw new UnsupportedOperationException();
+    }
 }

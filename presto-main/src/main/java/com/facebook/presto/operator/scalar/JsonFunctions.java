@@ -44,6 +44,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.function.OperatorType.CONSTRUCT;
 import static com.facebook.presto.spi.type.Chars.padSpaces;
 import static com.facebook.presto.util.JsonUtil.createJsonParser;
 import static com.facebook.presto.util.JsonUtil.truncateIfNecessaryForErrorMessage;
@@ -134,6 +135,7 @@ public final class JsonFunctions
         return slice;
     }
 
+    @ScalarOperator(CONSTRUCT)
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType(StandardTypes.JSON)

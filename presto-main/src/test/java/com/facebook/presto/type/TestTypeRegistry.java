@@ -53,13 +53,20 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.type.ColorType.COLOR;
+import static com.facebook.presto.type.IpAddressType.IPADDRESS;
 import static com.facebook.presto.type.JoniRegexpType.JONI_REGEXP;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
+import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.type.Re2JRegexpType.RE2J_REGEXP;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.google.common.io.BaseEncoding.base16;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -84,6 +91,29 @@ public class TestTypeRegistry
         catch (Throwable t) {
             fail("Expect to throw IllegalArgumentException, got " + t.getClass());
         }
+    }
+
+    @Test
+    public void testResolveConstructor()
+            throws Throwable
+    {
+        assertEquals(
+                typeRegistry.resolveConstructor(BIGINT)
+                        .invoke(utf8Slice("123")),
+                123L);
+
+        assertEquals(
+                typeRegistry.resolveConstructor(IPADDRESS)
+                        .invoke(utf8Slice("1.2.3.4")),
+                wrappedBuffer(base16().decode("00000000000000000000FFFF01020304")));
+
+        assertEquals(
+                typeRegistry.resolveConstructor(JSON)
+                        .invoke(utf8Slice("{ \"abc\": 123 }")),
+                utf8Slice("{\"abc\":123}"));
+
+        assertThatThrownBy(() -> typeRegistry.resolveConstructor(COLOR))
+                .hasMessageMatching("CAST to color cannot be applied to varchar");
     }
 
     @Test

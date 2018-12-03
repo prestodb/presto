@@ -299,6 +299,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
@@ -1101,6 +1102,21 @@ public class FunctionRegistry
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
                 throw new OperatorNotFoundException(OperatorType.CAST, ImmutableList.of(fromType), toType);
+            }
+            throw e;
+        }
+        return signature;
+    }
+
+    public Signature resolveConstructor(Type type)
+    {
+        Signature signature = internalOperator(OperatorType.CONSTRUCT, type, ImmutableList.of(VARCHAR));
+        try {
+            getScalarFunctionImplementation(signature);
+        }
+        catch (PrestoException e) {
+            if (e.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
+                return getCoercion(VARCHAR, type);
             }
             throw e;
         }

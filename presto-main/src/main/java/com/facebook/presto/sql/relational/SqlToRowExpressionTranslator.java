@@ -84,7 +84,6 @@ import java.util.Map;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
-import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.CharType.createCharType;
@@ -118,7 +117,6 @@ import static com.facebook.presto.sql.relational.Signatures.subscriptSignature;
 import static com.facebook.presto.sql.relational.Signatures.switchSignature;
 import static com.facebook.presto.sql.relational.Signatures.tryCastSignature;
 import static com.facebook.presto.sql.relational.Signatures.whenSignature;
-import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
@@ -149,6 +147,7 @@ public final class SqlToRowExpressionTranslator
         Visitor visitor = new Visitor(
                 functionKind,
                 types,
+                functionRegistry,
                 typeManager,
                 session.getTimeZoneKey(),
                 isLegacyRowFieldOrdinalAccessEnabled(session),
@@ -170,6 +169,7 @@ public final class SqlToRowExpressionTranslator
     {
         private final FunctionKind functionKind;
         private final Map<NodeRef<Expression>, Type> types;
+        private final FunctionRegistry functionRegistry;
         private final TypeManager typeManager;
         private final TimeZoneKey timeZoneKey;
         private final boolean legacyRowFieldOrdinalAccess;
@@ -179,6 +179,7 @@ public final class SqlToRowExpressionTranslator
         private Visitor(
                 FunctionKind functionKind,
                 Map<NodeRef<Expression>, Type> types,
+                FunctionRegistry functionRegistry,
                 TypeManager typeManager,
                 TimeZoneKey timeZoneKey,
                 boolean legacyRowFieldOrdinalAccess,
@@ -186,6 +187,7 @@ public final class SqlToRowExpressionTranslator
         {
             this.functionKind = functionKind;
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
+            this.functionRegistry = functionRegistry;
             this.typeManager = typeManager;
             this.timeZoneKey = timeZoneKey;
             this.legacyRowFieldOrdinalAccess = legacyRowFieldOrdinalAccess;
@@ -272,15 +274,8 @@ public final class SqlToRowExpressionTranslator
                 throw new IllegalArgumentException("Unsupported type: " + node.getType());
             }
 
-            if (JSON.equals(type)) {
-                return call(
-                        new Signature("json_parse", SCALAR, getType(node).getTypeSignature(), VARCHAR.getTypeSignature()),
-                        getType(node),
-                        constant(utf8Slice(node.getValue()), VARCHAR));
-            }
-
             return call(
-                    castSignature(getType(node), VARCHAR),
+                    functionRegistry.resolveConstructor(type),
                     getType(node),
                     constant(utf8Slice(node.getValue()), VARCHAR));
         }

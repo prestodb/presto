@@ -665,6 +665,13 @@ public final class TypeRegistry
         return functionRegistry.getScalarFunctionImplementation(functionRegistry.resolveOperator(operatorType, argumentTypes)).getMethodHandle();
     }
 
+    @Override
+    public MethodHandle resolveConstructor(Type type)
+    {
+        checkState(functionRegistry != null, "functionRegistry was not set");
+        return functionRegistry.getScalarFunctionImplementation(functionRegistry.resolveConstructor(type)).getMethodHandle();
+    }
+
     public static class TypeCompatibility
     {
         private final Optional<Type> commonSuperType;

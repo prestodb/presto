@@ -54,6 +54,10 @@ public final class OperatorValidator
             case CAST:
                 validateOperatorSignature(operatorType, returnType, argumentTypes, 1);
                 break;
+            case CONSTRUCT:
+                validateOperatorSignature(operatorType, returnType, argumentTypes, 1);
+                checkArgument(argumentTypes.get(0).getBase().equalsIgnoreCase(StandardTypes.VARCHAR), "Argument must be a VARCHAR");
+                break;
             case SUBSCRIPT:
                 validateOperatorSignature(operatorType, returnType, argumentTypes, 2);
                 checkArgument(argumentTypes.get(0).getBase().equals(StandardTypes.ARRAY) || argumentTypes.get(0).getBase().equals(StandardTypes.MAP), "First argument must be an ARRAY or MAP");
