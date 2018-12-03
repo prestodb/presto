@@ -661,7 +661,7 @@ public final class TypeRegistry
     @Override
     public MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
     {
-        requireNonNull(functionRegistry, "functionRegistry is null");
+        checkState(functionRegistry != null, "functionRegistry was not set");
         return functionRegistry.getScalarFunctionImplementation(functionRegistry.resolveOperator(operatorType, argumentTypes)).getMethodHandle();
     }
 
