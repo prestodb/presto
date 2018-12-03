@@ -19,7 +19,9 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -75,5 +77,46 @@ public final class ResourceEstimates
         sb.append(", peakMemory=").append(peakMemory);
         sb.append('}');
         return sb.toString();
+    }
+
+    public ResourceEstimates add(ResourceEstimates other)
+    {
+        Optional<Duration> newExecutionTime = Optional.empty();
+        if (executionTime.isPresent() && other.executionTime.isPresent()) {
+            newExecutionTime =
+                    Optional.of(new Duration(executionTime.map(Duration::toMillis).orElse(0L) + other.executionTime.map(Duration::toMillis).orElse(0L), TimeUnit.MILLISECONDS));
+        }
+
+        Optional<Duration> newCpuTime = Optional.empty();
+        if (cpuTime.isPresent() && other.cpuTime.isPresent()) {
+            newCpuTime = Optional.of(new Duration(cpuTime.map(Duration::toMillis).orElse(0L) + other.cpuTime.map(Duration::toMillis).orElse(0L), TimeUnit.MILLISECONDS));
+        }
+
+        Optional<DataSize> newPeakMemory = Optional.empty();
+        if (peakMemory.isPresent() && other.peakMemory.isPresent()) {
+            newPeakMemory = Optional.of(succinctBytes(peakMemory.map(DataSize::toBytes).orElse(0L) + other.peakMemory.map(DataSize::toBytes).orElse(0L)));
+        }
+
+        return new ResourceEstimates(newExecutionTime, newCpuTime, newPeakMemory);
+    }
+
+    public ResourceEstimates withDefaults(ResourceEstimates defaults)
+    {
+        Optional<Duration> newExecutionTime = executionTime;
+        if (!executionTime.isPresent() && defaults.executionTime.isPresent()) {
+            newExecutionTime = defaults.executionTime;
+        }
+
+        Optional<Duration> newCpuTime = cpuTime;
+        if (!cpuTime.isPresent() && defaults.cpuTime.isPresent()) {
+            newCpuTime = defaults.cpuTime;
+        }
+
+        Optional<DataSize> newPeakMemory = peakMemory;
+        if (!peakMemory.isPresent() && defaults.peakMemory.isPresent()) {
+            newPeakMemory = defaults.peakMemory;
+        }
+
+        return new ResourceEstimates(newExecutionTime, newCpuTime, newPeakMemory);
     }
 }

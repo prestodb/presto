@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.resourceGroups;
 
+import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
+import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.memory.MemoryPoolInfo;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -27,6 +30,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
 import static com.google.common.io.Resources.getResource;
@@ -161,7 +165,24 @@ public class TestFileResourceGroupConfigurationManager
     {
         FileResourceGroupConfig config = new FileResourceGroupConfig();
         config.setConfigFile(getResource(fileName).getPath());
-        return new FileResourceGroupConfigurationManager((poolId, listener) -> {}, config);
+        return new FileResourceGroupConfigurationManager(new ClusterMemoryPoolManager() {
+            @Override
+            public void addChangeListener(MemoryPoolId poolId, Consumer<MemoryPoolInfo> listener)
+            {
+            }
+
+            @Override
+            public long getClusterTotalMemoryReservation()
+            {
+                return 0;
+            }
+
+            @Override
+            public long getClusterMemoryBytes()
+            {
+                return 0;
+            }
+        }, config);
     }
 
     private static void assertFails(String fileName, String expectedPattern)

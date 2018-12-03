@@ -18,4 +18,8 @@ import java.util.function.Consumer;
 public interface ClusterMemoryPoolManager
 {
     void addChangeListener(MemoryPoolId poolId, Consumer<MemoryPoolInfo> listener);
+
+    long getClusterTotalMemoryReservation();
+
+    long getClusterMemoryBytes();
 }
