@@ -31,6 +31,7 @@ import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.OrderingScheme;
+import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
@@ -67,6 +68,7 @@ import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -422,8 +424,22 @@ public class PropertyDerivations
                             .unordered(unordered)
                             .build();
                 case FULL:
-                    // We can't say anything about the partitioning scheme because any partition of
-                    // a hash-partitioned join can produce nulls in case of a lack of matches
+                    if (probeProperties.getNodePartitioning().isPresent()) {
+                        Partitioning nodePartitioning = probeProperties.getNodePartitioning().get();
+                        ImmutableList.Builder<Expression> coalesceExpressions = ImmutableList.builder();
+                        for (Symbol column : nodePartitioning.getColumns()) {
+                            for (JoinNode.EquiJoinClause equality : node.getCriteria()) {
+                                if (equality.getLeft().equals(column) || equality.getRight().equals(column)) {
+                                    coalesceExpressions.add(new CoalesceExpression(ImmutableList.of(equality.getLeft().toSymbolReference(), equality.getRight().toSymbolReference())));
+                                }
+                            }
+                        }
+
+                        return ActualProperties.builder()
+                                .global(partitionedOn(Partitioning.createWithExpressions(nodePartitioning.getHandle(), coalesceExpressions.build()), Optional.empty()))
+                                .unordered(unordered)
+                                .build();
+                    }
                     return ActualProperties.builder()
                             .global(probeProperties.isSingleNode() ? singleStreamPartition() : arbitraryPartition())
                             .unordered(unordered)
@@ -606,7 +622,7 @@ public class PropertyDerivations
 
             Map<Symbol, Symbol> identities = computeIdentityTranslations(node.getAssignments().getMap());
 
-            ActualProperties translatedProperties = properties.translate(column -> Optional.ofNullable(identities.get(column)));
+            ActualProperties translatedProperties = properties.translate(column -> Optional.ofNullable(identities.get(column)), expression -> rewriteExpression(node.getAssignments().getMap(), expression));
 
             // Extract additional constants
             Map<Symbol, NullableValue> constants = new HashMap<>();
@@ -822,6 +838,30 @@ public class PropertyDerivations
             }
         }
 
+        return Optional.empty();
+    }
+
+    public static Optional<Symbol> rewriteExpression(Map<Symbol, Expression> assignments, Expression expression)
+    {
+        checkArgument(expression instanceof CoalesceExpression, "The rewrite can only handle CoalesceExpression");
+        // We are using the property that the result of coalesce from full outer join keys would not be null despite of the order
+        // of the arguments. Thus we extract and compare the symbols of the CoalesceExpression as a set rather than compare the
+        // CoalesceExpression directly.
+        for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
+            if (entry.getValue() instanceof CoalesceExpression) {
+                Set<Symbol> symbolsInAssignment = ((CoalesceExpression) entry.getValue()).getOperands().stream()
+                        .filter(SymbolReference.class::isInstance)
+                        .map(Symbol::from)
+                        .collect(toImmutableSet());
+                Set<Symbol> symbolInExpression = ((CoalesceExpression) expression).getOperands().stream()
+                        .filter(SymbolReference.class::isInstance)
+                        .map(Symbol::from)
+                        .collect(toImmutableSet());
+                if (symbolsInAssignment.containsAll(symbolInExpression)) {
+                    return Optional.of(entry.getKey());
+                }
+            }
+        }
         return Optional.empty();
     }
 }
