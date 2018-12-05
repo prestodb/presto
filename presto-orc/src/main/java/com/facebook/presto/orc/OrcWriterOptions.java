@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.units.DataSize;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -29,8 +30,12 @@ public class OrcWriterOptions
     private static final int DEFAULT_STRIPE_MAX_ROW_COUNT = 10_000_000;
     private static final int DEFAULT_ROW_GROUP_MAX_ROW_COUNT = 10_000;
     private static final DataSize DEFAULT_DICTIONARY_MAX_MEMORY = new DataSize(16, MEGABYTE);
-    public static final DataSize DEFAULT_MAX_STRING_STATISTICS_LIMIT = new DataSize(64, BYTE);
-    private static final DataSize DEFAULT_MAX_COMPRESSION_BUFFER_SIZE = new DataSize(256, KILOBYTE);
+
+    @VisibleForTesting
+    static final DataSize DEFAULT_MAX_STRING_STATISTICS_LIMIT = new DataSize(64, BYTE);
+
+    @VisibleForTesting
+    static final DataSize DEFAULT_MAX_COMPRESSION_BUFFER_SIZE = new DataSize(256, KILOBYTE);
 
     private final DataSize stripeMinSize;
     private final DataSize stripeMaxSize;
