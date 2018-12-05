@@ -59,6 +59,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.stream.LongOutputStream.createLengthOutputStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -67,6 +68,8 @@ public class SliceDictionaryColumnWriter
         implements ColumnWriter, DictionaryColumn
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionaryColumnWriter.class).instanceSize();
+    private static final int DIRECT_CONVERSION_CHUNK_MAX_LOGICAL_BYTES = toIntExact(new DataSize(32, MEGABYTE).toBytes());
+
     private final int column;
     private final Type type;
     private final CompressionKind compression;
@@ -178,10 +181,10 @@ public class SliceDictionaryColumnWriter
         for (DictionaryRowGroup rowGroup : rowGroups) {
             directColumnWriter.beginRowGroup();
             // todo we should be able to pass the stats down to avoid recalculating min and max
-            writeDictionaryRowGroup(dictionaryValues, rowGroup.getValueCount(), rowGroup.getDictionaryIndexes());
+            boolean success = writeDictionaryRowGroup(dictionaryValues, rowGroup.getValueCount(), rowGroup.getDictionaryIndexes(), maxDirectBytes);
             directColumnWriter.finishRowGroup();
 
-            if (directColumnWriter.getBufferedBytes() > maxDirectBytes) {
+            if (!success) {
                 directColumnWriter.close();
                 directColumnWriter.reset();
                 return OptionalInt.empty();
@@ -190,7 +193,11 @@ public class SliceDictionaryColumnWriter
 
         if (inRowGroup) {
             directColumnWriter.beginRowGroup();
-            writeDictionaryRowGroup(dictionaryValues, rowGroupValueCount, values);
+            if (!writeDictionaryRowGroup(dictionaryValues, rowGroupValueCount, values, maxDirectBytes)) {
+                directColumnWriter.close();
+                directColumnWriter.reset();
+                return OptionalInt.empty();
+            }
         }
         else {
             checkState(rowGroupValueCount == 0);
@@ -213,17 +220,42 @@ public class SliceDictionaryColumnWriter
         return OptionalInt.of(toIntExact(directColumnWriter.getBufferedBytes()));
     }
 
-    private void writeDictionaryRowGroup(Block dictionary, int valueCount, IntBigArray dictionaryIndexes)
+    private boolean writeDictionaryRowGroup(Block dictionary, int valueCount, IntBigArray dictionaryIndexes, int maxDirectBytes)
     {
         int[][] segments = dictionaryIndexes.getSegments();
         for (int i = 0; valueCount > 0 && i < segments.length; i++) {
             int[] segment = segments[i];
             int positionCount = Math.min(valueCount, segment.length);
-            DictionaryBlock dictionaryBlock = new DictionaryBlock(positionCount, dictionary, segment);
-            directColumnWriter.writeBlock(dictionaryBlock);
+            Block block = new DictionaryBlock(positionCount, dictionary, segment);
+
+            while (block != null) {
+                int chunkPositionCount = block.getPositionCount();
+                Block chunk = block.getRegion(0, chunkPositionCount);
+
+                // avoid chunk with huge logical size
+                while (chunkPositionCount > 1 && chunk.getLogicalSizeInBytes() > DIRECT_CONVERSION_CHUNK_MAX_LOGICAL_BYTES) {
+                    chunkPositionCount /= 2;
+                    chunk = chunk.getRegion(0, chunkPositionCount);
+                }
+
+                directColumnWriter.writeBlock(chunk);
+                if (directColumnWriter.getBufferedBytes() > maxDirectBytes) {
+                    return false;
+                }
+
+                // slice block to only unconverted rows
+                if (chunkPositionCount < block.getPositionCount()) {
+                    block = block.getRegion(chunkPositionCount, block.getPositionCount() - chunkPositionCount);
+                }
+                else {
+                    block = null;
+                }
+            }
+
             valueCount -= positionCount;
         }
         checkState(valueCount == 0);
+        return true;
     }
 
     @Override
