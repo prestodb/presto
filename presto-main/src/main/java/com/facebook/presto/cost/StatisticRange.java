@@ -157,7 +157,7 @@ public class StatisticRange
 
     public StatisticRange addAndMaxDistinctValues(StatisticRange other)
     {
-        double newDistinctValues = minExcludeNaN(distinctValues, other.distinctValues);
+        double newDistinctValues = max(distinctValues, other.distinctValues);
         return new StatisticRange(minExcludeNaN(low, other.low), maxExcludeNaN(high, other.high), newDistinctValues);
     }
 
