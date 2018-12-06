@@ -21,15 +21,16 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.spi.Node;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
-import java.util.Map;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -89,12 +90,10 @@ public class TestFixedCountScheduler
         assertEquals(result.getNewTasks().stream().map(RemoteTask::getNodeId).collect(toImmutableSet()).size(), 5);
     }
 
-    private static Map<Integer, Node> generateRandomNodes(int count)
+    private static List<Node> generateRandomNodes(int count)
     {
-        ImmutableMap.Builder<Integer, Node> nodes = ImmutableMap.builder();
-        for (int i = 0; i < count; i++) {
-            nodes.put(i, new PrestoNode("other " + i, URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false));
-        }
-        return nodes.build();
+        return IntStream.range(0, count)
+                .mapToObj(i -> new PrestoNode("other " + i, URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false))
+                .collect(toImmutableList());
     }
 }

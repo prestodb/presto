@@ -54,7 +54,7 @@ final class ShardIterator
     private final Map<Integer, String> nodeMap = new HashMap<>();
 
     private final boolean merged;
-    private final Map<Integer, String> bucketToNode;
+    private final List<String> bucketToNode;
     private final ShardDao dao;
     private final Connection connection;
     private final PreparedStatement statement;
@@ -64,7 +64,7 @@ final class ShardIterator
     public ShardIterator(
             long tableId,
             boolean merged,
-            Optional<Map<Integer, String>> bucketToNode,
+            Optional<List<String>> bucketToNode,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
             IDBI dbi)
     {

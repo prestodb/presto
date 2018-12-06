@@ -15,47 +15,36 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 
-import java.util.Map;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.ToIntFunction;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 // the bucket to node mapping is fixed and pre-assigned
 public class FixedBucketNodeMap
         extends BucketNodeMap
 {
-    private final Map<Integer, Node> bucketToNode;
-    private final int bucketCount;
+    private final List<Node> bucketToNode;
 
-    public FixedBucketNodeMap(ToIntFunction<Split> splitToBucket, Map<Integer, Node> bucketToNode)
+    public FixedBucketNodeMap(ToIntFunction<Split> splitToBucket, List<Node> bucketToNode)
     {
         super(splitToBucket);
-        requireNonNull(bucketToNode, "bucketToNode is null");
-        this.bucketToNode = ImmutableMap.copyOf(bucketToNode);
-        bucketCount = bucketToNode.keySet().stream()
-                .mapToInt(Integer::intValue)
-                .max()
-                .getAsInt() + 1;
+        this.bucketToNode = ImmutableList.copyOf(requireNonNull(bucketToNode, "bucketToNode is null"));
     }
 
     @Override
     public Optional<Node> getAssignedNode(int bucketedId)
     {
-        checkArgument(bucketedId >= 0 && bucketedId < bucketCount);
-        Node node = bucketToNode.get(bucketedId);
-        verify(node != null);
-        return Optional.of(node);
+        return Optional.of(bucketToNode.get(bucketedId));
     }
 
     @Override
     public int getBucketCount()
     {
-        return bucketCount;
+        return bucketToNode.size();
     }
 
     @Override

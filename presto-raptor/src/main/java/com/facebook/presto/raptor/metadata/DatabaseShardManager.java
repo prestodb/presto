@@ -27,7 +27,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -82,6 +81,7 @@ import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.partition;
 import static java.lang.Boolean.TRUE;
 import static java.lang.Math.multiplyExact;
@@ -116,7 +116,7 @@ public class DatabaseShardManager
             .maximumSize(10_000)
             .build(CacheLoader.from(this::loadNodeId));
 
-    private final LoadingCache<Long, Map<Integer, String>> bucketAssignmentsCache = CacheBuilder.newBuilder()
+    private final LoadingCache<Long, List<String>> bucketAssignmentsCache = CacheBuilder.newBuilder()
             .expireAfterWrite(1, SECONDS)
             .build(CacheLoader.from(this::loadBucketAssignments));
 
@@ -543,7 +543,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public ResultIterator<BucketShards> getShardNodesBucketed(long tableId, boolean merged, Map<Integer, String> bucketToNode, TupleDomain<RaptorColumnHandle> effectivePredicate)
+    public ResultIterator<BucketShards> getShardNodesBucketed(long tableId, boolean merged, List<String> bucketToNode, TupleDomain<RaptorColumnHandle> effectivePredicate)
     {
         return new ShardIterator(tableId, merged, Optional.of(bucketToNode), effectivePredicate, dbi);
     }
@@ -604,7 +604,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public Map<Integer, String> getBucketAssignments(long distributionId)
+    public List<String> getBucketAssignments(long distributionId)
     {
         try {
             return bucketAssignmentsCache.getUnchecked(distributionId);
@@ -669,13 +669,13 @@ public class DatabaseShardManager
         return dao.getBucketNodes(distributionId);
     }
 
-    private Map<Integer, String> loadBucketAssignments(long distributionId)
+    private List<String> loadBucketAssignments(long distributionId)
     {
         Set<String> nodeIds = getNodeIdentifiers();
         List<BucketNode> bucketNodes = getBuckets(distributionId);
         BucketReassigner reassigner = new BucketReassigner(nodeIds, bucketNodes);
 
-        ImmutableMap.Builder<Integer, String> assignments = ImmutableMap.builder();
+        List<String> assignments = new ArrayList<>(nCopies(bucketNodes.size(), null));
         PrestoException limiterException = null;
         Set<String> offlineNodes = new HashSet<>();
 
@@ -706,14 +706,14 @@ public class DatabaseShardManager
                 log.info("Reassigned bucket %s for distribution ID %s from %s to %s", bucket, distributionId, oldNodeId, nodeId);
             }
 
-            assignments.put(bucket, nodeId);
+            verify(assignments.set(bucket, nodeId) == null, "Duplicate bucket");
         }
 
         if (limiterException != null) {
             throw limiterException;
         }
 
-        return assignments.build();
+        return ImmutableList.copyOf(assignments);
     }
 
     private Set<String> getNodeIdentifiers()

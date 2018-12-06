@@ -384,9 +384,9 @@ public class TestDatabaseShardManager
 
         shardManager.createBuckets(distributionId, bucketCount);
 
-        Map<Integer, String> assignments = shardManager.getBucketAssignments(distributionId);
+        List<String> assignments = shardManager.getBucketAssignments(distributionId);
         assertEquals(assignments.size(), bucketCount);
-        assertEquals(ImmutableSet.copyOf(assignments.values()), nodeIds(originalNodes));
+        assertEquals(ImmutableSet.copyOf(assignments), nodeIds(originalNodes));
 
         Set<Node> newNodes = ImmutableSet.of(node1, node3);
         shardManager = createShardManager(dbi, () -> newNodes, ticker);
@@ -402,14 +402,14 @@ public class TestDatabaseShardManager
         ticker.increment(2, DAYS);
         assignments = shardManager.getBucketAssignments(distributionId);
         assertEquals(assignments.size(), bucketCount);
-        assertEquals(ImmutableSet.copyOf(assignments.values()), nodeIds(newNodes));
+        assertEquals(ImmutableSet.copyOf(assignments), nodeIds(newNodes));
 
         Set<Node> singleNode = ImmutableSet.of(node1);
         shardManager = createShardManager(dbi, () -> singleNode, ticker);
         ticker.increment(2, DAYS);
         assignments = shardManager.getBucketAssignments(distributionId);
         assertEquals(assignments.size(), bucketCount);
-        assertEquals(ImmutableSet.copyOf(assignments.values()), nodeIds(singleNode));
+        assertEquals(ImmutableSet.copyOf(assignments), nodeIds(singleNode));
     }
 
     @Test
@@ -431,7 +431,7 @@ public class TestDatabaseShardManager
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
         shardManager.createTable(tableId, columns, true, OptionalLong.empty());
 
-        try (ResultIterator<BucketShards> iterator = shardManager.getShardNodesBucketed(tableId, true, ImmutableMap.of(), TupleDomain.all())) {
+        try (ResultIterator<BucketShards> iterator = shardManager.getShardNodesBucketed(tableId, true, ImmutableList.of(), TupleDomain.all())) {
             assertFalse(iterator.hasNext());
         }
     }

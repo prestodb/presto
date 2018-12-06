@@ -29,7 +29,6 @@ import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Objects;
@@ -154,12 +153,7 @@ public final class SystemPartitioningHandle
 
         checkCondition(!nodes.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
 
-        ImmutableMap.Builder<Integer, Node> partitionToNode = ImmutableMap.builder();
-        for (int i = 0; i < nodes.size(); i++) {
-            Node node = nodes.get(i);
-            partitionToNode.put(i, node);
-        }
-        return new NodePartitionMap(partitionToNode.build(), split -> {
+        return new NodePartitionMap(nodes, split -> {
             throw new UnsupportedOperationException("System distribution does not support source splits");
         });
     }
