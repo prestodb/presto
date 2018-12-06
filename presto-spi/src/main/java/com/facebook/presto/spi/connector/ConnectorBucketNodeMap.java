@@ -15,40 +15,29 @@ package com.facebook.presto.spi.connector;
 
 import com.facebook.presto.spi.Node;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 import static java.lang.String.format;
-import static java.util.Collections.unmodifiableMap;
-import static java.util.Objects.requireNonNull;
 
 public final class ConnectorBucketNodeMap
 {
     private final int bucketCount;
-    private final Optional<Map<Integer, Node>> bucketToNode;
+    private final Optional<List<Node>> bucketToNode;
 
     public static ConnectorBucketNodeMap createBucketNodeMap(int bucketCount)
     {
         return new ConnectorBucketNodeMap(bucketCount, Optional.empty());
     }
 
-    public static ConnectorBucketNodeMap createBucketNodeMap(Map<Integer, Node> bucketToNode)
+    public static ConnectorBucketNodeMap createBucketNodeMap(List<Node> bucketToNode)
     {
-        requireNonNull(bucketToNode, "bucketToNode is null");
-        int maxBucket = bucketToNode.keySet().stream()
-                .mapToInt(Integer::intValue)
-                .peek(bucket -> {
-                    if (bucket < 0) {
-                        throw new IllegalArgumentException("Bucket number must be positive: " + bucket);
-                    }
-                })
-                .max()
-                .orElseThrow(() -> new IllegalArgumentException("bucketToNode is empty"));
-        return new ConnectorBucketNodeMap(maxBucket + 1, Optional.of(bucketToNode));
+        return new ConnectorBucketNodeMap(bucketToNode.size(), Optional.of(bucketToNode));
     }
 
-    private ConnectorBucketNodeMap(int bucketCount, Optional<Map<Integer, Node>> bucketToNode)
+    private ConnectorBucketNodeMap(int bucketCount, Optional<List<Node>> bucketToNode)
     {
         if (bucketCount <= 0) {
             throw new IllegalArgumentException("bucketCount must be positive");
@@ -57,8 +46,7 @@ public final class ConnectorBucketNodeMap
             throw new IllegalArgumentException(format("Mismatched bucket count in bucketToNode (%s) and bucketCount (%s)", bucketToNode.get().size(), bucketCount));
         }
         this.bucketCount = bucketCount;
-        this.bucketToNode = requireNonNull(bucketToNode, "bucketToNode is null")
-                .map(mapping -> unmodifiableMap(new HashMap<>(mapping)));
+        this.bucketToNode = bucketToNode.map(ArrayList::new).map(Collections::unmodifiableList);
     }
 
     public int getBucketCount()
@@ -71,7 +59,7 @@ public final class ConnectorBucketNodeMap
         return bucketToNode.isPresent();
     }
 
-    public Map<Integer, Node> getFixedMapping()
+    public List<Node> getFixedMapping()
     {
         return bucketToNode.orElseThrow(() -> new IllegalArgumentException("No fixed bucket to node mapping"));
     }

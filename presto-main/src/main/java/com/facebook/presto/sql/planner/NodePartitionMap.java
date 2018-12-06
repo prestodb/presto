@@ -17,10 +17,9 @@ import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.FixedBucketNodeMap;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 import java.util.function.ToIntFunction;
 import java.util.stream.IntStream;
 
@@ -34,29 +33,27 @@ import static java.util.Objects.requireNonNull;
 //      /  \
 //   Scan  Remote
 //
-// TODO: Refactor NodePartitionMap to contain BucketNodeMap and bucket to partition map.
 public class NodePartitionMap
 {
-    private final Map<Integer, Node> partitionToNode;
+    private final List<Node> partitionToNode;
     private final int[] bucketToPartition;
     private final ToIntFunction<Split> splitToBucket;
 
-    public NodePartitionMap(Map<Integer, Node> partitionToNode, ToIntFunction<Split> splitToBucket)
+    public NodePartitionMap(List<Node> partitionToNode, ToIntFunction<Split> splitToBucket)
     {
-        this.partitionToNode = ImmutableMap.copyOf(requireNonNull(partitionToNode, "partitionToNode is null"));
-
+        this.partitionToNode = ImmutableList.copyOf(requireNonNull(partitionToNode, "partitionToNode is null"));
         this.bucketToPartition = IntStream.range(0, partitionToNode.size()).toArray();
         this.splitToBucket = requireNonNull(splitToBucket, "splitToBucket is null");
     }
 
-    public NodePartitionMap(Map<Integer, Node> partitionToNode, int[] bucketToPartition, ToIntFunction<Split> splitToBucket)
+    public NodePartitionMap(List<Node> partitionToNode, int[] bucketToPartition, ToIntFunction<Split> splitToBucket)
     {
         this.bucketToPartition = requireNonNull(bucketToPartition, "bucketToPartition is null");
-        this.partitionToNode = ImmutableMap.copyOf(requireNonNull(partitionToNode, "partitionToNode is null"));
+        this.partitionToNode = ImmutableList.copyOf(requireNonNull(partitionToNode, "partitionToNode is null"));
         this.splitToBucket = requireNonNull(splitToBucket, "splitToBucket is null");
     }
 
-    public Map<Integer, Node> getPartitionToNode()
+    public List<Node> getPartitionToNode()
     {
         return partitionToNode;
     }
@@ -75,10 +72,10 @@ public class NodePartitionMap
 
     public BucketNodeMap asBucketNodeMap()
     {
-        Map<Integer, Node> bucketToNode = new HashMap<>(bucketToPartition.length);
-        for (int i = 0; i < bucketToPartition.length; i++) {
-            bucketToNode.put(i, partitionToNode.get(bucketToPartition[i]));
+        ImmutableList.Builder<Node> bucketToNode = ImmutableList.builder();
+        for (int partition : bucketToPartition) {
+            bucketToNode.add(partitionToNode.get(partition));
         }
-        return new FixedBucketNodeMap(splitToBucket, bucketToNode);
+        return new FixedBucketNodeMap(splitToBucket, bucketToNode.build());
     }
 }

@@ -75,7 +75,7 @@ public interface ShardManager
     /**
      * Return the shard nodes for a bucketed table.
      */
-    ResultIterator<BucketShards> getShardNodesBucketed(long tableId, boolean merged, Map<Integer, String> bucketToNode, TupleDomain<RaptorColumnHandle> effectivePredicate);
+    ResultIterator<BucketShards> getShardNodesBucketed(long tableId, boolean merged, List<String> bucketToNode, TupleDomain<RaptorColumnHandle> effectivePredicate);
 
     /**
      * Remove all old shard assignments and assign a shard to a node
@@ -107,7 +107,7 @@ public interface ShardManager
     /**
      * Get map of buckets to node identifiers for a distribution.
      */
-    Map<Integer, String> getBucketAssignments(long distributionId);
+    List<String> getBucketAssignments(long distributionId);
 
     /**
      * Change the node a bucket is assigned to.

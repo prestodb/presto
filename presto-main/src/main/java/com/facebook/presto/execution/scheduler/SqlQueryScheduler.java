@@ -69,7 +69,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.getConcurrentLifespansPerNode;
 import static com.facebook.presto.SystemSessionProperties.getWriterMinSize;
@@ -371,14 +370,7 @@ public class SqlQueryScheduler
                     if (groupedExecutionForStage) {
                         checkState(connectorPartitionHandles.size() == nodePartitionMap.getBucketToPartition().length);
                     }
-                    Map<Integer, Node> partitionToNode = nodePartitionMap.getPartitionToNode();
-                    stageNodeList = IntStream.range(0, partitionToNode.size())
-                            .mapToObj(id -> {
-                                Node node = partitionToNode.get(id);
-                                verify(node != null);
-                                return node;
-                            })
-                            .collect(toImmutableList());
+                    stageNodeList = nodePartitionMap.getPartitionToNode();
                     bucketNodeMap = nodePartitionMap.asBucketNodeMap();
                     bucketToPartition = Optional.of(nodePartitionMap.getBucketToPartition());
                 }
@@ -398,7 +390,7 @@ public class SqlQueryScheduler
             else {
                 // all sources are remote
                 NodePartitionMap nodePartitionMap = partitioningCache.apply(plan.getFragment().getPartitioning());
-                Map<Integer, Node> partitionToNode = nodePartitionMap.getPartitionToNode();
+                List<Node> partitionToNode = nodePartitionMap.getPartitionToNode();
                 // todo this should asynchronously wait a standard timeout period before failing
                 checkCondition(!partitionToNode.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
                 stageSchedulers.put(stageId, new FixedCountScheduler(stage, partitionToNode));
