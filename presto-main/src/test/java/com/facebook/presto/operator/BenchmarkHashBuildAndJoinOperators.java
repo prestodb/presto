@@ -185,7 +185,7 @@ public class BenchmarkHashBuildAndJoinOperators
         protected List<Page> probePages;
         protected List<Integer> outputChannels;
 
-        protected JoinBridgeManager<LookupSourceFactory> lookupSourceFactory;
+        protected JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory;
 
         @Override
         @Setup
@@ -211,7 +211,7 @@ public class BenchmarkHashBuildAndJoinOperators
             initializeProbePages();
         }
 
-        public JoinBridgeManager<LookupSourceFactory> getLookupSourceFactory()
+        public JoinBridgeManager<PartitionedLookupSourceFactory> getLookupSourceFactory()
         {
             return lookupSourceFactory;
         }
@@ -275,16 +275,16 @@ public class BenchmarkHashBuildAndJoinOperators
     }
 
     @Benchmark
-    public JoinBridgeManager<LookupSourceFactory> benchmarkBuildHash(BuildContext buildContext)
+    public JoinBridgeManager<PartitionedLookupSourceFactory> benchmarkBuildHash(BuildContext buildContext)
     {
         return benchmarkBuildHash(buildContext, ImmutableList.of(0, 1, 2));
     }
 
-    private JoinBridgeManager<LookupSourceFactory> benchmarkBuildHash(BuildContext buildContext, List<Integer> outputChannels)
+    private JoinBridgeManager<PartitionedLookupSourceFactory> benchmarkBuildHash(BuildContext buildContext, List<Integer> outputChannels)
     {
         DriverContext driverContext = buildContext.createTaskContext().addPipelineContext(0, true, true, false).addDriverContext();
 
-        JoinBridgeManager<LookupSourceFactory> lookupSourceFactoryManager = JoinBridgeManager.lookupAllAtOnce(new PartitionedLookupSourceFactory(
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = JoinBridgeManager.lookupAllAtOnce(new PartitionedLookupSourceFactory(
                 buildContext.getTypes(),
                 outputChannels.stream()
                         .map(buildContext.getTypes()::get)

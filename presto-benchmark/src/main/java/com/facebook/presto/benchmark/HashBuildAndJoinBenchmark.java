@@ -20,7 +20,6 @@ import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import com.facebook.presto.operator.JoinBridgeManager;
 import com.facebook.presto.operator.LookupJoinOperators;
-import com.facebook.presto.operator.LookupSourceFactory;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.PartitionedLookupSourceFactory;
@@ -89,7 +88,7 @@ public class HashBuildAndJoinBenchmark
         }
 
         // hash build
-        JoinBridgeManager<LookupSourceFactory> lookupSourceFactoryManager = JoinBridgeManager.lookupAllAtOnce(new PartitionedLookupSourceFactory(
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = JoinBridgeManager.lookupAllAtOnce(new PartitionedLookupSourceFactory(
                 sourceTypes,
                 ImmutableList.of(0, 1).stream()
                         .map(sourceTypes::get)

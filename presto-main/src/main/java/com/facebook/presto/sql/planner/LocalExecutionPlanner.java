@@ -1897,7 +1897,7 @@ public class LocalExecutionPlanner
             PhysicalOperation probeSource = probeNode.accept(this, context);
 
             // Plan build
-            JoinBridgeManager<LookupSourceFactory> lookupSourceFactory =
+            JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory =
                     createLookupSourceFactory(node, buildNode, buildSymbols, buildHashSymbol, probeSource, context);
 
             OperatorFactory operator = createLookupJoin(node, probeSource, probeSymbols, probeHashSymbol, lookupSourceFactory, context);
@@ -1912,7 +1912,7 @@ public class LocalExecutionPlanner
             return new PhysicalOperation(operator, outputMappings.build(), context, probeSource);
         }
 
-        private JoinBridgeManager<LookupSourceFactory> createLookupSourceFactory(
+        private JoinBridgeManager<PartitionedLookupSourceFactory> createLookupSourceFactory(
                 JoinNode node,
                 PlanNode buildNode,
                 List<Symbol> buildSymbols,
@@ -1973,7 +1973,7 @@ public class LocalExecutionPlanner
             ImmutableList<Type> buildOutputTypes = buildOutputChannels.stream()
                     .map(buildSource.getTypes()::get)
                     .collect(toImmutableList());
-            JoinBridgeManager<LookupSourceFactory> lookupSourceFactoryManager = new JoinBridgeManager<>(
+            JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = new JoinBridgeManager<>(
                     buildOuter,
                     probeSource.getPipelineExecutionStrategy(),
                     buildSource.getPipelineExecutionStrategy(),
@@ -2057,7 +2057,7 @@ public class LocalExecutionPlanner
                 PhysicalOperation probeSource,
                 List<Symbol> probeSymbols,
                 Optional<Symbol> probeHashSymbol,
-                JoinBridgeManager<LookupSourceFactory> lookupSourceFactory,
+                JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactoryManager,
                 LocalExecutionPlanContext context)
         {
             List<Type> probeTypes = probeSource.getTypes();
@@ -2072,13 +2072,13 @@ public class LocalExecutionPlanner
 
             switch (node.getType()) {
                 case INNER:
-                    return lookupJoinOperators.innerJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactory, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory);
+                    return lookupJoinOperators.innerJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactoryManager, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory);
                 case LEFT:
-                    return lookupJoinOperators.probeOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactory, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory);
+                    return lookupJoinOperators.probeOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactoryManager, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory);
                 case RIGHT:
-                    return lookupJoinOperators.lookupOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactory, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory);
+                    return lookupJoinOperators.lookupOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactoryManager, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory);
                 case FULL:
-                    return lookupJoinOperators.fullOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactory, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory);
+                    return lookupJoinOperators.fullOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactoryManager, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory);
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }

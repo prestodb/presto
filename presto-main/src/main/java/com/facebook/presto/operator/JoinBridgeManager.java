@@ -36,7 +36,7 @@ import static java.util.Objects.requireNonNull;
 public class JoinBridgeManager<T extends JoinBridge>
 {
     @VisibleForTesting
-    public static JoinBridgeManager<LookupSourceFactory> lookupAllAtOnce(LookupSourceFactory factory)
+    public static JoinBridgeManager<PartitionedLookupSourceFactory> lookupAllAtOnce(PartitionedLookupSourceFactory factory)
     {
         return new JoinBridgeManager<>(
                 false,

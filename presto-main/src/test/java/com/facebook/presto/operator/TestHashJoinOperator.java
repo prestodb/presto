@@ -163,7 +163,7 @@ public class TestHashJoinOperator
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR, BIGINT, BIGINT))
                 .addSequencePage(10, 20, 30, 40);
         BuildSideSetup buildSideSetup = setupBuildSide(parallelBuild, taskContext, Ints.asList(0), buildPages, Optional.empty(), false, SINGLE_STREAM_SPILLER_FACTORY);
-        JoinBridgeManager<LookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
         RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR, BIGINT, BIGINT));
@@ -216,7 +216,7 @@ public class TestHashJoinOperator
         RowPagesBuilder buildPages = rowPagesBuilder(true, Ints.asList(0), ImmutableList.of(BIGINT))
                 .addSequencePage(entries, 42);
         BuildSideSetup buildSideSetup = setupBuildSide(true, taskContext, Ints.asList(0), buildPages, Optional.of(filterFunction), false, SINGLE_STREAM_SPILLER_FACTORY);
-        JoinBridgeManager<LookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe matching the above 40 entries
         RowPagesBuilder probePages = rowPagesBuilder(false, Ints.asList(0), ImmutableList.of(BIGINT));
@@ -384,7 +384,7 @@ public class TestHashJoinOperator
                 .addSequencePage(4, 40, 400);
 
         BuildSideSetup buildSideSetup = setupBuildSide(true, taskContext, Ints.asList(0), buildPages, Optional.of(filterFunction), true, buildSpillerFactory);
-        JoinBridgeManager<LookupSourceFactory> lookupSourceFactoryManager = buildSideSetup.getLookupSourceFactoryManager();
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
         RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR, BIGINT))
@@ -547,7 +547,7 @@ public class TestHashJoinOperator
                 .row("b")
                 .row("c");
         BuildSideSetup buildSideSetup = setupBuildSide(parallelBuild, taskContext, Ints.asList(0), buildPages, Optional.empty(), false, SINGLE_STREAM_SPILLER_FACTORY);
-        JoinBridgeManager<LookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
         List<Type> probeTypes = ImmutableList.of(VARCHAR);
@@ -589,7 +589,7 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b");
         BuildSideSetup buildSideSetup = setupBuildSide(parallelBuild, taskContext, Ints.asList(0), buildPages, Optional.empty(), false, SINGLE_STREAM_SPILLER_FACTORY);
-        JoinBridgeManager<LookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
         List<Type> probeTypes = ImmutableList.of(VARCHAR);
@@ -629,7 +629,7 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b");
         BuildSideSetup buildSideSetup = setupBuildSide(parallelBuild, taskContext, Ints.asList(0), buildPages, Optional.empty(), false, SINGLE_STREAM_SPILLER_FACTORY);
-        JoinBridgeManager<LookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
         List<Type> probeTypes = ImmutableList.of(VARCHAR);
@@ -666,7 +666,7 @@ public class TestHashJoinOperator
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR, BIGINT, BIGINT))
                 .addSequencePage(10, 20, 30, 40);
         BuildSideSetup buildSideSetup = setupBuildSide(parallelBuild, taskContext, Ints.asList(0), buildPages, Optional.empty(), false, SINGLE_STREAM_SPILLER_FACTORY);
-        JoinBridgeManager<LookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
         List<Type> probeTypes = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
@@ -715,7 +715,7 @@ public class TestHashJoinOperator
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR, BIGINT, BIGINT))
                 .addSequencePage(10, 20, 30, 40);
         BuildSideSetup buildSideSetup = setupBuildSide(parallelBuild, taskContext, Ints.asList(0), buildPages, Optional.of(filterFunction), false, SINGLE_STREAM_SPILLER_FACTORY);
-        JoinBridgeManager<LookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
         List<Type> probeTypes = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
@@ -763,7 +763,7 @@ public class TestHashJoinOperator
                 .row("b")
                 .row("c");
         BuildSideSetup buildSideSetup = setupBuildSide(parallelBuild, taskContext, Ints.asList(0), buildPages, Optional.empty(), false, SINGLE_STREAM_SPILLER_FACTORY);
-        JoinBridgeManager<LookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
         List<Type> probeTypes = ImmutableList.of(VARCHAR);
@@ -808,7 +808,7 @@ public class TestHashJoinOperator
                 .row("b")
                 .row("c");
         BuildSideSetup buildSideSetup = setupBuildSide(parallelBuild, taskContext, Ints.asList(0), buildPages, Optional.of(filterFunction), false, SINGLE_STREAM_SPILLER_FACTORY);
-        JoinBridgeManager<LookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
         List<Type> probeTypes = ImmutableList.of(VARCHAR);
@@ -852,7 +852,7 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b");
         BuildSideSetup buildSideSetup = setupBuildSide(parallelBuild, taskContext, Ints.asList(0), buildPages, Optional.empty(), false, SINGLE_STREAM_SPILLER_FACTORY);
-        JoinBridgeManager<LookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
         List<Type> probeTypes = ImmutableList.of(VARCHAR);
@@ -897,7 +897,7 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b");
         BuildSideSetup buildSideSetup = setupBuildSide(parallelBuild, taskContext, Ints.asList(0), buildPages, Optional.of(filterFunction), false, SINGLE_STREAM_SPILLER_FACTORY);
-        JoinBridgeManager<LookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
         List<Type> probeTypes = ImmutableList.of(VARCHAR);
@@ -937,7 +937,7 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b");
         BuildSideSetup buildSideSetup = setupBuildSide(parallelBuild, taskContext, Ints.asList(0), buildPages, Optional.empty(), false, SINGLE_STREAM_SPILLER_FACTORY);
-        JoinBridgeManager<LookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
         List<Type> probeTypes = ImmutableList.of(VARCHAR);
@@ -983,7 +983,7 @@ public class TestHashJoinOperator
                 .row("a")
                 .row("b");
         BuildSideSetup buildSideSetup = setupBuildSide(parallelBuild, taskContext, Ints.asList(0), buildPages, Optional.of(filterFunction), false, SINGLE_STREAM_SPILLER_FACTORY);
-        JoinBridgeManager<LookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
         List<Type> probeTypes = ImmutableList.of(VARCHAR);
@@ -1033,7 +1033,7 @@ public class TestHashJoinOperator
         List<Type> buildTypes = ImmutableList.of(VARCHAR);
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), buildTypes);
         BuildSideSetup buildSideSetup = setupBuildSide(parallelBuild, taskContext, Ints.asList(0), buildPages, Optional.empty(), false, SINGLE_STREAM_SPILLER_FACTORY);
-        JoinBridgeManager<LookupSourceFactory> lookupSourceFactoryManager = buildSideSetup.getLookupSourceFactoryManager();
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
         List<Type> probeTypes = ImmutableList.of(VARCHAR);
@@ -1069,7 +1069,7 @@ public class TestHashJoinOperator
         List<Type> buildTypes = ImmutableList.of(VARCHAR);
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), buildTypes);
         BuildSideSetup buildSideSetup = setupBuildSide(parallelBuild, taskContext, Ints.asList(0), buildPages, Optional.empty(), false, SINGLE_STREAM_SPILLER_FACTORY);
-        JoinBridgeManager<LookupSourceFactory> lookupSourceFactoryManager = buildSideSetup.getLookupSourceFactoryManager();
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
         List<Type> probeTypes = ImmutableList.of(VARCHAR);
@@ -1105,7 +1105,7 @@ public class TestHashJoinOperator
         List<Type> buildTypes = ImmutableList.of(VARCHAR);
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), buildTypes);
         BuildSideSetup buildSideSetup = setupBuildSide(parallelBuild, taskContext, Ints.asList(0), buildPages, Optional.empty(), false, SINGLE_STREAM_SPILLER_FACTORY);
-        JoinBridgeManager<LookupSourceFactory> lookupSourceFactoryManager = buildSideSetup.getLookupSourceFactoryManager();
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
         List<Type> probeTypes = ImmutableList.of(VARCHAR);
@@ -1150,7 +1150,7 @@ public class TestHashJoinOperator
         List<Type> buildTypes = ImmutableList.of(VARCHAR);
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), buildTypes);
         BuildSideSetup buildSideSetup = setupBuildSide(parallelBuild, taskContext, Ints.asList(0), buildPages, Optional.empty(), false, SINGLE_STREAM_SPILLER_FACTORY);
-        JoinBridgeManager<LookupSourceFactory> lookupSourceFactoryManager = buildSideSetup.getLookupSourceFactoryManager();
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
         List<Type> probeTypes = ImmutableList.of(VARCHAR);
@@ -1199,7 +1199,7 @@ public class TestHashJoinOperator
                 .row((String) null)
                 .row("c");
         BuildSideSetup buildSideSetup = setupBuildSide(parallelBuild, taskContext, Ints.asList(0), buildPages, Optional.empty(), false, SINGLE_STREAM_SPILLER_FACTORY);
-        JoinBridgeManager<LookupSourceFactory> lookupSourceFactoryManager = buildSideSetup.getLookupSourceFactoryManager();
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
         List<Type> probeTypes = ImmutableList.of(VARCHAR);
@@ -1252,7 +1252,7 @@ public class TestHashJoinOperator
         return hashChannels.build();
     }
 
-    private OperatorFactory probeOuterJoinOperatorFactory(JoinBridgeManager<LookupSourceFactory> lookupSourceFactoryManager, RowPagesBuilder probePages)
+    private OperatorFactory probeOuterJoinOperatorFactory(JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager, RowPagesBuilder probePages)
     {
         return LOOKUP_JOIN_OPERATORS.probeOuterJoin(
                 0,
@@ -1266,7 +1266,7 @@ public class TestHashJoinOperator
                 PARTITIONING_SPILLER_FACTORY);
     }
 
-    private OperatorFactory innerJoinOperatorFactory(JoinBridgeManager<LookupSourceFactory> lookupSourceFactoryManager, RowPagesBuilder probePages, PartitioningSpillerFactory partitioningSpillerFactory)
+    private OperatorFactory innerJoinOperatorFactory(JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager, RowPagesBuilder probePages, PartitioningSpillerFactory partitioningSpillerFactory)
     {
         return LOOKUP_JOIN_OPERATORS.innerJoin(
                 0,
@@ -1320,7 +1320,7 @@ public class TestHashJoinOperator
 
         // build side operator factories
         LocalExchangeSourceOperatorFactory sourceOperatorFactory = new LocalExchangeSourceOperatorFactory(0, new PlanNodeId("source"), localExchangeFactory);
-        JoinBridgeManager<LookupSourceFactory> lookupSourceFactoryManager = JoinBridgeManager.lookupAllAtOnce(new PartitionedLookupSourceFactory(
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = JoinBridgeManager.lookupAllAtOnce(new PartitionedLookupSourceFactory(
                 buildPages.getTypes(),
                 rangeList(buildPages.getTypes().size()).stream()
                         .map(buildPages.getTypes()::get)
@@ -1439,14 +1439,14 @@ public class TestHashJoinOperator
 
     private static class BuildSideSetup
     {
-        private final JoinBridgeManager<LookupSourceFactory> lookupSourceFactoryManager;
+        private final JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager;
         private final HashBuilderOperatorFactory buildOperatorFactory;
         private final LocalExchangeSourceOperatorFactory buildSideSourceOperatorFactory;
         private final int partitionCount;
         private List<Driver> buildDrivers;
         private List<HashBuilderOperator> buildOperators;
 
-        BuildSideSetup(JoinBridgeManager<LookupSourceFactory> lookupSourceFactoryManager, HashBuilderOperatorFactory buildOperatorFactory, LocalExchangeSourceOperatorFactory buildSideSourceOperatorFactory, int partitionCount)
+        BuildSideSetup(JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager, HashBuilderOperatorFactory buildOperatorFactory, LocalExchangeSourceOperatorFactory buildSideSourceOperatorFactory, int partitionCount)
         {
             this.lookupSourceFactoryManager = requireNonNull(lookupSourceFactoryManager, "lookupSourceFactoryManager is null");
             this.buildOperatorFactory = requireNonNull(buildOperatorFactory, "buildOperatorFactory is null");
@@ -1461,7 +1461,7 @@ public class TestHashJoinOperator
             this.buildOperators = ImmutableList.copyOf(buildOperators);
         }
 
-        JoinBridgeManager<LookupSourceFactory> getLookupSourceFactoryManager()
+        JoinBridgeManager<PartitionedLookupSourceFactory> getLookupSourceFactoryManager()
         {
             return lookupSourceFactoryManager;
         }

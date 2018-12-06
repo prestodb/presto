@@ -56,7 +56,7 @@ public class HashBuilderOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final JoinBridgeManager<LookupSourceFactory> lookupSourceFactoryManager;
+        private final JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager;
         private final List<Integer> outputChannels;
         private final List<Integer> hashChannels;
         private final OptionalInt preComputedHashChannel;
@@ -76,7 +76,7 @@ public class HashBuilderOperator
         public HashBuilderOperatorFactory(
                 int operatorId,
                 PlanNodeId planNodeId,
-                JoinBridgeManager<LookupSourceFactory> lookupSourceFactory,
+                JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager,
                 List<Integer> outputChannels,
                 List<Integer> hashChannels,
                 OptionalInt preComputedHashChannel,
@@ -93,7 +93,7 @@ public class HashBuilderOperator
             requireNonNull(sortChannel, "sortChannel can not be null");
             requireNonNull(searchFunctionFactories, "searchFunctionFactories is null");
             checkArgument(sortChannel.isPresent() != searchFunctionFactories.isEmpty(), "both or none sortChannel and searchFunctionFactories must be set");
-            this.lookupSourceFactoryManager = requireNonNull(lookupSourceFactory, "lookupSourceFactoryManager");
+            this.lookupSourceFactoryManager = requireNonNull(lookupSourceFactoryManager, "lookupSourceFactoryManager is null");
 
             this.outputChannels = ImmutableList.copyOf(requireNonNull(outputChannels, "outputChannels is null"));
             this.hashChannels = ImmutableList.copyOf(requireNonNull(hashChannels, "hashChannels is null"));
@@ -114,7 +114,7 @@ public class HashBuilderOperator
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, HashBuilderOperator.class.getSimpleName());
 
-            LookupSourceFactory lookupSourceFactory = this.lookupSourceFactoryManager.getJoinBridge(driverContext.getLifespan());
+            PartitionedLookupSourceFactory lookupSourceFactory = this.lookupSourceFactoryManager.getJoinBridge(driverContext.getLifespan());
             int partitionIndex = getAndIncrementPartitionIndex(driverContext.getLifespan());
             verify(partitionIndex < lookupSourceFactory.partitions());
             return new HashBuilderOperator(
@@ -195,7 +195,7 @@ public class HashBuilderOperator
     private final OperatorContext operatorContext;
     private final LocalMemoryContext localUserMemoryContext;
     private final LocalMemoryContext localRevocableMemoryContext;
-    private final LookupSourceFactory lookupSourceFactory;
+    private final PartitionedLookupSourceFactory lookupSourceFactory;
     private final ListenableFuture<?> lookupSourceFactoryDestroyed;
     private final int partitionIndex;
 
@@ -227,7 +227,7 @@ public class HashBuilderOperator
 
     public HashBuilderOperator(
             OperatorContext operatorContext,
-            LookupSourceFactory lookupSourceFactory,
+            PartitionedLookupSourceFactory lookupSourceFactory,
             int partitionIndex,
             List<Integer> outputChannels,
             List<Integer> hashChannels,
