@@ -151,6 +151,7 @@ public final class PartitionedLookupSourceFactory
     {
         lock.writeLock().lock();
         try {
+            checkState(!destroyed.isDone(), "already destroyed");
             if (lookupSourceSupplier != null) {
                 return immediateFuture(new SpillAwareLookupSourceProvider());
             }
