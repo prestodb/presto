@@ -97,17 +97,17 @@ public class TestExchangeStatsRule
                         .symbolStats("o1", assertion -> assertion
                                 .lowValue(1)
                                 .highValue(20)
-                                .distinctValuesCount(5)
+                                .distinctValuesCountUnknown()
                                 .nullsFraction(0.3666666))
                         .symbolStats("o2", assertion -> assertion
                                 .lowValue(0)
                                 .highValue(7)
-                                .distinctValuesCount(3)
+                                .distinctValuesCount(4)
                                 .nullsFractionUnknown())
                         .symbolStats("o3", assertion -> assertion
                                 .lowValueUnknown()
                                 .highValueUnknown()
-                                .distinctValuesCount(4.0)
+                                .distinctValuesCount(6)
                                 .nullsFraction(0.1666667))
                         .symbolStats("o4", assertion -> assertion
                                 .lowValue(10)
