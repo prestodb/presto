@@ -20,7 +20,6 @@ import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import com.facebook.presto.operator.JoinBridgeManager;
 import com.facebook.presto.operator.LookupJoinOperators;
-import com.facebook.presto.operator.LookupSourceFactory;
 import com.facebook.presto.operator.LookupSourceProvider;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.PagesIndex;
@@ -69,7 +68,7 @@ public class HashJoinBenchmark
         if (probeDriverFactory == null) {
             List<Type> ordersTypes = getColumnTypes("orders", "orderkey", "totalprice");
             OperatorFactory ordersTableScan = createTableScanOperator(0, new PlanNodeId("test"), "orders", "orderkey", "totalprice");
-            JoinBridgeManager<LookupSourceFactory> lookupSourceFactoryManager = JoinBridgeManager.lookupAllAtOnce(new PartitionedLookupSourceFactory(
+            JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = JoinBridgeManager.lookupAllAtOnce(new PartitionedLookupSourceFactory(
                     ordersTypes,
                     ImmutableList.of(0, 1).stream()
                             .map(ordersTypes::get)

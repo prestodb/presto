@@ -43,7 +43,7 @@ public class LookupJoinOperatorFactory
     private final JoinType joinType;
     private final JoinProbeFactory joinProbeFactory;
     private final Optional<OuterOperatorFactoryResult> outerOperatorFactoryResult;
-    private final JoinBridgeManager<LookupSourceFactory> joinBridgeManager;
+    private final JoinBridgeManager<? extends LookupSourceFactory> joinBridgeManager;
     private final OptionalInt totalOperatorsCount;
     private final HashGenerator probeHashGenerator;
     private final PartitioningSpillerFactory partitioningSpillerFactory;
@@ -53,7 +53,7 @@ public class LookupJoinOperatorFactory
     public LookupJoinOperatorFactory(
             int operatorId,
             PlanNodeId planNodeId,
-            JoinBridgeManager<LookupSourceFactory> lookupSourceFactoryManager,
+            JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactoryManager,
             List<Type> probeTypes,
             List<Type> probeOutputTypes,
             List<Type> buildOutputTypes,
