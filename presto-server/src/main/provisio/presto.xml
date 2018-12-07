@@ -116,6 +116,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/phoenix">
+        <artifact id="${project.groupId}:presto-phoenix:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/postgresql">
         <artifact id="${project.groupId}:presto-postgresql:zip:${project.version}">
             <unpack />
