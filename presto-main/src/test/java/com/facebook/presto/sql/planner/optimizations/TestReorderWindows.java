@@ -228,7 +228,7 @@ public class TestReorderWindows
     }
 
     @Test
-    public void testNotReorderAcrossFilter()
+    public void testNotReorderAcrossNonPartitionFilter()
     {
         @Language("SQL") String sql = "" +
                 "SELECT " +
@@ -246,13 +246,38 @@ public class TestReorderWindows
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowA)
                                         .addFunction(functionCall("avg", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
-                                filter(
-                                        RECEIPTDATE_ALIAS + " IS NOT NULL",
-                                        project(
+                                project(
+                                        filter(RECEIPTDATE_ALIAS + " IS NOT NULL",
                                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                                 .specification(windowApp)
                                                                 .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
-                                                        LINEITEM_TABLESCAN_DOQRST)))))); // should be anyTree(LINEITEM_TABLESCAN_DOQRST) but anyTree does not handle zero nodes case correctly
+                                                        LINEITEM_TABLESCAN_DOQRST)))))); // should be anyTree(LINEITEM_TABLESCAN_DOQPRSST) but anyTree does not handle zero nodes case correctly
+    }
+
+    @Test
+    public void testReorderAcrossPartitionFilter()
+    {
+        @Language("SQL") String sql = "" +
+                "SELECT " +
+                "  avg_discount_APP, " +
+                "  AVG(quantity) OVER(PARTITION BY suppkey ORDER BY orderkey ASC NULLS LAST) avg_quantity_A " +
+                "FROM ( " +
+                "   SELECT " +
+                "     *, " +
+                "     AVG(discount) OVER(PARTITION BY suppkey, tax ORDER BY receiptdate ASC NULLS LAST) avg_discount_APP " +
+                "   FROM lineitem) " +
+                "WHERE suppkey > 0";
+
+        assertUnitPlan(sql,
+                anyTree(
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(windowApp)
+                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                window(windowMatcherBuilder -> windowMatcherBuilder
+                                                .specification(windowA)
+                                                .addFunction(functionCall("avg", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                        filter("SUPPKEY > BIGINT '0'",
+                                                LINEITEM_TABLESCAN_DOQRST)))));
     }
 
     @Test
@@ -297,6 +322,7 @@ public class TestReorderWindows
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),
+                new PredicatePushDown(getQueryRunner().getMetadata(), getQueryRunner().getSqlParser()),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
                         getQueryRunner().getStatsCalculator(),

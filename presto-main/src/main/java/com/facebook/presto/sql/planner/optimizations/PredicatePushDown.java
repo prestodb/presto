@@ -48,6 +48,7 @@ import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
+import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
@@ -204,6 +205,32 @@ public class PredicatePushDown
             }
 
             return node;
+        }
+
+        @Override
+        public PlanNode visitWindow(WindowNode node, RewriteContext<Expression> context)
+        {
+            List<Symbol> partitionSymbols = node.getPartitionBy();
+
+            // TODO: This could be broader. We can push down conjucts if they are constant for all rows in a window partition.
+            // The simplest way to guarantee this is if the conjucts are deterministic functions of the partitioning symbols.
+            // This can leave out cases where they're both functions of some set of common expressions and the partitioning
+            // function is injective, but that's a rare case. The majority of window nodes are expected to be partitioned by
+            // pre-projected symbols.
+            Predicate<Expression> isSupported = conjunct ->
+                    DeterminismEvaluator.isDeterministic(conjunct) &&
+                    SymbolsExtractor.extractUnique(conjunct).stream()
+                            .allMatch(partitionSymbols::contains);
+
+            Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream().collect(Collectors.partitioningBy(isSupported));
+
+            PlanNode rewrittenNode = context.defaultRewrite(node, combineConjuncts(conjuncts.get(true)));
+
+            if (!conjuncts.get(false).isEmpty()) {
+                rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, combineConjuncts(conjuncts.get(false)));
+            }
+
+            return rewrittenNode;
         }
 
         @Override

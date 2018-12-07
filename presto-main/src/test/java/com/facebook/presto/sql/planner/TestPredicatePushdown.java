@@ -14,8 +14,10 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
+import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -351,5 +353,63 @@ public class TestPredicatePushdown
                                 tableScan("part", ImmutableMap.of(
                                         "partkey", "partkey",
                                         "size", "size")))));
+    }
+
+    @Test
+    public void testPredicateOnPartitionSymbolsPushedThroughWindow()
+    {
+        PlanMatchPattern tableScan = tableScan(
+                "orders",
+                ImmutableMap.of(
+                        "CUST_KEY", "custkey",
+                        "ORDER_KEY", "orderkey"));
+        assertPlan(
+                "SELECT * FROM (" +
+                        "SELECT custkey, orderkey, rank() OVER (PARTITION BY custkey  ORDER BY orderdate ASC)" +
+                        "FROM orders" +
+                        ") WHERE custkey = 0 AND orderkey > 0",
+                anyTree(
+                        filter("ORDER_KEY > BIGINT '0'",
+                                anyTree(
+                                        node(WindowNode.class,
+                                                anyTree(
+                                                        filter("CUST_KEY = BIGINT '0'",
+                                                                tableScan)))))));
+    }
+
+    @Test
+    public void testPredicateOnNonDeterministicSymbolsPushedDown()
+    {
+        assertPlan(
+                "SELECT * FROM (" +
+                        "SELECT random_column, orderkey, rank() OVER (PARTITION BY random_column  ORDER BY orderdate ASC)" +
+                        "FROM (select round(custkey*rand()) random_column, * from orders) " +
+                        ") WHERE random_column > 100",
+                anyTree(
+                        node(WindowNode.class,
+                                anyTree(
+                                        filter("\"ROUND\" > 1E2",
+                                                project(ImmutableMap.of("ROUND", expression("round(CAST(CUST_KEY AS double) * rand())")),
+                                                        tableScan(
+                                                                "orders",
+                                                                ImmutableMap.of("CUST_KEY", "custkey"))))))));
+    }
+
+    @Test
+    public void testNonDeterministicPredicateNotPushedDown()
+    {
+        assertPlan(
+                "SELECT * FROM (" +
+                        "SELECT custkey, orderkey, rank() OVER (PARTITION BY custkey  ORDER BY orderdate ASC)" +
+                        "FROM orders" +
+                        ") WHERE custkey > 100*rand()",
+                anyTree(
+                        filter("CAST(\"CUST_KEY\" AS double) > (1E2 * \"rand\"())",
+                                anyTree(
+                                        node(WindowNode.class,
+                                                anyTree(
+                                                        tableScan(
+                                                                "orders",
+                                                                ImmutableMap.of("CUST_KEY", "custkey"))))))));
     }
 }
