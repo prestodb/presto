@@ -62,6 +62,7 @@ public final class HiveSessionProperties
     private static final String HIVE_STORAGE_FORMAT = "hive_storage_format";
     private static final String RESPECT_TABLE_FORMAT = "respect_table_format";
     private static final String PARQUET_USE_COLUMN_NAME = "parquet_use_column_names";
+    private static final String PARQUET_FAIL_WITH_CORRUPTED_STATISTICS = "parquet_fail_with_corrupted_statistics";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String MAX_SPLIT_SIZE = "max_split_size";
@@ -224,6 +225,11 @@ public final class HiveSessionProperties
                         PARQUET_USE_COLUMN_NAME,
                         "Experimental: Parquet: Access Parquet columns using names from the file",
                         hiveClientConfig.isUseParquetColumnNames(),
+                        false),
+                booleanProperty(
+                        PARQUET_FAIL_WITH_CORRUPTED_STATISTICS,
+                        "Parquet: Fail when scanning Parquet files with corrupted statistics",
+                        hiveClientConfig.isFailOnCorruptedParquetStatistics(),
                         false),
                 dataSizeSessionProperty(
                         PARQUET_WRITER_BLOCK_SIZE,
@@ -407,6 +413,11 @@ public final class HiveSessionProperties
     public static boolean isUseParquetColumnNames(ConnectorSession session)
     {
         return session.getProperty(PARQUET_USE_COLUMN_NAME, Boolean.class);
+    }
+
+    public static boolean isFailOnCorruptedParquetStatistics(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_FAIL_WITH_CORRUPTED_STATISTICS, Boolean.class);
     }
 
     public static DataSize getParquetWriterBlockSize(ConnectorSession session)

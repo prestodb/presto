@@ -18,6 +18,7 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.parquet.ParquetCorruptionException;
 import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.predicate.Predicate;
@@ -48,7 +49,6 @@ import javax.inject.Inject;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -58,8 +58,10 @@ import java.util.Properties;
 import java.util.Set;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
+import static com.facebook.presto.hive.HiveSessionProperties.isFailOnCorruptedParquetStatistics;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnNames;
 import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
@@ -123,6 +125,7 @@ public class ParquetPageSourceFactory
                 schema,
                 columns,
                 isUseParquetColumnNames(session),
+                isFailOnCorruptedParquetStatistics(session),
                 typeManager,
                 effectivePredicate,
                 stats));
@@ -139,6 +142,7 @@ public class ParquetPageSourceFactory
             Properties schema,
             List<HiveColumnHandle> columns,
             boolean useParquetColumnNames,
+            boolean failOnCorruptedParquetStatistics,
             TypeManager typeManager,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             FileFormatDataSourceStats stats)
@@ -162,11 +166,11 @@ public class ParquetPageSourceFactory
 
             MessageType requestedSchema = new MessageType(fileSchema.getName(), fields);
 
-            List<BlockMetaData> blocks = new ArrayList<>();
+            ImmutableList.Builder<BlockMetaData> footerBlocks = ImmutableList.builder();
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
                 if (firstDataPage >= start && firstDataPage < start + length) {
-                    blocks.add(block);
+                    footerBlocks.add(block);
                 }
             }
 
@@ -174,13 +178,16 @@ public class ParquetPageSourceFactory
             TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate);
             Predicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath);
             final ParquetDataSource finalDataSource = dataSource;
-            blocks = blocks.stream()
-                    .filter(block -> predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain))
-                    .collect(toList());
+            ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
+            for (BlockMetaData block : footerBlocks.build()) {
+                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, failOnCorruptedParquetStatistics)) {
+                    blocks.add(block);
+                }
+            }
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
             ParquetReader parquetReader = new ParquetReader(
                     messageColumnIO,
-                    blocks,
+                    blocks.build(),
                     dataSource,
                     systemMemoryContext);
 
@@ -204,6 +211,9 @@ public class ParquetPageSourceFactory
             }
             if (e instanceof PrestoException) {
                 throw (PrestoException) e;
+            }
+            if (e instanceof ParquetCorruptionException) {
+                throw new PrestoException(HIVE_BAD_DATA, e);
             }
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||
                     e instanceof FileNotFoundException) {

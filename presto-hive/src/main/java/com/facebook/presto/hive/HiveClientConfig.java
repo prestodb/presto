@@ -101,6 +101,7 @@ public class HiveClientConfig
     private DataSize textMaxLineLength = new DataSize(100, MEGABYTE);
 
     private boolean useParquetColumnNames;
+    private boolean failOnCorruptedParquetStatistics = true;
 
     private boolean assumeCanonicalPartitionKeys;
 
@@ -900,6 +901,19 @@ public class HiveClientConfig
     public HiveClientConfig setUseParquetColumnNames(boolean useParquetColumnNames)
     {
         this.useParquetColumnNames = useParquetColumnNames;
+        return this;
+    }
+
+    public boolean isFailOnCorruptedParquetStatistics()
+    {
+        return failOnCorruptedParquetStatistics;
+    }
+
+    @Config("hive.parquet.fail-on-corrupted-statistics")
+    @ConfigDescription("Fail when scanning Parquet files with corrupted statistics")
+    public HiveClientConfig setFailOnCorruptedParquetStatistics(boolean failOnCorruptedParquetStatistics)
+    {
+        this.failOnCorruptedParquetStatistics = failOnCorruptedParquetStatistics;
         return this;
     }
 
