@@ -20,6 +20,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -28,12 +30,15 @@ public class PhoenixTableLayoutHandle
 {
     private final PhoenixTableHandle table;
     private final TupleDomain<ColumnHandle> tupleDomain;
+    private Optional<Set<ColumnHandle>> desiredColumns;
 
     @JsonCreator
     public PhoenixTableLayoutHandle(
             @JsonProperty("table") PhoenixTableHandle table,
-            @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> domain)
+            @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> domain,
+            @JsonProperty("desiredColumns") Optional<Set<ColumnHandle>> desiredColumns)
     {
+        this.desiredColumns = desiredColumns;
         this.table = requireNonNull(table, "table is null");
         this.tupleDomain = requireNonNull(domain, "tupleDomain is null");
     }
@@ -48,6 +53,11 @@ public class PhoenixTableLayoutHandle
     public TupleDomain<ColumnHandle> getTupleDomain()
     {
         return tupleDomain;
+    }
+
+    public Optional<Set<ColumnHandle>> getDesiredColumns()
+    {
+        return desiredColumns;
     }
 
     @Override

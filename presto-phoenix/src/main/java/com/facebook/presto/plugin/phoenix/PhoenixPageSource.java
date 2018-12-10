@@ -49,6 +49,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.plugin.phoenix.PhoenixClient.getQueryPlan;
@@ -106,6 +107,7 @@ public class PhoenixPageSource
                     split.getCatalogName(),
                     split.getSchemaName(),
                     split.getTableName(),
+                    Optional.empty(),
                     split.getTupleDomain(),
                     columns);
 

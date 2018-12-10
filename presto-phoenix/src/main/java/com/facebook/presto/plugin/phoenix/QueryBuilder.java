@@ -50,6 +50,8 @@ import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
@@ -93,21 +95,25 @@ public class QueryBuilder
     {
     }
 
-    public String buildSql(PhoenixConnection connection, String catalog, String schema, String table, List<PhoenixColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain)
+    public String buildSql(PhoenixConnection connection, String catalog, String schema, String table, Optional<Set<ColumnHandle>> desiredColumns, List<PhoenixColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain)
             throws SQLException
     {
         StringBuilder sql = new StringBuilder();
-
-        String columnNames = columns.stream()
-                .map(PhoenixColumnHandle::getColumnName)
-                .collect(joining(", "));
-
         sql.append("SELECT ");
-        sql.append(columnNames);
-        if (columns.isEmpty()) {
-            sql.append("null");
+        if (desiredColumns.isPresent() && !desiredColumns.get().isEmpty()) {
+            String columnNames = desiredColumns.get().stream().map(ch -> ((PhoenixColumnHandle) ch).getColumnName()).collect(joining(", "));
+            sql.append(columnNames);
         }
+        else {
+            String columnNames = columns.stream()
+                    .map(PhoenixColumnHandle::getColumnName)
+                    .collect(joining(", "));
 
+            sql.append(columnNames);
+            if (columns.isEmpty()) {
+                sql.append("null");
+            }
+        }
         sql.append(" FROM ");
         if (!isNullOrEmpty(catalog)) {
             sql.append(catalog).append('.');

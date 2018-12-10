@@ -69,6 +69,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -254,6 +255,7 @@ public class PhoenixClient
                     handle.getCatalogName(),
                     handle.getSchemaName(),
                     handle.getTableName(),
+                    layoutHandle.getDesiredColumns(),
                     layoutHandle.getTupleDomain(),
                     getColumns(handle, false));
 
@@ -308,6 +310,7 @@ public class PhoenixClient
             String catalogName,
             String schemaName,
             String tableName,
+            Optional<Set<ColumnHandle>> desiredColumns,
             TupleDomain<ColumnHandle> tupleDomain,
             List<PhoenixColumnHandle> columnHandles)
             throws SQLException, IOException, InterruptedException
@@ -317,6 +320,7 @@ public class PhoenixClient
                 catalogName,
                 schemaName,
                 tableName,
+                desiredColumns,
                 columnHandles,
                 tupleDomain);
     }
@@ -328,6 +332,7 @@ public class PhoenixClient
             final PhoenixStatement phoenixStmt = statement.unwrap(PhoenixStatement.class);
             final QueryPlan queryPlan = phoenixStmt.optimizeQuery(inputQuery);
             queryPlan.iterator(MapReduceParallelScanGrouper.getInstance());
+            log.debug("Optimized query plan: " + queryPlan.getExplainPlan().toString());
             return queryPlan;
         }
         catch (Exception e) {
