@@ -184,6 +184,9 @@ public class OrcReader
         try (InputStream footerInputStream = new OrcInputStream(orcDataSource.getId(), footerSlice.getInput(), decompressor, newSimpleAggregatedMemoryContext(), footerSize)) {
             this.footer = metadataReader.readFooter(hiveWriterVersion, footerInputStream);
         }
+        if (footer.getTypes().size() == 0) {
+            throw new OrcCorruptionException(orcDataSource.getId(), "File has no columns");
+        }
 
         validateWrite(validation -> validation.getColumnNames().equals(getColumnNames()), "Unexpected column names");
         validateWrite(validation -> validation.getRowGroupMaxRowCount() == footer.getRowsInRowGroup(), "Unexpected rows in group");
