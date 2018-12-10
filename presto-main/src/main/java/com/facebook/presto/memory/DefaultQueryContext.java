@@ -196,7 +196,11 @@ public class DefaultQueryContext
     {
         if (delta <= 0) {
             ListenableFuture<?> future = updateUserMemory(allocationTag, delta);
-            verify(future.isDone(), "future should be done");
+            // When delta == 0 and the pool is full the future can still not be done,
+            // but, for negative deltas it must always be done.
+            if (delta < 0) {
+                verify(future.isDone(), "future should be done");
+            }
             return true;
         }
         if (queryMemoryContext.getUserMemory() + delta > maxUserMemory) {
