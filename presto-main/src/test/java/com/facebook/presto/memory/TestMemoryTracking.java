@@ -329,6 +329,16 @@ public class TestMemoryTracking
     }
 
     @Test
+    public void testTrySetZeroBytesFullPool()
+    {
+        LocalMemoryContext localMemoryContext = operatorContext.localUserMemoryContext();
+        // fill up the pool
+        memoryPool.reserve(new QueryId("test_query"), "test", memoryPool.getFreeBytes());
+        // try to reserve 0 bytes in the full pool
+        assertTrue(localMemoryContext.trySetBytes(localMemoryContext.getBytes()));
+    }
+
+    @Test
     public void testDestroy()
     {
         LocalMemoryContext newLocalSystemMemoryContext = operatorContext.newLocalSystemMemoryContext("test");
