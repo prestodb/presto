@@ -167,6 +167,28 @@ public class BooleanInputStream
     }
 
     /**
+     * Sets the vector element to 1 if the bit is set.
+     */
+    public void getSetBits(int batchSize, byte[] vector)
+            throws IOException
+    {
+        for (int i = 0; i < batchSize; i++) {
+            vector[i] = (byte) (nextBit() ? 1 : 0);
+        }
+    }
+
+    /**
+     * Sets the vector element to 1 if the bit is set and it is not null
+     */
+    public void getSetBits(int batchSize, byte[] vector, boolean[] isNull)
+            throws IOException
+    {
+        for (int i = 0; i < batchSize; i++) {
+            vector[i] = (byte) (!isNull[i] && nextBit() ? 1 : 0);
+        }
+    }
+
+    /**
      * Sets the vector element to true if the bit is not set.
      */
     public int getUnsetBits(int batchSize, boolean[] vector)

@@ -71,4 +71,22 @@ public class FloatInputStream
             type.writeLong(builder, floatToRawIntBits(next()));
         }
     }
+
+    public void nextVector(int items, int[] vector)
+            throws IOException
+    {
+        for (int i = 0; i < items; i++) {
+            vector[i] = floatToRawIntBits(next());
+        }
+    }
+
+    public void nextVector(int items, int[] vector, boolean[] isNull)
+            throws IOException
+    {
+        for (int i = 0; i < items; i++) {
+            if (!isNull[i]) {
+                vector[i] = floatToRawIntBits(next());
+            }
+        }
+    }
 }

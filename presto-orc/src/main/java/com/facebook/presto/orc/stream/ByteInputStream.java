@@ -21,6 +21,9 @@ import com.facebook.presto.spi.type.Type;
 import java.io.IOException;
 import java.util.Arrays;
 
+import static com.google.common.base.Preconditions.checkPositionIndex;
+import static java.lang.Integer.min;
+
 public class ByteInputStream
         implements ValueInputStream<ByteStreamCheckpoint>
 {
@@ -124,6 +127,43 @@ public class ByteInputStream
     {
         for (int i = 0; i < items; i++) {
             type.writeLong(builder, next());
+        }
+    }
+
+    public void nextVector(int items, byte[] vector)
+            throws IOException
+    {
+        checkPositionIndex(items, vector.length);
+        if (offset == length) {
+            readNextBlock();
+        }
+        if (offset + items <= length) {
+            System.arraycopy(buffer, offset, vector, 0, items);
+            offset = offset + items;
+        }
+        else {
+            int remainingSize = items;
+            int destIndex = 0;
+            while (remainingSize > 0) {
+                if (offset == length) {
+                    readNextBlock();
+                }
+                int destLength = min(items - destIndex, length - offset);
+                System.arraycopy(buffer, offset, vector, destIndex, destLength);
+                destIndex = destIndex + destLength;
+                offset = offset + destLength;
+                remainingSize = items - destIndex;
+            }
+        }
+    }
+
+    public void nextVector(int items, byte[] vector, boolean[] isNull)
+            throws IOException
+    {
+        for (int i = 0; i < items; i++) {
+            if (!isNull[i]) {
+                vector[i] = next();
+            }
         }
     }
 }

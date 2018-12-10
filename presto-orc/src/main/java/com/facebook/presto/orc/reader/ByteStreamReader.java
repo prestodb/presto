@@ -22,7 +22,8 @@ import com.facebook.presto.orc.stream.ByteInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.ByteArrayBlock;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -30,6 +31,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
@@ -97,29 +99,35 @@ public class ByteStreamReader
             }
         }
 
-        BlockBuilder builder = type.createBlockBuilder(null, nextBatchSize);
+        Block block;
         if (presentStream == null) {
             if (dataStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
             }
-            dataStream.nextVector(type, nextBatchSize, builder);
+            block = populateNonNullBlock();
         }
         else {
-            for (int i = 0; i < nextBatchSize; i++) {
-                if (presentStream.nextBit()) {
-                    verify(dataStream != null);
-                    type.writeLong(builder, dataStream.next());
-                }
-                else {
-                    builder.appendNull();
-                }
+            boolean[] isNull = new boolean[nextBatchSize];
+            int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
+            if (nullCount == 0) {
+                verify(dataStream != null);
+                block = populateNonNullBlock();
+            }
+            else if (nullCount != nextBatchSize) {
+                verify(dataStream != null);
+                block = populateBlockWithNull(isNull);
+            }
+            else {
+                block = new RunLengthEncodedBlock(
+                        new ByteArrayBlock(1,
+                                Optional.of(new boolean[] {true}),
+                                new byte[] {0}),
+                        nextBatchSize);
             }
         }
-
         readOffset = 0;
         nextBatchSize = 0;
-
-        return builder.build();
+        return block;
     }
 
     private void openRowGroup()
@@ -129,6 +137,22 @@ public class ByteStreamReader
         dataStream = dataStreamSource.openStream();
 
         rowGroupOpen = true;
+    }
+
+    private Block populateNonNullBlock()
+            throws IOException
+    {
+        byte[] vector = new byte[nextBatchSize];
+        dataStream.nextVector(nextBatchSize, vector);
+        return new ByteArrayBlock(nextBatchSize, Optional.empty(), vector);
+    }
+
+    private Block populateBlockWithNull(boolean[] isNull)
+            throws IOException
+    {
+        byte[] vector = new byte[nextBatchSize];
+        dataStream.nextVector(nextBatchSize, vector, isNull);
+        return new ByteArrayBlock(nextBatchSize, Optional.of(isNull), vector);
     }
 
     @Override

@@ -22,6 +22,7 @@ import io.airlift.slice.Slices;
 import java.io.IOException;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
+import static java.lang.Double.doubleToLongBits;
 
 public class DoubleInputStream
         implements ValueInputStream<DoubleStreamCheckpoint>
@@ -68,6 +69,24 @@ public class DoubleInputStream
     {
         for (int i = 0; i < items; i++) {
             type.writeDouble(builder, next());
+        }
+    }
+
+    public void nextVector(int items, long[] vector, boolean[] isNull)
+            throws IOException
+    {
+        for (int i = 0; i < items; i++) {
+            if (!isNull[i]) {
+                vector[i] = doubleToLongBits(next());
+            }
+        }
+    }
+
+    public void nextVector(int items, long[] vector)
+            throws IOException
+    {
+        for (int i = 0; i < items; i++) {
+            vector[i] = doubleToLongBits(next());
         }
     }
 }
