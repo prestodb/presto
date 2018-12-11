@@ -298,13 +298,14 @@ public class Validator
     private QueryResult executeQueryTest()
     {
         Query query = queryPair.getTest();
-        QueryResult queryResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.of());
+        QueryResult setupResult = null;
+        QueryResult queryResult = null;
         try {
-            // startup
-            queryResult = setup(query, testPreQueryResults, testPrequery -> executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), testPrequery, testTimeout, sessionProperties));
+            // setup
+            setupResult = setup(query, testPreQueryResults, testPrequery -> executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), testPrequery, testTimeout, sessionProperties));
 
-            // if startup is successful -> execute query
-            if (queryResult.getState() == State.SUCCESS) {
+            // if setup is successful -> execute query
+            if (setupResult.getState() == State.SUCCESS) {
                 queryResult = executeQuery(testGateway, testUsername, testPassword, queryPair.getTest(), query.getQuery(), testTimeout, sessionProperties);
             }
         }
@@ -327,7 +328,17 @@ public class Validator
             }
             while (retry < testTeardownRetries);
             // if teardown is not successful the query fails
-            queryResult = tearDownResult.getState() == State.SUCCESS ? queryResult : tearDownResult;
+            if (tearDownResult.getState() != State.SUCCESS) {
+                if (tearDownResult.getException() != null) {
+                    if (setupResult.getException() != null) {
+                        tearDownResult.addSuppressed(setupResult.getException());
+                    }
+                    if (queryResult.getException() != null) {
+                        tearDownResult.addSuppressed(queryResult.getException());
+                    }
+                }
+                queryResult = tearDownResult;
+            }
         }
         return queryResult;
     }
@@ -335,13 +346,14 @@ public class Validator
     private QueryResult executeQueryControl()
     {
         Query query = queryPair.getControl();
-        QueryResult queryResult = new QueryResult(State.INVALID, null, null, null, null, ImmutableList.of());
+        QueryResult setupResult = null;
+        QueryResult queryResult = null;
         try {
-            // startup
-            queryResult = setup(query, controlPreQueryResults, controlPrequery -> executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), controlPrequery, controlTimeout, sessionProperties));
+            // setup
+            setupResult = setup(query, controlPreQueryResults, controlPrequery -> executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), controlPrequery, controlTimeout, sessionProperties));
 
-            // if startup is successful -> execute query
-            if (queryResult.getState() == State.SUCCESS) {
+            // if setup is successful -> execute query
+            if (setupResult.getState() == State.SUCCESS) {
                 queryResult = executeQuery(controlGateway, controlUsername, controlPassword, queryPair.getControl(), query.getQuery(), controlTimeout, sessionProperties);
             }
         }
@@ -364,7 +376,17 @@ public class Validator
             }
             while (retry < controlTeardownRetries);
             // if teardown is not successful the query fails
-            queryResult = tearDownResult.getState() == State.SUCCESS ? queryResult : tearDownResult;
+            if (tearDownResult.getState() != State.SUCCESS) {
+                if (tearDownResult.getException() != null) {
+                    if (setupResult.getException() != null) {
+                        tearDownResult.addSuppressed(setupResult.getException());
+                    }
+                    if (queryResult.getException() != null) {
+                        tearDownResult.addSuppressed(queryResult.getException());
+                    }
+                }
+                queryResult = tearDownResult;
+            }
         }
         return queryResult;
     }

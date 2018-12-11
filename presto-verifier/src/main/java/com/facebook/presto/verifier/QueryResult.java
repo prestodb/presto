@@ -18,6 +18,8 @@ import io.airlift.units.Duration;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class QueryResult
@@ -72,5 +74,12 @@ public class QueryResult
     public List<List<Object>> getResults()
     {
         return results;
+    }
+
+    public void addSuppressed(Throwable throwable)
+    {
+        checkState(exception != null, "exception is null");
+        checkArgument(throwable != null, "throwable is null");
+        exception.addSuppressed(throwable);
     }
 }
