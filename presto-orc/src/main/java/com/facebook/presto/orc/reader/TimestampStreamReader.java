@@ -22,7 +22,8 @@ import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.LongArrayBlock;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -32,6 +33,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
@@ -116,8 +118,7 @@ public class TimestampStreamReader
             }
         }
 
-        BlockBuilder builder = type.createBlockBuilder(null, nextBatchSize);
-
+        Block block;
         if (presentStream == null) {
             if (secondsStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but seconds stream is not present");
@@ -125,27 +126,33 @@ public class TimestampStreamReader
             if (nanosStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but nanos stream is not present");
             }
-
-            for (int i = 0; i < nextBatchSize; i++) {
-                type.writeLong(builder, decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds));
-            }
+            block = populateNonNullBlock();
         }
         else {
-            for (int i = 0; i < nextBatchSize; i++) {
-                if (presentStream.nextBit()) {
-                    verify(secondsStream != null, "Value is not null but seconds stream is not present");
-                    verify(nanosStream != null, "Value is not null but nanos stream is not present");
-                    type.writeLong(builder, decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds));
-                }
-                else {
-                    builder.appendNull();
-                }
+            boolean[] isNull = new boolean[nextBatchSize];
+            int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
+            if (nullCount == 0) {
+                verify(secondsStream != null);
+                verify(nanosStream != null);
+                block = populateNonNullBlock();
+            }
+            else if (nullCount != nextBatchSize) {
+                verify(secondsStream != null);
+                verify(nanosStream != null);
+                block = populateBlockWithNull(isNull);
+            }
+            else {
+                block = new RunLengthEncodedBlock(
+                        new LongArrayBlock(1,
+                                Optional.of(new boolean[] {true}),
+                                new long[]{0}),
+                        nextBatchSize);
             }
         }
 
         readOffset = 0;
         nextBatchSize = 0;
-        return builder.build();
+        return block;
     }
 
     private void openRowGroup()
@@ -156,6 +163,28 @@ public class TimestampStreamReader
         nanosStream = nanosStreamSource.openStream();
 
         rowGroupOpen = true;
+    }
+
+    private Block populateNonNullBlock()
+            throws IOException
+    {
+        long[] vector = new long[nextBatchSize];
+        for (int i = 0; i < nextBatchSize; i++) {
+            vector[i] = decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds);
+        }
+        return new LongArrayBlock(nextBatchSize, Optional.empty(), vector);
+    }
+
+    private Block populateBlockWithNull(boolean[] isNull)
+            throws IOException
+    {
+        long[] vector = new long[nextBatchSize];
+        for (int i = 0; i < nextBatchSize; i++) {
+            if (!isNull[i]) {
+                vector[i] = decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds);
+            }
+        }
+        return new LongArrayBlock(nextBatchSize, Optional.of(isNull), vector);
     }
 
     @Override

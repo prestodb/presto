@@ -20,6 +20,9 @@ import com.facebook.presto.orc.checkpoint.LongStreamV2Checkpoint;
 import java.io.IOException;
 import java.io.InputStream;
 
+import static com.google.common.base.Preconditions.checkPositionIndex;
+import static java.lang.Integer.min;
+
 /**
  * @see {@link org.apache.hadoop.hive.ql.io.orc.RunLengthIntegerWriterV2} for description of various lightweight compression techniques.
  */
@@ -370,6 +373,37 @@ public class LongInputStreamV2
             long consume = Math.min(items, numLiterals - used);
             used += consume;
             items -= consume;
+        }
+    }
+
+    public void nextLongVector(int items, long[] vector)
+            throws IOException
+    {
+        checkPositionIndex(items, vector.length);
+        if (used == numLiterals) {
+            numLiterals = 0;
+            used = 0;
+            readValues();
+        }
+        if (used + items <= numLiterals) {
+            System.arraycopy(literals, used, vector, 0, items);
+            used = used + items;
+        }
+        else {
+            int remainingSize = items;
+            int destIndex = 0;
+            while (remainingSize > 0) {
+                if (used == numLiterals) {
+                    numLiterals = 0;
+                    used = 0;
+                    readValues();
+                }
+                int length = min(items - destIndex, numLiterals - used);
+                System.arraycopy(literals, used, vector, destIndex, length);
+                destIndex = destIndex + length;
+                used = used + length;
+                remainingSize = items - destIndex;
+            }
         }
     }
 }

@@ -22,7 +22,6 @@ import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -73,9 +72,11 @@ public class LongDictionaryStreamReader
     private boolean rowGroupOpen;
 
     private LocalMemoryContext systemMemoryContext;
+    private final BlockSupplier blockSupplier;
 
-    public LongDictionaryStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
+    public LongDictionaryStreamReader(BlockSupplier blockSupplier, StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
     {
+        this.blockSupplier = requireNonNull(blockSupplier, "Block supplier is null");
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
@@ -114,62 +115,13 @@ public class LongDictionaryStreamReader
             }
         }
 
-        BlockBuilder builder = type.createBlockBuilder(null, nextBatchSize);
+        Block block = blockSupplier.provideFromDictionaryStream(streamDescriptor.getOrcDataSourceId(),
+                nextBatchSize, presentStream, dataStream, dictionary, inDictionaryStream);
 
-        if (presentStream == null) {
-            // Data doesn't have nulls
-            if (dataStream == null) {
-                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
-            }
-            if (inDictionaryStream == null) {
-                for (int i = 0; i < nextBatchSize; i++) {
-                    type.writeLong(builder, dictionary[((int) dataStream.next())]);
-                }
-            }
-            else {
-                for (int i = 0; i < nextBatchSize; i++) {
-                    long id = dataStream.next();
-                    if (inDictionaryStream.nextBit()) {
-                        type.writeLong(builder, dictionary[(int) id]);
-                    }
-                    else {
-                        type.writeLong(builder, id);
-                    }
-                }
-            }
-        }
-        else {
-            // Data has nulls
-            if (dataStream == null) {
-                // The only valid case for dataStream is null when data has nulls is that all values are nulls.
-                int nullValues = presentStream.getUnsetBits(nextBatchSize);
-                if (nullValues != nextBatchSize) {
-                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
-                }
-                for (int i = 0; i < nextBatchSize; i++) {
-                    builder.appendNull();
-                }
-            }
-            else {
-                for (int i = 0; i < nextBatchSize; i++) {
-                    if (!presentStream.nextBit()) {
-                        builder.appendNull();
-                    }
-                    else {
-                        long id = dataStream.next();
-                        if (inDictionaryStream == null || inDictionaryStream.nextBit()) {
-                            type.writeLong(builder, dictionary[(int) id]);
-                        }
-                        else {
-                            type.writeLong(builder, id);
-                        }
-                    }
-                }
-            }
-        }
         readOffset = 0;
         nextBatchSize = 0;
-        return builder.build();
+
+        return block;
     }
 
     private void openRowGroup()

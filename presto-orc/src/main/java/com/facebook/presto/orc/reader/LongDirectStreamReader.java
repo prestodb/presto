@@ -22,7 +22,6 @@ import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -35,7 +34,6 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
@@ -61,9 +59,11 @@ public class LongDirectStreamReader
     private boolean rowGroupOpen;
 
     private LocalMemoryContext systemMemoryContext;
+    private final BlockSupplier blockSupplier;
 
-    public LongDirectStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
+    public LongDirectStreamReader(BlockSupplier blockSupplier, StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
     {
+        this.blockSupplier = requireNonNull(blockSupplier);
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
@@ -97,29 +97,13 @@ public class LongDirectStreamReader
             }
         }
 
-        BlockBuilder builder = type.createBlockBuilder(null, nextBatchSize);
-        if (presentStream == null) {
-            if (dataStream == null) {
-                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
-            }
-            dataStream.nextLongVector(type, nextBatchSize, builder);
-        }
-        else {
-            for (int i = 0; i < nextBatchSize; i++) {
-                if (presentStream.nextBit()) {
-                    verify(dataStream != null);
-                    type.writeLong(builder, dataStream.next());
-                }
-                else {
-                    builder.appendNull();
-                }
-            }
-        }
+        Block block = blockSupplier.provideFromDirectStream(streamDescriptor.getOrcDataSourceId(),
+                nextBatchSize, presentStream, dataStream);
 
         readOffset = 0;
         nextBatchSize = 0;
 
-        return builder.build();
+        return block;
     }
 
     private void openRowGroup()

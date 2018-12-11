@@ -34,10 +34,12 @@ public final class StreamReaders
             case BYTE:
                 return new ByteStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case SHORT:
-            case INT:
-            case LONG:
+                return new LongStreamReader(new ShortArrayBlockSupplier(), streamDescriptor, systemMemoryContext);
             case DATE:
-                return new LongStreamReader(streamDescriptor, systemMemoryContext);
+            case INT:
+                return new LongStreamReader(new IntArrayBlockSupplier(), streamDescriptor, systemMemoryContext);
+            case LONG:
+                return new LongStreamReader(new LongArrayBlockSupplier(), streamDescriptor, systemMemoryContext);
             case FLOAT:
                 return new FloatStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case DOUBLE:

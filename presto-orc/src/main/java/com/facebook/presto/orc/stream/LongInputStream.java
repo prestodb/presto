@@ -69,6 +69,18 @@ public interface LongInputStream
         }
     }
 
+    default void nextLongVector(int items, long[] vector, boolean[] isNull)
+            throws IOException
+    {
+        checkPositionIndex(items, vector.length);
+
+        for (int i = 0; i < items; i++) {
+            if (!isNull[i]) {
+                vector[i] = next();
+            }
+        }
+    }
+
     default long sum(int items)
             throws IOException
     {
@@ -77,5 +89,27 @@ public interface LongInputStream
             sum += next();
         }
         return sum;
+    }
+
+    default void nextShortVector(int items, short[] vector)
+            throws IOException
+    {
+        checkPositionIndex(items, vector.length);
+
+        for (int i = 0; i < items; i++) {
+            vector[i] = (short) toIntExact(next());
+        }
+    }
+
+    default void nextShortVector(int items, short[] vector, boolean[] isNull)
+            throws IOException
+    {
+        checkPositionIndex(items, vector.length);
+
+        for (int i = 0; i < items; i++) {
+            if (!isNull[i]) {
+                vector[i] = (short) toIntExact(next());
+            }
+        }
     }
 }

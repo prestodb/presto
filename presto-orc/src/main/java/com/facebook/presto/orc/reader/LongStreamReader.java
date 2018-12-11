@@ -44,11 +44,11 @@ public class LongStreamReader
     private final LongDictionaryStreamReader dictionaryReader;
     private StreamReader currentReader;
 
-    public LongStreamReader(StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
+    public LongStreamReader(BlockSupplier blockSupplier, StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        directReader = new LongDirectStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(LongStreamReader.class.getSimpleName()));
-        dictionaryReader = new LongDictionaryStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(LongStreamReader.class.getSimpleName()));
+        directReader = new LongDirectStreamReader(blockSupplier, streamDescriptor, systemMemoryContext.newLocalMemoryContext(LongStreamReader.class.getSimpleName()));
+        dictionaryReader = new LongDictionaryStreamReader(blockSupplier, streamDescriptor, systemMemoryContext.newLocalMemoryContext(LongStreamReader.class.getSimpleName()));
     }
 
     @Override
