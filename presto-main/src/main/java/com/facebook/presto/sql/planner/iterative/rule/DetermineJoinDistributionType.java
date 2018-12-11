@@ -196,26 +196,4 @@ public class DetermineJoinDistributionType
                 estimatedSourceDistributedTaskCount);
         return new PlanNodeWithCost(exchangesCost.add(inputCost), possibleJoinNode);
     }
-
-    private static class PlanNodeWithCost
-    {
-        private final PlanNode planNode;
-        private final PlanNodeCostEstimate cost;
-
-        public PlanNodeWithCost(PlanNodeCostEstimate cost, PlanNode planNode)
-        {
-            this.cost = requireNonNull(cost, "cost is null");
-            this.planNode = requireNonNull(planNode, "planNode is null");
-        }
-
-        public PlanNode getPlanNode()
-        {
-            return planNode;
-        }
-
-        public PlanNodeCostEstimate getCost()
-        {
-            return cost;
-        }
-    }
 }
