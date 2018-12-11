@@ -39,6 +39,7 @@ import org.joda.time.Seconds;
 import org.joda.time.chrono.ISOChronology;
 import org.testng.annotations.Test;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -113,6 +114,9 @@ public abstract class TestDateTimeFunctionsBase
     protected static final DateTime WEIRD_TIMESTAMP = new DateTime(2001, 8, 22, 3, 4, 5, 321, WEIRD_DATE_TIME_ZONE);
     protected static final String WEIRD_TIMESTAMP_LITERAL = "TIMESTAMP '2001-08-22 03:04:05.321 +07:09'";
     protected static final String WEIRD_TIMESTAMP_ISO8601_STRING = "2001-08-22T03:04:05.321+07:09";
+
+    protected static final String INTERVAL_LITERAL = "INTERVAL '90061.234' SECOND";
+    protected static final Duration DAY_TO_SECOND_INTERVAL = Duration.ofMillis(90061234);
 
     @SuppressWarnings("MemberName")
     private final DateTime TIMESTAMP;
@@ -279,7 +283,9 @@ public abstract class TestDateTimeFunctionsBase
         assertFunction("month(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getMonthOfYear());
         assertFunction("quarter(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getMonthOfYear() / 4 + 1);
         assertFunction("year(" + TIMESTAMP_LITERAL + ")", BIGINT, (long) TIMESTAMP.getYear());
+        assertFunction("timezone_minute(" + TIMESTAMP_LITERAL + ")", BIGINT, 0L);
         assertFunction("timezone_hour(" + TIMESTAMP_LITERAL + ")", BIGINT, -11L);
+
         assertFunction("timezone_hour(localtimestamp)", BIGINT, 14L);
         assertFunction("timezone_hour(current_timestamp)", BIGINT, 14L);
 
@@ -299,6 +305,18 @@ public abstract class TestDateTimeFunctionsBase
         assertFunction("year(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, (long) WEIRD_TIMESTAMP.getYear());
         assertFunction("timezone_minute(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, 9L);
         assertFunction("timezone_hour(" + WEIRD_TIMESTAMP_LITERAL + ")", BIGINT, 7L);
+
+        assertFunction("second(" + TIME_LITERAL + ")", BIGINT, (long) TIME.getSecond());
+        assertFunction("minute(" + TIME_LITERAL + ")", BIGINT, (long) TIME.getMinute());
+        assertFunction("hour(" + TIME_LITERAL + ")", BIGINT, (long) TIME.getHour());
+
+        assertFunction("second(" + WEIRD_TIME_LITERAL + ")", BIGINT, (long) WEIRD_TIME.getSecond());
+        assertFunction("minute(" + WEIRD_TIME_LITERAL + ")", BIGINT, (long) WEIRD_TIME.getMinute());
+        assertFunction("hour(" + WEIRD_TIME_LITERAL + ")", BIGINT, (long) WEIRD_TIME.getHour());
+
+        assertFunction("second(" + INTERVAL_LITERAL + ")", BIGINT, DAY_TO_SECOND_INTERVAL.getSeconds() % 60);
+        assertFunction("minute(" + INTERVAL_LITERAL + ")", BIGINT, DAY_TO_SECOND_INTERVAL.getSeconds() / 60 % 60);
+        assertFunction("hour(" + INTERVAL_LITERAL + ")", BIGINT, DAY_TO_SECOND_INTERVAL.getSeconds() / 3600 % 24);
     }
 
     @Test
