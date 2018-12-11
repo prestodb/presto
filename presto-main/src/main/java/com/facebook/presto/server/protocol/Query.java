@@ -74,7 +74,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
-import static com.facebook.presto.SystemSessionProperties.isWaitForQueryStatsAfterFailed;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
@@ -457,12 +456,11 @@ class Query
         }
 
         // only return a next if
-        // (1) the query is not done AND (query is not a already failed query or user configure to wait for stats for already-failed query)
+        // (1) the query is not done AND the query state is not FAILED
         //   OR
         // (2)there is more data to send (due to buffering)
         URI nextResultsUri = null;
-        if (!queryInfo.isFinalQueryInfo()
-                && (!queryInfo.getState().equals(QueryState.FAILED) || isWaitForQueryStatsAfterFailed(session))
+        if (!queryInfo.isFinalQueryInfo() && !queryInfo.getState().equals(QueryState.FAILED)
                 || !exchangeClient.isClosed()) {
             nextResultsUri = createNextResultsUri(scheme, uriInfo);
         }
