@@ -14,6 +14,13 @@
 package com.facebook.presto.cost;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
+import static java.lang.Double.NEGATIVE_INFINITY;
+import static java.lang.Double.NaN;
+import static java.lang.Double.POSITIVE_INFINITY;
+import static java.lang.Double.isNaN;
+import static java.lang.Double.max;
+import static java.lang.Double.min;
 import static java.util.stream.Stream.concat;
 
 public class PlanNodeStatsEstimateMath
@@ -21,79 +28,182 @@ public class PlanNodeStatsEstimateMath
     private PlanNodeStatsEstimateMath()
     {}
 
-    @FunctionalInterface
-    private interface RangeSubtractionStrategy
+    public static PlanNodeStatsEstimate subtractStats(PlanNodeStatsEstimate superset, PlanNodeStatsEstimate subset)
     {
-        StatisticRange range(StatisticRange leftRange, StatisticRange rightRange);
-    }
-
-    public static PlanNodeStatsEstimate differenceInStats(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
-    {
-        return differenceInStatsWithRangeStrategy(left, right, StatisticRange::subtract);
-    }
-
-    public static PlanNodeStatsEstimate differenceInNonRangeStats(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right)
-    {
-        return differenceInStatsWithRangeStrategy(left, right, ((leftRange, rightRange) -> leftRange));
-    }
-
-    private static PlanNodeStatsEstimate differenceInStatsWithRangeStrategy(PlanNodeStatsEstimate left, PlanNodeStatsEstimate right, RangeSubtractionStrategy strategy)
-    {
-        PlanNodeStatsEstimate.Builder statsBuilder = PlanNodeStatsEstimate.builder();
-        double newRowCount = left.getOutputRowCount() - right.getOutputRowCount();
-
-        concat(left.getSymbolsWithKnownStatistics().stream(), right.getSymbolsWithKnownStatistics().stream())
-                .forEach(symbol -> {
-                    statsBuilder.addSymbolStatistics(
-                            symbol,
-                            subtractColumnStats(
-                                    left.getSymbolStatistics(symbol),
-                                    left.getOutputRowCount(),
-                                    right.getSymbolStatistics(symbol),
-                                    right.getOutputRowCount(),
-                                    newRowCount,
-                                    strategy));
-                });
-
-        return statsBuilder.setOutputRowCount(newRowCount).build();
-    }
-
-    @Deprecated
-    private static SymbolStatsEstimate subtractColumnStats(
-            SymbolStatsEstimate leftStats,
-            double leftRowCount,
-            SymbolStatsEstimate rightStats,
-            double rightRowCount,
-            double newRowCount,
-            RangeSubtractionStrategy strategy)
-    {
-        StatisticRange leftRange = StatisticRange.from(leftStats);
-        StatisticRange rightRange = StatisticRange.from(rightStats);
-
-        double nullsCountLeft = leftStats.getNullsFraction() * leftRowCount;
-        double nullsCountRight = rightStats.getNullsFraction() * rightRowCount;
-        double totalSizeLeft = (leftRowCount - nullsCountLeft) * leftStats.getAverageRowSize();
-        double totalSizeRight = (rightRowCount - nullsCountRight) * rightStats.getAverageRowSize();
-        double newNullsFraction = Math.max(nullsCountLeft - nullsCountRight, 0.0) / newRowCount;
-        double newNonNullsRowCount = newRowCount * (1.0 - newNullsFraction);
-
-        StatisticRange range = leftRange;
-        double newDistinctValuesCount = leftStats.getDistinctValuesCount();
-        double leftValuesPerDistinctValue = leftRowCount * (1.0 - leftStats.getNullsFraction()) / leftStats.getDistinctValuesCount();
-        double rightValuesPerDistinctValue = rightRowCount * (1.0 - rightStats.getNullsFraction()) / rightStats.getDistinctValuesCount();
-        if (leftValuesPerDistinctValue <= rightValuesPerDistinctValue) {
-            // right values cover all left values for corresponding distinct values
-            range = strategy.range(leftRange, rightRange);
-            newDistinctValuesCount = leftStats.getDistinctValuesCount() - rightStats.getDistinctValuesCount();
+        if (superset.isOutputRowCountUnknown() || subset.isOutputRowCountUnknown()) {
+            return PlanNodeStatsEstimate.unknown();
         }
 
-        return SymbolStatsEstimate.builder()
-                .setDistinctValuesCount(newDistinctValuesCount)
-                .setHighValue(range.getHigh())
-                .setLowValue(range.getLow())
-                .setAverageRowSize((totalSizeLeft - totalSizeRight) / newNonNullsRowCount)
-                .setNullsFraction(newNullsFraction)
-                .build();
+        double supersetRowCount = superset.getOutputRowCount();
+        double subsetRowCount = subset.getOutputRowCount();
+        double outputRowCount = supersetRowCount - subsetRowCount;
+        verify(outputRowCount >= 0, "outputRowCount must be greater than or equal to zero: %s", outputRowCount);
+
+        // everything will be filtered out after applying negation
+        if (outputRowCount == 0) {
+            return createZeroStats(superset);
+        }
+
+        PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
+        result.setOutputRowCount(outputRowCount);
+
+        superset.getSymbolsWithKnownStatistics().forEach(symbol -> {
+            SymbolStatsEstimate supersetSymbolStats = superset.getSymbolStatistics(symbol);
+            SymbolStatsEstimate subsetSymbolStats = subset.getSymbolStatistics(symbol);
+
+            SymbolStatsEstimate.Builder newSymbolStats = SymbolStatsEstimate.builder();
+
+            // for simplicity keep the average row size the same as in the input
+            // in most cases the average row size doesn't change after applying filters
+            newSymbolStats.setAverageRowSize(supersetSymbolStats.getAverageRowSize());
+
+            // nullsCount
+            double supersetNullsCount = supersetSymbolStats.getNullsFraction() * supersetRowCount;
+            double subsetNullsCount = subsetSymbolStats.getNullsFraction() * subsetRowCount;
+            double newNullsCount = supersetNullsCount - subsetNullsCount;
+            verify(isNaN(newNullsCount) || newNullsCount >= 0, "newNullsCount must greater than or equal to zero: %s", newNullsCount);
+            newSymbolStats.setNullsFraction(min(newNullsCount, outputRowCount) / outputRowCount);
+
+            // distinctValuesCount
+            double supersetDistinctValues = supersetSymbolStats.getDistinctValuesCount();
+            double subsetDistinctValues = subsetSymbolStats.getDistinctValuesCount();
+            double newDistinctValuesCount;
+            if (isNaN(supersetDistinctValues) || isNaN(subsetDistinctValues)) {
+                newDistinctValuesCount = NaN;
+            }
+            else if (supersetDistinctValues == 0) {
+                newDistinctValuesCount = 0;
+            }
+            else if (subsetDistinctValues == 0) {
+                newDistinctValuesCount = supersetDistinctValues;
+            }
+            else {
+                double supersetNonNullsCount = supersetRowCount - supersetNullsCount;
+                double subsetNonNullsCount = subsetRowCount - subsetNullsCount;
+                double supersetValuesPerDistinctValue = supersetNonNullsCount / supersetDistinctValues;
+                double subsetValuesPerDistinctValue = subsetNonNullsCount / subsetDistinctValues;
+                if (supersetValuesPerDistinctValue <= subsetValuesPerDistinctValue) {
+                    newDistinctValuesCount = supersetDistinctValues - subsetDistinctValues;
+                }
+                else {
+                    newDistinctValuesCount = supersetDistinctValues;
+                }
+            }
+            verify(isNaN(newDistinctValuesCount) || newDistinctValuesCount >= 0, "newDistinctValuesCount must be greater or equal than zero: %s", newDistinctValuesCount);
+            newSymbolStats.setDistinctValuesCount(newDistinctValuesCount);
+
+            // range
+            double supersetLow = supersetSymbolStats.getLowValue();
+            double supersetHigh = supersetSymbolStats.getHighValue();
+            double subsetLow = subsetSymbolStats.getLowValue();
+            double subsetHigh = subsetSymbolStats.getHighValue();
+            if (isEmptyRange(supersetLow, supersetHigh)) {
+                newSymbolStats.setLowValue(NaN);
+                newSymbolStats.setHighValue(NaN);
+            }
+            else if (isEmptyRange(subsetLow, subsetHigh) || isUnknownRange(subsetLow, subsetHigh)) {
+                newSymbolStats.setLowValue(supersetLow);
+                newSymbolStats.setHighValue(supersetHigh);
+            }
+            else {
+                verify(supersetLow <= subsetLow, "supersetLow [%s] must be less than or equal to subsetLow [%s]", supersetLow, subsetLow);
+                verify(supersetHigh >= subsetHigh, "supersetHigh [%s] must be greater than or equal to subsetHigh [%s]", supersetHigh, subsetHigh);
+
+                double newLow = supersetLow;
+                double newHigh = supersetHigh;
+
+                if (supersetLow == subsetLow && supersetHigh != subsetHigh) {
+                    newLow = subsetHigh;
+                }
+                if (supersetHigh == subsetHigh && supersetLow != subsetLow) {
+                    newHigh = subsetLow;
+                }
+
+                newSymbolStats.setHighValue(newHigh);
+                newSymbolStats.setLowValue(newLow);
+            }
+
+            result.addSymbolStatistics(symbol, newSymbolStats.build());
+        });
+
+        return result.build();
+    }
+
+    private static boolean isEmptyRange(double low, double high)
+    {
+        if (isNaN(low) || isNaN(high)) {
+            checkArgument(isNaN(low) && isNaN(high), "low and high are both expected to be NaN. low: %s, high: %s.", low, high);
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean isUnknownRange(double low, double high)
+    {
+        return low == NEGATIVE_INFINITY && high == POSITIVE_INFINITY;
+    }
+
+    public static PlanNodeStatsEstimate computeSymmetricDifferenceStats(
+            PlanNodeStatsEstimate superset,
+            PlanNodeStatsEstimate left,
+            PlanNodeStatsEstimate right,
+            PlanNodeStatsEstimate intersect)
+    {
+        if (superset.isOutputRowCountUnknown() || left.isOutputRowCountUnknown() || right.isOutputRowCountUnknown() || intersect.isOutputRowCountUnknown()) {
+            return PlanNodeStatsEstimate.unknown();
+        }
+
+        PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
+        double outputRowCount = min(left.getOutputRowCount() + right.getOutputRowCount() - intersect.getOutputRowCount(), superset.getOutputRowCount());
+        verify(outputRowCount >= 0, "outputRowCount must be greater than or equal to zero: %s", outputRowCount);
+        result.setOutputRowCount(outputRowCount);
+
+        if (outputRowCount == 0) {
+            return createZeroStats(superset);
+        }
+
+        superset.getSymbolsWithKnownStatistics().forEach(symbol -> {
+            SymbolStatsEstimate supersetSymbolStats = superset.getSymbolStatistics(symbol);
+            SymbolStatsEstimate leftSymbolStats = left.getSymbolStatistics(symbol);
+            SymbolStatsEstimate rightSymbolStats = right.getSymbolStatistics(symbol);
+            SymbolStatsEstimate intersectSymbolStats = intersect.getSymbolStatistics(symbol);
+
+            SymbolStatsEstimate.Builder newSymbolStats = SymbolStatsEstimate.builder();
+
+            // for simplicity keep the average row size the same as in the input
+            // in most cases the average row size doesn't change after applying filters
+            newSymbolStats.setAverageRowSize(supersetSymbolStats.getAverageRowSize());
+
+            // distinctValuesCount, range
+            // assuming distinct values are non-overlapping
+            StatisticRange range = leftSymbolStats.statisticRange().addAndSumDistinctValues(rightSymbolStats.statisticRange());
+            newSymbolStats.setStatisticsRange(range);
+            double supersetDistinctValuesCount = supersetSymbolStats.getDistinctValuesCount();
+            if (range.getDistinctValuesCount() > supersetDistinctValuesCount) {
+                newSymbolStats.setDistinctValuesCount(supersetDistinctValuesCount);
+            }
+
+            // nullsCount
+            double leftNumberOfNulls = leftSymbolStats.getNullsFraction() * left.getOutputRowCount();
+            double rightNumberOfNulls = rightSymbolStats.getNullsFraction() * right.getOutputRowCount();
+            double andNumberOfNulls = intersectSymbolStats.getNullsFraction() * intersect.getOutputRowCount();
+            double supersetNumberOfNulls = supersetSymbolStats.getNullsFraction() * superset.getOutputRowCount();
+            double newNumberOfNulls = max(leftNumberOfNulls + rightNumberOfNulls - andNumberOfNulls, 0);
+            double newNullsFraction = min(min(newNumberOfNulls, supersetNumberOfNulls), outputRowCount) / outputRowCount;
+            newSymbolStats.setNullsFraction(newNullsFraction);
+
+            result.addSymbolStatistics(symbol, newSymbolStats.build());
+        });
+
+        return result.build();
+    }
+
+    private static PlanNodeStatsEstimate createZeroStats(PlanNodeStatsEstimate stats)
+    {
+        PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
+        result.setOutputRowCount(0);
+        stats.getSymbolsWithKnownStatistics().forEach(symbol -> result.addSymbolStatistics(symbol, SymbolStatsEstimate.zero()));
+        return result.build();
     }
 
     @FunctionalInterface

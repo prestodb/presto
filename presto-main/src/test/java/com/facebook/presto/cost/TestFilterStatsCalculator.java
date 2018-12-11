@@ -205,7 +205,7 @@ public class TestFilterStatsCalculator
                         symbolAssert.averageRowSize(4.0)
                                 .lowValue(-10.0)
                                 .highValue(0.0)
-                                .distinctValuesCount(20.0)
+                                .distinctValuesCount(25.0)
                                 .nullsFraction(0.0));
 
         assertExpression("x = 0e0 OR x = DOUBLE '-7.5'")
