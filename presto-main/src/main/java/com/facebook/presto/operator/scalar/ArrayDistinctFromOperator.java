@@ -45,7 +45,6 @@ public final class ArrayDistinctFromOperator
                     returnType = StandardTypes.BOOLEAN,
                     argumentTypes = {"E", "E"},
                     convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) MethodHandle function,
-            @TypeParameter("array(E)") Type type,
             @SqlType("array(E)") Block left,
             @IsNull boolean leftNull,
             @SqlType("array(E)") Block right,
@@ -93,7 +92,6 @@ public final class ArrayDistinctFromOperator
     {
         return isDistinctFrom(
                 elementIsDistinctFrom,
-                type,
                 (Block) type.getObject(left, leftPosition),
                 left.isNull(leftPosition),
                 (Block) type.getObject(right, rightPosition),
