@@ -299,7 +299,7 @@ public class TestFilterStatsCalculator
                 .outputRowsCount(625) // FIXME - nulls shouldn't be restored
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
-                                .lowValue(0.0)
+                                .lowValue(-10.0)
                                 .highValue(10.0)
                                 .distinctValuesCount(20.0)
                                 .nullsFraction(0.4)) // FIXME - nulls shouldn't be restored
