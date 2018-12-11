@@ -173,25 +173,6 @@ public class StatisticRange
         return new StatisticRange(minExcludeNaN(low, other.low), maxExcludeNaN(high, other.high), newDistinctValues);
     }
 
-    public StatisticRange subtract(StatisticRange rightRange)
-    {
-        StatisticRange intersect = intersect(rightRange);
-        double newLow = low;
-        double newHigh = high;
-        if (intersect.low == low) {
-            newLow = intersect.high;
-        }
-        if (intersect.high == high) {
-            newHigh = intersect.low;
-        }
-        if (newLow > newHigh) {
-            newLow = NaN;
-            newHigh = NaN;
-        }
-        double newDistinctValues = max(distinctValues, rightRange.distinctValues) - intersect.distinctValues;
-        return new StatisticRange(newLow, newHigh, newDistinctValues);
-    }
-
     private static double minExcludeNaN(double v1, double v2)
     {
         if (isNaN(v1)) {
