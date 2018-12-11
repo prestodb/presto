@@ -181,7 +181,7 @@ public class QueryRewriter
         while (columns.next()) {
             String name = columns.getString("COLUMN_NAME");
             int type = columns.getInt("DATA_TYPE");
-            columnBuilder.add(new Column(name, APPROXIMATE_TYPES.contains(type)));
+            columnBuilder.add(new Column(name, type));
         }
         return columnBuilder.build();
     }
@@ -221,7 +221,7 @@ public class QueryRewriter
                 for (int i = 1; i <= metaData.getColumnCount(); i++) {
                     String name = metaData.getColumnName(i);
                     int type = metaData.getColumnType(i);
-                    columns.add(new Column(name, APPROXIMATE_TYPES.contains(type)));
+                    columns.add(new Column(name, type));
                 }
             }
             catch (UncheckedTimeoutException e) {
@@ -246,6 +246,9 @@ public class QueryRewriter
             Expression expression = new Identifier(column.getName());
             if (column.isApproximateType()) {
                 expression = new FunctionCall(QualifiedName.of("round"), ImmutableList.of(expression, new LongLiteral(Integer.toString(doublePrecision))));
+            }
+            else if (column.isArrayType()) {
+                expression = new FunctionCall(QualifiedName.of("array_sort"), ImmutableList.of(expression));
             }
             selectItems.add(new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(expression))));
         }
@@ -278,12 +281,12 @@ public class QueryRewriter
     private static class Column
     {
         private final String name;
-        private final boolean approximateType;
+        private final int type;
 
-        private Column(String name, boolean approximateType)
+        private Column(String name, int type)
         {
             this.name = name;
-            this.approximateType = approximateType;
+            this.type = type;
         }
 
         public String getName()
@@ -293,7 +296,12 @@ public class QueryRewriter
 
         public boolean isApproximateType()
         {
-            return approximateType;
+            return APPROXIMATE_TYPES.contains(type);
+        }
+
+        public boolean isArrayType()
+        {
+            return type == Types.ARRAY;
         }
     }
 }

@@ -37,16 +37,16 @@ public class TestVerifierRewriteQueries
     private static final String QUERY_SUITE = "TEST_SUITE";
     private static final String QUERY_NAME = "TEST_QUERY";
     private static final String[] QUERY_STRINGS = {
-            "INSERT INTO test_table (a, b, c) values (0, 0.1, 'a')",
-            "INSERT INTO test_table (a, b, c) values (1, 1.1, 'b')",
-            "INSERT INTO test_table (a, b, c) values (2, 2.2, 'c')",
-            "INSERT INTO test_table (a, b, c) values (3, 3.3, 'd')",
-            "INSERT INTO test_table (a, b, c) values (4, 4.4, 'e')",
-            "INSERT INTO test_table (a, b, c) values (5, 5.5, 'f')",
-            "INSERT INTO test_table (a, b, c) values (6, 6.6, 'g')",
-            "INSERT INTO test_table (a, b, c) values (7, 7.7, 'h')",
-            "INSERT INTO test_table (a, b, c) values (8, 8.8, 'i')",
-            "INSERT INTO test_table (a, b, c) values (9, 9.9, 'j')",
+            "INSERT INTO test_table (a, b, c, d) values (0, 0.1, 'a', (1.0, 2.0, 3.0))",
+            "INSERT INTO test_table (a, b, c, d) values (1, 1.1, 'b', (1.1, 2.1, 3.1))",
+            "INSERT INTO test_table (a, b, c, d) values (2, 2.2, 'c', (1.2, 2.2, 3.2))",
+            "INSERT INTO test_table (a, b, c, d) values (3, 3.3, 'd', (1.3, 2.3, 3.3))",
+            "INSERT INTO test_table (a, b, c, d) values (4, 4.4, 'e', (1.4, 2.4, 3.4))",
+            "INSERT INTO test_table (a, b, c, d) values (5, 5.5, 'f', (1.5, 2.5, 3.5))",
+            "INSERT INTO test_table (a, b, c, d) values (6, 6.6, 'g', (1.6, 2.6, 3.6))",
+            "INSERT INTO test_table (a, b, c, d) values (7, 7.7, 'h', (1.7, 2.7, 3.7))",
+            "INSERT INTO test_table (a, b, c, d) values (8, 8.8, 'i', (1.8, 2.8, 3.8))",
+            "INSERT INTO test_table (a, b, c, d) values (9, 9.9, 'j', (1.9, 2.9, 3.9))",
     };
 
     private final Handle handle;
@@ -57,7 +57,7 @@ public class TestVerifierRewriteQueries
     public TestVerifierRewriteQueries()
     {
         handle = Jdbi.open(URL);
-        handle.execute("CREATE TABLE \"test_table\" (a BIGINT, b DOUBLE, c VARCHAR)");
+        handle.execute("CREATE TABLE \"test_table\" (a BIGINT, b DOUBLE, c VARCHAR, d ARRAY)");
         parser = new SqlParser();
 
         config = new VerifierConfig();
