@@ -115,11 +115,6 @@ public class ParametricScalarImplementation
             checkArgument(specializedJavaType != Object.class, "specializedTypeParameter must not contain Object.class entries");
             checkArgument(!Primitives.isWrapperType(specializedJavaType), "specializedTypeParameter must not contain boxed primitive types");
         }
-        for (int i = 1; i < choices.size(); i++) {
-            checkCondition(Objects.equals(choices.get(i).checkDependencies(), choices.get(0).checkDependencies()), FUNCTION_IMPLEMENTATION_ERROR, "Implementations for the same function signature must have matching dependencies: %s", signature);
-            checkCondition(Objects.equals(choices.get(i).getConstructorDependencies(), choices.get(0).getConstructorDependencies()), FUNCTION_IMPLEMENTATION_ERROR, "Implementations for the same function signature must have matching constructor dependencies: %s", signature);
-            checkCondition(Objects.equals(choices.get(i).getConstructor(), choices.get(0).getConstructor()), FUNCTION_IMPLEMENTATION_ERROR, "Implementations for the same function signature must have matching constructors: %s", signature);
-        }
     }
 
     public Optional<ScalarFunctionImplementation> specialize(Signature boundSignature, BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry, boolean isDeterministic)
@@ -197,17 +192,10 @@ public class ParametricScalarImplementation
         return argumentNativeContainerTypes;
     }
 
-    public List<ImplementationDependency> getDependencies()
-    {
-        // All choices are required to have the same dependencies at this time. This is asserted in the constructor.
-        return choices.get(0).getDependencies();
-    }
-
     @VisibleForTesting
-    public List<ImplementationDependency> getConstructorDependencies()
+    public List<ParametricScalarImplementationChoice> getChoices()
     {
-        // All choices are required to have the same constructor dependencies at this time. This is asserted in the constructor.
-        return choices.get(0).getConstructorDependencies();
+        return choices;
     }
 
     Class<?> getReturnNativeContainerType()
@@ -365,6 +353,7 @@ public class ParametricScalarImplementation
             return methodHandle;
         }
 
+        @VisibleForTesting
         public List<ImplementationDependency> getDependencies()
         {
             return dependencies;
@@ -386,7 +375,7 @@ public class ParametricScalarImplementation
         }
 
         @VisibleForTesting
-        List<ImplementationDependency> getConstructorDependencies()
+        public List<ImplementationDependency> getConstructorDependencies()
         {
             return constructorDependencies;
         }
