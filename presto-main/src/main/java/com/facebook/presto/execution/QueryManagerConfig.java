@@ -63,7 +63,6 @@ public class QueryManagerConfig
     private int requiredWorkers = 1;
     private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
 
-    private boolean waitForQueryStatsAfterFailed;
     @Min(1)
     public int getScheduleSplitBatchSize()
     {
@@ -360,19 +359,6 @@ public class QueryManagerConfig
     public QueryManagerConfig setRequiredWorkersMaxWait(Duration requiredWorkersMaxWait)
     {
         this.requiredWorkersMaxWait = requiredWorkersMaxWait;
-        return this;
-    }
-
-    public boolean isWaitForQueryStatsAfterFailed()
-    {
-        return waitForQueryStatsAfterFailed;
-    }
-
-    @Config("query.wait-stats-after-failed-enabled")
-    @ConfigDescription("Whether or not client will wait for stats even after query already failed")
-    public QueryManagerConfig setWaitForQueryStatsAfterFailed(boolean waitForQueryStatsAfterFailed)
-    {
-        this.waitForQueryStatsAfterFailed = waitForQueryStatsAfterFailed;
         return this;
     }
 }
