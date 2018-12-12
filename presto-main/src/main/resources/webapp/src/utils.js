@@ -248,7 +248,7 @@ export function computeSources(nodeInfo: any)
             sources = [nodeInfo.left, nodeInfo.right];
             break;
         case 'indexjoin':
-            sources = [nodeInfo.probeSource, nodeInfo.filterSource];
+            sources = [nodeInfo.probeSource, nodeInfo.indexSource];
             break;
         case 'union':
         case 'exchange':
