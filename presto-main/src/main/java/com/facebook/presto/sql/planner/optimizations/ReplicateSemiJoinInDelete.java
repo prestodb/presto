@@ -23,41 +23,31 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 
-import java.util.Optional;
-
-import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
+import static com.facebook.presto.sql.planner.plan.SemiJoinNode.DistributionType.REPLICATED;
 import static java.util.Objects.requireNonNull;
 
-public class DetermineSemiJoinDistributionType
+public class ReplicateSemiJoinInDelete
         implements PlanOptimizer
 {
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
-        requireNonNull(session, "session is null");
-
-        return SimplePlanRewriter.rewriteWith(new Rewriter(session), plan);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(), plan);
     }
 
     private static class Rewriter
             extends SimplePlanRewriter<Void>
     {
-        private final Session session;
         private boolean isDeleteQuery;
-
-        public Rewriter(Session session)
-        {
-            this.session = session;
-        }
 
         @Override
         public PlanNode visitSemiJoin(SemiJoinNode node, RewriteContext<Void> context)
         {
             PlanNode sourceRewritten = context.rewrite(node.getSource(), context.get());
             PlanNode filteringSourceRewritten = context.rewrite(node.getFilteringSource(), context.get());
-            SemiJoinNode.DistributionType targetJoinDistributionType = getTargetSemiJoinDistributionType(isDeleteQuery);
-            return new SemiJoinNode(
+
+            SemiJoinNode rewrittenNode = new SemiJoinNode(
                     node.getId(),
                     sourceRewritten,
                     filteringSourceRewritten,
@@ -66,7 +56,13 @@ public class DetermineSemiJoinDistributionType
                     node.getSemiJoinOutput(),
                     node.getSourceHashSymbol(),
                     node.getFilteringSourceHashSymbol(),
-                    Optional.of(targetJoinDistributionType));
+                    node.getDistributionType());
+
+            if (isDeleteQuery) {
+                return rewrittenNode.withDistributionType(REPLICATED);
+            }
+
+            return rewrittenNode;
         }
 
         @Override
@@ -82,15 +78,6 @@ public class DetermineSemiJoinDistributionType
                     node.getTarget(),
                     node.getRowId(),
                     node.getOutputSymbols());
-        }
-
-        private SemiJoinNode.DistributionType getTargetSemiJoinDistributionType(boolean isDeleteQuery)
-        {
-            if (getJoinDistributionType(session).canPartition() && !isDeleteQuery) {
-                return SemiJoinNode.DistributionType.PARTITIONED;
-            }
-
-            return SemiJoinNode.DistributionType.REPLICATED;
         }
     }
 }
