@@ -1070,7 +1070,7 @@ public class SemiTransactionalHiveMetastore
         private void prepareDropPartition(SchemaTableName schemaTableName, List<String> partitionValues)
         {
             metastoreDeleteOperations.add(new IrreversibleMetastoreOperation(
-                    format("drop partition %s.%s %s", schemaTableName, schemaTableName.getTableName(), partitionValues),
+                    format("drop partition %s.%s %s", schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionValues),
                     () -> delegate.dropPartition(schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionValues, true)));
         }
 
