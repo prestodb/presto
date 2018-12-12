@@ -35,8 +35,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
 import static com.facebook.presto.SystemSessionProperties.getJoinMaxBroadcastTableSize;
-import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateJoinExchangeCost;
-import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateJoinInputCost;
+import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateJoinCostWithoutOutput;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
@@ -180,20 +179,13 @@ public class DetermineJoinDistributionType
          *   the hash table scales with the number of nodes where the build side is replicated.
          */
         int estimatedSourceDistributedTaskCount = taskCountEstimator.estimateSourceDistributedTaskCount();
-        PlanNodeCostEstimate exchangesCost = calculateJoinExchangeCost(
+        PlanNodeCostEstimate cost = calculateJoinCostWithoutOutput(
                 possibleJoinNode.getLeft(),
                 possibleJoinNode.getRight(),
                 stats,
                 types,
                 replicated,
                 estimatedSourceDistributedTaskCount);
-        PlanNodeCostEstimate inputCost = calculateJoinInputCost(
-                possibleJoinNode.getLeft(),
-                possibleJoinNode.getRight(),
-                stats,
-                types,
-                replicated,
-                estimatedSourceDistributedTaskCount);
-        return new PlanNodeWithCost(exchangesCost.add(inputCost), possibleJoinNode);
+        return new PlanNodeWithCost(cost, possibleJoinNode);
     }
 }
