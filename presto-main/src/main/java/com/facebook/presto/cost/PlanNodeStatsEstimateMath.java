@@ -135,7 +135,7 @@ public class PlanNodeStatsEstimateMath
             newSymbolStats.setStatisticsRange(range);
             // there cannot be more NDVs then in superset set
             double supersetDistinctValuesCount = supersetSymbolStats.getDistinctValuesCount();
-            if (range.getDistinctValuesCount() > supersetDistinctValuesCount) {
+            if (!isNaN(range.getDistinctValuesCount()) && !isNaN(supersetDistinctValuesCount) && range.getDistinctValuesCount() > supersetDistinctValuesCount) {
                 newSymbolStats.setDistinctValuesCount(supersetDistinctValuesCount);
             }
 
