@@ -70,6 +70,7 @@ public abstract class AbstractMapBlock
      */
     protected abstract int getOffsetBase();
 
+    @Nullable
     protected abstract boolean[] getMapIsNull();
 
     protected abstract void ensureHashTableLoaded();
