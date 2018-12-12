@@ -58,7 +58,7 @@ public class DetermineJoinDistributionType
     public DetermineJoinDistributionType(CostComparator costComparator, TaskCountEstimator taskCountEstimator)
     {
         this.costComparator = requireNonNull(costComparator, "costComparator is null");
-        this.taskCountEstimator = requireNonNull(taskCountEstimator, "exchangeCostCalculator is null");
+        this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
     }
 
     @Override
