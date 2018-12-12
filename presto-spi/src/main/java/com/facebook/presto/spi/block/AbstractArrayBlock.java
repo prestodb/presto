@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.block;
 
+import javax.annotation.Nullable;
+
 import static com.facebook.presto.spi.block.ArrayBlock.createArrayBlockInternal;
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
@@ -29,6 +31,7 @@ public abstract class AbstractArrayBlock
 
     protected abstract int getOffsetBase();
 
+    @Nullable
     protected abstract boolean[] getValueIsNull();
 
     int getOffset(int position)
