@@ -42,6 +42,7 @@ public class ArrayBlockBuilder
 
     private int[] offsets = new int[1];
     private boolean[] valueIsNull = new boolean[0];
+    private boolean hasNullValue;
 
     private final BlockBuilder values;
     private boolean currentEntryOpened;
@@ -224,6 +225,7 @@ public class ArrayBlockBuilder
         }
         offsets[positionCount + 1] = values.getPositionCount();
         valueIsNull[positionCount] = isNull;
+        hasNullValue |= isNull;
         positionCount++;
 
         if (blockBuilderStatus != null) {
@@ -261,7 +263,7 @@ public class ArrayBlockBuilder
         if (currentEntryOpened) {
             throw new IllegalStateException("Current entry must be closed before the block can be built");
         }
-        return createArrayBlockInternal(0, positionCount, valueIsNull, offsets, values.build());
+        return createArrayBlockInternal(0, positionCount, hasNullValue ? valueIsNull : null, offsets, values.build());
     }
 
     @Override
