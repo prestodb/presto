@@ -16,10 +16,11 @@ package com.facebook.presto.cost;
 import com.facebook.presto.sql.planner.Symbol;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addNonOverlapping;
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndMaxDistinctValues;
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndSumDistinctValues;
-import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.computeSymmetricDifferenceStats;
-import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.subtractStats;
+import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.cap;
+import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.subtractSubset;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
@@ -165,10 +166,10 @@ public class TestPlanNodeStatsEstimateMath
         PlanNodeStatsEstimate first = statistics(40, NaN, NaN, StatisticRange.empty());
         PlanNodeStatsEstimate second = statistics(10, NaN, NaN, StatisticRange.empty());
 
-        assertEquals(subtractStats(unknownStats, unknownStats), PlanNodeStatsEstimate.unknown());
-        assertEquals(subtractStats(first, unknownStats), PlanNodeStatsEstimate.unknown());
-        assertEquals(subtractStats(unknownStats, second), PlanNodeStatsEstimate.unknown());
-        assertEquals(subtractStats(first, second).getOutputRowCount(), 30.0);
+        assertEquals(subtractSubset(unknownStats, unknownStats), PlanNodeStatsEstimate.unknown());
+        assertEquals(subtractSubset(first, unknownStats), PlanNodeStatsEstimate.unknown());
+        assertEquals(subtractSubset(unknownStats, second), PlanNodeStatsEstimate.unknown());
+        assertEquals(subtractSubset(first, second).getOutputRowCount(), 30.0);
     }
 
     @Test
@@ -191,7 +192,7 @@ public class TestPlanNodeStatsEstimateMath
 
     private static void assertSubtractNullsFraction(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, double expected)
     {
-        assertEquals(subtractStats(first, second).getSymbolStatistics(SYMBOL).getNullsFraction(), expected);
+        assertEquals(subtractSubset(first, second).getSymbolStatistics(SYMBOL).getNullsFraction(), expected);
     }
 
     @Test
@@ -215,7 +216,7 @@ public class TestPlanNodeStatsEstimateMath
 
     private static void assertSubtractNumberOfDistinctValues(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, double expected)
     {
-        assertEquals(subtractStats(first, second).getSymbolStatistics(SYMBOL).getDistinctValuesCount(), expected);
+        assertEquals(subtractSubset(first, second).getSymbolStatistics(SYMBOL).getDistinctValuesCount(), expected);
     }
 
     @Test
@@ -225,8 +226,8 @@ public class TestPlanNodeStatsEstimateMath
         assertSubtractRange(0, 1, NEGATIVE_INFINITY, POSITIVE_INFINITY, 0, 1);
         assertSubtractRange(NaN, NaN, 0, 1, NaN, NaN);
         assertSubtractRange(0, 1, NaN, NaN, 0, 1);
-        assertSubtractRange(0, 2, 0, 1, 1, 2);
-        assertSubtractRange(0, 2, 1, 2, 0, 1);
+        assertSubtractRange(0, 2, 0, 1, 0, 2);
+        assertSubtractRange(0, 2, 1, 2, 0, 2);
         assertSubtractRange(0, 2, 0.5, 1, 0, 2);
     }
 
@@ -234,7 +235,7 @@ public class TestPlanNodeStatsEstimateMath
     {
         PlanNodeStatsEstimate first = statistics(30, NaN, NaN, new StatisticRange(supersetLow, supersetHigh, 10));
         PlanNodeStatsEstimate second = statistics(20, NaN, NaN, new StatisticRange(subsetLow, subsetHigh, 5));
-        SymbolStatsEstimate statistics = subtractStats(first, second).getSymbolStatistics(SYMBOL);
+        SymbolStatsEstimate statistics = subtractSubset(first, second).getSymbolStatistics(SYMBOL);
         assertEquals(statistics.getLowValue(), expectedLow);
         assertEquals(statistics.getHighValue(), expectedHigh);
     }
@@ -277,6 +278,17 @@ public class TestPlanNodeStatsEstimateMath
         intersection = statistics(5, 0.0, NaN, NON_EMPTY_RANGE);
         superset = statistics(40, 0.1, NaN, NON_EMPTY_RANGE);
         assertEquals(computeSymmetricDifferenceStats(superset, left, right, intersection).getSymbolStatistics(SYMBOL).getNullsFraction(), 0.16);
+    }
+
+    private PlanNodeStatsEstimate computeSymmetricDifferenceStats(PlanNodeStatsEstimate superset, PlanNodeStatsEstimate left, PlanNodeStatsEstimate right, PlanNodeStatsEstimate intersect)
+    {
+        return cap(
+                subtractSubset(
+                        addNonOverlapping(superset, left, right),
+                        intersect,
+                        // for OR no NDVs should be removed
+                        false),
+                superset);
     }
 
     private static PlanNodeStatsEstimate statistics(double rowCount, double nullsFraction, double averageRowSize, StatisticRange range)

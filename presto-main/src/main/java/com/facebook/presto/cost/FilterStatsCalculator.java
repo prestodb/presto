@@ -51,8 +51,9 @@ import java.util.OptionalDouble;
 
 import static com.facebook.presto.cost.ComparisonStatsCalculator.estimateExpressionToExpressionComparison;
 import static com.facebook.presto.cost.ComparisonStatsCalculator.estimateExpressionToLiteralComparison;
-import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.computeSymmetricDifferenceStats;
-import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.subtractStats;
+import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addNonOverlapping;
+import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.cap;
+import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.subtractSubset;
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.ExpressionUtils.and;
@@ -159,7 +160,7 @@ public class FilterStatsCalculator
             if (node.getValue() instanceof IsNullPredicate) {
                 return process(new IsNotNullPredicate(((IsNullPredicate) node.getValue()).getValue()));
             }
-            return subtractStats(input, process(node.getValue()));
+            return subtractSubset(input, process(node.getValue()));
         }
 
         @Override
@@ -222,7 +223,13 @@ public class FilterStatsCalculator
                 return PlanNodeStatsEstimate.unknown();
             }
 
-            return computeSymmetricDifferenceStats(input, leftEstimate, rightEstimate, andEstimate);
+            return cap(
+                    subtractSubset(
+                            addNonOverlapping(input, leftEstimate, rightEstimate),
+                            andEstimate,
+                            // for OR no NDVs should be removed
+                            false),
+                    input);
         }
 
         @Override
