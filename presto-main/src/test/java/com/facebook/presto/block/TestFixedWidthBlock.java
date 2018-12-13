@@ -35,7 +35,7 @@ public class TestFixedWidthBlock
         for (int fixedSize = 0; fixedSize < 20; fixedSize++) {
             Slice[] expectedValues = createExpectedValues(17, fixedSize);
             assertFixedWithValues(expectedValues, fixedSize);
-            assertFixedWithValues((Slice[]) alternatingNullValues(expectedValues), fixedSize);
+            assertFixedWithValues(alternatingNullValues(expectedValues), fixedSize);
         }
     }
 
@@ -43,7 +43,7 @@ public class TestFixedWidthBlock
     public void testCopyPositions()
     {
         for (int fixedSize = 0; fixedSize < 20; fixedSize++) {
-            Slice[] expectedValues = (Slice[]) alternatingNullValues(createExpectedValues(17, fixedSize));
+            Slice[] expectedValues = alternatingNullValues(createExpectedValues(17, fixedSize));
             BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues, fixedSize);
             assertBlockFilteredPositions(expectedValues, blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), 0, 2, 4, 6, 7, 9, 10, 16);
         }
@@ -53,7 +53,7 @@ public class TestFixedWidthBlock
     public void testLazyBlockBuilderInitialization()
     {
         for (int fixedSize = 0; fixedSize < 20; fixedSize++) {
-            Slice[] expectedValues = (Slice[]) alternatingNullValues(createExpectedValues(17, fixedSize));
+            Slice[] expectedValues = alternatingNullValues(createExpectedValues(17, fixedSize));
             BlockBuilder emptyBlockBuilder = new FixedWidthBlockBuilder(fixedSize, null, 0);
 
             BlockBuilder blockBuilder = new FixedWidthBlockBuilder(fixedSize, null, expectedValues.length);
@@ -74,7 +74,7 @@ public class TestFixedWidthBlock
     public void testEstimatedDataSizeForStats()
     {
         for (int fixedSize = 0; fixedSize < 20; fixedSize++) {
-            Slice[] expectedValues = (Slice[]) alternatingNullValues(createExpectedValues(17, fixedSize));
+            Slice[] expectedValues = alternatingNullValues(createExpectedValues(17, fixedSize));
             BlockBuilder blockBuilder = new FixedWidthBlockBuilder(fixedSize, null, expectedValues.length);
             writeValues(expectedValues, blockBuilder);
             assertEstimatedDataSizeForStats(blockBuilder, expectedValues);
