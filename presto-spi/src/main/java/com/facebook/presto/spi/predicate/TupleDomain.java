@@ -328,6 +328,18 @@ public final class TupleDomain<T>
         return Objects.hash(domains);
     }
 
+    @Override
+    public String toString()
+    {
+        if (isAll()) {
+            return "TupleDomain{ALL}";
+        }
+        if (isNone()) {
+            return "TupleDomain{NONE}";
+        }
+        return "TupleDomain{...}";
+    }
+
     public String toString(ConnectorSession session)
     {
         StringBuilder buffer = new StringBuilder();
