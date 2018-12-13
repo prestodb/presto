@@ -118,11 +118,13 @@ public class BaseJdbcClient
     {
         try (Connection connection = connectionFactory.openConnection();
                 ResultSet resultSet = connection.getMetaData().getSchemas()) {
+            boolean isCaseSensitive = !connection.getMetaData().storesUpperCaseIdentifiers();
             ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
             while (resultSet.next()) {
-                String schemaName = resultSet.getString("TABLE_SCHEM").toLowerCase(ENGLISH);
+                String schemaName = resultSet.getString("TABLE_SCHEM");
+                schemaName = isCaseSensitive ? schemaName : schemaName.toLowerCase(ENGLISH);
                 // skip internal schemas
-                if (!schemaName.equals("information_schema")) {
+                if (!schemaName.equalsIgnoreCase("information_schema")) {
                     schemaNames.add(schemaName);
                 }
             }
@@ -141,10 +143,11 @@ public class BaseJdbcClient
             if (metadata.storesUpperCaseIdentifiers() && (schema != null)) {
                 schema = schema.toUpperCase(ENGLISH);
             }
+            boolean isCaseSensitive = !metadata.storesUpperCaseIdentifiers();
             try (ResultSet resultSet = getTables(connection, schema, null)) {
                 ImmutableList.Builder<SchemaTableName> list = ImmutableList.builder();
                 while (resultSet.next()) {
-                    list.add(getSchemaTableName(resultSet));
+                    list.add(getSchemaTableName(resultSet, isCaseSensitive));
                 }
                 return list.build();
             }
@@ -160,8 +163,8 @@ public class BaseJdbcClient
     {
         try (Connection connection = connectionFactory.openConnection()) {
             DatabaseMetaData metadata = connection.getMetaData();
-            String jdbcSchemaName = schemaTableName.getSchemaName();
-            String jdbcTableName = schemaTableName.getTableName();
+            String jdbcSchemaName = schemaTableName.getOriginalSchemaName();
+            String jdbcTableName = schemaTableName.getOriginalTableName();
             if (metadata.storesUpperCaseIdentifiers()) {
                 jdbcSchemaName = jdbcSchemaName.toUpperCase(ENGLISH);
                 jdbcTableName = jdbcTableName.toUpperCase(ENGLISH);
@@ -446,12 +449,19 @@ public class BaseJdbcClient
                 new String[] {"TABLE", "VIEW"});
     }
 
-    protected SchemaTableName getSchemaTableName(ResultSet resultSet)
+    protected SchemaTableName getSchemaTableName(ResultSet resultSet, boolean isCaseSensitive)
             throws SQLException
     {
-        return new SchemaTableName(
-                resultSet.getString("TABLE_SCHEM").toLowerCase(ENGLISH),
-                resultSet.getString("TABLE_NAME").toLowerCase(ENGLISH));
+        String schemaName = resultSet.getString("TABLE_SCHEM");
+        String tableName = resultSet.getString("TABLE_NAME");
+        if (isCaseSensitive) {
+            return new SchemaTableName(
+                    schemaName,
+                    tableName,
+                    schemaName,
+                    tableName);
+        }
+        return new SchemaTableName(schemaName, tableName);
     }
 
     protected void execute(Connection connection, String query)
