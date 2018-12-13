@@ -232,12 +232,10 @@ public class DictionaryBlock
         Arrays.fill(seenSizes, -1L);
         for (int i = 0; i < getPositionCount(); i++) {
             int position = getId(i);
-            if (!dictionary.isNull(position)) {
-                if (seenSizes[position] < 0) {
-                    seenSizes[position] = dictionary.getRegionSizeInBytes(position, 1);
-                }
-                sizeInBytes += seenSizes[position];
+            if (seenSizes[position] < 0) {
+                seenSizes[position] = dictionary.getRegionSizeInBytes(position, 1);
             }
+            sizeInBytes += seenSizes[position];
         }
 
         logicalSizeInBytes = sizeInBytes;
