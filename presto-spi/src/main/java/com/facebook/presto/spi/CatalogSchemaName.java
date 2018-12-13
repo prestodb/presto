@@ -22,11 +22,23 @@ public final class CatalogSchemaName
 {
     private final String catalogName;
     private final String schemaName;
+    private final String originalSchemaName;
+    private final boolean isSchemaCaseSensitive;
 
     public CatalogSchemaName(String catalogName, String schemaName)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null").toLowerCase(ENGLISH);
         this.schemaName = requireNonNull(schemaName, "schemaName is null").toLowerCase(ENGLISH);
+        this.originalSchemaName = this.schemaName;
+        this.isSchemaCaseSensitive = false;
+    }
+
+    public CatalogSchemaName(String catalogName, String schemaName, String originalSchemaName)
+    {
+        this.catalogName = requireNonNull(catalogName, "catalogName is null").toLowerCase(ENGLISH);
+        this.schemaName = requireNonNull(schemaName, "schemaName is null").toLowerCase(ENGLISH);
+        this.originalSchemaName = requireNonNull(originalSchemaName, "originalSchemaName is null");
+        this.isSchemaCaseSensitive = !this.schemaName.equals(this.originalSchemaName);
     }
 
     public String getCatalogName()
@@ -37,6 +49,16 @@ public final class CatalogSchemaName
     public String getSchemaName()
     {
         return schemaName;
+    }
+
+    public String getOriginalSchemaName()
+    {
+        return originalSchemaName;
+    }
+
+    public boolean isSchemaCaseSensitive()
+    {
+        return isSchemaCaseSensitive;
     }
 
     @Override
@@ -50,13 +72,14 @@ public final class CatalogSchemaName
         }
         CatalogSchemaName that = (CatalogSchemaName) obj;
         return Objects.equals(catalogName, that.catalogName) &&
-                Objects.equals(schemaName, that.schemaName);
+                Objects.equals(schemaName, that.schemaName) &&
+                Objects.equals(originalSchemaName, that.originalSchemaName);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalogName, schemaName);
+        return Objects.hash(catalogName, schemaName, originalSchemaName);
     }
 
     @Override

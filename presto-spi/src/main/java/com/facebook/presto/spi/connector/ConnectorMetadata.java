@@ -56,6 +56,15 @@ import static java.util.stream.Collectors.toList;
 public interface ConnectorMetadata
 {
     /**
+     * Checks whether the connector supports querying case sensitive
+     * tables
+     */
+    default boolean supportsCaseSensitiveIdentifier(ConnectorSession session)
+    {
+        return false;
+    }
+
+    /**
      * Checks if a schema exists. The connector may have schemas that exist
      * but are not enumerable via {@link #listSchemaNames}.
      */

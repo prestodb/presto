@@ -64,6 +64,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public boolean supportsCaseSensitiveIdentifier(ConnectorSession session)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.supportsCaseSensitiveIdentifier(session);
+        }
+    }
+
+    @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(
             ConnectorSession session,
             ConnectorTableHandle table,

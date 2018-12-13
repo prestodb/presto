@@ -25,12 +25,25 @@ public class SchemaTableName
 {
     private final String schemaName;
     private final String tableName;
+    private final String originalSchemaName;
+    private final String originalTableName;
 
     @JsonCreator
-    public SchemaTableName(@JsonProperty("schema") String schemaName, @JsonProperty("table") String tableName)
+    public SchemaTableName(@JsonProperty("schema") String schemaName, @JsonProperty("table") String tableName,
+            @JsonProperty("originalSchema") String originalSchemaName, @JsonProperty("originalTable") String originalTableName)
     {
         this.schemaName = checkNotEmpty(schemaName, "schemaName").toLowerCase(ENGLISH);
         this.tableName = checkNotEmpty(tableName, "tableName").toLowerCase(ENGLISH);
+        this.originalSchemaName = checkNotEmpty(originalSchemaName, "actualSchemaName");
+        this.originalTableName = checkNotEmpty(originalTableName, "actualTableName");
+    }
+
+    public SchemaTableName(String schemaName, String tableName)
+    {
+        this.schemaName = checkNotEmpty(schemaName, "schemaName").toLowerCase(ENGLISH);
+        this.tableName = checkNotEmpty(tableName, "tableName").toLowerCase(ENGLISH);
+        this.originalSchemaName = this.schemaName;
+        this.originalTableName = this.tableName;
     }
 
     @JsonProperty("schema")
@@ -45,10 +58,22 @@ public class SchemaTableName
         return tableName;
     }
 
+    @JsonProperty("originalSchema")
+    public String getOriginalSchemaName()
+    {
+        return originalSchemaName;
+    }
+
+    @JsonProperty("originalTable")
+    public String getOriginalTableName()
+    {
+        return originalTableName;
+    }
+
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName);
+        return Objects.hash(schemaName, tableName, originalSchemaName, originalTableName);
     }
 
     @Override
@@ -62,7 +87,9 @@ public class SchemaTableName
         }
         final SchemaTableName other = (SchemaTableName) obj;
         return Objects.equals(this.schemaName, other.schemaName) &&
-                Objects.equals(this.tableName, other.tableName);
+                Objects.equals(this.tableName, other.tableName) &&
+                Objects.equals(this.originalSchemaName, other.originalSchemaName) &&
+                Objects.equals(this.originalTableName, other.originalTableName);
     }
 
     @Override
@@ -73,6 +100,6 @@ public class SchemaTableName
 
     public SchemaTablePrefix toSchemaTablePrefix()
     {
-        return new SchemaTablePrefix(schemaName, tableName);
+        return new SchemaTablePrefix(schemaName, tableName, originalSchemaName, originalTableName);
     }
 }
