@@ -34,6 +34,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -458,9 +459,9 @@ public abstract class AbstractTestBlock
         return dynamicSliceOutput.slice();
     }
 
-    protected static Object[] alternatingNullValues(Object[] objects)
+    protected static <T> T[] alternatingNullValues(T[] objects)
     {
-        Object[] objectsWithNulls = (Object[]) Array.newInstance(objects.getClass().getComponentType(), objects.length * 2 + 1);
+        T[] objectsWithNulls = Arrays.copyOf(objects, objects.length * 2 + 1);
         for (int i = 0; i < objects.length; i++) {
             objectsWithNulls[i * 2] = null;
             objectsWithNulls[i * 2 + 1] = objects[i];

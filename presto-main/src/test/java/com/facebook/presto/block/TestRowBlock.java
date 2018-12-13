@@ -49,14 +49,14 @@ public class TestRowBlock
         List<Object>[] testRows = generateTestRows(fieldTypes, 100);
 
         testWith(fieldTypes, testRows);
-        testWith(fieldTypes, (List<Object>[]) alternatingNullValues(testRows));
+        testWith(fieldTypes, alternatingNullValues(testRows));
     }
 
     @Test
     public void testEstimatedDataSizeForStats()
     {
         List<Type> fieldTypes = ImmutableList.of(VARCHAR, BIGINT);
-        List<Object>[] expectedValues = (List<Object>[]) alternatingNullValues(generateTestRows(fieldTypes, 100));
+        List<Object>[] expectedValues = alternatingNullValues(generateTestRows(fieldTypes, 100));
         BlockBuilder blockBuilder = createBlockBuilderWithValues(fieldTypes, expectedValues);
         Block block = blockBuilder.build();
         assertEquals(block.getPositionCount(), expectedValues.length);

@@ -97,7 +97,7 @@ public class TestMapBlock
         Map<String, Long>[] expectedValues = Arrays.copyOfRange(values, values.length / 2, values.length);
         assertBlock(blockRegion, () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
 
-        Map<String, Long>[] valuesWithNull = (Map<String, Long>[]) alternatingNullValues(values);
+        Map<String, Long>[] valuesWithNull = alternatingNullValues(values);
         Block blockWithNull = createBlockWithValuesFromKeyValueBlock(valuesWithNull);
 
         // Create a MapBlock that is a region of another MapBlock with null values. It doesn't have hashtables built at the time of creation.
@@ -140,7 +140,7 @@ public class TestMapBlock
         assertBlockFilteredPositions(expectedValues, block, () -> blockBuilder.newBlockBuilderLike(null), 0, 1, 3, 4, 7);
         assertBlockFilteredPositions(expectedValues, block, () -> blockBuilder.newBlockBuilderLike(null), 2, 3, 5, 6);
 
-        Map<String, Long>[] expectedValuesWithNull = (Map<String, Long>[]) alternatingNullValues(expectedValues);
+        Map<String, Long>[] expectedValuesWithNull = alternatingNullValues(expectedValues);
         BlockBuilder blockBuilderWithNull = createBlockBuilderWithValues(expectedValuesWithNull);
 
         assertBlock(blockBuilderWithNull, () -> blockBuilder.newBlockBuilderLike(null), expectedValuesWithNull);
@@ -291,7 +291,7 @@ public class TestMapBlock
     @Test
     public void testEstimatedDataSizeForStats()
     {
-        Map<String, Long>[] expectedValues = (Map<String, Long>[]) alternatingNullValues(createTestMap(9, 3, 4, 0, 8, 0, 6, 5));
+        Map<String, Long>[] expectedValues = alternatingNullValues(createTestMap(9, 3, 4, 0, 8, 0, 6, 5));
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
         Block block = blockBuilder.build();
         assertEquals(block.getPositionCount(), expectedValues.length);
