@@ -7,3 +7,4 @@ SQL Language
 
     language/types
     language/reserved
+    language/timestamp
