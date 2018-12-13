@@ -84,10 +84,12 @@ public class MySqlClient
         try (Connection connection = connectionFactory.openConnection();
                 ResultSet resultSet = connection.getMetaData().getCatalogs()) {
             ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
+            boolean isCaseSensitive = !connection.getMetaData().storesUpperCaseIdentifiers();
             while (resultSet.next()) {
-                String schemaName = resultSet.getString("TABLE_CAT").toLowerCase(ENGLISH);
+                String schemaName = resultSet.getString("TABLE_CAT");
+                schemaName = isCaseSensitive ? schemaName : schemaName.toLowerCase(ENGLISH);
                 // skip internal schemas
-                if (!schemaName.equals("information_schema") && !schemaName.equals("mysql")) {
+                if (!schemaName.equalsIgnoreCase("information_schema") && !schemaName.equalsIgnoreCase("mysql")) {
                     schemaNames.add(schemaName);
                 }
             }
@@ -133,13 +135,20 @@ public class MySqlClient
     }
 
     @Override
-    protected SchemaTableName getSchemaTableName(ResultSet resultSet)
+    protected SchemaTableName getSchemaTableName(ResultSet resultSet, boolean isCaseSensitive)
             throws SQLException
     {
         // MySQL uses catalogs instead of schemas
-        return new SchemaTableName(
-                resultSet.getString("TABLE_CAT").toLowerCase(ENGLISH),
-                resultSet.getString("TABLE_NAME").toLowerCase(ENGLISH));
+        String schemaName = resultSet.getString("TABLE_CAT");
+        String tableName = resultSet.getString("TABLE_NAME");
+        if (isCaseSensitive) {
+            return new SchemaTableName(
+                    schemaName,
+                    tableName,
+                    schemaName,
+                    tableName);
+        }
+        return new SchemaTableName(schemaName, tableName);
     }
 
     @Override
