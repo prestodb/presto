@@ -271,7 +271,7 @@ public class DictionaryBlock
                 used[getId(i)] = true;
             }
         }
-        return dictionary.getPositionsSizeInBytes(used) + Integer.BYTES * countUsedPositions(positions);
+        return dictionary.getPositionsSizeInBytes(used) + (Integer.BYTES * (long) countUsedPositions(positions));
     }
 
     @Override
