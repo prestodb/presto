@@ -476,8 +476,7 @@ public class IOPlanPrinter
             context.addInputTableColumnInfo(new IOPlan.TableColumnInfo(
                     new CatalogSchemaTableName(
                             tableMetadata.getConnectorId().getCatalogName(),
-                            tableMetadata.getTable().getSchemaName(),
-                            tableMetadata.getTable().getTableName()),
+                            tableMetadata.getTable()),
                     parseConstraints(node.getTable(), node.getCurrentConstraint())));
             return null;
         }
@@ -490,22 +489,19 @@ public class IOPlanPrinter
                 CreateHandle createHandle = (CreateHandle) writerTarget;
                 context.setOutputTable(new CatalogSchemaTableName(
                         createHandle.getHandle().getConnectorId().getCatalogName(),
-                        createHandle.getSchemaTableName().getSchemaName(),
-                        createHandle.getSchemaTableName().getTableName()));
+                        createHandle.getSchemaTableName()));
             }
             else if (writerTarget instanceof InsertHandle) {
                 InsertHandle insertHandle = (InsertHandle) writerTarget;
                 context.setOutputTable(new CatalogSchemaTableName(
                         insertHandle.getHandle().getConnectorId().getCatalogName(),
-                        insertHandle.getSchemaTableName().getSchemaName(),
-                        insertHandle.getSchemaTableName().getTableName()));
+                        insertHandle.getSchemaTableName()));
             }
             else if (writerTarget instanceof DeleteHandle) {
                 DeleteHandle deleteHandle = (DeleteHandle) writerTarget;
                 context.setOutputTable(new CatalogSchemaTableName(
                         deleteHandle.getHandle().getConnectorId().getCatalogName(),
-                        deleteHandle.getSchemaTableName().getSchemaName(),
-                        deleteHandle.getSchemaTableName().getTableName()));
+                        deleteHandle.getSchemaTableName()));
             }
             else if (writerTarget instanceof CreateName || writerTarget instanceof InsertReference) {
                 throw new IllegalStateException(format("%s should not appear in final plan", writerTarget.getClass().getSimpleName()));
