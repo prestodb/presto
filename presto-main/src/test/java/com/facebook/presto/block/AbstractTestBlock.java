@@ -458,9 +458,9 @@ public abstract class AbstractTestBlock
         return dynamicSliceOutput.slice();
     }
 
-    protected static Object[] alternatingNullValues(Object[] objects)
+    protected static <T> T[] alternatingNullValues(T[] objects)
     {
-        Object[] objectsWithNulls = (Object[]) Array.newInstance(objects.getClass().getComponentType(), objects.length * 2 + 1);
+        T[] objectsWithNulls = newArrayOfType(objects, objects.length * 2 + 1);
         for (int i = 0; i < objects.length; i++) {
             objectsWithNulls[i * 2] = null;
             objectsWithNulls[i * 2 + 1] = objects[i];
@@ -522,5 +522,11 @@ public abstract class AbstractTestBlock
     {
         assertNotCompact(block);
         testCopyRegionCompactness(block);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> T[] newArrayOfType(T[] array, int length)
+    {
+        return (T[]) Array.newInstance(array.getClass().getComponentType(), length);
     }
 }
