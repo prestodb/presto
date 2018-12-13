@@ -50,11 +50,20 @@ public class TestDictionaryBlock
         // The dictionary within the dictionary block is expected to be a VariableWidthBlock of size 95 bytes.
         // 45 bytes for the expectedValues Slices (sum of seq(0,9)) and 50 bytes for the position and isNull array (total 10 positions).
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
+        assertEquals(dictionaryBlock.getDictionary().getLogicalSizeInBytes(), 95);
 
         // The 100 positions in the dictionary block index to 10 positions in the underlying dictionary (10 each).
         // Logical size calculation accounts for 4 bytes of offset and 1 byte of isNull. Therefore the expected unoptimized
         // size is 10 times the size of the underlying dictionary (VariableWidthBlock).
-        assertEquals(dictionaryBlock.getLogicalSizeInBytes(), dictionaryBlock.getDictionary().getSizeInBytes() * 10);
+        assertEquals(dictionaryBlock.getLogicalSizeInBytes(), 95 * 10);
+
+        // With alternating nulls, we have 21 positions, with the same size calculation as above.
+        dictionaryBlock = createDictionaryBlock(alternatingNullValues(expectedValues), 210);
+        assertEquals(dictionaryBlock.getDictionary().getPositionCount(), 21);
+        assertEquals(dictionaryBlock.getDictionary().getLogicalSizeInBytes(), 150);
+
+        // The null positions should be included in the logical size.
+        assertEquals(dictionaryBlock.getLogicalSizeInBytes(), 150 * 10);
     }
 
     @Test
