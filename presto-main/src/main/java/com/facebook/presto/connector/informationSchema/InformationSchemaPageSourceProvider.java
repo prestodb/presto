@@ -138,8 +138,8 @@ public class InformationSchemaPageSourceProvider
                     }
                     table.add(
                             prefix.getCatalogName(),
-                            tableName.getSchemaName(),
-                            tableName.getTableName(),
+                            tableName.getOriginalSchemaName(),
+                            tableName.getOriginalTableName(),
                             column.getName(),
                             ordinalPosition,
                             null,
@@ -166,8 +166,8 @@ public class InformationSchemaPageSourceProvider
                 String type = views.contains(name) ? "VIEW" : "BASE TABLE";
                 table.add(
                         prefix.getCatalogName(),
-                        name.getSchemaName(),
-                        name.getTableName(),
+                        name.getOriginalSchemaName(),
+                        name.getOriginalTableName(),
                         type);
             }
         }

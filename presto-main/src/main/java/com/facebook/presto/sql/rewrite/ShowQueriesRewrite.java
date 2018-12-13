@@ -189,7 +189,9 @@ final class ShowQueriesRewrite
                 throw new SemanticException(MISSING_SCHEMA, showTables, "Schema '%s' does not exist", schema.getSchemaName());
             }
 
-            Expression predicate = equal(identifier("table_schema"), new StringLiteral(schema.getSchemaName()));
+            String schemaString = schema.isSchemaCaseSensitive() ? schema.getOriginalSchemaName() : schema.getSchemaName();
+            Expression predicate = equal(identifier("table_schema"),
+                    new StringLiteral(schemaString));
 
             Optional<String> likePattern = showTables.getLikePattern();
             if (likePattern.isPresent()) {
@@ -310,6 +312,16 @@ final class ShowQueriesRewrite
                 throw new SemanticException(MISSING_TABLE, showColumns, "Table '%s' does not exist", tableName);
             }
 
+            String tableSchemaString = tableName.isCaseSensitive() ? tableName.getOriginalSchemaName() :
+                    tableName.getSchemaName();
+
+            String tableNameString = tableName.isCaseSensitive() ? tableName.getOriginalObjectName() :
+                    tableName.getObjectName();
+
+            Expression expression = logicalAnd(
+                    equal(identifier("table_schema"), new StringLiteral(tableSchemaString)),
+                    equal(identifier("table_name"), new StringLiteral(tableNameString)));
+
             return simpleQuery(
                     selectList(
                             aliasedName("column_name", "Column"),
@@ -317,9 +329,7 @@ final class ShowQueriesRewrite
                             aliasedNullToEmpty("extra_info", "Extra"),
                             aliasedNullToEmpty("comment", "Comment")),
                     from(tableName.getCatalogName(), TABLE_COLUMNS),
-                    logicalAnd(
-                            equal(identifier("table_schema"), new StringLiteral(tableName.getSchemaName())),
-                            equal(identifier("table_name"), new StringLiteral(tableName.getObjectName()))),
+                    expression,
                     ordering(ascending("ordinal_position")));
         }
 

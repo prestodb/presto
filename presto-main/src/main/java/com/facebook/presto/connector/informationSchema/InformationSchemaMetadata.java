@@ -18,6 +18,9 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
+import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.metadata.ViewDefinition;
+import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -40,6 +43,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -247,15 +251,18 @@ public class InformationSchemaMetadata
             TupleDomain<ColumnHandle> constraint,
             Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
     {
+        Session session = ((FullConnectorSession) connectorSession).getSession();
         Optional<Set<String>> schemas = filterString(constraint, SCHEMA_COLUMN_HANDLE);
         if (schemas.isPresent()) {
             return schemas.get().stream()
-                    .filter(this::isLowerCase)
-                    .map(schema -> new QualifiedTablePrefix(catalogName, schema))
+                    .filter(schema -> metadata.schemaExists(session, new CatalogSchemaName(catalogName,
+                            schema.toLowerCase(ENGLISH), schema)))
+                    .map(schema -> new QualifiedTablePrefix(catalogName,
+                                    Optional.of(schema.toLowerCase(ENGLISH)),
+                            Optional.empty(), Optional.of(schema), Optional.empty()))
                     .collect(toImmutableSet());
         }
 
-        Session session = ((FullConnectorSession) connectorSession).getSession();
         return metadata.listSchemaNames(session, catalogName).stream()
                 .filter(schema -> !predicate.isPresent() || predicate.get().test(schemaAsFixedValues(schema)))
                 .map(schema -> new QualifiedTablePrefix(catalogName, schema))
@@ -272,12 +279,27 @@ public class InformationSchemaMetadata
 
         Optional<Set<String>> tables = filterString(constraint, TABLE_NAME_COLUMN_HANDLE);
         if (tables.isPresent()) {
+            //Predicate to avoid duplicates as we would be getting two table names here
+            //one actual table name (from the query) and other is transformed to lower case
+            HashSet<TableHandle> visitedTableHandle = new HashSet<>();
+            HashSet<ViewDefinition> visitedViewDefinition = new HashSet<>();
+            Predicate<QualifiedObjectName> filterPredicate = qualifiedObjectName -> {
+                Optional<TableHandle> tableHandle = metadata.getTableHandle(session, qualifiedObjectName);
+                Optional<ViewDefinition> viewDefinition = metadata.getView(session, qualifiedObjectName);
+                if (tableHandle.filter(visitedTableHandle::contains).isPresent() ||
+                        viewDefinition.filter(visitedViewDefinition::contains).isPresent()) {
+                    return false;
+                }
+                tableHandle.ifPresent(visitedTableHandle::add);
+                viewDefinition.ifPresent(visitedViewDefinition::add);
+                return tableHandle.isPresent() || viewDefinition.isPresent();
+            };
+
             return prefixes.stream()
                     .flatMap(prefix -> tables.get().stream()
-                            .filter(this::isLowerCase)
-                            .map(table -> table.toLowerCase(ENGLISH))
-                            .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
-                    .filter(objectName -> metadata.getTableHandle(session, objectName).isPresent() || metadata.getView(session, objectName).isPresent())
+                            .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(),
+                                    table.toLowerCase(ENGLISH), prefix.getOriginalSchemaName().get(), table)))
+                    .filter(filterPredicate)
                     .map(QualifiedObjectName::asQualifiedTablePrefix)
                     .collect(toImmutableSet());
         }
@@ -312,6 +334,7 @@ public class InformationSchemaMetadata
                     .map(Slice::toStringUtf8)
                     .collect(toImmutableSet()));
         }
+
         return Optional.empty();
     }
 
@@ -324,8 +347,8 @@ public class InformationSchemaMetadata
     {
         return ImmutableMap.of(
                 CATALOG_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getCatalogName())),
-                SCHEMA_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getSchemaName())),
-                TABLE_NAME_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getObjectName())));
+                SCHEMA_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getOriginalSchemaName())),
+                TABLE_NAME_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getOriginalObjectName())));
     }
 
     @Override
