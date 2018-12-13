@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -32,19 +33,25 @@ public class QualifiedTablePrefix
     private final String catalogName;
     private final Optional<String> schemaName;
     private final Optional<String> tableName;
+    private final Optional<String> originalSchemaName;
+    private final Optional<String> originalTableName;
 
     public QualifiedTablePrefix(String catalogName)
     {
         this.catalogName = checkCatalogName(catalogName);
         this.schemaName = Optional.empty();
         this.tableName = Optional.empty();
+        this.originalSchemaName = Optional.empty();
+        this.originalTableName = Optional.empty();
     }
 
     public QualifiedTablePrefix(String catalogName, String schemaName)
     {
         this.catalogName = checkCatalogName(catalogName);
-        this.schemaName = Optional.of(checkSchemaName(schemaName));
+        this.schemaName = Optional.of(checkSchemaName(schemaName.toLowerCase(Locale.ENGLISH)));
         this.tableName = Optional.empty();
+        this.originalSchemaName = this.schemaName;
+        this.originalTableName = Optional.empty();
     }
 
     public QualifiedTablePrefix(String catalogName, String schemaName, String tableName)
@@ -52,18 +59,34 @@ public class QualifiedTablePrefix
         this.catalogName = checkCatalogName(catalogName);
         this.schemaName = Optional.of(checkSchemaName(schemaName));
         this.tableName = Optional.of(checkTableName(tableName));
+        this.originalSchemaName = this.schemaName;
+        this.originalTableName = this.tableName;
+    }
+
+    public QualifiedTablePrefix(String catalogName, String schemaName, String tableName,
+            String actualSchemaName, String actualTableName)
+    {
+        this.catalogName = checkCatalogName(catalogName);
+        this.schemaName = Optional.of(checkSchemaName(schemaName));
+        this.tableName = Optional.of(checkTableName(tableName));
+        this.originalSchemaName = Optional.of(actualSchemaName);
+        this.originalTableName = Optional.of(actualTableName);
     }
 
     @JsonCreator
     public QualifiedTablePrefix(
             @JsonProperty("catalogName") String catalogName,
             @JsonProperty("schemaName") Optional<String> schemaName,
-            @JsonProperty("tableName") Optional<String> tableName)
+            @JsonProperty("tableName") Optional<String> tableName,
+            @JsonProperty("originalSchemaName") Optional<String> originalSchemaName,
+            @JsonProperty("originalTableName") Optional<String> originalTableName)
     {
         checkTableName(catalogName, schemaName, tableName);
         this.catalogName = catalogName;
         this.schemaName = schemaName;
         this.tableName = tableName;
+        this.originalSchemaName = originalSchemaName;
+        this.originalTableName = originalTableName;
     }
 
     @JsonProperty
@@ -82,6 +105,18 @@ public class QualifiedTablePrefix
     public Optional<String> getTableName()
     {
         return tableName;
+    }
+
+    @JsonProperty
+    public Optional<String> getOriginalSchemaName()
+    {
+        return originalSchemaName;
+    }
+
+    @JsonProperty
+    public Optional<String> getOriginalTableName()
+    {
+        return originalTableName;
     }
 
     public boolean hasSchemaName()
@@ -103,7 +138,7 @@ public class QualifiedTablePrefix
             return new SchemaTablePrefix(schemaName.get());
         }
         else {
-            return new SchemaTablePrefix(schemaName.get(), tableName.get());
+            return new SchemaTablePrefix(schemaName.get(), tableName.get(), originalSchemaName.get(), originalTableName.get());
         }
     }
 
@@ -111,7 +146,9 @@ public class QualifiedTablePrefix
     {
         return Objects.equals(catalogName, objectName.getCatalogName())
                 && schemaName.map(schema -> Objects.equals(schema, objectName.getSchemaName())).orElse(true)
-                && tableName.map(table -> Objects.equals(table, objectName.getObjectName())).orElse(true);
+                && tableName.map(table -> Objects.equals(table, objectName.getObjectName())).orElse(true)
+                && originalSchemaName.map(schema -> Objects.equals(schema, objectName.getOriginalSchemaName())).orElse(true)
+                && originalTableName.map(table -> Objects.equals(table, objectName.getOriginalObjectName())).orElse(true);
     }
 
     @Override
@@ -126,13 +163,15 @@ public class QualifiedTablePrefix
         QualifiedTablePrefix o = (QualifiedTablePrefix) obj;
         return Objects.equals(catalogName, o.catalogName) &&
                 Objects.equals(schemaName, o.schemaName) &&
-                Objects.equals(tableName, o.tableName);
+                Objects.equals(tableName, o.tableName) &&
+                Objects.equals(originalSchemaName, o.originalSchemaName) &&
+                Objects.equals(originalTableName, o.originalTableName);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalogName, schemaName, tableName);
+        return Objects.hash(catalogName, schemaName, tableName, originalSchemaName, originalTableName);
     }
 
     @Override

@@ -31,6 +31,7 @@ public class QualifiedName
 {
     private final List<String> parts;
     private final List<String> originalParts;
+    private final List<Boolean> isCaseSensitive;
 
     public static QualifiedName of(String first, String... rest)
     {
@@ -49,14 +50,32 @@ public class QualifiedName
         requireNonNull(originalParts, "originalParts is null");
         checkArgument(!isEmpty(originalParts), "originalParts is empty");
         List<String> parts = ImmutableList.copyOf(transform(originalParts, part -> part.toLowerCase(ENGLISH)));
+        ImmutableList.Builder<Boolean> builder = ImmutableList.builder();
+        originalParts.forEach(x -> builder.add(false));
 
-        return new QualifiedName(ImmutableList.copyOf(originalParts), parts);
+        return new QualifiedName(ImmutableList.copyOf(originalParts), parts, builder.build());
     }
 
-    private QualifiedName(List<String> originalParts, List<String> parts)
+    public static QualifiedName of(Iterable<String> originalParts, List<Boolean> isCaseSensitive)
+    {
+        requireNonNull(originalParts, "originalParts is null");
+        checkArgument(!isEmpty(originalParts), "originalParts is empty");
+        List<String> parts = ImmutableList.copyOf(transform(originalParts, part -> part.toLowerCase(ENGLISH)));
+        List<String> actualParts = ImmutableList.copyOf(originalParts);
+        checkArgument(parts.size() == isCaseSensitive.size(), "Size didn't match");
+        ImmutableList.Builder<Boolean> builder = ImmutableList.builder();
+        for (int i = 0; i < parts.size(); i++) {
+            builder.add(isCaseSensitive.get(i) && actualParts.get(i).equals(parts.get(i)));
+        }
+
+        return new QualifiedName(ImmutableList.copyOf(originalParts), parts, isCaseSensitive);
+    }
+
+    private QualifiedName(List<String> originalParts, List<String> parts, List<Boolean> isCaseSensitive)
     {
         this.originalParts = originalParts;
         this.parts = parts;
+        this.isCaseSensitive = isCaseSensitive;
     }
 
     public List<String> getParts()
@@ -67,6 +86,11 @@ public class QualifiedName
     public List<String> getOriginalParts()
     {
         return originalParts;
+    }
+
+    public List<Boolean> isCaseSensitive()
+    {
+        return isCaseSensitive;
     }
 
     @Override
@@ -86,7 +110,7 @@ public class QualifiedName
         }
 
         List<String> subList = parts.subList(0, parts.size() - 1);
-        return Optional.of(new QualifiedName(subList, subList));
+        return Optional.of(new QualifiedName(subList, subList, isCaseSensitive));
     }
 
     public boolean hasSuffix(QualifiedName suffix)
@@ -103,6 +127,11 @@ public class QualifiedName
     public String getSuffix()
     {
         return Iterables.getLast(parts);
+    }
+
+    public String getOriginalSuffix()
+    {
+        return Iterables.getLast(isCaseSensitive) ? Iterables.getLast(originalParts) : Iterables.getLast(parts);
     }
 
     @Override

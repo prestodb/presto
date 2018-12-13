@@ -22,15 +22,12 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
-import com.facebook.presto.transaction.TransactionBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-
-import java.util.List;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.QueryState.FAILED;
@@ -137,18 +134,5 @@ public class TestMetadataManager
         // cancel query
         queryManager.cancelQuery(queryId);
         assertEquals(metadataManager.getCatalogsByQueryId().size(), 0);
-    }
-
-    @Test
-    public void testUpperCaseSchemaIsChangedToLowerCase()
-    {
-        TransactionBuilder.transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
-                .execute(
-                        TEST_SESSION,
-                        transactionSession -> {
-                            List<String> expectedSchemas = ImmutableList.of("information_schema", "upper_case_schema");
-                            assertEquals(queryRunner.getMetadata().listSchemaNames(transactionSession, "upper_case_schema_catalog"), expectedSchemas);
-                            return null;
-                        });
     }
 }

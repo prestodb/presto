@@ -1830,11 +1830,15 @@ class AstBuilder
 
     private QualifiedName getQualifiedName(SqlBaseParser.QualifiedNameContext context)
     {
-        List<String> parts = visit(context.identifier(), Identifier.class).stream()
+        List<Identifier> identifierList = visit(context.identifier(), Identifier.class);
+        List<String> parts = identifierList.stream()
                 .map(Identifier::getValue) // TODO: preserve quotedness
                 .collect(Collectors.toList());
+        List<Boolean> isCaseSensitive = identifierList.stream()
+                .map(Identifier::isDelimited)
+                .collect(toList());
 
-        return QualifiedName.of(parts);
+        return QualifiedName.of(parts, isCaseSensitive);
     }
 
     private static boolean isDistinct(SqlBaseParser.SetQuantifierContext setQuantifier)

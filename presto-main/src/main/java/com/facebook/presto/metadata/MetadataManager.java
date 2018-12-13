@@ -76,7 +76,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -278,7 +277,9 @@ public class MetadataManager
         ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getConnectorId());
         return catalogMetadata.listConnectorIds().stream()
                 .map(catalogMetadata::getMetadataFor)
-                .anyMatch(metadata -> metadata.schemaExists(connectorSession, schema.getSchemaName()));
+                .anyMatch(metadata ->
+                        schema.isSchemaCaseSensitive() ? metadata.schemaExists(connectorSession, schema.getOriginalSchemaName())
+                                : metadata.schemaExists(connectorSession, schema.getSchemaName()));
     }
 
     @Override
@@ -299,7 +300,6 @@ public class MetadataManager
             for (ConnectorId connectorId : catalogMetadata.listConnectorIds()) {
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
                 metadata.listSchemaNames(connectorSession).stream()
-                        .map(schema -> schema.toLowerCase(Locale.ENGLISH))
                         .forEach(schemaNames::add);
             }
         }
@@ -316,12 +316,16 @@ public class MetadataManager
             CatalogMetadata catalogMetadata = catalog.get();
             ConnectorId connectorId = catalogMetadata.getConnectorId(session, table);
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
-
+            if (table.isCaseSensitive() &&
+                    !metadata.supportsCaseSensitiveIdentifier(session.toConnectorSession(connectorId))) {
+                return Optional.empty();
+            }
             ConnectorTableHandle tableHandle = metadata.getTableHandle(session.toConnectorSession(connectorId), table.asSchemaTableName());
             if (tableHandle != null) {
                 return Optional.of(new TableHandle(connectorId, tableHandle));
             }
         }
+
         return Optional.empty();
     }
 
@@ -474,7 +478,7 @@ public class MetadataManager
             for (ConnectorId connectorId : catalogMetadata.listConnectorIds()) {
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
                 ConnectorSession connectorSession = session.toConnectorSession(connectorId);
-                metadata.listTables(connectorSession, prefix.getSchemaName()).stream()
+                metadata.listTables(connectorSession, prefix.getOriginalSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
                         .filter(prefix::matches)
                         .forEach(tables::add);
@@ -502,7 +506,9 @@ public class MetadataManager
                     QualifiedObjectName tableName = new QualifiedObjectName(
                             prefix.getCatalogName(),
                             entry.getKey().getSchemaName(),
-                            entry.getKey().getTableName());
+                            entry.getKey().getTableName(),
+                            entry.getKey().getOriginalSchemaName(),
+                            entry.getKey().getOriginalTableName());
                     tableColumns.put(tableName, entry.getValue());
                 }
 

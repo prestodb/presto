@@ -46,6 +46,9 @@ public class QualifiedObjectName
     private final String catalogName;
     private final String schemaName;
     private final String objectName;
+    private final String originalSchemaName;
+    private final String originalObjectName;
+    private final boolean isCaseSensitive;
 
     public QualifiedObjectName(String catalogName, String schemaName, String objectName)
     {
@@ -53,6 +56,23 @@ public class QualifiedObjectName
         this.catalogName = catalogName;
         this.schemaName = schemaName;
         this.objectName = objectName;
+        this.originalSchemaName = schemaName;
+        this.originalObjectName = objectName;
+        this.isCaseSensitive = false;
+    }
+
+    public QualifiedObjectName(String catalogName,
+            String schemaName, String objectName,
+            String originalSchemaName, String originalObjectName)
+    {
+        checkObjectName(catalogName, schemaName, objectName);
+        this.catalogName = catalogName;
+        this.schemaName = schemaName;
+        this.objectName = objectName;
+        this.originalSchemaName = originalSchemaName;
+        this.originalObjectName = originalObjectName;
+        this.isCaseSensitive = !(this.schemaName.equals(originalSchemaName) &&
+                this.objectName.equals(originalObjectName));
     }
 
     public String getCatalogName()
@@ -70,19 +90,34 @@ public class QualifiedObjectName
         return objectName;
     }
 
+    public String getOriginalSchemaName()
+    {
+        return originalSchemaName;
+    }
+
+    public String getOriginalObjectName()
+    {
+        return originalObjectName;
+    }
+
+    public boolean isCaseSensitive()
+    {
+        return isCaseSensitive;
+    }
+
     public SchemaTableName asSchemaTableName()
     {
-        return new SchemaTableName(schemaName, objectName);
+        return new SchemaTableName(schemaName, objectName, originalSchemaName, originalObjectName);
     }
 
     public CatalogSchemaTableName asCatalogSchemaTableName()
     {
-        return new CatalogSchemaTableName(catalogName, schemaName, objectName);
+        return new CatalogSchemaTableName(catalogName, asSchemaTableName());
     }
 
     public QualifiedTablePrefix asQualifiedTablePrefix()
     {
-        return new QualifiedTablePrefix(catalogName, schemaName, objectName);
+        return new QualifiedTablePrefix(catalogName, schemaName, objectName, originalSchemaName, originalObjectName);
     }
 
     @Override
@@ -97,13 +132,15 @@ public class QualifiedObjectName
         QualifiedObjectName o = (QualifiedObjectName) obj;
         return Objects.equals(catalogName, o.catalogName) &&
                 Objects.equals(schemaName, o.schemaName) &&
-                Objects.equals(objectName, o.objectName);
+                Objects.equals(objectName, o.objectName) &&
+                Objects.equals(originalSchemaName, o.originalSchemaName) &&
+                Objects.equals(originalObjectName, o.originalObjectName);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalogName, schemaName, objectName);
+        return Objects.hash(catalogName, schemaName, objectName, originalSchemaName, originalObjectName);
     }
 
     @JsonValue
@@ -115,6 +152,6 @@ public class QualifiedObjectName
 
     public static Function<SchemaTableName, QualifiedObjectName> convertFromSchemaTableName(String catalogName)
     {
-        return input -> new QualifiedObjectName(catalogName, input.getSchemaName(), input.getTableName());
+        return input -> new QualifiedObjectName(catalogName, input.getSchemaName(), input.getTableName(), input.getOriginalSchemaName(), input.getOriginalTableName());
     }
 }

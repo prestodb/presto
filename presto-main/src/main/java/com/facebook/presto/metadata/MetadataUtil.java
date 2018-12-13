@@ -97,6 +97,7 @@ public final class MetadataUtil
     {
         String catalogName = session.getCatalog().orElse(null);
         String schemaName = session.getSchema().orElse(null);
+        String originalSchemaName = schemaName;
 
         if (schema.isPresent()) {
             List<String> parts = schema.get().getParts();
@@ -107,6 +108,7 @@ public final class MetadataUtil
                 catalogName = parts.get(0);
             }
             schemaName = schema.get().getSuffix();
+            originalSchemaName = schema.get().getOriginalSuffix();
         }
 
         if (catalogName == null) {
@@ -116,7 +118,7 @@ public final class MetadataUtil
             throw new SemanticException(SCHEMA_NOT_SPECIFIED, node, "Schema must be specified when session schema is not set");
         }
 
-        return new CatalogSchemaName(catalogName, schemaName);
+        return new CatalogSchemaName(catalogName, schemaName, originalSchemaName);
     }
 
     public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name)
@@ -128,18 +130,32 @@ public final class MetadataUtil
         }
 
         List<String> parts = Lists.reverse(name.getParts());
+        List<String> actualParts = Lists.reverse(name.getOriginalParts());
+        List<Boolean> isCaseSensitive = Lists.reverse(name.isCaseSensitive());
         String objectName = parts.get(0);
         String schemaName = (parts.size() > 1) ? parts.get(1) : session.getSchema().orElseThrow(() ->
                 new SemanticException(SCHEMA_NOT_SPECIFIED, node, "Schema must be specified when session schema is not set"));
         String catalogName = (parts.size() > 2) ? parts.get(2) : session.getCatalog().orElseThrow(() ->
                 new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set"));
+        String originalObjectName = isCaseSensitive.get(0) ? actualParts.get(0) : parts.get(0);
+        String originalSchemaName = schemaName;
+        if (actualParts.size() > 1) {
+            originalSchemaName = isCaseSensitive.get(1) ? actualParts.get(1) : parts.get(1);
+        }
 
-        return new QualifiedObjectName(catalogName, schemaName, objectName);
+        return new QualifiedObjectName(catalogName, schemaName, objectName, originalSchemaName, originalObjectName);
     }
 
     public static QualifiedName createQualifiedName(QualifiedObjectName name)
     {
-        return QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getObjectName());
+        List<Boolean> isCaseSensitive = ImmutableList.of(
+                false,
+                name.getSchemaName().equals(name.getOriginalSchemaName()),
+                name.getObjectName().equals(name.getOriginalObjectName()));
+        return QualifiedName.of(ImmutableList.of(name.getCatalogName(),
+                name.getOriginalSchemaName(),
+                name.getOriginalObjectName()),
+                isCaseSensitive);
     }
 
     public static boolean tableExists(Metadata metadata, Session session, String table)

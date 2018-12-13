@@ -4057,7 +4057,8 @@ public abstract class AbstractTestQueries
     @Test
     public void testQuotedIdentifiers()
     {
-        assertQuery("SELECT \"TOTALPRICE\" \"my price\" FROM \"ORDERS\"");
+        assertQueryFails("SELECT \"TOTALPRICE\" \"my price\" FROM \"ORDERS\"",
+                "line 1:[0-9]+: Table [a-z]+.[a-zA-Z]+.orders does not exist");
     }
 
     @Test
