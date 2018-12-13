@@ -22,6 +22,9 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -44,6 +47,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -205,26 +209,31 @@ public class NodeScheduler
     {
         Set<Node> chosen = new LinkedHashSet<>();
         Set<String> coordinatorIds = nodeMap.getCoordinatorNodeIds();
+        LoadingCache<HostAddress, Optional<InetAddress>> addressCache = CacheBuilder.newBuilder().build(
+                new CacheLoader<HostAddress, Optional<InetAddress>>() {
+                    @Override
+                    public Optional<InetAddress> load(HostAddress host) throws Exception {
+                        try {
+                            InetAddress address = host.toInetAddress();
+                            return Optional.of(address);
+                        }
+                        catch (UnknownHostException e) {
+                            return Optional.empty();
+                        }
+                    }
+                });
 
         for (HostAddress host : hosts) {
             nodeMap.getNodesByHostAndPort().get(host).stream()
                     .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
                     .forEach(chosen::add);
 
-            InetAddress address;
-            try {
-                address = host.toInetAddress();
-            }
-            catch (UnknownHostException e) {
-                // skip hosts that don't resolve
-                continue;
-            }
-
             // consider a split with a host without a port as being accessible by all nodes in that host
             if (!host.hasPort()) {
-                nodeMap.getNodesByHost().get(address).stream()
-                        .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
-                        .forEach(chosen::add);
+                addressCache.getUnchecked(host).ifPresent(address ->
+                    nodeMap.getNodesByHost().get(address).stream()
+                            .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
+                            .forEach(chosen::add));
             }
         }
 
@@ -238,19 +247,11 @@ public class NodeScheduler
                 nodeMap.getNodesByHostAndPort().get(host).stream()
                         .forEach(chosen::add);
 
-                InetAddress address;
-                try {
-                    address = host.toInetAddress();
-                }
-                catch (UnknownHostException e) {
-                    // skip hosts that don't resolve
-                    continue;
-                }
-
                 // consider a split with a host without a port as being accessible by all nodes in that host
                 if (!host.hasPort()) {
-                    nodeMap.getNodesByHost().get(address).stream()
-                            .forEach(chosen::add);
+                    addressCache.getUnchecked(host).ifPresent(address ->
+                        nodeMap.getNodesByHost().get(address).stream()
+                                .forEach(chosen::add));
                 }
             }
         }
