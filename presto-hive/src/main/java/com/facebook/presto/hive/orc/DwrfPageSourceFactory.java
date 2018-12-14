@@ -89,6 +89,7 @@ public class DwrfPageSourceFactory
                 start,
                 length,
                 fileSize,
+                schema,
                 columns,
                 false,
                 effectivePredicate,

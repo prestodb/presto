@@ -31,7 +31,6 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -55,7 +54,6 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.Set;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
@@ -78,11 +76,6 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Cate
 public class ParquetPageSourceFactory
         implements HivePageSourceFactory
 {
-    private static final Set<String> PARQUET_SERDE_CLASS_NAMES = ImmutableSet.<String>builder()
-            .add("org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe")
-            .add("parquet.hive.serde.ParquetHiveSerDe")
-            .build();
-
     private final TypeManager typeManager;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
@@ -108,7 +101,7 @@ public class ParquetPageSourceFactory
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
-        if (!PARQUET_SERDE_CLASS_NAMES.contains(getDeserializerClassName(schema))) {
+        if (!ParquetReaderConstants.PARQUET_SERDE_CLASS_NAMES.contains(getDeserializerClassName(schema))) {
             return Optional.empty();
         }
 
@@ -153,10 +146,11 @@ public class ParquetPageSourceFactory
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
             dataSource = buildHdfsParquetDataSource(inputStream, path, fileSize, stats);
+            boolean useColumnNames = shouldUseColumnNames(schema, useParquetColumnNames);
 
             List<parquet.schema.Type> fields = columns.stream()
                     .filter(column -> column.getColumnType() == REGULAR)
-                    .map(column -> getParquetType(column, fileSchema, useParquetColumnNames))
+                    .map(column -> getParquetType(column, fileSchema, useColumnNames))
                     .filter(Objects::nonNull)
                     .collect(toList());
 
@@ -192,7 +186,7 @@ public class ParquetPageSourceFactory
                     schema,
                     columns,
                     effectivePredicate,
-                    useParquetColumnNames);
+                    useColumnNames);
         }
         catch (Exception e) {
             try {
@@ -249,5 +243,14 @@ public class ParquetPageSourceFactory
             return messageType.getType(column.getHiveColumnIndex());
         }
         return null;
+    }
+
+    private static boolean shouldUseColumnNames(Properties schema, boolean useParquetColumnNames)
+    {
+        String columnIndexAccessProperty = schema.getProperty(ParquetReaderConstants.PARQUET_COLUMN_INDEX_ACCESS);
+        if (columnIndexAccessProperty == null) {
+            return useParquetColumnNames;
+        }
+        return !Boolean.parseBoolean(columnIndexAccessProperty);
     }
 }

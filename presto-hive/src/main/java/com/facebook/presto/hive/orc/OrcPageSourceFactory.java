@@ -24,6 +24,7 @@ import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
+import com.facebook.presto.orc.OrcReaderConstants;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
@@ -41,7 +42,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
@@ -65,7 +65,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadBlockS
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcTinyStripeThreshold;
 import static com.facebook.presto.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
-import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
+import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -109,7 +109,7 @@ public class OrcPageSourceFactory
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
-        if (!isDeserializerClass(schema, OrcSerde.class)) {
+        if (!OrcReaderConstants.ORC_SERDE_CLASS_NAMES.contains(getDeserializerClassName(schema))) {
             return Optional.empty();
         }
 
@@ -127,6 +127,7 @@ public class OrcPageSourceFactory
                 start,
                 length,
                 fileSize,
+                schema,
                 columns,
                 useOrcColumnNames,
                 effectivePredicate,
@@ -151,6 +152,7 @@ public class OrcPageSourceFactory
             long start,
             long length,
             long fileSize,
+            Properties schema,
             List<HiveColumnHandle> columns,
             boolean useOrcColumnNames,
             TupleDomain<HiveColumnHandle> effectivePredicate,
@@ -190,8 +192,8 @@ public class OrcPageSourceFactory
         AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
         try {
             OrcReader reader = new OrcReader(orcDataSource, orcEncoding, maxMergeDistance, maxBufferSize, tinyStripeThreshold, maxReadBlockSize);
-
-            List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader, path);
+            boolean useColumnNames = shouldUseColumnNames(schema, useOrcColumnNames);
+            List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useColumnNames, reader, path);
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
             ImmutableList.Builder<ColumnReference<HiveColumnHandle>> columnReferences = ImmutableList.builder();
             for (HiveColumnHandle column : physicalColumns) {
@@ -288,5 +290,14 @@ public class OrcPageSourceFactory
         }
 
         return physicalNameOrdinalMap.build();
+    }
+
+    private static boolean shouldUseColumnNames(Properties schema, boolean useOrcColumnNames)
+    {
+        String columnIndexAccessProperty = schema.getProperty(OrcReaderConstants.ORC_COLUMN_INDEX_ACCESS);
+        if (columnIndexAccessProperty == null) {
+            return useOrcColumnNames;
+        }
+        return !Boolean.parseBoolean(columnIndexAccessProperty);
     }
 }

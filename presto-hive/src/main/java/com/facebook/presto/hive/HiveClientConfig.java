@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.s3.S3FileSystemType;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
@@ -50,6 +51,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "hive.optimized-reader.enabled"})
 public class HiveClientConfig
 {
+    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
     private String timeZone = TimeZone.getDefault().getID();
 
     private DataSize maxSplitSize = new DataSize(64, MEGABYTE);
@@ -144,6 +146,8 @@ public class HiveClientConfig
     private String recordingPath;
     private boolean replay;
     private Duration recordingDuration = new Duration(0, MINUTES);
+
+    private List<String> readAccessByNameSerdeList = ImmutableList.of();
 
     public int getMaxInitialSplits()
     {
@@ -469,6 +473,25 @@ public class HiveClientConfig
         return this;
     }
 
+    public List<String> getReadAccessByNameSerdeList()
+    {
+        return readAccessByNameSerdeList;
+    }
+
+    @Config("hive.read-access-by-name-serde-list")
+    public HiveClientConfig setReadAccessByNameSerdeList(String serdeList)
+    {
+        this.readAccessByNameSerdeList = (serdeList == null) ? ImmutableList.of() : SPLITTER.splitToList(serdeList);
+        return this;
+    }
+
+    @VisibleForTesting
+    HiveClientConfig setReadAccessByNameSerdeList(List<String> serdeList)
+    {
+        this.readAccessByNameSerdeList = (serdeList == null) ? ImmutableList.of() : ImmutableList.copyOf(serdeList);
+        return this;
+    }
+
     @NotNull
     public List<String> getResourceConfigFiles()
     {
@@ -478,7 +501,7 @@ public class HiveClientConfig
     @Config("hive.config.resources")
     public HiveClientConfig setResourceConfigFiles(String files)
     {
-        this.resourceConfigFiles = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(files);
+        this.resourceConfigFiles = SPLITTER.splitToList(files);
         return this;
     }
 

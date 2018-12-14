@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
-import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Table;
@@ -51,7 +50,6 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Function;
 
 import static com.facebook.presto.hive.BackgroundHiveSplitLoader.BucketSplitInfo.createBucketSplitInfo;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
@@ -81,7 +79,6 @@ public class HiveSplitManager
     private final HdfsEnvironment hdfsEnvironment;
     private final DirectoryLister directoryLister;
     private final Executor executor;
-    private final CoercionPolicy coercionPolicy;
     private final int maxOutstandingSplits;
     private final DataSize maxOutstandingSplitsSize;
     private final int minPartitionBatchSize;
@@ -90,6 +87,7 @@ public class HiveSplitManager
     private final int splitLoaderConcurrency;
     private final boolean recursiveDfsWalkerEnabled;
     private final CounterStat highMemorySplitSourceCounter;
+    private final PartitionSchemaCoercionListGenerator partitionSchemaCoercionListGenerator;
 
     @Inject
     public HiveSplitManager(
@@ -99,7 +97,7 @@ public class HiveSplitManager
             HdfsEnvironment hdfsEnvironment,
             DirectoryLister directoryLister,
             @ForHiveClient ExecutorService executorService,
-            CoercionPolicy coercionPolicy)
+            PartitionSchemaCoercionListGenerator partitionSchemaCoercionListGenerator)
     {
         this(
                 metastoreProvider,
@@ -107,8 +105,8 @@ public class HiveSplitManager
                 hdfsEnvironment,
                 directoryLister,
                 new BoundedExecutor(executorService, hiveClientConfig.getMaxSplitIteratorThreads()),
-                coercionPolicy,
                 new CounterStat(),
+                partitionSchemaCoercionListGenerator,
                 hiveClientConfig.getMaxOutstandingSplits(),
                 hiveClientConfig.getMaxOutstandingSplitsSize(),
                 hiveClientConfig.getMinPartitionBatchSize(),
@@ -124,8 +122,8 @@ public class HiveSplitManager
             HdfsEnvironment hdfsEnvironment,
             DirectoryLister directoryLister,
             Executor executor,
-            CoercionPolicy coercionPolicy,
             CounterStat highMemorySplitSourceCounter,
+            PartitionSchemaCoercionListGenerator partitionSchemaCoercionListGenerator,
             int maxOutstandingSplits,
             DataSize maxOutstandingSplitsSize,
             int minPartitionBatchSize,
@@ -139,8 +137,8 @@ public class HiveSplitManager
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.executor = new ErrorCodedExecutor(executor);
-        this.coercionPolicy = requireNonNull(coercionPolicy, "coercionPolicy is null");
         this.highMemorySplitSourceCounter = requireNonNull(highMemorySplitSourceCounter, "highMemorySplitSourceCounter is null");
+        this.partitionSchemaCoercionListGenerator = requireNonNull(partitionSchemaCoercionListGenerator, "partitionSchemaCoercionListGenerator is null");
         checkArgument(maxOutstandingSplits >= 1, "maxOutstandingSplits must be at least 1");
         this.maxOutstandingSplits = maxOutstandingSplits;
         this.maxOutstandingSplitsSize = maxOutstandingSplitsSize;
@@ -296,37 +294,8 @@ public class HiveSplitManager
                     throw new HiveNotReadableException(tableName, Optional.of(partName), partitionNotReadable);
                 }
 
-                // Verify that the partition schema matches the table schema.
-                // Either adding or dropping columns from the end of the table
-                // without modifying existing partitions is allowed, but every
-                // column that exists in both the table and partition must have
-                // the same type.
-                List<Column> tableColumns = table.getDataColumns();
-                List<Column> partitionColumns = partition.getColumns();
-                if ((tableColumns == null) || (partitionColumns == null)) {
-                    throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s' or partition '%s' has null columns", tableName, partName));
-                }
-                ImmutableMap.Builder<Integer, HiveTypeName> columnCoercions = ImmutableMap.builder();
-                for (int i = 0; i < min(partitionColumns.size(), tableColumns.size()); i++) {
-                    HiveType tableType = tableColumns.get(i).getType();
-                    HiveType partitionType = partitionColumns.get(i).getType();
-                    if (!tableType.equals(partitionType)) {
-                        if (!coercionPolicy.canCoerce(partitionType, tableType)) {
-                            throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
-                                            "There is a mismatch between the table and partition schemas. " +
-                                            "The types are incompatible and cannot be coerced. " +
-                                            "The column '%s' in table '%s' is declared as type '%s', " +
-                                            "but partition '%s' declared column '%s' as type '%s'.",
-                                    tableColumns.get(i).getName(),
-                                    tableName,
-                                    tableType,
-                                    partName,
-                                    partitionColumns.get(i).getName(),
-                                    partitionType));
-                        }
-                        columnCoercions.put(i, partitionType.getHiveTypeName());
-                    }
-                }
+                ImmutableMap<Integer, HiveTypeName> columnCoercions =
+                        partitionSchemaCoercionListGenerator.validateAndCoercePartitionSchema(table, tableName, partition, partName);
 
                 if (bucketProperty.isPresent()) {
                     Optional<HiveBucketProperty> partitionBucketProperty = partition.getStorage().getBucketProperty();
@@ -352,7 +321,7 @@ public class HiveSplitManager
                     }
                 }
 
-                results.add(new HivePartitionMetadata(hivePartition, Optional.of(partition), columnCoercions.build()));
+                results.add(new HivePartitionMetadata(hivePartition, Optional.of(partition), columnCoercions));
             }
 
             return results.build();

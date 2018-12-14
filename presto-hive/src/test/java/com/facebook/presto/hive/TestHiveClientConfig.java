@@ -111,6 +111,7 @@ public class TestHiveClientConfig
                 .setRecordingPath(null)
                 .setRecordingDuration(new Duration(0, TimeUnit.MINUTES))
                 .setReplay(false)
+                .setReadAccessByNameSerdeList("")
                 .setCollectColumnStatisticsOnWrite(false));
     }
 
@@ -192,6 +193,7 @@ public class TestHiveClientConfig
                 .put("hive.metastore-recoding-duration", "42s")
                 .put("hive.replay-metastore-recording", "true")
                 .put("hive.collect-column-statistics-on-write", "true")
+                .put("hive.read-access-by-name-serde-list", "serde1,serde2")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -268,7 +270,8 @@ public class TestHiveClientConfig
                 .setRecordingPath("/foo/bar")
                 .setRecordingDuration(new Duration(42, TimeUnit.SECONDS))
                 .setReplay(true)
-                .setCollectColumnStatisticsOnWrite(true);
+                .setCollectColumnStatisticsOnWrite(true)
+                .setReadAccessByNameSerdeList(ImmutableList.of("serde1", "serde2"));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
