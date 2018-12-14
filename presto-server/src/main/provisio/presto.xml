@@ -134,6 +134,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/teradata">
+        <artifact id="${project.groupId}:presto-teradata:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/raptor">
         <artifact id="${project.groupId}:presto-raptor:zip:${project.version}">
             <unpack />

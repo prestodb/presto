@@ -100,6 +100,7 @@
         <module>presto-postgresql</module>
         <module>presto-redshift</module>
         <module>presto-sqlserver</module>
+        <module>presto-teradata</module>
         <module>presto-mongodb</module>
         <module>presto-client</module>
         <module>presto-parser</module>
@@ -395,6 +396,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-sqlserver</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-teradata</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
