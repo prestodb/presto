@@ -151,6 +151,19 @@ public class PhoenixMetadata
     }
 
     @Override
+    public void createSchema(ConnectorSession session, String schemaName,
+            Map<String, Object> properties)
+    {
+        phoenixClient.createSchema(schemaName);
+    }
+
+    @Override
+    public void dropSchema(ConnectorSession session, String schemaName)
+    {
+        phoenixClient.dropSchema(schemaName);
+    }
+
+    @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         PhoenixTableHandle existingTable = phoenixClient.getTableHandle(tableMetadata.getTable());

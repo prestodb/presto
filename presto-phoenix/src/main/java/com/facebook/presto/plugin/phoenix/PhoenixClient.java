@@ -132,7 +132,8 @@ public class PhoenixClient
     private final Map<String, HostAddress> hostCache = new HashMap<>();
 
     @Inject
-    public PhoenixClient(PhoenixConnectorId connectorId, PhoenixConfig config) throws SQLException
+    public PhoenixClient(PhoenixConnectorId connectorId, PhoenixConfig config)
+            throws SQLException
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
 
@@ -337,6 +338,34 @@ public class PhoenixClient
         }
         catch (Exception e) {
             throw new PrestoException(PHOENIX_ERROR, String.format("Failed to get the query plan with error [%s]", e.getMessage()), e);
+        }
+    }
+
+    public void createSchema(String schemaName)
+    {
+        StringBuilder sql = new StringBuilder()
+                .append("CREATE SCHEMA ")
+                .append(schemaName);
+
+        try (PhoenixConnection connection = getConnection()) {
+            execute(connection, sql.toString());
+        }
+        catch (SQLException e) {
+            throw new PrestoException(PHOENIX_ERROR, e);
+        }
+    }
+
+    public void dropSchema(String schemaName)
+    {
+        StringBuilder sql = new StringBuilder()
+                .append("DROP SCHEMA ")
+                .append(schemaName);
+
+        try (PhoenixConnection connection = getConnection()) {
+            execute(connection, sql.toString());
+        }
+        catch (SQLException e) {
+            throw new PrestoException(PHOENIX_ERROR, e);
         }
     }
 

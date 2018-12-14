@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.tpch.TpchTable.ORDERS;
@@ -42,6 +43,20 @@ public class TestPhoenixIntegrationSmokeTest
             throws Exception
     {
         super(() -> PhoenixQueryRunner.createPhoenixQueryRunner(ImmutableMap.of(), ImmutableList.of(ORDERS)));
+    }
+
+    @Test
+    public void testSchemaOperations()
+    {
+        assertUpdate("CREATE SCHEMA new_schema");
+
+        assertUpdate("CREATE TABLE new_schema.test (x bigint)");
+
+        assertQueryFails("DROP SCHEMA new_schema", Pattern.quote("ERROR 723 (43M06): Cannot mutate schema as schema has existing tables schemaName=NEW_SCHEMA"));
+
+        assertUpdate("DROP TABLE new_schema.test");
+
+        assertUpdate("DROP SCHEMA new_schema");
     }
 
     @Test
