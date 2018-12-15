@@ -171,6 +171,14 @@
                                 </rule>
 
                                 <rule>
+                                    <destination>/etc/presto/catalog</destination>
+                                    <base>dist/config/catalog</base>
+                                    <includes>
+                                        <include>*</include>
+                                    </includes>
+                                </rule>
+
+                                <rule>
                                     <destination>/usr/shared/doc/presto</destination>
                                     <base>${server.tar.package}</base>
                                     <includes>
