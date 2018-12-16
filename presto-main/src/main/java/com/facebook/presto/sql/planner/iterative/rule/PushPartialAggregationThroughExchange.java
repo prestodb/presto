@@ -29,7 +29,9 @@ import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 
@@ -52,6 +54,7 @@ import static com.facebook.presto.sql.planner.plan.Patterns.exchange;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class PushPartialAggregationThroughExchange
@@ -209,7 +212,15 @@ public class PushPartialAggregationThroughExchange
             // rewrite final aggregation in terms of intermediate function
             finalAggregation.put(entry.getKey(),
                     new AggregationNode.Aggregation(
-                            new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(intermediateSymbol.toSymbolReference())),
+                            new FunctionCall(
+                                    QualifiedName.of(signature.getName()),
+                                    ImmutableList.<Expression>builder()
+                                            .add(intermediateSymbol.toSymbolReference())
+                                            .addAll(originalAggregation.getCall().getArguments().stream()
+                                                    .filter(LambdaExpression.class::isInstance)
+                                                    .collect(toImmutableList()))
+                                            .build()),
+
                             signature,
                             Optional.empty()));
         }
