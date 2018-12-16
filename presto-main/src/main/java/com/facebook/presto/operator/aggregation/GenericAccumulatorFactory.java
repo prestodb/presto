@@ -54,6 +54,7 @@ public class GenericAccumulatorFactory
     private final List<AccumulatorStateDescriptor> stateDescriptors;
     private final Constructor<? extends Accumulator> accumulatorConstructor;
     private final Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor;
+    private final List<LambdaChannelProvider> lambdaChannelProviders;
     private final Optional<Integer> maskChannel;
     private final List<Integer> inputChannels;
     private final List<Type> sourceTypes;
@@ -72,6 +73,7 @@ public class GenericAccumulatorFactory
             List<AccumulatorStateDescriptor> stateDescriptors,
             Constructor<? extends Accumulator> accumulatorConstructor,
             Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor,
+            List<LambdaChannelProvider> lambdaChannelProviders,
             List<Integer> inputChannels,
             Optional<Integer> maskChannel,
             List<Type> sourceTypes,
@@ -85,6 +87,7 @@ public class GenericAccumulatorFactory
         this.stateDescriptors = requireNonNull(stateDescriptors, "stateDescriptors is null");
         this.accumulatorConstructor = requireNonNull(accumulatorConstructor, "accumulatorConstructor is null");
         this.groupedAccumulatorConstructor = requireNonNull(groupedAccumulatorConstructor, "groupedAccumulatorConstructor is null");
+        this.lambdaChannelProviders = ImmutableList.copyOf(requireNonNull(lambdaChannelProviders, "lambdaChannelProviders is null"));
         this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
         this.inputChannels = ImmutableList.copyOf(requireNonNull(inputChannels, "inputChannels is null"));
         this.sourceTypes = ImmutableList.copyOf(requireNonNull(sourceTypes, "sourceTypes is null"));
@@ -139,7 +142,7 @@ public class GenericAccumulatorFactory
     public Accumulator createIntermediateAccumulator()
     {
         try {
-            return accumulatorConstructor.newInstance(stateDescriptors, ImmutableList.of(), Optional.empty());
+            return accumulatorConstructor.newInstance(stateDescriptors, ImmutableList.of(), Optional.empty(), lambdaChannelProviders);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
@@ -181,7 +184,7 @@ public class GenericAccumulatorFactory
     public GroupedAccumulator createGroupedIntermediateAccumulator()
     {
         try {
-            return groupedAccumulatorConstructor.newInstance(stateDescriptors, ImmutableList.of(), Optional.empty());
+            return groupedAccumulatorConstructor.newInstance(stateDescriptors, ImmutableList.of(), Optional.empty(), lambdaChannelProviders);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
@@ -203,7 +206,7 @@ public class GenericAccumulatorFactory
     private Accumulator instantiateAccumulator(List<Integer> inputs, Optional<Integer> mask)
     {
         try {
-            return accumulatorConstructor.newInstance(stateDescriptors, inputs, mask);
+            return accumulatorConstructor.newInstance(stateDescriptors, inputs, mask, lambdaChannelProviders);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
@@ -213,7 +216,7 @@ public class GenericAccumulatorFactory
     private GroupedAccumulator instantiateGroupedAccumulator(List<Integer> inputs, Optional<Integer> mask)
     {
         try {
-            return groupedAccumulatorConstructor.newInstance(stateDescriptors, inputs, mask);
+            return groupedAccumulatorConstructor.newInstance(stateDescriptors, inputs, mask, lambdaChannelProviders);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);

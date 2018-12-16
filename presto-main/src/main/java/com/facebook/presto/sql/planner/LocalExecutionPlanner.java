@@ -79,6 +79,7 @@ import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
 import com.facebook.presto.operator.WindowFunctionDefinition;
 import com.facebook.presto.operator.WindowOperator.WindowOperatorFactory;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
+import com.facebook.presto.operator.aggregation.LambdaChannelProvider;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeFactory;
 import com.facebook.presto.operator.exchange.LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourceOperatorFactory;
@@ -116,6 +117,7 @@ import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
+import com.facebook.presto.sql.gen.lambda.BinaryFunctionInterface;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
@@ -166,6 +168,7 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.SortItem;
@@ -2495,6 +2498,10 @@ public class LocalExecutionPlanner
         {
             List<Integer> arguments = new ArrayList<>();
             for (Expression argument : aggregation.getCall().getArguments()) {
+                if (argument instanceof LambdaExpression) {
+                    // Wenlei Hack TODO: Compile lambda
+                    continue;
+                }
                 Symbol argumentSymbol = Symbol.from(argument);
                 arguments.add(source.getLayout().get(argumentSymbol));
             }
@@ -2518,7 +2525,39 @@ public class LocalExecutionPlanner
             return metadata
                     .getFunctionRegistry()
                     .getAggregateFunctionImplementation(aggregation.getSignature())
-                    .bind(arguments, maskChannel, source.getTypes(), getChannelsForSymbols(sortKeys, source.getLayout()), sortOrders, pagesIndexFactory, aggregation.getCall().isDistinct(), joinCompiler, session);
+                    .bind(
+                            arguments,
+                            maskChannel,
+                            source.getTypes(),
+                            getChannelsForSymbols(sortKeys, source.getLayout()),
+                            sortOrders,
+                            pagesIndexFactory,
+                            aggregation.getCall().isDistinct(),
+                            joinCompiler,
+                            // Wenlei Hack TODO
+                            hackGetLambdaChannelProviders(),
+                            session);
+        }
+
+        private List<LambdaChannelProvider> hackGetLambdaChannelProviders()
+        {
+            LambdaChannelProvider multiLambdaChannelProvider = new LambdaChannelProvider()
+            {
+                @Override
+                public Object getLambda()
+                {
+                    return new BinaryFunctionInterface()
+                    {
+                        @Override
+                        public Object apply(Object arg1, Object arg2)
+                        {
+                            return (long) arg1 * (long) arg2;
+                        }
+                    };
+                }
+            };
+
+            return ImmutableList.of(multiLambdaChannelProvider, multiLambdaChannelProvider);
         }
 
         private PhysicalOperation planGlobalAggregation(AggregationNode node, PhysicalOperation source, LocalExecutionPlanContext context)

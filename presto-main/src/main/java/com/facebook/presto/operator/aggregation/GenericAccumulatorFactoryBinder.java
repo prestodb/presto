@@ -43,14 +43,16 @@ public class GenericAccumulatorFactoryBinder
 
         try {
             accumulatorConstructor = accumulatorClass.getConstructor(
-                    List.class, /* List<AccumulatorStateDescriptor> stateDescriptors */
-                    List.class, /* List<Integer> inputChannel */
-                    Optional.class);
+                    List.class,     /* List<AccumulatorStateDescriptor> stateDescriptors */
+                    List.class,     /* List<Integer> inputChannel */
+                    Optional.class, /* Optional<Integer> maskChannel */
+                    List.class      /* List<LambdaChannelProvider> lambdaChannelProviders */);
 
             groupedAccumulatorConstructor = groupedAccumulatorClass.getConstructor(
-                    List.class, /* List<AccumulatorStateDescriptor> stateDescriptors */
-                    List.class, /* List<Integer> inputChannel */
-                    Optional.class);
+                    List.class,     /* List<AccumulatorStateDescriptor> stateDescriptors */
+                    List.class,     /* List<Integer> inputChannel */
+                    Optional.class, /* Optional<Integer> maskChannel */
+                    List.class      /* List<LambdaChannelProvider> lambdaChannelProviders */);
         }
         catch (NoSuchMethodException e) {
             throw new RuntimeException(e);
@@ -58,9 +60,32 @@ public class GenericAccumulatorFactoryBinder
     }
 
     @Override
-    public AccumulatorFactory bind(List<Integer> argumentChannels, Optional<Integer> maskChannel, List<Type> sourceTypes, List<Integer> orderByChannels, List<SortOrder> orderings, PagesIndex.Factory pagesIndexFactory, boolean distinct, JoinCompiler joinCompiler, Session session)
+    public AccumulatorFactory bind(
+            List<Integer> argumentChannels,
+            Optional<Integer> maskChannel,
+            List<Type> sourceTypes,
+            List<Integer> orderByChannels,
+            List<SortOrder> orderings,
+            PagesIndex.Factory pagesIndexFactory,
+            boolean distinct,
+            JoinCompiler joinCompiler,
+            List<LambdaChannelProvider> lambdaChannelProviders,
+            Session session)
     {
-        return new GenericAccumulatorFactory(stateDescriptors, accumulatorConstructor, groupedAccumulatorConstructor, argumentChannels, maskChannel, sourceTypes, orderByChannels, orderings, pagesIndexFactory, joinCompiler, session, distinct);
+        return new GenericAccumulatorFactory(
+                stateDescriptors,
+                accumulatorConstructor,
+                groupedAccumulatorConstructor,
+                lambdaChannelProviders,
+                argumentChannels,
+                maskChannel,
+                sourceTypes,
+                orderByChannels,
+                orderings,
+                pagesIndexFactory,
+                joinCompiler,
+                session,
+                distinct);
     }
 
     @VisibleForTesting

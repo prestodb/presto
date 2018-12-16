@@ -41,7 +41,8 @@ public class AggregationMetadata
     public static final Set<Class<?>> SUPPORTED_PARAMETER_TYPES = ImmutableSet.of(Block.class, long.class, double.class, boolean.class, Slice.class);
 
     private final String name;
-    private final List<ParameterMetadata> inputMetadata;
+    private final List<ParameterMetadata> valueInputChannelMetadata;
+    private final List<Class> lambdaChannelInterfaces;
     private final MethodHandle inputFunction;
     private final MethodHandle combineFunction;
     private final MethodHandle outputFunction;
@@ -50,23 +51,45 @@ public class AggregationMetadata
 
     public AggregationMetadata(
             String name,
-            List<ParameterMetadata> inputMetadata,
+            List<ParameterMetadata> valueInputChannelMetadata,
             MethodHandle inputFunction,
             MethodHandle combineFunction,
             MethodHandle outputFunction,
             List<AccumulatorStateDescriptor> accumulatorStateDescriptors,
             Type outputType)
     {
+        this(
+                name,
+                valueInputChannelMetadata,
+                inputFunction,
+                combineFunction,
+                outputFunction,
+                accumulatorStateDescriptors,
+                outputType,
+                ImmutableList.of());
+    }
+
+    public AggregationMetadata(
+            String name,
+            List<ParameterMetadata> valueInputChannelMetadata,
+            MethodHandle inputFunction,
+            MethodHandle combineFunction,
+            MethodHandle outputFunction,
+            List<AccumulatorStateDescriptor> accumulatorStateDescriptors,
+            Type outputType,
+            List<Class> lambdaChannelInterfaces)
+    {
         this.outputType = requireNonNull(outputType);
-        this.inputMetadata = ImmutableList.copyOf(requireNonNull(inputMetadata, "inputMetadata is null"));
+        this.valueInputChannelMetadata = ImmutableList.copyOf(requireNonNull(valueInputChannelMetadata, "valueInputChannelMetadata is null"));
         this.name = requireNonNull(name, "name is null");
         this.inputFunction = requireNonNull(inputFunction, "inputFunction is null");
         this.combineFunction = requireNonNull(combineFunction, "combineFunction is null");
         this.outputFunction = requireNonNull(outputFunction, "outputFunction is null");
         this.accumulatorStateDescriptors = requireNonNull(accumulatorStateDescriptors, "accumulatorStateDescriptors is null");
+        this.lambdaChannelInterfaces = ImmutableList.copyOf(requireNonNull(lambdaChannelInterfaces, "lambdaChannelInterfaces is null"));
 
-        verifyInputFunctionSignature(inputFunction, inputMetadata, accumulatorStateDescriptors);
-        verifyCombineFunction(combineFunction, accumulatorStateDescriptors);
+        verifyInputFunctionSignature(inputFunction, valueInputChannelMetadata, lambdaChannelInterfaces, accumulatorStateDescriptors);
+        verifyCombineFunction(combineFunction, lambdaChannelInterfaces, accumulatorStateDescriptors);
         verifyExactOutputFunction(outputFunction, accumulatorStateDescriptors);
     }
 
@@ -75,9 +98,14 @@ public class AggregationMetadata
         return outputType;
     }
 
-    public List<ParameterMetadata> getInputMetadata()
+    public List<ParameterMetadata> getValueInputChannelMetadata()
     {
-        return inputMetadata;
+        return valueInputChannelMetadata;
+    }
+
+    public List<Class> getLambdaChannelInterfaces()
+    {
+        return lambdaChannelInterfaces;
     }
 
     public String getName()
@@ -105,16 +133,18 @@ public class AggregationMetadata
         return accumulatorStateDescriptors;
     }
 
-    private static void verifyInputFunctionSignature(MethodHandle method, List<ParameterMetadata> parameterMetadatas, List<AccumulatorStateDescriptor> stateDescriptors)
+    private static void verifyInputFunctionSignature(MethodHandle method, List<ParameterMetadata> dataChannelMetadata, List<Class> lambdaChannelInterfaces, List<AccumulatorStateDescriptor> stateDescriptors)
     {
         Class<?>[] parameters = method.type().parameterArray();
         checkArgument(parameters.length > 0, "Aggregation input function must have at least one parameter");
-        checkArgument(parameterMetadatas.stream().filter(m -> m.getParameterType() == STATE).count() == stateDescriptors.size(), "Number of state parameter in input function must be the same as size of stateDescriptors");
-        checkArgument(parameterMetadatas.get(0).getParameterType() == STATE, "First parameter must be state");
+        checkArgument(parameters.length == dataChannelMetadata.size() + lambdaChannelInterfaces.size(), "Wenlei TODO...");
+        checkArgument(dataChannelMetadata.stream().filter(m -> m.getParameterType() == STATE).count() == stateDescriptors.size(), "Number of state parameter in input function must be the same as size of stateDescriptors");
+        checkArgument(dataChannelMetadata.get(0).getParameterType() == STATE, "First parameter must be state");
 
+        // verify data channels
         int stateIndex = 0;
-        for (int i = 0; i < parameters.length; i++) {
-            ParameterMetadata metadata = parameterMetadatas.get(i);
+        for (int i = 0; i < dataChannelMetadata.size(); i++) {
+            ParameterMetadata metadata = dataChannelMetadata.get(i);
             switch (metadata.getParameterType()) {
                 case STATE:
                     checkArgument(stateDescriptors.get(stateIndex).getStateInterface() == parameters[i], String.format("State argument must be of type %s", stateDescriptors.get(stateIndex).getStateInterface()));
@@ -126,12 +156,7 @@ public class AggregationMetadata
                     break;
                 case INPUT_CHANNEL:
                     checkArgument(SUPPORTED_PARAMETER_TYPES.contains(parameters[i]), "Unsupported type: %s", parameters[i].getSimpleName());
-                    checkArgument(parameters[i] == metadata.getSqlType().getJavaType(),
-                            "Expected method %s parameter %s type to be %s (%s)",
-                            method,
-                            i,
-                            metadata.getSqlType().getJavaType().getName(),
-                            metadata.getSqlType());
+                    verifyMethodParameterType(method, i, metadata.getSqlType().getJavaType(), metadata.getSqlType().getDisplayName());
                     break;
                 case BLOCK_INDEX:
                     checkArgument(parameters[i] == int.class, "Block index parameter must be an int");
@@ -141,16 +166,28 @@ public class AggregationMetadata
             }
         }
         checkArgument(stateIndex == stateDescriptors.size(), String.format("Input function only has %d states, expected: %d.", stateIndex, stateDescriptors.size()));
+
+        // verify lambda channels
+        for (int i = 0; i < lambdaChannelInterfaces.size(); i++) {
+            verifyMethodParameterType(method, i + dataChannelMetadata.size(), lambdaChannelInterfaces.get(i), "function");
+        }
     }
 
-    private static void verifyCombineFunction(MethodHandle method, List<AccumulatorStateDescriptor> stateDescriptors)
+    private static void verifyCombineFunction(MethodHandle method, List<Class> lambdaChannelInterfaces, List<AccumulatorStateDescriptor> stateDescriptors)
     {
         Class<?>[] parameterTypes = method.type().parameterArray();
-        checkArgument(parameterTypes.length == stateDescriptors.size() * 2, "Number of arguments for combine function must be 2 times the size of states.");
+        checkArgument(
+                parameterTypes.length == stateDescriptors.size() * 2 + lambdaChannelInterfaces.size(),
+                "Number of arguments for combine function must be 2 times the size of states plus number of lambda channels.");
+
         for (int i = 0; i < stateDescriptors.size() * 2; i++) {
             checkArgument(
                     parameterTypes[i].equals(stateDescriptors.get(i % stateDescriptors.size()).getStateInterface()),
                     String.format("Type for Parameter index %d is unexpected. Arguments for combine function must appear in the order of state1, state2, ..., otherState1, otherState2, ...", i));
+        }
+
+        for (int i = 0; i < lambdaChannelInterfaces.size(); i++) {
+            verifyMethodParameterType(method, i + stateDescriptors.size() * 2, lambdaChannelInterfaces.get(i), "function");
         }
     }
 
@@ -165,6 +202,16 @@ public class AggregationMetadata
             checkArgument(parameterTypes[i].equals(stateDescriptors.get(i).getStateInterface()), String.format("Type for Parameter index %d is unexpected", i));
         }
         checkArgument(Arrays.stream(parameterTypes).filter(type -> type.equals(BlockBuilder.class)).count() == 1, "Output function must take exactly one BlockBuilder parameter");
+    }
+
+    private static void verifyMethodParameterType(MethodHandle method, int index, Class javaType, String sqlTypeDisplayName)
+    {
+        checkArgument(method.type().parameterArray()[index] == javaType,
+                "Expected method %s parameter %s type to be %s (%s)",
+                method,
+                index,
+                javaType.getName(),
+                sqlTypeDisplayName);
     }
 
     public static int countInputChannels(List<ParameterMetadata> metadatas)

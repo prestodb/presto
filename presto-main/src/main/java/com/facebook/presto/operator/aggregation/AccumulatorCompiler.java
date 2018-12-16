@@ -58,6 +58,7 @@ import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType
 import static com.facebook.presto.util.CompilerUtils.defineClass;
 import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.bytecode.Access.FINAL;
@@ -128,6 +129,12 @@ public class AccumulatorCompiler
                 .map(StateFieldAndDescriptor::getStateField)
                 .collect(toImmutableList());
 
+        int lambdaChannelCount = metadata.getLambdaChannelInterfaces().size();
+        List<FieldDefinition> lambdaChannelProviderFields = new ArrayList<>(lambdaChannelCount);
+        for (int i = 0; i < lambdaChannelCount; i++) {
+            lambdaChannelProviderFields.add(definition.declareField(a(PRIVATE, FINAL), "lambdaChannelProvider_" + i, LambdaChannelProvider.class));
+        }
+
         FieldDefinition inputChannelsField = definition.declareField(a(PRIVATE, FINAL), "inputChannels", type(List.class, Integer.class));
         FieldDefinition maskChannelField = definition.declareField(a(PRIVATE, FINAL), "maskChannel", type(Optional.class, Integer.class));
 
@@ -137,11 +144,29 @@ public class AccumulatorCompiler
                 stateFieldAndDescriptors,
                 inputChannelsField,
                 maskChannelField,
+                lambdaChannelProviderFields,
                 grouped);
 
         // Generate methods
-        generateAddInput(definition, stateFileds, inputChannelsField, maskChannelField, metadata.getInputMetadata(), metadata.getInputFunction(), callSiteBinder, grouped);
-        generateAddInputWindowIndex(definition, stateFileds, metadata.getInputMetadata(), metadata.getInputFunction(), callSiteBinder);
+        generateAddInput(
+                definition,
+                stateFileds,
+                inputChannelsField,
+                maskChannelField,
+                metadata.getValueInputChannelMetadata(),
+                metadata.getLambdaChannelInterfaces(),
+                lambdaChannelProviderFields,
+                metadata.getInputFunction(),
+                callSiteBinder,
+                grouped);
+        generateAddInputWindowIndex(
+                definition,
+                stateFileds,
+                metadata.getValueInputChannelMetadata(),
+                metadata.getLambdaChannelInterfaces(),
+                lambdaChannelProviderFields,
+                metadata.getInputFunction(),
+                callSiteBinder);
         generateGetEstimatedSize(definition, stateFileds);
 
         generateGetIntermediateType(
@@ -156,6 +181,8 @@ public class AccumulatorCompiler
         generateAddIntermediateAsCombine(
                 definition,
                 stateFieldAndDescriptors,
+                metadata.getLambdaChannelInterfaces(),
+                lambdaChannelProviderFields,
                 metadata.getCombineFunction(),
                 callSiteBinder,
                 grouped);
@@ -231,6 +258,8 @@ public class AccumulatorCompiler
             FieldDefinition inputChannelsField,
             FieldDefinition maskChannelField,
             List<ParameterMetadata> parameterMetadatas,
+            List<Class> lambdaInterfaces,
+            List<FieldDefinition> lambdaChannelProviderFields,
             MethodHandle inputFunction,
             CallSiteBinder callSiteBinder,
             boolean grouped)
@@ -278,7 +307,17 @@ public class AccumulatorCompiler
                     .invokeVirtual(Page.class, "getBlock", Block.class, int.class)
                     .putVariable(parameterVariables.get(i));
         }
-        BytecodeBlock block = generateInputForLoop(stateField, parameterMetadatas, inputFunction, scope, parameterVariables, masksBlock, callSiteBinder, grouped);
+        BytecodeBlock block = generateInputForLoop(
+                stateField,
+                parameterMetadatas,
+                inputFunction,
+                scope,
+                parameterVariables,
+                lambdaInterfaces,
+                lambdaChannelProviderFields,
+                masksBlock,
+                callSiteBinder,
+                grouped);
 
         body.append(block);
         body.ret();
@@ -288,6 +327,8 @@ public class AccumulatorCompiler
             ClassDefinition definition,
             List<FieldDefinition> stateField,
             List<ParameterMetadata> parameterMetadatas,
+            List<Class> lambdaInterfaces,
+            List<FieldDefinition> lambdaChannelProviderFields,
             MethodHandle inputFunction,
             CallSiteBinder callSiteBinder)
     {
@@ -313,6 +354,8 @@ public class AccumulatorCompiler
                         scope,
                         inputFunction.type().parameterArray(),
                         parameterMetadatas,
+                        lambdaInterfaces,
+                        lambdaChannelProviderFields,
                         stateField,
                         index,
                         channels,
@@ -359,6 +402,8 @@ public class AccumulatorCompiler
             Scope scope,
             Class<?>[] parameterTypes,
             List<ParameterMetadata> parameterMetadatas,
+            List<Class> lambdaInterfaces,
+            List<FieldDefinition> lambdaChannelProviderFields,
             List<FieldDefinition> stateField,
             Variable index,
             Variable channels,
@@ -366,8 +411,10 @@ public class AccumulatorCompiler
     {
         int inputChannel = 0;
         int stateIndex = 0;
+        verify(parameterTypes.length == parameterMetadatas.size() + lambdaInterfaces.size());
         List<BytecodeExpression> expressions = new ArrayList<>();
-        for (int i = 0; i < parameterTypes.length; i++) {
+
+        for (int i = 0; i < parameterMetadatas.size(); i++) {
             ParameterMetadata parameterMetadata = parameterMetadatas.get(i);
             Class<?> parameterType = parameterTypes[i];
             BytecodeExpression getChannel = channels.invoke("get", Object.class, constantInt(inputChannel)).cast(int.class);
@@ -413,7 +460,15 @@ public class AccumulatorCompiler
 
                     inputChannel++;
                     break;
+                default:
+                    throw new IllegalArgumentException("Unsupported parameter type: " + parameterMetadata.getParameterType());
             }
+        }
+
+        for (int i = 0; i < lambdaInterfaces.size(); i++) {
+            expressions.add(scope.getThis().getField(lambdaChannelProviderFields.get(i))
+                    .invoke("getLambda", Object.class)
+                    .cast(lambdaInterfaces.get(i)));
         }
 
         return expressions;
@@ -425,6 +480,8 @@ public class AccumulatorCompiler
             MethodHandle inputFunction,
             Scope scope,
             List<Variable> parameterVariables,
+            List<Class> lambdaInterfaces,
+            List<FieldDefinition> lambdaChannelProviderFields,
             Variable masksBlock,
             CallSiteBinder callSiteBinder,
             boolean grouped)
@@ -440,7 +497,17 @@ public class AccumulatorCompiler
                 .putVariable(rowsVariable)
                 .initializeVariable(positionVariable);
 
-        BytecodeNode loopBody = generateInvokeInputFunction(scope, stateField, positionVariable, parameterVariables, parameterMetadatas, inputFunction, callSiteBinder, grouped);
+        BytecodeNode loopBody = generateInvokeInputFunction(
+                scope,
+                stateField,
+                positionVariable,
+                parameterVariables,
+                parameterMetadatas,
+                lambdaInterfaces,
+                lambdaChannelProviderFields,
+                inputFunction,
+                callSiteBinder,
+                grouped);
 
         //  Wrap with null checks
         List<Boolean> nullable = new ArrayList<>();
@@ -494,6 +561,8 @@ public class AccumulatorCompiler
             Variable position,
             List<Variable> parameterVariables,
             List<ParameterMetadata> parameterMetadatas,
+            List<Class> lambdaInterfaces,
+            List<FieldDefinition> lambdaChannelProviderFields,
             MethodHandle inputFunction,
             CallSiteBinder callSiteBinder,
             boolean grouped)
@@ -509,7 +578,8 @@ public class AccumulatorCompiler
         Class<?>[] parameters = inputFunction.type().parameterArray();
         int inputChannel = 0;
         int stateIndex = 0;
-        for (int i = 0; i < parameters.length; i++) {
+        verify(parameters.length == parameterMetadatas.size() + lambdaInterfaces.size());
+        for (int i = 0; i < parameterMetadatas.size(); i++) {
             ParameterMetadata parameterMetadata = parameterMetadatas.get(i);
             switch (parameterMetadata.getParameterType()) {
                 case STATE:
@@ -533,6 +603,11 @@ public class AccumulatorCompiler
                 default:
                     throw new IllegalArgumentException("Unsupported parameter type: " + parameterMetadata.getParameterType());
             }
+        }
+        for (int i = 0; i < lambdaInterfaces.size(); i++) {
+            block.append(scope.getThis().getField(lambdaChannelProviderFields.get(i))
+                    .invoke("getLambda", Object.class)
+                    .cast(lambdaInterfaces.get(i)));
         }
 
         block.append(invoke(callSiteBinder.bind(inputFunction), "input"));
@@ -583,6 +658,8 @@ public class AccumulatorCompiler
     private static void generateAddIntermediateAsCombine(
             ClassDefinition definition,
             List<StateFieldAndDescriptor> stateFieldAndDescriptors,
+            List<Class> lambdaInterfaces,
+            List<FieldDefinition> lambdaChannelProviderFields,
             MethodHandle combineFunction,
             CallSiteBinder callSiteBinder,
             boolean grouped)
@@ -640,7 +717,7 @@ public class AccumulatorCompiler
 
         BytecodeBlock loopBody = new BytecodeBlock();
 
-        loopBody.comment("combine(state_0, state_1, ... scratchState_0, scratchState_1, ...)");
+        loopBody.comment("combine(state_0, state_1, ... scratchState_0, scratchState_1, ... lambda_0, lambda_1, ...)");
         for (FieldDefinition stateField : stateFields) {
             if (grouped) {
                 Variable groupIdsBlock = scope.getVariable("groupIdsBlock");
@@ -652,6 +729,11 @@ public class AccumulatorCompiler
             FieldDefinition stateSerializerField = stateFieldAndDescriptors.get(i).getStateSerializerField();
             loopBody.append(thisVariable.getField(stateSerializerField).invoke("deserialize", void.class, block.get(i), position, scratchStates.get(i).cast(Object.class)));
             loopBody.append(scratchStates.get(i));
+        }
+        for (int i = 0; i < lambdaInterfaces.size(); i++) {
+            loopBody.append(scope.getThis().getField(lambdaChannelProviderFields.get(i))
+                    .invoke("getLambda", Object.class)
+                    .cast(lambdaInterfaces.get(i)));
         }
         loopBody.append(invoke(callSiteBinder.bind(combineFunction), "combine"));
 
@@ -873,16 +955,19 @@ public class AccumulatorCompiler
             List<StateFieldAndDescriptor> stateFieldAndDescriptors,
             FieldDefinition inputChannelsField,
             FieldDefinition maskChannelField,
+            List<FieldDefinition> lambdaChannelProviderFields,
             boolean grouped)
     {
         Parameter stateDescriptors = arg("stateDescriptors", type(List.class, AccumulatorStateDescriptor.class));
         Parameter inputChannels = arg("inputChannels", type(List.class, Integer.class));
         Parameter maskChannel = arg("maskChannel", type(Optional.class, Integer.class));
+        Parameter lambdaChannelProviders = arg("lambdaChannelProviders", type(List.class, LambdaChannelProvider.class));
         MethodDefinition method = definition.declareConstructor(
                 a(PUBLIC),
                 stateDescriptors,
                 inputChannels,
-                maskChannel);
+                maskChannel,
+                lambdaChannelProviders);
 
         BytecodeBlock body = method.getBody();
         Variable thisVariable = method.getThis();
@@ -903,6 +988,13 @@ public class AccumulatorCompiler
                             .cast(AccumulatorStateDescriptor.class)
                             .invoke("getFactory", AccumulatorStateFactory.class)));
         }
+        for (int i = 0; i < lambdaChannelProviderFields.size(); i++) {
+            body.append(thisVariable.setField(
+                    lambdaChannelProviderFields.get(i),
+                    lambdaChannelProviders.invoke("get", Object.class, constantInt(i))
+                            .cast(LambdaChannelProvider.class)));
+        }
+
         body.append(thisVariable.setField(inputChannelsField, generateRequireNotNull(inputChannels)));
         body.append(thisVariable.setField(maskChannelField, generateRequireNotNull(maskChannel)));
 

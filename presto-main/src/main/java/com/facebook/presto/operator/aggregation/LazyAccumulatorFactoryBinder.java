@@ -43,8 +43,18 @@ public class LazyAccumulatorFactoryBinder
     }
 
     @Override
-    public AccumulatorFactory bind(List<Integer> argumentChannels, Optional<Integer> maskChannel, List<Type> sourceTypes, List<Integer> orderByChannels, List<SortOrder> orderings, PagesIndex.Factory pagesIndexFactory, boolean distinct, JoinCompiler joinCompiler, Session session)
+    public AccumulatorFactory bind(
+            List<Integer> argumentChannels,
+            Optional<Integer> maskChannel,
+            List<Type> sourceTypes,
+            List<Integer> orderByChannels,
+            List<SortOrder> orderings,
+            PagesIndex.Factory pagesIndexFactory,
+            boolean distinct,
+            JoinCompiler joinCompiler,
+            List<LambdaChannelProvider> lambdaChannelProviders,
+            Session session)
     {
-        return binder.get().bind(argumentChannels, maskChannel, sourceTypes, orderByChannels, orderings, pagesIndexFactory, distinct, joinCompiler, session);
+        return binder.get().bind(argumentChannels, maskChannel, sourceTypes, orderByChannels, orderings, pagesIndexFactory, distinct, joinCompiler, lambdaChannelProviders, session);
     }
 }

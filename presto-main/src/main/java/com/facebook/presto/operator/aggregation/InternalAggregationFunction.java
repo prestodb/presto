@@ -35,6 +35,7 @@ public final class InternalAggregationFunction
     private final List<Type> parameterTypes;
     private final List<Type> intermediateType;
     private final Type finalType;
+    private final List<Class> lambdaChannelInterfaces;
     private final boolean decomposable;
     private final boolean orderSensitive;
     private final AccumulatorFactoryBinder factory;
@@ -48,6 +49,27 @@ public final class InternalAggregationFunction
             boolean orderSensitive,
             AccumulatorFactoryBinder factory)
     {
+        this(
+                name,
+                parameterTypes,
+                intermediateType,
+                finalType,
+                decomposable,
+                orderSensitive,
+                factory,
+                ImmutableList.of());
+    }
+
+    public InternalAggregationFunction(
+            String name,
+            List<Type> parameterTypes,
+            List<Type> intermediateType,
+            Type finalType,
+            boolean decomposable,
+            boolean orderSensitive,
+            AccumulatorFactoryBinder factory,
+            List<Class> lambdaChannelInterfaces)
+    {
         this.name = requireNonNull(name, "name is null");
         checkArgument(!name.isEmpty(), "name is empty");
         this.parameterTypes = ImmutableList.copyOf(requireNonNull(parameterTypes, "parameterTypes is null"));
@@ -56,6 +78,7 @@ public final class InternalAggregationFunction
         this.decomposable = decomposable;
         this.orderSensitive = orderSensitive;
         this.factory = requireNonNull(factory, "factory is null");
+        this.lambdaChannelInterfaces = ImmutableList.copyOf(lambdaChannelInterfaces);
     }
 
     public String name()
@@ -83,6 +106,11 @@ public final class InternalAggregationFunction
         }
     }
 
+    public List<Class> getLambdaChannelInterfaces()
+    {
+        return lambdaChannelInterfaces;
+    }
+
     /**
      * Indicates that the aggregation can be decomposed, and run as partial aggregations followed by a final aggregation to combine the intermediate results
      */
@@ -101,7 +129,17 @@ public final class InternalAggregationFunction
 
     public AccumulatorFactory bind(List<Integer> inputChannels, Optional<Integer> maskChannel)
     {
-        return factory.bind(inputChannels, maskChannel, ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), null, false, null, null);
+        return factory.bind(
+                inputChannels,
+                maskChannel,
+                ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                null,
+                false,
+                null,
+                ImmutableList.of(),
+                null);
     }
 
     public AccumulatorFactory bind(
@@ -113,9 +151,10 @@ public final class InternalAggregationFunction
             PagesIndex.Factory pagesIndexFactory,
             boolean distinct,
             JoinCompiler joinCompiler,
+            List<LambdaChannelProvider> lambdaChannelProviders,
             Session session)
     {
-        return factory.bind(inputChannels, maskChannel, sourceTypes, orderByChannels, orderings, pagesIndexFactory, distinct, joinCompiler, session);
+        return factory.bind(inputChannels, maskChannel, sourceTypes, orderByChannels, orderings, pagesIndexFactory, distinct, joinCompiler, lambdaChannelProviders, session);
     }
 
     @VisibleForTesting
