@@ -198,7 +198,7 @@ public class TestReorderJoins
     }
 
     @Test
-    public void testReplicatesWhenRequiredBySession()
+    public void testReplicatesUnrestrictedWhenRequiredBySession()
     {
         assertReorderJoins()
                 .on(p ->
@@ -209,6 +209,7 @@ public class TestReorderJoins
                                 ImmutableList.of(new EquiJoinClause(p.symbol("A1"), p.symbol("B1"))),
                                 ImmutableList.of(p.symbol("A1"), p.symbol("B1")),
                                 Optional.empty()))
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "1kB")
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
