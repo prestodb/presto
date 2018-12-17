@@ -57,7 +57,6 @@ public class RaptorModule
 
         binder.bind(RaptorSessionProperties.class).in(SINGLETON);
         binder.bind(RaptorTableProperties.class).in(SINGLETON);
-
         binder.bind(TransactionManager.class).in(SINGLETON);
 
         binder.bind(Metadata.class).to(DatabaseMetadata.class).in(SINGLETON);

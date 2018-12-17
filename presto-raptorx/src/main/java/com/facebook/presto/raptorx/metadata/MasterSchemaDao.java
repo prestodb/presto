@@ -66,6 +66,7 @@ public interface MasterSchemaDao
             "  schema_id BIGINT NOT NULL,\n" +
             "  distribution_id BIGINT NOT NULL,\n" +
             "  temporal_column_id BIGINT,\n" +
+            "  organization_enabled BOOLEAN,\n" +
             "  compression_type VARCHAR(16) NOT NULL,\n" +
             "  create_time BIGINT NOT NULL,\n" +
             "  update_time BIGINT NOT NULL,\n" +
@@ -164,4 +165,13 @@ public interface MasterSchemaDao
             "  UNIQUE (purge_time, chunk_id)\n" +
             ")")
     void createDeletedChunks();
+
+    @SqlUpdate("CREATE TABLE IF NOT EXISTS chunk_organizer_jobs (\n" +
+            "  node_id BIGINT NOT NULL,\n" +
+            "  table_id BIGINT NOT NULL,\n" +
+            "  last_start_time BIGINT,\n" +
+            "  PRIMARY KEY (node_id, table_id),\n" +
+            "  UNIQUE (table_id, node_id)\n" +
+            ")")
+    void createTableChunkOrganizerJobs();
 }

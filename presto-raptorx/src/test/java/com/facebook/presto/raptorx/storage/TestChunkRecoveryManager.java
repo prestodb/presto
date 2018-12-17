@@ -16,6 +16,7 @@ package com.facebook.presto.raptorx.storage;
 import com.facebook.presto.raptorx.chunkstore.FileChunkStore;
 import com.facebook.presto.raptorx.metadata.ChunkFile;
 import com.facebook.presto.raptorx.metadata.ChunkManager;
+import com.facebook.presto.raptorx.metadata.ChunkMetadata;
 import com.facebook.presto.spi.PrestoException;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterMethod;
@@ -293,6 +294,12 @@ public class TestChunkRecoveryManager
         public void addChunk(ChunkFile chunk)
         {
             chunks.add(chunk);
+        }
+
+        @Override
+        public Set<ChunkMetadata> getNodeChunkMetas(String nodeIdentifier)
+        {
+            return null;
         }
 
         @Override

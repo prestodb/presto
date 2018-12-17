@@ -79,11 +79,11 @@ public class TestStorageConfig
                 .put("storage.max-buffer-size", "123MB")
                 .put("storage.compaction-enabled", "false")
                 .put("storage.compaction-interval", "4h")
-                .put("storage.organization-enabled", "false")
+                .put("storage.organization-enabled", "true")
                 .put("storage.organization-interval", "4h")
                 .put("storage.organization-discovery-interval", "2h")
                 .put("storage.max-organization-threads", "12")
-                .put("storage.shard-day-boundary-time-zone", "PST")
+                .put("storage.chunk-day-boundary-time-zone", "PST")
                 .build();
 
         StorageConfig expected = new StorageConfig()
@@ -100,7 +100,7 @@ public class TestStorageConfig
                 .setMaxBufferSize(new DataSize(123, MEGABYTE))
                 .setCompactionEnabled(false)
                 .setCompactionInterval(new Duration(4, HOURS))
-                .setOrganizationEnabled(false)
+                .setOrganizationEnabled(true)
                 .setOrganizationInterval(new Duration(4, HOURS))
                 .setOrganizationDiscoveryInterval(new Duration(2, HOURS))
                 .setOrganizationThreads(12)

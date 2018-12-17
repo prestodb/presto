@@ -82,11 +82,11 @@ public class RaptorConnectorFactory
                         binder.bind(PageSorter.class).toInstance(context.getPageSorter());
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                     },
+                    new RaptorModule(),
                     databaseModule,
                     new ChunkStoreModule(chunkStoreProviders),
                     new StorageModule(),
-                    coordinator ? new RaptorCoordinatorModule() : binder -> {},
-                    new RaptorModule());
+                    coordinator ? new RaptorCoordinatorModule() : binder -> {});
 
             Injector injector = app
                     .strictConfig()

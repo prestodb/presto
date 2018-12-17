@@ -281,7 +281,8 @@ public class Transaction
             CompressionType compressionType,
             long createTime,
             Optional<String> comment,
-            List<ColumnInfo> columns)
+            List<ColumnInfo> columns,
+            boolean organized)
     {
         TableInfo info = new TableInfo.Builder()
                 .setTableId(tableId)
@@ -295,6 +296,7 @@ public class Transaction
                 .setRowCount(0)
                 .setComment(comment)
                 .setColumns(columns)
+                .setOrganized(organized)
                 .build();
         actions.add(new CreateTableAction(info));
 

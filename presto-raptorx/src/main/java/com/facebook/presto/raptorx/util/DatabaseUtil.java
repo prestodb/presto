@@ -98,6 +98,13 @@ public final class DatabaseUtil
         return rs.wasNull() ? OptionalLong.empty() : OptionalLong.of(value);
     }
 
+    public static boolean getOptionalBoolean(ResultSet rs, String name)
+            throws SQLException
+    {
+        boolean value = rs.getBoolean(name);
+        return rs.wasNull() ? false : value;
+    }
+
     public static String utf8String(byte[] bytes)
     {
         return (bytes == null) ? null : new String(bytes, UTF_8);

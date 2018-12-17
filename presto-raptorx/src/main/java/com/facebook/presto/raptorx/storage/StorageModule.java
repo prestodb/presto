@@ -18,15 +18,23 @@ import com.facebook.presto.raptorx.metadata.ChunkRecorder;
 import com.facebook.presto.raptorx.metadata.DatabaseChunkManager;
 import com.facebook.presto.raptorx.metadata.DatabaseChunkRecorder;
 import com.facebook.presto.raptorx.metadata.SequenceManager;
+import com.facebook.presto.raptorx.storage.organization.ChunkCompactionManager;
+import com.facebook.presto.raptorx.storage.organization.ChunkCompactor;
+import com.facebook.presto.raptorx.storage.organization.ChunkOrganizationManager;
+import com.facebook.presto.raptorx.storage.organization.ChunkOrganizer;
+import com.facebook.presto.raptorx.storage.organization.JobFactory;
+import com.facebook.presto.raptorx.storage.organization.OrganizationJobFactory;
+import com.facebook.presto.raptorx.storage.organization.TemporalFunction;
+import com.google.common.base.Ticker;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
+import com.google.inject.Scopes;
 
 import javax.inject.Singleton;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class StorageModule
         implements Module
@@ -34,8 +42,11 @@ public class StorageModule
     @Override
     public void configure(Binder binder)
     {
+        binder.bind(Ticker.class).toInstance(Ticker.systemTicker());
+
         configBinder(binder).bindConfig(StorageConfig.class);
         configBinder(binder).bindConfig(ChunkRecoveryConfig.class);
+        configBinder(binder).bindConfig(LocalCleanerConfig.class);
 
         binder.bind(StorageManager.class).to(OrcStorageManager.class).in(SINGLETON);
         binder.bind(StorageService.class).to(FileStorageService.class).in(SINGLETON);
@@ -43,8 +54,13 @@ public class StorageModule
         binder.bind(ChunkRecoveryManager.class).asEagerSingleton();
         binder.bind(ChunkManager.class).to(DatabaseChunkManager.class).in(SINGLETON);
         binder.bind(ChunkRecorder.class).to(DatabaseChunkRecorder.class).in(SINGLETON);
-
-        newExporter(binder).export(StorageManager.class).withGeneratedName();
+        binder.bind(LocalCleaner.class).in(Scopes.SINGLETON);
+        binder.bind(ChunkCompactionManager.class).in(Scopes.SINGLETON);
+        binder.bind(ChunkCompactor.class).in(Scopes.SINGLETON);
+        binder.bind(TemporalFunction.class).in(Scopes.SINGLETON);
+        binder.bind(ChunkOrganizationManager.class).in(Scopes.SINGLETON);
+        binder.bind(ChunkOrganizer.class).in(Scopes.SINGLETON);
+        binder.bind(JobFactory.class).to(OrganizationJobFactory.class).in(Scopes.SINGLETON);
     }
 
     @Provides

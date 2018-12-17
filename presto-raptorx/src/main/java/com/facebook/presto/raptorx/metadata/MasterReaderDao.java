@@ -23,6 +23,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 public interface MasterReaderDao
 {
@@ -81,6 +82,13 @@ public interface MasterReaderDao
 
     @SqlQuery("SELECT *\n" +
             "FROM tables\n" +
+            "WHERE end_commit_id IS NULL)\n" +
+            "  AND table_id = :tableId")
+    @UseRowMapper(TableInfo.Mapper.class)
+    TableInfo getTableInfo(@Bind long tableId);
+
+    @SqlQuery("SELECT *\n" +
+            "FROM tables\n" +
             "WHERE start_commit_id <= :commitId\n" +
             "  AND (end_commit_id > :commitId OR end_commit_id IS NULL)\n" +
             "  AND table_id = :tableId")
@@ -88,6 +96,23 @@ public interface MasterReaderDao
     TableInfo getTableInfo(
             @Bind long commitId,
             @Bind long tableId);
+
+    @SqlQuery("SELECT table_id\n" +
+            "FROM tables\n" +
+            "WHERE organization_enabled\n" +
+            "  AND temporal_column_id is NULL\n" +
+            "  AND end_commit_id IS NULL\n" +
+            "  AND table_id IN\n" +
+            "       (SELECT table_id\n" +
+            "        FROM columns\n" +
+            "        WHERE sort_ordinal_position IS NOT NULL AND end_commit_id is NULL)")
+    Set<Long> getOrganizationEligibleTables();
+
+    @SqlQuery("SELECT *\n" +
+            "FROM columns\n" +
+            "WHERE end_commit_id IS NULL)\n" +
+            "  AND table_id = :tableId")
+    List<ColumnInfo> getColumnInfo(@Bind long tableId);
 
     @SqlQuery("SELECT *\n" +
             "FROM columns\n" +

@@ -73,6 +73,7 @@ import static com.facebook.presto.raptorx.RaptorTableProperties.BUCKET_COUNT_PRO
 import static com.facebook.presto.raptorx.RaptorTableProperties.COMPRESSION_TYPE_PROPERTY;
 import static com.facebook.presto.raptorx.RaptorTableProperties.DISTRIBUTION_NAME_PROPERTY;
 import static com.facebook.presto.raptorx.RaptorTableProperties.ORDERING_PROPERTY;
+import static com.facebook.presto.raptorx.RaptorTableProperties.ORGANIZED_PROPERTY;
 import static com.facebook.presto.raptorx.RaptorTableProperties.TEMPORAL_COLUMN_PROPERTY;
 import static com.facebook.presto.raptorx.RaptorTableProperties.getBucketColumns;
 import static com.facebook.presto.raptorx.RaptorTableProperties.getBucketCount;
@@ -80,6 +81,7 @@ import static com.facebook.presto.raptorx.RaptorTableProperties.getCompressionTy
 import static com.facebook.presto.raptorx.RaptorTableProperties.getDistributionName;
 import static com.facebook.presto.raptorx.RaptorTableProperties.getSortColumns;
 import static com.facebook.presto.raptorx.RaptorTableProperties.getTemporalColumn;
+import static com.facebook.presto.raptorx.RaptorTableProperties.isOrganized;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
@@ -235,6 +237,11 @@ public class RaptorMetadata
         }
         if (!ordering.isEmpty()) {
             properties.put(ORDERING_PROPERTY, ordering);
+        }
+
+        // Only display organization property if set
+        if (table.getOrganized()) {
+            properties.put(ORGANIZED_PROPERTY, true);
         }
 
         properties.put(BUCKET_COUNT_PROPERTY, distribution.getBucketCount());
@@ -410,6 +417,16 @@ public class RaptorMetadata
             }
         }
 
+        boolean organized = isOrganized(tableMetadata.getProperties());
+        if (organized) {
+            if (temporalColumnHandle.isPresent()) {
+                throw new PrestoException(NOT_SUPPORTED, "Table with temporal columns cannot be organized");
+            }
+            if (sortColumnHandles.isEmpty()) {
+                throw new PrestoException(NOT_SUPPORTED, "Table organization requires an ordering");
+            }
+        }
+
         List<RaptorColumnHandle> bucketColumnHandles = getBucketColumns(properties).stream()
                 .map(columnHandleMap::get)
                 .collect(toImmutableList());
@@ -429,7 +446,8 @@ public class RaptorMetadata
                 partitioning.getDistributionId(),
                 partitioning.getBucketNodes().size(),
                 bucketColumnHandles,
-                getCompressionType(properties));
+                getCompressionType(properties),
+                organized);
     }
 
     @Override
@@ -460,7 +478,8 @@ public class RaptorMetadata
                 table.getCompressionType(),
                 System.currentTimeMillis(),
                 table.getComment(),
-                columns);
+                columns,
+                table.isOrganized());
 
         transaction.insertChunks(table.getTableId(), deserializeChunks(fragments));
 

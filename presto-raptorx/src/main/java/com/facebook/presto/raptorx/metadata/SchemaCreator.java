@@ -56,6 +56,7 @@ public class SchemaCreator
             dao.createTransactions();
             dao.createTransactionTables();
             dao.createDeletedChunks();
+            dao.createTableChunkOrganizerJobs();
 
             insertIgnore(database.getType(), handle, "current_commit (singleton, commit_id) VALUES ('X', 0)");
         });

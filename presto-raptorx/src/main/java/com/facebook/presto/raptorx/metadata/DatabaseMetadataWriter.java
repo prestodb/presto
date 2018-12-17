@@ -611,6 +611,7 @@ public class DatabaseMetadataWriter
                 table.getSchemaId(),
                 table.getDistributionId(),
                 boxedLong(table.getTemporalColumnId()),
+                table.getOrganized(),
                 table.getCompressionType().name(),
                 table.getCreateTime(),
                 table.getUpdateTime(),
@@ -652,6 +653,7 @@ public class DatabaseMetadataWriter
     {
         int rows = dao.deleteTable(commitId, tableId);
         verifyMetadata(rows == 1, "Wrong row count %s for delete of table (%s)", rows, tableId);
+        dao.dropOrganizerJobs(tableId); // This doesn't need rollback; OrgazationManager handles it.
     }
 
     private static void deleteView(MasterWriterDao dao, long commitId, long viewId)

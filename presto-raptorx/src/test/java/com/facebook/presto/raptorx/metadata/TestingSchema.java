@@ -67,7 +67,7 @@ public final class TestingSchema
                         .add(column(transaction, "orderstatus", createVarcharType(1), 3))
                         .add(column(transaction, "totalprice", DOUBLE, 4))
                         .add(column(transaction, "orderdate", DATE, 5))
-                        .build());
+                        .build(), false);
 
         transaction.insertChunks(tableId, ImmutableList.<ChunkInfo>builder()
                 .add(new ChunkInfo(chunkIdSequence.nextChunkId(), 0, ImmutableList.of(), 3, 52, 122, 0))

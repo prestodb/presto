@@ -28,6 +28,7 @@ import static com.facebook.presto.raptorx.util.PropertyUtil.lowerCaseStringListP
 import static com.facebook.presto.raptorx.util.PropertyUtil.lowerCaseStringProperty;
 import static com.facebook.presto.raptorx.util.PropertyUtil.stringList;
 import static com.facebook.presto.raptorx.util.PropertyUtil.upperCaseEnumProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 
 public class RaptorTableProperties
@@ -38,6 +39,7 @@ public class RaptorTableProperties
     public static final String BUCKET_COUNT_PROPERTY = "bucket_count";
     public static final String BUCKETED_ON_PROPERTY = "bucketed_on";
     public static final String DISTRIBUTION_NAME_PROPERTY = "distribution_name";
+    public static final String ORGANIZED_PROPERTY = "organized";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -49,7 +51,7 @@ public class RaptorTableProperties
                         CompressionType.class,
                         COMPRESSION_TYPE_PROPERTY,
                         "Type of compression to use for table data",
-                        CompressionType.LZ4))
+                        CompressionType.ZSTD))
                 .add(lowerCaseStringListProperty(
                         typeManager,
                         ORDERING_PROPERTY,
@@ -69,6 +71,11 @@ public class RaptorTableProperties
                 .add(lowerCaseStringProperty(
                         DISTRIBUTION_NAME_PROPERTY,
                         "Name of shared distribution for colocated tables"))
+                .add(booleanProperty(
+                        ORGANIZED_PROPERTY,
+                        "Keep the table organized using the sort order",
+                        null,
+                        false))
                 .build();
     }
 
@@ -106,5 +113,11 @@ public class RaptorTableProperties
     public static CompressionType getCompressionType(Map<String, Object> tableProperties)
     {
         return (CompressionType) tableProperties.get(COMPRESSION_TYPE_PROPERTY);
+    }
+
+    public static boolean isOrganized(Map<String, Object> tableProperties)
+    {
+        Boolean value = (Boolean) tableProperties.get(ORGANIZED_PROPERTY);
+        return (value == null) ? false : value;
     }
 }

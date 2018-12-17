@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.OptionalLong;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class RaptorTableHandle
@@ -51,6 +52,9 @@ public class RaptorTableHandle
     @Override
     public String toString()
     {
-        return "tableId:" + tableId;
+        return toStringHelper(this)
+                .add("tableId", tableId)
+                .add("transactionId", transactionId)
+                .toString();
     }
 }

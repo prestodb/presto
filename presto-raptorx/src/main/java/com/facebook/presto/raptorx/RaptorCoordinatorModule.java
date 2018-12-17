@@ -17,6 +17,8 @@ import com.facebook.presto.raptorx.chunkstore.ChunkStoreCleaner;
 import com.facebook.presto.raptorx.chunkstore.ChunkStoreCleanerConfig;
 import com.facebook.presto.raptorx.metadata.CommitCleanerConfig;
 import com.facebook.presto.raptorx.metadata.CommitCleanerJob;
+import com.facebook.presto.raptorx.storage.BucketBalancer;
+import com.facebook.presto.raptorx.storage.BucketBalancerConfig;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 
@@ -33,5 +35,8 @@ public class RaptorCoordinatorModule
 
         configBinder(binder).bindConfig(ChunkStoreCleanerConfig.class);
         binder.bind(ChunkStoreCleaner.class).asEagerSingleton();
+
+        configBinder(binder).bindConfig(BucketBalancerConfig.class);
+        binder.bind(BucketBalancer.class).asEagerSingleton();
     }
 }

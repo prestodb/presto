@@ -122,6 +122,11 @@ public class RaptorConnector
         return new RaptorMetadata(nodeSupplier, bucketManager, transactionManager.get(transactionHandle));
     }
 
+    public TransactionManager getTransactionManager()
+    {
+        return transactionManager;
+    }
+
     @Override
     public ConnectorSplitManager getSplitManager()
     {

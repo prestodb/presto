@@ -19,6 +19,7 @@ import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jdbi.v3.sqlobject.statement.UseRowMapper;
 
 import java.util.List;
+import java.util.Set;
 
 public interface MasterWriterDao
 {
@@ -56,6 +57,13 @@ public interface MasterWriterDao
     @SqlUpdate("UPDATE current_commit SET commit_id = :commitId")
     int updateCurrentCommit(
             @Bind long commitId);
+
+    // The below 2 is for testing purpose
+    @SqlQuery("SELECT transaction_id FROM transactions WHERE successful")
+    Set<Long> getSuccessfulTransactionIds();
+
+    @SqlQuery("SELECT transaction_id FROM transactions WHERE successful is NULL or NOT successful")
+    Set<Long> getNotSuccessfulTransactionIds();
 
     @SqlUpdate("UPDATE transactions SET successful = TRUE, end_time = :endTime\n" +
             "WHERE successful IS NULL\n" +
@@ -135,6 +143,7 @@ public interface MasterWriterDao
             "  schema_id,\n" +
             "  distribution_id,\n" +
             "  temporal_column_id,\n" +
+            "  organization_enabled,\n" +
             "  compression_type,\n" +
             "  create_time,\n" +
             "  update_time,\n" +
@@ -147,6 +156,7 @@ public interface MasterWriterDao
             "  :schemaId,\n" +
             "  :distributionId,\n" +
             "  :temporalColumnId,\n" +
+            "  :organized,\n" +
             "  :compressionType,\n" +
             "  :createTime,\n" +
             "  :updateTime,\n" +
@@ -159,6 +169,7 @@ public interface MasterWriterDao
             @Bind long schemaId,
             @Bind long distributionId,
             @Bind Long temporalColumnId,
+            @Bind boolean organized,
             @Bind String compressionType,
             @Bind long createTime,
             @Bind long updateTime,
@@ -171,6 +182,9 @@ public interface MasterWriterDao
     int deleteTable(
             @Bind long commitId,
             @Bind long tableId);
+
+    @SqlUpdate("DELETE FROM chunk_organizer_jobs WHERE table_id = :tableId")
+    void dropOrganizerJobs(@Bind("tableId") long tableId);
 
     @SqlUpdate("DELETE FROM tables WHERE start_commit_id = :commitId")
     void rollbackCreatedTables(

@@ -49,10 +49,10 @@ public class TestCompactionSetCreator
 
     private static final long MAX_CHHNK_ROWS = 100;
     private static final DataSize MAX_CHUNK_SIZE = new DataSize(100, DataSize.Unit.BYTE);
-    private static final TableInfo tableInfo = new TableInfo(1L, "1", 10, 1, OptionalLong.empty(), false, CompressionType.ZSTD, System.currentTimeMillis(), System.currentTimeMillis(), 1, Optional.empty(), COLUMNS, false);
-    private static final TableInfo temporalTableInfo = new TableInfo(2L, "2", 10, 1, OptionalLong.of(1L), false, CompressionType.ZSTD, System.currentTimeMillis(), System.currentTimeMillis(), 1, Optional.empty(), COLUMNS, false);
-    private static final TableInfo bucketedTableInfo = new TableInfo(23L, "3", 10, 1, OptionalLong.empty(), false, CompressionType.ZSTD, System.currentTimeMillis(), System.currentTimeMillis(), 1, Optional.empty(), BUCKET_COLUMNS, false);
-    private static final TableInfo bucketedTemporalTableInfo = new TableInfo(23L, "3", 10, 1, OptionalLong.of(1L), false, CompressionType.ZSTD, System.currentTimeMillis(), System.currentTimeMillis(), 1, Optional.empty(), BUCKET_COLUMNS, false);
+    private static final TableInfo tableInfo = new TableInfo(1L, "1", 10, 1, OptionalLong.empty(), false, CompressionType.ZSTD, System.currentTimeMillis(), System.currentTimeMillis(), 1, Optional.empty(), COLUMNS);
+    private static final TableInfo temporalTableInfo = new TableInfo(2L, "2", 10, 1, OptionalLong.of(1L), false, CompressionType.ZSTD, System.currentTimeMillis(), System.currentTimeMillis(), 1, Optional.empty(), COLUMNS);
+    private static final TableInfo bucketedTableInfo = new TableInfo(23L, "3", 10, 1, OptionalLong.empty(), false, CompressionType.ZSTD, System.currentTimeMillis(), System.currentTimeMillis(), 1, Optional.empty(), BUCKET_COLUMNS);
+    private static final TableInfo bucketedTemporalTableInfo = new TableInfo(23L, "3", 10, 1, OptionalLong.of(1L), false, CompressionType.ZSTD, System.currentTimeMillis(), System.currentTimeMillis(), 1, Optional.empty(), BUCKET_COLUMNS);
 
     private final CompactionSetCreator compactionSetCreator = new CompactionSetCreator(new TemporalFunction(UTC), MAX_CHUNK_SIZE, MAX_CHHNK_ROWS);
 

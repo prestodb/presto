@@ -26,6 +26,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.function.Function;
 
+import static com.facebook.presto.raptorx.util.DatabaseUtil.getOptionalBoolean;
 import static com.facebook.presto.raptorx.util.DatabaseUtil.getOptionalLong;
 import static com.facebook.presto.raptorx.util.DatabaseUtil.optionalUtf8String;
 import static com.facebook.presto.raptorx.util.DatabaseUtil.utf8String;
@@ -44,6 +45,7 @@ public class TableInfo
     private final long schemaId;
     private final long distributionId;
     private final OptionalLong temporalColumnId;
+    private final boolean organized;
     private final CompressionType compressionType;
     private final long createTime;
     private final long updateTime;
@@ -57,6 +59,7 @@ public class TableInfo
             long schemaId,
             long distributionId,
             OptionalLong temporalColumnId,
+            boolean organized,
             CompressionType compressionType,
             long createTime,
             long updateTime,
@@ -69,6 +72,7 @@ public class TableInfo
         this.schemaId = schemaId;
         this.distributionId = distributionId;
         this.temporalColumnId = requireNonNull(temporalColumnId, "temporalColumnId is null");
+        this.organized = organized;
         this.compressionType = requireNonNull(compressionType, "compressionType is null");
         this.createTime = createTime;
         this.updateTime = updateTime;
@@ -106,6 +110,11 @@ public class TableInfo
     public OptionalLong getTemporalColumnId()
     {
         return temporalColumnId;
+    }
+
+    public boolean getOrganized()
+    {
+        return organized;
     }
 
     public CompressionType getCompressionType()
@@ -193,6 +202,7 @@ public class TableInfo
                     .setSchemaId(rs.getLong("schema_id"))
                     .setDistributionId(rs.getLong("distribution_id"))
                     .setTemporalColumnId(getOptionalLong(rs, "temporal_column_id"))
+                    .setOrganized(getOptionalBoolean(rs, "organization_enabled"))
                     .setCompressionType(CompressionType.valueOf(rs.getString("compression_type")))
                     .setCreateTime(rs.getLong("create_time"))
                     .setUpdateTime(rs.getLong("update_time"))
@@ -210,6 +220,7 @@ public class TableInfo
         private long schemaId;
         private long distributionId;
         private OptionalLong temporalColumnId;
+        private boolean organized;
         private CompressionType compressionType;
         private long createTime;
         private long updateTime;
@@ -226,6 +237,7 @@ public class TableInfo
             this.schemaId = source.getSchemaId();
             this.distributionId = source.getDistributionId();
             this.temporalColumnId = source.getTemporalColumnId();
+            this.organized = source.getOrganized();
             this.compressionType = source.getCompressionType();
             this.createTime = source.getCreateTime();
             this.updateTime = source.getUpdateTime();
@@ -261,6 +273,12 @@ public class TableInfo
         public Builder setTemporalColumnId(OptionalLong temporalColumnId)
         {
             this.temporalColumnId = temporalColumnId;
+            return this;
+        }
+
+        public Builder setOrganized(boolean organized)
+        {
+            this.organized = organized;
             return this;
         }
 
@@ -314,6 +332,7 @@ public class TableInfo
                     schemaId,
                     distributionId,
                     temporalColumnId,
+                    organized,
                     compressionType,
                     createTime,
                     updateTime,

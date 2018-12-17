@@ -39,6 +39,7 @@ public class RaptorOutputTableHandle
     private final int bucketCount;
     private final List<RaptorColumnHandle> bucketColumnHandles;
     private final CompressionType compressionType;
+    private final boolean organized;
 
     @JsonCreator
     public RaptorOutputTableHandle(
@@ -53,7 +54,8 @@ public class RaptorOutputTableHandle
             @JsonProperty("distributionId") long distributionId,
             @JsonProperty("bucketCount") int bucketCount,
             @JsonProperty("bucketColumnHandles") List<RaptorColumnHandle> bucketColumnHandles,
-            @JsonProperty("compressionType") CompressionType compressionType)
+            @JsonProperty("compressionType") CompressionType compressionType,
+            @JsonProperty("organized") boolean organized)
     {
         this.transactionId = transactionId;
         this.schemaId = schemaId;
@@ -67,6 +69,7 @@ public class RaptorOutputTableHandle
         this.bucketCount = bucketCount;
         this.bucketColumnHandles = ImmutableList.copyOf(requireNonNull(bucketColumnHandles, "bucketColumnHandles is null"));
         this.compressionType = requireNonNull(compressionType, "compressionType is null");
+        this.organized = organized;
     }
 
     @JsonProperty
@@ -139,6 +142,12 @@ public class RaptorOutputTableHandle
     public CompressionType getCompressionType()
     {
         return compressionType;
+    }
+
+    @JsonProperty
+    public boolean isOrganized()
+    {
+        return organized;
     }
 
     @Override

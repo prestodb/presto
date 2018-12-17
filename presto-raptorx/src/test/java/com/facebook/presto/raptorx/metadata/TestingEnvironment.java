@@ -15,6 +15,7 @@ package com.facebook.presto.raptorx.metadata;
 
 import com.facebook.presto.raptorx.transaction.TransactionWriter;
 import com.facebook.presto.raptorx.util.Database;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.TypeRegistry;
 
 public class TestingEnvironment
@@ -23,11 +24,12 @@ public class TestingEnvironment
     private final Metadata metadata;
     private final TransactionWriter transactionWriter;
     private final NodeIdCache nodeIdCache;
+    private final TypeManager typeManager;
 
     public TestingEnvironment(Database database)
     {
         sequenceManager = new SequenceManager(database);
-        TypeRegistry typeManager = new TypeRegistry();
+        typeManager = new TypeRegistry();
         MetadataWriter metadataWriter = new DatabaseMetadataWriter(sequenceManager, database, typeManager);
         ChunkSupplier chunkSupplier = new ChunkSupplier(database);
         metadata = new DatabaseMetadata(sequenceManager, chunkSupplier, database, typeManager);
@@ -53,5 +55,10 @@ public class TestingEnvironment
     public NodeIdCache getNodeIdCache()
     {
         return nodeIdCache;
+    }
+
+    public TypeManager getTypeManager()
+    {
+        return typeManager;
     }
 }
