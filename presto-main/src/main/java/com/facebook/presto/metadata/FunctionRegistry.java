@@ -219,6 +219,7 @@ import static com.facebook.presto.metadata.FunctionKind.WINDOW;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static com.facebook.presto.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.ArbitraryExtAggregationFunction.ARBITRARY_EXT_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ChecksumAggregationFunction.CHECKSUM_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.CountColumn.COUNT_COLUMN;
 import static com.facebook.presto.operator.aggregation.DecimalAverageAggregation.DECIMAL_AVERAGE_AGGREGATION;
@@ -604,6 +605,7 @@ public class FunctionRegistry
                 .function(CHECKSUM_AGGREGATION)
                 .function(IDENTITY_CAST)
                 .function(ARBITRARY_AGGREGATION)
+                .function(ARBITRARY_EXT_AGGREGATION)
                 .functions(GREATEST, LEAST)
                 .functions(MAX_BY, MIN_BY, MAX_BY_N_AGGREGATION, MIN_BY_N_AGGREGATION)
                 .functions(MAX_AGGREGATION, MIN_AGGREGATION, MAX_N_AGGREGATION, MIN_N_AGGREGATION)
