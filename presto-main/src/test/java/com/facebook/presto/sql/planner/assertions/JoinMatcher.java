@@ -109,7 +109,7 @@ final class JoinMatcher
                 .add("type", joinType)
                 .add("equiCriteria", equiCriteria)
                 .add("filter", filter.orElse(null))
-                .add("distributionType", distributionType.orElse(null))
+                .add("distributionType", distributionType)
                 .toString();
     }
 }
