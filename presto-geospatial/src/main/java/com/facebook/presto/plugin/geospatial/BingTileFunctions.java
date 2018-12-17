@@ -150,7 +150,7 @@ public class BingTileFunctions
         return BingTile.fromQuadKey(quadKey.toStringUtf8()).encode();
     }
 
-    @Description("Given a (longitude, latitude) point, returns the containing Bing tile at the specified zoom level")
+    @Description("Given a (latitude, longitude) point, returns the containing Bing tile at the specified zoom level")
     @ScalarFunction("bing_tile_at")
     @SqlType(BingTileType.NAME)
     public static long bingTileAt(
