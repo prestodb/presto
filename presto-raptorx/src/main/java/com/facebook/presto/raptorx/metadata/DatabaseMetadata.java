@@ -298,4 +298,29 @@ public class DatabaseMetadata
                 constraint,
                 merged);
     }
+
+    // test
+    @Override
+    public List<DistributionInfo> getActiveDistributions()
+    {
+        return distributionDao.listActiveDistributions();
+    }
+
+    @Override
+    public long getDistributionSizeInBytes(long distributionId)
+    {
+        return distributionDao.getDistributionSizeInBytes(distributionId);
+    }
+
+    @Override
+    public List<BucketNode> getBucketNodes(long distibutionId)
+    {
+        return distributionDao.getBucketNodes(distibutionId);
+    }
+
+    @Override
+    public void updateBucketAssignment(long distributionId, int bucketNumber, long nodeId)
+    {
+        distributionDao.updateBucketNode(distributionId, bucketNumber, nodeId);
+    }
 }

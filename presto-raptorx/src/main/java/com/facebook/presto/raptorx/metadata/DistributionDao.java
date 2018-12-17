@@ -57,6 +57,14 @@ public interface DistributionDao
     List<BucketNode> getBucketNodes(
             @Bind long distributionId);
 
+    @SqlUpdate("UPDATE bucket_nodes SET node_id = :nodeId\n" +
+            "WHERE distribution_id = :distributionId\n" +
+            "  AND bucket_number = :bucketNumber")
+    void updateBucketNode(
+            @Bind("distributionId") long distributionId,
+            @Bind("bucketNumber") int bucketNumber,
+            @Bind("nodeId") long nodeId);
+
     @SqlQuery("SELECT t.table_id, bn.bucket_number\n" +
             "FROM tables t\n" +
             "JOIN bucket_nodes bn ON t.distribution_id = bn.distribution_id\n" +
@@ -64,4 +72,15 @@ public interface DistributionDao
     @UseRowMapper(TableBucket.Mapper.class)
     List<TableBucket> getTableBuckets(
             @Bind long nodeId);
+
+    @SqlQuery("SELECT *\n" +
+            "FROM distributions\n" +
+            "WHERE distribution_id IN (SELECT distribution_id FROM tables WHERE end_commit_id is NULL)")
+    List<DistributionInfo> listActiveDistributions();
+
+    @SqlQuery("SELECT SUM(compressed_size)\n" +
+            "FROM tables t\n" +
+            "JOIN table_sizes ts on t.table_id=ts.table_id\n" +
+            "WHERE t.distribution_id = :distributionId AND t.end_commit_id is NULL AND ts.end_commit_id is NULL")
+    long getDistributionSizeInBytes(@Bind("distributionId") long distributionId);
 }
