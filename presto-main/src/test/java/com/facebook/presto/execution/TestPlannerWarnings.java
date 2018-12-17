@@ -96,8 +96,12 @@ public class TestPlannerWarnings
         WarningCollector warningCollector = new DefaultWarningCollector(new WarningCollectorConfig());
         try {
             queryRunner.inTransaction(sessionBuilder.build(), transactionSession -> {
-                rules.map(testingRules -> createPlan(queryRunner, transactionSession, sql, warningCollector, testingRules))
-                        .orElse(queryRunner.createPlan(transactionSession, sql, LogicalPlanner.Stage.CREATED, false, warningCollector));
+                if (rules.isPresent()) {
+                    createPlan(queryRunner, transactionSession, sql, warningCollector, rules.get());
+                }
+                else {
+                    queryRunner.createPlan(transactionSession, sql, LogicalPlanner.Stage.CREATED, false, warningCollector);
+                }
                 return null;
             });
         }
