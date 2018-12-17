@@ -15,6 +15,7 @@ package com.facebook.presto.raptorx.storage;
 
 import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterStats;
+import com.facebook.presto.raptorx.storage.organization.PageIndexInfo;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
@@ -78,6 +79,25 @@ public class OrcFileWriter
         for (int i = 0; i < pageIndexes.length; i++) {
             Page page = pages.get(pageIndexes[i]);
             int position = positionIndexes[i];
+            appendPositionTo(page, position, pageBuilder);
+
+            if (pageBuilder.isFull()) {
+                appendPage(pageBuilder.build());
+                pageBuilder.reset();
+            }
+        }
+
+        if (!pageBuilder.isEmpty()) {
+            appendPage(pageBuilder.build());
+            pageBuilder.reset();
+        }
+    }
+
+    public void appendPageIndexInfos(List<PageIndexInfo> pageIndexInfo)
+    {
+        for (int i = 0; i < pageIndexInfo.size(); i++) {
+            Page page = pageIndexInfo.get(i).getCurrentPage();
+            int position = pageIndexInfo.get(i).getCurrentPosition();
             appendPositionTo(page, position, pageBuilder);
 
             if (pageBuilder.isFull()) {

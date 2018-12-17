@@ -15,6 +15,7 @@ package com.facebook.presto.raptorx.metadata;
 
 import com.facebook.presto.raptorx.util.Database;
 import com.facebook.presto.raptorx.util.TestingDatabase;
+import com.facebook.presto.type.TypeRegistry;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.raptorx.metadata.TestingSchema.createTestingSchema;
@@ -30,7 +31,7 @@ public class TestDatabaseChunkManager
         new SchemaCreator(database).create();
 
         NodeIdCache nodeIdCache = new NodeIdCache(database);
-        ChunkManager chunkManager = new DatabaseChunkManager(nodeIdCache, database);
+        ChunkManager chunkManager = new DatabaseChunkManager(nodeIdCache, database, new TypeRegistry());
 
         createTestingSchema(new TestingEnvironment(database));
 

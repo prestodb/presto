@@ -132,6 +132,16 @@ public class ChunkMetadata
                 .toString();
     }
 
+    private static OptionalLong convertToOptionalLong(Object o)
+    {
+        if (o instanceof Long) {
+            return OptionalLong.of((long) o);
+        }
+        else {
+            return OptionalLong.of((Integer) o + 1L);
+        }
+    }
+
     public static ChunkMetadata from(TableInfo table, ChunkInfo chunk)
     {
         OptionalLong temporalMin = OptionalLong.empty();
@@ -139,8 +149,8 @@ public class ChunkMetadata
         if (table.getTemporalColumnId().isPresent()) {
             for (ColumnStats stats : chunk.getColumnStats()) {
                 if (stats.getColumnId() == table.getTemporalColumnId().getAsLong()) {
-                    temporalMin = OptionalLong.of((long) stats.getMin());
-                    temporalMax = OptionalLong.of((long) stats.getMax());
+                    temporalMin = convertToOptionalLong(stats.getMin());
+                    temporalMax = convertToOptionalLong(stats.getMax());
                     break;
                 }
             }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptorx.storage;
 
+import com.facebook.presto.raptorx.storage.organization.PageIndexInfo;
 import com.facebook.presto.spi.Page;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -23,6 +24,8 @@ public interface StoragePageSink
     void appendPages(List<Page> pages);
 
     void appendPages(List<Page> pages, int[] pageIndexes, int[] positionIndexes);
+
+    void appendPageIndexInfos(List<PageIndexInfo> pageIndexInfo);
 
     boolean isFull();
 

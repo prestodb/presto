@@ -11,15 +11,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptorx.metadata;
+package com.facebook.presto.raptorx.storage.organization;
 
-import java.util.Set;
+import com.facebook.presto.spi.Page;
 
-public interface ChunkManager
+public class PageIndexInfo
 {
-    Set<ChunkMetadata> getNodeChunkMetas(String nodeIdentifier);
+    private Page currentPage;
+    private int currentPosition;
 
-    Set<ChunkFile> getNodeChunks(String nodeIdentifier);
+    public PageIndexInfo(Page currentPage, int currentPosition)
+    {
+        this.currentPage = currentPage;
+        this.currentPosition = currentPosition;
+    }
 
-    ChunkFile getChunk(long tableId, long chunkId);
+    public Page getCurrentPage()
+    {
+        return currentPage;
+    }
+
+    public int getCurrentPosition()
+    {
+        return currentPosition;
+    }
 }

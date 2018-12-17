@@ -14,6 +14,7 @@
 package com.facebook.presto.raptorx.metadata;
 
 import com.facebook.presto.raptorx.util.Database;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
@@ -38,17 +39,41 @@ public class DatabaseChunkManager
     private final List<ChunkManagerDao> shardDao;
 
     @Inject
-    public DatabaseChunkManager(NodeIdCache nodeIdCache, Database database)
+    public DatabaseChunkManager(NodeIdCache nodeIdCache, Database database, TypeManager typeManager)
     {
         this.nodeIdCache = requireNonNull(nodeIdCache, "nodeIdCache is null");
 
-        this.distributionDao = createJdbi(database.getMasterConnection())
-                .onDemand(DistributionDao.class);
+        this.distributionDao = createJdbi(database.getMasterConnection()).onDemand(DistributionDao.class);
 
         this.shardDao = database.getShards().stream()
                 .map(shard -> createJdbi(shard.getConnection()))
                 .map(dbi -> dbi.onDemand(ChunkManagerDao.class))
                 .collect(toImmutableList());
+    }
+
+    @Override
+    public Set<ChunkMetadata> getNodeChunkMetas(String nodeIdentifier)
+    {
+        long nodeId = nodeIdCache.getNodeId(nodeIdentifier);
+
+        Map<Integer, List<TableBucket>> shards = distributionDao.getTableBuckets(nodeId).stream()
+                .collect(groupingBy(bucket -> tableShard(bucket.getTableId(), shardDao.size())));
+
+        ImmutableSet.Builder<ChunkMetadata> chunks = ImmutableSet.builder();
+
+        shards.forEach((i, shardTables) -> {
+            ChunkManagerDao dao = shardDao.get(i);
+
+            Map<Long, List<TableBucket>> tables = shardTables.stream()
+                    .collect(groupingBy(TableBucket::getTableId));
+
+            tables.forEach((tableId, buckets) ->
+                    chunks.addAll(dao.getChunkMetas(tableId, buckets.stream()
+                            .map(TableBucket::getBucketNumber)
+                            .collect(toSet()))));
+        });
+
+        return chunks.build();
     }
 
     @Override

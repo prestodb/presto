@@ -82,4 +82,12 @@ public interface Metadata
             Set<Long> deletedChunks,
             TupleDomain<Long> constraint,
             boolean merged);
+
+    List<DistributionInfo> getActiveDistributions();
+
+    long getDistributionSizeInBytes(long distributionId);
+
+    List<BucketNode> getBucketNodes(long distibutionId);
+
+    void updateBucketAssignment(long distributionId, int bucketNumber, long nodeId);
 }

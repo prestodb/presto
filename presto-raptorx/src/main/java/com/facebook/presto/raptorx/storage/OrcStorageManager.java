@@ -26,6 +26,7 @@ import com.facebook.presto.raptorx.chunkstore.ChunkStore;
 import com.facebook.presto.raptorx.chunkstore.ChunkStoreManager;
 import com.facebook.presto.raptorx.metadata.ChunkRecorder;
 import com.facebook.presto.raptorx.storage.OrcFileRewriter.OrcFileInfo;
+import com.facebook.presto.raptorx.storage.organization.PageIndexInfo;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Page;
@@ -507,6 +508,13 @@ public class OrcStorageManager
         {
             createWriterIfNecessary();
             writer.appendPages(pages, pageIndexes, positionIndexes);
+        }
+
+        @Override
+        public void appendPageIndexInfos(List<PageIndexInfo> pageIndexInfo)
+        {
+            createWriterIfNecessary();
+            writer.appendPageIndexInfos(pageIndexInfo);
         }
 
         @Override
