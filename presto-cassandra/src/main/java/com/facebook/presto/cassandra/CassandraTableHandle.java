@@ -60,7 +60,7 @@ public class CassandraTableHandle
 
     public SchemaTableName getSchemaTableName()
     {
-        return new SchemaTableName(schemaName, tableName);
+        return new SchemaTableName(schemaName, tableName, schemaName, tableName);
     }
 
     @Override

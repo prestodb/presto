@@ -152,9 +152,9 @@ public class NativeCassandraSession
     }
 
     @Override
-    public String getCaseSensitiveSchemaName(String caseInsensitiveSchemaName)
+    public String getCaseSensitiveSchemaName(String caseSensitiveSchemaName)
     {
-        return getKeyspaceByCaseInsensitiveName(caseInsensitiveSchemaName).getName();
+        return getKeyspaceByCaseSensitiveName(caseSensitiveSchemaName).getName();
     }
 
     @Override
@@ -169,10 +169,10 @@ public class NativeCassandraSession
     }
 
     @Override
-    public List<String> getCaseSensitiveTableNames(String caseInsensitiveSchemaName)
+    public List<String> getCaseSensitiveTableNames(String caseSensitiveSchemaName)
             throws SchemaNotFoundException
     {
-        KeyspaceMetadata keyspace = getKeyspaceByCaseInsensitiveName(caseInsensitiveSchemaName);
+        KeyspaceMetadata keyspace = getKeyspaceByCaseSensitiveName(caseSensitiveSchemaName);
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (TableMetadata table : keyspace.getTables()) {
             builder.add(table.getName());
@@ -187,8 +187,8 @@ public class NativeCassandraSession
     public CassandraTable getTable(SchemaTableName schemaTableName)
             throws TableNotFoundException
     {
-        KeyspaceMetadata keyspace = getKeyspaceByCaseInsensitiveName(schemaTableName.getSchemaName());
-        AbstractTableMetadata tableMeta = getTableMetadata(keyspace, schemaTableName.getTableName());
+        KeyspaceMetadata keyspace = getKeyspaceByCaseSensitiveName(schemaTableName.getOriginalSchemaName());
+        AbstractTableMetadata tableMeta = getTableMetadata(keyspace, schemaTableName.getOriginalTableName());
 
         List<String> columnNames = new ArrayList<>();
         List<ColumnMetadata> columns = tableMeta.getColumns();
@@ -275,12 +275,30 @@ public class NativeCassandraSession
         return result;
     }
 
+    private KeyspaceMetadata getKeyspaceByCaseSensitiveName(String caseSensitiveSchemaName)
+            throws SchemaNotFoundException
+    {
+        List<KeyspaceMetadata> keyspaces = executeWithSession(session -> session.getCluster().getMetadata().getKeyspaces());
+        KeyspaceMetadata result = null;
+        // Ensure that the error message is deterministic
+        List<KeyspaceMetadata> sortedKeyspaces = Ordering.from(comparing(KeyspaceMetadata::getName)).immutableSortedCopy(keyspaces);
+        for (KeyspaceMetadata keyspace : sortedKeyspaces) {
+            if (keyspace.getName().equals(caseSensitiveSchemaName)) {
+                return keyspace;
+            }
+        }
+        if (result == null) {
+            throw new SchemaNotFoundException(caseSensitiveSchemaName);
+        }
+        return result;
+    }
+
     private static AbstractTableMetadata getTableMetadata(KeyspaceMetadata keyspace, String caseInsensitiveTableName)
     {
         List<AbstractTableMetadata> tables = Stream.concat(
                 keyspace.getTables().stream(),
                 keyspace.getMaterializedViews().stream())
-                .filter(table -> table.getName().equalsIgnoreCase(caseInsensitiveTableName))
+                .filter(table -> table.getName().equals(caseInsensitiveTableName))
                 .collect(toImmutableList());
         if (tables.size() == 0) {
             throw new TableNotFoundException(new SchemaTableName(keyspace.getName(), caseInsensitiveTableName));
@@ -300,7 +318,7 @@ public class NativeCassandraSession
 
     public boolean isMaterializedView(SchemaTableName schemaTableName)
     {
-        KeyspaceMetadata keyspace = getKeyspaceByCaseInsensitiveName(schemaTableName.getSchemaName());
+        KeyspaceMetadata keyspace = getKeyspaceByCaseSensitiveName(schemaTableName.getOriginalSchemaName());
         return keyspace.getMaterializedView(schemaTableName.getTableName()) != null;
     }
 
@@ -337,7 +355,8 @@ public class NativeCassandraSession
             }
         }
         boolean indexed = false;
-        SchemaTableName schemaTableName = new SchemaTableName(tableMetadata.getKeyspace().getName(), tableMetadata.getName());
+        SchemaTableName schemaTableName = new SchemaTableName(tableMetadata.getKeyspace().getName(), tableMetadata.getName(),
+                tableMetadata.getKeyspace().getName(), tableMetadata.getName());
         if (!isMaterializedView(schemaTableName)) {
             TableMetadata table = (TableMetadata) tableMetadata;
             for (IndexMetadata idx : table.getIndexes()) {

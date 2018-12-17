@@ -58,7 +58,6 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -89,11 +88,15 @@ public class CassandraMetadata
     }
 
     @Override
+    public boolean supportsCaseSensitiveIdentifier(ConnectorSession session)
+    {
+        return true;
+    }
+
+    @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return cassandraSession.getCaseSensitiveSchemaNames().stream()
-                .map(name -> name.toLowerCase(ENGLISH))
-                .collect(toImmutableList());
+        return ImmutableList.copyOf(cassandraSession.getCaseSensitiveSchemaNames());
     }
 
     @Override
@@ -137,7 +140,10 @@ public class CassandraMetadata
         for (String schemaName : listSchemas(session, schemaNameOrNull)) {
             try {
                 for (String tableName : cassandraSession.getCaseSensitiveTableNames(schemaName)) {
-                    tableNames.add(new SchemaTableName(schemaName, tableName.toLowerCase(ENGLISH)));
+                    tableNames.add(new SchemaTableName(schemaName.toLowerCase(ENGLISH),
+                            tableName.toLowerCase(ENGLISH),
+                            schemaName,
+                            tableName));
                 }
             }
             catch (SchemaNotFoundException e) {
@@ -189,7 +195,7 @@ public class CassandraMetadata
         if (prefix.getTableName() == null) {
             return listTables(session, prefix.getSchemaName());
         }
-        return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+        return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName(), prefix.getOriginalSchemaName(), prefix.getOriginalTableName()));
     }
 
     @Override
@@ -283,7 +289,7 @@ public class CassandraMetadata
 
         // get the root directory for the database
         SchemaTableName table = tableMetadata.getTable();
-        String schemaName = cassandraSession.getCaseSensitiveSchemaName(table.getSchemaName());
+        String schemaName = cassandraSession.getCaseSensitiveSchemaName(table.getOriginalSchemaName());
         String tableName = table.getTableName();
         List<String> columns = columnNames.build();
         List<Type> types = columnTypes.build();
@@ -326,7 +332,7 @@ public class CassandraMetadata
             throw new PrestoException(NOT_SUPPORTED, "Inserting into materialized views not yet supported");
         }
 
-        SchemaTableName schemaTableName = new SchemaTableName(table.getSchemaName(), table.getTableName());
+        SchemaTableName schemaTableName = new SchemaTableName(table.getSchemaName(), table.getTableName(), table.getSchemaName(), table.getTableName());
         List<CassandraColumnHandle> columns = cassandraSession.getTable(schemaTableName).getColumns();
         List<String> columnNames = columns.stream().map(CassandraColumnHandle::getName).map(CassandraCqlUtils::validColumnName).collect(Collectors.toList());
         List<Type> columnTypes = columns.stream().map(CassandraColumnHandle::getType).collect(Collectors.toList());
