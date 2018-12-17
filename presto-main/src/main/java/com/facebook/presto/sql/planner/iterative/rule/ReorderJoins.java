@@ -29,6 +29,7 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.JoinNode.DistributionType;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -76,6 +77,7 @@ import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -368,21 +370,44 @@ public class ReorderJoins
             if (isAtMostScalar(joinNode.getLeft(), lookup)) {
                 return createJoinEnumerationResult(joinNode.flipChildren().withDistributionType(REPLICATED));
             }
-
-            List<JoinEnumerationResult> possibleJoinNodes = new ArrayList<>();
-            JoinDistributionType joinDistributionType = getJoinDistributionType(session);
-            if (joinDistributionType.canPartition() && !joinNode.isCrossJoin()) {
-                possibleJoinNodes.add(createJoinEnumerationResult(joinNode.withDistributionType(PARTITIONED)));
-                possibleJoinNodes.add(createJoinEnumerationResult(joinNode.flipChildren().withDistributionType(PARTITIONED)));
-            }
-            if (canReplicate(joinNode, context)) {
-                possibleJoinNodes.add(createJoinEnumerationResult(joinNode.withDistributionType(REPLICATED)));
-                possibleJoinNodes.add(createJoinEnumerationResult(joinNode.flipChildren().withDistributionType(REPLICATED)));
-            }
+            List<JoinEnumerationResult> possibleJoinNodes = getPossibleJoinNodes(joinNode, getJoinDistributionType(session));
+            verify(!possibleJoinNodes.isEmpty(), "possibleJoinNodes is empty");
             if (possibleJoinNodes.stream().anyMatch(UNKNOWN_COST_RESULT::equals)) {
                 return UNKNOWN_COST_RESULT;
             }
             return resultComparator.min(possibleJoinNodes);
+        }
+
+        private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, JoinDistributionType distributionType)
+        {
+            checkArgument(joinNode.getType() == INNER, "unexpected join node type: %s", joinNode.getType());
+
+            if (joinNode.isCrossJoin()) {
+                return getPossibleJoinNodes(joinNode, REPLICATED);
+            }
+
+            switch (distributionType) {
+                case PARTITIONED:
+                    return getPossibleJoinNodes(joinNode, PARTITIONED);
+                case BROADCAST:
+                    return getPossibleJoinNodes(joinNode, REPLICATED);
+                case AUTOMATIC:
+                    ImmutableList.Builder<JoinEnumerationResult> result = ImmutableList.builder();
+                    result.addAll(getPossibleJoinNodes(joinNode, PARTITIONED));
+                    if (canReplicate(joinNode, context)) {
+                        result.addAll(getPossibleJoinNodes(joinNode, REPLICATED));
+                    }
+                    return result.build();
+                default:
+                    throw new IllegalArgumentException("unexpected join distribution type: " + distributionType);
+            }
+        }
+
+        private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, DistributionType distributionType)
+        {
+            return ImmutableList.of(
+                    createJoinEnumerationResult(joinNode.withDistributionType(distributionType)),
+                    createJoinEnumerationResult(joinNode.flipChildren().withDistributionType(distributionType)));
         }
 
         private JoinEnumerationResult createJoinEnumerationResult(PlanNode planNode)
