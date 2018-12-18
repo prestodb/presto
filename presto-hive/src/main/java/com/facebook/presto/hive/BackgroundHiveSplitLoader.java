@@ -31,7 +31,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
-import com.google.common.collect.Streams;
 import com.google.common.io.CharStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.hadoop.conf.Configuration;
@@ -64,6 +63,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.IntPredicate;
 
+import static com.facebook.presto.hive.HiveBucketHandle.isVirtuallyBucketed;
+import static com.facebook.presto.hive.HiveBucketing.getVirtualBucket;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
@@ -83,7 +84,10 @@ import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPoli
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.stream;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.common.FileUtils.HIDDEN_FILES_PATH_FILTER;
@@ -352,6 +356,11 @@ public class BackgroundHiveSplitLoader
 
         // Bucketed partitions are fully loaded immediately since all files must be loaded to determine the file to bucket mapping
         if (tableBucketInfo.isPresent()) {
+            if (isVirtuallyBucketed(tableBucketInfo.get().getBucketColumns())) {
+                // For virtual bucket, bucket conversion must not be present because there is no physical partition bucket count
+                checkState(!bucketConversion.isPresent(), "Virtually bucketed table must not have partitions that are physically bucketed");
+                return hiveSplitSource.addToQueue(getVirtuallyBucketedSplits(path, fs, splitFactory, tableBucketInfo.get().getReadBucketCount()));
+            }
             return hiveSplitSource.addToQueue(getBucketedSplits(path, fs, splitFactory, tableBucketInfo.get(), bucketConversion));
         }
 
@@ -386,11 +395,21 @@ public class BackgroundHiveSplitLoader
 
     private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable)
     {
-        return Streams.stream(new HiveFileIterator(path, fileSystem, directoryLister, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED))
+        return stream(new HiveFileIterator(path, fileSystem, directoryLister, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED))
                 .map(status -> splitFactory.createInternalHiveSplit(status, splittable))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .iterator();
+    }
+
+    private List<InternalHiveSplit> getVirtuallyBucketedSplits(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, int bucketCount)
+    {
+        // List all files recursively in the partition and assign virtual bucket number to each of them
+        return stream(new HiveFileIterator(path, fileSystem, directoryLister, namenodeStats, RECURSE))
+                .map(file -> splitFactory.createInternalHiveSplit(file, getVirtualBucket(bucketCount, file.getPath())))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toImmutableList());
     }
 
     private List<InternalHiveSplit> getBucketedSplits(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, BucketSplitInfo bucketSplitInfo, Optional<BucketConversion> bucketConversion)
@@ -429,7 +448,7 @@ public class BackgroundHiveSplitLoader
 
         // convert files internal splits
         List<InternalHiveSplit> splitList = new ArrayList<>();
-        for (int bucketNumber = 0; bucketNumber < Math.max(readBucketCount, partitionBucketCount); bucketNumber++) {
+        for (int bucketNumber = 0; bucketNumber < max(readBucketCount, partitionBucketCount); bucketNumber++) {
             // Physical bucket #. This determine file name. It also determines the order of splits in the result.
             int partitionBucketNumber = bucketNumber % partitionBucketCount;
             // Logical bucket #. Each logical bucket corresponds to a "bucket" from engine's perspective.
@@ -437,7 +456,7 @@ public class BackgroundHiveSplitLoader
 
             boolean containsEligibleTableBucket = false;
             boolean containsIneligibleTableBucket = false;
-            for (int tableBucketNumber = bucketNumber % tableBucketCount; tableBucketNumber < tableBucketCount; tableBucketNumber += Math.max(readBucketCount, partitionBucketCount)) {
+            for (int tableBucketNumber = bucketNumber % tableBucketCount; tableBucketNumber < tableBucketCount; tableBucketNumber += max(readBucketCount, partitionBucketCount)) {
                 // table bucket number: this is used for evaluating "$bucket" filters.
                 if (bucketSplitInfo.isTableBucketEnabled(tableBucketNumber)) {
                     containsEligibleTableBucket = true;

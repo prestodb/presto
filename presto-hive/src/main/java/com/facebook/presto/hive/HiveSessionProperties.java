@@ -74,6 +74,7 @@ public final class HiveSessionProperties
     private static final String IGNORE_CORRUPTED_STATISTICS = "ignore_corrupted_statistics";
     private static final String COLLECT_COLUMN_STATISTICS_ON_WRITE = "collect_column_statistics_on_write";
     private static final String OPTIMIZE_MISMATCHED_BUCKET_COUNT = "optimize_mismatched_bucket_count";
+    private static final String VIRTUAL_BUCKET_COUNT = "virtual_bucket_count";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -284,6 +285,11 @@ public final class HiveSessionProperties
                         OPTIMIZE_MISMATCHED_BUCKET_COUNT,
                         "Experimenal: Enable optimization to avoid shuffle when bucket count is compatible but not the same",
                         hiveClientConfig.isOptimizeMismatchedBucketCount(),
+                        false),
+                integerProperty(
+                        VIRTUAL_BUCKET_COUNT,
+                        "Number of virtual bucket assigned for unbucketed tables",
+                        1,
                         false));
     }
 
@@ -471,6 +477,15 @@ public final class HiveSessionProperties
     public static boolean isOptimizedMismatchedBucketCount(ConnectorSession session)
     {
         return session.getProperty(OPTIMIZE_MISMATCHED_BUCKET_COUNT, Boolean.class);
+    }
+
+    public static int getVirtualBucketCount(ConnectorSession session)
+    {
+        int virtualBucketCount = session.getProperty(VIRTUAL_BUCKET_COUNT, Integer.class);
+        if (virtualBucketCount < 1) {
+            throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must be greater than 0: %s", VIRTUAL_BUCKET_COUNT, virtualBucketCount));
+        }
+        return virtualBucketCount;
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)

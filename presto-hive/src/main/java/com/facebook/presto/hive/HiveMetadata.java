@@ -110,6 +110,7 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
 import static com.facebook.presto.hive.HiveBasicStatistics.createZeroStatistics;
+import static com.facebook.presto.hive.HiveBucketHandle.createVirtualBucketHandle;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
@@ -127,6 +128,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HivePartitionManager.extractPartitionValues;
 import static com.facebook.presto.hive.HiveSessionProperties.getHiveStorageFormat;
+import static com.facebook.presto.hive.HiveSessionProperties.getVirtualBucketCount;
 import static com.facebook.presto.hive.HiveSessionProperties.isBucketExecutionEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isCollectColumnStatisticsOnWrite;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedMismatchedBucketCount;
@@ -1477,6 +1479,12 @@ public class HiveMetadata
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         HivePartitionResult hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, constraint);
 
+        Optional<HiveBucketHandle> hiveBucketHandle = hivePartitionResult.getBucketHandle();
+        int virtualBucketCount = getVirtualBucketCount(session);
+        if (!hivePartitionResult.getBucketHandle().isPresent() && virtualBucketCount > 1) {
+            hiveBucketHandle = Optional.of(createVirtualBucketHandle(virtualBucketCount));
+        }
+
         return ImmutableList.of(new ConnectorTableLayoutResult(
                 getTableLayout(
                         session,
@@ -1486,7 +1494,7 @@ public class HiveMetadata
                                 getPartitionsAsList(hivePartitionResult),
                                 hivePartitionResult.getCompactEffectivePredicate(),
                                 hivePartitionResult.getEnforcedConstraint(),
-                                hivePartitionResult.getBucketHandle(),
+                                hiveBucketHandle,
                                 hivePartitionResult.getBucketFilter())),
                 hivePartitionResult.getUnenforcedConstraint()));
     }
