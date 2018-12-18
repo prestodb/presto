@@ -361,9 +361,11 @@ public final class ThriftMetastoreUtil
         }
         if (columnStatistics.getStatsData().isSetBooleanStats()) {
             BooleanColumnStatsData booleanStatsData = columnStatistics.getStatsData().getBooleanStats();
+            OptionalLong numFalse = fromMetastoreNumFalse(booleanStatsData.getNumFalses());
+            OptionalLong numTrue = (booleanStatsData.getNumFalses() == -1 ? OptionalLong.empty() : OptionalLong.of(booleanStatsData.getNumTrues()));
             return createBooleanColumnStatistics(
-                    booleanStatsData.isSetNumTrues() ? OptionalLong.of(booleanStatsData.getNumTrues()) : OptionalLong.empty(),
-                    booleanStatsData.isSetNumFalses() ? fromMetastoreNumFalse(booleanStatsData.getNumFalses()) : OptionalLong.empty(),
+                    booleanStatsData.isSetNumTrues() ? numTrue : OptionalLong.empty(),
+                    booleanStatsData.isSetNumFalses() ? numFalse : OptionalLong.empty(),
                     booleanStatsData.isSetNumNulls() ? fromMetastoreNullsCount(booleanStatsData.getNumNulls()) : OptionalLong.empty());
         }
         if (columnStatistics.getStatsData().isSetStringStats()) {
