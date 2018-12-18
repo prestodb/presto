@@ -80,7 +80,7 @@ public class OperatorContext
 
     private final OperationTiming finishTiming = new OperationTiming();
 
-    private final SpillContext spillContext;
+    private final OperatorSpillContext spillContext;
     private final AtomicReference<Supplier<OperatorInfo>> infoSupplier = new AtomicReference<>();
 
     private final AtomicLong peakUserMemoryReservation = new AtomicLong();
@@ -477,6 +477,8 @@ public class OperatorContext
                 succinctBytes(peakSystemMemoryReservation.get()),
                 succinctBytes(peakTotalMemoryReservation.get()),
 
+                succinctBytes(spillContext.getSpilledBytes()),
+
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info);
     }
@@ -520,6 +522,7 @@ public class OperatorContext
     {
         private final DriverContext driverContext;
         private final AtomicLong reservedBytes = new AtomicLong();
+        private final AtomicLong spilledBytes = new AtomicLong();
 
         public OperatorSpillContext(DriverContext driverContext)
         {
@@ -532,11 +535,17 @@ public class OperatorContext
             if (bytes >= 0) {
                 reservedBytes.addAndGet(bytes);
                 driverContext.reserveSpill(bytes);
+                spilledBytes.addAndGet(bytes);
             }
             else {
                 reservedBytes.accumulateAndGet(-bytes, this::decrementSpilledReservation);
                 driverContext.freeSpill(-bytes);
             }
+        }
+
+        public long getSpilledBytes()
+        {
+            return spilledBytes.longValue();
         }
 
         private long decrementSpilledReservation(long reservedBytes, long bytesBeingFreed)

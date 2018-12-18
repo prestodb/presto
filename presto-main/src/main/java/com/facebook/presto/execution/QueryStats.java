@@ -534,4 +534,12 @@ public class QueryStats
         }
         return OptionalDouble.of(min(100, (completedDrivers * 100.0) / totalDrivers));
     }
+
+    @JsonProperty
+    public DataSize getSpilledDataSize()
+    {
+        return succinctBytes(operatorSummaries.stream()
+                .mapToLong(stats -> stats.getSpilledDataSize().toBytes())
+                .sum());
+    }
 }

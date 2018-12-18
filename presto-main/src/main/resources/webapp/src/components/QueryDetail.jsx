@@ -1388,6 +1388,16 @@ export class QueryDetail extends React.Component {
                                             {query.queryStats.physicalWrittenDataSize}
                                         </td>
                                     </tr>
+                                    {parseDataSize(query.queryStats.spilledDataSize) > 0 &&
+                                    <tr>
+                                        <td className="info-title">
+                                            Spilled Data
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.spilledDataSize}
+                                        </td>
+                                    </tr>
+                                    }
                                     </tbody>
                                 </table>
                             </div>
