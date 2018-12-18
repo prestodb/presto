@@ -46,22 +46,4 @@ public class TestJmxHistoricalData
         jmxHistoricalData.addRow(TABLE_NAME, ImmutableList.of(42, "ala"));
         assertEquals(jmxHistoricalData.getRows(TABLE_NAME, bothColumns).size(), MAX_ENTRIES);
     }
-
-    @Test
-    public void testCaseInsensitive()
-    {
-        JmxHistoricalData jmxHistoricalData = new JmxHistoricalData(MAX_ENTRIES, ImmutableSet.of(TABLE_NAME.toUpperCase()));
-
-        List<Integer> columns = ImmutableList.of(0);
-        assertEquals(jmxHistoricalData.getRows(TABLE_NAME, columns), ImmutableList.of());
-        assertEquals(jmxHistoricalData.getRows(TABLE_NAME.toUpperCase(), columns), ImmutableList.of());
-
-        jmxHistoricalData.addRow(TABLE_NAME, ImmutableList.of(42));
-        jmxHistoricalData.addRow(TABLE_NAME.toUpperCase(), ImmutableList.of(44));
-
-        assertEquals(jmxHistoricalData.getRows(TABLE_NAME, columns), ImmutableList.of(
-                ImmutableList.<Object>of(42), ImmutableList.<Object>of(44)));
-        assertEquals(jmxHistoricalData.getRows(TABLE_NAME.toUpperCase(), columns), ImmutableList.of(
-                ImmutableList.<Object>of(42), ImmutableList.<Object>of(44)));
-    }
 }

@@ -27,17 +27,16 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
-import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestJmxMetadata
 {
     private static final String RUNTIME_OBJECT = "java.lang:type=Runtime";
-    private static final SchemaTableName RUNTIME_TABLE = new SchemaTableName(JMX_SCHEMA_NAME, RUNTIME_OBJECT.toLowerCase(ENGLISH));
-    private static final SchemaTableName RUNTIME_HISTORY_TABLE = new SchemaTableName(HISTORY_SCHEMA_NAME, RUNTIME_OBJECT.toLowerCase(ENGLISH));
+    private static final SchemaTableName RUNTIME_TABLE = new SchemaTableName(JMX_SCHEMA_NAME, RUNTIME_OBJECT, JMX_SCHEMA_NAME, RUNTIME_OBJECT);
+    private static final SchemaTableName RUNTIME_HISTORY_TABLE = new SchemaTableName(HISTORY_SCHEMA_NAME, RUNTIME_OBJECT, HISTORY_SCHEMA_NAME, RUNTIME_OBJECT);
 
-    private final JmxMetadata metadata = new JmxMetadata(getPlatformMBeanServer(), new JmxHistoricalData(1000, ImmutableSet.of(RUNTIME_OBJECT.toLowerCase(ENGLISH))));
+    private final JmxMetadata metadata = new JmxMetadata(getPlatformMBeanServer(), new JmxHistoricalData(1000, ImmutableSet.of(RUNTIME_OBJECT)));
 
     @Test
     public void testListSchemas()
@@ -48,6 +47,7 @@ public class TestJmxMetadata
     @Test
     public void testListTables()
     {
+        System.out.println(metadata.listTables(SESSION, JMX_SCHEMA_NAME) + " " + RUNTIME_TABLE.getOriginalTableName());
         assertTrue(metadata.listTables(SESSION, JMX_SCHEMA_NAME).contains(RUNTIME_TABLE));
         assertTrue(metadata.listTables(SESSION, HISTORY_SCHEMA_NAME).contains(RUNTIME_HISTORY_TABLE));
     }
@@ -90,9 +90,13 @@ public class TestJmxMetadata
         assertTrue(columns.contains(new JmxColumnHandle("Name", createUnboundedVarcharType())));
         assertTrue(columns.contains(new JmxColumnHandle("StartTime", BIGINT)));
 
-        assertTrue(metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "*java.lang:type=Runtime*")).getObjectNames().contains(RUNTIME_OBJECT));
-        assertTrue(metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "java.lang:*=Runtime")).getObjectNames().contains(RUNTIME_OBJECT));
-        assertTrue(metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "*")).getObjectNames().contains(RUNTIME_OBJECT));
-        assertTrue(metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "*:*")).getObjectNames().contains(RUNTIME_OBJECT));
+        assertTrue(metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "*java.lang:type=Runtime*",
+                JMX_SCHEMA_NAME, "*java.lang:type=Runtime*")).getObjectNames().contains(RUNTIME_OBJECT));
+        assertTrue(metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "java.lang:*=Runtime",
+                JMX_SCHEMA_NAME, "java.lang:*=Runtime")).getObjectNames().contains(RUNTIME_OBJECT));
+        assertTrue(metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "*",
+                JMX_SCHEMA_NAME, "*")).getObjectNames().contains(RUNTIME_OBJECT));
+        assertTrue(metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "*:*",
+                JMX_SCHEMA_NAME, "*:*")).getObjectNames().contains(RUNTIME_OBJECT));
     }
 }

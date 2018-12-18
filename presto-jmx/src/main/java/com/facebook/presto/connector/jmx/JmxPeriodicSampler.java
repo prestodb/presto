@@ -59,7 +59,10 @@ public class JmxPeriodicSampler
 
         for (String tableName : jmxHistoricalData.getTables()) {
             tableHandleBuilder.add(requireNonNull(
-                    jmxMetadata.getTableHandle(new SchemaTableName(JmxMetadata.HISTORY_SCHEMA_NAME, tableName)),
+                    jmxMetadata.getTableHandle(new SchemaTableName(JmxMetadata.HISTORY_SCHEMA_NAME,
+                            tableName,
+                            JmxMetadata.HISTORY_SCHEMA_NAME,
+                            tableName)),
                     format("tableHandle is null for table [%s]", tableName)));
         }
 
@@ -121,7 +124,7 @@ public class JmxPeriodicSampler
                             objectName,
                             tableHandle.getColumnHandles(),
                             dumpTimestamp);
-                    jmxHistoricalData.addRow(tableHandle.getTableName().getTableName(), row);
+                    jmxHistoricalData.addRow(tableHandle.getTableName().getOriginalTableName(), row);
                 }
             }
             catch (Exception exception) {

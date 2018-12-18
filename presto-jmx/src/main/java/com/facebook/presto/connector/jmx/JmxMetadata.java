@@ -86,6 +86,12 @@ public class JmxMetadata
     }
 
     @Override
+    public boolean supportsCaseSensitiveIdentifier(ConnectorSession session)
+    {
+        return true;
+    }
+
+    @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return ImmutableList.of(JMX_SCHEMA_NAME, HISTORY_SCHEMA_NAME);
@@ -124,9 +130,9 @@ public class JmxMetadata
     private JmxTableHandle getJmxTableHandle(SchemaTableName tableName)
     {
         try {
-            String objectNamePattern = toPattern(tableName.getTableName().toLowerCase(ENGLISH));
+            String objectNamePattern = toPattern(tableName.getOriginalTableName());
             List<ObjectName> objectNames = mbeanServer.queryNames(WILDCARD, null).stream()
-                    .filter(name -> name.getCanonicalName().toLowerCase(ENGLISH).matches(objectNamePattern))
+                    .filter(name -> name.getCanonicalName().matches(objectNamePattern))
                     .collect(toImmutableList());
             if (objectNames.isEmpty()) {
                 return null;
@@ -195,7 +201,10 @@ public class JmxMetadata
             }
             else if (HISTORY_SCHEMA_NAME.equals(schema)) {
                 return jmxHistoricalData.getTables().stream()
-                        .map(tableName -> new SchemaTableName(JmxMetadata.HISTORY_SCHEMA_NAME, tableName))
+                        .map(tableName -> new SchemaTableName(JmxMetadata.HISTORY_SCHEMA_NAME,
+                                tableName,
+                                JmxMetadata.HISTORY_SCHEMA_NAME,
+                                tableName))
                         .collect(toList());
             }
         }
@@ -207,7 +216,10 @@ public class JmxMetadata
         Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (ObjectName objectName : mbeanServer.queryNames(WILDCARD, null)) {
             // todo remove lower case when presto supports mixed case names
-            tableNames.add(new SchemaTableName(JMX_SCHEMA_NAME, objectName.getCanonicalName().toLowerCase(ENGLISH)));
+            tableNames.add(new SchemaTableName(JMX_SCHEMA_NAME,
+                    objectName.getCanonicalName().toLowerCase(ENGLISH),
+                    JMX_SCHEMA_NAME,
+                    objectName.getCanonicalName()));
         }
         return tableNames.build();
     }
