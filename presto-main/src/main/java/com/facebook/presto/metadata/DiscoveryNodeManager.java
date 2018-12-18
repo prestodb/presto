@@ -145,17 +145,14 @@ public final class DiscoveryNodeManager
     @PostConstruct
     public void startPollingNodeStates()
     {
-        // poll worker states only on the coordinators
-        if (currentNode.isCoordinator()) {
-            nodeStateUpdateExecutor.scheduleWithFixedDelay(() -> {
-                try {
-                    pollWorkers();
-                }
-                catch (Exception e) {
-                    log.error(e, "Error polling state of nodes");
-                }
-            }, 5, 5, TimeUnit.SECONDS);
-        }
+        nodeStateUpdateExecutor.scheduleWithFixedDelay(() -> {
+            try {
+                pollWorkers();
+            }
+            catch (Exception e) {
+                log.error(e, "Error polling state of nodes");
+            }
+        }, 5, 5, TimeUnit.SECONDS);
         pollWorkers();
     }
 
