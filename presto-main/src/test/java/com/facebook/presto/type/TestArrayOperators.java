@@ -969,8 +969,13 @@ public class TestArrayOperators
         assertFunction("ARRAY_DISTINCT(ARRAY [])", new ArrayType(UNKNOWN), ImmutableList.of());
 
         // Order matters here. Result should be stable.
+        assertFunction("ARRAY_DISTINCT(ARRAY [0, NULL])", new ArrayType(INTEGER), asList(0, (Object) null));
+        assertFunction("ARRAY_DISTINCT(ARRAY [0, NULL, 0, NULL])", new ArrayType(INTEGER), asList(0, (Object) null));
         assertFunction("ARRAY_DISTINCT(ARRAY [2, 3, 4, 3, 1, 2, 3])", new ArrayType(INTEGER), ImmutableList.of(2, 3, 4, 1));
+        assertFunction("ARRAY_DISTINCT(ARRAY [0.0E0, NULL])", new ArrayType(DOUBLE), asList(0.0, (Object) null));
         assertFunction("ARRAY_DISTINCT(ARRAY [2.2E0, 3.3E0, 4.4E0, 3.3E0, 1, 2.2E0, 3.3E0])", new ArrayType(DOUBLE), ImmutableList.of(2.2, 3.3, 4.4, 1.0));
+        assertFunction("ARRAY_DISTINCT(ARRAY [FALSE, NULL])", new ArrayType(BOOLEAN), asList(false, (Object) null));
+        assertFunction("ARRAY_DISTINCT(ARRAY [FALSE, TRUE, NULL])", new ArrayType(BOOLEAN), asList(false, true, null));
         assertFunction("ARRAY_DISTINCT(ARRAY [TRUE, TRUE, TRUE])", new ArrayType(BOOLEAN), ImmutableList.of(true));
         assertFunction("ARRAY_DISTINCT(ARRAY [TRUE, FALSE, FALSE, TRUE])", new ArrayType(BOOLEAN), ImmutableList.of(true, false));
         assertFunction(

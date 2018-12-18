@@ -22,6 +22,7 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
@@ -49,7 +50,7 @@ public final class ArrayDistinctFunction
         }
 
         if (array.getPositionCount() == 2) {
-            if (type.equalTo(array, 0, array, 1)) {
+            if (TypeUtils.positionEqualsPosition(type, array, 0, array, 1)) {
                 return array.getSingleValueBlock(0);
             }
             else {
