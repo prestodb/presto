@@ -73,6 +73,8 @@ public class OperatorStats
     private final DataSize peakSystemMemoryReservation;
     private final DataSize peakTotalMemoryReservation;
 
+    private final DataSize spilledDataSize;
+
     private final Optional<BlockedReason> blockedReason;
 
     private final OperatorInfo info;
@@ -115,6 +117,8 @@ public class OperatorStats
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
             @JsonProperty("peakSystemMemoryReservation") DataSize peakSystemMemoryReservation,
             @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
+
+            @JsonProperty("spilledDataSize") DataSize spilledDataSize,
 
             @JsonProperty("blockedReason") Optional<BlockedReason> blockedReason,
 
@@ -161,6 +165,8 @@ public class OperatorStats
         this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
         this.peakSystemMemoryReservation = requireNonNull(peakSystemMemoryReservation, "peakSystemMemoryReservation is null");
         this.peakTotalMemoryReservation = requireNonNull(peakTotalMemoryReservation, "peakTotalMemoryReservation is null");
+
+        this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
 
         this.blockedReason = blockedReason;
 
@@ -342,6 +348,12 @@ public class OperatorStats
     }
 
     @JsonProperty
+    public DataSize getSpilledDataSize()
+    {
+        return spilledDataSize;
+    }
+
+    @JsonProperty
     public Optional<BlockedReason> getBlockedReason()
     {
         return blockedReason;
@@ -392,6 +404,8 @@ public class OperatorStats
         long peakSystemMemory = this.peakSystemMemoryReservation.toBytes();
         long peakTotalMemory = this.peakTotalMemoryReservation.toBytes();
 
+        long spilledDataSize = this.spilledDataSize.toBytes();
+
         Optional<BlockedReason> blockedReason = this.blockedReason;
 
         Mergeable<OperatorInfo> base = getMergeableInfoOrNull(info);
@@ -429,6 +443,8 @@ public class OperatorStats
             peakUserMemory = max(peakUserMemory, operator.getPeakUserMemoryReservation().toBytes());
             peakSystemMemory = max(peakSystemMemory, operator.getPeakSystemMemoryReservation().toBytes());
             peakTotalMemory = max(peakTotalMemory, operator.getPeakTotalMemoryReservation().toBytes());
+
+            spilledDataSize += operator.getSpilledDataSize().toBytes();
 
             if (operator.getBlockedReason().isPresent()) {
                 blockedReason = operator.getBlockedReason();
@@ -477,6 +493,8 @@ public class OperatorStats
                 succinctBytes(peakUserMemory),
                 succinctBytes(peakSystemMemory),
                 succinctBytes(peakTotalMemory),
+
+                succinctBytes(spilledDataSize),
 
                 blockedReason,
 
@@ -531,6 +549,7 @@ public class OperatorStats
                 peakUserMemoryReservation,
                 peakSystemMemoryReservation,
                 peakTotalMemoryReservation,
+                spilledDataSize,
                 blockedReason,
                 (info != null && info.isFinal()) ? info : null);
     }

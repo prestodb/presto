@@ -68,6 +68,7 @@ public class TestQueryStats
                     succinctBytes(127L),
                     succinctBytes(128L),
                     succinctBytes(129L),
+                    succinctBytes(130L),
                     Optional.empty(),
                     null),
             new OperatorStats(
@@ -100,6 +101,7 @@ public class TestQueryStats
                     succinctBytes(227L),
                     succinctBytes(228L),
                     succinctBytes(229L),
+                    succinctBytes(230L),
                     Optional.empty(),
                     null),
             new OperatorStats(
@@ -132,6 +134,7 @@ public class TestQueryStats
                     succinctBytes(327L),
                     succinctBytes(328L),
                     succinctBytes(329L),
+                    succinctBytes(330L),
                     Optional.empty(),
                     null));
 
@@ -238,6 +241,7 @@ public class TestQueryStats
         assertEquals(actual.getTotalMemoryReservation(), new DataSize(19, BYTE));
         assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(20, BYTE));
         assertEquals(actual.getPeakTotalMemoryReservation(), new DataSize(21, BYTE));
+        assertEquals(actual.getSpilledDataSize(), new DataSize(690, BYTE));
 
         assertEquals(actual.getTotalScheduledTime(), new Duration(20, NANOSECONDS));
         assertEquals(actual.getTotalCpuTime(), new Duration(21, NANOSECONDS));

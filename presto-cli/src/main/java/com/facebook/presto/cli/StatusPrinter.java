@@ -79,6 +79,7 @@ CPU Time: 33.7s total,  191K rows/s, 16.6MB/s, 22% active
 Per Node: 2.5 parallelism,  473K rows/s, 41.1MB/s
 Parallelism: 2.5
 Peak Memory: 1.97GB
+Spilled: 20GB
 0:13 [6.45M rows,  560MB] [ 473K rows/s, 41.1MB/s] [=========>>           ] 20%
 
      STAGES   ROWS  ROWS/s  BYTES  BYTES/s   PEND    RUN   DONE
@@ -203,8 +204,13 @@ Peak Memory: 1.97GB
             // Parallelism: 5.3
             out.println(format("Parallelism: %.1f", parallelism));
 
-            //Peak Memory: 1.97GB
+            // Peak Memory: 1.97GB
             reprintLine("Peak Memory: " + formatDataSize(bytes(stats.getPeakMemoryBytes()), true));
+
+            // Spilled Data: 20GB
+            if (stats.getSpilledBytes() > 0) {
+                reprintLine("Spilled: " + formatDataSize(bytes(stats.getSpilledBytes()), true));
+            }
         }
 
         // 0:32 [2.12GB, 15M rows] [67MB/s, 463K rows/s]
@@ -294,8 +300,13 @@ Peak Memory: 1.97GB
                 // Parallelism: 5.3
                 reprintLine(format("Parallelism: %.1f", parallelism));
 
-                //Peak Memory: 1.97GB
+                // Peak Memory: 1.97GB
                 reprintLine("Peak Memory: " + formatDataSize(bytes(stats.getPeakMemoryBytes()), true));
+
+                // Spilled Data: 20GB
+                if (stats.getSpilledBytes() > 0) {
+                    reprintLine("Spilled: " + formatDataSize(bytes(stats.getSpilledBytes()), true));
+                }
             }
 
             verify(terminalWidth >= 75); // otherwise handled above
