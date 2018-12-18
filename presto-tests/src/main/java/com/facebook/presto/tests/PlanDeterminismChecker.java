@@ -69,7 +69,7 @@ public class PlanDeterminismChecker
                     localQueryRunner.getMetadata().getFunctionRegistry(),
                     plan.getStatsAndCosts(),
                     transactionSession,
-                    0,
+                    "",
                     false);
         });
     }
