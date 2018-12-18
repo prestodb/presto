@@ -205,7 +205,11 @@ public class HiveSplitManager
         // sort partitions
         partitions = Ordering.natural().onResultOf(HivePartition::getPartitionId).reverse().sortedCopy(partitions);
 
-        Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(metastore, table, tableName, partitions, bucketHandle.map(HiveBucketHandle::toTableBucketProperty));
+        Optional<HiveBucketProperty> hiveBucketProperty = Optional.empty();
+        if (bucketHandle.isPresent() && !bucketHandle.get().isVirtuallyBucketed()) {
+            hiveBucketProperty = bucketHandle.map(HiveBucketHandle::toTableBucketProperty);
+        }
+        Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(metastore, table, tableName, partitions, hiveBucketProperty);
 
         HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
                 table,

@@ -2816,6 +2816,29 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testVirtualBucketing()
+    {
+        try {
+            assertUpdate(
+                    "CREATE TABLE test_virtual_bucket AS\n" +
+                            "SELECT orderkey key, comment value FROM orders",
+                    15000);
+            Session virtualBucketEnabled = Session.builder(getSession())
+                    .setCatalogSessionProperty(catalog, "virtual_bucket_count", "2")
+                    .build();
+            @Language("SQL") String groupedByPath =
+                    "SELECT COUNT(DISTINCT(\"$path\")) FROM test_virtual_bucket";
+            @Language("SQL") String expectedGroupByPath = "SELECT 4";
+
+            assertQuery(getSession(), groupedByPath, expectedGroupByPath, assertRemoteExchangesCount(2));
+            assertQuery(virtualBucketEnabled, groupedByPath, expectedGroupByPath, assertRemoteExchangesCount(1));
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_virtual_bucket");
+        }
+    }
+
+    @Test
     public void testGroupedExecution()
     {
         testGroupedExecution(getSession());
