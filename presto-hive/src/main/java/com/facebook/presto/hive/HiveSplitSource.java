@@ -348,7 +348,8 @@ class HiveSplitSource
                     public boolean isFinished(OptionalInt bucketNumber)
                     {
                         checkArgument(bucketNumber.isPresent(), "bucketNumber must be present");
-                        return allSplitLoaded.isDone() && splits.get(bucketNumber.getAsInt()).stream().allMatch(InternalHiveSplit::isDone);
+                        // For virtual buckets, not all the buckets would exist, so we need to handle non-existent bucket.
+                        return allSplitLoaded.isDone() && (!splits.containsKey(bucketNumber.getAsInt()) || splits.get(bucketNumber.getAsInt()).stream().allMatch(InternalHiveSplit::isDone));
                     }
 
                     @Override

@@ -62,6 +62,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.IntPredicate;
 
+import static com.facebook.presto.hive.HiveBucketing.getVirtualBucketNumber;
+import static com.facebook.presto.hive.HiveColumnHandle.pathColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
@@ -83,6 +85,7 @@ import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPoli
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.Math.max;
@@ -372,6 +375,14 @@ public class BackgroundHiveSplitLoader
 
         // Bucketed partitions are fully loaded immediately since all files must be loaded to determine the file to bucket mapping
         if (tableBucketInfo.isPresent()) {
+            if (tableBucketInfo.get().isVirtuallyBucketed()) {
+                // For virtual bucket, bucket conversion must not be present because there is no physical partition bucket count
+                checkState(!bucketConversion.isPresent(), "Virtually bucketed table must not have partitions that are physically bucketed");
+                checkState(
+                        tableBucketInfo.get().getTableBucketCount() == tableBucketInfo.get().getReadBucketCount(),
+                        "Table and read bucket count should be the same for virtual bucket");
+                return hiveSplitSource.addToQueue(getVirtuallyBucketedSplits(path, fs, splitFactory, tableBucketInfo.get().getReadBucketCount(), splittable));
+            }
             return hiveSplitSource.addToQueue(getBucketedSplits(path, fs, splitFactory, tableBucketInfo.get(), bucketConversion, partitionName, splittable));
         }
 
@@ -495,6 +506,19 @@ public class BackgroundHiveSplitLoader
         return splitList;
     }
 
+    private List<InternalHiveSplit> getVirtuallyBucketedSplits(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, int bucketCount, boolean splittable)
+    {
+        // List all files recursively in the partition and assign virtual bucket number to each of them
+        return stream(new HiveFileIterator(path, fileSystem, directoryLister, namenodeStats, RECURSE))
+                .map(file -> {
+                    int virtualBucketNumber = getVirtualBucketNumber(bucketCount, file.getPath());
+                    return splitFactory.createInternalHiveSplit(file, virtualBucketNumber, virtualBucketNumber, splittable);
+                })
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toImmutableList());
+    }
+
     private static List<Path> getTargetPathsFromSymlink(FileSystem fileSystem, Path symlinkDir)
     {
         try {
@@ -593,6 +617,11 @@ public class BackgroundHiveSplitLoader
         public int getReadBucketCount()
         {
             return readBucketCount;
+        }
+
+        public boolean isVirtuallyBucketed()
+        {
+            return bucketColumns.size() == 1 && bucketColumns.get(0).equals(pathColumnHandle());
         }
 
         /**

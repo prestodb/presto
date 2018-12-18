@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
@@ -48,6 +49,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveUtil.getRegularColumnHandles;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -67,6 +69,12 @@ final class HiveBucketing
             HiveType.HIVE_STRING);
 
     private HiveBucketing() {}
+
+    public static int getVirtualBucketNumber(int bucketCount, Path path)
+    {
+        // this is equivalent to bucketing the table on a VARCHAR column containing $path
+        return (hashBytes(0, utf8Slice(path.toString())) & Integer.MAX_VALUE) % bucketCount;
+    }
 
     public static int getHiveBucket(int bucketCount, List<TypeInfo> types, Page page, int position)
     {

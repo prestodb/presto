@@ -84,6 +84,7 @@ public final class HiveSessionProperties
     private static final String TEMPORARY_TABLE_STORAGE_FORMAT = "temporary_table_storage_format";
     private static final String TEMPORARY_TABLE_COMPRESSION_CODEC = "temporary_table_compression_codec";
     public static final String PUSHDOWN_FILTER_ENABLED = "pushdown_filter_enabled";
+    public static final String VIRTUAL_BUCKET_COUNT = "virtual_bucket_count";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -356,6 +357,11 @@ public final class HiveSessionProperties
                         PUSHDOWN_FILTER_ENABLED,
                         "Experimental: enable complex filter pushdown",
                         hiveClientConfig.isPushdownFilterEnabled(),
+                        false),
+                integerProperty(
+                        VIRTUAL_BUCKET_COUNT,
+                        "Number of virtual bucket assigned for unbucketed tables",
+                        0,
                         false));
     }
 
@@ -594,6 +600,15 @@ public final class HiveSessionProperties
     public static boolean isPushdownFilterEnabled(ConnectorSession session)
     {
         return session.getProperty(PUSHDOWN_FILTER_ENABLED, Boolean.class);
+    }
+
+    public static int getVirtualBucketCount(ConnectorSession session)
+    {
+        int virtualBucketCount = session.getProperty(VIRTUAL_BUCKET_COUNT, Integer.class);
+        if (virtualBucketCount < 0) {
+            throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must not be negative: %s", VIRTUAL_BUCKET_COUNT, virtualBucketCount));
+        }
+        return virtualBucketCount;
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)
