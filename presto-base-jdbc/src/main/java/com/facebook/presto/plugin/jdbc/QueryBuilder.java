@@ -19,6 +19,7 @@ import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.IntegerType;
@@ -169,6 +170,9 @@ public class QueryBuilder
             else if (typeAndValue.getType() instanceof VarcharType) {
                 statement.setString(i + 1, ((Slice) typeAndValue.getValue()).toStringUtf8());
             }
+            else if (typeAndValue.getType() instanceof CharType) {
+                statement.setString(i + 1, ((Slice) typeAndValue.getValue()).toStringUtf8());
+            }
             else {
                 throw new UnsupportedOperationException("Can't handle type: " + typeAndValue.getType());
             }
@@ -192,7 +196,8 @@ public class QueryBuilder
                 validType.equals(TimeWithTimeZoneType.TIME_WITH_TIME_ZONE) ||
                 validType.equals(TimestampType.TIMESTAMP) ||
                 validType.equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE) ||
-                validType instanceof VarcharType;
+                validType instanceof VarcharType ||
+                validType instanceof CharType;
     }
 
     private List<String> toConjuncts(List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain, List<TypeAndValue> accumulator)

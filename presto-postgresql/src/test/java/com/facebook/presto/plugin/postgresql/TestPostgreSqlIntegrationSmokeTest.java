@@ -13,7 +13,11 @@
  */
 package com.facebook.presto.plugin.postgresql;
 
+import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
+import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.postgresql.TestingPostgreSqlServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -23,11 +27,13 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Map;
 import java.util.UUID;
 
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -165,6 +171,38 @@ public class TestPostgreSqlIntegrationSmokeTest
             assertQueryFails(format("INSERT INTO %s.test_cleanup (x) VALUES (0)", schemaName), "ERROR: new row .* violates check constraint [\\s\\S]*");
             assertQuery(format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", schemaName), "VALUES 'test_cleanup'");
         }
+    }
+
+    @Test
+    public void testCharTrailingSpace()
+            throws Exception
+    {
+        execute("CREATE TABLE tpch.char_trailing_space (x char(10))");
+        assertUpdate("INSERT INTO char_trailing_space VALUES ('test')", 1);
+
+        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test'", "VALUES 'test'");
+        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test  '", "VALUES 'test'");
+        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test        '", "VALUES 'test'");
+
+        assertEquals(getQueryRunner().execute("SELECT * FROM char_trailing_space WHERE x = char ' test'").getRowCount(), 0);
+
+        Map<String, String> properties = ImmutableMap.of("deprecated.legacy-char-to-varchar-coercion", "true");
+        Map<String, String> connectorProperties = ImmutableMap.of("connection-url", postgreSqlServer.getJdbcUrl());
+
+        try (QueryRunner queryRunner = new DistributedQueryRunner(getSession(), 3, properties);) {
+            queryRunner.installPlugin(new PostgreSqlPlugin());
+            queryRunner.createCatalog("postgresql", "postgresql", connectorProperties);
+
+            assertEquals(queryRunner.execute("SELECT * FROM char_trailing_space WHERE x = char 'test'").getRowCount(), 0);
+            assertEquals(queryRunner.execute("SELECT * FROM char_trailing_space WHERE x = char 'test  '").getRowCount(), 0);
+            assertEquals(queryRunner.execute("SELECT * FROM char_trailing_space WHERE x = char 'test       '").getRowCount(), 0);
+
+            MaterializedResult result = queryRunner.execute("SELECT * FROM char_trailing_space WHERE x = char 'test      '");
+            assertEquals(result.getRowCount(), 1);
+            assertEquals(result.getMaterializedRows().get(0).getField(0), "test      ");
+        }
+
+        assertUpdate("DROP TABLE char_trailing_space");
     }
 
     private AutoCloseable withSchema(String schema)
