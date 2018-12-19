@@ -16,7 +16,10 @@ package com.facebook.presto.plugin.mysql;
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
+import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.mysql.TestingMySqlServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -25,6 +28,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Map;
 
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -149,6 +153,38 @@ public class TestMySqlIntegrationSmokeTest
         assertEquals(row.getField(0), (byte) 127);
 
         assertUpdate("DROP TABLE mysql_test_tinyint1");
+    }
+
+    @Test
+    public void testCharTrailingSpace()
+            throws Exception
+    {
+        execute("CREATE TABLE tpch.char_trailing_space (x char(10))");
+        assertUpdate("INSERT INTO char_trailing_space VALUES ('test')", 1);
+
+        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test'", "VALUES 'test'");
+        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test  '", "VALUES 'test'");
+        assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test        '", "VALUES 'test'");
+
+        assertEquals(getQueryRunner().execute("SELECT * FROM char_trailing_space WHERE x = char ' test'").getRowCount(), 0);
+
+        Map<String, String> properties = ImmutableMap.of("deprecated.legacy-char-to-varchar-coercion", "true");
+        Map<String, String> connectorProperties = ImmutableMap.of("connection-url", mysqlServer.getJdbcUrl());
+
+        try (QueryRunner queryRunner = new DistributedQueryRunner(getSession(), 3, properties);) {
+            queryRunner.installPlugin(new MySqlPlugin());
+            queryRunner.createCatalog("mysql", "mysql", connectorProperties);
+
+            assertEquals(queryRunner.execute("SELECT * FROM char_trailing_space WHERE x = char 'test'").getRowCount(), 0);
+            assertEquals(queryRunner.execute("SELECT * FROM char_trailing_space WHERE x = char 'test  '").getRowCount(), 0);
+            assertEquals(queryRunner.execute("SELECT * FROM char_trailing_space WHERE x = char 'test       '").getRowCount(), 0);
+
+            MaterializedResult result = queryRunner.execute("SELECT * FROM char_trailing_space WHERE x = char 'test      '");
+            assertEquals(result.getRowCount(), 1);
+            assertEquals(result.getMaterializedRows().get(0).getField(0), "test      ");
+        }
+
+        assertUpdate("DROP TABLE char_trailing_space");
     }
 
     private void execute(String sql)

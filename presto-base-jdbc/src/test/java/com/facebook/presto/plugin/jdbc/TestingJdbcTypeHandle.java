@@ -29,6 +29,7 @@ public final class TestingJdbcTypeHandle
     public static final JdbcTypeHandle JDBC_REAL = new JdbcTypeHandle(Types.REAL, 8, 0);
     public static final JdbcTypeHandle JDBC_DOUBLE = new JdbcTypeHandle(Types.DOUBLE, 8, 0);
 
+    public static final JdbcTypeHandle JDBC_CHAR = new JdbcTypeHandle(Types.CHAR, 10, 0);
     public static final JdbcTypeHandle JDBC_VARCHAR = new JdbcTypeHandle(Types.VARCHAR, 10, 0);
 
     public static final JdbcTypeHandle JDBC_DATE = new JdbcTypeHandle(Types.DATE, 8, 0);
