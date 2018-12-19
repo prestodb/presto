@@ -417,6 +417,7 @@ public class ClusterMemoryManager
                     }
                 }
                 if (biggestQuery != null) {
+                    log.info("Moving query %s to the reserved pool", biggestQuery.getQueryId());
                     biggestQuery.setMemoryPool(new VersionedMemoryPoolId(RESERVED_POOL, version));
                 }
             }
