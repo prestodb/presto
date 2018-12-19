@@ -99,4 +99,15 @@ public class JsonType
     {
         blockBuilder.writeBytes(value, offset, length).closeEntry();
     }
+
+    @Override
+    public boolean equals(Object other)
+    {
+        if (this == other) {
+            return true;
+        }
+        else {
+            return (other != null) && getTypeSignature().equals(((Type) other).getTypeSignature());
+        }
+    }
 }
