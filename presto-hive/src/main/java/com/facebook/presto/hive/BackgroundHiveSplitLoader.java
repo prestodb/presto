@@ -544,10 +544,10 @@ public class BackgroundHiveSplitLoader
             int tableBucketCount = bucketHandle.get().getTableBucketCount();
             int readBucketCount = bucketHandle.get().getReadBucketCount();
             List<HiveColumnHandle> bucketColumns = bucketHandle.get().getColumns();
-            if (bucketFilter.isPresent()) {
-                return Optional.of(new BucketSplitInfo(bucketColumns, tableBucketCount, readBucketCount, bucketFilter.get().getBucketsToKeep()::contains));
-            }
-            return Optional.of(new BucketSplitInfo(bucketColumns, tableBucketCount, readBucketCount, bucketNumber -> true));
+            IntPredicate predicate = bucketFilter
+                    .<IntPredicate>map(filter -> filter.getBucketsToKeep()::contains)
+                    .orElse(bucket -> true);
+            return Optional.of(new BucketSplitInfo(bucketColumns, tableBucketCount, readBucketCount, predicate));
         }
 
         private BucketSplitInfo(List<HiveColumnHandle> bucketColumns, int tableBucketCount, int readBucketCount, IntPredicate bucketFilter)
