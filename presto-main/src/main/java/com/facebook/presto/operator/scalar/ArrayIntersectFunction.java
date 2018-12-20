@@ -23,6 +23,7 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.AbstractIntComparator;
 import it.unimi.dsi.fastutil.ints.IntArrays;
@@ -48,6 +49,20 @@ public final class ArrayIntersectFunction
         pageBuilder = new PageBuilder(ImmutableList.of(elementType));
     }
 
+    private static int compareBlockValue(Type type, Block leftBlock, int left, Block rightBlock, int right)
+    {
+        if (leftBlock.isNull(left) && rightBlock.isNull(right)) {
+            return 0;
+        }
+        if (leftBlock.isNull(left)) {
+            return -1;
+        }
+        if (rightBlock.isNull(right)) {
+            return 1;
+        }
+        return type.compareTo(leftBlock, left, rightBlock, right);
+    }
+
     private static IntComparator intBlockCompare(Type type, Block block)
     {
         return new AbstractIntComparator()
@@ -55,16 +70,7 @@ public final class ArrayIntersectFunction
             @Override
             public int compare(int left, int right)
             {
-                if (block.isNull(left) && block.isNull(right)) {
-                    return 0;
-                }
-                if (block.isNull(left)) {
-                    return -1;
-                }
-                if (block.isNull(right)) {
-                    return 1;
-                }
-                return type.compareTo(block, left, block, right);
+                return compareBlockValue(type, block, left, block, right);
             }
         };
     }
@@ -119,7 +125,7 @@ public final class ArrayIntersectFunction
         while (leftCurrentPosition < leftPositionCount && rightCurrentPosition < rightPositionCount) {
             leftBasePosition = leftCurrentPosition;
             rightBasePosition = rightCurrentPosition;
-            int compareValue = type.compareTo(leftArray, leftPositions[leftCurrentPosition], rightArray, rightPositions[rightCurrentPosition]);
+            int compareValue = compareBlockValue(type, leftArray, leftPositions[leftCurrentPosition], rightArray, rightPositions[rightCurrentPosition]);
             if (compareValue > 0) {
                 rightCurrentPosition++;
             }
@@ -131,10 +137,10 @@ public final class ArrayIntersectFunction
                 leftCurrentPosition++;
                 rightCurrentPosition++;
                 totalCount++;
-                while (leftCurrentPosition < leftPositionCount && type.equalTo(leftArray, leftPositions[leftBasePosition], leftArray, leftPositions[leftCurrentPosition])) {
+                while (leftCurrentPosition < leftPositionCount && TypeUtils.positionEqualsPosition(type, leftArray, leftPositions[leftBasePosition], leftArray, leftPositions[leftCurrentPosition])) {
                     leftCurrentPosition++;
                 }
-                while (rightCurrentPosition < rightPositionCount && type.equalTo(rightArray, rightPositions[rightBasePosition], rightArray, rightPositions[rightCurrentPosition])) {
+                while (rightCurrentPosition < rightPositionCount && TypeUtils.positionEqualsPosition(type, rightArray, rightPositions[rightBasePosition], rightArray, rightPositions[rightCurrentPosition])) {
                     rightCurrentPosition++;
                 }
             }
