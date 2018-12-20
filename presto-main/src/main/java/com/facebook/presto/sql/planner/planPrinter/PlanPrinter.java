@@ -1247,7 +1247,7 @@ public class PlanPrinter
         @Override
         public Void visitEnforceSingleRow(EnforceSingleRowNode node, Integer indent)
         {
-            print(indent, "- Scalar => [%s]", formatOutputs(node.getOutputSymbols()));
+            print(indent, "- EnforceSingleRow => [%s]", formatOutputs(node.getOutputSymbols()));
             printPlanNodesStatsAndCost(indent + 2, node);
             printStats(indent + 2, node.getId());
 
