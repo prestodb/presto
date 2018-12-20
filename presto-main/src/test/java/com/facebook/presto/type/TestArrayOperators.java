@@ -1121,6 +1121,17 @@ public class TestArrayOperators
         assertFunction("ARRAY_INTERSECT(ARRAY [5.1E0, 7, 3.0E0, 4.8E0, 10], ARRAY [6.5E0, 10.0E0, 1.9E0, 5.1E0, 3.9E0, 4.8E0])", new ArrayType(DOUBLE), ImmutableList.of(4.8, 5.1, 10.0));
         assertFunction("ARRAY_INTERSECT(ARRAY [ARRAY [4, 5], ARRAY [6, 7]], ARRAY [ARRAY [4, 5], ARRAY [6, 8]])", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(4, 5)));
 
+        assertFunction("ARRAY_INTERSECT(ARRAY [0, 1, NULL], ARRAY [0, 1, NULL])", new ArrayType(INTEGER), asList(null, 0, 1));
+        assertFunction("ARRAY_INTERSECT(ARRAY [0, 0, 1, NULL], ARRAY [0, 0, 1, NULL, NULL])", new ArrayType(INTEGER), asList(null, 0, 1));
+        assertFunction("ARRAY_INTERSECT(ARRAY [0], ARRAY [0, NULL])", new ArrayType(INTEGER), ImmutableList.of(0));
+        assertFunction("ARRAY_INTERSECT(ARRAY [0.0E0], ARRAY [NULL])", new ArrayType(DOUBLE), ImmutableList.of());
+        assertFunction("ARRAY_INTERSECT(ARRAY [0.0E0, NULL, NULL], ARRAY [0.0E0, 0.0E0, NULL])", new ArrayType(DOUBLE), asList(null, 0.0));
+        assertFunction("ARRAY_INTERSECT(ARRAY [false, NULL], ARRAY [false, NULL])", new ArrayType(BOOLEAN), asList(null, false));
+        assertFunction("ARRAY_INTERSECT(ARRAY [true, true, false, false, NULL, NULL], ARRAY [true, false, false, NULL])", new ArrayType(BOOLEAN), asList(null, false, true));
+        assertFunction("ARRAY_INTERSECT(ARRAY [''], ARRAY [NULL])", new ArrayType(createVarcharType(0)), ImmutableList.of());
+        assertFunction("ARRAY_INTERSECT(ARRAY [''], ARRAY ['', NULL])", new ArrayType(createVarcharType(0)), ImmutableList.of(""));
+        assertFunction("ARRAY_INTERSECT(ARRAY [], ARRAY [NULL])", new ArrayType(UNKNOWN), ImmutableList.of());
+
         assertCachedInstanceHasBoundedRetainedSize("ARRAY_INTERSECT(ARRAY ['foo', 'bar', 'baz'], ARRAY ['foo', 'test', 'bar'])");
 
         assertFunction(
