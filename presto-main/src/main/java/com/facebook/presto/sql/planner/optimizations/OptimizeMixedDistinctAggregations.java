@@ -33,6 +33,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -151,6 +152,9 @@ public class OptimizeMixedDistinctAggregations
             // Change aggregate node to do second aggregation, handles this part of optimized plan mentioned above:
             //          SELECT a1, a2,..., an, arbitrary(if(group = 0, f1)),...., arbitrary(if(group = 0, fm)), F(if(group = 1, c))
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
+            // Add coalesce projection node to handle count(), count_if(), approx_distinct() functions return a
+            // non-null result without any input
+            ImmutableMap.Builder<Symbol, Symbol> coalesceSymbolsBuilder = ImmutableMap.builder();
             for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
                 FunctionCall functionCall = entry.getValue().getCall();
                 if (entry.getValue().getMask().isPresent()) {
@@ -167,14 +171,25 @@ public class OptimizeMixedDistinctAggregations
                     // Aggregations on non-distinct are already done by new node, just extract the non-null value
                     Symbol argument = aggregateInfo.getNewNonDistinctAggregateSymbols().get(entry.getKey());
                     QualifiedName functionName = QualifiedName.of("arbitrary");
-                    aggregations.put(entry.getKey(), new Aggregation(
+                    String signatureName = entry.getValue().getSignature().getName();
+                    Aggregation aggregation = new Aggregation(
                             new FunctionCall(functionName, functionCall.getWindow(), false, ImmutableList.of(argument.toSymbolReference())),
                             getFunctionSignature(functionName, argument),
-                            Optional.empty()));
+                            Optional.empty());
+                    if (signatureName.equals("count")
+                            || signatureName.equals("count_if") || signatureName.equals("approx_distinct")) {
+                        Symbol newSymbol = symbolAllocator.newSymbol("expr", symbolAllocator.getTypes().get(entry.getKey()));
+                        aggregations.put(newSymbol, aggregation);
+                        coalesceSymbolsBuilder.put(newSymbol, entry.getKey());
+                    }
+                    else {
+                        aggregations.put(entry.getKey(), aggregation);
+                    }
                 }
             }
+            Map<Symbol, Symbol> coalesceSymbols = coalesceSymbolsBuilder.build();
 
-            return new AggregationNode(
+            AggregationNode aggregationNode = new AggregationNode(
                     idAllocator.getNextId(),
                     source,
                     aggregations.build(),
@@ -183,6 +198,23 @@ public class OptimizeMixedDistinctAggregations
                     node.getStep(),
                     Optional.empty(),
                     node.getGroupIdSymbol());
+
+            if (coalesceSymbols.isEmpty()) {
+                return aggregationNode;
+            }
+
+            Assignments.Builder outputSymbols = Assignments.builder();
+            for (Symbol symbol : aggregationNode.getOutputSymbols()) {
+                if (coalesceSymbols.containsKey(symbol)) {
+                    Expression expression = new CoalesceExpression(symbol.toSymbolReference(), new Cast(new LongLiteral("0"), "bigint"));
+                    outputSymbols.put(coalesceSymbols.get(symbol), expression);
+                }
+                else {
+                    outputSymbols.putIdentity(symbol);
+                }
+            }
+
+            return new ProjectNode(idAllocator.getNextId(), aggregationNode, outputSymbols.build());
         }
 
         @Override
