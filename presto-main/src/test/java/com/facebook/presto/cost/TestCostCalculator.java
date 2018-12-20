@@ -117,7 +117,6 @@ public class TestCostCalculator
         TaskCountEstimator taskCountEstimator = new TaskCountEstimator(() -> NUMBER_OF_NODES);
         costCalculatorUsingExchanges = new CostCalculatorUsingExchanges(taskCountEstimator);
         costCalculatorWithEstimatedExchanges = new CostCalculatorWithEstimatedExchanges(costCalculatorUsingExchanges, taskCountEstimator);
-        planFragmenter = new PlanFragmenter(new QueryManagerConfig());
 
         session = testSessionBuilder().setCatalog("tpch").build();
 
@@ -134,6 +133,7 @@ public class TestCostCalculator
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(finalizerService));
         nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
+        planFragmenter = new PlanFragmenter(metadata, nodePartitioningManager, new QueryManagerConfig());
     }
 
     @AfterClass(alwaysRun = true)
@@ -706,7 +706,7 @@ public class TestCostCalculator
 
     private SubPlan fragment(Plan plan)
     {
-        return inTransaction(session -> planFragmenter.createSubPlans(session, metadata, nodePartitioningManager, plan, false));
+        return inTransaction(session -> planFragmenter.createSubPlans(session, plan, false));
     }
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)

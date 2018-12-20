@@ -427,7 +427,7 @@ public class SqlQueryExecution
         stateMachine.setOutput(output);
 
         // fragment the plan
-        SubPlan fragmentedPlan = planFragmenter.createSubPlans(stateMachine.getSession(), metadata, nodePartitioningManager, plan, false);
+        SubPlan fragmentedPlan = planFragmenter.createSubPlans(stateMachine.getSession(), plan, false);
 
         // record analysis time
         stateMachine.endAnalysis();

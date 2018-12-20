@@ -74,16 +74,17 @@ import static java.util.Objects.requireNonNull;
  */
 public class PlanFragmenter
 {
+    private final Metadata metadata;
+    private final NodePartitioningManager nodePartitioningManager;
+
     @Inject
-    public PlanFragmenter(QueryManagerConfig queryManagerConfig)
+    public PlanFragmenter(Metadata metadata, NodePartitioningManager nodePartitioningManager, QueryManagerConfig queryManagerConfig)
     {
-        // TODO: Remove query_max_stage_count session property and use queryManagerConfig.getMaxStageCount() here
-        this();
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
     }
 
-    private PlanFragmenter() {}
-
-    public SubPlan createSubPlans(Session session, Metadata metadata, NodePartitioningManager nodePartitioningManager, Plan plan, boolean forceSingleNode)
+    public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode)
     {
         Fragmenter fragmenter = new Fragmenter(session, metadata, plan.getTypes(), plan.getStatsAndCosts());
 
@@ -94,10 +95,12 @@ public class PlanFragmenter
         PlanNode root = SimplePlanRewriter.rewriteWith(fragmenter, plan.getRoot(), properties);
 
         SubPlan subPlan = fragmenter.buildRootFragment(root, properties);
-        subPlan = analyzeGroupedExecution(session, metadata, nodePartitioningManager, subPlan);
-        subPlan = reassignPartitioningHandleIfNecessary(session, metadata, subPlan);
+        subPlan = analyzeGroupedExecution(session, subPlan);
+        subPlan = reassignPartitioningHandleIfNecessary(session, subPlan);
 
         checkState(!isForceSingleNodeOutput(session) || subPlan.getFragment().getPartitioning().isSingleNode(), "Root of PlanFragment is not single node");
+
+        // TODO: Remove query_max_stage_count session property and use queryManagerConfig.getMaxStageCount() here
         sanityCheckFragmentedPlan(subPlan, getQueryMaxStageCount(session));
 
         return subPlan;
@@ -116,7 +119,7 @@ public class PlanFragmenter
         }
     }
 
-    private static SubPlan analyzeGroupedExecution(Session session, Metadata metadata, NodePartitioningManager nodePartitioningManager, SubPlan subPlan)
+    private SubPlan analyzeGroupedExecution(Session session, SubPlan subPlan)
     {
         PlanFragment fragment = subPlan.getFragment();
         GroupedExecutionProperties properties = fragment.getRoot().accept(new GroupedExecutionTagger(session, metadata, nodePartitioningManager), null);
@@ -125,17 +128,17 @@ public class PlanFragmenter
         }
         ImmutableList.Builder<SubPlan> result = ImmutableList.builder();
         for (SubPlan child : subPlan.getChildren()) {
-            result.add(analyzeGroupedExecution(session, metadata, nodePartitioningManager, child));
+            result.add(analyzeGroupedExecution(session, child));
         }
         return new SubPlan(fragment, result.build());
     }
 
-    private SubPlan reassignPartitioningHandleIfNecessary(Session session, Metadata metadata, SubPlan subPlan)
+    private SubPlan reassignPartitioningHandleIfNecessary(Session session, SubPlan subPlan)
     {
-        return reassignPartitioningHandleIfNecessaryHelper(session, metadata, subPlan, subPlan.getFragment().getPartitioning());
+        return reassignPartitioningHandleIfNecessaryHelper(session, subPlan, subPlan.getFragment().getPartitioning());
     }
 
-    private SubPlan reassignPartitioningHandleIfNecessaryHelper(Session session, Metadata metadata, SubPlan subPlan, PartitioningHandle newOutputPartitioningHandle)
+    private SubPlan reassignPartitioningHandleIfNecessaryHelper(Session session, SubPlan subPlan, PartitioningHandle newOutputPartitioningHandle)
     {
         PlanFragment fragment = subPlan.getFragment();
 
@@ -168,7 +171,7 @@ public class PlanFragmenter
 
         ImmutableList.Builder<SubPlan> childrenBuilder = ImmutableList.builder();
         for (SubPlan child : subPlan.getChildren()) {
-            childrenBuilder.add(reassignPartitioningHandleIfNecessaryHelper(session, metadata, child, fragment.getPartitioning()));
+            childrenBuilder.add(reassignPartitioningHandleIfNecessaryHelper(session, child, fragment.getPartitioning()));
         }
         return new SubPlan(newFragment, childrenBuilder.build());
     }
