@@ -331,7 +331,6 @@ public class PlanFragmenter
         private final PartitioningScheme partitioningScheme;
 
         private Optional<PartitioningHandle> partitioningHandle = Optional.empty();
-        private boolean needPartitioningHandleReassignment;
         private final Set<PlanNodeId> partitionedSources = new HashSet<>();
 
         public FragmentProperties(PartitioningScheme partitioningScheme)
@@ -390,7 +389,6 @@ public class PlanFragmenter
 
             Optional<PartitioningHandle> commonPartitioning = metadata.getCommonPartitioning(session, currentPartitioning, distribution);
             if (commonPartitioning.isPresent()) {
-                needPartitioningHandleReassignment = true;
                 partitioningHandle = commonPartitioning;
                 return this;
             }
@@ -456,7 +454,6 @@ public class PlanFragmenter
 
             Optional<PartitioningHandle> commonPartitioning = metadata.getCommonPartitioning(session, currentPartitioning, distribution);
             if (commonPartitioning.isPresent()) {
-                needPartitioningHandleReassignment = true;
                 partitioningHandle = commonPartitioning;
                 return this;
             }
@@ -481,11 +478,6 @@ public class PlanFragmenter
         public PartitioningHandle getPartitioningHandle()
         {
             return partitioningHandle.get();
-        }
-
-        public boolean isNeedPartitioningHandleReassignment()
-        {
-            return needPartitioningHandleReassignment;
         }
 
         public Set<PlanNodeId> getPartitionedSources()
