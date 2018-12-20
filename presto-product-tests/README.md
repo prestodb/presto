@@ -131,12 +131,12 @@ The Presto product tests must be run explicitly because they do not run
 as part of the Maven build like the unit tests do. Note that the product
 tests cannot be run in parallel. This means that only one instance of a
 test can be run at once in a given environment. To run all product
-tests and exclude the `quarantine`, `big_query` and `profile_specific_tests`
+tests and exclude the `quarantine` and `profile_specific_tests`
 groups run the following command:
 
 ```
 ./mvnw install -DskipTests
-presto-product-tests/bin/run_on_docker.sh <profile> -x quarantine,big_query,profile_specific_tests
+presto-product-tests/bin/run_on_docker.sh <profile> -x quarantine,profile_specific_tests
 ```
 
 where profile is one of either:
@@ -284,7 +284,7 @@ and also the entire test suite:
 be any one of the available profiles:
 
     ```
-    presto-product-tests/bin/run_on_docker.sh <profile> -x quarantine,big_query,profile_specific_tests
+    presto-product-tests/bin/run_on_docker.sh <profile> -x quarantine,profile_specific_tests
     ```
 
 Note: SQL Server product-tests use `microsoft/mssql-server-linux` docker container.
@@ -306,7 +306,7 @@ export PRESTO_CLI_JAR=/tmp/artifacts/presto-cli-executable.jar
 export PRODUCT_TESTS_JAR=/tmp/artifacts/presto-product-tests-executable.jar
 export PRESTO_JDBC_DRIVER_JAR=libs/PrestoJDBC42.jar
 export PRESTO_JDBC_DRIVER_CLASS=com.teradata.presto.jdbc42.Driver
-presto-product-tests/bin/run_on_docker.sh multinode -x quarantine,big_query,profile_specific_tests
+presto-product-tests/bin/run_on_docker.sh multinode -x quarantine,profile_specific_tests
 ```
 
 To override tempto configuration put a new file into `presto-product-tests/conf/EXTRA_TEMPTO_CONFIG.yml` 
