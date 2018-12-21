@@ -32,7 +32,6 @@ public class TestNodeMemoryConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(NodeMemoryConfig.class)
-                .setLegacySystemPoolEnabled(false)
                 .setMaxQueryMemoryPerNode(new DataSize(AVAILABLE_HEAP_MEMORY * 0.1, BYTE))
                 .setMaxQueryTotalMemoryPerNode(new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE))
                 .setHeapHeadroom(new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE))
@@ -46,12 +45,10 @@ public class TestNodeMemoryConfig
                 .put("query.max-memory-per-node", "1GB")
                 .put("query.max-total-memory-per-node", "3GB")
                 .put("memory.heap-headroom-per-node", "1GB")
-                .put("deprecated.legacy-system-pool-enabled", "true")
                 .put("experimental.reserved-pool-enabled", "false")
                 .build();
 
         NodeMemoryConfig expected = new NodeMemoryConfig()
-                .setLegacySystemPoolEnabled(true)
                 .setMaxQueryMemoryPerNode(new DataSize(1, GIGABYTE))
                 .setMaxQueryTotalMemoryPerNode(new DataSize(3, GIGABYTE))
                 .setHeapHeadroom(new DataSize(1, GIGABYTE))

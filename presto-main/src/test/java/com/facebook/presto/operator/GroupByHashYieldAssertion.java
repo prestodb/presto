@@ -14,8 +14,8 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
-import com.facebook.presto.memory.DefaultQueryContext;
 import com.facebook.presto.memory.MemoryPool;
+import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
@@ -79,7 +79,7 @@ public final class GroupByHashYieldAssertion
         // mock an adjustable memory pool
         QueryId queryId = new QueryId("test_query");
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
-        DefaultQueryContext queryContext = new DefaultQueryContext(
+        QueryContext queryContext = new QueryContext(
                 queryId,
                 new DataSize(512, MEGABYTE),
                 new DataSize(1024, MEGABYTE),

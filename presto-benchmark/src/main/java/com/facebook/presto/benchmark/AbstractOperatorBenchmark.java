@@ -17,8 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
-import com.facebook.presto.memory.DefaultQueryContext;
 import com.facebook.presto.memory.MemoryPool;
+import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.Split;
@@ -278,7 +278,7 @@ public abstract class AbstractOperatorBenchmark
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
 
-        TaskContext taskContext = new DefaultQueryContext(
+        TaskContext taskContext = new QueryContext(
                 new QueryId("test"),
                 new DataSize(256, MEGABYTE),
                 new DataSize(512, MEGABYTE),

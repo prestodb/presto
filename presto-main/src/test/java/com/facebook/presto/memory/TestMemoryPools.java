@@ -92,7 +92,7 @@ public class TestMemoryPools
         userPool = new MemoryPool(new MemoryPoolId("test"), TEN_MEGABYTES);
         fakeQueryId = new QueryId("fake");
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
-        DefaultQueryContext queryContext = new DefaultQueryContext(new QueryId("query"),
+        QueryContext queryContext = new QueryContext(new QueryId("query"),
                 TEN_MEGABYTES,
                 new DataSize(20, MEGABYTE),
                 userPool,
