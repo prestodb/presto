@@ -91,29 +91,34 @@ public class TestDiscoveryNodeManager
     public void testGetAllNodes()
     {
         DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, nodeInfo, new NoOpFailureDetector(), expectedVersion, testHttpClient, internalCommunicationConfig);
-        AllNodes allNodes = manager.getAllNodes();
+        try {
+            AllNodes allNodes = manager.getAllNodes();
 
-        Set<Node> activeNodes = allNodes.getActiveNodes();
-        assertEqualsIgnoreOrder(activeNodes, this.activeNodes);
+            Set<Node> activeNodes = allNodes.getActiveNodes();
+            assertEqualsIgnoreOrder(activeNodes, this.activeNodes);
 
-        for (Node actual : activeNodes) {
-            for (Node expected : this.activeNodes) {
-                assertNotSame(actual, expected);
+            for (Node actual : activeNodes) {
+                for (Node expected : this.activeNodes) {
+                    assertNotSame(actual, expected);
+                }
             }
-        }
 
-        assertEqualsIgnoreOrder(activeNodes, manager.getNodes(ACTIVE));
+            assertEqualsIgnoreOrder(activeNodes, manager.getNodes(ACTIVE));
 
-        Set<Node> inactiveNodes = allNodes.getInactiveNodes();
-        assertEqualsIgnoreOrder(inactiveNodes, this.inactiveNodes);
+            Set<Node> inactiveNodes = allNodes.getInactiveNodes();
+            assertEqualsIgnoreOrder(inactiveNodes, this.inactiveNodes);
 
-        for (Node actual : inactiveNodes) {
-            for (Node expected : this.inactiveNodes) {
-                assertNotSame(actual, expected);
+            for (Node actual : inactiveNodes) {
+                for (Node expected : this.inactiveNodes) {
+                    assertNotSame(actual, expected);
+                }
             }
-        }
 
-        assertEqualsIgnoreOrder(inactiveNodes, manager.getNodes(INACTIVE));
+            assertEqualsIgnoreOrder(inactiveNodes, manager.getNodes(INACTIVE));
+        }
+        finally {
+            manager.stop();
+        }
     }
 
     @Test
@@ -126,15 +131,24 @@ public class TestDiscoveryNodeManager
                 .setNodeId(expected.getNodeIdentifier()));
 
         DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, nodeInfo, new NoOpFailureDetector(), expectedVersion, testHttpClient, internalCommunicationConfig);
-
-        assertEquals(manager.getCurrentNode(), expected);
+        try {
+            assertEquals(manager.getCurrentNode(), expected);
+        }
+        finally {
+            manager.stop();
+        }
     }
 
     @Test
     public void testGetCoordinators()
     {
-        InternalNodeManager manager = new DiscoveryNodeManager(selector, nodeInfo, new NoOpFailureDetector(), expectedVersion, testHttpClient, internalCommunicationConfig);
-        assertEquals(manager.getCoordinators(), ImmutableSet.of(coordinator));
+        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, nodeInfo, new NoOpFailureDetector(), expectedVersion, testHttpClient, internalCommunicationConfig);
+        try {
+            assertEquals(manager.getCoordinators(), ImmutableSet.of(coordinator));
+        }
+        finally {
+            manager.stop();
+        }
     }
 
     @SuppressWarnings("ResultOfObjectAllocationIgnored")
