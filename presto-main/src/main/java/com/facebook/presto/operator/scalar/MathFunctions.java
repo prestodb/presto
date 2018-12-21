@@ -161,19 +161,6 @@ public final class MathFunctions
         }
     }
 
-    @ScalarFunction("log")
-    @Description("logarithm to given base")
-    public static final class LegacyLogFunction
-    {
-        private LegacyLogFunction() {}
-
-        @SqlType(StandardTypes.DOUBLE)
-        public static double log(@SqlType(StandardTypes.DOUBLE) double number, @SqlType(StandardTypes.DOUBLE) double base)
-        {
-            return Math.log(number) / Math.log(base);
-        }
-    }
-
     @Description("absolute value")
     @ScalarFunction("abs")
     @SqlType(StandardTypes.REAL)

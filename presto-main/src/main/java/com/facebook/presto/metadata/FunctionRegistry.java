@@ -112,7 +112,6 @@ import com.facebook.presto.operator.scalar.MapNotEqualOperator;
 import com.facebook.presto.operator.scalar.MapSubscriptOperator;
 import com.facebook.presto.operator.scalar.MapValues;
 import com.facebook.presto.operator.scalar.MathFunctions;
-import com.facebook.presto.operator.scalar.MathFunctions.LegacyLogFunction;
 import com.facebook.presto.operator.scalar.MultimapFromEntriesFunction;
 import com.facebook.presto.operator.scalar.QuantileDigestFunctions;
 import com.facebook.presto.operator.scalar.Re2JRegexpFunctions;
@@ -655,10 +654,6 @@ public class FunctionRegistry
                 builder.scalars(Re2JRegexpFunctions.class);
                 builder.scalar(Re2JRegexpReplaceLambdaFunction.class);
                 break;
-        }
-
-        if (featuresConfig.isLegacyLogFunction()) {
-            builder.scalar(LegacyLogFunction.class);
         }
 
         addFunctions(builder.getFunctions());

@@ -474,20 +474,6 @@ public class TestMathFunctions
     }
 
     @Test
-    public void testLog()
-    {
-        for (double doubleValue : DOUBLE_VALUES) {
-            for (double base : DOUBLE_VALUES) {
-                assertFunction("log(" + doubleValue + ", " + base + ")", DOUBLE, Math.log(doubleValue) / Math.log(base));
-                assertFunction("log(REAL '" + (float) doubleValue + "', REAL'" + (float) base + "')", DOUBLE, Math.log((float) doubleValue) / Math.log((float) base));
-            }
-        }
-        assertFunction("log(NULL, NULL)", DOUBLE, null);
-        assertFunction("log(5.0E0, NULL)", DOUBLE, null);
-        assertFunction("log(NULL, 5.0E0)", DOUBLE, null);
-    }
-
-    @Test
     public void testMod()
     {
         for (int left : intLefts) {
