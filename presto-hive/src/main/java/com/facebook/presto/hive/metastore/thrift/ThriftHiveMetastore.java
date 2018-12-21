@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import io.airlift.units.Duration;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
@@ -113,18 +114,28 @@ public class ThriftHiveMetastore
     private final ThriftHiveMetastoreStats stats;
     private final HiveCluster clientProvider;
     private final Function<Exception, Exception> exceptionMapper;
+    private final double scaleFactor;
+    private final Duration minBackoffDelay;
+    private final Duration maxBackoffDelay;
+    private final Duration maxRetryTime;
+    private final int maxRetries;
 
     @Inject
-    public ThriftHiveMetastore(HiveCluster hiveCluster)
+    public ThriftHiveMetastore(HiveCluster hiveCluster, ThriftHiveMetastoreConfig thriftConfig)
     {
-        this(hiveCluster, new ThriftHiveMetastoreStats(), identity());
+        this(hiveCluster, new ThriftHiveMetastoreStats(), identity(), thriftConfig);
     }
 
-    public ThriftHiveMetastore(HiveCluster hiveCluster, ThriftHiveMetastoreStats stats, Function<Exception, Exception> exceptionMapper)
+    public ThriftHiveMetastore(HiveCluster hiveCluster, ThriftHiveMetastoreStats stats, Function<Exception, Exception> exceptionMapper, ThriftHiveMetastoreConfig thriftConfig)
     {
         this.clientProvider = requireNonNull(hiveCluster, "hiveCluster is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.exceptionMapper = requireNonNull(exceptionMapper, "exceptionMapper is null");
+        this.scaleFactor = thriftConfig.getBackoffScaleFactor();
+        this.minBackoffDelay = thriftConfig.getMinBackoffDelay();
+        this.maxBackoffDelay = thriftConfig.getMaxBackoffDelay();
+        this.maxRetryTime = thriftConfig.getMaxRetryTime();
+        this.maxRetries = thriftConfig.getMaxRetries();
     }
 
     @Managed
@@ -1235,6 +1246,12 @@ public class ThriftHiveMetastore
     private RetryDriver retry()
     {
         return RetryDriver.retry()
+                .exponentialBackoff(
+                        minBackoffDelay,
+                        maxBackoffDelay,
+                        maxRetryTime,
+                        scaleFactor)
+                .maxAttempts(maxRetries + 1)
                 .exceptionMapper(exceptionMapper)
                 .stopOn(PrestoException.class);
     }
