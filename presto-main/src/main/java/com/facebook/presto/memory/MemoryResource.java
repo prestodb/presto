@@ -28,7 +28,6 @@ import javax.ws.rs.core.Response;
 
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
-import static com.facebook.presto.memory.LocalMemoryManager.SYSTEM_POOL;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
@@ -63,10 +62,6 @@ public class MemoryResource
     {
         if (GENERAL_POOL.getId().equals(poolId)) {
             return toSuccessfulResponse(memoryManager.getGeneralPool().getInfo());
-        }
-
-        if (SYSTEM_POOL.getId().equals(poolId) && memoryManager.getSystemPool().isPresent()) {
-            return toSuccessfulResponse(memoryManager.getSystemPool().get().getInfo());
         }
 
         if (RESERVED_POOL.getId().equals(poolId) && memoryManager.getReservedPool().isPresent()) {

@@ -16,8 +16,8 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.executor.TaskExecutor;
-import com.facebook.presto.memory.DefaultQueryContext;
 import com.facebook.presto.memory.MemoryPool;
+import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.OperatorContext;
@@ -293,7 +293,7 @@ public class TestMemoryRevokingScheduler
                 taskId,
                 location,
                 "fake",
-                new DefaultQueryContext(new QueryId("query"),
+                new QueryContext(new QueryId("query"),
                         new DataSize(1, MEGABYTE),
                         new DataSize(2, MEGABYTE),
                         memoryPool,

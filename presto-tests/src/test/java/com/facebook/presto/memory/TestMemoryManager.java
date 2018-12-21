@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -340,21 +339,14 @@ public class TestMemoryManager
         return stats.isFullyBlocked() || stats.getRunningDrivers() == 0;
     }
 
-    @DataProvider(name = "legacy_system_pool_enabled")
-    public Object[][] legacySystemPoolEnabled()
-    {
-        return new Object[][] {{true}, {false}};
-    }
-
-    @Test(timeOut = 60_000, dataProvider = "legacy_system_pool_enabled", expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded distributed user memory limit of 1kB.*")
-    public void testQueryUserMemoryLimit(boolean systemPoolEnabled)
+    @Test(timeOut = 60_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded distributed user memory limit of 1kB.*")
+    public void testQueryUserMemoryLimit()
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("task.max-partial-aggregation-memory", "1B")
                 .put("query.max-memory", "1kB")
                 .put("query.max-total-memory", "1GB")
-                .put("deprecated.legacy-system-pool-enabled", String.valueOf(systemPoolEnabled))
                 .build();
         try (QueryRunner queryRunner = createQueryRunner(SESSION, properties)) {
             queryRunner.execute(SESSION, "SELECT COUNT(*), repeat(orderstatus, 1000) FROM orders GROUP BY 2");
