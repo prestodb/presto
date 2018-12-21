@@ -453,6 +453,14 @@ public final class MathFunctions
         return Math.log(num);
     }
 
+    @Description("logarithm to given base")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double log(@SqlType(StandardTypes.DOUBLE) double base, @SqlType(StandardTypes.DOUBLE) double number)
+    {
+        return Math.log(number) / Math.log(base);
+    }
+
     @Description("logarithm to base 2")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
