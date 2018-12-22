@@ -17,6 +17,7 @@ import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.failureDetector.FailureDetector;
+import com.facebook.presto.server.AutoScaleResource.ShrinkNodeInfo;
 import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeState;
@@ -43,6 +44,7 @@ import javax.inject.Inject;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -91,6 +93,9 @@ public final class DiscoveryNodeManager
 
     @GuardedBy("this")
     private Set<Node> coordinators;
+
+    @GuardedBy("this")
+    private Map<String, ShrinkNodeInfo> shrinkMap;
 
     @Inject
     public DiscoveryNodeManager(
@@ -187,6 +192,14 @@ public final class DiscoveryNodeManager
                 if (node.getNodeIdentifier().equals(nodeInfo.getNodeId())) {
                     currentNode = node;
                     checkState(currentNode.getNodeVersion().equals(expectedNodeVersion), "INVARIANT: current node version (%s) should be equal to %s", currentNode.getNodeVersion(), expectedNodeVersion);
+                }
+
+                if (shrinkMap != null) {
+                    ShrinkNodeInfo sni = shrinkMap.get(node.getNodeIdentifier());
+                    if (sni != null && System.currentTimeMillis() - sni.shrinkTime > 120000L && nodeState == ACTIVE) {
+                        log.info("Treat as INACTIVE %s", node);
+                        nodeState = INACTIVE;
+                    }
                 }
 
                 switch (nodeState) {
@@ -348,5 +361,10 @@ public final class DiscoveryNodeManager
     private static boolean isCoordinator(ServiceDescriptor service)
     {
         return Boolean.parseBoolean(service.getProperties().get("coordinator"));
+    }
+
+    public synchronized void reportShrinkMap(Map<String, ShrinkNodeInfo> shrinkMap)
+    {
+        this.shrinkMap = shrinkMap;
     }
 }
