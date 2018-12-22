@@ -56,7 +56,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -773,27 +772,6 @@ public class Analysis
         public Identity getIdentity()
         {
             return identity;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            AccessControlInfo that = (AccessControlInfo) o;
-            return Objects.equals(accessControl, that.accessControl) &&
-                    Objects.equals(identity, that.identity);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(accessControl, identity);
         }
 
         @Override
