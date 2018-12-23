@@ -45,7 +45,6 @@ public class SystemConnectorTests
     public void selectRuntimeQueries()
     {
         String sql = "SELECT" +
-                "  node_id," +
                 "  query_id," +
                 "  state," +
                 "  user," +
@@ -61,7 +60,7 @@ public class SystemConnectorTests
                 "FROM system.runtime.queries";
         JDBCType arrayType = usingTeradataJdbcDriver(defaultQueryExecutor().getConnection()) ? VARCHAR : ARRAY;
         assertThat(query(sql))
-                .hasColumns(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, arrayType,
+                .hasColumns(VARCHAR, VARCHAR, VARCHAR, VARCHAR, arrayType,
                         BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, VARCHAR)
                 .hasAnyRows();
     }
