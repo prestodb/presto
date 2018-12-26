@@ -54,7 +54,14 @@ public final class ScalarFunctionImplementation
             Optional<MethodHandle> instanceFactory,
             boolean deterministic)
     {
-        this(ImmutableList.of(new ScalarImplementationChoice(nullable, argumentProperties, methodHandle, instanceFactory)), deterministic);
+        this(
+                ImmutableList.of(new ScalarImplementationChoice(
+                        nullable,
+                        argumentProperties,
+                        ReturnPlaceConvention.STACK,
+                        methodHandle,
+                        instanceFactory)),
+                deterministic);
     }
 
     /**
@@ -107,6 +114,7 @@ public final class ScalarFunctionImplementation
     {
         private final boolean nullable;
         private final List<ArgumentProperty> argumentProperties;
+        private final ReturnPlaceConvention returnPlaceConvention;
         private final MethodHandle methodHandle;
         private final Optional<MethodHandle> instanceFactory;
         private final boolean hasSession;
@@ -114,11 +122,13 @@ public final class ScalarFunctionImplementation
         public ScalarImplementationChoice(
                 boolean nullable,
                 List<ArgumentProperty> argumentProperties,
+                ReturnPlaceConvention returnPlaceConvention,
                 MethodHandle methodHandle,
                 Optional<MethodHandle> instanceFactory)
         {
             this.nullable = nullable;
             this.argumentProperties = ImmutableList.copyOf(requireNonNull(argumentProperties, "argumentProperties is null"));
+            this.returnPlaceConvention = requireNonNull(returnPlaceConvention, "returnPlaceConvention is null");
             this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
             this.instanceFactory = requireNonNull(instanceFactory, "instanceFactory is null");
 
@@ -156,6 +166,11 @@ public final class ScalarFunctionImplementation
         public ArgumentProperty getArgumentProperty(int argumentIndex)
         {
             return argumentProperties.get(argumentIndex);
+        }
+
+        public ReturnPlaceConvention getReturnPlaceConvention()
+        {
+            return returnPlaceConvention;
         }
 
         public MethodHandle getMethodHandle()
@@ -278,5 +293,10 @@ public final class ScalarFunctionImplementation
     {
         VALUE_TYPE,
         FUNCTION_TYPE
+    }
+
+    public enum ReturnPlaceConvention
+    {
+        STACK
     }
 }
