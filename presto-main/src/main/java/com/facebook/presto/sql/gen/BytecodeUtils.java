@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ReturnPlaceConvention;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -181,6 +182,11 @@ public final class BytecodeUtils
         List<ScalarImplementationChoice> choices = function.getAllChoices();
         ScalarImplementationChoice bestChoice = null;
         for (ScalarImplementationChoice currentChoice : choices) {
+            if (currentChoice.getReturnPlaceConvention() != ReturnPlaceConvention.STACK) {
+                // TODO: support other return place convention
+                continue;
+            }
+
             boolean isValid = true;
             for (int i = 0; i < arguments.size(); i++) {
                 if (currentChoice.getArgumentProperty(i).getArgumentType() != VALUE_TYPE) {
