@@ -231,6 +231,12 @@ public final class StandardReadMappings
 
             case Types.TIMESTAMP:
                 return Optional.of(timestampReadMapping());
+
+            case Types.OTHER:
+                if (columnSize > VarcharType.MAX_LENGTH) {
+                    return Optional.of(varcharReadMapping(createUnboundedVarcharType()));
+                }
+                return Optional.of(varcharReadMapping(createVarcharType(columnSize)));
         }
         return Optional.empty();
     }
