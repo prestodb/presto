@@ -338,8 +338,12 @@ The CSV decoder converts the bytes representing a message or key into a
 string using UTF-8 encoding and then interprets the result as a CSV
 (comma-separated value) line.
 
-For fields, the ``type`` and ``mapping`` attributes must be defined.
-``dataFormat and ``formatHint`` are not supported and must be omitted.
+For fields, the ``type`` and ``mapping`` attributes must be defined:
+
+* ``type`` - Presto data type (see table below for list of supported data types)
+* ``mapping`` - the index of the field in the CSV record
+
+``dataFormat`` and ``formatHint`` are not supported and must be omitted.
 
 Table below lists supported Presto types which can be used in ``type`` and decoding scheme:
 
