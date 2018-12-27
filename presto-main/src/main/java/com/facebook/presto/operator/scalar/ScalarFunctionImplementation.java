@@ -297,6 +297,7 @@ public final class ScalarFunctionImplementation
 
     public enum ReturnPlaceConvention
     {
-        STACK
+        STACK,
+        PROVIDED_BLOCK
     }
 }
