@@ -130,9 +130,7 @@ public class DefaultQueryContext
     private synchronized ListenableFuture<?> updateUserMemory(String allocationTag, long delta)
     {
         if (delta >= 0) {
-            if (queryMemoryContext.getUserMemory() + delta > maxUserMemory) {
-                throw exceededLocalUserMemoryLimit(succinctBytes(maxUserMemory));
-            }
+            enforceUserMemoryLimit(queryMemoryContext.getUserMemory(), delta, maxUserMemory);
             return memoryPool.reserve(queryId, allocationTag, delta);
         }
         memoryPool.free(queryId, allocationTag, -delta);
@@ -170,9 +168,7 @@ public class DefaultQueryContext
         // RootAggregatedMemoryContext instance and this will be acquired in the same order).
         long totalMemory = memoryPool.getQueryMemoryReservation(queryId);
         if (delta >= 0) {
-            if (totalMemory + delta > maxTotalMemory) {
-                throw exceededLocalTotalMemoryLimit(succinctBytes(maxTotalMemory));
-            }
+            enforceTotalMemoryLimit(totalMemory, delta, maxTotalMemory);
             return memoryPool.reserve(queryId, allocationTag, delta);
         }
         memoryPool.free(queryId, allocationTag, -delta);
@@ -322,5 +318,19 @@ public class DefaultQueryContext
     private boolean tryReserveMemoryNotSupported(String allocationTag, long bytes)
     {
         throw new UnsupportedOperationException("tryReserveMemory is not supported");
+    }
+
+    private static void enforceUserMemoryLimit(long allocated, long delta, long maxMemory)
+    {
+        if (allocated + delta > maxMemory) {
+            throw exceededLocalUserMemoryLimit(succinctBytes(maxMemory), succinctBytes(allocated), succinctBytes(delta));
+        }
+    }
+
+    private static void enforceTotalMemoryLimit(long allocated, long delta, long maxMemory)
+    {
+        if (allocated + delta > maxMemory) {
+            throw exceededLocalTotalMemoryLimit(succinctBytes(maxMemory), succinctBytes(allocated), succinctBytes(delta));
+        }
     }
 }

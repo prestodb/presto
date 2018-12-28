@@ -161,7 +161,7 @@ public class TestOrderByOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
-    @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node user memory limit of 10B")
+    @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node user memory limit of 10B when increasing allocation of 0B by .*")
     public void testMemoryLimit()
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)

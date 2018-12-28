@@ -308,7 +308,7 @@ public class TestHashAggregationOperator
         assertEquals(operator.getOperatorContext().getOperatorStats().getUserMemoryReservation().toBytes(), 0);
     }
 
-    @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node user memory limit of 10B")
+    @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node user memory limit of 10B when increasing allocation of 0B by .*")
     public void testMemoryLimit(boolean hashEnabled)
     {
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
@@ -425,7 +425,7 @@ public class TestHashAggregationOperator
         assertEquals(count, 6_000 * 600);
     }
 
-    @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node user memory limit of 3MB")
+    @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node user memory limit of 3MB when increasing allocation of 0B by .*")
     public void testHashBuilderResizeLimit(boolean hashEnabled)
     {
         BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1, MAX_BLOCK_SIZE_IN_BYTES);
