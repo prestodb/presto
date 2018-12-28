@@ -169,6 +169,7 @@ public class TestQueryStats
             new DataSize(20, BYTE),
             new DataSize(21, BYTE),
             new DataSize(22, BYTE),
+            new DataSize(23, BYTE),
 
             true,
             new Duration(20, NANOSECONDS),
@@ -241,6 +242,8 @@ public class TestQueryStats
         assertEquals(actual.getTotalMemoryReservation(), new DataSize(19, BYTE));
         assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(20, BYTE));
         assertEquals(actual.getPeakTotalMemoryReservation(), new DataSize(21, BYTE));
+        assertEquals(actual.getPeakTaskUserMemory(), new DataSize(22, BYTE));
+        assertEquals(actual.getPeakTaskTotalMemory(), new DataSize(23, BYTE));
         assertEquals(actual.getSpilledDataSize(), new DataSize(690, BYTE));
 
         assertEquals(actual.getTotalScheduledTime(), new Duration(20, NANOSECONDS));
