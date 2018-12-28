@@ -2381,6 +2381,11 @@ public class TestHiveIntegrationSmokeTest
                             "WITH (bucket_count = 13, bucketed_by = ARRAY['keyD']) AS\n" +
                             "SELECT orderkey keyD, comment valueD FROM orders CROSS JOIN UNNEST(repeat(NULL, 2))",
                     30000);
+            assertUpdate(
+                    "CREATE TABLE test_grouped_window\n" +
+                            "WITH (bucket_count = 5, bucketed_by = ARRAY['key']) AS\n" +
+                            "SELECT custkey key, orderkey value FROM orders WHERE custkey <= 5 ORDER BY orderkey LIMIT 10",
+                    10);
 
             // NOT grouped execution; default
             Session notColocated = Session.builder(getSession())
@@ -2736,6 +2741,54 @@ public class TestHiveIntegrationSmokeTest
             assertQuery(colocatedOneGroupAtATimeDynamic, chainedSharedBuildOuterJoin, expectedChainedOuterJoinResult, assertRemoteExchangesCount(2));
 
             //
+            // Window function
+            // ===============
+            assertQuery(
+                    colocatedOneGroupAtATime,
+                    "SELECT key, count(*) OVER (PARTITION BY key ORDER BY value) FROM test_grouped_window",
+                    "VALUES\n" +
+                            "(1, 1),\n" +
+                            "(2, 1),\n" +
+                            "(2, 2),\n" +
+                            "(4, 1),\n" +
+                            "(4, 2),\n" +
+                            "(4, 3),\n" +
+                            "(4, 4),\n" +
+                            "(4, 5),\n" +
+                            "(5, 1),\n" +
+                            "(5, 2)",
+                    assertRemoteExchangesCount(1));
+
+            assertQuery(
+                    colocatedOneGroupAtATime,
+                    "SELECT key, row_number() OVER (PARTITION BY key ORDER BY value) FROM test_grouped_window",
+                    "VALUES\n" +
+                            "(1, 1),\n" +
+                            "(2, 1),\n" +
+                            "(2, 2),\n" +
+                            "(4, 1),\n" +
+                            "(4, 2),\n" +
+                            "(4, 3),\n" +
+                            "(4, 4),\n" +
+                            "(4, 5),\n" +
+                            "(5, 1),\n" +
+                            "(5, 2)",
+                    assertRemoteExchangesCount(1));
+
+            assertQuery(
+                    colocatedOneGroupAtATime,
+                    "SELECT key, n FROM (SELECT key, row_number() OVER (PARTITION BY key ORDER BY value) AS n FROM test_grouped_window) WHERE n <= 2",
+                    "VALUES\n" +
+                            "(1, 1),\n" +
+                            "(2, 1),\n" +
+                            "(2, 2),\n" +
+                            "(4, 1),\n" +
+                            "(4, 2),\n" +
+                            "(5, 1),\n" +
+                            "(5, 2)",
+                    assertRemoteExchangesCount(1));
+
+            //
             // Filter out all or majority of splits
             // ====================================
             @Language("SQL") String noSplits =
@@ -2778,6 +2831,7 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate("DROP TABLE IF EXISTS test_grouped_join3");
             assertUpdate("DROP TABLE IF EXISTS test_grouped_joinN");
             assertUpdate("DROP TABLE IF EXISTS test_grouped_joinDual");
+            assertUpdate("DROP TABLE IF EXISTS test_grouped_window");
         }
     }
 
