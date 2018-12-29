@@ -24,7 +24,6 @@ import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
-import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.testing.MaterializedResult;
@@ -94,7 +93,7 @@ public class TestingPrestoClient
     @Override
     protected ResultsSession<MaterializedResult> getResultSession(Session session)
     {
-        return new MaterializedResultSession(session);
+        return new MaterializedResultSession();
     }
 
     private class MaterializedResultSession
@@ -107,13 +106,6 @@ public class TestingPrestoClient
 
         private final AtomicReference<Optional<String>> updateType = new AtomicReference<>(Optional.empty());
         private final AtomicReference<OptionalLong> updateCount = new AtomicReference<>(OptionalLong.empty());
-
-        private final TimeZoneKey timeZoneKey;
-
-        private MaterializedResultSession(Session session)
-        {
-            this.timeZoneKey = session.getTimeZoneKey();
-        }
 
         @Override
         public void setUpdateType(String type)
@@ -140,7 +132,7 @@ public class TestingPrestoClient
 
             if (data.getData() != null) {
                 checkState(types.get() != null, "data received without types");
-                rows.addAll(transform(data.getData(), dataToRow(timeZoneKey, types.get())));
+                rows.addAll(transform(data.getData(), dataToRow(types.get())));
             }
         }
 
@@ -158,7 +150,7 @@ public class TestingPrestoClient
         }
     }
 
-    private static Function<List<Object>, MaterializedRow> dataToRow(final TimeZoneKey timeZoneKey, final List<Type> types)
+    private static Function<List<Object>, MaterializedRow> dataToRow(final List<Type> types)
     {
         return data -> {
             checkArgument(data.size() == types.size(), "columns size does not match types size");
@@ -166,13 +158,13 @@ public class TestingPrestoClient
             for (int i = 0; i < data.size(); i++) {
                 Object value = data.get(i);
                 Type type = types.get(i);
-                row.add(convertToRowValue(type, value, timeZoneKey));
+                row.add(convertToRowValue(type, value));
             }
             return new MaterializedRow(DEFAULT_PRECISION, row);
         };
     }
 
-    private static Object convertToRowValue(Type type, Object value, TimeZoneKey timeZoneKey)
+    private static Object convertToRowValue(Type type, Object value)
     {
         if (value == null) {
             return null;
@@ -237,14 +229,14 @@ public class TestingPrestoClient
         }
         else if (type instanceof ArrayType) {
             return ((List<Object>) value).stream()
-                    .map(element -> convertToRowValue(((ArrayType) type).getElementType(), element, timeZoneKey))
+                    .map(element -> convertToRowValue(((ArrayType) type).getElementType(), element))
                     .collect(toList());
         }
         else if (type instanceof MapType) {
             return ((Map<Object, Object>) value).entrySet().stream()
                     .collect(Collectors.toMap(
-                            e -> convertToRowValue(((MapType) type).getKeyType(), e.getKey(), timeZoneKey),
-                            e -> convertToRowValue(((MapType) type).getValueType(), e.getValue(), timeZoneKey)));
+                            e -> convertToRowValue(((MapType) type).getKeyType(), e.getKey()),
+                            e -> convertToRowValue(((MapType) type).getValueType(), e.getValue())));
         }
         else if (type instanceof DecimalType) {
             return new BigDecimal((String) value);
