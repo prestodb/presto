@@ -22,7 +22,7 @@ import static java.util.Objects.requireNonNull;
 public class IndexedTpchPlugin
         implements Plugin
 {
-    private TpchIndexSpec indexSpec;
+    private final TpchIndexSpec indexSpec;
 
     public IndexedTpchPlugin(TpchIndexSpec indexSpec)
     {

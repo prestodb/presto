@@ -42,10 +42,10 @@ import static java.util.function.Function.identity;
 
 public class DataType<T>
 {
-    private String insertType;
-    private Type prestoResultType;
-    private Function<T, String> toLiteral;
-    private Function<T, ?> toPrestoQueryResult;
+    private final String insertType;
+    private final Type prestoResultType;
+    private final Function<T, String> toLiteral;
+    private final Function<T, ?> toPrestoQueryResult;
 
     public static DataType<Boolean> booleanDataType()
     {
