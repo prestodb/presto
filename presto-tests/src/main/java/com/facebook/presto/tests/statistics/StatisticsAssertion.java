@@ -33,7 +33,7 @@ import static com.facebook.presto.tests.statistics.Metrics.nullsFraction;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.assertSame;
 
 public class StatisticsAssertion
         implements AutoCloseable
@@ -136,7 +136,7 @@ public class StatisticsAssertion
             for (int i = 0; i < checks.size(); i++) {
                 MetricsCheck check = checks.get(i);
                 MetricComparison metricComparison = metricComparisons.get(i);
-                assertTrue(metricComparison.result(check.strategy) == check.expectedComparisonResult, "Metric doesn't match: " + metricComparison);
+                assertSame(metricComparison.result(check.strategy), check.expectedComparisonResult, "Metric doesn't match: " + metricComparison);
             }
         }
     }
