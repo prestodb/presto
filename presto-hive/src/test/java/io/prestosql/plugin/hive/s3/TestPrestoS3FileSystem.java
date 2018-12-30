@@ -65,17 +65,18 @@ import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_STAGING_DIRE
 import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_PREFIX;
 import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_SUFFIX;
 import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_USE_INSTANCE_CREDENTIALS;
+import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
+import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
+import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.createTempFile;
-import static org.apache.http.HttpStatus.SC_FORBIDDEN;
-import static org.apache.http.HttpStatus.SC_INTERNAL_SERVER_ERROR;
-import static org.apache.http.HttpStatus.SC_NOT_FOUND;
-import static org.apache.http.HttpStatus.SC_REQUESTED_RANGE_NOT_SATISFIABLE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestPrestoS3FileSystem
 {
+    private static final int HTTP_RANGE_NOT_SATISFIABLE = 416;
+
     @Test
     public void testStaticCredentials()
             throws Exception
@@ -184,7 +185,7 @@ public class TestPrestoS3FileSystem
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             int maxRetries = 2;
             MockAmazonS3 s3 = new MockAmazonS3();
-            s3.setGetObjectHttpErrorCode(SC_INTERNAL_SERVER_ERROR);
+            s3.setGetObjectHttpErrorCode(HTTP_INTERNAL_ERROR);
             Configuration configuration = new Configuration();
             configuration.set(S3_MAX_BACKOFF_TIME, "1ms");
             configuration.set(S3_MAX_RETRY_TIME, "5s");
@@ -196,7 +197,7 @@ public class TestPrestoS3FileSystem
             }
             catch (Throwable expected) {
                 assertInstanceOf(expected, AmazonS3Exception.class);
-                assertEquals(((AmazonS3Exception) expected).getStatusCode(), SC_INTERNAL_SERVER_ERROR);
+                assertEquals(((AmazonS3Exception) expected).getStatusCode(), HTTP_INTERNAL_ERROR);
                 assertEquals(PrestoS3FileSystem.getFileSystemStats().getReadRetries().getTotalCount(), maxRetries);
                 assertEquals(PrestoS3FileSystem.getFileSystemStats().getGetObjectRetries().getTotalCount(), (maxRetries + 1L) * maxRetries);
             }
@@ -210,7 +211,7 @@ public class TestPrestoS3FileSystem
         int maxRetries = 2;
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
-            s3.setGetObjectMetadataHttpCode(SC_INTERNAL_SERVER_ERROR);
+            s3.setGetObjectMetadataHttpCode(HTTP_INTERNAL_ERROR);
             Configuration configuration = new Configuration();
             configuration.set(S3_MAX_BACKOFF_TIME, "1ms");
             configuration.set(S3_MAX_RETRY_TIME, "5s");
@@ -221,19 +222,19 @@ public class TestPrestoS3FileSystem
         }
         catch (Throwable expected) {
             assertInstanceOf(expected, AmazonS3Exception.class);
-            assertEquals(((AmazonS3Exception) expected).getStatusCode(), SC_INTERNAL_SERVER_ERROR);
+            assertEquals(((AmazonS3Exception) expected).getStatusCode(), HTTP_INTERNAL_ERROR);
             assertEquals(PrestoS3FileSystem.getFileSystemStats().getGetMetadataRetries().getTotalCount(), maxRetries);
         }
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Failing getObject call with " + SC_NOT_FOUND + ".*")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Failing getObject call with " + HTTP_NOT_FOUND + ".*")
     public void testReadNotFound()
             throws Exception
     {
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
-            s3.setGetObjectHttpErrorCode(SC_NOT_FOUND);
+            s3.setGetObjectHttpErrorCode(HTTP_NOT_FOUND);
             fs.initialize(new URI("s3n://test-bucket/"), new Configuration());
             fs.setS3Client(s3);
             try (FSDataInputStream inputStream = fs.open(new Path("s3n://test-bucket/test"))) {
@@ -243,13 +244,13 @@ public class TestPrestoS3FileSystem
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Failing getObject call with " + SC_FORBIDDEN + ".*")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Failing getObject call with " + HTTP_FORBIDDEN + ".*")
     public void testReadForbidden()
             throws Exception
     {
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
-            s3.setGetObjectHttpErrorCode(SC_FORBIDDEN);
+            s3.setGetObjectHttpErrorCode(HTTP_FORBIDDEN);
             fs.initialize(new URI("s3n://test-bucket/"), new Configuration());
             fs.setS3Client(s3);
             try (FSDataInputStream inputStream = fs.open(new Path("s3n://test-bucket/test"))) {
@@ -342,7 +343,7 @@ public class TestPrestoS3FileSystem
     {
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
-            s3.setGetObjectHttpErrorCode(SC_REQUESTED_RANGE_NOT_SATISFIABLE);
+            s3.setGetObjectHttpErrorCode(HTTP_RANGE_NOT_SATISFIABLE);
             fs.initialize(new URI("s3n://test-bucket/"), new Configuration());
             fs.setS3Client(s3);
             try (FSDataInputStream inputStream = fs.open(new Path("s3n://test-bucket/test"))) {
@@ -351,13 +352,13 @@ public class TestPrestoS3FileSystem
         }
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Failing getObjectMetadata call with " + SC_FORBIDDEN + ".*")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Failing getObjectMetadata call with " + HTTP_FORBIDDEN + ".*")
     public void testGetMetadataForbidden()
             throws Exception
     {
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
-            s3.setGetObjectMetadataHttpCode(SC_FORBIDDEN);
+            s3.setGetObjectMetadataHttpCode(HTTP_FORBIDDEN);
             fs.initialize(new URI("s3n://test-bucket/"), new Configuration());
             fs.setS3Client(s3);
             fs.getS3ObjectMetadata(new Path("s3n://test-bucket/test"));
@@ -370,7 +371,7 @@ public class TestPrestoS3FileSystem
     {
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
-            s3.setGetObjectMetadataHttpCode(SC_NOT_FOUND);
+            s3.setGetObjectMetadataHttpCode(HTTP_NOT_FOUND);
             fs.initialize(new URI("s3n://test-bucket/"), new Configuration());
             fs.setS3Client(s3);
             assertEquals(fs.getS3ObjectMetadata(new Path("s3n://test-bucket/test")), null);
