@@ -27,13 +27,6 @@
         </dependency>
 
         <dependency>
-            <!-- airlift json has a dependency on joda -->
-            <groupId>io.airlift</groupId>
-            <artifactId>joda-to-java-time-bridge</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
