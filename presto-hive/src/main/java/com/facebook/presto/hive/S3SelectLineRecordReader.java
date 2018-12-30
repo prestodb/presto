@@ -43,14 +43,14 @@ import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_MAX_RETRY_TI
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.lang.String.format;
+import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
+import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
+import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.hadoop.hive.serde.serdeConstants.FIELD_DELIM;
 import static org.apache.hadoop.hive.serde.serdeConstants.LINE_DELIM;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_FORMAT;
-import static org.apache.http.HttpStatus.SC_BAD_REQUEST;
-import static org.apache.http.HttpStatus.SC_FORBIDDEN;
-import static org.apache.http.HttpStatus.SC_NOT_FOUND;
 
 @ThreadSafe
 public abstract class S3SelectLineRecordReader
@@ -137,9 +137,9 @@ public abstract class S3SelectLineRecordReader
                             recordsFromS3 = 0;
                             if (e instanceof AmazonS3Exception) {
                                 switch (((AmazonS3Exception) e).getStatusCode()) {
-                                    case SC_FORBIDDEN:
-                                    case SC_NOT_FOUND:
-                                    case SC_BAD_REQUEST:
+                                    case HTTP_FORBIDDEN:
+                                    case HTTP_NOT_FOUND:
+                                    case HTTP_BAD_REQUEST:
                                         throw new UnrecoverableS3OperationException(selectClient.getBucketName(), selectClient.getKeyName(), e);
                                 }
                             }
