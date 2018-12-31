@@ -59,7 +59,7 @@ public class TpchTableHandle
     @Override
     public String toString()
     {
-        return "tpch:" + tableName + ":sf" + scaleFactor;
+        return tableName + ":sf" + scaleFactor;
     }
 
     @Override
