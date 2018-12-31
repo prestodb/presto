@@ -143,7 +143,7 @@ public class TestPruneCountAggregationOverScalar
                                             p.tableScan(
                                                     new TableHandle(
                                                             new ConnectorId("local"),
-                                                            new TpchTableHandle("local", "orders", TINY_SCALE_FACTOR)),
+                                                            new TpchTableHandle("orders", TINY_SCALE_FACTOR)),
                                                     ImmutableList.of(totalPrice),
                                                     ImmutableMap.of(totalPrice, new TpchColumnHandle(totalPrice.getName(), DOUBLE))))));
 
