@@ -15,7 +15,7 @@ exec_in_hadoop_master_container sed -i \
   -e "s|%S3_BUCKET_ENDPOINT%|${S3_BUCKET_ENDPOINT}|g" \
  /etc/hadoop/conf/core-site.xml
 
-# create test table
+# create test tables
 table_path="s3a://${S3_BUCKET}/presto_test_external_fs/"
 exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
 exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /tmp/test1.csv "${table_path}"
@@ -23,6 +23,14 @@ exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /tmp/test1.csv.gz "$
 exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /tmp/test1.csv.lz4 "${table_path}"
 exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /tmp/test1.csv.bz2 "${table_path}"
 exec_in_hadoop_master_container /usr/bin/hive -e "CREATE EXTERNAL TABLE presto_test_external_fs(t_bigint bigint) LOCATION '${table_path}'"
+
+table_path_s3_select_pushdown="s3a://${S3_BUCKET}/presto_test_external_fs_s3_select_pushdown/"
+exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path_s3_select_pushdown}"
+exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /tmp/test1.csv "${table_path_s3_select_pushdown}"
+exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /tmp/test1.csv.gz "${table_path_s3_select_pushdown}"
+exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /tmp/test1.csv.lz4 "${table_path_s3_select_pushdown}"
+exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /tmp/test1.csv.bz2 "${table_path_s3_select_pushdown}"
+exec_in_hadoop_master_container /usr/bin/hive -e "CREATE EXTERNAL TABLE presto_test_external_fs_s3_select_pushdown(t_bigint bigint) LOCATION '${table_path_s3_select_pushdown}'"
 
 stop_unnecessary_hadoop_services
 

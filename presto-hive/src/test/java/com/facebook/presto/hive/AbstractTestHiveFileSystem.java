@@ -143,7 +143,7 @@ public abstract class AbstractTestHiveFileSystem
     protected void setup(String host, int port, String databaseName, Function<HiveClientConfig, HdfsConfiguration> hdfsConfigurationProvider, boolean s3SelectPushdownEnabled)
     {
         database = databaseName;
-        table = new SchemaTableName(database, "presto_test_external_fs");
+        table = s3SelectPushdownEnabled ? new SchemaTableName(database, "presto_test_external_fs_s3_select_pushdown") : new SchemaTableName(database, "presto_test_external_fs");
 
         String random = UUID.randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
         temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_" + random);
