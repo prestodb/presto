@@ -58,7 +58,7 @@ public class TestValidateStreamingAggregations
         ConnectorId connectorId = getCurrentConnectorId();
         nationTableHandle = new TableHandle(
                 connectorId,
-                new TpchTableHandle(connectorId.toString(), "nation", 1.0));
+                new TpchTableHandle("nation", 1.0));
 
         nationTableLayoutHandle = new TableLayoutHandle(connectorId,
                 TestingTransactionHandle.create(),

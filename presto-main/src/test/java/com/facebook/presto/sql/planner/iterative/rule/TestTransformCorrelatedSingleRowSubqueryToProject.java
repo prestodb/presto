@@ -50,7 +50,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                                 ImmutableList.of(p.symbol("l_nationkey")),
                                 p.tableScan(new TableHandle(
                                                 new ConnectorId("local"),
-                                                new TpchTableHandle("local", "nation", TINY_SCALE_FACTOR)), ImmutableList.of(p.symbol("l_nationkey")),
+                                                new TpchTableHandle("nation", TINY_SCALE_FACTOR)), ImmutableList.of(p.symbol("l_nationkey")),
                                         ImmutableMap.of(p.symbol("l_nationkey"), new TpchColumnHandle("nationkey",
                                                 BIGINT))),
                                 p.project(

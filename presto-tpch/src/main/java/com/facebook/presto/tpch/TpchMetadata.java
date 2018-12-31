@@ -169,7 +169,7 @@ public class TpchMetadata
             return null;
         }
 
-        return new TpchTableHandle(connectorId, tableName.getTableName(), scaleFactor);
+        return new TpchTableHandle(tableName.getTableName(), scaleFactor);
     }
 
     @Override

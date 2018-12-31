@@ -62,10 +62,10 @@ public class TestPickTableLayout
         connectorId = tester().getCurrentConnectorId();
         nationTableHandle = new TableHandle(
                 connectorId,
-                new TpchTableHandle(connectorId.toString(), "nation", 1.0));
+                new TpchTableHandle("nation", 1.0));
         ordersTableHandle = new TableHandle(
                 connectorId,
-                new TpchTableHandle(connectorId.toString(), "orders", 1.0));
+                new TpchTableHandle("orders", 1.0));
 
         nationTableLayoutHandle = new TableLayoutHandle(
                 connectorId,
