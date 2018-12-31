@@ -150,7 +150,7 @@ public class MySqlClient
     }
 
     @Override
-    protected WriteMapping toWriteMapping(Type type)
+    public WriteMapping toWriteMapping(Type type)
     {
         if (REAL.equals(type)) {
             return longWriteMapping("float", realWriteFunction());

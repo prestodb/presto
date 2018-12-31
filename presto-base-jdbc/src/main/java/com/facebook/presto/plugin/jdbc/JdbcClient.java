@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.type.Type;
 
 import javax.annotation.Nullable;
 
@@ -44,6 +45,8 @@ public interface JdbcClient
     List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle);
 
     Optional<ColumnMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle);
+
+    WriteMapping toWriteMapping(Type type);
 
     ConnectorSplitSource getSplits(JdbcTableLayoutHandle layoutHandle);
 

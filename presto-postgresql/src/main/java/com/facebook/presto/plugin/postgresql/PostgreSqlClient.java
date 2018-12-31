@@ -84,7 +84,7 @@ public class PostgreSqlClient
     }
 
     @Override
-    protected WriteMapping toWriteMapping(Type type)
+    public WriteMapping toWriteMapping(Type type)
     {
         if (VARBINARY.equals(type)) {
             return WriteMapping.sliceWriteMapping("bytea", varbinaryWriteFunction());
