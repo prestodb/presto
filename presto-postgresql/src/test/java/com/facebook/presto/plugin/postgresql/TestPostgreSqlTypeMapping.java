@@ -264,7 +264,7 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testTimestamp()
     {
-        // TODO timestamp is not correctly read (see comment in StandardReadMappings.timestampReadMapping), but testing this is hard because of #7122
+        // TODO timestamp is not correctly read (see comment in StandardColumnMappings.timestampColumnMapping), but testing this is hard because of #7122
     }
 
     private void testUnsupportedDataType(String databaseDataType)

@@ -26,8 +26,6 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.Optional;
 
-import static com.facebook.presto.plugin.jdbc.ReadMapping.longReadMapping;
-import static com.facebook.presto.plugin.jdbc.ReadMapping.sliceReadMapping;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.CharType.createCharType;
@@ -54,76 +52,76 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.joda.time.DateTimeZone.UTC;
 
-public final class StandardReadMappings
+public final class StandardColumnMappings
 {
-    private StandardReadMappings() {}
+    private StandardColumnMappings() {}
 
     private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstanceUTC();
 
-    public static ReadMapping booleanReadMapping()
+    public static ColumnMapping booleanColumnMapping()
     {
-        return ReadMapping.booleanReadMapping(BOOLEAN, ResultSet::getBoolean);
+        return ColumnMapping.booleanMapping(BOOLEAN, ResultSet::getBoolean);
     }
 
-    public static ReadMapping tinyintReadMapping()
+    public static ColumnMapping tinyintColumnMapping()
     {
-        return longReadMapping(TINYINT, ResultSet::getByte);
+        return ColumnMapping.longMapping(TINYINT, ResultSet::getByte);
     }
 
-    public static ReadMapping smallintReadMapping()
+    public static ColumnMapping smallintColumnMapping()
     {
-        return longReadMapping(SMALLINT, ResultSet::getShort);
+        return ColumnMapping.longMapping(SMALLINT, ResultSet::getShort);
     }
 
-    public static ReadMapping integerReadMapping()
+    public static ColumnMapping integerColumnMapping()
     {
-        return longReadMapping(INTEGER, ResultSet::getInt);
+        return ColumnMapping.longMapping(INTEGER, ResultSet::getInt);
     }
 
-    public static ReadMapping bigintReadMapping()
+    public static ColumnMapping bigintColumnMapping()
     {
-        return longReadMapping(BIGINT, ResultSet::getLong);
+        return ColumnMapping.longMapping(BIGINT, ResultSet::getLong);
     }
 
-    public static ReadMapping realReadMapping()
+    public static ColumnMapping realColumnMapping()
     {
-        return longReadMapping(REAL, (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)));
+        return ColumnMapping.longMapping(REAL, (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)));
     }
 
-    public static ReadMapping doubleReadMapping()
+    public static ColumnMapping doubleColumnMapping()
     {
-        return ReadMapping.doubleReadMapping(DOUBLE, ResultSet::getDouble);
+        return ColumnMapping.doubleMapping(DOUBLE, ResultSet::getDouble);
     }
 
-    public static ReadMapping decimalReadMapping(DecimalType decimalType)
+    public static ColumnMapping decimalColumnMapping(DecimalType decimalType)
     {
         // JDBC driver can return BigDecimal with lower scale than column's scale when there are trailing zeroes
         int scale = decimalType.getScale();
         if (decimalType.isShort()) {
-            return longReadMapping(decimalType, (resultSet, columnIndex) -> encodeShortScaledValue(resultSet.getBigDecimal(columnIndex), scale));
+            return ColumnMapping.longMapping(decimalType, (resultSet, columnIndex) -> encodeShortScaledValue(resultSet.getBigDecimal(columnIndex), scale));
         }
-        return sliceReadMapping(decimalType, (resultSet, columnIndex) -> encodeScaledValue(resultSet.getBigDecimal(columnIndex), scale));
+        return ColumnMapping.sliceMapping(decimalType, (resultSet, columnIndex) -> encodeScaledValue(resultSet.getBigDecimal(columnIndex), scale));
     }
 
-    public static ReadMapping charReadMapping(CharType charType)
+    public static ColumnMapping charColumnMapping(CharType charType)
     {
         requireNonNull(charType, "charType is null");
-        return sliceReadMapping(charType, (resultSet, columnIndex) -> utf8Slice(CharMatcher.is(' ').trimTrailingFrom(resultSet.getString(columnIndex))));
+        return ColumnMapping.sliceMapping(charType, (resultSet, columnIndex) -> utf8Slice(CharMatcher.is(' ').trimTrailingFrom(resultSet.getString(columnIndex))));
     }
 
-    public static ReadMapping varcharReadMapping(VarcharType varcharType)
+    public static ColumnMapping varcharColumnMapping(VarcharType varcharType)
     {
-        return sliceReadMapping(varcharType, (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex)));
+        return ColumnMapping.sliceMapping(varcharType, (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex)));
     }
 
-    public static ReadMapping varbinaryReadMapping()
+    public static ColumnMapping varbinaryColumnMapping()
     {
-        return sliceReadMapping(VARBINARY, (resultSet, columnIndex) -> wrappedBuffer(resultSet.getBytes(columnIndex)));
+        return ColumnMapping.sliceMapping(VARBINARY, (resultSet, columnIndex) -> wrappedBuffer(resultSet.getBytes(columnIndex)));
     }
 
-    public static ReadMapping dateReadMapping()
+    public static ColumnMapping dateColumnMapping()
     {
-        return longReadMapping(DATE, (resultSet, columnIndex) -> {
+        return ColumnMapping.longMapping(DATE, (resultSet, columnIndex) -> {
             /*
              * JDBC returns a date using a timestamp at midnight in the JVM timezone, or earliest time after that if there was no midnight.
              * This works correctly for all dates and zones except when the missing local times 'gap' is 24h. I.e. this fails when JVM time
@@ -140,9 +138,9 @@ public final class StandardReadMappings
         });
     }
 
-    public static ReadMapping timeReadMapping()
+    public static ColumnMapping timeColumnMapping()
     {
-        return longReadMapping(TIME, (resultSet, columnIndex) -> {
+        return ColumnMapping.longMapping(TIME, (resultSet, columnIndex) -> {
             /*
              * TODO `resultSet.getTime(columnIndex)` returns wrong value if JVM's zone had forward offset change during 1970-01-01
              * and the time value being retrieved was not present in local time (a 'gap'), e.g. time retrieved is 00:10:00 and JVM zone is America/Hermosillo
@@ -153,9 +151,9 @@ public final class StandardReadMappings
         });
     }
 
-    public static ReadMapping timestampReadMapping()
+    public static ColumnMapping timestampColumnMapping()
     {
-        return longReadMapping(TIMESTAMP, (resultSet, columnIndex) -> {
+        return ColumnMapping.longMapping(TIMESTAMP, (resultSet, columnIndex) -> {
             /*
              * TODO `resultSet.getTimestamp(columnIndex)` returns wrong value if JVM's zone had forward offset change and the local time
              * corresponding to timestamp value being retrieved was not present (a 'gap'), this includes regular DST changes (e.g. Europe/Warsaw)
@@ -167,32 +165,32 @@ public final class StandardReadMappings
         });
     }
 
-    public static Optional<ReadMapping> jdbcTypeToPrestoType(JdbcTypeHandle type)
+    public static Optional<ColumnMapping> jdbcTypeToPrestoType(JdbcTypeHandle type)
     {
         int columnSize = type.getColumnSize();
         switch (type.getJdbcType()) {
             case Types.BIT:
             case Types.BOOLEAN:
-                return Optional.of(booleanReadMapping());
+                return Optional.of(booleanColumnMapping());
 
             case Types.TINYINT:
-                return Optional.of(tinyintReadMapping());
+                return Optional.of(tinyintColumnMapping());
 
             case Types.SMALLINT:
-                return Optional.of(smallintReadMapping());
+                return Optional.of(smallintColumnMapping());
 
             case Types.INTEGER:
-                return Optional.of(integerReadMapping());
+                return Optional.of(integerColumnMapping());
 
             case Types.BIGINT:
-                return Optional.of(bigintReadMapping());
+                return Optional.of(bigintColumnMapping());
 
             case Types.REAL:
-                return Optional.of(realReadMapping());
+                return Optional.of(realColumnMapping());
 
             case Types.FLOAT:
             case Types.DOUBLE:
-                return Optional.of(doubleReadMapping());
+                return Optional.of(doubleColumnMapping());
 
             case Types.NUMERIC:
             case Types.DECIMAL:
@@ -201,36 +199,36 @@ public final class StandardReadMappings
                 if (precision > Decimals.MAX_PRECISION) {
                     return Optional.empty();
                 }
-                return Optional.of(decimalReadMapping(createDecimalType(precision, max(decimalDigits, 0))));
+                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
 
             case Types.CHAR:
             case Types.NCHAR:
                 // TODO this is wrong, we're going to construct malformed Slice representation if source > charLength
                 int charLength = min(columnSize, CharType.MAX_LENGTH);
-                return Optional.of(charReadMapping(createCharType(charLength)));
+                return Optional.of(charColumnMapping(createCharType(charLength)));
 
             case Types.VARCHAR:
             case Types.NVARCHAR:
             case Types.LONGVARCHAR:
             case Types.LONGNVARCHAR:
                 if (columnSize > VarcharType.MAX_LENGTH) {
-                    return Optional.of(varcharReadMapping(createUnboundedVarcharType()));
+                    return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
                 }
-                return Optional.of(varcharReadMapping(createVarcharType(columnSize)));
+                return Optional.of(varcharColumnMapping(createVarcharType(columnSize)));
 
             case Types.BINARY:
             case Types.VARBINARY:
             case Types.LONGVARBINARY:
-                return Optional.of(varbinaryReadMapping());
+                return Optional.of(varbinaryColumnMapping());
 
             case Types.DATE:
-                return Optional.of(dateReadMapping());
+                return Optional.of(dateColumnMapping());
 
             case Types.TIME:
-                return Optional.of(timeReadMapping());
+                return Optional.of(timeColumnMapping());
 
             case Types.TIMESTAMP:
-                return Optional.of(timestampReadMapping());
+                return Optional.of(timestampColumnMapping());
         }
         return Optional.empty();
     }

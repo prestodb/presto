@@ -63,7 +63,7 @@ public class JdbcRecordCursor
         sliceReadFunctions = new SliceReadFunction[columnHandles.size()];
 
         for (int i = 0; i < this.columnHandles.length; i++) {
-            ReadMapping readMapping = jdbcClient.toPrestoType(session, columnHandles.get(i).getJdbcTypeHandle())
+            ColumnMapping readMapping = jdbcClient.toPrestoType(session, columnHandles.get(i).getJdbcTypeHandle())
                     .orElseThrow(() -> new VerifyException("Unsupported column type"));
             Class<?> javaType = readMapping.getType().getJavaType();
             ReadFunction readFunction = readMapping.getReadFunction();

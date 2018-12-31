@@ -19,32 +19,32 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public final class ReadMapping
+public final class ColumnMapping
 {
-    public static ReadMapping booleanReadMapping(Type prestoType, BooleanReadFunction readFunction)
+    public static ColumnMapping booleanMapping(Type prestoType, BooleanReadFunction readFunction)
     {
-        return new ReadMapping(prestoType, readFunction);
+        return new ColumnMapping(prestoType, readFunction);
     }
 
-    public static ReadMapping longReadMapping(Type prestoType, LongReadFunction readFunction)
+    public static ColumnMapping longMapping(Type prestoType, LongReadFunction readFunction)
     {
-        return new ReadMapping(prestoType, readFunction);
+        return new ColumnMapping(prestoType, readFunction);
     }
 
-    public static ReadMapping doubleReadMapping(Type prestoType, DoubleReadFunction readFunction)
+    public static ColumnMapping doubleMapping(Type prestoType, DoubleReadFunction readFunction)
     {
-        return new ReadMapping(prestoType, readFunction);
+        return new ColumnMapping(prestoType, readFunction);
     }
 
-    public static ReadMapping sliceReadMapping(Type prestoType, SliceReadFunction readFunction)
+    public static ColumnMapping sliceMapping(Type prestoType, SliceReadFunction readFunction)
     {
-        return new ReadMapping(prestoType, readFunction);
+        return new ColumnMapping(prestoType, readFunction);
     }
 
     private final Type type;
     private final ReadFunction readFunction;
 
-    private ReadMapping(Type type, ReadFunction readFunction)
+    private ColumnMapping(Type type, ReadFunction readFunction)
     {
         this.type = requireNonNull(type, "type is null");
         this.readFunction = requireNonNull(readFunction, "readFunction is null");

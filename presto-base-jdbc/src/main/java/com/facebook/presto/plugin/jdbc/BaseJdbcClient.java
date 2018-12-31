@@ -48,7 +48,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.jdbcTypeToPrestoType;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.jdbcTypeToPrestoType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -194,7 +194,7 @@ public class BaseJdbcClient
                             resultSet.getString("TYPE_NAME"),
                             resultSet.getInt("COLUMN_SIZE"),
                             resultSet.getInt("DECIMAL_DIGITS"));
-                    Optional<ReadMapping> columnMapping = toPrestoType(session, typeHandle);
+                    Optional<ColumnMapping> columnMapping = toPrestoType(session, typeHandle);
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
                         String columnName = resultSet.getString("COLUMN_NAME");
@@ -214,7 +214,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public Optional<ReadMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
+    public Optional<ColumnMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
     {
         return jdbcTypeToPrestoType(typeHandle);
     }

@@ -43,7 +43,7 @@ public interface JdbcClient
 
     List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle);
 
-    Optional<ReadMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle);
+    Optional<ColumnMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle);
 
     ConnectorSplitSource getSplits(JdbcTableLayoutHandle layoutHandle);
 
