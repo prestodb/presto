@@ -81,6 +81,7 @@ public final class CharType
         String value = block.getSlice(position, 0, block.getSliceLength(position)).toStringUtf8();
         builder.append(value);
         for (int i = value.length(); i < length; i++) {
+            // TODO we should be padding considering length as calculated with `io.airlift.slice.SliceUtf8.countCodePoints(io.airlift.slice.Slice)`
             builder.append(' ');
         }
 
