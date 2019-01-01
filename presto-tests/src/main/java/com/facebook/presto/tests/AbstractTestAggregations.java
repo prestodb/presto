@@ -638,14 +638,14 @@ public abstract class AbstractTestAggregations
     public void testGroupByExtract()
     {
         // whole expression in group by
-        assertQuery("SELECT EXTRACT(YEAR FROM now()), count(*) FROM orders GROUP BY EXTRACT(YEAR FROM now())");
+        assertQuery("SELECT EXTRACT(YEAR FROM orderdate), count(*) FROM orders GROUP BY EXTRACT(YEAR FROM orderdate)");
 
         assertQuery(
-                "SELECT EXTRACT(YEAR FROM now()), count(*) FROM orders GROUP BY 1",
-                "SELECT EXTRACT(YEAR FROM now()), count(*) FROM orders GROUP BY EXTRACT(YEAR FROM now())");
+                "SELECT EXTRACT(YEAR FROM orderdate), count(*) FROM orders GROUP BY 1",
+                "SELECT EXTRACT(YEAR FROM orderdate), count(*) FROM orders GROUP BY EXTRACT(YEAR FROM orderdate)");
 
         // argument in group by
-        assertQuery("SELECT EXTRACT(YEAR FROM now()), count(*) FROM orders GROUP BY now()");
+        assertQuery("SELECT EXTRACT(YEAR FROM orderdate), count(*) FROM orders GROUP BY orderdate");
     }
 
     @Test
