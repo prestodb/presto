@@ -18,8 +18,16 @@ import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorPageSinkProvider;
+import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorSplitManager;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
+import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.json.JsonModule;
 
 import java.util.Map;
 
@@ -53,7 +61,7 @@ public class PhoenixConnectorFactory
         requireNonNull(requiredConfig, "requiredConfig is null");
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            Bootstrap app = new Bootstrap(new PhoenixClientModule(connectorId, context.getTypeManager()));
+            Bootstrap app = new Bootstrap(new JsonModule(), new PhoenixClientModule(connectorId, context.getTypeManager()));
 
             Injector injector = app
                     .strictConfig()
@@ -61,7 +69,22 @@ public class PhoenixConnectorFactory
                     .setRequiredConfigurationProperties(requiredConfig)
                     .initialize();
 
-            return injector.getInstance(PhoenixConnector.class);
+            LifeCycleManager lifeCycleManager = injector.getInstance(LifeCycleManager.class);
+            PhoenixMetadataFactory metadataFactory = injector.getInstance(PhoenixMetadataFactory.class);
+            ConnectorSplitManager splitManager = injector.getInstance(ConnectorSplitManager.class);
+            ConnectorPageSourceProvider pageSourceProvider = injector.getInstance(ConnectorPageSourceProvider.class);
+            ConnectorPageSinkProvider pageSinkProvider = injector.getInstance(ConnectorPageSinkProvider.class);
+            PhoenixSessionProperties sessionProperties = injector.getInstance(PhoenixSessionProperties.class);
+            PhoenixTableProperties tableProperties = injector.getInstance(PhoenixTableProperties.class);
+
+            return new PhoenixConnector(
+                lifeCycleManager,
+                metadataFactory,
+                new ClassLoaderSafeConnectorSplitManager(splitManager, classLoader),
+                new ClassLoaderSafeConnectorPageSourceProvider(pageSourceProvider, classLoader),
+                new ClassLoaderSafeConnectorPageSinkProvider(pageSinkProvider, classLoader),
+                sessionProperties,
+                tableProperties);
         }
         catch (Exception e) {
             throw new RuntimeException(e);

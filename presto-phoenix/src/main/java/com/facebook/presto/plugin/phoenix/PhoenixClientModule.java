@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.plugin.phoenix;
 
+import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
@@ -40,16 +43,15 @@ public class PhoenixClientModule
     protected void setup(Binder binder)
     {
         binder.bind(PhoenixConnectorId.class).toInstance(new PhoenixConnectorId(connectorId));
-        binder.bind(PhoenixSplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(PhoenixPageSourceProvider.class).in(Scopes.SINGLETON);
-        binder.bind(PhoenixPageSinkProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorSplitManager.class).to(PhoenixSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorPageSourceProvider.class).to(PhoenixPageSourceProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorPageSinkProvider.class).to(PhoenixPageSinkProvider.class).in(Scopes.SINGLETON);
 
         binder.bind(PhoenixClient.class).in(Scopes.SINGLETON);
         binder.bind(PhoenixMetadataFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(PhoenixSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(PhoenixTableProperties.class).in(Scopes.SINGLETON);
-        binder.bind(PhoenixConnector.class).in(Scopes.SINGLETON);
         binder.bind(TypeManager.class).toInstance(typeManager);
 
         ensureCatalogIsEmpty(buildConfigObject(PhoenixConfig.class).getConnectionUrl());

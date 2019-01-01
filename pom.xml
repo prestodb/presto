@@ -827,13 +827,13 @@
             <dependency>
                 <groupId>org.apache.phoenix</groupId>
                 <artifactId>presto-hbase-testing-util-shaded</artifactId>
-                <version>4.14.1-HBase-1.4</version>
+                <version>4.14.1-HBase-1.4-PPS-0.2</version>
             </dependency>
 
             <dependency>
                 <groupId>org.apache.phoenix</groupId>
                 <artifactId>presto-phoenix-client-shaded</artifactId>
-                <version>4.14.1-HBase-1.4</version>
+                <version>4.14.1-HBase-1.4-PPS-0.2</version>
             </dependency>
 
             <dependency>

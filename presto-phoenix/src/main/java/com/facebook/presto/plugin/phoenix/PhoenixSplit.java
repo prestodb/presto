@@ -18,14 +18,16 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.collect.ImmutableMap;
-import org.apache.phoenix.query.KeyRange;
+import org.apache.phoenix.mapreduce.PhoenixInputSplit;
 
 import javax.annotation.Nullable;
 
-import java.util.Base64;
 import java.util.List;
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -38,28 +40,8 @@ public class PhoenixSplit
     private final String schemaName;
     private final String tableName;
     private final TupleDomain<ColumnHandle> tupleDomain;
-    private final String startRow;
-    private final String stopRow;
     private final List<HostAddress> addresses;
-
-    public PhoenixSplit(
-            String connectorId,
-            String catalogName,
-            String schemaName,
-            String tableName,
-            TupleDomain<ColumnHandle> tupleDomain,
-            KeyRange split,
-            List<HostAddress> addresses)
-    {
-        this.connectorId = requireNonNull(connectorId, "connector id is null");
-        this.catalogName = catalogName;
-        this.schemaName = schemaName;
-        this.tableName = requireNonNull(tableName, "table name is null");
-        this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
-        this.startRow = Base64.getEncoder().encodeToString(split.getLowerRange());
-        this.stopRow = Base64.getEncoder().encodeToString(split.getUpperRange());
-        this.addresses = addresses;
-    }
+    private final WrappedPhoenixInputSplit phoenixInputSplit;
 
     @JsonCreator
     public PhoenixSplit(
@@ -68,18 +50,16 @@ public class PhoenixSplit
             @JsonProperty("schemaName") @Nullable String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain,
-            @JsonProperty("startRow") String startRow,
-            @JsonProperty("stopRow") String stopRow,
-            @JsonProperty("addresses") List<HostAddress> addresses)
+            @JsonProperty("addresses") List<HostAddress> addresses,
+            @JsonProperty("phoenixInputSplit") WrappedPhoenixInputSplit wrappedPhoenixInputSplit)
     {
         this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.catalogName = catalogName;
         this.schemaName = schemaName;
         this.tableName = requireNonNull(tableName, "table name is null");
         this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
-        this.startRow = startRow;
-        this.stopRow = stopRow;
         this.addresses = addresses;
+        this.phoenixInputSplit = wrappedPhoenixInputSplit;
     }
 
     @JsonProperty
@@ -102,6 +82,18 @@ public class PhoenixSplit
         return schemaName;
     }
 
+    @JsonProperty("phoenixInputSplit")
+    public WrappedPhoenixInputSplit getWrappedPhoenixInputSplit()
+    {
+        return phoenixInputSplit;
+    }
+
+    @JsonIgnore
+    public PhoenixInputSplit getPhoenixInputSplit()
+    {
+        return phoenixInputSplit.getPhoenixInputSplit();
+    }
+
     @JsonProperty
     public String getTableName()
     {
@@ -115,29 +107,10 @@ public class PhoenixSplit
     }
 
     @JsonProperty
-    public String getStartRow()
-    {
-        return startRow;
-    }
-
-    @JsonProperty
-    public String getStopRow()
-    {
-        return stopRow;
-    }
-
-    @JsonProperty
     @Override
     public List<HostAddress> getAddresses()
     {
         return addresses;
-    }
-
-    public KeyRange getKeyRange()
-    {
-        byte[] byteStartRow = Base64.getDecoder().decode(startRow);
-        byte[] byteStopRow = Base64.getDecoder().decode(stopRow);
-        return KeyRange.getKeyRange(byteStartRow, byteStopRow);
     }
 
     @Override
@@ -153,19 +126,59 @@ public class PhoenixSplit
                 .put("hosts", addresses)
                 .put("schema", schemaName)
                 .put("table", tableName)
-                .put("startRow", startRow)
-                .put("stopRow", stopRow)
+                .put("keyRange", getPhoenixInputSplit().getKeyRange())
                 .build();
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(
+                connectorId,
+                catalogName,
+                schemaName,
+                tableName,
+                tupleDomain,
+                addresses,
+                phoenixInputSplit);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        PhoenixSplit other = (PhoenixSplit) obj;
+        return Objects.equals(this.connectorId, other.connectorId) &&
+                Objects.equals(this.catalogName, other.catalogName) &&
+                Objects.equals(this.schemaName, other.schemaName) &&
+                Objects.equals(this.tableName, other.tableName) &&
+                Objects.equals(this.tupleDomain, other.tupleDomain) &&
+                Objects.equals(this.addresses, other.addresses) &&
+                Objects.equals(this.phoenixInputSplit, other.phoenixInputSplit);
     }
 
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .addValue(schemaName)
-                .addValue(tableName)
-                .addValue(startRow)
-                .addValue(stopRow)
-                .toString();
+        ToStringHelper helper = toStringHelper(this)
+                .add("connectorId", connectorId);
+        if (catalogName != null) {
+            helper.add("catalogName", catalogName);
+        }
+        if (schemaName != null) {
+            helper.add("schemaName", schemaName);
+        }
+
+        helper.add("tableName", tableName)
+                .add("tupleDomain", tupleDomain)
+                .add("addresses", addresses)
+                .add("phoenixInputSplit", getPhoenixInputSplit().getKeyRange());
+
+        return helper.toString();
     }
 }

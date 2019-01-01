@@ -23,36 +23,32 @@ import com.facebook.presto.spi.type.RealType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
-import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.phoenix.compile.QueryPlan;
-import org.apache.phoenix.coprocessor.BaseScannerRegionObserver;
-import org.apache.phoenix.iterate.ConcatResultIterator;
-import org.apache.phoenix.iterate.LookAheadResultIterator;
-import org.apache.phoenix.iterate.MapReduceParallelScanGrouper;
-import org.apache.phoenix.iterate.PeekingResultIterator;
-import org.apache.phoenix.iterate.ResultIterator;
-import org.apache.phoenix.iterate.RoundRobinResultIterator;
-import org.apache.phoenix.iterate.SequenceResultIterator;
-import org.apache.phoenix.iterate.TableResultIterator;
+import org.apache.hadoop.io.NullWritable;
+import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.TaskAttemptContextImpl;
+import org.apache.hadoop.mapred.TaskAttemptID;
+import org.apache.hadoop.mapreduce.RecordReader;
+import org.apache.hadoop.mapreduce.lib.db.DBWritable;
 import org.apache.phoenix.jdbc.PhoenixConnection;
 import org.apache.phoenix.jdbc.PhoenixResultSet;
-import org.apache.phoenix.query.KeyRange;
+import org.apache.phoenix.mapreduce.PhoenixInputFormat;
+import org.apache.phoenix.mapreduce.PhoenixInputSplit;
+import org.apache.phoenix.mapreduce.util.PhoenixConfigurationUtil;
 import org.apache.phoenix.schema.tuple.ResultTuple;
 import org.joda.time.chrono.ISOChronology;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.Array;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Date;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.plugin.phoenix.PhoenixClient.getQueryPlan;
 import static com.facebook.presto.plugin.phoenix.TypeUtils.isArrayType;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -70,7 +66,6 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.reflect.Array.get;
 import static java.lang.reflect.Array.getLength;
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hbase.client.Result.getTotalSizeOfCells;
 import static org.joda.time.DateTimeZone.UTC;
@@ -86,7 +81,8 @@ public class PhoenixPageSource
     private final PageBuilder pageBuilder;
 
     private final PhoenixConnection connection;
-    private final PhoenixResultSet resultSet;
+    private final RecordReader<NullWritable, PhoenixDBWritable> recordReader;
+    private PhoenixResultSet resultSet;
 
     private boolean closed;
 
@@ -101,65 +97,59 @@ public class PhoenixPageSource
         this.pageBuilder = new PageBuilder(columnTypes);
 
         try {
-            connection = ((PhoenixClient) phoenixClient).getConnection();
-
-            String inputQuery = ((PhoenixClient) phoenixClient).buildSql(connection,
-                    split.getCatalogName(),
-                    split.getSchemaName(),
-                    split.getTableName(),
-                    Optional.empty(),
-                    split.getTupleDomain(),
-                    columns);
-
-            QueryPlan queryPlan = getQueryPlan(connection, inputQuery);
-
-            Scan inputSplitScan = getInputSplit(queryPlan, split.getKeyRange());
-            inputSplitScan = requireNonNull(inputSplitScan, "inputSplitScan is null");
-
-            resultSet = getResultSet(queryPlan, inputSplitScan);
+            this.connection = phoenixClient.getConnection();
+            this.recordReader = createRecordReader(phoenixClient, split, columns);
         }
         catch (Exception e) {
             throw handleSqlException(e);
         }
     }
 
-    private Scan getInputSplit(QueryPlan queryPlan, KeyRange inputSplitKeyRange)
+    private RecordReader<NullWritable, PhoenixDBWritable> createRecordReader(PhoenixClient phoenixClient, PhoenixSplit split, List<PhoenixColumnHandle> columns)
+            throws Exception
     {
-        for (List<Scan> scans : queryPlan.getScans()) {
-            for (Scan scan : scans) {
-                if (KeyRange.getKeyRange(scan.getStartRow(), scan.getStopRow()).equals(inputSplitKeyRange)) {
-                    return scan;
-                }
-            }
-        }
-        return null;
+        String inputQuery = phoenixClient.buildSql(connection,
+                split.getCatalogName(),
+                split.getSchemaName(),
+                split.getTableName(),
+                Optional.empty(),
+                split.getTupleDomain(),
+                columns);
+        JobConf conf = new JobConf();
+        phoenixClient.setJobQueryConfig(inputQuery, conf);
+        PhoenixConfigurationUtil.setInputClass(conf, PhoenixDBWritable.class);
+        TaskAttemptContextImpl taskContext = new TaskAttemptContextImpl(conf, new TaskAttemptID());
+        PhoenixInputSplit pInputSplit = split.getPhoenixInputSplit();
+        RecordReader<NullWritable, PhoenixDBWritable> reader = new PhoenixInputFormat<PhoenixDBWritable>().createRecordReader(pInputSplit, taskContext);
+        reader.initialize(pInputSplit, taskContext);
+        return reader;
     }
 
-    private PhoenixResultSet getResultSet(QueryPlan queryPlan, Scan inputSplitScan) throws Exception
+    private static class PhoenixDBWritable
+            implements DBWritable
     {
-        List<PeekingResultIterator> iterators = new LinkedList<>();
-        inputSplitScan.setAttribute(BaseScannerRegionObserver.SKIP_REGION_BOUNDARY_CHECK, Bytes.toBytes(true));
-        final TableResultIterator tableResultIterator = new TableResultIterator(
-                queryPlan.getContext().getConnection().getMutationState(),
-                inputSplitScan,
-                null,
-                queryPlan.getContext().getConnection().getQueryServices().getRenewLeaseThresholdMilliSeconds(),
-                queryPlan,
-                MapReduceParallelScanGrouper.getInstance());
+        private PhoenixResultSet resultSet;
 
-        PeekingResultIterator peekingResultIterator = LookAheadResultIterator.wrap(tableResultIterator);
-        iterators.add(peekingResultIterator);
-        ResultIterator iterator = queryPlan.useRoundRobinIterator()
-                ? RoundRobinResultIterator.newIterator(iterators, queryPlan)
-                : ConcatResultIterator.newIterator(iterators);
-        if (queryPlan.getContext().getSequenceManager().getSequenceCount() > 0) {
-            iterator = new SequenceResultIterator(iterator, queryPlan.getContext()
-                    .getSequenceManager());
+        @Override
+        public void readFields(ResultSet rs)
+                throws SQLException
+        {
+            if (this.resultSet == null) {
+                this.resultSet = (PhoenixResultSet) rs;
+            }
         }
 
-        return new PhoenixResultSet(iterator, queryPlan.getProjector()
-                .cloneIfNecessary(),
-                queryPlan.getContext());
+        @Override
+        public void write(PreparedStatement arg0)
+                throws SQLException
+        {
+            throw new SQLException("Not implemented");
+        }
+
+        public PhoenixResultSet getPhoenixResultSet()
+        {
+            return resultSet;
+        }
     }
 
     @Override
@@ -196,7 +186,7 @@ public class PhoenixPageSource
         if (!closed) {
             try {
                 for (int i = 0; i < ROWS_PER_REQUEST; i++) {
-                    if (!resultSet.next()) {
+                    if (!hasNext()) {
                         close();
                         break;
                     }
@@ -215,7 +205,7 @@ public class PhoenixPageSource
                     }
                 }
             }
-            catch (SQLException | RuntimeException e) {
+            catch (Exception e) {
                 throw handleSqlException(e);
             }
         }
@@ -229,6 +219,16 @@ public class PhoenixPageSource
         pageBuilder.reset();
 
         return page;
+    }
+
+    private boolean hasNext()
+            throws IOException, InterruptedException
+    {
+        boolean hasNext = this.recordReader.nextKeyValue();
+        if (this.resultSet == null && hasNext) {
+            this.resultSet = this.recordReader.getCurrentValue().getPhoenixResultSet();
+        }
+        return hasNext;
     }
 
     private void appendTo(Type type, Object value, BlockBuilder output)
@@ -357,10 +357,11 @@ public class PhoenixPageSource
 
         // use try with resources to close everything properly
         try (PhoenixConnection connection = this.connection;
-                ResultSet resultSet = this.resultSet) {
+                ResultSet resultSet = this.resultSet;
+                RecordReader<NullWritable, PhoenixDBWritable> recordReader = this.recordReader) {
             // do nothing
         }
-        catch (SQLException e) {
+        catch (SQLException | IOException e) {
             throw new RuntimeException(e);
         }
         nanoEnd = System.nanoTime();

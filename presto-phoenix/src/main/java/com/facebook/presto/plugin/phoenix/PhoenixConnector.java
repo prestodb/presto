@@ -24,8 +24,6 @@ import com.facebook.presto.spi.transaction.IsolationLevel;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 
-import javax.inject.Inject;
-
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -42,21 +40,20 @@ public class PhoenixConnector
 
     private final LifeCycleManager lifeCycleManager;
     private final PhoenixMetadataFactory metadataFactory;
-    private final PhoenixSplitManager splitManager;
-    private final PhoenixPageSourceProvider pageSourceProvider;
-    private final PhoenixPageSinkProvider pageSinkProvider;
+    private final ConnectorSplitManager splitManager;
+    private final ConnectorPageSourceProvider pageSourceProvider;
+    private final ConnectorPageSinkProvider pageSinkProvider;
     private final PhoenixSessionProperties sessionProperties;
     private final PhoenixTableProperties tableProperties;
 
     private final ConcurrentMap<ConnectorTransactionHandle, PhoenixMetadata> transactions = new ConcurrentHashMap<>();
 
-    @Inject
     public PhoenixConnector(
             LifeCycleManager lifeCycleManager,
             PhoenixMetadataFactory metadataFactory,
-            PhoenixSplitManager splitManager,
-            PhoenixPageSourceProvider pageSourceProvider,
-            PhoenixPageSinkProvider pageSinkProvider,
+            ConnectorSplitManager splitManager,
+            ConnectorPageSourceProvider pageSourceProvider,
+            ConnectorPageSinkProvider pageSinkProvider,
             PhoenixSessionProperties sessionProperties,
             PhoenixTableProperties tableProperties)
     {

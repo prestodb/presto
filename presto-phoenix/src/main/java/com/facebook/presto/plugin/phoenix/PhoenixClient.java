@@ -33,17 +33,31 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HRegionLocation;
 import org.apache.hadoop.hbase.HTableDescriptor;
+import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
+import org.apache.hadoop.hbase.client.RegionLocator;
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.mapreduce.InputSplit;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.JobContext;
 import org.apache.phoenix.compile.QueryPlan;
+import org.apache.phoenix.coprocessor.BaseScannerRegionObserver;
 import org.apache.phoenix.iterate.MapReduceParallelScanGrouper;
 import org.apache.phoenix.jdbc.PhoenixConnection;
 import org.apache.phoenix.jdbc.PhoenixDriver;
+import org.apache.phoenix.jdbc.PhoenixEmbeddedDriver;
+import org.apache.phoenix.jdbc.PhoenixEmbeddedDriver.ConnectionInfo;
 import org.apache.phoenix.jdbc.PhoenixStatement;
+import org.apache.phoenix.mapreduce.PhoenixInputSplit;
+import org.apache.phoenix.mapreduce.util.ConnectionUtil;
+import org.apache.phoenix.mapreduce.util.PhoenixConfigurationUtil;
+import org.apache.phoenix.query.HBaseFactoryProvider;
 import org.apache.phoenix.query.KeyRange;
 import org.apache.phoenix.query.QueryConstants;
 import org.apache.phoenix.schema.AmbiguousColumnException;
@@ -53,11 +67,15 @@ import org.apache.phoenix.schema.PName;
 import org.apache.phoenix.schema.PTable;
 import org.apache.phoenix.schema.TableProperty;
 import org.apache.phoenix.schema.types.PDataType;
+import org.apache.phoenix.shaded.com.google.common.base.Preconditions;
+import org.apache.phoenix.shaded.com.google.common.collect.Lists;
+import org.apache.phoenix.util.PhoenixRuntime;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.Driver;
 import java.sql.ResultSet;
@@ -65,6 +83,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -260,21 +279,10 @@ public class PhoenixClient
                     layoutHandle.getTupleDomain(),
                     getColumns(handle, false));
 
-            final QueryPlan queryPlan = getQueryPlan(connection, inputQuery);
-            final List<KeyRange> splits = new LinkedList<>();
-
-            for (List<Scan> scans : queryPlan.getScans()) {
-                for (Scan scan : scans) {
-                    splits.add(KeyRange.getKeyRange(scan.getStartRow(), scan.getStopRow()));
-                }
-            }
-
-            byte[] tableName = queryPlan.getTableRef().getTable().getPhysicalName().getBytes();
-            return new FixedSplitSource(splits.stream().map(split -> (KeyRange) split).map(split -> {
+            return new FixedSplitSource(getHadoopInputSplits(inputQuery).stream().map(split -> (PhoenixInputSplit) split).map(split -> {
                 List<HostAddress> addresses;
                 try {
-                    HRegionLocation location = connection.getQueryServices().getTableRegionLocation(tableName, split.getLowerRange());
-                    String hostName = location.getHostname();
+                    String hostName = split.getLocations()[0];
                     HostAddress address = hostCache.get(hostName);
                     if (address == null) {
                         address = HostAddress.fromString(hostName);
@@ -282,7 +290,8 @@ public class PhoenixClient
                     }
                     addresses = ImmutableList.of(address);
                 }
-                catch (SQLException e) {
+                catch (Exception e) {
+                    log.warn("Failed to get split host addresses, will proceed without locality");
                     addresses = ImmutableList.of();
                 }
 
@@ -292,13 +301,33 @@ public class PhoenixClient
                         handle.getSchemaName(),
                         handle.getTableName(),
                         layoutHandle.getTupleDomain(),
-                        split,
-                        addresses);
+                        addresses,
+                        new WrappedPhoenixInputSplit(split));
             }).collect(Collectors.toList()));
         }
         catch (IOException | InterruptedException | SQLException e) {
             throw new PrestoException(PHOENIX_ERROR, e);
         }
+    }
+
+    // use Phoenix MR framework to get splits
+    private List<InputSplit> getHadoopInputSplits(String inputQuery)
+            throws SQLException, IOException, InterruptedException
+    {
+        Configuration conf = new Configuration();
+        setJobQueryConfig(inputQuery, conf);
+        Job job = Job.getInstance(conf);
+        List<InputSplit> splits = getSplits(job);
+        return splits;
+    }
+
+    public void setJobQueryConfig(String inputQuery, Configuration conf)
+            throws SQLException
+    {
+        ConnectionInfo connectionInfo = PhoenixEmbeddedDriver.ConnectionInfo.create(connectionUrl);
+        connectionInfo.asProps().forEach(prop -> conf.set(prop.getKey(), prop.getValue()));
+        connectionProperties.forEach((k, v) -> conf.set((String) k, (String) v));
+        PhoenixConfigurationUtil.setInputQuery(conf, inputQuery);
     }
 
     public PhoenixConnection getConnection()
@@ -326,18 +355,119 @@ public class PhoenixClient
                 tupleDomain);
     }
 
-    public static QueryPlan getQueryPlan(PhoenixConnection connection, String inputQuery)
+    public List<InputSplit> getSplits(JobContext context)
+            throws IOException, InterruptedException
     {
-        requireNonNull(inputQuery, "inputQuery is null");
-        try (Statement statement = connection.createStatement()) {
-            final PhoenixStatement phoenixStmt = statement.unwrap(PhoenixStatement.class);
-            final QueryPlan queryPlan = phoenixStmt.optimizeQuery(inputQuery);
-            queryPlan.iterator(MapReduceParallelScanGrouper.getInstance());
-            log.debug("Optimized query plan: " + queryPlan.getExplainPlan().toString());
-            return queryPlan;
+        final Configuration configuration = context.getConfiguration();
+        final QueryPlan queryPlan = getQueryPlan(context, configuration);
+        final List<KeyRange> allSplits = queryPlan.getSplits();
+        final List<InputSplit> splits = generateSplits(queryPlan, allSplits, configuration);
+        return splits;
+    }
+
+    // mostly copied from PhoenixInputFormat, but without the region size calculations
+    private List<InputSplit> generateSplits(final QueryPlan qplan, final List<KeyRange> splits, Configuration config)
+            throws IOException
+    {
+        Preconditions.checkNotNull(qplan);
+        Preconditions.checkNotNull(splits);
+
+        try (org.apache.hadoop.hbase.client.Connection connection =
+                HBaseFactoryProvider.getHConnectionFactory().createConnection(config)) {
+            RegionLocator regionLocator = connection.getRegionLocator(TableName.valueOf(qplan
+                    .getTableRef().getTable().getPhysicalName().toString()));
+            long regionSize = -1;
+            final List<InputSplit> psplits = Lists.newArrayListWithExpectedSize(splits.size());
+            for (List<Scan> scans : qplan.getScans()) {
+                // Get the region location
+                HRegionLocation location = regionLocator.getRegionLocation(
+                        scans.get(0).getStartRow(),
+                        false);
+                String regionLocation = location.getHostname();
+
+                // Generate splits based off statistics, or just region splits?
+                boolean splitByStats = PhoenixConfigurationUtil.getSplitByStats(config);
+
+                if (splitByStats) {
+                    for (Scan aScan : scans) {
+                        if (log.isDebugEnabled()) {
+                            log.debug("Split for  scan : " + aScan + "with scanAttribute : " + aScan
+                                    .getAttributesMap() + " [scanCache, cacheBlock, scanBatch] : [" +
+                                    aScan.getCaching() + ", " + aScan.getCacheBlocks() + ", " + aScan
+                                    .getBatch() + "] and  regionLocation : " + regionLocation);
+                        }
+                        psplits.add(new PhoenixInputSplit(Collections.singletonList(aScan), regionSize, regionLocation));
+                    }
+                }
+                else {
+                    if (log.isDebugEnabled()) {
+                        log.debug("Scan count[" + scans.size() + "] : " + Bytes.toStringBinary(scans
+                                .get(0).getStartRow()) + " ~ " + Bytes.toStringBinary(scans.get(scans
+                                .size() - 1).getStopRow()));
+                        log.debug("First scan : " + scans.get(0) + "with scanAttribute : " + scans
+                                .get(0).getAttributesMap() + " [scanCache, cacheBlock, scanBatch] : " +
+                                "[" + scans.get(0).getCaching() + ", " + scans.get(0).getCacheBlocks()
+                                + ", " + scans.get(0).getBatch() + "] and  regionLocation : " +
+                                regionLocation);
+
+                        for (int i = 0, limit = scans.size(); i < limit; i++) {
+                            log.debug("EXPECTED_UPPER_REGION_KEY[" + i + "] : " + Bytes
+                                    .toStringBinary(scans.get(i).getAttribute
+                                            (BaseScannerRegionObserver.EXPECTED_UPPER_REGION_KEY)));
+                        }
+                    }
+                    psplits.add(new PhoenixInputSplit(scans, regionSize, regionLocation));
+                }
+            }
+            return psplits;
         }
-        catch (Exception e) {
-            throw new PrestoException(PHOENIX_ERROR, String.format("Failed to get the query plan with error [%s]", e.getMessage()), e);
+    }
+
+    private QueryPlan getQueryPlan(final JobContext context, final Configuration configuration)
+    {
+        Preconditions.checkNotNull(context);
+        try {
+            final String txnScnValue = configuration.get(PhoenixConfigurationUtil.TX_SCN_VALUE);
+            final String currentScnValue = configuration.get(PhoenixConfigurationUtil.CURRENT_SCN_VALUE);
+            final String tenantId = configuration.get(PhoenixConfigurationUtil.MAPREDUCE_TENANT_ID);
+            final Properties overridingProps = new Properties();
+            if (txnScnValue == null && currentScnValue != null) {
+                overridingProps.put(PhoenixRuntime.CURRENT_SCN_ATTRIB, currentScnValue);
+            }
+            if (tenantId != null && configuration.get(PhoenixRuntime.TENANT_ID_ATTRIB) == null) {
+                overridingProps.put(PhoenixRuntime.TENANT_ID_ATTRIB, tenantId);
+            }
+            try (final Connection connection = ConnectionUtil.getInputConnection(configuration, overridingProps);
+                    final Statement statement = connection.createStatement()) {
+                String selectStatement = PhoenixConfigurationUtil.getSelectStatement(configuration);
+                Preconditions.checkNotNull(selectStatement);
+
+                final PhoenixStatement pstmt = statement.unwrap(PhoenixStatement.class);
+                // Optimize the query plan so that we potentially use secondary indexes
+                final QueryPlan queryPlan = pstmt.optimizeQuery(selectStatement);
+                final Scan scan = queryPlan.getContext().getScan();
+
+                // since we can't set a scn on connections with txn set TX_SCN attribute so that the max time range is set by BaseScannerRegionObserver
+                if (txnScnValue != null) {
+                    scan.setAttribute(BaseScannerRegionObserver.TX_SCN, Bytes.toBytes(Long.valueOf(txnScnValue)));
+                }
+
+                // setting the snapshot configuration
+                String snapshotName = configuration.get(PhoenixConfigurationUtil.SNAPSHOT_NAME_KEY);
+                if (snapshotName != null) {
+                    PhoenixConfigurationUtil.setSnapshotNameKey(queryPlan.getContext().getConnection()
+                            .getQueryServices().getConfiguration(), snapshotName);
+                }
+
+                // Initialize the query plan so it sets up the parallel scans
+                queryPlan.iterator(MapReduceParallelScanGrouper.getInstance());
+                return queryPlan;
+            }
+        }
+        catch (Exception exception) {
+            log.error(String.format("Failed to get the query plan with error [%s]",
+                    exception.getMessage()));
+            throw new RuntimeException(exception);
         }
     }
 
