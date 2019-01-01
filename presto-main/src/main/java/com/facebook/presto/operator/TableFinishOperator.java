@@ -69,7 +69,7 @@ public class TableFinishOperator
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.tableFinisher = requireNonNull(tableFinisher, "tableCommitter is null");
+            this.tableFinisher = requireNonNull(tableFinisher, "tableFinisher is null");
             this.statisticsAggregationOperatorFactory = requireNonNull(statisticsAggregationOperatorFactory, "statisticsAggregationOperatorFactory is null");
             this.descriptor = requireNonNull(descriptor, "descriptor is null");
             this.session = requireNonNull(session, "session is null");
