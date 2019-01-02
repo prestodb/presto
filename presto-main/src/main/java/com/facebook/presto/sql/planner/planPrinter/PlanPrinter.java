@@ -132,6 +132,7 @@ import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 import static java.lang.String.format;
 import static java.util.Arrays.stream;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -1165,9 +1166,8 @@ public class PlanPrinter
 
             printDistributions(output, nodeStats);
 
-            if (nodeStats.getWindowOperatorStats().isPresent()) {
-                // TODO: Once PlanNodeStats becomes broken into smaller classes, we should rely on toString() method of WindowOperatorStats here
-                printWindowOperatorStats(output, nodeStats.getWindowOperatorStats().get());
+            if (nodeStats instanceof WindowPlanNodeStats) {
+                printWindowOperatorStats(output, ((WindowPlanNodeStats) nodeStats).getWindowOperatorStats());
             }
         }
 
@@ -1252,9 +1252,14 @@ public class PlanPrinter
         Map<String, Double> inputAverages = stats.getOperatorInputPositionsAverages();
         Map<String, Double> inputStdDevs = stats.getOperatorInputPositionsStdDevs();
 
-        Map<String, Double> hashCollisionsAverages = stats.getOperatorHashCollisionsAverages();
-        Map<String, Double> hashCollisionsStdDevs = stats.getOperatorHashCollisionsStdDevs();
-        Map<String, Double> expectedHashCollisionsAverages = stats.getOperatorExpectedCollisionsAverages();
+        Map<String, Double> hashCollisionsAverages = emptyMap();
+        Map<String, Double> hashCollisionsStdDevs = emptyMap();
+        Map<String, Double> expectedHashCollisionsAverages = emptyMap();
+        if (stats instanceof HashCollisionPlanNodeStats) {
+            hashCollisionsAverages = ((HashCollisionPlanNodeStats) stats).getOperatorHashCollisionsAverages();
+            hashCollisionsStdDevs = ((HashCollisionPlanNodeStats) stats).getOperatorHashCollisionsStdDevs();
+            expectedHashCollisionsAverages = ((HashCollisionPlanNodeStats) stats).getOperatorExpectedCollisionsAverages();
+        }
 
         Map<String, String> translatedOperatorTypes = translateOperatorTypes(stats.getOperatorTypes());
 
