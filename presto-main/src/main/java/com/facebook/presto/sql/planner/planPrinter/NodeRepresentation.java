@@ -13,10 +13,15 @@
  */
 package com.facebook.presto.sql.planner.planPrinter;
 
+import com.facebook.presto.cost.PlanNodeCostEstimate;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
+import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -25,20 +30,34 @@ public class NodeRepresentation
     private final PlanNodeId id;
     private final String type;
     private final String identifier;
-    private final String outputs;
+    private final List<Symbol> outputs;
     private final List<PlanNodeId> children;
+    private final Optional<PlanNodeStats> stats;
+    private final List<PlanNodeStatsEstimate> estimatedStats;
+    private final List<PlanNodeCostEstimate> estimatedCost;
+
     private final StringBuilder details = new StringBuilder();
 
-    // TODO: Make this more regular
-    private final StringBuilder stats = new StringBuilder();
-
-    public NodeRepresentation(PlanNodeId id, String type, String identifier, String outputs, List<PlanNodeId> children)
+    public NodeRepresentation(
+            PlanNodeId id,
+            String type,
+            String identifier,
+            List<Symbol> outputs,
+            Optional<PlanNodeStats> stats,
+            List<PlanNodeStatsEstimate> estimatedStats,
+            List<PlanNodeCostEstimate> estimatedCost,
+            List<PlanNodeId> children)
     {
         this.id = requireNonNull(id, "id is null");
         this.type = requireNonNull(type, "name is null");
         this.identifier = requireNonNull(identifier, "identifier is null");
         this.outputs = requireNonNull(outputs, "outputs is null");
+        this.stats = requireNonNull(stats, "stats is null");
+        this.estimatedStats = requireNonNull(estimatedStats, "estimatedStats is null");
+        this.estimatedCost = requireNonNull(estimatedCost, "estimatedCost is null");
         this.children = requireNonNull(children, "children is null");
+
+        checkArgument(estimatedCost.size() == estimatedStats.size(), "size of cost and stats list does not match");
     }
 
     public void appendDetails(String string, Object... args)
@@ -57,22 +76,6 @@ public class NodeRepresentation
         details.append('\n');
     }
 
-    public void appendStats(String string, Object... args)
-    {
-        if (args.length == 0) {
-            stats.append(string);
-        }
-        else {
-            stats.append(format(string, args));
-        }
-    }
-
-    public void appendStatsLine(String string, Object... args)
-    {
-        appendStats(string, args);
-        stats.append('\n');
-    }
-
     public PlanNodeId getId()
     {
         return id;
@@ -88,7 +91,7 @@ public class NodeRepresentation
         return identifier;
     }
 
-    public String getOutputs()
+    public List<Symbol> getOutputs()
     {
         return outputs;
     }
@@ -103,8 +106,18 @@ public class NodeRepresentation
         return details.toString();
     }
 
-    public String getStats()
+    public Optional<PlanNodeStats> getStats()
     {
-        return stats.toString();
+        return stats;
+    }
+
+    public List<PlanNodeStatsEstimate> getEstimatedStats()
+    {
+        return estimatedStats;
+    }
+
+    public List<PlanNodeCostEstimate> getEstimatedCost()
+    {
+        return estimatedCost;
     }
 }
