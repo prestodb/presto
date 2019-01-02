@@ -155,7 +155,7 @@ public class TestMemoryTracking
             fail("allocation should hit the per-node total memory limit");
         }
         catch (ExceededMemoryLimitException e) {
-            assertEquals(e.getMessage(), format("Query exceeded per-node total memory limit of %1$s when increasing allocation of %1$s by 1B", queryMaxTotalMemory));
+            assertEquals(e.getMessage(), format("Query exceeded per-node total memory limit of %1$s [Allocated: %1$s, Delta: 1B, Top Consumers: {test=%1$s}]", queryMaxTotalMemory));
         }
     }
 
