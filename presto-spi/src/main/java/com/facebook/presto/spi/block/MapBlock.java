@@ -43,7 +43,7 @@ public class MapBlock
     private final int[] offsets;
     private final Block keyBlock;
     private final Block valueBlock;
-    private volatile int[] hashTables; // hash to location in map. Writes to the field is protected by "this" monitor.
+    private HashTables hashTables;
 
     private volatile long sizeInBytes;
     private final long retainedSizeInBytes;
@@ -77,7 +77,7 @@ public class MapBlock
                 offsets,
                 keyBlock,
                 valueBlock,
-                Optional.empty(),
+                new HashTables(),
                 mapType.getKeyType(),
                 keyBlockNativeEquals,
                 keyNativeHashCode,
@@ -100,13 +100,14 @@ public class MapBlock
             int[] offsets,
             Block keyBlock,
             Block valueBlock,
-            Optional<int[]> hashTables,
+            HashTables hashTables,
             Type keyType,
             MethodHandle keyBlockNativeEquals,
             MethodHandle keyNativeHashCode,
             MethodHandle keyBlockHashCode)
     {
         validateConstructorArguments(startOffset, positionCount, mapIsNull.orElse(null), offsets, keyBlock, valueBlock, keyType, keyBlockNativeEquals, keyNativeHashCode);
+        requireNonNull(hashTables, "hashTables is null");
         return new MapBlock(
                 startOffset,
                 positionCount,
@@ -114,7 +115,7 @@ public class MapBlock
                 offsets,
                 keyBlock,
                 valueBlock,
-                hashTables.orElse(null),
+                hashTables,
                 keyType,
                 keyBlockNativeEquals,
                 keyNativeHashCode,
@@ -171,7 +172,7 @@ public class MapBlock
             int[] offsets,
             Block keyBlock,
             Block valueBlock,
-            @Nullable int[] hashTables,
+            HashTables hashTables,
             Type keyType,
             MethodHandle keyBlockNativeEquals,
             MethodHandle keyNativeHashCode,
@@ -179,8 +180,9 @@ public class MapBlock
     {
         super(keyType, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode);
 
-        if (hashTables != null && hashTables.length < keyBlock.getPositionCount() * HASH_MULTIPLIER) {
-            throw new IllegalArgumentException(format("keyBlock/valueBlock size does not match hash table size: %s %s", keyBlock.getPositionCount(), hashTables.length));
+        int[] rawHashTables = hashTables.getRawHashTables();
+        if (rawHashTables != null && rawHashTables.length < keyBlock.getPositionCount() * HASH_MULTIPLIER) {
+            throw new IllegalArgumentException(format("keyBlock/valueBlock size does not match hash table size: %s %s", keyBlock.getPositionCount(), rawHashTables.length));
         }
 
         this.startOffset = startOffset;
@@ -190,7 +192,6 @@ public class MapBlock
         this.keyBlock = keyBlock;
         this.valueBlock = valueBlock;
         this.hashTables = hashTables;
-
         this.sizeInBytes = -1;
 
         // We will add the hashtable size to the retained size even if it's not built yet. This could be overestimating
@@ -201,7 +202,8 @@ public class MapBlock
                 + valueBlock.getRetainedSizeInBytes()
                 + sizeOf(offsets)
                 + sizeOf(mapIsNull)
-                + sizeOfIntArray(keyBlock.getPositionCount() * HASH_MULTIPLIER);  // hashtable size if it was built
+                + sizeOfIntArray(keyBlock.getPositionCount() * HASH_MULTIPLIER)  // Raw int[] hashTables size if it was built
+                + hashTables.getInstanceSizeInBytes();  // The instance size for HashTables object because it always is not null.
     }
 
     @Override
@@ -217,7 +219,7 @@ public class MapBlock
     }
 
     @Override
-    protected int[] getHashTables()
+    protected HashTables getHashTables()
     {
         return hashTables;
     }
@@ -264,7 +266,8 @@ public class MapBlock
         sizeInBytes = keyBlock.getRegionSizeInBytes(entriesStart, entryCount) +
                 valueBlock.getRegionSizeInBytes(entriesStart, entryCount) +
                 (Integer.BYTES + Byte.BYTES) * (long) this.positionCount +
-                Integer.BYTES * HASH_MULTIPLIER * (long) entryCount;
+                Integer.BYTES * HASH_MULTIPLIER * (long) entryCount +
+                hashTables.getInstanceSizeInBytes();
     }
 
     @Override
@@ -280,7 +283,7 @@ public class MapBlock
         consumer.accept(valueBlock, valueBlock.getRetainedSizeInBytes());
         consumer.accept(offsets, sizeOf(offsets));
         consumer.accept(mapIsNull, sizeOf(mapIsNull));
-        consumer.accept(hashTables, sizeOf(hashTables));
+        consumer.accept(hashTables, hashTables.getRetainedSizeInBytes());
         consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
@@ -312,7 +315,7 @@ public class MapBlock
                 offsets,
                 keyBlock,
                 loadedValueBlock,
-                Optional.ofNullable(hashTables),
+                hashTables,
                 keyType,
                 keyBlockNativeEquals,
                 keyNativeHashCode,
@@ -322,13 +325,13 @@ public class MapBlock
     @Override
     protected void ensureHashTableLoaded()
     {
-        if (this.hashTables != null) {
+        if (this.hashTables.getRawHashTables() != null) {
             return;
         }
 
         // This can only happen for MapBlock, not MapBlockBuilder because the latter always has non-null hashtables
         synchronized (this) {
-            if (this.hashTables != null) {
+            if (this.hashTables.getRawHashTables() != null) {
                 return;
             }
 
@@ -352,7 +355,7 @@ public class MapBlock
                         keyOffset * HASH_MULTIPLIER,
                         keyCount * HASH_MULTIPLIER);
             }
-            this.hashTables = hashTables;
+            this.hashTables.setRawHashTables(hashTables);
         }
     }
 }

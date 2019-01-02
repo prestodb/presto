@@ -14,6 +14,7 @@
 
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.block.AbstractMapBlock.HashTables;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -110,7 +111,7 @@ public class SingleMapBlockEncoding
                 new int[] {0, keyBlock.getPositionCount()},
                 keyBlock,
                 valueBlock,
-                Optional.ofNullable(hashTable),
+                new HashTables(hashTable),
                 keyType,
                 keyBlockNativeEquals,
                 keyNativeHashCode,
