@@ -48,7 +48,7 @@ public class MapBlockBuilder
     private boolean[] mapIsNull;
     private final BlockBuilder keyBlockBuilder;
     private final BlockBuilder valueBlockBuilder;
-    private int[] hashTables;
+    private HashTables hashTables;
 
     private boolean currentEntryOpened;
 
@@ -87,7 +87,7 @@ public class MapBlockBuilder
             BlockBuilder valueBlockBuilder,
             int[] offsets,
             boolean[] mapIsNull,
-            int[] hashTables)
+            int[] rawHashTables)
     {
         super(keyType, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode);
 
@@ -99,7 +99,7 @@ public class MapBlockBuilder
         this.mapIsNull = requireNonNull(mapIsNull, "mapIsNull is null");
         this.keyBlockBuilder = requireNonNull(keyBlockBuilder, "keyBlockBuilder is null");
         this.valueBlockBuilder = requireNonNull(valueBlockBuilder, "valueBlockBuilder is null");
-        this.hashTables = requireNonNull(hashTables, "hashTables is null");
+        this.hashTables = new HashTables(requireNonNull(rawHashTables, "hashTables is null"));
     }
 
     @Override
@@ -115,7 +115,7 @@ public class MapBlockBuilder
     }
 
     @Override
-    protected int[] getHashTables()
+    protected HashTables getHashTables()
     {
         return hashTables;
     }
@@ -149,7 +149,8 @@ public class MapBlockBuilder
     {
         return keyBlockBuilder.getSizeInBytes() + valueBlockBuilder.getSizeInBytes() +
                 (Integer.BYTES + Byte.BYTES) * (long) positionCount +
-                Integer.BYTES * HASH_MULTIPLIER * (long) keyBlockBuilder.getPositionCount();
+                Integer.BYTES * HASH_MULTIPLIER * (long) keyBlockBuilder.getPositionCount() +
+                hashTables.getInstanceSizeInBytes();
     }
 
     @Override
@@ -160,7 +161,7 @@ public class MapBlockBuilder
                 + valueBlockBuilder.getRetainedSizeInBytes()
                 + sizeOf(offsets)
                 + sizeOf(mapIsNull)
-                + sizeOf(hashTables);
+                + hashTables.getRetainedSizeInBytes();
         if (blockBuilderStatus != null) {
             size += BlockBuilderStatus.INSTANCE_SIZE;
         }
@@ -174,7 +175,7 @@ public class MapBlockBuilder
         consumer.accept(valueBlockBuilder, valueBlockBuilder.getRetainedSizeInBytes());
         consumer.accept(offsets, sizeOf(offsets));
         consumer.accept(mapIsNull, sizeOf(mapIsNull));
-        consumer.accept(hashTables, sizeOf(hashTables));
+        consumer.accept(hashTables, hashTables.getRetainedSizeInBytes());
         consumer.accept(this, (long) INSTANCE_SIZE);
     }
 
@@ -207,7 +208,7 @@ public class MapBlockBuilder
                 previousAggregatedEntryCount,
                 entryCount,
                 keyBlockHashCode,
-                hashTables,
+                hashTables.getRawHashTables(),
                 previousAggregatedEntryCount * HASH_MULTIPLIER,
                 entryCount * HASH_MULTIPLIER);
         return this;
@@ -240,7 +241,7 @@ public class MapBlockBuilder
                 entryCount,
                 keyBlockEquals,
                 keyBlockHashCode,
-                hashTables,
+                hashTables.getRawHashTables(),
                 previousAggregatedEntryCount * HASH_MULTIPLIER,
                 entryCount * HASH_MULTIPLIER);
         return this;
@@ -264,7 +265,7 @@ public class MapBlockBuilder
             int hashTableOffset = previousAggregatedEntryCount * HASH_MULTIPLIER;
             int hashTableSize = (aggregatedEntryCount - previousAggregatedEntryCount) * HASH_MULTIPLIER;
             for (int i = 0; i < hashTableSize; i++) {
-                hashTables[hashTableOffset + i] = providedHashTable[providedHashTableOffset + i];
+                hashTables.getRawHashTables()[hashTableOffset + i] = providedHashTable[providedHashTableOffset + i];
             }
         }
         else {
@@ -275,7 +276,7 @@ public class MapBlockBuilder
                     previousAggregatedEntryCount,
                     entryCount,
                     keyBlockHashCode,
-                    hashTables,
+                    hashTables.getRawHashTables(),
                     previousAggregatedEntryCount * HASH_MULTIPLIER,
                     entryCount * HASH_MULTIPLIER);
         }
@@ -315,11 +316,13 @@ public class MapBlockBuilder
 
     private void ensureHashTableSize()
     {
-        if (hashTables.length < offsets[positionCount] * HASH_MULTIPLIER) {
+        int[] rawHashTables = hashTables.getRawHashTables();
+        if (rawHashTables.length < offsets[positionCount] * HASH_MULTIPLIER) {
             int newSize = BlockUtil.calculateNewArraySize(offsets[positionCount] * HASH_MULTIPLIER);
-            int oldSize = hashTables.length;
-            hashTables = Arrays.copyOf(hashTables, newSize);
-            Arrays.fill(hashTables, oldSize, hashTables.length, -1);
+            int oldSize = rawHashTables.length;
+            int[] newHashTablesArray = Arrays.copyOf(rawHashTables, newSize);
+            Arrays.fill(newHashTablesArray, oldSize, newSize, -1);
+            hashTables.setRawHashTables(newHashTablesArray);
         }
     }
 
@@ -329,6 +332,7 @@ public class MapBlockBuilder
         if (currentEntryOpened) {
             throw new IllegalStateException("Current entry must be closed before the block can be built");
         }
+
         return createMapBlockInternal(
                 0,
                 positionCount,
@@ -336,7 +340,7 @@ public class MapBlockBuilder
                 offsets,
                 keyBlockBuilder.build(),
                 valueBlockBuilder.build(),
-                Optional.of(Arrays.copyOf(hashTables, offsets[positionCount] * HASH_MULTIPLIER)),
+                new HashTables(Arrays.copyOf(hashTables.getRawHashTables(), offsets[positionCount] * HASH_MULTIPLIER)),
                 keyType,
                 keyBlockNativeEquals,
                 keyNativeHashCode,
@@ -415,7 +419,7 @@ public class MapBlockBuilder
             }
         }
 
-        closeEntry(mapBlock.getHashTables(), startValueOffset * HASH_MULTIPLIER);
+        closeEntry(mapBlock.getHashTables().getRawHashTables(), startValueOffset * HASH_MULTIPLIER);
         return this;
     }
 

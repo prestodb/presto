@@ -14,6 +14,7 @@
 
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.block.AbstractMapBlock.HashTables;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -54,7 +55,7 @@ public class MapBlockEncoding
 
         int offsetBase = mapBlock.getOffsetBase();
         int[] offsets = mapBlock.getOffsets();
-        int[] hashTable = mapBlock.getHashTables();
+        int[] hashTable = mapBlock.getHashTables().getRawHashTables();
 
         int entriesStartOffset = offsets[offsetBase];
         int entriesEndOffset = offsets[offsetBase + positionCount];
@@ -110,6 +111,6 @@ public class MapBlockEncoding
         int[] offsets = new int[positionCount + 1];
         sliceInput.readBytes(wrappedIntArray(offsets));
         Optional<boolean[]> mapIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
-        return MapType.createMapBlockInternal(typeManager, keyType, 0, positionCount, mapIsNull, offsets, keyBlock, valueBlock, Optional.ofNullable(hashTable));
+        return MapType.createMapBlockInternal(typeManager, keyType, 0, positionCount, mapIsNull, offsets, keyBlock, valueBlock, new HashTables(hashTable));
     }
 }

@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.ByteArrayBlock;
+import com.facebook.presto.spi.block.MapBlock;
 import com.facebook.presto.spi.block.MapBlockBuilder;
 import com.facebook.presto.spi.block.SingleMapBlock;
 import com.facebook.presto.spi.type.MapType;
@@ -93,9 +94,15 @@ public class TestMapBlock
         int offset = block.getPositionCount() / 2;
         Block blockRegion = block.getRegion(offset, block.getPositionCount() - offset);
 
+        assertFalse(((MapBlock) blockRegion).isHashTablesCreated());
+        assertFalse(((MapBlock) block).isHashTablesCreated());
+
         // Lazily build the hashtables for the block region and use them to do position/value check.
         Map<String, Long>[] expectedValues = Arrays.copyOfRange(values, values.length / 2, values.length);
         assertBlock(blockRegion, () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
+
+        assertTrue(((MapBlock) blockRegion).isHashTablesCreated());
+        assertTrue(((MapBlock) block).isHashTablesCreated());
 
         Map<String, Long>[] valuesWithNull = alternatingNullValues(values);
         Block blockWithNull = createBlockWithValuesFromKeyValueBlock(valuesWithNull);
@@ -104,9 +111,15 @@ public class TestMapBlock
         offset = blockWithNull.getPositionCount() / 2;
         Block blockRegionWithNull = blockWithNull.getRegion(offset, blockWithNull.getPositionCount() - offset);
 
+        assertFalse(((MapBlock) blockRegionWithNull).isHashTablesCreated());
+        assertFalse(((MapBlock) blockWithNull).isHashTablesCreated());
+
         // Lazily build the hashtables for the block region and use them to do position/value check.
         Map<String, Long>[] expectedValuesWithNull = Arrays.copyOfRange(valuesWithNull, valuesWithNull.length / 2, valuesWithNull.length);
         assertBlock(blockRegionWithNull, () -> blockBuilder.newBlockBuilderLike(null), expectedValuesWithNull);
+
+        assertTrue(((MapBlock) blockRegionWithNull).isHashTablesCreated());
+        assertTrue(((MapBlock) blockWithNull).isHashTablesCreated());
     }
 
     private Map<String, Long>[] createTestMap(int... entryCounts)
