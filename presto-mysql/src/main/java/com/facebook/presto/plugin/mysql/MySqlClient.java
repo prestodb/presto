@@ -18,6 +18,7 @@ import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.ConnectionFactory;
 import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
+import com.facebook.presto.plugin.jdbc.WriteMapping;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.Type;
@@ -37,6 +38,12 @@ import java.util.Properties;
 import java.util.Set;
 
 import static com.facebook.presto.plugin.jdbc.DriverConnectionFactory.basicConnectionProperties;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.realWriteFunction;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
+import static com.facebook.presto.plugin.jdbc.WriteMapping.longWriteMapping;
+import static com.facebook.presto.plugin.jdbc.WriteMapping.sliceWriteMapping;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -143,37 +150,41 @@ public class MySqlClient
     }
 
     @Override
-    protected String toSqlType(Type type)
+    protected WriteMapping toWriteMapping(Type type)
     {
         if (REAL.equals(type)) {
-            return "float";
+            return longWriteMapping("float", realWriteFunction());
         }
         if (TIME_WITH_TIME_ZONE.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
             throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
         }
         if (TIMESTAMP.equals(type)) {
-            return "datetime";
+            return longWriteMapping("datetime", timestampWriteFunction());
         }
         if (VARBINARY.equals(type)) {
-            return "mediumblob";
+            return sliceWriteMapping("mediumblob", varbinaryWriteFunction());
         }
         if (isVarcharType(type)) {
             VarcharType varcharType = (VarcharType) type;
+            String dataType;
             if (varcharType.isUnbounded()) {
-                return "longtext";
+                dataType = "longtext";
             }
-            if (varcharType.getLengthSafe() <= 255) {
-                return "tinytext";
+            else if (varcharType.getLengthSafe() <= 255) {
+                dataType = "tinytext";
             }
-            if (varcharType.getLengthSafe() <= 65535) {
-                return "text";
+            else if (varcharType.getLengthSafe() <= 65535) {
+                dataType = "text";
             }
-            if (varcharType.getLengthSafe() <= 16777215) {
-                return "mediumtext";
+            else if (varcharType.getLengthSafe() <= 16777215) {
+                dataType = "mediumtext";
             }
-            return "longtext";
+            else {
+                dataType = "longtext";
+            }
+            return sliceWriteMapping(dataType, varcharWriteFunction());
         }
 
-        return super.toSqlType(type);
+        return super.toWriteMapping(type);
     }
 }

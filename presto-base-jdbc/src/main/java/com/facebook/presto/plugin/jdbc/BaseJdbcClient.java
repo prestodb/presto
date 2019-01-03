@@ -48,7 +48,24 @@ import java.util.Set;
 import java.util.UUID;
 
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.charWriteFunction;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.dateWriteFunction;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.jdbcTypeToPrestoType;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.realWriteFunction;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
+import static com.facebook.presto.plugin.jdbc.WriteMapping.booleanWriteMapping;
+import static com.facebook.presto.plugin.jdbc.WriteMapping.doubleWriteMapping;
+import static com.facebook.presto.plugin.jdbc.WriteMapping.longWriteMapping;
+import static com.facebook.presto.plugin.jdbc.WriteMapping.sliceWriteMapping;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -74,16 +91,16 @@ public class BaseJdbcClient
 {
     private static final Logger log = Logger.get(BaseJdbcClient.class);
 
-    private static final Map<Type, String> SQL_TYPES = ImmutableMap.<Type, String>builder()
-            .put(BOOLEAN, "boolean")
-            .put(BIGINT, "bigint")
-            .put(INTEGER, "integer")
-            .put(SMALLINT, "smallint")
-            .put(TINYINT, "tinyint")
-            .put(DOUBLE, "double precision")
-            .put(REAL, "real")
-            .put(VARBINARY, "varbinary")
-            .put(DATE, "date")
+    private static final Map<Type, WriteMapping> WRITE_MAPPINGS = ImmutableMap.<Type, WriteMapping>builder()
+            .put(BOOLEAN, booleanWriteMapping("boolean", booleanWriteFunction()))
+            .put(BIGINT, longWriteMapping("bigint", bigintWriteFunction()))
+            .put(INTEGER, longWriteMapping("integer", integerWriteFunction()))
+            .put(SMALLINT, longWriteMapping("smallint", smallintWriteFunction()))
+            .put(TINYINT, longWriteMapping("tinyint", tinyintWriteFunction()))
+            .put(DOUBLE, doubleWriteMapping("double precision", doubleWriteFunction()))
+            .put(REAL, longWriteMapping("real", realWriteFunction()))
+            .put(VARBINARY, sliceWriteMapping("varbinary", varbinaryWriteFunction()))
+            .put(DATE, longWriteMapping("date", dateWriteFunction()))
             .build();
 
     protected final String connectorId;
@@ -309,7 +326,8 @@ public class BaseJdbcClient
                 columnList.add(new StringBuilder()
                         .append(quoted(columnName))
                         .append(" ")
-                        .append(toSqlType(column.getType()))
+                        // TODO in INSERT case, we should reuse original column type and, ideally, constraints (then JdbcPageSink must get writer from toPrestoType())
+                        .append(toWriteMapping(column.getType()).getDataType())
                         .toString());
             }
             Joiner.on(", ").appendTo(sql, columnList.build());
@@ -456,28 +474,52 @@ public class BaseJdbcClient
         }
     }
 
-    protected String toSqlType(Type type)
+    /**
+     * @deprecated Use {@link #toWriteMapping(Type)}.
+     */
+    @Deprecated
+    protected final String toSqlType(Type type)
+    {
+        // TODO remove this method when all connectors updated
+        return toWriteMapping(type).getDataType();
+    }
+
+    protected WriteMapping toWriteMapping(Type type)
     {
         if (isVarcharType(type)) {
             VarcharType varcharType = (VarcharType) type;
+            String dataType;
             if (varcharType.isUnbounded()) {
-                return "varchar";
+                dataType = "varchar";
             }
-            return "varchar(" + varcharType.getLengthSafe() + ")";
+            else {
+                dataType = "varchar(" + varcharType.getLengthSafe() + ")";
+            }
+            return WriteMapping.sliceWriteMapping(dataType, varcharWriteFunction());
         }
         if (type instanceof CharType) {
-            if (((CharType) type).getLength() == CharType.MAX_LENGTH) {
-                return "char";
+            CharType charType = (CharType) type;
+            String dataType;
+            if (charType.getLength() == CharType.MAX_LENGTH) {
+                dataType = "char";
             }
-            return "char(" + ((CharType) type).getLength() + ")";
+            else {
+                dataType = "char(" + charType.getLength() + ")";
+            }
+            return WriteMapping.sliceWriteMapping(dataType, charWriteFunction(charType));
         }
         if (type instanceof DecimalType) {
-            return format("decimal(%s, %s)", ((DecimalType) type).getPrecision(), ((DecimalType) type).getScale());
+            DecimalType decimalType = (DecimalType) type;
+            String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+            if (decimalType.isShort()) {
+                return longWriteMapping(dataType, shortDecimalWriteFunction(decimalType));
+            }
+            return WriteMapping.sliceWriteMapping(dataType, longDecimalWriteFunction(decimalType));
         }
 
-        String sqlType = SQL_TYPES.get(type);
-        if (sqlType != null) {
-            return sqlType;
+        WriteMapping writeMapping = WRITE_MAPPINGS.get(type);
+        if (writeMapping != null) {
+            return writeMapping;
         }
         throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }

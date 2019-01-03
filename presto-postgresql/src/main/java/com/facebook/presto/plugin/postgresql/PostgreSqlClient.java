@@ -18,6 +18,7 @@ import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcOutputTableHandle;
+import com.facebook.presto.plugin.jdbc.WriteMapping;
 import com.facebook.presto.spi.type.Type;
 import org.postgresql.Driver;
 
@@ -29,6 +30,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import static com.facebook.presto.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 
 public class PostgreSqlClient
@@ -82,12 +84,12 @@ public class PostgreSqlClient
     }
 
     @Override
-    protected String toSqlType(Type type)
+    protected WriteMapping toWriteMapping(Type type)
     {
         if (VARBINARY.equals(type)) {
-            return "bytea";
+            return WriteMapping.sliceWriteMapping("bytea", varbinaryWriteFunction());
         }
 
-        return super.toSqlType(type);
+        return super.toWriteMapping(type);
     }
 }
