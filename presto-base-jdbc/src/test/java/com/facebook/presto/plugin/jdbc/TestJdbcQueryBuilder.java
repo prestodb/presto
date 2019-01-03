@@ -61,6 +61,7 @@ import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertContains;
 import static java.lang.Float.floatToRawIntBits;
@@ -196,7 +197,7 @@ public class TestJdbcQueryBuilder
                 .build());
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, SESSION, connection, "", "", "test_table", columns, tupleDomain);
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<Long> builder = ImmutableSet.builder();
             while (resultSet.next()) {
@@ -219,7 +220,7 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, SESSION, connection, "", "", "test_table", columns, tupleDomain);
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<Long> longBuilder = ImmutableSet.builder();
             ImmutableSet.Builder<Float> floatBuilder = ImmutableSet.builder();
@@ -245,7 +246,7 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, SESSION, connection, "", "", "test_table", columns, tupleDomain);
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<String> builder = ImmutableSet.builder();
             while (resultSet.next()) {
@@ -273,7 +274,7 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, SESSION, connection, "", "", "test_table", columns, tupleDomain);
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<String> builder = ImmutableSet.builder();
             while (resultSet.next()) {
@@ -306,7 +307,7 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, SESSION, connection, "", "", "test_table", columns, tupleDomain);
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<Date> dateBuilder = ImmutableSet.builder();
             ImmutableSet.Builder<Time> timeBuilder = ImmutableSet.builder();
@@ -339,7 +340,7 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, SESSION, connection, "", "", "test_table", columns, tupleDomain);
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<Timestamp> builder = ImmutableSet.builder();
             while (resultSet.next()) {
@@ -366,7 +367,7 @@ public class TestJdbcQueryBuilder
                 columns.get(1), Domain.onlyNull(DOUBLE)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, SESSION, connection, "", "", "test_table", columns, tupleDomain);
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             assertEquals(resultSet.next(), false);
         }
