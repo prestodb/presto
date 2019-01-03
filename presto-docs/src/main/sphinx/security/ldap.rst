@@ -314,3 +314,26 @@ with the appropriate :abbr:`SAN (Subject Alternative Name)` added.
 Adding a SAN to this certificate is required in cases where ``https://`` uses IP address in the URL rather
 than the domain contained in the coordinator's certificate, and the certificate does not contain the
 :abbr:`SAN (Subject Alternative Name)` parameter with the matching IP address as an alternative attribute.
+
+Authentication or SSL errors with JDK Upgrade
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Starting with the JDK 8u181 release, to improve the robustness of LDAPS
+(secure LDAP over TLS) connections, endpoint identification algorithms have
+been enabled by default. See release notes
+`here <https://www.oracle.com/technetwork/java/javase/8u181-relnotes-4479407.html#JDK-8200666.>`_.
+The same LDAP server certificate on the Presto coordinator (running on JDK
+version >= 8u181) that was previously able to successfully connect to an
+LDAPS server may now fail with the below error:
+
+.. code-block:: none
+
+    javax.naming.CommunicationException: simple bind failed: ldapserver:636
+    [Root exception is javax.net.ssl.SSLHandshakeException: java.security.cert.CertificateException: No subject alternative DNS name matching ldapserver found.]
+
+If you want to temporarily disable endpoint identification you can add the
+property ``-Dcom.sun.jndi.ldap.object.disableEndpointIdentification=true``
+to Presto's ``jvm.config`` file. However, in a production environment, we
+suggest fixing the issue by regenerating the LDAP server certificate so that
+the certificate :abbr:`SAN (Subject Alternative Name)` or certificate subject
+name matches the LDAP server.
