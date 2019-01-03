@@ -57,3 +57,7 @@ def setup(app):
 
         return [node], []
     app.add_role('maven_download', download_link_role)
+
+    return {
+        'parallel_read_safe': True,
+    }
