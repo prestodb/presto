@@ -23,29 +23,30 @@ public final class ColumnMapping
 {
     public static ColumnMapping booleanMapping(Type prestoType, BooleanReadFunction readFunction, BooleanWriteFunction writeFunction)
     {
-        return new ColumnMapping(prestoType, readFunction, writeFunction);
+        return new ColumnMapping(prestoType, readFunction, writeFunction, true);
     }
 
     public static ColumnMapping longMapping(Type prestoType, LongReadFunction readFunction, LongWriteFunction writeFunction)
     {
-        return new ColumnMapping(prestoType, readFunction, writeFunction);
+        return new ColumnMapping(prestoType, readFunction, writeFunction, true);
     }
 
     public static ColumnMapping doubleMapping(Type prestoType, DoubleReadFunction readFunction, DoubleWriteFunction writeFunction)
     {
-        return new ColumnMapping(prestoType, readFunction, writeFunction);
+        return new ColumnMapping(prestoType, readFunction, writeFunction, true);
     }
 
     public static ColumnMapping sliceMapping(Type prestoType, SliceReadFunction readFunction, SliceWriteFunction writeFunction)
     {
-        return new ColumnMapping(prestoType, readFunction, writeFunction);
+        return new ColumnMapping(prestoType, readFunction, writeFunction, true);
     }
 
     private final Type type;
     private final ReadFunction readFunction;
     private final WriteFunction writeFunction;
+    private final boolean predicatePushDownAllowed;
 
-    private ColumnMapping(Type type, ReadFunction readFunction, WriteFunction writeFunction)
+    private ColumnMapping(Type type, ReadFunction readFunction, WriteFunction writeFunction, boolean predicatePushDownAllowed)
     {
         this.type = requireNonNull(type, "type is null");
         this.readFunction = requireNonNull(readFunction, "readFunction is null");
@@ -62,6 +63,7 @@ public final class ColumnMapping
                 type,
                 writeFunction,
                 writeFunction.getJavaType());
+        this.predicatePushDownAllowed = predicatePushDownAllowed;
     }
 
     public Type getType()
@@ -77,6 +79,16 @@ public final class ColumnMapping
     public WriteFunction getWriteFunction()
     {
         return writeFunction;
+    }
+
+    public boolean isPredicatePushDownAllowed()
+    {
+        return predicatePushDownAllowed;
+    }
+
+    public ColumnMapping withPredicatePushDownAllowed(boolean predicatePushDownAllowed)
+    {
+        return new ColumnMapping(type, readFunction, writeFunction, predicatePushDownAllowed);
     }
 
     @Override

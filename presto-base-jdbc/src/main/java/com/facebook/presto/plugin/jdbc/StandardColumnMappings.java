@@ -148,12 +148,14 @@ public final class StandardColumnMappings
         if (decimalType.isShort()) {
             return ColumnMapping.longMapping(decimalType,
                     (resultSet, columnIndex) -> encodeShortScaledValue(resultSet.getBigDecimal(columnIndex), scale),
-                    shortDecimalWriteFunction(decimalType));
+                    shortDecimalWriteFunction(decimalType))
+                    .withPredicatePushDownAllowed(false); // TODO
         }
         return ColumnMapping.sliceMapping(
                 decimalType,
                 (resultSet, columnIndex) -> encodeScaledValue(resultSet.getBigDecimal(columnIndex), scale),
-                longDecimalWriteFunction(decimalType));
+                longDecimalWriteFunction(decimalType))
+                .withPredicatePushDownAllowed(false); // TODO
     }
 
     public static LongWriteFunction shortDecimalWriteFunction(DecimalType decimalType)
@@ -217,7 +219,8 @@ public final class StandardColumnMappings
         return ColumnMapping.sliceMapping(
                 VARBINARY,
                 (resultSet, columnIndex) -> wrappedBuffer(resultSet.getBytes(columnIndex)),
-                varbinaryWriteFunction());
+                varbinaryWriteFunction())
+                .withPredicatePushDownAllowed(false);
     }
 
     public static SliceWriteFunction varbinaryWriteFunction()
