@@ -61,10 +61,6 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
@@ -88,10 +84,6 @@ public class BaseJdbcClient
             .put(REAL, "real")
             .put(VARBINARY, "varbinary")
             .put(DATE, "date")
-            .put(TIME, "time")
-            .put(TIME_WITH_TIME_ZONE, "time with timezone")
-            .put(TIMESTAMP, "timestamp")
-            .put(TIMESTAMP_WITH_TIME_ZONE, "timestamp with timezone")
             .build();
 
     protected final String connectorId;
