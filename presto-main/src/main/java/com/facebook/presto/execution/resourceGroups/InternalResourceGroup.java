@@ -878,6 +878,27 @@ public class InternalResourceGroup
         }
     }
 
+    // update eligibility for all nodes in the subtree rooted at this node
+    protected void updateEligibilityAll()
+    {
+        checkState(Thread.holdsLock(root), "Must hold lock to update eligibility");
+        synchronized (root) {
+            for (InternalResourceGroup resourceGroup : subGroups.values()) {
+                resourceGroup.updateEligibilityAll();
+            }
+            if (!parent.isPresent()) {
+                return;
+            }
+            if (isEligibleToStartNext()) {
+                parent.get().addOrUpdateSubGroup(this);
+            }
+            else {
+                parent.get().eligibleSubGroups.remove(this);
+                lastStartMillis = 0;
+            }
+        }
+    }
+
     public Collection<InternalResourceGroup> subGroups()
     {
         synchronized (root) {
@@ -933,6 +954,8 @@ public class InternalResourceGroup
         {
             if (elapsedSeconds > 0) {
                 internalGenerateCpuQuota(elapsedSeconds);
+                // update eligibility for the nodes under this root
+                updateEligibilityAll();
             }
         }
     }

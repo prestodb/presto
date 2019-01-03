@@ -51,6 +51,7 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Collections.reverse;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -838,5 +839,54 @@ public class TestResourceGroups
                 actual.getSchedulingPolicy() == expected.getSchedulingPolicy() &&
                 Objects.equals(actual.getSoftMemoryLimit(), expected.getSoftMemoryLimit()) &&
                 Objects.equals(actual.getMemoryUsage(), expected.getMemoryUsage()));
+    }
+
+    @Test
+    public void testDequeuing()
+    {
+        // Creating a root resource group with one child resource group
+        // with hardcpuLimit=3ms and cpuQuotaGenerationMillisPerSecond=4.
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        root.setSoftMemoryLimit(new DataSize(1, GIGABYTE));
+        root.setSoftCpuLimit(new Duration(3, MILLISECONDS));
+        root.setHardCpuLimit(new Duration(3, MILLISECONDS));
+        root.setCpuQuotaGenerationMillisPerSecond(4);
+        root.setMaxQueuedQueries(10);
+        root.setHardConcurrencyLimit(4);
+
+        InternalResourceGroup childRG = root.getOrCreateSubGroup("childRG");
+        childRG.setSoftMemoryLimit(new DataSize(1, GIGABYTE));
+        childRG.setSoftCpuLimit(new Duration(3, MILLISECONDS));
+        childRG.setHardCpuLimit(new Duration(3, MILLISECONDS));
+        childRG.setCpuQuotaGenerationMillisPerSecond(4);
+        childRG.setMaxQueuedQueries(10);
+        childRG.setHardConcurrencyLimit(4);
+
+        MockQueryExecution query1 = new MockQueryExecution(1, "query_id_1", 1, new Duration(10, MILLISECONDS));
+        MockQueryExecution query2 = new MockQueryExecution(1, "query_id_2", 1, new Duration(10, MILLISECONDS));
+
+        // submitting query_id_1, cpuUsageMillis = 0 < hardCpuLimit. The query should run.
+        childRG.run(query1);
+        assertEquals(query1.getState(), RUNNING);
+        query1.complete();
+
+        // submitting query_id_2. cpuUsageMillis = 10 >= hardCpuLimit. The query should get queued.
+        childRG.run(query2);
+        assertEquals(query2.getState(), QUEUED);
+
+        // Generating cpuquota with elapsedSeconds = 1 and processing eligible queries.
+        root.generateCpuQuota(1);
+        root.processQueuedQueries();
+
+        // query_id_2 should still be queued since cpuUsageMillis = (10 - 4) ms = 6ms >= cpuHardLimit.
+        assertEquals(query2.getState(), QUEUED);
+
+        // Generating cpuquota again with elapsedSeconds=1 and processing eligible queries.
+        root.generateCpuQuota(1);
+        root.processQueuedQueries();
+
+        // query_id_2 should now be running since cpuUsageMillis = (6 - 4)ms = 2ms < cpuHardLimit.
+        assertEquals(query2.getState(), RUNNING);
+        query2.complete();
     }
 }
