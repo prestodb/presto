@@ -31,6 +31,7 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -43,6 +44,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.plugin.jdbc.JdbcUtil.isAcceptedType;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -84,7 +86,14 @@ public class JdbcMetadata
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         ConnectorTableLayout layout = new ConnectorTableLayout(new JdbcTableLayoutHandle(tableHandle, constraint.getSummary()));
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
+        TupleDomain<ColumnHandle> unenforcedTupleDomain = constraint.getSummary().transform(columnHandle -> {
+            JdbcColumnHandle jdbcColumnHandle = (JdbcColumnHandle) columnHandle;
+            if (isAcceptedType(jdbcColumnHandle.getColumnType())) {
+                return null;
+            }
+            return jdbcColumnHandle;
+        });
+        return ImmutableList.of(new ConnectorTableLayoutResult(layout, unenforcedTupleDomain));
     }
 
     @Override
