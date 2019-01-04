@@ -114,6 +114,12 @@ public final class ColumnStatistics
         return new Builder();
     }
 
+    /**
+     * If one of the estimates below is unspecified, the default "unknown" estimate value
+     * (represented by floating point NaN) may cause the resulting symbol statistics
+     * to be "unknown" as well.
+     * @see SymbolStatsEstimate
+     */
     public static final class Builder
     {
         private Estimate nullsFraction = Estimate.unknown();
