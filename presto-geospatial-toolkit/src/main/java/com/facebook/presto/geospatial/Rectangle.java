@@ -77,6 +77,7 @@ public final class Rectangle
     {
         return xMax - xMin;
     }
+
     public double getHeight()
     {
         return yMax - yMin;
