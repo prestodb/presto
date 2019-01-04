@@ -22,6 +22,7 @@ import io.prestosql.spi.PrestoException;
 
 import static com.google.common.util.concurrent.Futures.catchingAsync;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.prestosql.plugin.thrift.ThriftErrorCode.THRIFT_SERVICE_CONNECTION_ERROR;
 import static io.prestosql.plugin.thrift.ThriftErrorCode.THRIFT_SERVICE_GENERIC_REMOTE_ERROR;
 import static io.prestosql.plugin.thrift.ThriftErrorCode.THRIFT_SERVICE_NO_AVAILABLE_HOSTS;
@@ -47,6 +48,6 @@ public final class ThriftExceptions
 
     public static <T> ListenableFuture<T> catchingThriftException(ListenableFuture<T> future)
     {
-        return catchingAsync(future, Exception.class, e -> immediateFailedFuture(toPrestoException(e)));
+        return catchingAsync(future, Exception.class, e -> immediateFailedFuture(toPrestoException(e)), directExecutor());
     }
 }
