@@ -168,6 +168,8 @@ public class FixedSourcePartitionedScheduler
             newTasks = Streams.mapWithIndex(
                     nodes.stream(),
                     (node, id) -> stage.scheduleTask(node, toIntExact(id), totalPartitions))
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
                     .collect(toImmutableList());
             scheduledTasks = true;
         }

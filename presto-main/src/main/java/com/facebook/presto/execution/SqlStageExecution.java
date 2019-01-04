@@ -46,6 +46,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -360,12 +361,15 @@ public final class SqlStageExecution
                 .collect(toImmutableList());
     }
 
-    public synchronized RemoteTask scheduleTask(Node node, int partition, OptionalInt totalPartitions)
+    public synchronized Optional<RemoteTask> scheduleTask(Node node, int partition, OptionalInt totalPartitions)
     {
         requireNonNull(node, "node is null");
 
+        if (stateMachine.getState().isDone()) {
+            return Optional.empty();
+        }
         checkState(!splitsScheduled.get(), "scheduleTask can not be called once splits have been scheduled");
-        return scheduleTask(node, new TaskId(stateMachine.getStageId(), partition), ImmutableMultimap.of(), totalPartitions);
+        return Optional.of(scheduleTask(node, new TaskId(stateMachine.getStageId(), partition), ImmutableMultimap.of(), totalPartitions));
     }
 
     public synchronized Set<RemoteTask> scheduleSplits(Node node, Multimap<PlanNodeId, Split> splits, Multimap<PlanNodeId, Lifespan> noMoreSplitsNotification)
@@ -373,6 +377,9 @@ public final class SqlStageExecution
         requireNonNull(node, "node is null");
         requireNonNull(splits, "splits is null");
 
+        if (stateMachine.getState().isDone()) {
+            return ImmutableSet.of();
+        }
         splitsScheduled.set(true);
 
         checkArgument(stateMachine.getFragment().getPartitionedSources().containsAll(splits.keySet()), "Invalid splits");

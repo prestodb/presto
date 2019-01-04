@@ -26,6 +26,7 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.IntStream;
@@ -60,10 +61,10 @@ public class TestFixedCountScheduler
     public void testSingleNode()
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
-                (node, partition, totalPartitions) -> taskFactory.createTableScanTask(
+                (node, partition, totalPartitions) -> Optional.of(taskFactory.createTableScanTask(
                         new TaskId("test", 1, 1),
                         node, ImmutableList.of(),
-                        new PartitionedSplitCountTracker(delta -> {})),
+                        new PartitionedSplitCountTracker(delta -> {}))),
                 generateRandomNodes(1));
 
         ScheduleResult result = nodeScheduler.schedule();
@@ -77,10 +78,10 @@ public class TestFixedCountScheduler
     public void testMultipleNodes()
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
-                (node, partition, totalPartitions) -> taskFactory.createTableScanTask(
+                (node, partition, totalPartitions) -> Optional.of(taskFactory.createTableScanTask(
                         new TaskId("test", 1, 1),
                         node, ImmutableList.of(),
-                        new PartitionedSplitCountTracker(delta -> {})),
+                        new PartitionedSplitCountTracker(delta -> {}))),
                 generateRandomNodes(5));
 
         ScheduleResult result = nodeScheduler.schedule();
