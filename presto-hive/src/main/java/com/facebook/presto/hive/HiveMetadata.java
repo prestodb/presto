@@ -202,7 +202,7 @@ import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 public class HiveMetadata
         implements TransactionalMetadata
 {
-    private static final Logger log = Logger.get(HiveMetadata.class);
+    private static final Logger LOG = Logger.get(HiveMetadata.class);
 
     public static final String PRESTO_VERSION_NAME = "presto_version";
     public static final String PRESTO_QUERY_ID_NAME = "presto_query_id";
@@ -410,7 +410,7 @@ public class HiveMetadata
             properties.put(STORAGE_FORMAT_PROPERTY, format);
         }
         catch (PrestoException ignored) {
-            log.warn("Storage Format Error: %s", ignored.getMessage());
+            LOG.warn("Storage Format Error: %s", ignored.getMessage());
             // todo fail if format is not known
         }
 
