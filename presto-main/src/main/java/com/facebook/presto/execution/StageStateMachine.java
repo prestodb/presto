@@ -40,7 +40,6 @@ import java.util.Map;
 import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -59,6 +58,7 @@ import static com.facebook.presto.execution.StageState.TERMINAL_STAGE_STATES;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -237,7 +237,7 @@ public class StageStateMachine
     {
         currentTotalMemory.addAndGet(deltaTotalMemoryInBytes);
         currentUserMemory.addAndGet(deltaUserMemoryInBytes);
-        peakUserMemory.updateAndGet(currentPeakValue -> Math.max(currentUserMemory.get(), currentPeakValue));
+        peakUserMemory.updateAndGet(currentPeakValue -> max(currentUserMemory.get(), currentPeakValue));
     }
 
     public BasicStageStats getBasicStageStats(Supplier<Iterable<TaskInfo>> taskInfosSupplier)
@@ -428,8 +428,8 @@ public class StageStateMachine
 
             int gcSec = toIntExact(taskStats.getFullGcTime().roundTo(SECONDS));
             totalFullGcSec += gcSec;
-            minFullGcSec = Math.min(minFullGcSec, gcSec);
-            maxFullGcSec = Math.max(maxFullGcSec, gcSec);
+            minFullGcSec = min(minFullGcSec, gcSec);
+            maxFullGcSec = max(maxFullGcSec, gcSec);
 
             for (PipelineStats pipeline : taskStats.getPipelines()) {
                 for (OperatorStats operatorStats : pipeline.getOperatorSummaries()) {
@@ -504,7 +504,7 @@ public class StageStateMachine
     {
         long elapsedNanos = System.nanoTime() - startNanos;
         getSplitDistribution.add(elapsedNanos);
-        scheduledStats.getGetSplitTime().add(elapsedNanos, TimeUnit.NANOSECONDS);
+        scheduledStats.getGetSplitTime().add(elapsedNanos, NANOSECONDS);
     }
 
     public void recordScheduleTaskTime(long startNanos)
