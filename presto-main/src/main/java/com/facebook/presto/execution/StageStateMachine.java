@@ -82,8 +82,6 @@ public class StageStateMachine
 
     private final AtomicReference<DateTime> schedulingComplete = new AtomicReference<>();
     private final Distribution getSplitDistribution = new Distribution();
-    private final Distribution scheduleTaskDistribution = new Distribution();
-    private final Distribution addSplitDistribution = new Distribution();
 
     private final AtomicLong peakUserMemory = new AtomicLong();
     private final AtomicLong currentUserMemory = new AtomicLong();
@@ -442,8 +440,6 @@ public class StageStateMachine
         StageStats stageStats = new StageStats(
                 schedulingComplete.get(),
                 getSplitDistribution.snapshot(),
-                scheduleTaskDistribution.snapshot(),
-                addSplitDistribution.snapshot(),
 
                 totalTasks,
                 runningTasks,
@@ -505,16 +501,6 @@ public class StageStateMachine
         long elapsedNanos = System.nanoTime() - startNanos;
         getSplitDistribution.add(elapsedNanos);
         scheduledStats.getGetSplitTime().add(elapsedNanos, NANOSECONDS);
-    }
-
-    public void recordScheduleTaskTime(long startNanos)
-    {
-        scheduleTaskDistribution.add(System.nanoTime() - startNanos);
-    }
-
-    public void recordAddSplit(long startNanos)
-    {
-        addSplitDistribution.add(System.nanoTime() - startNanos);
     }
 
     @Override

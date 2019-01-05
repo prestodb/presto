@@ -39,8 +39,6 @@ public class StageStats
     private final DateTime schedulingComplete;
 
     private final DistributionSnapshot getSplitDistribution;
-    private final DistributionSnapshot scheduleTaskDistribution;
-    private final DistributionSnapshot addSplitDistribution;
 
     private final int totalTasks;
     private final int runningTasks;
@@ -84,8 +82,6 @@ public class StageStats
             @JsonProperty("schedulingComplete") DateTime schedulingComplete,
 
             @JsonProperty("getSplitDistribution") DistributionSnapshot getSplitDistribution,
-            @JsonProperty("scheduleTaskDistribution") DistributionSnapshot scheduleTaskDistribution,
-            @JsonProperty("addSplitDistribution") DistributionSnapshot addSplitDistribution,
 
             @JsonProperty("totalTasks") int totalTasks,
             @JsonProperty("runningTasks") int runningTasks,
@@ -126,8 +122,6 @@ public class StageStats
     {
         this.schedulingComplete = schedulingComplete;
         this.getSplitDistribution = requireNonNull(getSplitDistribution, "getSplitDistribution is null");
-        this.scheduleTaskDistribution = requireNonNull(scheduleTaskDistribution, "scheduleTaskDistribution is null");
-        this.addSplitDistribution = requireNonNull(addSplitDistribution, "addSplitDistribution is null");
 
         checkArgument(totalTasks >= 0, "totalTasks is negative");
         this.totalTasks = totalTasks;
@@ -188,18 +182,6 @@ public class StageStats
     public DistributionSnapshot getGetSplitDistribution()
     {
         return getSplitDistribution;
-    }
-
-    @JsonProperty
-    public DistributionSnapshot getScheduleTaskDistribution()
-    {
-        return scheduleTaskDistribution;
-    }
-
-    @JsonProperty
-    public DistributionSnapshot getAddSplitDistribution()
-    {
-        return addSplitDistribution;
     }
 
     @JsonProperty
