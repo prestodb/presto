@@ -28,7 +28,6 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -287,8 +286,7 @@ public final class SqlStageExecution
         return stateMachine.getStageInfo(
                 () -> getAllTasks().stream()
                         .map(RemoteTask::getTaskInfo)
-                        .collect(toImmutableList()),
-                ImmutableList::of);
+                        .collect(toImmutableList()));
     }
 
     public synchronized void addExchangeLocations(PlanFragmentId fragmentId, Set<RemoteTask> sourceTasks, boolean noMoreExchangeLocations)

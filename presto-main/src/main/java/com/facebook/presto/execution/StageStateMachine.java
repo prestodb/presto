@@ -325,7 +325,7 @@ public class StageStateMachine
                 progressPercentage);
     }
 
-    public StageInfo getStageInfo(Supplier<Iterable<TaskInfo>> taskInfosSupplier, Supplier<Iterable<StageInfo>> subStageInfosSupplier)
+    public StageInfo getStageInfo(Supplier<Iterable<TaskInfo>> taskInfosSupplier)
     {
         // stage state must be captured first in order to provide a
         // consistent view of the stage. For example, building this
@@ -334,7 +334,6 @@ public class StageStateMachine
         StageState state = stageState.get();
 
         List<TaskInfo> taskInfos = ImmutableList.copyOf(taskInfosSupplier.get());
-        List<StageInfo> subStageInfos = ImmutableList.copyOf(subStageInfosSupplier.get());
 
         int totalTasks = taskInfos.size();
         int runningTasks = 0;
@@ -492,7 +491,7 @@ public class StageStateMachine
                 fragment.getTypes(),
                 stageStats,
                 taskInfos,
-                subStageInfos,
+                ImmutableList.of(),
                 failureInfo);
     }
 
