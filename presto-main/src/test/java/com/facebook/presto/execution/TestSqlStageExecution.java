@@ -60,6 +60,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 public class TestSqlStageExecution
@@ -115,7 +116,7 @@ public class TestSqlStageExecution
 
         // add listener that fetches stage info when the final status is available
         SettableFuture<StageInfo> finalStageInfo = SettableFuture.create();
-        stage.addFinalStatusListener(value -> finalStageInfo.set(stage.getStageInfo()));
+        stage.addFinalStageInfoListener(finalStageInfo::set);
 
         // in a background thread add a ton of tasks
         CountDownLatch latch = new CountDownLatch(1000);
@@ -150,7 +151,7 @@ public class TestSqlStageExecution
         StageInfo stageInfo = finalStageInfo.get(1, MINUTES);
         assertFalse(stageInfo.getTasks().isEmpty());
         assertTrue(stageInfo.isCompleteInfo());
-        assertTrue(stage.getStageInfo().isCompleteInfo());
+        assertSame(stage.getStageInfo(), stageInfo);
 
         // cancel the background thread adding tasks
         addTasksTask.cancel(true);

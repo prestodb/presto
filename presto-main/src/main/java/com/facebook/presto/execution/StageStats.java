@@ -28,9 +28,12 @@ import org.joda.time.DateTime;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.OptionalDouble;
 import java.util.Set;
 
+import static com.facebook.presto.execution.StageState.RUNNING;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -344,5 +347,32 @@ public class StageStats
     public List<OperatorStats> getOperatorSummaries()
     {
         return operatorSummaries;
+    }
+
+    public BasicStageStats toBasicStageStats(StageState stageState)
+    {
+        boolean isScheduled = (stageState == RUNNING) || stageState.isDone();
+
+        OptionalDouble progressPercentage = OptionalDouble.empty();
+        if (isScheduled && totalDrivers != 0) {
+            progressPercentage = OptionalDouble.of(min(100, (completedDrivers * 100.0) / totalDrivers));
+        }
+
+        return new BasicStageStats(
+                isScheduled,
+                totalDrivers,
+                queuedDrivers,
+                runningDrivers,
+                completedDrivers,
+                rawInputDataSize,
+                rawInputPositions,
+                (long) cumulativeUserMemory,
+                userMemoryReservation,
+                totalMemoryReservation,
+                totalCpuTime,
+                totalScheduledTime,
+                fullyBlocked,
+                blockedReasons,
+                progressPercentage);
     }
 }

@@ -265,7 +265,7 @@ public class SqlQueryScheduler
             }
         });
         for (SqlStageExecution stage : stages.values()) {
-            stage.addFinalStatusListener(status -> queryStateMachine.updateQueryInfo(Optional.ofNullable(getStageInfo())));
+            stage.addFinalStageInfoListener(status -> queryStateMachine.updateQueryInfo(Optional.ofNullable(getStageInfo())));
         }
     }
 

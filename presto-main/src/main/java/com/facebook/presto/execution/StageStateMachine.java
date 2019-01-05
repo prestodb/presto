@@ -37,6 +37,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -56,6 +57,7 @@ import static com.facebook.presto.execution.StageState.SCHEDULING;
 import static com.facebook.presto.execution.StageState.SCHEDULING_SPLITS;
 import static com.facebook.presto.execution.StageState.TERMINAL_STAGE_STATES;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
@@ -78,7 +80,7 @@ public class StageStateMachine
     private final SplitSchedulerStats scheduledStats;
 
     private final StateMachine<StageState> stageState;
-    private final StateMachine<Boolean> finalStatusReady;
+    private final StateMachine<Optional<StageInfo>> finalStageInfo;
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
 
     private final AtomicReference<DateTime> schedulingComplete = new AtomicReference<>();
@@ -105,7 +107,7 @@ public class StageStateMachine
         stageState = new StateMachine<>("stage " + stageId, executor, PLANNED, TERMINAL_STAGE_STATES);
         stageState.addStateChangeListener(state -> log.debug("Stage %s is %s", stageId, state));
 
-        finalStatusReady = new StateMachine<>("final stage " + stageId, executor, false, ImmutableList.of(true));
+        finalStageInfo = new StateMachine<>("final stage " + stageId, executor, Optional.empty());
     }
 
     public StageId getStageId()
@@ -195,27 +197,29 @@ public class StageStateMachine
     }
 
     /**
-     * Add a listener which is notified when the final stage status is ready.  This notification is
-     * guaranteed to be fired only once.
+     * Add a listener for the final stage info.  This notification is guaranteed to be fired only once.
      * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
      * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
      * possible notifications are observed out of order due to the asynchronous execution.
      */
-    public void addFinalStatusListener(StateChangeListener<?> finalStatusListener)
+    public void addFinalStageInfoListener(StateChangeListener<StageInfo> finalStatusListener)
     {
         AtomicBoolean done = new AtomicBoolean();
-        StateChangeListener<Boolean> fireOnceStateChangeListener = isReady -> {
-            if (isReady && done.compareAndSet(false, true)) {
-                finalStatusListener.stateChanged(null);
+        StateChangeListener<Optional<StageInfo>> fireOnceStateChangeListener = finalStageInfo -> {
+            if (finalStageInfo.isPresent() && done.compareAndSet(false, true)) {
+                finalStatusListener.stateChanged(finalStageInfo.get());
             }
         };
-        finalStatusReady.addStateChangeListener(fireOnceStateChangeListener);
+        finalStageInfo.addStateChangeListener(fireOnceStateChangeListener);
     }
 
-    public void setAllTasksFinal()
+    public void setAllTasksFinal(Iterable<TaskInfo> finalTaskInfos)
     {
+        requireNonNull(finalTaskInfos, "finalTaskInfos is null");
         checkState(stageState.get().isDone());
-        finalStatusReady.set(true);
+        StageInfo stageInfo = getStageInfo(() -> finalTaskInfos);
+        checkArgument(stageInfo.isCompleteInfo(), "finalTaskInfos are not all done");
+        finalStageInfo.compareAndSet(Optional.empty(), Optional.of(stageInfo));
     }
 
     public long getUserMemoryReservation()
@@ -237,6 +241,13 @@ public class StageStateMachine
 
     public BasicStageStats getBasicStageStats(Supplier<Iterable<TaskInfo>> taskInfosSupplier)
     {
+        Optional<StageInfo> finalStageInfo = this.finalStageInfo.get();
+        if (finalStageInfo.isPresent()) {
+            return finalStageInfo.get()
+                    .getStageStats()
+                    .toBasicStageStats(finalStageInfo.get().getState());
+        }
+
         // stage state must be captured first in order to provide a
         // consistent view of the stage. For example, building this
         // information, the stage could finish, and the task states would
@@ -324,6 +335,11 @@ public class StageStateMachine
 
     public StageInfo getStageInfo(Supplier<Iterable<TaskInfo>> taskInfosSupplier)
     {
+        Optional<StageInfo> finalStageInfo = this.finalStageInfo.get();
+        if (finalStageInfo.isPresent()) {
+            return finalStageInfo.get();
+        }
+
         // stage state must be captured first in order to provide a
         // consistent view of the stage. For example, building this
         // information, the stage could finish, and the task states would

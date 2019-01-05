@@ -181,15 +181,14 @@ public final class SqlStageExecution
     }
 
     /**
-     * Add a listener which is notified when the final stage status is ready.  This notification is
-     * guaranteed to be fired only once.
+     * Add a listener for the final stage info.  This notification is guaranteed to be fired only once.
      * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
      * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
      * possible notifications are observed out of order due to the asynchronous execution.
      */
-    public void addFinalStatusListener(StateChangeListener<BasicStageStats> stateChangeListener)
+    public void addFinalStageInfoListener(StateChangeListener<StageInfo> stateChangeListener)
     {
-        stateMachine.addFinalStatusListener(ignored -> stateChangeListener.stateChanged(getBasicStageStats()));
+        stateMachine.addFinalStageInfoListener(stateChangeListener);
     }
 
     public void addCompletedDriverGroupsChangedListener(Consumer<Set<Lifespan>> newlyCompletedDriverGroupConsumer)
@@ -523,7 +522,10 @@ public final class SqlStageExecution
     private synchronized void checkAllTaskFinal()
     {
         if (stateMachine.getState().isDone() && tasksWithFinalInfo.containsAll(allTasks)) {
-            stateMachine.setAllTasksFinal();
+            List<TaskInfo> finalTaskInfos = getAllTasks().stream()
+                    .map(RemoteTask::getTaskInfo)
+                    .collect(toImmutableList());
+            stateMachine.setAllTasksFinal(finalTaskInfos);
         }
     }
 
