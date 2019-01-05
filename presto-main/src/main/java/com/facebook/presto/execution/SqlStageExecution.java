@@ -275,18 +275,19 @@ public final class SqlStageExecution
 
     public BasicStageStats getBasicStageStats()
     {
-        return stateMachine.getBasicStageStats(
-                () -> getAllTasks().stream()
-                        .map(RemoteTask::getTaskInfo)
-                        .collect(toImmutableList()));
+        return stateMachine.getBasicStageStats(this::getAllTaskInfo);
     }
 
     public StageInfo getStageInfo()
     {
-        return stateMachine.getStageInfo(
-                () -> getAllTasks().stream()
-                        .map(RemoteTask::getTaskInfo)
-                        .collect(toImmutableList()));
+        return stateMachine.getStageInfo(this::getAllTaskInfo);
+    }
+
+    private Iterable<TaskInfo> getAllTaskInfo()
+    {
+        return getAllTasks().stream()
+                .map(RemoteTask::getTaskInfo)
+                .collect(toImmutableList());
     }
 
     public synchronized void addExchangeLocations(PlanFragmentId fragmentId, Set<RemoteTask> sourceTasks, boolean noMoreExchangeLocations)

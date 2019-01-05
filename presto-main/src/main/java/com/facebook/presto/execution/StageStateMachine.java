@@ -56,6 +56,7 @@ import static com.facebook.presto.execution.StageState.SCHEDULING;
 import static com.facebook.presto.execution.StageState.SCHEDULING_SPLITS;
 import static com.facebook.presto.execution.StageState.TERMINAL_STAGE_STATES;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
 import static java.lang.Math.max;
@@ -213,12 +214,8 @@ public class StageStateMachine
 
     public void setAllTasksFinal()
     {
-        StateChangeListener<StageState> stateChangeListener = state -> {
-            if (state.isDone()) {
-                finalStatusReady.set(true);
-            }
-        };
-        stageState.addStateChangeListener(stateChangeListener);
+        checkState(stageState.get().isDone());
+        finalStatusReady.set(true);
     }
 
     public long getUserMemoryReservation()
