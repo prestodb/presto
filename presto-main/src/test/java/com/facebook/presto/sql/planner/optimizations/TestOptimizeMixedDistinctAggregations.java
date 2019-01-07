@@ -92,6 +92,50 @@ public class TestOptimizeMixedDistinctAggregations
     }
 
     @Test
+    public void testMultiColumns()
+    {
+        @Language("SQL") String sql = "SELECT custkey, count(orderstatus) AS s, min(DISTINCT totalprice) AS d, max(DISTINCT orderdate) FROM orders GROUP BY custkey";
+
+        String group = "GROUP";
+
+        // Original keys
+        String groupBy = "CUSTKEY";
+        String aggregate = "ORDERSTATUS";
+        String distinctAggregation1 = "TOTALPRICE";
+        String distinctAggregation2 = "ORDERDATE";
+
+        // Second Aggregation data
+        List<String> groupByKeysSecond = ImmutableList.of(groupBy);
+        Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregationsSecond = ImmutableMap.of(
+                Optional.of("arbitrary"), PlanMatchPattern.functionCall("arbitrary", false, ImmutableList.of(anySymbol())),
+                Optional.of("min"), PlanMatchPattern.functionCall("min", false, ImmutableList.of(anySymbol())),
+                Optional.of("max"), PlanMatchPattern.functionCall("max", false, ImmutableList.of(anySymbol())));
+
+        // First Aggregation data
+        List<String> groupByKeysFirst = ImmutableList.of(groupBy, distinctAggregation1, distinctAggregation2, group);
+        Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregationsFirst = ImmutableMap.of(
+                Optional.of("COUNT"), functionCall("count", ImmutableList.of("ORDERSTATUS")));
+
+        PlanMatchPattern tableScan = tableScan("orders", ImmutableMap.of("TOTALPRICE", "totalprice", "CUSTKEY", "custkey", "ORDERDATE", "orderdate",
+                "ORDERSTATUS", "orderstatus"));
+
+        // GroupingSet symbols
+        ImmutableList.Builder<List<String>> groups = ImmutableList.builder();
+        groups.add(ImmutableList.of(groupBy, aggregate));
+        groups.add(ImmutableList.of(groupBy, distinctAggregation1));
+        groups.add(ImmutableList.of(groupBy, distinctAggregation2));
+
+        PlanMatchPattern expectedPlanPattern = anyTree(
+                project(
+                aggregation(singleGroupingSet(groupByKeysSecond), aggregationsSecond, ImmutableMap.of(), Optional.empty(), SINGLE,
+                        project(
+                                aggregation(singleGroupingSet(groupByKeysFirst), aggregationsFirst, ImmutableMap.of(), Optional.empty(), SINGLE,
+                                        groupingSet(groups.build(), group,
+                                                anyTree(tableScan)))))));
+        assertUnitPlan(sql, expectedPlanPattern);
+    }
+
+    @Test
     public void testNestedType()
     {
         // Second Aggregation data
