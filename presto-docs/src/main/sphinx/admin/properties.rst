@@ -48,6 +48,11 @@ General Properties
     redistributing all the data across the network. This can also be specified
     on a per-query basis using the ``redistribute_writes`` session property.
 
+.. _tuning-memory:
+
+Memory Management Properties
+----------------------------
+
 ``query.max-memory-per-node``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -58,7 +63,8 @@ General Properties
     User memory is allocated during execution for things that are directly
     attributable to or controllable by a user query. For example, memory used
     by the hash tables built during execution, memory used during sorting, etc.
-    When a query hits this limit it will be killed by Presto.
+    When the user memory allocation of a query on any worker hits this limit
+    it will be killed.
 
 ``query.max-total-memory-per-node``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -69,9 +75,37 @@ General Properties
     This is the max amount of user and system memory a query can use on a worker.
     System memory is allocated during execution for things that are not directly
     attributable to or controllable by a user query. For example, memory allocated
-    by the readers, writers, and network buffers, etc. The value of
-    ``query.max-total-memory-per-node`` must be greater than
+    by the readers, writers, network buffers, etc. When the sum of the user and
+    system memory allocated by a query on any worker hits this limit it will be killed.
+    The value of ``query.max-total-memory-per-node`` must be greater than
     ``query.max-memory-per-node``.
+
+``query.max-memory``
+^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``20GB``
+
+    This is the max amount of user memory a query can use across the entire cluster.
+    User memory is allocated during execution for things that are directly
+    attributable to or controllable by a user query. For example, memory used
+    by the hash tables built during execution, memory used during sorting, etc.
+    When the user memory allocation of a query across all workers hits this limit
+    it will be killed.
+
+``query.max-total-memory``
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``query.max-total-memory * 2``
+
+    This is the max amount of user and system memory a query can use across the entire cluster.
+    System memory is allocated during execution for things that are not directly
+    attributable to or controllable by a user query. For example, memory allocated
+    by the readers, writers, network buffers, etc. When the sum of the user and
+    system memory allocated by a query across all workers hits this limit it will be
+    killed. The value of ``query.max-total-memory`` must be greater than
+    ``query.max-memory``.
 
 ``memory.heap-headroom-per-node``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
