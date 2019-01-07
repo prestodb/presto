@@ -90,6 +90,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -135,22 +136,60 @@ public class TestingPrestoServer
     public static class TestShutdownAction
             implements ShutdownAction
     {
-        private final CountDownLatch shutdownCalled = new CountDownLatch(1);
-
+        private final CountDownLatch shutdownStarted = new CountDownLatch(1);
+        private final CountDownLatch shutdownComplete = new CountDownLatch(1);
+        private final CountDownLatch cancelJVMShutdown = new CountDownLatch(1);
+        private final CountDownLatch cancelWaitForActiveTasksToComplete = new CountDownLatch(1);
         @GuardedBy("this")
         private boolean isWorkerShutdown;
 
         @Override
-        public synchronized void onShutdown()
+        public void onShutdownStart()
+        {
+            shutdownStarted.countDown();
+        }
+
+        @Override
+        public synchronized void onShutdownComplete()
         {
             isWorkerShutdown = true;
-            shutdownCalled.countDown();
+            shutdownComplete.countDown();
+        }
+
+        @Override
+        public void onCancelWaitForTasksToComplete()
+        {
+            cancelWaitForActiveTasksToComplete.countDown();
+        }
+
+        @Override
+        public void onCancelJVMShutdown()
+        {
+            cancelJVMShutdown.countDown();
         }
 
         public void waitForShutdownComplete(long millis)
                 throws InterruptedException
         {
-            shutdownCalled.await(millis, MILLISECONDS);
+            shutdownComplete.await(millis, MILLISECONDS);
+        }
+
+        public boolean jvmShutdownCancelled(long millis)
+                throws InterruptedException
+        {
+            return cancelJVMShutdown.await(millis, MILLISECONDS);
+        }
+
+        public boolean waitActiveTasksCancelled(long millis)
+                throws InterruptedException
+        {
+            return cancelWaitForActiveTasksToComplete.await(millis, MILLISECONDS);
+        }
+
+        public boolean waitForShutdownToStart(long millis)
+                throws InterruptedException
+        {
+            return shutdownStarted.await(millis, MILLISECONDS);
         }
 
         public synchronized boolean isWorkerShutdown()

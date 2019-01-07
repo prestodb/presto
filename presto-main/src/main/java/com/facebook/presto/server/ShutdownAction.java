@@ -15,5 +15,8 @@ package com.facebook.presto.server;
 
 public interface ShutdownAction
 {
-    void onShutdown();
+    void onShutdownStart();
+    void onShutdownComplete();
+    void onCancelWaitForTasksToComplete();
+    void onCancelJVMShutdown();
 }

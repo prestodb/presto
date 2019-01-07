@@ -17,8 +17,25 @@ public class DefaultShutdownAction
         implements ShutdownAction
 {
     @Override
-    public void onShutdown()
+    public void onShutdownStart()
+    {
+
+    }
+
+    @Override
+    public void onShutdownComplete()
     {
         System.exit(0);
+    }
+
+    @Override
+    public void onCancelWaitForTasksToComplete()
+    {
+
+    }
+
+    @Override
+    public void onCancelJVMShutdown()
+    {
     }
 }

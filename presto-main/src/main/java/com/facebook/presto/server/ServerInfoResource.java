@@ -78,9 +78,22 @@ public class ServerInfoResource
         requireNonNull(state, "state is null");
         switch (state) {
             case SHUTTING_DOWN:
-                shutdownHandler.requestShutdown();
+                synchronized (shutdownHandler) {
+                    shutdownHandler.requestShutdown();
+                }
                 return Response.ok().build();
             case ACTIVE:
+                synchronized (shutdownHandler) {
+                    if (shutdownHandler.isShutdownRequested()) {
+                        shutdownHandler.cancelShutdown();
+                        return Response.ok().build();
+                    }
+                }
+                throw new WebApplicationException(Response
+                        .status(BAD_REQUEST)
+                        .type(MediaType.TEXT_PLAIN)
+                        .entity(format("Invalid state transition to %s", state))
+                        .build());
             case INACTIVE:
                 throw new WebApplicationException(Response
                         .status(BAD_REQUEST)
@@ -100,11 +113,13 @@ public class ServerInfoResource
     @Produces(APPLICATION_JSON)
     public NodeState getServerState()
     {
-        if (shutdownHandler.isShutdownRequested()) {
-            return SHUTTING_DOWN;
-        }
-        else {
-            return ACTIVE;
+        synchronized (shutdownHandler) {
+            if (shutdownHandler.isShutdownRequested()) {
+                return SHUTTING_DOWN;
+            }
+            else {
+                return ACTIVE;
+            }
         }
     }
 

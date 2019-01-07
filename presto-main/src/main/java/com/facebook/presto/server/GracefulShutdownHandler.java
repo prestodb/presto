@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -55,6 +56,10 @@ public class GracefulShutdownHandler
 
     @GuardedBy("this")
     private boolean shutdownRequested;
+    @GuardedBy("this")
+    private boolean cancelShutdown;
+    @GuardedBy("this")
+    private Future shutdownTaskFuture;
 
     @Inject
     public GracefulShutdownHandler(
@@ -79,13 +84,15 @@ public class GracefulShutdownHandler
         }
 
         if (isShutdownRequested()) {
+            // shutdown already in progress
             return;
         }
 
         setShutdownRequested(true);
 
         //wait for a grace period to start the shutdown sequence
-        shutdownHandler.schedule(() -> {
+        shutdownTaskFuture = shutdownHandler.schedule(() -> {
+            shutdownAction.onShutdownStart();
             List<TaskInfo> activeTasks = getActiveTasks();
             while (activeTasks.size() > 0) {
                 CountDownLatch countDownLatch = new CountDownLatch(activeTasks.size());
@@ -105,23 +112,37 @@ public class GracefulShutdownHandler
                 }
                 catch (InterruptedException e) {
                     log.warn("Interrupted while waiting for all tasks to finish");
+                    synchronized (GracefulShutdownHandler.this) {
+                        if (cancelShutdown) {
+                            log.warn("Not waiting any longer for tasks to finish as request was made to cancel shutdown");
+                            cancelShutdown = false; // reset flag so that future requestShutdown
+                            shutdownAction.onCancelWaitForTasksToComplete();
+                            currentThread().interrupt();
+                            return;
+                        }
+                    }
                     currentThread().interrupt();
                 }
-
                 activeTasks = getActiveTasks();
             }
-
+            synchronized (GracefulShutdownHandler.this) {
+                if (cancelShutdown) {
+                    shutdownAction.onCancelJVMShutdown();
+                    log.warn("Skipping JVM shutdown since request was made to cancel shutdown");
+                    cancelShutdown = false; // reset flag so that future shutdown requests can be honored
+                    return;
+                }
+            }
             // wait for another grace period for all task states to be observed by the coordinator
             sleepUninterruptibly(gracePeriod.toMillis(), MILLISECONDS);
-
-            Future<?> shutdownFuture = lifeCycleStopper.submit(() -> {
+            Future<?> stopLifeCycleFuture = lifeCycleStopper.submit(() -> {
                 lifeCycleManager.stop();
                 return null;
             });
 
             // terminate the jvm if life cycle cannot be stopped in a timely manner
             try {
-                shutdownFuture.get(LIFECYCLE_STOP_TIMEOUT.toMillis(), MILLISECONDS);
+                stopLifeCycleFuture.get(LIFECYCLE_STOP_TIMEOUT.toMillis(), MILLISECONDS);
             }
             catch (TimeoutException e) {
                 log.warn(e, "Timed out waiting for the life cycle to stop");
@@ -133,9 +154,8 @@ public class GracefulShutdownHandler
             catch (ExecutionException e) {
                 log.warn(e, "Problem stopping the life cycle");
             }
-
-            shutdownAction.onShutdown();
-        }, gracePeriod.toMillis(), MILLISECONDS);
+            shutdownAction.onShutdownComplete();
+        }, 0, MILLISECONDS);
     }
 
     private List<TaskInfo> getActiveTasks()
@@ -154,5 +174,21 @@ public class GracefulShutdownHandler
     public synchronized boolean isShutdownRequested()
     {
         return shutdownRequested;
+    }
+
+    public synchronized void cancelShutdown()
+    {
+        cancelShutdown(true);
+    }
+
+    @VisibleForTesting
+    synchronized void cancelShutdown(boolean interruptWaitForTasksToFinish)
+    {
+        cancelShutdown = true;
+        setShutdownRequested(false);
+        if (shutdownTaskFuture != null && interruptWaitForTasksToFinish) {
+            boolean cancelled = shutdownTaskFuture.cancel(true);
+            log.info(cancelled ? "Successful in cancelling shutdown task" : "Unsuccessful in cancelling shutdown task");
+        }
     }
 }
