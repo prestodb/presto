@@ -18,9 +18,7 @@ public class DefaultShutdownAction
 {
     @Override
     public void onShutdownStart()
-    {
-
-    }
+    {}
 
     @Override
     public void onShutdownComplete()
@@ -30,12 +28,9 @@ public class DefaultShutdownAction
 
     @Override
     public void onCancelWaitForTasksToComplete()
-    {
-
-    }
+    {}
 
     @Override
     public void onCancelJVMShutdown()
-    {
-    }
+    {}
 }
