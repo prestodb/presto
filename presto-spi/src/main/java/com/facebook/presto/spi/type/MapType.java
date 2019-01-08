@@ -278,11 +278,11 @@ public class MapType
             int[] offsets,
             Block keyBlock,
             Block valueBlock,
-            Optional<int[]> hashTables)
+            int[] hashTables)
     {
         // TypeManager caches types. Therefore, it is important that we go through it instead of coming up with the MethodHandles directly.
         // BIGINT is chosen arbitrarily here. Any type will do.
         MapType mapType = (MapType) typeManager.getType(new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.of(keyType.getTypeSignature()), TypeSignatureParameter.of(BIGINT.getTypeSignature())));
-        return MapBlock.createMapBlockInternal(startOffset, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTables, keyType, mapType.keyBlockNativeEquals, mapType.keyNativeHashCode, mapType.keyBlockHashCode);
+        return MapBlock.createMapBlockInternal(startOffset, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTables, keyType, mapType.keyBlockNativeEquals, mapType.keyNativeHashCode);
     }
 }
