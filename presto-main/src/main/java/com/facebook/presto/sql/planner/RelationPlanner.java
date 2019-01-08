@@ -415,6 +415,7 @@ class RelationPlanner
 
             If casts are redundant (due to column type and common type being equal),
             they will be removed by optimization passes.
+            Coalesce will be added only in case of full joins.
         */
 
         List<Identifier> joinColumns = ((JoinUsing) node.getCriteria().get()).getColumns();
@@ -477,16 +478,32 @@ class RelationPlanner
                 Optional.empty());
 
         // Add a projection to produce the outputs of the columns in the USING clause,
-        // which are defined as coalesce(l.k, r.k)
+        // which are defined as
+        // For Left and Inner Join l.k
+        // For Right Join r.k
+        // For Full join coalesce(l.k, r.k)
         Assignments.Builder assignments = Assignments.builder();
 
         ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
         for (Identifier column : joinColumns) {
             Symbol output = symbolAllocator.newSymbol(column, analysis.getType(column));
             outputs.add(output);
-            assignments.put(output, new CoalesceExpression(
-                    leftJoinColumns.get(column).toSymbolReference(),
-                    rightJoinColumns.get(column).toSymbolReference()));
+            switch (join.getType()) {
+                case LEFT:
+                case INNER:
+                    assignments.put(output, leftJoinColumns.get(column).toSymbolReference());
+                    break;
+                case RIGHT:
+                    assignments.put(output, rightJoinColumns.get(column).toSymbolReference());
+                    break;
+                case FULL:
+                    assignments.put(output, new CoalesceExpression(
+                            leftJoinColumns.get(column).toSymbolReference(),
+                            rightJoinColumns.get(column).toSymbolReference()));
+                    break;
+                default:
+                    throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
+            }
         }
 
         for (int field : joinAnalysis.getOtherLeftFields()) {
