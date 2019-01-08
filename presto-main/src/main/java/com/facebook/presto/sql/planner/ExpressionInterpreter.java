@@ -101,6 +101,7 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -121,6 +122,7 @@ import static com.facebook.presto.sql.analyzer.ConstantExpressionVerifier.verify
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
+import static com.facebook.presto.sql.planner.DeterminismEvaluator.isDeterministic;
 import static com.facebook.presto.sql.planner.LiteralEncoder.isSupportedLiteralType;
 import static com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static com.facebook.presto.type.LikeFunctions.isLikePattern;
@@ -132,6 +134,7 @@ import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -546,18 +549,37 @@ public class ExpressionInterpreter
             List<Object> values = node.getOperands().stream()
                     .map(value -> processWithExceptionHandling(value, context))
                     .filter(Objects::nonNull)
+                    .flatMap(expression -> {
+                        if (expression instanceof CoalesceExpression) {
+                            return ((CoalesceExpression) expression).getOperands().stream();
+                        }
+                        return Stream.of(expression);
+                    })
                     .collect(Collectors.toList());
 
             if ((!values.isEmpty() && !(values.get(0) instanceof Expression)) || values.size() == 1) {
                 return values.get(0);
             }
-
-            List<Expression> expressions = values.stream()
-                    .map(value -> toExpression(value, type))
-                    .collect(Collectors.toList());
+            ImmutableList.Builder<Expression> operandsBuilder = ImmutableList.builder();
+            Set<Expression> visitedExpression = new HashSet<>();
+            for (Object value : values) {
+                Expression expression = toExpression(value, type);
+                if (!isDeterministic(expression) || visitedExpression.add(expression)) {
+                    operandsBuilder.add(expression);
+                }
+                // TODO: Replace this logic with an anlyzer which specifies whether it evaluates to null
+                if (expression instanceof Literal && !(expression instanceof NullLiteral)) {
+                    break;
+                }
+            }
+            List<Expression> expressions = operandsBuilder.build();
 
             if (expressions.isEmpty()) {
                 return null;
+            }
+
+            if (expressions.size() == 1) {
+                return getOnlyElement(expressions);
             }
             return new CoalesceExpression(expressions);
         }
@@ -642,7 +664,7 @@ public class ExpressionInterpreter
                                 .filter(DeterminismEvaluator::isDeterministic)
                                 .distinct(),
                         expressionValues.stream()
-                                .filter((expression -> !DeterminismEvaluator.isDeterministic(expression))))
+                                .filter((expression -> !isDeterministic(expression))))
                         .collect(toImmutableList());
                 return new InPredicate(toExpression(value, type), new InListExpression(simplifiedExpressionValues));
             }
