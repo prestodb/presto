@@ -22,7 +22,6 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Optional;
 
 import static com.facebook.presto.spi.block.AbstractMapBlock.HASH_MULTIPLIER;
 import static com.facebook.presto.spi.block.MethodHandleUtil.compose;
@@ -55,23 +54,15 @@ public class SingleMapBlockEncoding
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         SingleMapBlock singleMapBlock = (SingleMapBlock) block;
-        TypeSerde.writeType(sliceOutput, singleMapBlock.getKeyType());
+        TypeSerde.writeType(sliceOutput, singleMapBlock.keyType);
 
         int offset = singleMapBlock.getOffset();
         int positionCount = singleMapBlock.getPositionCount();
         blockEncodingSerde.writeBlock(sliceOutput, singleMapBlock.getRawKeyBlock().getRegion(offset / 2, positionCount / 2));
         blockEncodingSerde.writeBlock(sliceOutput, singleMapBlock.getRawValueBlock().getRegion(offset / 2, positionCount / 2));
         int[] hashTable = singleMapBlock.getHashTable();
-
-        if (hashTable != null) {
-            int hashTableLength = positionCount / 2 * HASH_MULTIPLIER;
-            sliceOutput.appendInt(hashTableLength);  // hashtable length
-            sliceOutput.writeBytes(wrappedIntArray(hashTable, offset / 2 * HASH_MULTIPLIER, hashTableLength));
-        }
-        else {
-            // if the hashTable is null, we write the length -1
-            sliceOutput.appendInt(-1);
-        }
+        sliceOutput.appendInt(positionCount / 2 * HASH_MULTIPLIER);
+        sliceOutput.writeBytes(wrappedIntArray(hashTable, offset / 2 * HASH_MULTIPLIER, positionCount / 2 * HASH_MULTIPLIER));
     }
 
     @Override
@@ -81,41 +72,18 @@ public class SingleMapBlockEncoding
         MethodHandle keyNativeEquals = typeManager.resolveOperator(OperatorType.EQUAL, asList(keyType, keyType));
         MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(keyType));
         MethodHandle keyNativeHashCode = typeManager.resolveOperator(OperatorType.HASH_CODE, singletonList(keyType));
-        MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(keyType));
 
         Block keyBlock = blockEncodingSerde.readBlock(sliceInput);
         Block valueBlock = blockEncodingSerde.readBlock(sliceInput);
 
-        int hashTableLength = sliceInput.readInt();
-        int[] hashTable = null;
-        if (hashTableLength >= 0) {
-            hashTable = new int[hashTableLength];
-            sliceInput.readBytes(wrappedIntArray(hashTable));
-        }
+        int[] hashTable = new int[sliceInput.readInt()];
+        sliceInput.readBytes(wrappedIntArray(hashTable));
 
-        if (keyBlock.getPositionCount() != valueBlock.getPositionCount()) {
+        if (keyBlock.getPositionCount() != valueBlock.getPositionCount() || keyBlock.getPositionCount() * HASH_MULTIPLIER != hashTable.length) {
             throw new IllegalArgumentException(
-                    format("Deserialized SingleMapBlock violates invariants: key %d, value %d", keyBlock.getPositionCount(), valueBlock.getPositionCount()));
+                    format("Deserialized SingleMapBlock violates invariants: key %d, value %d, hash %d", keyBlock.getPositionCount(), valueBlock.getPositionCount(), hashTable.length));
         }
 
-        if (hashTable != null && keyBlock.getPositionCount() * HASH_MULTIPLIER != hashTable.length) {
-            throw new IllegalArgumentException(
-                    format("Deserialized SingleMapBlock violates invariants: expected hashtable size %d, actual hashtable size %d", keyBlock.getPositionCount() * HASH_MULTIPLIER, hashTable.length));
-        }
-
-        MapBlock mapBlock = MapBlock.createMapBlockInternal(
-                0,
-                1,
-                Optional.empty(),
-                new int[] {0, keyBlock.getPositionCount()},
-                keyBlock,
-                valueBlock,
-                Optional.ofNullable(hashTable),
-                keyType,
-                keyBlockNativeEquals,
-                keyNativeHashCode,
-                keyBlockHashCode);
-
-        return new SingleMapBlock(0, keyBlock.getPositionCount() * 2, mapBlock);
+        return new SingleMapBlock(0, keyBlock.getPositionCount() * 2, keyBlock, valueBlock, hashTable, keyType, keyNativeHashCode, keyBlockNativeEquals);
     }
 }

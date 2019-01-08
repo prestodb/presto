@@ -27,7 +27,6 @@ import com.facebook.presto.type.TypeRegistry;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -79,34 +78,6 @@ public class TestMapBlock
 
         // underlying key/value block is not compact
         testIncompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(Optional.of(mapIsNull), offsets, inCompactKeyBlock, inCompactValueBlock));
-    }
-
-    // TODO: remove this test when we have a more unified testWith() using assertBlock()
-    @Test
-    public void testLazyHashTableBuildOverBlockRegion()
-    {
-        Map<String, Long>[] values = createTestMap(9, 3, 4, 0, 8, 0, 6, 5);
-        Block block = createBlockWithValuesFromKeyValueBlock(values);
-        BlockBuilder blockBuilder = createBlockBuilderWithValues(values);
-
-        // Create a MapBlock that is a region of another MapBlock. It doesn't have hashtables built at the time of creation.
-        int offset = block.getPositionCount() / 2;
-        Block blockRegion = block.getRegion(offset, block.getPositionCount() - offset);
-
-        // Lazily build the hashtables for the block region and use them to do position/value check.
-        Map<String, Long>[] expectedValues = Arrays.copyOfRange(values, values.length / 2, values.length);
-        assertBlock(blockRegion, () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
-
-        Map<String, Long>[] valuesWithNull = alternatingNullValues(values);
-        Block blockWithNull = createBlockWithValuesFromKeyValueBlock(valuesWithNull);
-
-        // Create a MapBlock that is a region of another MapBlock with null values. It doesn't have hashtables built at the time of creation.
-        offset = blockWithNull.getPositionCount() / 2;
-        Block blockRegionWithNull = blockWithNull.getRegion(offset, blockWithNull.getPositionCount() - offset);
-
-        // Lazily build the hashtables for the block region and use them to do position/value check.
-        Map<String, Long>[] expectedValuesWithNull = Arrays.copyOfRange(valuesWithNull, valuesWithNull.length / 2, valuesWithNull.length);
-        assertBlock(blockRegionWithNull, () -> blockBuilder.newBlockBuilderLike(null), expectedValuesWithNull);
     }
 
     private Map<String, Long>[] createTestMap(int... entryCounts)
