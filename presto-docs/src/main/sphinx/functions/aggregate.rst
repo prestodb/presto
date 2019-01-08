@@ -105,6 +105,44 @@ General Aggregate Functions
 
     Returns ``n`` smallest values of all input values of ``x``.
 
+.. function:: reduce_agg(inputValue T, initialState S, inputFunction(S, T, S), combineFunction(S, S, S)) -> S
+
+    Reduces all input values into a single value. ```inputFunction`` will be invoked
+    for each input value. In addition to taking the input value, ``inputFunction``
+    takes the current state, initially ``initialState``, and returns the new state.
+    ``combineFunction`` will be invoked to combine two states into a new state.
+    The final state is returned::
+
+        SELECT id, reduce_agg(value, 0, (a, b) -> a + b, (a, b) -> a + b)
+        FROM (
+            VALUES
+                (1, 2)
+                (1, 3),
+                (1, 4),
+                (2, 20),
+                (2, 30),
+                (2, 40)
+        ) AS t(id, value)
+        GROUP BY id;
+        -- (1, 9)
+        -- (2, 90)
+
+        SELECT id, reduce_agg(value, 1, (a, b) -> a * b, (a, b) -> a * b)
+        FROM (
+            VALUES
+                (1, 2),
+                (1, 3),
+                (1, 4),
+                (2, 20),
+                (2, 30),
+                (2, 40)
+        ) AS t(id, value)
+        GROUP BY id;
+        -- (1, 24)
+        -- (2, 24000)
+
+    The state type must be a boolean, integer, floating-point, or date/time/interval.
+
 .. function:: sum(x) -> [same as input]
 
     Returns the sum of all input values.
