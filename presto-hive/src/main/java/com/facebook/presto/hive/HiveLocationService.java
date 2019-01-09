@@ -61,7 +61,7 @@ public class HiveLocationService
         }
 
         if (shouldUseTemporaryDirectory(session, context, targetPath)) {
-            Path writePath = createTemporaryPath(context, hdfsEnvironment, targetPath);
+            Path writePath = createTemporaryPath(session, context, hdfsEnvironment, targetPath);
             return new LocationHandle(targetPath, writePath, false, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
         }
         else {
@@ -76,7 +76,7 @@ public class HiveLocationService
         Path targetPath = new Path(table.getStorage().getLocation());
 
         if (shouldUseTemporaryDirectory(session, context, targetPath)) {
-            Path writePath = createTemporaryPath(context, hdfsEnvironment, targetPath);
+            Path writePath = createTemporaryPath(session, context, hdfsEnvironment, targetPath);
             return new LocationHandle(targetPath, writePath, true, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
         }
         else {

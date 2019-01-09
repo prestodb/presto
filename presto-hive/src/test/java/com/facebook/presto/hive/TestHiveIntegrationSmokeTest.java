@@ -117,6 +117,7 @@ import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -3192,9 +3193,9 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testTemporaryStagingDirectorySessionProperty()
+    public void testTemporaryStagingDirectorySessionProperties()
     {
-        String tableName = "test_temporary_staging_directory_session_property";
+        String tableName = "test_temporary_staging_directory_session_properties";
         assertUpdate(format("CREATE TABLE %s(i int)", tableName));
 
         Session session = Session.builder(getSession())
@@ -3203,6 +3204,15 @@ public class TestHiveIntegrationSmokeTest
 
         HiveInsertTableHandle hiveInsertTableHandle = getHiveInsertTableHandle(session, tableName);
         assertEquals(hiveInsertTableHandle.getLocationHandle().getWritePath(), hiveInsertTableHandle.getLocationHandle().getTargetPath());
+
+        session = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "temporary_staging_directory_enabled", "true")
+                .setCatalogSessionProperty("hive", "temporary_staging_directory_path", "/tmp/custom/temporary-${USER}")
+                .build();
+
+        hiveInsertTableHandle = getHiveInsertTableHandle(session, tableName);
+        assertNotEquals(hiveInsertTableHandle.getLocationHandle().getWritePath(), hiveInsertTableHandle.getLocationHandle().getTargetPath());
+        assertTrue(hiveInsertTableHandle.getLocationHandle().getWritePath().toString().startsWith("file:/tmp/custom/temporary-"));
 
         assertUpdate("DROP TABLE " + tableName);
     }
