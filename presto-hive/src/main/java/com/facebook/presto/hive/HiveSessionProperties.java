@@ -76,6 +76,7 @@ public final class HiveSessionProperties
     private static final String COLLECT_COLUMN_STATISTICS_ON_WRITE = "collect_column_statistics_on_write";
     private static final String OPTIMIZE_MISMATCHED_BUCKET_COUNT = "optimize_mismatched_bucket_count";
     private static final String S3_SELECT_PUSHDOWN_ENABLED = "s3_select_pushdown_enabled";
+    private static final String TEMPORARY_STAGING_DIRECTORY_ENABLED = "temporary_staging_directory_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -296,6 +297,11 @@ public final class HiveSessionProperties
                         S3_SELECT_PUSHDOWN_ENABLED,
                         "S3 Select pushdown enabled",
                         hiveClientConfig.isS3SelectPushdownEnabled(),
+                        false),
+                booleanProperty(
+                        TEMPORARY_STAGING_DIRECTORY_ENABLED,
+                        "Should use temporary staging directory for write operations",
+                        hiveClientConfig.isTemporaryStagingDirectoryEnabled(),
                         false));
     }
 
@@ -493,6 +499,11 @@ public final class HiveSessionProperties
     public static boolean isOptimizedMismatchedBucketCount(ConnectorSession session)
     {
         return session.getProperty(OPTIMIZE_MISMATCHED_BUCKET_COUNT, Boolean.class);
+    }
+
+    public static boolean isTemporaryStagingDirectoryEnabled(ConnectorSession session)
+    {
+        return session.getProperty(TEMPORARY_STAGING_DIRECTORY_ENABLED, Boolean.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)

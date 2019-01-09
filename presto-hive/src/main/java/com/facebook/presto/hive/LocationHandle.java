@@ -107,15 +107,15 @@ public class LocationHandle
     public enum WriteMode
     {
         /**
-         * common mode for new table or existing table (both new and existing partition)
+         * common mode for new table or existing table (both new and existing partition) and when staging directory is enabled
          */
         STAGE_AND_MOVE_TO_TARGET_DIRECTORY(false),
         /**
-         * for new table in S3
+         * for new table in S3 or when staging directory is disabled
          */
         DIRECT_TO_TARGET_NEW_DIRECTORY(true),
         /**
-         * for existing table in S3 (both new and existing partition)
+         * for existing table in S3 (both new and existing partition) or when staging directory is disabled
          */
         DIRECT_TO_TARGET_EXISTING_DIRECTORY(true),
         /**/;
