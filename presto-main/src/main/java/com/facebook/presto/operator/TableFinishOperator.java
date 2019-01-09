@@ -27,7 +27,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
-import io.airlift.units.Duration;
 
 import java.util.Collection;
 import java.util.List;
@@ -40,8 +39,8 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.units.Duration.succinctNanos;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class TableFinishOperator
         implements Operator
@@ -328,8 +327,8 @@ public class TableFinishOperator
     {
         return new TableFinishInfo(
                 outputMetadata,
-                new Duration(statisticsTiming.getWallNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(statisticsTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit());
+                succinctNanos(statisticsTiming.getWallNanos()),
+                succinctNanos(statisticsTiming.getCpuNanos()));
     }
 
     @Override
