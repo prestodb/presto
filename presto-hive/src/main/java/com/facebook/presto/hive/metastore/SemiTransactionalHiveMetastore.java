@@ -1173,13 +1173,19 @@ public class SemiTransactionalHiveMetastore
                     schemaTableName,
                     ignored -> new PartitionAdder(partition.getDatabaseName(), partition.getTableName(), delegate, PARTITION_COMMIT_BATCH_SIZE));
 
-            if (!targetPath.equals(currentPath)) {
-                renameDirectory(
-                        context,
-                        hdfsEnvironment,
-                        currentPath,
-                        targetPath,
-                        () -> cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, true)));
+            if (pathExists(context, hdfsEnvironment, currentPath)) {
+                if (!targetPath.equals(currentPath)) {
+                    renameDirectory(
+                            context,
+                            hdfsEnvironment,
+                            currentPath,
+                            targetPath,
+                            () -> cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, true)));
+                }
+            }
+            else {
+                cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, true));
+                createDirectory(context, hdfsEnvironment, targetPath);
             }
             String partitionName = getPartitionName(partition.getDatabaseName(), partition.getTableName(), partition.getValues());
             partitionAdder.addPartition(new PartitionWithStatistics(partition, partitionName, partitionAndMore.getStatisticsUpdate()));
