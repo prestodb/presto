@@ -148,6 +148,8 @@ public class HiveClientConfig
     private boolean s3SelectPushdownEnabled;
     private int s3SelectPushdownMaxConnections = 500;
 
+    private boolean isTemporaryStagingDirectoryEnabled = true;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -1189,5 +1191,18 @@ public class HiveClientConfig
     {
         this.s3SelectPushdownMaxConnections = s3SelectPushdownMaxConnections;
         return this;
+    }
+
+    @Config("hive.temporary-staging-directory-enabled")
+    @ConfigDescription("Should use (if possible) temporary staging directory for write operations")
+    public HiveClientConfig setTemporaryStagingDirectoryEnabled(boolean temporaryStagingDirectoryEnabled)
+    {
+        this.isTemporaryStagingDirectoryEnabled = temporaryStagingDirectoryEnabled;
+        return this;
+    }
+
+    public boolean isTemporaryStagingDirectoryEnabled()
+    {
+        return isTemporaryStagingDirectoryEnabled;
     }
 }

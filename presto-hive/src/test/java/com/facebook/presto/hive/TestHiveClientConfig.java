@@ -115,7 +115,8 @@ public class TestHiveClientConfig
                 .setCollectColumnStatisticsOnWrite(false)
                 .setCollectColumnStatisticsOnWrite(false)
                 .setS3SelectPushdownEnabled(false)
-                .setS3SelectPushdownMaxConnections(500));
+                .setS3SelectPushdownMaxConnections(500)
+                .setTemporaryStagingDirectoryEnabled(true));
     }
 
     @Test
@@ -199,6 +200,7 @@ public class TestHiveClientConfig
                 .put("hive.collect-column-statistics-on-write", "true")
                 .put("hive.s3select-pushdown.enabled", "true")
                 .put("hive.s3select-pushdown.max-connections", "1234")
+                .put("hive.temporary-staging-directory-enabled", "false")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -279,7 +281,8 @@ public class TestHiveClientConfig
                 .setCollectColumnStatisticsOnWrite(true)
                 .setCollectColumnStatisticsOnWrite(true)
                 .setS3SelectPushdownEnabled(true)
-                .setS3SelectPushdownMaxConnections(1234);
+                .setS3SelectPushdownMaxConnections(1234)
+                .setTemporaryStagingDirectoryEnabled(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
