@@ -149,6 +149,7 @@ public class HiveClientConfig
     private int s3SelectPushdownMaxConnections = 500;
 
     private boolean isTemporaryStagingDirectoryEnabled = true;
+    private String temporaryStagingDirectoryPath = "/tmp/presto-${USER}";
 
     public int getMaxInitialSplits()
     {
@@ -1204,5 +1205,19 @@ public class HiveClientConfig
     public boolean isTemporaryStagingDirectoryEnabled()
     {
         return isTemporaryStagingDirectoryEnabled;
+    }
+
+    @Config("hive.temporary-staging-directory-path")
+    @ConfigDescription("Location of temporary staging directory for write operations. Use ${USER} placeholder to use different location for each user.")
+    public HiveClientConfig setTemporaryStagingDirectoryPath(String temporaryStagingDirectoryPath)
+    {
+        this.temporaryStagingDirectoryPath = temporaryStagingDirectoryPath;
+        return this;
+    }
+
+    @NotNull
+    public String getTemporaryStagingDirectoryPath()
+    {
+        return temporaryStagingDirectoryPath;
     }
 }

@@ -114,6 +114,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALU
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
+import static com.facebook.presto.hive.HiveSessionProperties.getTemporaryStagingDirectoryPath;
 import static com.facebook.presto.hive.HiveUtil.checkCondition;
 import static com.facebook.presto.hive.HiveUtil.isArrayType;
 import static com.facebook.presto.hive.HiveUtil.isMapType;
@@ -547,10 +548,11 @@ public final class HiveWriteUtils
         }
     }
 
-    public static Path createTemporaryPath(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path targetPath)
+    public static Path createTemporaryPath(ConnectorSession session, HdfsContext context, HdfsEnvironment hdfsEnvironment, Path targetPath)
     {
         // use a per-user temporary directory to avoid permission problems
-        String temporaryPrefix = "/tmp/presto-" + context.getIdentity().getUser();
+        String temporaryPrefix = getTemporaryStagingDirectoryPath(session)
+                .replace("${USER}", context.getIdentity().getUser());
 
         // use relative temporary directory on ViewFS
         if (isViewFileSystem(context, hdfsEnvironment, targetPath)) {
