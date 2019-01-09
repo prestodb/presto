@@ -43,7 +43,6 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
-import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
@@ -84,6 +83,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.airlift.units.Duration.succinctDuration;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -497,9 +497,9 @@ public class QueryStateMachine
 
                 isScheduled,
 
-                new Duration(totalScheduledTime, MILLISECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(totalCpuTime, MILLISECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(totalBlockedTime, MILLISECONDS).convertToMostSuccinctTimeUnit(),
+                succinctDuration(totalScheduledTime, MILLISECONDS),
+                succinctDuration(totalCpuTime, MILLISECONDS),
+                succinctDuration(totalBlockedTime, MILLISECONDS),
                 fullyBlocked,
                 blockedReasons,
 

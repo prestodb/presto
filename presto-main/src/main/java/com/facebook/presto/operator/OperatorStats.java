@@ -28,6 +28,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -449,26 +450,26 @@ public class OperatorStats
                 totalDrivers,
 
                 addInputCalls,
-                new Duration(addInputWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(addInputCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                succinctNanos(addInputWall),
+                succinctNanos(addInputCpu),
                 succinctBytes(rawInputDataSize),
                 succinctBytes(inputDataSize),
                 inputPositions,
                 sumSquaredInputPositions,
 
                 getOutputCalls,
-                new Duration(getOutputWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(getOutputCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                succinctNanos(getOutputWall),
+                succinctNanos(getOutputCpu),
                 succinctBytes(outputDataSize),
                 outputPositions,
 
                 succinctBytes(physicalWrittenDataSize),
 
-                new Duration(blockedWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                succinctNanos(blockedWall),
 
                 finishCalls,
-                new Duration(finishWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(finishCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                succinctNanos(finishWall),
+                succinctNanos(finishCpu),
 
                 succinctBytes(memoryReservation),
                 succinctBytes(revocableMemoryReservation),
