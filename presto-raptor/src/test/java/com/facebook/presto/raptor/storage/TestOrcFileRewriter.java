@@ -229,7 +229,7 @@ public class TestOrcFileRewriter
         File newFile = new File(temporary, randomUUID().toString());
         OrcFileInfo info = createFileRewriter(useOptimizedOrcWriter).rewrite(getColumnTypes(columnIds, columnTypes), file, newFile, rowsToDelete);
         assertEquals(info.getRowCount(), 2);
-        assertBetweenInclusive(info.getUncompressedSize(), 94L, 94L * 2);
+        assertBetweenInclusive(info.getUncompressedSize(), 94L, 118L * 2);
 
         try (OrcDataSource dataSource = fileOrcDataSource(newFile)) {
             OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
