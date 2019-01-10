@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.optimizations.ExpressionEquivalence;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -33,6 +34,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.sql.planner.iterative.rule.CoalesceExpressionRewriter.simplifyCoalesceExpression;
 import static com.facebook.presto.sql.planner.iterative.rule.ExtractCommonPredicatesExpressionRewriter.extractCommonPredicates;
 import static com.facebook.presto.sql.planner.iterative.rule.PushDownNegationsExpressionRewriter.pushDownNegations;
 import static java.util.Collections.emptyList;
@@ -49,6 +51,7 @@ public class SimplifyExpressions
         if (expression instanceof SymbolReference) {
             return expression;
         }
+        expression = simplifyCoalesceExpression(session, new ExpressionEquivalence(metadata, sqlParser), expression, symbolAllocator.getTypes());
         expression = pushDownNegations(expression);
         expression = extractCommonPredicates(expression);
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, symbolAllocator.getTypes(), expression, emptyList(), WarningCollector.NOOP);

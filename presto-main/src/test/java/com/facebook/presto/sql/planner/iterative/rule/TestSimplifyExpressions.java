@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.ExpressionUtils.binaryExpression;
 import static com.facebook.presto.sql.ExpressionUtils.extractPredicates;
@@ -112,6 +113,32 @@ public class TestSimplifyExpressions
                         " OR (A31 AND A32) OR (A33 AND A34) OR (A35 AND A36) OR (A37 AND A38) OR (A39 AND A40)" +
                         " OR (A41 AND A42) OR (A43 AND A44) OR (A45 AND A46) OR (A47 AND A48) OR (A49 AND A50)" +
                         " OR (A51 AND A52) OR (A53 AND A54) OR (A55 AND A56) OR (A57 AND A58) OR (A59 AND A60)");
+    }
+
+    @Test
+    public void testSimplifyCoalesceExpression()
+    {
+        Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression("coalesce(unbound_long > 6,  6 < unbound_long)"));
+        Expression expectedExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression("coalesce(unbound_long > 6, unbound_long > 6)"));
+        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        symbolAllocator.newSymbol("unbound_long", BIGINT);
+        Expression rewritten = rewrite(actualExpression, TEST_SESSION, symbolAllocator, METADATA, LITERAL_ENCODER, SQL_PARSER);
+        assertEquals(
+                normalize(rewritten),
+                normalize(expectedExpression));
+    }
+
+    @Test
+    public void testSimplifyCoalesceExpressionForNonDeterministic()
+    {
+        Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression("coalesce(random() >  DOUBLE '0.6',  DOUBLE '0.6' < random())"));
+        Expression expectedExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression("coalesce(random() > 6E-1, 6E-1 < random())"));
+        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        symbolAllocator.newSymbol("unbound_long", BIGINT);
+        Expression rewritten = rewrite(actualExpression, TEST_SESSION, symbolAllocator, METADATA, LITERAL_ENCODER, SQL_PARSER);
+        assertEquals(
+                normalize(rewritten),
+                normalize(expectedExpression));
     }
 
     private static void assertSimplifies(String expression, String expected)

@@ -96,6 +96,21 @@ public class ExpressionEquivalence
         return canonicalizedLeft.equals(canonicalizedRight);
     }
 
+    public RowExpression toCanonicalizedRowExpression(Session session, Expression expression, TypeProvider types)
+    {
+        Map<Symbol, Integer> symbolInput = new HashMap<>();
+        Map<Integer, Type> inputTypes = new HashMap<>();
+        int inputId = 0;
+        for (Entry<Symbol, Type> entry : types.allTypes().entrySet()) {
+            symbolInput.put(entry.getKey(), inputId);
+            inputTypes.put(inputId, entry.getValue());
+            inputId++;
+        }
+        RowExpression rowExpression = toRowExpression(session, expression, symbolInput, inputTypes);
+
+        return rowExpression.accept(CANONICALIZATION_VISITOR, null);
+    }
+
     private RowExpression toRowExpression(Session session, Expression expression, Map<Symbol, Integer> symbolInput, Map<Integer, Type> inputTypes)
     {
         // replace qualified names with input references since row expressions do not support these
