@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.planPrinter;
 import com.facebook.presto.cost.PlanNodeCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
@@ -28,10 +29,12 @@ import static java.util.Objects.requireNonNull;
 public class NodeRepresentation
 {
     private final PlanNodeId id;
+    private final String name;
     private final String type;
     private final String identifier;
     private final List<Symbol> outputs;
     private final List<PlanNodeId> children;
+    private final List<PlanFragmentId> remoteSources;
     private final Optional<PlanNodeStats> stats;
     private final List<PlanNodeStatsEstimate> estimatedStats;
     private final List<PlanNodeCostEstimate> estimatedCost;
@@ -40,22 +43,26 @@ public class NodeRepresentation
 
     public NodeRepresentation(
             PlanNodeId id,
+            String name,
             String type,
             String identifier,
             List<Symbol> outputs,
             Optional<PlanNodeStats> stats,
             List<PlanNodeStatsEstimate> estimatedStats,
             List<PlanNodeCostEstimate> estimatedCost,
-            List<PlanNodeId> children)
+            List<PlanNodeId> children,
+            List<PlanFragmentId> remoteSources)
     {
         this.id = requireNonNull(id, "id is null");
-        this.type = requireNonNull(type, "name is null");
+        this.name = requireNonNull(name, "name is null");
+        this.type = requireNonNull(type, "type is null");
         this.identifier = requireNonNull(identifier, "identifier is null");
         this.outputs = requireNonNull(outputs, "outputs is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.estimatedStats = requireNonNull(estimatedStats, "estimatedStats is null");
         this.estimatedCost = requireNonNull(estimatedCost, "estimatedCost is null");
         this.children = requireNonNull(children, "children is null");
+        this.remoteSources = requireNonNull(remoteSources, "remoteSources is null");
 
         checkArgument(estimatedCost.size() == estimatedStats.size(), "size of cost and stats list does not match");
     }
@@ -81,6 +88,11 @@ public class NodeRepresentation
         return id;
     }
 
+    public String getName()
+    {
+        return name;
+    }
+
     public String getType()
     {
         return type;
@@ -99,6 +111,11 @@ public class NodeRepresentation
     public List<PlanNodeId> getChildren()
     {
         return children;
+    }
+
+    public List<PlanFragmentId> getRemoteSources()
+    {
+        return remoteSources;
     }
 
     public String getDetails()

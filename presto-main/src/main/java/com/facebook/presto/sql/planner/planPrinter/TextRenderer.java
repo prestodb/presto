@@ -36,24 +36,26 @@ public class TextRenderer
         implements Renderer<String>
 {
     private final boolean verbose;
+    private final int level;
 
-    public TextRenderer(boolean verbose)
+    public TextRenderer(boolean verbose, int level)
     {
         this.verbose = verbose;
+        this.level = level;
     }
 
     @Override
     public String render(PlanRepresentation plan)
     {
         StringBuilder output = new StringBuilder();
-        return writeTextOutput(output, plan, plan.getLevel(), plan.getRoot());
+        return writeTextOutput(output, plan, level, plan.getRoot());
     }
 
     private String writeTextOutput(StringBuilder output, PlanRepresentation plan, int level, NodeRepresentation node)
     {
         output.append(indentString(level))
                 .append("- ")
-                .append(node.getType())
+                .append(node.getName())
                 .append(node.getIdentifier())
                 .append(" => [")
                 .append(node.getOutputs())

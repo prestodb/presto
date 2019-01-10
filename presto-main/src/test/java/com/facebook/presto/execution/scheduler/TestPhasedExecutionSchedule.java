@@ -252,6 +252,7 @@ public class TestPhasedExecutionSchedule
                 ImmutableList.of(planNode.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()),
                 StageExecutionDescriptor.ungroupedExecution(),
-                StatsAndCosts.empty());
+                StatsAndCosts.empty(),
+                Optional.empty());
     }
 }

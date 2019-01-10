@@ -19,12 +19,11 @@ import * as dagreD3 from "dagre-d3";
 import * as d3 from "d3";
 
 import {
-    computeSources,
     formatCount,
-    getFirstParameter,
     getStageStateColor,
     initializeGraph,
-    initializeSvg
+    initializeSvg,
+    truncateString
 } from "../utils";
 import {QueryHeader} from "./QueryHeader";
 
@@ -34,16 +33,10 @@ type StageStatisticsProps = {
 type StageStatisticsState = {}
 
 class StageStatistics extends React.Component<StageStatisticsProps, StageStatisticsState> {
-    static flatten(queryInfo) {
+    static getStages(queryInfo) {
         const stages = new Map();
         StageStatistics.flattenStage(queryInfo.outputStage, stages);
-
-        return {
-            id: queryInfo.queryId,
-            root: queryInfo.outputStage.plan.id,
-            stageStats: {},
-            stages: stages
-        }
+        return stages;
     }
 
     static flattenStage(stageInfo, result) {
@@ -52,7 +45,7 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
         });
 
         const nodes = new Map();
-        StageStatistics.flattenNode(result, stageInfo.plan.root, nodes);
+        StageStatistics.flattenNode(result, stageInfo.plan.root, JSON.parse(stageInfo.plan.jsonRepresentation), nodes);
 
         result.set(stageInfo.plan.id, {
             stageId: stageInfo.stageId,
@@ -65,21 +58,18 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
         });
     }
 
-    static flattenNode(stages, nodeInfo, result) {
-        const allSources = computeSources(nodeInfo);
-        const sources = allSources[0];
-        const remoteSources = allSources[1];
-
-        result.set(nodeInfo.id, {
-            id: nodeInfo.id,
-            type: nodeInfo['@type'],
-            sources: sources.map(function (node) { return node.id }),
-            remoteSources: remoteSources,
-            stats: {}
+    static flattenNode(stages, rootNodeInfo, node: any, result: Map<any, PlanNodeProps>) {
+        result.set(node.id, {
+            id: node.id,
+            name: node['name'],
+            identifier: node['identifier'],
+            details: node['details'],
+            sources: node.children.map(node => node.id),
+            remoteSources: node.remoteSources,
         });
 
-        sources.forEach(function (child) {
-            StageStatistics.flattenNode(stages, child, result);
+        node.children.forEach(function (child) {
+            StageStatistics.flattenNode(stages, rootNodeInfo, child, result);
         });
     }
 
@@ -105,6 +95,34 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
                     Splits: {"Q:" + stats.queuedDrivers + ", R:" + stats.runningDrivers + ", F:" + stats.completedDrivers}
                     <hr/>
                     Input: {stats.rawInputDataSize + " / " + formatCount(stats.rawInputPositions)} rows
+                </div>
+            </div>
+        );
+    }
+}
+
+type PlanNodeProps = {
+    id: string,
+    name: string,
+    identifier: string,
+    details: string,
+    sources: string[],
+    remoteSources: string[],
+}
+type PlanNodeState = {}
+
+class PlanNode extends React.Component<PlanNodeProps, PlanNodeState> {
+    constructor(props: PlanNodeProps) {
+        super(props);
+    }
+
+    render() {
+        return (
+            <div style={{color: "#000"}} data-toggle="tooltip" data-placement="bottom" data-container="body" data-html="true"
+                 title={"<h4>" + this.props.name + "</h4>" + this.props.identifier}>
+                <strong>{this.props.name}</strong>
+                <div>
+                    {truncateString(this.props.identifier, 35)}
                 </div>
             </div>
         );
@@ -197,15 +215,16 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
 
         stage.nodes.forEach(node => {
             const nodeId = "node-" + node.id;
+            const nodeHtml = ReactDOMServer.renderToString(<PlanNode {...node}/>);
 
-            graph.setNode(nodeId, {label: node.type, style: 'fill: #fff'});
+            graph.setNode(nodeId, {label: nodeHtml, style: 'fill: #fff', labelType: "html"});
             graph.setParent(nodeId, clusterId);
 
             node.sources.forEach(source => {
                 graph.setEdge("node-" + source, nodeId, {arrowheadStyle: "fill: #fff; stroke-width: 0;"});
             });
 
-            if (node.type === 'remoteSource') {
+            if (node.remoteSources.length > 0) {
                 graph.setNode(nodeId, {label: '', shape: "circle"});
 
                 node.remoteSources.forEach(sourceId => {
@@ -215,13 +234,18 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
         });
     }
 
+    componentDidUpdate() {
+        //$FlowFixMe
+        $('[data-toggle="tooltip"]').tooltip()
+    }
+
     updateD3Graph() {
         if (!this.state.query) {
             return;
         }
 
         const graph = this.state.graph;
-        const stages = StageStatistics.flatten(this.state.query).stages;
+        const stages = StageStatistics.getStages(this.state.query);
         stages.forEach(stage => {
             this.updateD3Stage(stage, graph);
         });

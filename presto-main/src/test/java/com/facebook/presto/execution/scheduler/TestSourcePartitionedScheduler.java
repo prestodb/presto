@@ -484,7 +484,8 @@ public class TestSourcePartitionedScheduler
                 ImmutableList.of(tableScanNodeId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
                 StageExecutionDescriptor.ungroupedExecution(),
-                StatsAndCosts.empty());
+                StatsAndCosts.empty(),
+                Optional.empty());
 
         return new StageExecutionPlan(
                 testFragment,

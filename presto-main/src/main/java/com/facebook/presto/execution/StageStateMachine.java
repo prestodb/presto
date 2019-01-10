@@ -82,6 +82,7 @@ public class StageStateMachine
     private final StateMachine<StageState> stageState;
     private final StateMachine<Optional<StageInfo>> finalStageInfo;
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
+    private final AtomicReference<Optional<String>> renderedPlan = new AtomicReference<>(Optional.empty());
 
     private final AtomicReference<DateTime> schedulingComplete = new AtomicReference<>();
     private final Distribution getSplitDistribution = new Distribution();

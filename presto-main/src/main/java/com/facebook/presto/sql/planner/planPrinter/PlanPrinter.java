@@ -117,7 +117,7 @@ import java.util.stream.Stream;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.planPrinter.PlanNodeStatsSummarizer.aggregatePlanNodeStats;
+import static com.facebook.presto.sql.planner.planPrinter.PlanNodeStatsSummarizer.aggregateStageStats;
 import static com.facebook.presto.sql.planner.planPrinter.TextRenderer.formatDouble;
 import static com.facebook.presto.sql.planner.planPrinter.TextRenderer.formatPositions;
 import static com.facebook.presto.sql.planner.planPrinter.TextRenderer.indentString;
@@ -138,7 +138,6 @@ public class PlanPrinter
 {
     private final PlanRepresentation representation;
     private final FunctionRegistry functionRegistry;
-    private final TextRenderer textRenderer;
 
     private PlanPrinter(
             PlanNode planRoot,
@@ -147,9 +146,7 @@ public class PlanPrinter
             FunctionRegistry functionRegistry,
             StatsAndCosts estimatedStatsAndCosts,
             Session session,
-            Optional<Map<PlanNodeId, PlanNodeStats>> stats,
-            int level,
-            boolean verbose)
+            Optional<Map<PlanNodeId, PlanNodeStats>> stats)
     {
         requireNonNull(planRoot, "planRoot is null");
         requireNonNull(types, "types is null");
@@ -167,22 +164,34 @@ public class PlanPrinter
                 .mapToLong(planNode -> planNode.getPlanNodeCpuTime().toMillis())
                 .sum(), MILLISECONDS));
 
-        this.representation = new PlanRepresentation(planRoot, level, types, totalCpuTime, totalScheduledTime);
+        this.representation = new PlanRepresentation(planRoot, types, totalCpuTime, totalScheduledTime);
 
         Visitor visitor = new Visitor(stageExecutionStrategy, types, estimatedStatsAndCosts, session, stats);
         planRoot.accept(visitor, null);
-        textRenderer = new TextRenderer(verbose);
     }
 
-    @Override
-    public String toString()
+    public String toText(boolean verbose, int level)
     {
-        return textRenderer.render(representation);
+        return new TextRenderer(verbose, level).render(representation);
+    }
+
+    public String toJson()
+    {
+        return new JsonRenderer().render(representation);
+    }
+
+    public static String jsonFragmentPlan(PlanNode root, Map<Symbol, Type> symbols, FunctionRegistry functionRegistry, Session session)
+    {
+        TypeProvider typeProvider = TypeProvider.copyOf(symbols.entrySet().stream()
+                .distinct()
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
+
+        return new PlanPrinter(root, typeProvider, Optional.empty(), functionRegistry, StatsAndCosts.empty(), session, Optional.empty()).toJson();
     }
 
     public static String textLogicalPlan(PlanNode plan, TypeProvider types, FunctionRegistry functionRegistry, StatsAndCosts estimatedStatsAndCosts, Session session, int level)
     {
-        return new PlanPrinter(plan, types, Optional.empty(), functionRegistry, estimatedStatsAndCosts, session, Optional.empty(), level, false).toString();
+        return new PlanPrinter(plan, types, Optional.empty(), functionRegistry, estimatedStatsAndCosts, session, Optional.empty()).toText(false, level);
     }
 
     public static String textLogicalPlan(
@@ -208,7 +217,7 @@ public class PlanPrinter
             int level,
             boolean verbose)
     {
-        return new PlanPrinter(plan, types, stageExecutionStrategy, functionRegistry, estimatedStatsAndCosts, session, stats, level, verbose).toString();
+        return new PlanPrinter(plan, types, stageExecutionStrategy, functionRegistry, estimatedStatsAndCosts, session, stats).toText(verbose, level);
     }
 
     public static String textDistributedPlan(StageInfo outputStageInfo, FunctionRegistry functionRegistry, Session session, boolean verbose)
@@ -218,7 +227,7 @@ public class PlanPrinter
         List<PlanFragment> allFragments = allStages.stream()
                 .map(StageInfo::getPlan)
                 .collect(toImmutableList());
-        Map<PlanNodeId, PlanNodeStats> aggregatedStats = aggregatePlanNodeStats(allStages);
+        Map<PlanNodeId, PlanNodeStats> aggregatedStats = aggregateStageStats(allStages);
         for (StageInfo stageInfo : allStages) {
             builder.append(formatFragment(functionRegistry, session, stageInfo.getPlan(), Optional.of(stageInfo), Optional.of(aggregatedStats), verbose, allFragments));
         }
@@ -305,6 +314,7 @@ public class PlanPrinter
 
     public static String graphvizLogicalPlan(PlanNode plan, TypeProvider types)
     {
+        // TODO: This should move to something like GraphvizRenderer
         PlanFragment fragment = new PlanFragment(
                 new PlanFragmentId("graphviz_plan"),
                 plan,
@@ -313,7 +323,8 @@ public class PlanPrinter
                 ImmutableList.of(plan.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputSymbols()),
                 StageExecutionDescriptor.ungroupedExecution(),
-                StatsAndCosts.empty());
+                StatsAndCosts.empty(),
+                Optional.empty());
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
     }
 
@@ -716,7 +727,7 @@ public class PlanPrinter
                     .map(PlanNode::getId)
                     .collect(toList());
 
-            NodeRepresentation nodeOutput = addNode(node, operatorName, format(formatString, arguments.toArray(new Object[0])), allNodes, ImmutableList.of());
+            NodeRepresentation nodeOutput = addNode(node, operatorName, format(formatString, arguments.toArray(new Object[0])), allNodes, ImmutableList.of(), ImmutableList.of());
 
             if (projectNode.isPresent()) {
                 printAssignments(nodeOutput, projectNode.get().getAssignments());
@@ -833,7 +844,10 @@ public class PlanPrinter
         {
             addNode(node,
                     format("Remote%s", node.getOrderingScheme().isPresent() ? "Merge" : "Source"),
-                    format("[%s]", Joiner.on(',').join(node.getSourceFragmentIds())));
+                    format("[%s]", Joiner.on(',').join(node.getSourceFragmentIds())),
+                    ImmutableList.of(),
+                    ImmutableList.of(),
+                    node.getSourceFragmentIds());
 
             return null;
         }
@@ -1139,10 +1153,10 @@ public class PlanPrinter
 
         public NodeRepresentation addNode(PlanNode node, String name, String identifier, List<PlanNode> children)
         {
-            return addNode(node, name, identifier, ImmutableList.of(node.getId()), children);
+            return addNode(node, name, identifier, ImmutableList.of(node.getId()), children, ImmutableList.of());
         }
 
-        public NodeRepresentation addNode(PlanNode rootNode, String name, String identifier, List<PlanNodeId> allNodes, List<PlanNode> children)
+        public NodeRepresentation addNode(PlanNode rootNode, String name, String identifier, List<PlanNodeId> allNodes, List<PlanNode> children, List<PlanFragmentId> remoteSources)
         {
             List<PlanNodeId> childrenIds = children.stream().map(PlanNode::getId).collect(toImmutableList());
             List<PlanNodeStatsEstimate> estimatedStats = allNodes.stream()
@@ -1155,12 +1169,14 @@ public class PlanPrinter
             NodeRepresentation nodeOutput = new NodeRepresentation(
                     rootNode.getId(),
                     name,
+                    rootNode.getClass().getSimpleName(),
                     identifier,
                     rootNode.getOutputSymbols(),
                     stats.map(s -> s.get(rootNode.getId())),
                     estimatedStats,
                     estimatedCosts,
-                    childrenIds);
+                    childrenIds,
+                    remoteSources);
 
             representation.addNode(nodeOutput);
             return nodeOutput;

@@ -19,7 +19,7 @@ import * as dagreD3 from "dagre-d3";
 import * as d3 from "d3";
 
 import {
-    computeSources,
+    getChildren,
     formatCount,
     formatDataSize,
     formatDuration,
@@ -374,7 +374,7 @@ class StageOperatorGraph extends React.Component {
     }
 
     computeOperatorGraphs(planNode, operatorMap) {
-        const sources = computeSources(planNode)[0];
+        const sources = getChildren(planNode);
 
         const sourceResults = new Map();
         sources.forEach(source => {

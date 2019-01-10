@@ -28,6 +28,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -57,6 +58,7 @@ import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -71,6 +73,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINAT
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonFragmentPlan;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
@@ -192,7 +195,8 @@ public class PlanFragmenter
                         outputPartitioningScheme.isReplicateNullsAndAny(),
                         outputPartitioningScheme.getBucketToPartition()),
                 fragment.getStageExecutionDescriptor(),
-                fragment.getStatsAndCosts());
+                fragment.getStatsAndCosts(),
+                fragment.getJsonRepresentation());
 
         ImmutableList.Builder<SubPlan> childrenBuilder = ImmutableList.builder();
         for (SubPlan child : subPlan.getChildren()) {
@@ -238,15 +242,18 @@ public class PlanFragmenter
             boolean equals = properties.getPartitionedSources().equals(ImmutableSet.copyOf(schedulingOrder));
             checkArgument(equals, "Expected scheduling order (%s) to contain an entry for all partitioned sources (%s)", schedulingOrder, properties.getPartitionedSources());
 
+            Map<Symbol, Type> symbols = Maps.filterKeys(types.allTypes(), in(dependencies));
+
             PlanFragment fragment = new PlanFragment(
                     fragmentId,
                     root,
-                    Maps.filterKeys(types.allTypes(), in(dependencies)),
+                    symbols,
                     properties.getPartitioningHandle(),
                     schedulingOrder,
                     properties.getPartitioningScheme(),
                     StageExecutionDescriptor.ungroupedExecution(),
-                    statsAndCosts.getForSubplan(root));
+                    statsAndCosts.getForSubplan(root),
+                    Optional.of(jsonFragmentPlan(root, symbols, metadata.getFunctionRegistry(), session)));
 
             return new SubPlan(fragment, properties.getChildren());
         }

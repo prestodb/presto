@@ -210,10 +210,9 @@ export function initializeSvg(selector: any)
     return svg;
 }
 
-export function computeSources(nodeInfo: any)
+export function getChildren(nodeInfo: any)
 {
-    let sources = [];
-    let remoteSources = []; // TODO: put remoteSources in node-specific section
+    // TODO: Remove this function by migrating StageDetail to use node JSON representation
     switch (nodeInfo['@type']) {
         case 'output':
         case 'explainAnalyze':
@@ -236,27 +235,19 @@ export function computeSources(nodeInfo: any)
         case 'groupid':
         case 'unnest':
         case 'scalar':
-            sources = [nodeInfo.source];
-            break;
+            return [nodeInfo.source];
         case 'join':
-            sources = [nodeInfo.left, nodeInfo.right];
-            break;
+            return [nodeInfo.left, nodeInfo.right];
         case 'semijoin':
-            sources = [nodeInfo.source, nodeInfo.filteringSource];
-            break;
+            return [nodeInfo.source, nodeInfo.filteringSource];
         case 'spatialjoin':
-            sources = [nodeInfo.left, nodeInfo.right];
-            break;
+            return [nodeInfo.left, nodeInfo.right];
         case 'indexjoin':
-            sources = [nodeInfo.probeSource, nodeInfo.indexSource];
-            break;
+            return [nodeInfo.probeSource, nodeInfo.indexSource];
         case 'union':
         case 'exchange':
-            sources = nodeInfo.sources;
-            break;
+            return nodeInfo.sources;
         case 'remoteSource':
-            remoteSources = nodeInfo.sourceFragmentIds;
-            break;
         case 'tablescan':
         case 'values':
         case 'indexsource':
@@ -265,7 +256,7 @@ export function computeSources(nodeInfo: any)
             console.log("NOTE: Unhandled PlanNode: " + nodeInfo['@type']);
     }
 
-    return [sources, remoteSources];
+    return [];
 }
 
 // Utility functions

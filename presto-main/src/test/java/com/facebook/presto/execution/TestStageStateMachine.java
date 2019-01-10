@@ -32,6 +32,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -332,7 +333,8 @@ public class TestStageStateMachine
                 ImmutableList.of(valuesNodeId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
                 StageExecutionDescriptor.ungroupedExecution(),
-                StatsAndCosts.empty());
+                StatsAndCosts.empty(),
+                Optional.empty());
 
         return planFragment;
     }

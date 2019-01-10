@@ -43,11 +43,17 @@ public class PlanNodeStatsSummarizer
 {
     private PlanNodeStatsSummarizer() {}
 
-    public static Map<PlanNodeId, PlanNodeStats> aggregatePlanNodeStats(List<StageInfo> stageInfos)
+    public static Map<PlanNodeId, PlanNodeStats> aggregateStageStats(List<StageInfo> stageInfos)
+    {
+        return aggregateTaskStats(stageInfos.stream()
+                .flatMap(s -> s.getTasks().stream())
+                .collect(toList()));
+    }
+
+    public static Map<PlanNodeId, PlanNodeStats> aggregateTaskStats(List<TaskInfo> taskInfos)
     {
         Map<PlanNodeId, PlanNodeStats> aggregatedStats = new HashMap<>();
-        List<PlanNodeStats> planNodeStats = stageInfos.stream()
-                .flatMap(stageInfo -> stageInfo.getTasks().stream())
+        List<PlanNodeStats> planNodeStats = taskInfos.stream()
                 .map(TaskInfo::getStats)
                 .flatMap(taskStats -> getPlanNodeStats(taskStats).stream())
                 .collect(toList());
