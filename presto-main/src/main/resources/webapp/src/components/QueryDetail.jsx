@@ -241,7 +241,7 @@ const HISTOGRAM_PROPERTIES = {
     disableHiddenCheck: true,
 };
 
-class StageDetail extends React.Component {
+class StageSummary extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
@@ -310,8 +310,8 @@ class StageDetail extends React.Component {
             const renderTimestamp = Date.now();
             const stageId = getStageNumber(stage.stageId);
 
-            StageDetail.renderHistogram('#scheduled-time-histogram-' + stageId, scheduledTimes, formatDuration);
-            StageDetail.renderHistogram('#cpu-time-histogram-' + stageId, cpuTimes, formatDuration);
+            StageSummary.renderHistogram('#scheduled-time-histogram-' + stageId, scheduledTimes, formatDuration);
+            StageSummary.renderHistogram('#cpu-time-histogram-' + stageId, cpuTimes, formatDuration);
 
             if (this.state.expanded) {
                 // this needs to be a string otherwise it will also be passed to numberFormatter
@@ -589,7 +589,7 @@ class StageList extends React.Component {
             );
         }
 
-        const renderedStages = stages.map(stage => <StageDetail key={stage.stageId} stage={stage}/>);
+        const renderedStages = stages.map(stage => <StageSummary key={stage.stageId} stage={stage}/>);
 
         return (
             <div className="row">
