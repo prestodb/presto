@@ -250,12 +250,28 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
             this.updateD3Stage(stage, graph);
         });
 
-        this.state.render(d3.select("#plan-canvas g"), graph);
+        const inner = d3.select("#plan-canvas g");
+        this.state.render(inner, graph);
 
         const svg = this.state.svg;
         svg.selectAll("g.cluster").on("click", LivePlan.handleStageClick);
-        svg.attr("height", graph.graph().height);
-        svg.attr("width", graph.graph().width);
+
+
+        const graphWidth = graph.graph().width + 100;
+        const graphHeight = graph.graph().height + 100;
+        const width = parseInt(window.getComputedStyle(document.getElementById("live-plan"), null).getPropertyValue("width").replace(/px/, "")) - 50;
+        const height = parseInt(window.getComputedStyle(document.getElementById("live-plan"), null).getPropertyValue("height").replace(/px/, "")) - 50;
+        const initialScale = Math.min(width / graphWidth, height / graphHeight);
+
+        const zoom = d3.zoom().scaleExtent([initialScale, 1]).on("zoom", function() {
+            inner.attr("transform", d3.event.transform);
+        });
+
+        svg.call(zoom);
+        svg.call(zoom.transform, d3.zoomIdentity.translate((width - graph.graph().width * initialScale) / 2, 20).scale(initialScale));
+
+        svg.attr('height', height);
+        svg.attr('width', width);
     }
 
     render() {
