@@ -1179,6 +1179,12 @@ public class TestAnalyzer
     {
         // it should be possible to qualify the column reference with the view name
         analyze("SELECT v1.a FROM v1");
+
+        // it should be possible to qualify the column reference with the schema/view name
+        analyze("SELECT s1.v1.a FROM s1.v1");
+
+        // it should be possible to qualify the column reference with the catalog/schema/view name
+        analyze("SELECT tpch.s1.v1.a FROM tpch.s1.v1");
     }
 
     @Test

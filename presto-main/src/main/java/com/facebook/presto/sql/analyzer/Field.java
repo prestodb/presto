@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
 
+import java.util.List;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -122,7 +123,25 @@ public class Field
 
     public boolean matchesPrefix(Optional<QualifiedName> prefix)
     {
-        return !prefix.isPresent() || relationAlias.isPresent() && relationAlias.get().hasSuffix(prefix.get());
+        if (!prefix.isPresent() || relationAlias.isPresent() && relationAlias.get().hasSuffix(prefix.get())) {
+            return true;
+        }
+
+        if (!originTable.isPresent()) {
+            return false;
+        }
+
+        QualifiedObjectName origin = originTable.get();
+        List<String> prefixes = prefix.get().getParts();
+
+        if (prefixes.size() == 3 && (!origin.getCatalogName().equalsIgnoreCase(prefixes.get(0)) || !origin.getSchemaName().equalsIgnoreCase(prefixes.get(1)))) {
+            return false;
+        }
+        else if (prefixes.size() == 2 && !origin.getSchemaName().equalsIgnoreCase(prefixes.get(0))) {
+            return false;
+        }
+
+        return origin.getObjectName().equalsIgnoreCase(prefixes.get(prefixes.size() - 1));
     }
 
     /*
