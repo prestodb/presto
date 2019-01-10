@@ -477,7 +477,7 @@ class StageOperatorGraph extends React.Component {
         const graph = initializeGraph();
         operatorGraphs.forEach((operator, pipelineId) => {
             const pipelineNodeId = "pipeline-" + pipelineId;
-            graph.setNode(pipelineNodeId, {label: "Pipeline " + pipelineId + " ", clusterLabelPos: 'top-right', style: 'fill: #2b2b2b', labelStyle: 'fill: #fff'});
+            graph.setNode(pipelineNodeId, {label: "Pipeline " + pipelineId + " ", clusterLabelPos: 'top', style: 'fill: #2b2b2b', labelStyle: 'fill: #fff'});
             this.computeD3StageOperatorGraph(graph, operator, null, pipelineNodeId)
         });
 
