@@ -113,6 +113,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
+import static com.facebook.presto.metadata.FunctionRegistry.typeForMagicLiteral;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -913,7 +914,8 @@ public class ExpressionInterpreter
             }
 
             // do not optimize non-deterministic functions
-            if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues) || node.getName().equals(QualifiedName.of("fail")))) {
+            if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues) || node.getName().equals(QualifiedName.of("fail"))
+                    || !typeCanSerialize(metadata.getType(functionSignature.getReturnType())))) {
                 return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), toExpressions(argumentValues, argumentTypes));
             }
             return functionInvoker.invoke(functionSignature, session, argumentValues);
@@ -1042,6 +1044,11 @@ public class ExpressionInterpreter
                     toExpression(value, type(node.getValue())),
                     toExpression(pattern, type(node.getPattern())),
                     optimizedEscape);
+        }
+
+        private boolean typeCanSerialize(Type type)
+        {
+            return typeForMagicLiteral(type).getJavaType().isAssignableFrom(type.getJavaType());
         }
 
         private boolean evaluateLikePredicate(LikePredicate node, Slice value, Regex regex)

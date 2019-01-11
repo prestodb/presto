@@ -13,7 +13,11 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.operator.scalar.JsonPath;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.LiteralEncoder;
@@ -24,6 +28,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
+import com.facebook.presto.type.JsonPathType;
 import org.testng.annotations.Test;
 
 import java.util.Comparator;
@@ -46,6 +51,21 @@ public class TestSimplifyExpressions
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final MetadataManager METADATA = createTestMetadataManager();
     private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(METADATA.getBlockEncodingSerde());
+
+    @ScalarFunction
+    @SqlType(JsonPathType.NAME)
+    public static JsonPath constantJsonPath()
+    {
+        return new JsonPath("$.x");
+    }
+
+    @Test
+    public void testSimplifyConstantExpression()
+    {
+        METADATA.getFunctionRegistry().addFunctions(new FunctionListBuilder().scalars(TestSimplifyExpressions.class).getFunctions());
+        assertSimplifies("bit_count(9, 64)", "BIGINT '2'");
+        assertSimplifies("constant_json_path()", "constant_json_path()");
+    }
 
     @Test
     public void testPushesDownNegations()
