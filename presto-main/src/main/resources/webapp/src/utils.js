@@ -351,6 +351,14 @@ export function formatDuration(duration: number): string {
     return precisionRound(duration) + unit;
 }
 
+export function formatRows(count: number): string {
+    if (count === 1) {
+        return "1 row";
+    }
+
+    return formatCount(count) + " rows";
+}
+
 export function formatCount(count: number): string {
     let unit = "";
     if (count > 1000) {

@@ -19,7 +19,7 @@ import * as dagreD3 from "dagre-d3";
 import * as d3 from "d3";
 
 import {
-    formatCount,
+    formatRows,
     getStageStateColor,
     initializeGraph,
     initializeSvg,
@@ -31,10 +31,19 @@ type StageStatisticsProps = {
     stage: any,
 }
 type StageStatisticsState = {}
+type StageNodeInfo = {
+    stageId: string,
+    id: string,
+    root: string,
+    distribution: any,
+    stageStats: any,
+    state: string,
+    nodes: Map<string, any>,
+}
 
 class StageStatistics extends React.Component<StageStatisticsProps, StageStatisticsState> {
-    static getStages(queryInfo) {
-        const stages = new Map();
+    static getStages(queryInfo): Map<string, StageNodeInfo> {
+        const stages: Map<string, StageNodeInfo> = new Map();
         StageStatistics.flattenStage(queryInfo.outputStage, stages);
         return stages;
     }
@@ -79,13 +88,11 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
         return (
             <div>
                 <div>
-                    Output: {stats.outputDataSize + " / " + formatCount(stats.outputPositions) + " rows"}
-                    <br/>
-                    Buffered: {stats.bufferedDataSize}
-                    <hr/>
+                    <h3 className="margin-top: 0">Stage {stage.id}</h3>
                     {stage.state}
                     <hr/>
-                    CPU: {stats.totalCpuTime}
+                    CPU: {stats.totalCpuTime}<br />
+                    Buffered: {stats.bufferedDataSize}<br />
                     {stats.fullyBlocked ?
                         <div style={{color: '#ff0000'}}>Blocked: {stats.totalBlockedTime} </div> :
                         <div>Blocked: {stats.totalBlockedTime} </div>
@@ -94,7 +101,7 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
                     <br/>
                     Splits: {"Q:" + stats.queuedDrivers + ", R:" + stats.runningDrivers + ", F:" + stats.completedDrivers}
                     <hr/>
-                    Input: {stats.rawInputDataSize + " / " + formatCount(stats.rawInputPositions)} rows
+                    Input: {stats.rawInputDataSize + " / " + formatRows(stats.rawInputPositions)}
                 </div>
             </div>
         );
@@ -199,12 +206,12 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
         this.refreshLoop.bind(this)();
     }
 
-    updateD3Stage(stage: any, graph: any) {
+    updateD3Stage(stage: StageNodeInfo, graph: any, allStages: Map<string, StageNodeInfo>) {
         const clusterId = stage.stageId;
         const stageRootNodeId = "stage-" + stage.id + "-root";
         const color = getStageStateColor(stage);
 
-        graph.setNode(clusterId, {label: "Stage " + stage.id + " ", clusterLabelPos: 'top-right', style: 'fill: ' + color, labelStyle: 'fill: #fff'});
+        graph.setNode(clusterId, {style: 'fill: ' + color, labelStyle: 'fill: #fff'});
 
         // this is a non-standard use of ReactDOMServer, but it's the cleanest way to unify DagreD3 with React
         const html = ReactDOMServer.renderToString(<StageStatistics key={stage.id} stage={stage}/>);
@@ -221,14 +228,25 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
             graph.setParent(nodeId, clusterId);
 
             node.sources.forEach(source => {
-                graph.setEdge("node-" + source, nodeId, {arrowheadStyle: "fill: #fff; stroke-width: 0;"});
+                graph.setEdge("node-" + source, nodeId, {class: "plan-edge", arrowheadClass: "plan-arrowhead"});
             });
 
             if (node.remoteSources.length > 0) {
                 graph.setNode(nodeId, {label: '', shape: "circle"});
 
                 node.remoteSources.forEach(sourceId => {
-                    graph.setEdge("stage-" + sourceId + "-root", nodeId, {style: "stroke-width: 5px;", arrowheadStyle: "fill: #fff; stroke-width: 0;"});
+                    const source = allStages.get(sourceId);
+                    if (source) {
+                        const sourceStats = source.stageStats;
+                        graph.setEdge("stage-" + sourceId + "-root", nodeId, {
+                                class: "plan-edge",
+                                style: "stroke-width: 4px",
+                                arrowheadClass: "plan-arrowhead",
+                                label: sourceStats.outputDataSize + " / " + formatRows(sourceStats.outputPositions),
+                                labelStyle: "color: #fff; font-weight: bold; font-size: 24px;",
+                                labelType: "html",
+                        });
+                    }
                 });
             }
         });
@@ -247,7 +265,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
         const graph = this.state.graph;
         const stages = StageStatistics.getStages(this.state.query);
         stages.forEach(stage => {
-            this.updateD3Stage(stage, graph);
+            this.updateD3Stage(stage, graph, stages);
         });
 
         const inner = d3.select("#plan-canvas g");

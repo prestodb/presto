@@ -459,7 +459,7 @@ class StageOperatorGraph extends React.Component {
         }
 
         if (sink !== null) {
-            graph.setEdge(operatorNodeId, sink, {class: "edge-class", arrowheadStyle: "stroke-width: 0; fill: #fff;"});
+            graph.setEdge(operatorNodeId, sink, {class: "plan-edge", arrowheadClass: "plan-arrowhead"});
         }
 
         graph.setParent(operatorNodeId, pipelineNode);
