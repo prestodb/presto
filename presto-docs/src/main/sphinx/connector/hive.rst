@@ -184,6 +184,10 @@ Property Name                                      Description                  
 
 ``hive.s3select-pushdown.max-connections``         Maximum number of simultaneously open connections to S3 for  500
                                                    S3SelectPushdown.
+
+``hive.recursive-directories``                     Enable reading data from subdirectories of a specific path   ``false``
+                                                   on HDFS. This porperty behaves like hive.mapred.supports.s
+                                                   ubdirectories of hive.
 ================================================== ============================================================ ============
 
 Amazon S3 Configuration
