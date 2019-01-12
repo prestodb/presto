@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.ml;
+package io.prestosql.plugin.ml;
 
 import com.facebook.presto.RowPageBuilder;
 import com.facebook.presto.block.BlockEncodingManager;

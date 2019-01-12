@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.teradata.functions;
+package io.prestosql.teradata.functions;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.BeforeClass;

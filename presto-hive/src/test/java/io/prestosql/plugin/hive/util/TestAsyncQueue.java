@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.hive.util;
+package io.prestosql.plugin.hive.util;
 
 import com.facebook.presto.hive.util.AsyncQueue.BorrowResult;
 import com.google.common.collect.ImmutableList;

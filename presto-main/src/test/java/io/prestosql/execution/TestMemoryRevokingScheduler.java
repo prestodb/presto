@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.execution;
+package io.prestosql.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.executor.TaskExecutor;

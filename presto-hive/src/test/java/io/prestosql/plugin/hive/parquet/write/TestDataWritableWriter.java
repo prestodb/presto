@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.parquet.write;
+package io.prestosql.plugin.hive.parquet.write;
 
 import io.airlift.log.Logger;
 import org.apache.hadoop.hive.common.type.HiveDecimal;

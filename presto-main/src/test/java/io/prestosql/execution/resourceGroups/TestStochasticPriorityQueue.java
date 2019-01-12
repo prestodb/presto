@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution.resourceGroups;
+package io.prestosql.execution.resourceGroups;
 
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.testng.annotations.Test;

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution.resourceGroups;
+package io.prestosql.execution.resourceGroups;
 
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;

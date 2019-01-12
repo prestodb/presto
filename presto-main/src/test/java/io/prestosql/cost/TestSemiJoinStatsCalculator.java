@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.cost;
+package io.prestosql.cost;
 
 import com.facebook.presto.sql.planner.Symbol;
 import org.testng.annotations.BeforeMethod;

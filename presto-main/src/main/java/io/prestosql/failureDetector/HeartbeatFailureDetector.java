@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.failureDetector;
+package io.prestosql.failureDetector;
 
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.server.InternalCommunicationConfig;

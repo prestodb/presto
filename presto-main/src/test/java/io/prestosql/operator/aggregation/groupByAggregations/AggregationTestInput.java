@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.operator.aggregation.groupByAggregations;
+package io.prestosql.operator.aggregation.groupByAggregations;
 
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.aggregation.AggregationTestUtils;

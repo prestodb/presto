@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.cli;
+package io.prestosql.cli;
 
 import java.io.FileDescriptor;
 import java.io.FileInputStream;

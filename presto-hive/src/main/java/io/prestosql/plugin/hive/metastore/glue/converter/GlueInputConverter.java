@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.metastore.glue.converter;
+package io.prestosql.plugin.hive.metastore.glue.converter;
 
 import com.amazonaws.services.glue.model.DatabaseInput;
 import com.amazonaws.services.glue.model.PartitionInput;

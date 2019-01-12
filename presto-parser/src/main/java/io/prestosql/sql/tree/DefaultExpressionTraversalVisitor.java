@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.tree;
+package io.prestosql.sql.tree;
 
 /**
  * When walking Expressions, don't traverse into SubqueryExpressions

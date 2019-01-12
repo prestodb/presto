@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.kudu.procedures;
+package io.prestosql.plugin.kudu.procedures;
 
 import com.facebook.presto.kudu.KuduClientSession;
 import com.facebook.presto.kudu.properties.KuduTableProperties;

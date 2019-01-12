@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.type.setdigest;
+package io.prestosql.type.setdigest;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.orc;
+package io.prestosql.plugin.hive.orc;
 
 import com.facebook.hive.orc.OrcSerde;
 import com.facebook.presto.hive.FileFormatDataSourceStats;

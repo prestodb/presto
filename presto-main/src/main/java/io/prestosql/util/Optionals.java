@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.util;
+package io.prestosql.util;
 
 import java.util.Optional;
 import java.util.function.BinaryOperator;

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.connector.thrift.integration;
+package io.prestosql.plugin.thrift.integration;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.thrift.ThriftPlugin;

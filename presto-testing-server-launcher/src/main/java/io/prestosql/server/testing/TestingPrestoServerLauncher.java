@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.server.testing;
+package io.prestosql.server.testing;
 
 import com.facebook.presto.server.testing.TestingPrestoServerLauncherOptions.Catalog;
 import com.facebook.presto.spi.Plugin;

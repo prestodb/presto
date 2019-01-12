@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package io.prestosql.plugin.hive;
 
 import org.apache.hadoop.net.NetUtils;
 import org.testng.annotations.BeforeClass;

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.annotation;
+package io.prestosql.annotation;
 
 import java.lang.annotation.Target;
 

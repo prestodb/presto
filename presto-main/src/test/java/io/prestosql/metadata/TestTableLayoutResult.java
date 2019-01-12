@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.metadata;
+package io.prestosql.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TestingColumnHandle;

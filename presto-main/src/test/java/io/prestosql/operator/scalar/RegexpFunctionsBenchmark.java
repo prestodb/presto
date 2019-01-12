@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.scalar;
+package io.prestosql.operator.scalar;
 
 import com.facebook.presto.type.Re2JRegexp;
 import io.airlift.joni.Regex;

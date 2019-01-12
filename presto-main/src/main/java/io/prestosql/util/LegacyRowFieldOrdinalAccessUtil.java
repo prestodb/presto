@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.util;
+package io.prestosql.util;
 
 import com.facebook.presto.spi.type.RowType;
 

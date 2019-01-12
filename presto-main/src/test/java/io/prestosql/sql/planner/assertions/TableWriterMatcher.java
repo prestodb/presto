@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.sql.planner.assertions;
+package io.prestosql.sql.planner.assertions;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;

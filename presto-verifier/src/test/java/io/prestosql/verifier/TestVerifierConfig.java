@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.verifier;
+package io.prestosql.verifier;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;

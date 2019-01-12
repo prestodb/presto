@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.connector.system;
+package io.prestosql.connector.system;
 
 import com.facebook.presto.FullConnectorSession;
 import com.facebook.presto.metadata.Metadata;

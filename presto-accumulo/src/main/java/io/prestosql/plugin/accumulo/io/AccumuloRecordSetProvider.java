@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.accumulo.io;
+package io.prestosql.plugin.accumulo.io;
 
 import com.facebook.presto.accumulo.AccumuloConnectorId;
 import com.facebook.presto.accumulo.conf.AccumuloConfig;

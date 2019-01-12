@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.annotations;
+package io.prestosql.operator.annotations;
 
 import com.facebook.presto.spi.function.InvocationConvention;
 import com.facebook.presto.spi.function.OperatorType;

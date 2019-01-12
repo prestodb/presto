@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package io.prestosql.spi;
 
 import static com.facebook.presto.spi.ErrorType.INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.ErrorType.INTERNAL_ERROR;

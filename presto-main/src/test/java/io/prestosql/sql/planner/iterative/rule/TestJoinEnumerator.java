@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.sql.planner.iterative.rule;
+package io.prestosql.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.CachingCostProvider;

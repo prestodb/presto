@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.type.setdigest;
+package io.prestosql.type.setdigest;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;

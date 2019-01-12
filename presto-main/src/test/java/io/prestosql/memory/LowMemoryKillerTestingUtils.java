@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.memory;
+package io.prestosql.memory;
 
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.metadata.PrestoNode;

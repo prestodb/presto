@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.security;
+package io.prestosql.plugin.hive.security;
 
 import com.facebook.presto.hive.HiveTransactionHandle;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;

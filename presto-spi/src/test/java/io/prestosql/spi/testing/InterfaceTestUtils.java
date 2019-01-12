@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.testing;
+package io.prestosql.spi.testing;
 
 import com.google.common.collect.ImmutableSet;
 

@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.connector.thrift;
+package io.prestosql.plugin.thrift;
 
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 

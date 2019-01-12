@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.redis;
+package io.prestosql.plugin.redis;
 
 import com.facebook.presto.redis.util.EmbeddedRedis;
 import com.facebook.presto.tests.AbstractTestQueries;

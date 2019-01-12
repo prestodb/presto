@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.operator.aggregation;
+package io.prestosql.operator.aggregation;
 
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;

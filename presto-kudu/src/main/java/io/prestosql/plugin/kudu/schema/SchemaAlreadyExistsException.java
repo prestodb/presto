@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.kudu.schema;
+package io.prestosql.plugin.kudu.schema;
 
 import com.facebook.presto.spi.PrestoException;
 

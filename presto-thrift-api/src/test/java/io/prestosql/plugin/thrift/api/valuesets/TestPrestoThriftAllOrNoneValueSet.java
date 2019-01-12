@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.connector.thrift.api.valuesets;
+package io.prestosql.plugin.thrift.api.valuesets;
 
 import com.facebook.presto.spi.predicate.ValueSet;
 import org.testng.annotations.Test;

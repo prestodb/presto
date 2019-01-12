@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.geospatial;
+package io.prestosql.geospatial;
 
 import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.Geometry;

@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.hive;
+package io.prestosql.plugin.hive;
 
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.fasterxml.jackson.annotation.JsonCreator;

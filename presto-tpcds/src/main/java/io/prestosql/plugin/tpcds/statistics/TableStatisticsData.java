@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.tpcds.statistics;
+package io.prestosql.plugin.tpcds.statistics;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;

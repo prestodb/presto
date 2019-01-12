@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.benchmark;
+package io.prestosql.plugin.hive.benchmark;
 
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.benchmark.HiveFileFormatBenchmark.CompressionCounter;

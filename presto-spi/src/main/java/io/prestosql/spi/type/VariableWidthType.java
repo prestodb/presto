@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.type;
+package io.prestosql.spi.type;
 
 /**
  * VariableWidthType is a type that can have a different size for every value.

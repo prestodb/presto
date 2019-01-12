@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.security;
+package io.prestosql.security;
 
 import com.facebook.presto.spi.security.SystemAccessControl;
 import org.testng.annotations.Test;

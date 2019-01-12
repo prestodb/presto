@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.hive.statistics;
+package io.prestosql.plugin.hive.statistics;
 
 import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.HiveColumnHandle;

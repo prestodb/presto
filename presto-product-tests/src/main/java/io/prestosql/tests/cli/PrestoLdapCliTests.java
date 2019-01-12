@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tests.cli;
+package io.prestosql.tests.cli;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;

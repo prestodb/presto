@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.metastore.glue;
+package io.prestosql.plugin.hive.metastore.glue;
 
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Column;

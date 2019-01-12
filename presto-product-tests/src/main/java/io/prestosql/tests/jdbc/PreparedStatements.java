@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tests.jdbc;
+package io.prestosql.tests.jdbc;
 
 import io.airlift.log.Logger;
 import io.prestodb.tempto.ProductTest;

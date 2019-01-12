@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.parquet.dictionary;
+package io.prestosql.parquet.dictionary;
 
 import com.facebook.presto.parquet.ParquetEncoding;
 import parquet.io.api.Binary;

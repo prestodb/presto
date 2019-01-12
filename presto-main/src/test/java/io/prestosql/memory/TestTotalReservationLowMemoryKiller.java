@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.memory;
+package io.prestosql.memory;
 
 import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableMap;

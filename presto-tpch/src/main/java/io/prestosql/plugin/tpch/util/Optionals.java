@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.tpch.util;
+package io.prestosql.plugin.tpch.util;
 
 import java.util.Optional;
 import java.util.function.BiFunction;

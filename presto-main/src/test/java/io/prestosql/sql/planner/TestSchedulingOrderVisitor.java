@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.sql.planner;
+package io.prestosql.sql.planner;
 
 import com.facebook.presto.spi.TestingColumnHandle;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;

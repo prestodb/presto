@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.tpcds;
+package io.prestosql.plugin.tpcds;
 
 import com.facebook.presto.spi.statistics.Estimate;
 import io.airlift.slice.Slice;

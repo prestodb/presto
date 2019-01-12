@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.zstd;
+package io.prestosql.orc.zstd;
 
 import com.github.luben.zstd.Zstd;
 import io.airlift.compress.Compressor;

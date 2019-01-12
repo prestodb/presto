@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor.metadata;
+package io.prestosql.plugin.raptor.legacy.metadata;
 
 import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 

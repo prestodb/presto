@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tests.hive;
+package io.prestosql.tests.hive;
 
 import com.google.common.io.Resources;
 import com.google.inject.Inject;

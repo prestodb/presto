@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.event;
+package io.prestosql.event;
 
 import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.client.NodeVersion;

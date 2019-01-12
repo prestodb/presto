@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.spi.block;
+package io.prestosql.spi.block;
 
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;

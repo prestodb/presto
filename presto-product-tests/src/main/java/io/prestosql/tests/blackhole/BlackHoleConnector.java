@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tests.blackhole;
+package io.prestosql.tests.blackhole;
 
 import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;

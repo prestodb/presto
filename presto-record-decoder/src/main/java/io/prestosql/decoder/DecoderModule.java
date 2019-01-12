@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.decoder;
+package io.prestosql.decoder;
 
 import com.facebook.presto.decoder.avro.AvroRowDecoder;
 import com.facebook.presto.decoder.avro.AvroRowDecoderFactory;

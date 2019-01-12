@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.sql.tree;
+package io.prestosql.sql.tree;
 
 import com.google.common.collect.ImmutableList;
 

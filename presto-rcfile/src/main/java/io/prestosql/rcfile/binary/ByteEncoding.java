@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.rcfile.binary;
+package io.prestosql.rcfile.binary;
 
 import com.facebook.presto.rcfile.ColumnData;
 import com.facebook.presto.rcfile.EncodeOutput;

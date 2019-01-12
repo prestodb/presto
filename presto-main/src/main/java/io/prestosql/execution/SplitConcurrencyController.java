@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package io.prestosql.execution;
 
 import io.airlift.units.Duration;
 

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.s3;
+package io.prestosql.plugin.hive.s3;
 
 // These are the exact names used by SignerFactory in the AWS library
 // and thus cannot be renamed or use the normal naming convention.

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.cassandra;
+package io.prestosql.plugin.cassandra;
 
 import com.facebook.presto.cassandra.CassandraTokenSplitManager.TokenSplit;
 import org.testng.annotations.BeforeClass;

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tpch.util;
+package io.prestosql.plugin.tpch.util;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.NullableValue;

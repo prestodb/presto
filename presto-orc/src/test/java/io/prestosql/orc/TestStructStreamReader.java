@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.orc;
+package io.prestosql.orc;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;

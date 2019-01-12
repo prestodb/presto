@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.connector.system.jdbc;
+package io.prestosql.connector.system.jdbc;
 
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.spi.predicate.Domain;

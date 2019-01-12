@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tests.cassandra;
+package io.prestosql.tests.cassandra;
 
 public final class TestConstants
 {

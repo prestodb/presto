@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor.storage;
+package io.prestosql.plugin.raptor.legacy.storage;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;

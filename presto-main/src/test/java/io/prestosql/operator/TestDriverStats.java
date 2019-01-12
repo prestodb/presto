@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package io.prestosql.operator;
 
 import com.facebook.presto.execution.Lifespan;
 import com.google.common.collect.ImmutableList;

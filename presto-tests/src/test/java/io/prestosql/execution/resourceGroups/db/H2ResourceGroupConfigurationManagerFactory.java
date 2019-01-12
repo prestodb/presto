@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution.resourceGroups.db;
+package io.prestosql.execution.resourceGroups.db;
 
 import com.facebook.presto.resourceGroups.VariableMap;
 import com.facebook.presto.resourceGroups.db.DbResourceGroupConfigurationManager;

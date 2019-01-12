@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.metastore;
+package io.prestosql.plugin.hive.metastore;
 
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.SortOrder;

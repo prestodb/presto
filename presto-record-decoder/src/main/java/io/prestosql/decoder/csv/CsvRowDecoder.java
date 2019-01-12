@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.decoder.csv;
+package io.prestosql.decoder.csv;
 
 import au.com.bytecode.opencsv.CSVParser;
 import com.facebook.presto.decoder.DecoderColumnHandle;

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.gen;
+package io.prestosql.sql.gen;
 
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;

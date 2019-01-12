@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.parquet.reader;
+package io.prestosql.parquet.reader;
 
 import com.facebook.presto.parquet.Field;
 import it.unimi.dsi.fastutil.booleans.BooleanArrayList;

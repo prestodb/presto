@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation;
+package io.prestosql.operator.aggregation;
 
 // Lambda has to be compiled into a dedicated class, as functions might be stateful (e.g. use CachedInstanceBinder)
 public interface LambdaProvider

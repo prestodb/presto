@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tests.sqlserver;
+package io.prestosql.tests.sqlserver;
 
 import io.prestodb.tempto.fulfillment.table.jdbc.RelationalTableDefinition;
 import io.prestodb.tempto.fulfillment.table.jdbc.tpch.JdbcTpchTableDefinitions;

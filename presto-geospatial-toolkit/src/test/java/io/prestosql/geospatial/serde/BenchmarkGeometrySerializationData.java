@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.geospatial.serde;
+package io.prestosql.geospatial.serde;
 
 import com.google.common.io.Resources;
 

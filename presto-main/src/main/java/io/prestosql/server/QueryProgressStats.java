@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.server;
+package io.prestosql.server;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.rcfile;
+package io.prestosql.plugin.hive.rcfile;
 
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.rcfile.RcFileDataSource;

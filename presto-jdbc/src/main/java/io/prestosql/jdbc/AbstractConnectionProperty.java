@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.jdbc;
+package io.prestosql.jdbc;
 
 import java.io.File;
 import java.sql.DriverPropertyInfo;

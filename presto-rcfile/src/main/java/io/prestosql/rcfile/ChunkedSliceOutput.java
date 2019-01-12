@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.rcfile;
+package io.prestosql.rcfile;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;

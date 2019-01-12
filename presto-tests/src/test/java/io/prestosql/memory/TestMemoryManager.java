@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.memory;
+package io.prestosql.memory;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.server.BasicQueryInfo;

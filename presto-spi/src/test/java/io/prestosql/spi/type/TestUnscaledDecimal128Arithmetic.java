@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.type;
+package io.prestosql.spi.type;
 
 import com.google.common.primitives.Bytes;
 import io.airlift.slice.Slice;

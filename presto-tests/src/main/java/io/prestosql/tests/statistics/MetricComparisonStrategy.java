@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.tests.statistics;
+package io.prestosql.tests.statistics;
 
 public interface MetricComparisonStrategy
 {

@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.block;
+package io.prestosql.block;
 
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.block.Block;

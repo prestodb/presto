@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.metadata.statistics;
+package io.prestosql.orc.metadata.statistics;
 
 import com.facebook.presto.orc.metadata.statistics.StatisticsHasher.Hashable;
 import com.google.common.primitives.Longs;

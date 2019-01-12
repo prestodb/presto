@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.planPrinter;
+package io.prestosql.sql.planner.planPrinter;
 
 import com.facebook.presto.operator.WindowInfo;
 import com.facebook.presto.operator.WindowInfo.DriverWindowInfo;

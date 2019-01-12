@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.tpcds.statistics;
+package io.prestosql.plugin.tpcds.statistics;
 
 import com.google.common.collect.ImmutableList;
 import com.teradata.tpcds.Table;

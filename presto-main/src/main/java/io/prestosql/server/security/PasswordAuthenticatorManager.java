@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.server.security;
+package io.prestosql.server.security;
 
 import com.facebook.presto.spi.security.PasswordAuthenticator;
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;

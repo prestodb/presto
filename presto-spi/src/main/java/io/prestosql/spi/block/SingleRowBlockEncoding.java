@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.spi.block;
+package io.prestosql.spi.block;
 
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;

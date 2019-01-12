@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor.backup;
+package io.prestosql.plugin.raptor.legacy.backup;
 
 import io.airlift.node.NodeInfo;
 import io.airlift.slice.Slices;

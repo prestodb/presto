@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.type;
+package io.prestosql.type;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.operator.scalar.FunctionAssertions;

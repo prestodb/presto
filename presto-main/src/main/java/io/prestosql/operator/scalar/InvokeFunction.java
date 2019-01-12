@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.operator.scalar;
+package io.prestosql.operator.scalar;
 
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionKind;

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.iterative.rule.test;
+package io.prestosql.sql.planner.iterative.rule.test;
 
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.IndexHandle;

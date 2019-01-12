@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.plugin.memory;
+package io.prestosql.plugin.memory;
 
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.testing.MaterializedResult;

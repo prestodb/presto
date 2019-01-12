@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.iterative;
+package io.prestosql.sql.planner.iterative;
 
 import com.facebook.presto.sql.planner.plan.PlanNode;
 

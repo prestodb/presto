@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.hive.security;
+package io.prestosql.plugin.hive.security;
 
 import com.facebook.presto.plugin.base.security.ForwardingConnectorAccessControl;
 import com.facebook.presto.spi.SchemaTableName;

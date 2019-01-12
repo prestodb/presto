@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.type;
+package io.prestosql.spi.type;
 
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;

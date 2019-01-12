@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.resourceGroups.db;
+package io.prestosql.plugin.resourcegroups.db;
 
 import io.airlift.units.Duration;
 import org.jdbi.v3.core.mapper.RowMapper;

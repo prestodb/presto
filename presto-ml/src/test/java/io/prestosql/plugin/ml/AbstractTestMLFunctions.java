@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.ml;
+package io.prestosql.plugin.ml;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.BeforeClass;

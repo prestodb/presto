@@ -1,4 +1,4 @@
-package com.facebook.presto.sql.tree;
+package io.prestosql.sql.tree;
 
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");

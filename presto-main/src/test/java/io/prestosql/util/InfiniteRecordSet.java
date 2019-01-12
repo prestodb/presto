@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.util;
+package io.prestosql.util;
 
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;

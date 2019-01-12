@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tests.functions;
+package io.prestosql.tests.functions;
 
 import io.prestodb.tempto.ProductTest;
 import org.testng.annotations.Test;

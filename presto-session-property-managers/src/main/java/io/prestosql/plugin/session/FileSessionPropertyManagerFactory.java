@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.session;
+package io.prestosql.plugin.session;
 
 import com.facebook.presto.spi.resourceGroups.SessionPropertyConfigurationManagerContext;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManager;

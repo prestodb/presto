@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.spi.statistics;
+package io.prestosql.spi.statistics;
 
 import java.util.Objects;
 

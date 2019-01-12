@@ -1,4 +1,4 @@
-package com.facebook.presto.operator.scalar;
+package io.prestosql.operator.scalar;
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.

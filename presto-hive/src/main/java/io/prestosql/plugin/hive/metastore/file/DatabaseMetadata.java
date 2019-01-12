@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.metastore.file;
+package io.prestosql.plugin.hive.metastore.file;
 
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.PrincipalType;

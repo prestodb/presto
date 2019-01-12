@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.server.protocol;
+package io.prestosql.server.protocol;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;

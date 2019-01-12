@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.parser;
+package io.prestosql.sql.parser;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;

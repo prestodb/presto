@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.session;
+package io.prestosql.plugin.session;
 
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;

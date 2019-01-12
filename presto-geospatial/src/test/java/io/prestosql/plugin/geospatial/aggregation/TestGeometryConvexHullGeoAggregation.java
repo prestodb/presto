@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.plugin.geospatial.aggregation;
+package io.prestosql.plugin.geospatial.aggregation;
 
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;

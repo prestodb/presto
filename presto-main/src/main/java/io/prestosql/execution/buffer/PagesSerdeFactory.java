@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution.buffer;
+package io.prestosql.execution.buffer;
 
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import io.airlift.compress.lz4.Lz4Compressor;

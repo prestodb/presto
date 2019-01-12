@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.proxy;
+package io.prestosql.proxy;
 
 import com.facebook.presto.proxy.ProxyResponseHandler.ProxyResponse;
 import com.fasterxml.jackson.core.JsonFactory;

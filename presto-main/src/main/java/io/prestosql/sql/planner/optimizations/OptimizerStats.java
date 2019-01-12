@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.optimizations;
+package io.prestosql.sql.planner.optimizations;
 
 import io.airlift.stats.TimeDistribution;
 import org.weakref.jmx.Managed;

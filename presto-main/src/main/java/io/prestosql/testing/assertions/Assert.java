@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.testing.assertions;
+package io.prestosql.testing.assertions;
 
 /**
  * This class provides replacements for TestNG's faulty assertion methods.

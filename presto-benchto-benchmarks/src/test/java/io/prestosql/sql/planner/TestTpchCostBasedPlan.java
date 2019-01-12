@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.sql.planner;
+package io.prestosql.sql.planner;
 
 import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;

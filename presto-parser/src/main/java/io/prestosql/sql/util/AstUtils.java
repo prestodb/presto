@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.util;
+package io.prestosql.sql.util;
 
 import com.facebook.presto.sql.tree.Node;
 import com.google.common.graph.SuccessorsFunction;
