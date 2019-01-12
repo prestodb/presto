@@ -405,9 +405,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.presto.hive</groupId>
+                <groupId>io.prestosql.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>1.2.2-2</version>
+                <version>1.2.2-3</version>
             </dependency>
 
             <dependency>

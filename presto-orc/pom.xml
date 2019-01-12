@@ -37,7 +37,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto.hive</groupId>
+            <groupId>io.prestosql.hive</groupId>
             <artifactId>hive-apache</artifactId>
         </dependency>
 
