@@ -1188,9 +1188,9 @@
 
         <plugins>
             <plugin>
-                <groupId>com.facebook.presto</groupId>
+                <groupId>io.prestosql</groupId>
                 <artifactId>presto-maven-plugin</artifactId>
-                <version>0.3</version>
+                <version>5</version>
                 <extensions>true</extensions>
             </plugin>
 
