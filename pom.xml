@@ -1011,9 +1011,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.presto.hive</groupId>
+                <groupId>io.prestosql.hive</groupId>
                 <artifactId>hive-apache-jdbc</artifactId>
-                <version>0.13.1-5</version>
+                <version>0.13.1-6</version>
             </dependency>
 
             <dependency>
