@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.benchmark;
 
-import com.facebook.presto.hadoop.HadoopNative;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveCompressionCodec;
@@ -35,6 +34,7 @@ import io.airlift.tpch.TpchColumn;
 import io.airlift.tpch.TpchEntity;
 import io.airlift.tpch.TpchTable;
 import io.airlift.units.DataSize;
+import io.prestosql.hadoop.HadoopNative;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 import org.openjdk.jmh.annotations.AuxCounters;
 import org.openjdk.jmh.annotations.Benchmark;

@@ -14,7 +14,6 @@
 package com.facebook.presto.rcfile;
 
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.hadoop.HadoopNative;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.rcfile.binary.BinaryRcFileEncoding;
 import com.facebook.presto.rcfile.text.TextRcFileEncoding;
@@ -48,6 +47,7 @@ import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.prestosql.hadoop.HadoopNative;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.HiveDecimal;

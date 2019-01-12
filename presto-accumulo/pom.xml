@@ -162,8 +162,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto.hadoop</groupId>
-            <artifactId>hadoop-apache2</artifactId>
+            <groupId>io.prestosql.hadoop</groupId>
+            <artifactId>hadoop-apache</artifactId>
         </dependency>
 
         <dependency>

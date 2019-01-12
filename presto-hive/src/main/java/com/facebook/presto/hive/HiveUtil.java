@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hadoop.TextLineLengthLimitExceededException;
 import com.facebook.presto.hive.avro.PrestoAvroSerDe;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Table;
@@ -39,6 +38,7 @@ import io.airlift.compress.lzo.LzopCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
+import io.prestosql.hadoop.TextLineLengthLimitExceededException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;

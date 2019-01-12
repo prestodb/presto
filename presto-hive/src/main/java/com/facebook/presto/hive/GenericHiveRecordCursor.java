@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hadoop.TextLineLengthLimitExceededException;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
@@ -23,6 +22,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.hadoop.TextLineLengthLimitExceededException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
