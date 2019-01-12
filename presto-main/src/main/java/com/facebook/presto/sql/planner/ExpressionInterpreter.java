@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ArraySubscriptOperator;
@@ -113,6 +112,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
+import static com.facebook.presto.metadata.FunctionRegistry.isSupportedLiteralType;
 import static com.facebook.presto.metadata.FunctionRegistry.typeForMagicLiteral;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -913,7 +913,7 @@ public class ExpressionInterpreter
                 }
             }
 
-            // do not optimize non-deterministic functions
+            // do not optimize non-deterministic functions or functions cannot be evaluated into serializable form
             if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues) || node.getName().equals(QualifiedName.of("fail"))
                     || !typeCanSerialize(metadata.getType(functionSignature.getReturnType())))) {
                 return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), toExpressions(argumentValues, argumentTypes));
@@ -1048,7 +1048,8 @@ public class ExpressionInterpreter
 
         private boolean typeCanSerialize(Type type)
         {
-            return typeForMagicLiteral(type).getJavaType().isAssignableFrom(type.getJavaType());
+            return isSupportedLiteralType(type) || type.getJavaType().isAssignableFrom(Block.class)
+                    || typeForMagicLiteral(type).getJavaType().isAssignableFrom(type.getJavaType());
         }
 
         private boolean evaluateLikePredicate(LikePredicate node, Slice value, Regex regex)
@@ -1107,7 +1108,7 @@ public class ExpressionInterpreter
 
             // hack!!! don't optimize CASTs for types that cannot be represented in the SQL AST
             // TODO: this will not be an issue when we migrate to RowExpression tree for this, which allows arbitrary literals.
-            if (optimize && !FunctionRegistry.isSupportedLiteralType(type(node))) {
+            if (optimize && !isSupportedLiteralType(type(node))) {
                 return new Cast(toExpression(value, sourceType), node.getType(), node.isSafe(), node.isTypeOnly());
             }
 

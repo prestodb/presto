@@ -45,6 +45,7 @@ import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbol
 import static com.facebook.presto.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestSimplifyExpressions
 {
@@ -65,6 +66,8 @@ public class TestSimplifyExpressions
         METADATA.getFunctionRegistry().addFunctions(new FunctionListBuilder().scalars(TestSimplifyExpressions.class).getFunctions());
         assertSimplifies("bit_count(9, 64)", "BIGINT '2'");
         assertSimplifies("constant_json_path()", "constant_json_path()");
+        assertSimplifies("MAP(ARRAY[1, 2], ARRAY[3,4])[1]", "3");
+        assertSimplifiesToLiteral("empty_approx_set()");
     }
 
     @Test
@@ -142,6 +145,13 @@ public class TestSimplifyExpressions
         assertEquals(
                 normalize(rewritten),
                 normalize(expectedExpression));
+    }
+
+    private static void assertSimplifiesToLiteral(String expression)
+    {
+        Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression));
+        Expression rewritten = rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(booleanSymbolTypeMapFor(actualExpression)), METADATA, LITERAL_ENCODER, SQL_PARSER);
+        assertTrue(rewritten.toString().contains("Literal"));
     }
 
     private static Map<Symbol, Type> booleanSymbolTypeMapFor(Expression expression)
