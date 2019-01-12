@@ -22,8 +22,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Comparator;
 import java.util.SortedSet;
 
-import static com.facebook.presto.spi.type.TimeZoneKey.MAX_TIME_ZONE_KEY;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static io.prestosql.spi.type.TimeZoneKey.MAX_TIME_ZONE_KEY;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

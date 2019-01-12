@@ -13,21 +13,21 @@
  */
 package io.prestosql.sql.planner.optimizations;
 
-import com.facebook.presto.sql.planner.iterative.GroupReference;
-import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.FilterNode;
-import com.facebook.presto.sql.planner.plan.LimitNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.google.common.collect.Range;
+import io.prestosql.sql.planner.iterative.GroupReference;
+import io.prestosql.sql.planner.iterative.Lookup;
+import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
+import io.prestosql.sql.planner.plan.ExchangeNode;
+import io.prestosql.sql.planner.plan.FilterNode;
+import io.prestosql.sql.planner.plan.LimitNode;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.PlanVisitor;
+import io.prestosql.sql.planner.plan.ProjectNode;
+import io.prestosql.sql.planner.plan.ValuesNode;
 
-import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.sql.planner.iterative.Lookup.noLookup;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 

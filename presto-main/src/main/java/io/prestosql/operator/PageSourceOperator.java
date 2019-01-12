@@ -13,9 +13,9 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Page;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.connector.ConnectorPageSource;
 
 import java.io.Closeable;
 import java.io.IOException;

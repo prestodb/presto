@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.kudu;
 
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 

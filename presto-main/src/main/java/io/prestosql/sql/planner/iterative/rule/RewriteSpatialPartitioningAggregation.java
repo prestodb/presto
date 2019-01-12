@@ -13,33 +13,33 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.matching.Captures;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
-import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.matching.Captures;
+import io.prestosql.matching.Pattern;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.Signature;
+import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
+import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.planner.plan.ProjectNode;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.LongLiteral;
+import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.Map;
 
-import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.SystemSessionProperties.getHashPartitionCount;
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.planner.plan.Patterns.aggregation;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -118,7 +118,7 @@ public class RewriteSpatialPartitioningAggregation
 
         return Result.ofPlanNode(
                 new AggregationNode(
-                    node.getId(),
+                        node.getId(),
                         new ProjectNode(
                                 context.getIdAllocator().getNextId(),
                                 node.getSource(),
@@ -127,11 +127,11 @@ public class RewriteSpatialPartitioningAggregation
                                         .put(partitionCountSymbol, new LongLiteral(Integer.toString(getHashPartitionCount(context.getSession()))))
                                         .putAll(envelopeAssignments.build())
                                         .build()),
-                    aggregations.build(),
-                    node.getGroupingSets(),
-                    node.getPreGroupedSymbols(),
-                    node.getStep(),
-                    node.getHashSymbol(),
-                    node.getGroupIdSymbol()));
+                        aggregations.build(),
+                        node.getGroupingSets(),
+                        node.getPreGroupedSymbols(),
+                        node.getStep(),
+                        node.getHashSymbol(),
+                        node.getGroupIdSymbol()));
     }
 }

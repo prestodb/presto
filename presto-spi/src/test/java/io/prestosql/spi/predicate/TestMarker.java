@@ -13,27 +13,27 @@
  */
 package io.prestosql.spi.predicate;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.TestingBlockEncodingSerde;
-import com.facebook.presto.spi.block.TestingBlockJsonSerde;
-import com.facebook.presto.spi.type.TestingTypeDeserializer;
-import com.facebook.presto.spi.type.TestingTypeManager;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import io.airlift.json.ObjectMapperProvider;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.TestingBlockEncodingSerde;
+import io.prestosql.spi.block.TestingBlockJsonSerde;
+import io.prestosql.spi.type.TestingTypeDeserializer;
+import io.prestosql.spi.type.TestingTypeManager;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

@@ -13,11 +13,11 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.memory.MemoryInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.units.Duration;
+import io.prestosql.client.NodeVersion;
+import io.prestosql.memory.MemoryInfo;
 
 import static java.util.Objects.requireNonNull;
 

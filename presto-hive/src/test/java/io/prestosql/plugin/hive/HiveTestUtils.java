@@ -13,39 +13,39 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.PagesIndexPageSorter;
-import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
-import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
-import com.facebook.presto.hive.orc.OrcPageSourceFactory;
-import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
-import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
-import com.facebook.presto.hive.s3.HiveS3Config;
-import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PageSorter;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.NamedTypeSignature;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.testing.TestingConnectorSession;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+import io.prestosql.PagesIndexPageSorter;
+import io.prestosql.block.BlockEncodingManager;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.operator.PagesIndex;
+import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
+import io.prestosql.plugin.hive.orc.DwrfPageSourceFactory;
+import io.prestosql.plugin.hive.orc.OrcPageSourceFactory;
+import io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory;
+import io.prestosql.plugin.hive.rcfile.RcFilePageSourceFactory;
+import io.prestosql.plugin.hive.s3.HiveS3Config;
+import io.prestosql.plugin.hive.s3.PrestoS3ConfigurationUpdater;
+import io.prestosql.spi.PageSorter;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.NamedTypeSignature;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.testing.TestingConnectorSession;
+import io.prestosql.type.TypeRegistry;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.spi.type.Decimals.encodeScaledValue;
+import static io.prestosql.spi.type.Decimals.encodeScaledValue;
 import static java.util.stream.Collectors.toList;
 
 public final class HiveTestUtils

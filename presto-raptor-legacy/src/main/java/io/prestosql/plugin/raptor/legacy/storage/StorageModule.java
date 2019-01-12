@@ -13,26 +13,26 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage;
 
-import com.facebook.presto.raptor.backup.BackupManager;
-import com.facebook.presto.raptor.metadata.AssignmentLimiter;
-import com.facebook.presto.raptor.metadata.DatabaseShardManager;
-import com.facebook.presto.raptor.metadata.DatabaseShardRecorder;
-import com.facebook.presto.raptor.metadata.MetadataConfig;
-import com.facebook.presto.raptor.metadata.ShardCleaner;
-import com.facebook.presto.raptor.metadata.ShardCleanerConfig;
-import com.facebook.presto.raptor.metadata.ShardManager;
-import com.facebook.presto.raptor.metadata.ShardRecorder;
-import com.facebook.presto.raptor.storage.organization.JobFactory;
-import com.facebook.presto.raptor.storage.organization.OrganizationJobFactory;
-import com.facebook.presto.raptor.storage.organization.ShardCompactionManager;
-import com.facebook.presto.raptor.storage.organization.ShardCompactor;
-import com.facebook.presto.raptor.storage.organization.ShardOrganizationManager;
-import com.facebook.presto.raptor.storage.organization.ShardOrganizer;
-import com.facebook.presto.raptor.storage.organization.TemporalFunction;
 import com.google.common.base.Ticker;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.prestosql.plugin.raptor.legacy.backup.BackupManager;
+import io.prestosql.plugin.raptor.legacy.metadata.AssignmentLimiter;
+import io.prestosql.plugin.raptor.legacy.metadata.DatabaseShardManager;
+import io.prestosql.plugin.raptor.legacy.metadata.DatabaseShardRecorder;
+import io.prestosql.plugin.raptor.legacy.metadata.MetadataConfig;
+import io.prestosql.plugin.raptor.legacy.metadata.ShardCleaner;
+import io.prestosql.plugin.raptor.legacy.metadata.ShardCleanerConfig;
+import io.prestosql.plugin.raptor.legacy.metadata.ShardManager;
+import io.prestosql.plugin.raptor.legacy.metadata.ShardRecorder;
+import io.prestosql.plugin.raptor.legacy.storage.organization.JobFactory;
+import io.prestosql.plugin.raptor.legacy.storage.organization.OrganizationJobFactory;
+import io.prestosql.plugin.raptor.legacy.storage.organization.ShardCompactionManager;
+import io.prestosql.plugin.raptor.legacy.storage.organization.ShardCompactor;
+import io.prestosql.plugin.raptor.legacy.storage.organization.ShardOrganizationManager;
+import io.prestosql.plugin.raptor.legacy.storage.organization.ShardOrganizer;
+import io.prestosql.plugin.raptor.legacy.storage.organization.TemporalFunction;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;

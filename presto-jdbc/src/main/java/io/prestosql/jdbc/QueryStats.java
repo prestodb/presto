@@ -13,7 +13,7 @@
  */
 package io.prestosql.jdbc;
 
-import com.facebook.presto.client.StatementStats;
+import io.prestosql.client.StatementStats;
 
 import java.util.Optional;
 import java.util.OptionalDouble;

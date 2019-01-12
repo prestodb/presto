@@ -13,11 +13,11 @@
  */
 package io.prestosql.block;
 
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.LongArrayBlock;
-import com.facebook.presto.spi.block.LongArrayBlockBuilder;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.LongArrayBlock;
+import io.prestosql.spi.block.LongArrayBlockBuilder;
+import io.prestosql.spi.block.VariableWidthBlockBuilder;
 import org.testng.annotations.Test;
 
 import java.util.Optional;

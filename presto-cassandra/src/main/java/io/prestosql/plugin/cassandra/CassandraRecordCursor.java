@@ -15,10 +15,10 @@ package io.prestosql.plugin.cassandra;
 
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.predicate.NullableValue;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.predicate.NullableValue;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 

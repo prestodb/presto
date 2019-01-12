@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.redis;
 
-import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.decoder.DecoderColumnHandle;
+import io.prestosql.spi.connector.ColumnMetadata;
+import io.prestosql.spi.type.Type;
 
 import java.util.Objects;
 

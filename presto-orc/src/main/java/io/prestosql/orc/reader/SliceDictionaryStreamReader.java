@@ -13,21 +13,21 @@
  */
 package io.prestosql.orc.reader;
 
-import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.orc.OrcCorruptionException;
-import com.facebook.presto.orc.StreamDescriptor;
-import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.stream.BooleanInputStream;
-import com.facebook.presto.orc.stream.ByteArrayInputStream;
-import com.facebook.presto.orc.stream.InputStreamSource;
-import com.facebook.presto.orc.stream.InputStreamSources;
-import com.facebook.presto.orc.stream.LongInputStream;
-import com.facebook.presto.orc.stream.RowGroupDictionaryLengthInputStream;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.VariableWidthBlock;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.orc.OrcCorruptionException;
+import io.prestosql.orc.StreamDescriptor;
+import io.prestosql.orc.metadata.ColumnEncoding;
+import io.prestosql.orc.stream.BooleanInputStream;
+import io.prestosql.orc.stream.ByteArrayInputStream;
+import io.prestosql.orc.stream.InputStreamSource;
+import io.prestosql.orc.stream.InputStreamSources;
+import io.prestosql.orc.stream.LongInputStream;
+import io.prestosql.orc.stream.RowGroupDictionaryLengthInputStream;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.DictionaryBlock;
+import io.prestosql.spi.block.VariableWidthBlock;
+import io.prestosql.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -37,21 +37,21 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
-import static com.facebook.presto.orc.reader.SliceStreamReader.computeTruncatedLength;
-import static com.facebook.presto.orc.reader.SliceStreamReader.getMaxCodePointCount;
-import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
-import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
+import static io.prestosql.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
+import static io.prestosql.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
+import static io.prestosql.orc.metadata.Stream.StreamKind.LENGTH;
+import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
+import static io.prestosql.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
+import static io.prestosql.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
+import static io.prestosql.orc.reader.SliceStreamReader.computeTruncatedLength;
+import static io.prestosql.orc.reader.SliceStreamReader.getMaxCodePointCount;
+import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.prestosql.spi.type.Chars.isCharType;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

@@ -13,14 +13,14 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.type.UnknownType;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.type.UnknownType;
 
 import java.util.List;
 
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static io.prestosql.type.UnknownType.UNKNOWN;
 
 public class TestUnknownMaxAggregation
         extends AbstractTestAggregationFunction

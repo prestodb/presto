@@ -13,13 +13,13 @@
  */
 package io.prestosql.rcfile;
 
-import com.facebook.presto.spi.type.CharType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import io.prestosql.spi.type.CharType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 
 import java.io.IOException;
 

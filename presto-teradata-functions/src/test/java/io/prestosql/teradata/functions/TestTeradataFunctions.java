@@ -13,14 +13,14 @@
  */
 package io.prestosql.teradata.functions;
 
-import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import io.prestosql.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.spi.type.VarcharType.createVarcharType;
 
 public class TestTeradataFunctions
         extends AbstractTestFunctions

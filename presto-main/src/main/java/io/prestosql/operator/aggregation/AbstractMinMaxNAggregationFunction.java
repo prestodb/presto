@@ -13,40 +13,40 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlAggregationFunction;
-import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import com.facebook.presto.operator.aggregation.state.MinMaxNState;
-import com.facebook.presto.operator.aggregation.state.MinMaxNStateFactory;
-import com.facebook.presto.operator.aggregation.state.MinMaxNStateSerializer;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
+import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.SqlAggregationFunction;
+import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
+import io.prestosql.operator.aggregation.state.MinMaxNState;
+import io.prestosql.operator.aggregation.state.MinMaxNStateFactory;
+import io.prestosql.operator.aggregation.state.MinMaxNStateSerializer;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.function.Function;
 
-import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.util.Failures.checkCondition;
-import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.Signature.orderableTypeParameter;
+import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata;
+import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
+import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
+import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
+import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.util.Failures.checkCondition;
+import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

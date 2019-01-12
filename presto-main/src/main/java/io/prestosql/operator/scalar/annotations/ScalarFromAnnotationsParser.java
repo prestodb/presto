@@ -13,17 +13,17 @@
  */
 package io.prestosql.operator.scalar.annotations;
 
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.operator.ParametricImplementationsGroup;
-import com.facebook.presto.operator.annotations.FunctionsParserHelper;
-import com.facebook.presto.operator.scalar.ParametricScalar;
-import com.facebook.presto.operator.scalar.annotations.ParametricScalarImplementation.SpecializedSignature;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.function.SqlType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.SqlScalarFunction;
+import io.prestosql.operator.ParametricImplementationsGroup;
+import io.prestosql.operator.annotations.FunctionsParserHelper;
+import io.prestosql.operator.scalar.ParametricScalar;
+import io.prestosql.operator.scalar.annotations.ParametricScalarImplementation.SpecializedSignature;
+import io.prestosql.spi.function.ScalarFunction;
+import io.prestosql.spi.function.ScalarOperator;
+import io.prestosql.spi.function.SqlType;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -33,10 +33,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.operator.scalar.annotations.OperatorValidator.validateOperator;
-import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
-import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.operator.scalar.annotations.OperatorValidator.validateOperator;
+import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static io.prestosql.util.Failures.checkCondition;
 import static java.util.Objects.requireNonNull;
 
 public final class ScalarFromAnnotationsParser

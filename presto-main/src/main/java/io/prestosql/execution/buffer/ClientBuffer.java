@@ -13,11 +13,11 @@
  */
 package io.prestosql.execution.buffer;
 
-import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
+import io.prestosql.OutputBuffers.OutputBufferId;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.Immutable;
@@ -31,12 +31,12 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.prestosql.execution.buffer.BufferResult.emptyResults;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

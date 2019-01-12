@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.kafka;
 
-import com.facebook.presto.spi.connector.Connector;
-import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.testing.TestingConnectorContext;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.connector.Connector;
+import io.prestosql.spi.connector.ConnectorFactory;
+import io.prestosql.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;

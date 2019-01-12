@@ -13,7 +13,7 @@
  */
 package io.prestosql.sql.parser;
 
-import com.facebook.presto.sql.tree.NodeLocation;
+import io.prestosql.sql.tree.NodeLocation;
 import org.antlr.v4.runtime.RecognitionException;
 
 import static java.lang.String.format;

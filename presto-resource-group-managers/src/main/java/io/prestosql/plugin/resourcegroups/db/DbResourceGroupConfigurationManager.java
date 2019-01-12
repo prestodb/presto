@@ -13,19 +13,6 @@
  */
 package io.prestosql.plugin.resourcegroups.db;
 
-import com.facebook.presto.resourceGroups.AbstractResourceConfigurationManager;
-import com.facebook.presto.resourceGroups.ManagerSpec;
-import com.facebook.presto.resourceGroups.ResourceGroupIdTemplate;
-import com.facebook.presto.resourceGroups.ResourceGroupSelector;
-import com.facebook.presto.resourceGroups.ResourceGroupSpec;
-import com.facebook.presto.resourceGroups.SelectorSpec;
-import com.facebook.presto.resourceGroups.VariableMap;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
-import com.facebook.presto.spi.resourceGroups.ResourceGroup;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.SelectionContext;
-import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -33,6 +20,19 @@ import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.resourcegroups.AbstractResourceConfigurationManager;
+import io.prestosql.plugin.resourcegroups.ManagerSpec;
+import io.prestosql.plugin.resourcegroups.ResourceGroupIdTemplate;
+import io.prestosql.plugin.resourcegroups.ResourceGroupSelector;
+import io.prestosql.plugin.resourcegroups.ResourceGroupSpec;
+import io.prestosql.plugin.resourcegroups.SelectorSpec;
+import io.prestosql.plugin.resourcegroups.VariableMap;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.memory.ClusterMemoryPoolManager;
+import io.prestosql.spi.resourcegroups.ResourceGroup;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.spi.resourcegroups.SelectionContext;
+import io.prestosql.spi.resourcegroups.SelectionCriteria;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -58,11 +58,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
-import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_UNAVAILABLE;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.Duration.succinctNanos;
+import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_INVALID;
+import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_UNAVAILABLE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 

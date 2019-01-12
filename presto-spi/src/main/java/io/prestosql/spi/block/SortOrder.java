@@ -13,7 +13,7 @@
  */
 package io.prestosql.spi.block;
 
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.type.Type;
 
 public enum SortOrder
 {

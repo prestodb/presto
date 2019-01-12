@@ -13,14 +13,14 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.Multimap;
+import io.prestosql.OutputBuffers;
+import io.prestosql.Session;
+import io.prestosql.execution.NodeTaskMap.PartitionedSplitCountTracker;
+import io.prestosql.metadata.Split;
+import io.prestosql.spi.Node;
+import io.prestosql.sql.planner.PlanFragment;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.OptionalInt;
 

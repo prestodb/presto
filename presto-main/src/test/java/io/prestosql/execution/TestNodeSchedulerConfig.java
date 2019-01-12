@@ -13,14 +13,14 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
+import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
+import static io.prestosql.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
 
 public class TestNodeSchedulerConfig
 {

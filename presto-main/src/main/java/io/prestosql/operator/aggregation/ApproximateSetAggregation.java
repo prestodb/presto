@@ -13,20 +13,20 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.HyperLogLogState;
-import com.facebook.presto.operator.aggregation.state.StateCompiler;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import com.facebook.presto.spi.function.AggregationFunction;
-import com.facebook.presto.spi.function.AggregationState;
-import com.facebook.presto.spi.function.CombineFunction;
-import com.facebook.presto.spi.function.InputFunction;
-import com.facebook.presto.spi.function.LiteralParameters;
-import com.facebook.presto.spi.function.OutputFunction;
-import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
+import io.prestosql.operator.aggregation.state.HyperLogLogState;
+import io.prestosql.operator.aggregation.state.StateCompiler;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.AccumulatorStateSerializer;
+import io.prestosql.spi.function.AggregationFunction;
+import io.prestosql.spi.function.AggregationState;
+import io.prestosql.spi.function.CombineFunction;
+import io.prestosql.spi.function.InputFunction;
+import io.prestosql.spi.function.LiteralParameters;
+import io.prestosql.spi.function.OutputFunction;
+import io.prestosql.spi.function.SqlType;
+import io.prestosql.spi.type.StandardTypes;
 
 @AggregationFunction("approx_set")
 public final class ApproximateSetAggregation

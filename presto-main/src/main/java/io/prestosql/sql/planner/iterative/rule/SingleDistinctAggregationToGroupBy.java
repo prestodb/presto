@@ -13,17 +13,17 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.matching.Captures;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import io.prestosql.matching.Captures;
+import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FunctionCall;
 
 import java.util.HashSet;
 import java.util.List;
@@ -33,10 +33,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
-import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static io.prestosql.sql.planner.plan.Patterns.aggregation;
 import static java.util.Collections.emptyList;
 
 /**

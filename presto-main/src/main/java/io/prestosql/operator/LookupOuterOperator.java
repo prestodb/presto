@@ -13,13 +13,13 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.execution.Lifespan;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.HashSet;
 import java.util.List;

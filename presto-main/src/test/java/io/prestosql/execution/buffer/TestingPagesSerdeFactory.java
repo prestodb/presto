@@ -13,14 +13,14 @@
  */
 package io.prestosql.execution.buffer;
 
-import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.type.TestingTypeManager;
 import io.airlift.compress.Compressor;
 import io.airlift.compress.Decompressor;
 import io.airlift.compress.lz4.Lz4Compressor;
 import io.airlift.compress.lz4.Lz4Decompressor;
+import io.prestosql.block.BlockEncodingManager;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.BlockEncodingSerde;
+import io.prestosql.spi.type.TestingTypeManager;
 
 import java.util.Optional;
 

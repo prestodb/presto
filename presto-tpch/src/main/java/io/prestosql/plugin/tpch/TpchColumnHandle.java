@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.tpch;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.type.Type;
 
 import java.util.Objects;
 

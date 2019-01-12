@@ -13,25 +13,25 @@
  */
 package io.prestosql.plugin.tpch;
 
-import com.facebook.presto.spi.BucketFunction;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.connector.ConnectorBucketNodeMap;
-import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
-import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.Node;
+import io.prestosql.spi.NodeManager;
+import io.prestosql.spi.connector.BucketFunction;
+import io.prestosql.spi.connector.ConnectorBucketNodeMap;
+import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
+import io.prestosql.spi.connector.ConnectorPartitioningHandle;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 import java.util.Set;
 import java.util.function.ToIntFunction;
 
-import static com.facebook.presto.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.lang.Math.toIntExact;
 
 public class TpchNodePartitioningProvider

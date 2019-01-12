@@ -13,15 +13,15 @@
  */
 package io.prestosql.plugin.thrift.api.datatypes;
 
-import com.facebook.presto.connector.thrift.api.PrestoThriftBlock;
-import com.facebook.presto.spi.block.AbstractArrayBlock;
-import com.facebook.presto.spi.block.ArrayBlock;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.LongArrayBlock;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.drift.annotations.ThriftConstructor;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
+import io.prestosql.plugin.thrift.api.PrestoThriftBlock;
+import io.prestosql.spi.block.AbstractArrayBlock;
+import io.prestosql.spi.block.ArrayBlock;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.LongArrayBlock;
+import io.prestosql.spi.type.Type;
 
 import javax.annotation.Nullable;
 
@@ -29,15 +29,15 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.bigintArrayData;
-import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTypeUtils.calculateOffsets;
-import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTypeUtils.sameSizeIfPresent;
-import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTypeUtils.totalSize;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
+import static io.prestosql.plugin.thrift.api.PrestoThriftBlock.bigintArrayData;
+import static io.prestosql.plugin.thrift.api.datatypes.PrestoThriftTypeUtils.calculateOffsets;
+import static io.prestosql.plugin.thrift.api.datatypes.PrestoThriftTypeUtils.sameSizeIfPresent;
+import static io.prestosql.plugin.thrift.api.datatypes.PrestoThriftTypeUtils.totalSize;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 
 /**
  * Elements of {@code nulls} array determine if a value for a corresponding row is null.

@@ -13,12 +13,12 @@
  */
 package io.prestosql.orc.metadata;
 
-import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
-import com.facebook.presto.orc.metadata.statistics.StringStatistics;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import io.prestosql.orc.metadata.PostScript.HiveWriterVersion;
+import io.prestosql.orc.metadata.statistics.StringStatistics;
 import io.prestosql.orc.proto.OrcProto;
 import io.prestosql.orc.protobuf.ByteString;
 import org.testng.annotations.Test;
@@ -26,15 +26,15 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.facebook.presto.orc.metadata.OrcMetadataReader.findStringStatisticTruncationPositionForOriginalOrcWriter;
-import static com.facebook.presto.orc.metadata.OrcMetadataReader.maxStringTruncateToValidRange;
-import static com.facebook.presto.orc.metadata.OrcMetadataReader.minStringTruncateToValidRange;
-import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORC_HIVE_8732;
-import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORIGINAL;
 import static io.airlift.slice.SliceUtf8.codePointToUtf8;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.prestosql.orc.metadata.OrcMetadataReader.findStringStatisticTruncationPositionForOriginalOrcWriter;
+import static io.prestosql.orc.metadata.OrcMetadataReader.maxStringTruncateToValidRange;
+import static io.prestosql.orc.metadata.OrcMetadataReader.minStringTruncateToValidRange;
+import static io.prestosql.orc.metadata.PostScript.HiveWriterVersion.ORC_HIVE_8732;
+import static io.prestosql.orc.metadata.PostScript.HiveWriterVersion.ORIGINAL;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.MAX_SURROGATE;
 import static java.lang.Character.MIN_CODE_POINT;

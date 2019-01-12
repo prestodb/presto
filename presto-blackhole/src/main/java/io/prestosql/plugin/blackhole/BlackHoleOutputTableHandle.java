@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.blackhole;
 
-import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.units.Duration;
+import io.prestosql.spi.connector.ConnectorOutputTableHandle;
 
 import static java.util.Objects.requireNonNull;
 

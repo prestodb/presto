@@ -13,12 +13,12 @@
  */
 package io.prestosql.memory;
 
-import com.facebook.presto.spi.memory.MemoryPoolId;
-import com.facebook.presto.spi.memory.MemoryPoolInfo;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import io.prestosql.spi.memory.MemoryPoolId;
+import io.prestosql.spi.memory.MemoryPoolInfo;
 
 import javax.inject.Inject;
 
@@ -26,11 +26,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.memory.NodeMemoryConfig.QUERY_MAX_MEMORY_PER_NODE_CONFIG;
-import static com.facebook.presto.memory.NodeMemoryConfig.QUERY_MAX_TOTAL_MEMORY_PER_NODE_CONFIG;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.prestosql.memory.NodeMemoryConfig.QUERY_MAX_MEMORY_PER_NODE_CONFIG;
+import static io.prestosql.memory.NodeMemoryConfig.QUERY_MAX_TOTAL_MEMORY_PER_NODE_CONFIG;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

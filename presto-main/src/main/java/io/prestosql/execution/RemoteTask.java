@@ -13,12 +13,12 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.OutputBuffers;
+import io.prestosql.execution.StateMachine.StateChangeListener;
+import io.prestosql.metadata.Split;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 public interface RemoteTask
 {

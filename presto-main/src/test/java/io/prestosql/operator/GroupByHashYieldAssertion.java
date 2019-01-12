@@ -13,17 +13,17 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.RowPagesBuilder;
-import com.facebook.presto.memory.DefaultQueryContext;
-import com.facebook.presto.memory.MemoryPool;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.memory.MemoryPoolId;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.google.common.collect.ImmutableList;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
+import io.prestosql.RowPagesBuilder;
+import io.prestosql.memory.DefaultQueryContext;
+import io.prestosql.memory.MemoryPool;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.memory.MemoryPoolId;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spiller.SpillSpaceTracker;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -31,18 +31,18 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 
-import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.operator.OperatorAssertion.finishOperator;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertBetweenInclusive;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.operator.OperatorAssertion.finishOperator;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.testing.TestingTaskContext.createTaskContext;
+import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;

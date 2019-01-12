@@ -13,11 +13,6 @@
  */
 package io.prestosql.verifier;
 
-import com.facebook.presto.jdbc.PrestoConnection;
-import com.facebook.presto.jdbc.PrestoStatement;
-import com.facebook.presto.jdbc.QueryStats;
-import com.facebook.presto.spi.type.SqlVarbinary;
-import com.facebook.presto.verifier.Validator.ChangedRow.Changed;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
@@ -34,6 +29,11 @@ import com.google.common.util.concurrent.TimeLimiter;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.prestosql.jdbc.PrestoConnection;
+import io.prestosql.jdbc.PrestoStatement;
+import io.prestosql.jdbc.QueryStats;
+import io.prestosql.spi.type.SqlVarbinary;
+import io.prestosql.verifier.Validator.ChangedRow.Changed;
 
 import java.math.BigDecimal;
 import java.sql.Array;
@@ -53,12 +53,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import static com.facebook.presto.verifier.QueryResult.State;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.primitives.Doubles.isFinite;
 import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.verifier.QueryResult.State;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;

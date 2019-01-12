@@ -13,16 +13,16 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.operator.FilterAndProjectOperator;
-import com.facebook.presto.operator.OperatorStats;
-import com.facebook.presto.operator.TableWriterOperator;
-import com.facebook.presto.spi.eventlistener.StageGcStatistics;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.operator.FilterAndProjectOperator;
+import io.prestosql.operator.OperatorStats;
+import io.prestosql.operator.TableWriterOperator;
+import io.prestosql.spi.eventlistener.StageGcStatistics;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 

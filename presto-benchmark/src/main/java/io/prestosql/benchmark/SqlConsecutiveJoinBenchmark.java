@@ -13,10 +13,10 @@
  */
 package io.prestosql.benchmark;
 
-import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.testing.LocalQueryRunner;
 
-import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 
 public class SqlConsecutiveJoinBenchmark
         extends AbstractSqlBenchmark

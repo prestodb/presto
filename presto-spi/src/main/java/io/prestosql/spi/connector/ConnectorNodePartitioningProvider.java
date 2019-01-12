@@ -13,15 +13,12 @@
  */
 package io.prestosql.spi.connector;
 
-import com.facebook.presto.spi.BucketFunction;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 import java.util.function.ToIntFunction;
 
-import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static java.util.Collections.singletonList;
 
 public interface ConnectorNodePartitioningProvider

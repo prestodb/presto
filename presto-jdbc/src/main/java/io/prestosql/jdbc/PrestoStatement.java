@@ -13,11 +13,11 @@
  */
 package io.prestosql.jdbc;
 
-import com.facebook.presto.client.ClientException;
-import com.facebook.presto.client.QueryStatusInfo;
-import com.facebook.presto.client.StatementClient;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
+import io.prestosql.client.ClientException;
+import io.prestosql.client.QueryStatusInfo;
+import io.prestosql.client.StatementClient;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.jdbc.PrestoResultSet.resultsException;
+import static io.prestosql.jdbc.PrestoResultSet.resultsException;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

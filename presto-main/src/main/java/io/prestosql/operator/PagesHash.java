@@ -13,20 +13,20 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import io.airlift.units.DataSize;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
 import it.unimi.dsi.fastutil.HashCommon;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 
-import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
-import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
-import static com.facebook.presto.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.prestosql.operator.SyntheticAddress.decodePosition;
+import static io.prestosql.operator.SyntheticAddress.decodeSliceIndex;
+import static io.prestosql.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

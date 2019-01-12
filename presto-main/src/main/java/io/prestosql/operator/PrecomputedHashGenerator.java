@@ -13,8 +13,8 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.BigintType;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.type.BigintType;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 

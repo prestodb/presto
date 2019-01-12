@@ -13,28 +13,28 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.ExpressionInterpreter;
-import com.facebook.presto.sql.planner.LiteralEncoder;
-import com.facebook.presto.sql.planner.NoOpSymbolResolver;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.Session;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.ExpressionInterpreter;
+import io.prestosql.sql.planner.LiteralEncoder;
+import io.prestosql.sql.planner.NoOpSymbolResolver;
+import io.prestosql.sql.planner.SymbolAllocator;
+import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.NodeRef;
+import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
-import static com.facebook.presto.sql.planner.iterative.rule.ExtractCommonPredicatesExpressionRewriter.extractCommonPredicates;
-import static com.facebook.presto.sql.planner.iterative.rule.PushDownNegationsExpressionRewriter.pushDownNegations;
+import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static io.prestosql.sql.planner.iterative.rule.ExtractCommonPredicatesExpressionRewriter.extractCommonPredicates;
+import static io.prestosql.sql.planner.iterative.rule.PushDownNegationsExpressionRewriter.pushDownNegations;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 

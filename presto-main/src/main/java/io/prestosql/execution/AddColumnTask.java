@@ -13,36 +13,36 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.tree.AddColumn;
-import com.facebook.presto.sql.tree.ColumnDefinition;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.Session;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.metadata.TableHandle;
+import io.prestosql.security.AccessControl;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ColumnMetadata;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.analyzer.SemanticException;
+import io.prestosql.sql.tree.AddColumn;
+import io.prestosql.sql.tree.ColumnDefinition;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.transaction.TransactionManager;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_ALREADY_EXISTS;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.sql.NodeUtils.mapFromProperties;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.COLUMN_ALREADY_EXISTS;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.util.Locale.ENGLISH;
 
 public class AddColumnTask

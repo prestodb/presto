@@ -13,8 +13,8 @@
  */
 package io.prestosql.jdbc;
 
-import com.facebook.presto.server.testing.TestingPrestoServer;
 import io.airlift.log.Logging;
+import io.prestosql.server.testing.TestingPrestoServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
@@ -36,7 +36,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
-import static com.facebook.presto.jdbc.TestPrestoDriver.closeQuietly;
+import static io.prestosql.jdbc.TestPrestoDriver.closeQuietly;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;

@@ -13,19 +13,19 @@
  */
 package io.prestosql.plugin.geospatial;
 
-import com.facebook.presto.plugin.geospatial.BingTileFunctions.BingTileCoordinatesFunction;
-import com.facebook.presto.plugin.geospatial.aggregation.ConvexHullAggregation;
-import com.facebook.presto.plugin.geospatial.aggregation.GeometryUnionAgg;
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.plugin.geospatial.BingTileFunctions.BingTileCoordinatesFunction;
+import io.prestosql.plugin.geospatial.aggregation.ConvexHullAggregation;
+import io.prestosql.plugin.geospatial.aggregation.GeometryUnionAgg;
+import io.prestosql.spi.Plugin;
+import io.prestosql.spi.type.Type;
 
 import java.util.Set;
 
-import static com.facebook.presto.plugin.geospatial.BingTileType.BING_TILE;
-import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
-import static com.facebook.presto.plugin.geospatial.KdbTreeType.KDB_TREE;
+import static io.prestosql.plugin.geospatial.BingTileType.BING_TILE;
+import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY;
+import static io.prestosql.plugin.geospatial.KdbTreeType.KDB_TREE;
 
 public class GeoPlugin
         implements Plugin

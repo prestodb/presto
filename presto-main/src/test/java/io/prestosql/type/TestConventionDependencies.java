@@ -13,27 +13,27 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.function.BlockIndex;
-import com.facebook.presto.spi.function.BlockPosition;
-import com.facebook.presto.spi.function.Convention;
-import com.facebook.presto.spi.function.FunctionDependency;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.StandardTypes;
+import io.prestosql.operator.scalar.AbstractTestFunctions;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.function.BlockIndex;
+import io.prestosql.spi.function.BlockPosition;
+import io.prestosql.spi.function.Convention;
+import io.prestosql.spi.function.FunctionDependency;
+import io.prestosql.spi.function.ScalarFunction;
+import io.prestosql.spi.function.SqlType;
+import io.prestosql.spi.type.StandardTypes;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
-import static com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static com.facebook.presto.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
 
 public class TestConventionDependencies
         extends AbstractTestFunctions

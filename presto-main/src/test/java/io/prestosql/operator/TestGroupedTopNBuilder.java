@@ -13,14 +13,14 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.RowPagesBuilder;
-import com.facebook.presto.array.ObjectBigArray;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import io.prestosql.RowPagesBuilder;
+import io.prestosql.array.ObjectBigArray;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.sql.gen.JoinCompiler;
 import it.unimi.dsi.fastutil.ints.IntArrayFIFOQueue;
 import it.unimi.dsi.fastutil.objects.ObjectHeapPriorityQueue;
 import org.openjdk.jol.info.ClassLayout;
@@ -33,15 +33,15 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
-import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
-import static com.facebook.presto.operator.UpdateMemory.NOOP;
-import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.testing.Assertions.assertGreaterThan;
+import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.operator.PageAssertions.assertPageEquals;
+import static io.prestosql.operator.UpdateMemory.NOOP;
+import static io.prestosql.spi.block.SortOrder.ASC_NULLS_LAST;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;

@@ -13,31 +13,31 @@
  */
 package io.prestosql.sql.planner.optimizations;
 
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.RuleStatsRecorder;
-import com.facebook.presto.sql.planner.assertions.BasePlanTest;
-import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
-import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
-import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
-import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.block.SortOrder;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.RuleStatsRecorder;
+import io.prestosql.sql.planner.assertions.BasePlanTest;
+import io.prestosql.sql.planner.assertions.ExpectedValueProvider;
+import io.prestosql.sql.planner.assertions.PlanMatchPattern;
+import io.prestosql.sql.planner.iterative.IterativeOptimizer;
+import io.prestosql.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
+import io.prestosql.sql.planner.plan.WindowNode;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specification;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.output;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.sort;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.specification;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.window;
 
 public class TestEliminateSorts
         extends BasePlanTest

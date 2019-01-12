@@ -13,40 +13,40 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.Range;
-import com.facebook.presto.spi.predicate.SortedRangeSet;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.type.TypeRegistry;
-import com.facebook.presto.util.DateTimeUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.Range;
+import io.prestosql.spi.predicate.SortedRangeSet;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.type.TypeRegistry;
+import io.prestosql.util.DateTimeUtils;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.hive.HiveTestUtils.longDecimal;
-import static com.facebook.presto.hive.HiveTestUtils.shortDecimal;
-import static com.facebook.presto.hive.HiveType.HIVE_DATE;
-import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
-import static com.facebook.presto.hive.HiveType.HIVE_INT;
-import static com.facebook.presto.hive.HiveType.HIVE_STRING;
-import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
-import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
-import static com.facebook.presto.spi.predicate.ValueSet.ofRanges;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
-import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
-import static com.facebook.presto.spi.type.StandardTypes.TIMESTAMP;
-import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.prestosql.plugin.hive.HiveTestUtils.longDecimal;
+import static io.prestosql.plugin.hive.HiveTestUtils.shortDecimal;
+import static io.prestosql.plugin.hive.HiveType.HIVE_DATE;
+import static io.prestosql.plugin.hive.HiveType.HIVE_DOUBLE;
+import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
+import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
+import static io.prestosql.plugin.hive.HiveType.HIVE_TIMESTAMP;
+import static io.prestosql.spi.predicate.TupleDomain.withColumnDomains;
+import static io.prestosql.spi.predicate.ValueSet.ofRanges;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.StandardTypes.DECIMAL;
+import static io.prestosql.spi.type.StandardTypes.INTEGER;
+import static io.prestosql.spi.type.StandardTypes.TIMESTAMP;
+import static io.prestosql.spi.type.StandardTypes.VARCHAR;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static org.testng.Assert.assertEquals;
 
 public class TestIonSqlQueryBuilder

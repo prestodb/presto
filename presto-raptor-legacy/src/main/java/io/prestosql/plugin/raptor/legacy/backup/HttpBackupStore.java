@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.raptor.legacy.backup;
 
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
 import io.airlift.http.client.BodyGenerator;
@@ -24,6 +23,7 @@ import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.slice.XxHash64;
+import io.prestosql.spi.PrestoException;
 
 import javax.inject.Inject;
 
@@ -37,7 +37,6 @@ import java.net.URI;
 import java.util.UUID;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_BACKUP_ERROR;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.APPLICATION_BINARY;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -47,6 +46,7 @@ import static io.airlift.http.client.Request.Builder.prepareHead;
 import static io.airlift.http.client.Request.Builder.preparePut;
 import static io.airlift.http.client.ResponseHandlerUtils.propagate;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
+import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_ERROR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;

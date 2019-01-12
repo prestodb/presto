@@ -13,17 +13,17 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.operator.LookupJoinOperators.JoinType;
-import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.operator.LookupJoinOperators.JoinType;
+import io.prestosql.util.Mergeable;
 
 import java.util.Optional;
 
-import static com.facebook.presto.operator.JoinStatisticsCounter.HISTOGRAM_BUCKETS;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.operator.JoinStatisticsCounter.HISTOGRAM_BUCKETS;
 
 public class JoinOperatorInfo
         implements Mergeable<JoinOperatorInfo>, OperatorInfo

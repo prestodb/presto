@@ -13,11 +13,11 @@
  */
 package io.prestosql.rcfile.text;
 
-import com.facebook.presto.rcfile.ColumnEncoding;
-import com.facebook.presto.rcfile.RcFileEncoding;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.rcfile.ColumnEncoding;
+import io.prestosql.rcfile.RcFileEncoding;
+import io.prestosql.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;

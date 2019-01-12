@@ -13,15 +13,15 @@
  */
 package io.prestosql.orc.stream;
 
-import com.facebook.presto.orc.StreamDescriptor;
-import com.facebook.presto.orc.StreamId;
-import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.orc.StreamDescriptor;
+import io.prestosql.orc.StreamId;
+import io.prestosql.orc.metadata.Stream.StreamKind;
 
 import java.util.Map;
 
-import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static java.util.Objects.requireNonNull;
 
 public class InputStreamSources

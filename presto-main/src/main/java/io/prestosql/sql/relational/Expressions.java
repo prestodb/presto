@@ -13,9 +13,9 @@
  */
 package io.prestosql.sql.relational;
 
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.Signature;
+import io.prestosql.spi.type.Type;
 
 import java.util.Arrays;
 import java.util.List;

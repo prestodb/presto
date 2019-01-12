@@ -13,16 +13,16 @@
  */
 package io.prestosql.util;
 
-import com.facebook.presto.operator.DriverYieldSignal;
-import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.operator.WorkProcessor;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.PageBuilderStatus;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
+import io.prestosql.operator.DriverYieldSignal;
+import io.prestosql.operator.PagesIndex;
+import io.prestosql.operator.WorkProcessor;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.PageBuilderStatus;
+import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.gen.OrderingCompiler;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -45,12 +45,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.SequencePageBuilder.createSequencePage;
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.util.MergeSortedPages.mergeSortedPages;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.SequencePageBuilder.createSequencePage;
+import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.spi.block.SortOrder.ASC_NULLS_FIRST;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.util.MergeSortedPages.mergeSortedPages;
 import static java.util.Collections.nCopies;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;

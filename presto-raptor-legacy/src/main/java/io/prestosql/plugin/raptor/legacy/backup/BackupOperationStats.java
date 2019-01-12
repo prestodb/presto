@@ -13,16 +13,16 @@
  */
 package io.prestosql.plugin.raptor.legacy.backup;
 
-import com.facebook.presto.spi.PrestoException;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.TimeStat;
+import io.prestosql.spi.PrestoException;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.util.function.Supplier;
 
-import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_BACKUP_NOT_FOUND;
-import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_BACKUP_TIMEOUT;
+import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_NOT_FOUND;
+import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_TIMEOUT;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class BackupOperationStats

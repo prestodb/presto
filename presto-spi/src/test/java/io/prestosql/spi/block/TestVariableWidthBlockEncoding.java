@@ -13,13 +13,13 @@
  */
 package io.prestosql.spi.block;
 
-import com.facebook.presto.spi.type.TestingTypeManager;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.DynamicSliceOutput;
+import io.prestosql.spi.type.TestingTypeManager;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.block.TestingSession.SESSION;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.spi.block.TestingSession.SESSION;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestVariableWidthBlockEncoding

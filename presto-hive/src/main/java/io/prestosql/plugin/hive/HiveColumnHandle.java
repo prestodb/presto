@@ -13,23 +13,23 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ColumnMetadata;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
-import static com.facebook.presto.hive.HiveType.HIVE_INT;
-import static com.facebook.presto.hive.HiveType.HIVE_LONG;
-import static com.facebook.presto.hive.HiveType.HIVE_STRING;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
+import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
+import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
+import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
+import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
 public class HiveColumnHandle

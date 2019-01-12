@@ -13,36 +13,36 @@
  */
 package io.prestosql.sql;
 
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
-import com.facebook.presto.sql.analyzer.Scope;
-import com.facebook.presto.sql.planner.ExpressionInterpreter;
-import com.facebook.presto.sql.planner.LiteralEncoder;
-import com.facebook.presto.sql.planner.NoOpSymbolResolver;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
-import com.facebook.presto.sql.tree.CoalesceExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.NodeRef;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.analyzer.ExpressionAnalyzer;
+import io.prestosql.sql.analyzer.Scope;
+import io.prestosql.sql.planner.ExpressionInterpreter;
+import io.prestosql.sql.planner.LiteralEncoder;
+import io.prestosql.sql.planner.NoOpSymbolResolver;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.relational.SqlToRowExpressionTranslator;
+import io.prestosql.sql.tree.CoalesceExpression;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.LongLiteral;
+import io.prestosql.sql.tree.NodeRef;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.util.Map;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.metadata.FunctionKind.SCALAR;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
-import static com.facebook.presto.spi.type.Decimals.encodeScaledValue;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static com.facebook.presto.sql.relational.Expressions.constant;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.prestosql.spi.type.Decimals.encodeScaledValue;
+import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.prestosql.sql.relational.Expressions.constant;
+import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.util.Collections.emptyList;
 
 public class TestSqlToRowExpressionTranslator

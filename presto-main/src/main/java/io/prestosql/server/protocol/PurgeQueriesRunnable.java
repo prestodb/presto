@@ -13,11 +13,11 @@
  */
 package io.prestosql.server.protocol;
 
-import com.facebook.presto.execution.QueryManager;
-import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
+import io.prestosql.execution.QueryManager;
+import io.prestosql.execution.QueryState;
+import io.prestosql.spi.QueryId;
 
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentMap;

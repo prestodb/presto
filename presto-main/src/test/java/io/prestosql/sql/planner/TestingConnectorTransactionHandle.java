@@ -13,7 +13,7 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 public enum TestingConnectorTransactionHandle
         implements ConnectorTransactionHandle

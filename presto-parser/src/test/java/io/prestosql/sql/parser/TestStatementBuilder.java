@@ -13,18 +13,18 @@
  */
 package io.prestosql.sql.parser;
 
-import com.facebook.presto.sql.SqlFormatter;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Statement;
 import com.google.common.io.Resources;
+import io.prestosql.sql.SqlFormatter;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Statement;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
-import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.google.common.base.Strings.repeat;
+import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
+import static io.prestosql.sql.testing.TreeAssertions.assertFormattedSql;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;

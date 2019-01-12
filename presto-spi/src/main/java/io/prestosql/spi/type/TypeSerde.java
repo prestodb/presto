@@ -16,7 +16,7 @@ package io.prestosql.spi.type;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 

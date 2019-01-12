@@ -13,17 +13,17 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.lang.Math.toIntExact;
 
 public class TypedKeyValueHeap

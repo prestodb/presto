@@ -13,21 +13,21 @@
  */
 package io.prestosql.orc.metadata;
 
-import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
-import com.facebook.presto.orc.metadata.statistics.StringStatistics;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.orc.metadata.PostScript.HiveWriterVersion;
+import io.prestosql.orc.metadata.statistics.StringStatistics;
 import io.prestosql.orc.proto.DwrfProto;
 import io.prestosql.orc.protobuf.ByteString;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.orc.metadata.OrcMetadataReader.maxStringTruncateToValidRange;
-import static com.facebook.presto.orc.metadata.OrcMetadataReader.minStringTruncateToValidRange;
-import static com.facebook.presto.orc.metadata.TestOrcMetadataReader.ALL_UTF8_SEQUENCES;
-import static com.facebook.presto.orc.metadata.TestOrcMetadataReader.TEST_CODE_POINTS;
-import static com.facebook.presto.orc.metadata.TestOrcMetadataReader.concatSlice;
 import static io.airlift.slice.SliceUtf8.codePointToUtf8;
+import static io.prestosql.orc.metadata.OrcMetadataReader.maxStringTruncateToValidRange;
+import static io.prestosql.orc.metadata.OrcMetadataReader.minStringTruncateToValidRange;
+import static io.prestosql.orc.metadata.TestOrcMetadataReader.ALL_UTF8_SEQUENCES;
+import static io.prestosql.orc.metadata.TestOrcMetadataReader.TEST_CODE_POINTS;
+import static io.prestosql.orc.metadata.TestOrcMetadataReader.concatSlice;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 

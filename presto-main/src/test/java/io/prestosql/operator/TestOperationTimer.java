@@ -13,8 +13,8 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.operator.OperationTimer.OperationTiming;
 import io.airlift.slice.XxHash64;
+import io.prestosql.operator.OperationTimer.OperationTiming;
 import org.testng.annotations.Test;
 
 import java.util.Random;

@@ -13,17 +13,17 @@
  */
 package io.prestosql.operator.aggregation.state;
 
-import com.facebook.presto.operator.aggregation.BlockComparator;
-import com.facebook.presto.operator.aggregation.TypedHeap;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.operator.aggregation.BlockComparator;
+import io.prestosql.operator.aggregation.TypedHeap;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.AccumulatorStateSerializer;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.Type;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.lang.Math.toIntExact;
 
 public class MinMaxNStateSerializer

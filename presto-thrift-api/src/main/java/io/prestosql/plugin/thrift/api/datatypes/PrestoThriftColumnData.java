@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.thrift.api.datatypes;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.Type;
 
 public interface PrestoThriftColumnData
 {

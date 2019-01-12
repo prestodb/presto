@@ -13,8 +13,8 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.spi.QueryId;
+import io.prestosql.Session;
+import io.prestosql.spi.QueryId;
 
 /**
  * Used on workers.

@@ -13,17 +13,17 @@
  */
 package io.prestosql.operator.annotations;
 
-import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.function.InvocationConvention;
-import com.facebook.presto.spi.type.TypeManager;
+import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Signature;
+import io.prestosql.spi.function.InvocationConvention;
+import io.prestosql.spi.type.TypeManager;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
+import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
 import static java.util.Objects.requireNonNull;
 
 public abstract class ScalarImplementationDependency

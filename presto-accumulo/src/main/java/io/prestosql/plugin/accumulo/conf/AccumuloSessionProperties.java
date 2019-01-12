@@ -13,20 +13,20 @@
  */
 package io.prestosql.plugin.accumulo.conf;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.session.PropertyMetadata;
 
 import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
-import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
-import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
-import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
+import static io.prestosql.spi.session.PropertyMetadata.doubleProperty;
+import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
+import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 
 /**
  * Class contains all session-based properties for the Accumulo connector.

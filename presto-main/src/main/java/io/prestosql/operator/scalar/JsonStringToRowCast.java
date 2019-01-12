@@ -13,18 +13,18 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.SqlScalarFunction;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TypeManager;
 
-import static com.facebook.presto.metadata.FunctionKind.SCALAR;
-import static com.facebook.presto.metadata.Signature.withVariadicBound;
-import static com.facebook.presto.operator.scalar.JsonToRowCast.JSON_TO_ROW;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.metadata.Signature.withVariadicBound;
+import static io.prestosql.operator.scalar.JsonToRowCast.JSON_TO_ROW;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 
 public final class JsonStringToRowCast
         extends SqlScalarFunction

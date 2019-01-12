@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.metastore.HivePageSinkMetadata;
-import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.plugin.hive.metastore.HivePageSinkMetadata;
+import io.prestosql.spi.connector.ConnectorInsertTableHandle;
 
 import java.util.List;
 import java.util.Optional;

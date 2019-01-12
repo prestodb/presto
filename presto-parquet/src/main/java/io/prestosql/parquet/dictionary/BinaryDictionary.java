@@ -13,7 +13,7 @@
  */
 package io.prestosql.parquet.dictionary;
 
-import com.facebook.presto.parquet.DictionaryPage;
+import io.prestosql.parquet.DictionaryPage;
 import parquet.io.api.Binary;
 
 import java.io.IOException;

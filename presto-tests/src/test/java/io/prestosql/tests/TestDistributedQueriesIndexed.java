@@ -13,11 +13,11 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.tests.tpch.IndexedTpchPlugin;
+import io.prestosql.Session;
+import io.prestosql.tests.tpch.IndexedTpchPlugin;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public class TestDistributedQueriesIndexed
         extends AbstractTestIndexedQueries

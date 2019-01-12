@@ -13,9 +13,9 @@
  */
 package io.prestosql.jdbc;
 
-import com.facebook.presto.plugin.blackhole.BlackHolePlugin;
-import com.facebook.presto.server.testing.TestingPrestoServer;
 import io.airlift.log.Logging;
+import io.prestosql.plugin.blackhole.BlackHolePlugin;
+import io.prestosql.server.testing.TestingPrestoServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -37,10 +37,10 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 
-import static com.facebook.presto.jdbc.TestPrestoDriver.closeQuietly;
-import static com.facebook.presto.jdbc.TestPrestoDriver.waitForNodeRefresh;
 import static com.google.common.base.Strings.repeat;
 import static com.google.common.primitives.Ints.asList;
+import static io.prestosql.jdbc.TestPrestoDriver.closeQuietly;
+import static io.prestosql.jdbc.TestPrestoDriver.waitForNodeRefresh;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

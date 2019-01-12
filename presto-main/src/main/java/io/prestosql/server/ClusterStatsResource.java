@@ -13,14 +13,14 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.execution.QueryManager;
-import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
-import com.facebook.presto.memory.ClusterMemoryManager;
-import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.spi.NodeState;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.execution.QueryManager;
+import io.prestosql.execution.QueryState;
+import io.prestosql.execution.scheduler.NodeSchedulerConfig;
+import io.prestosql.memory.ClusterMemoryManager;
+import io.prestosql.metadata.InternalNodeManager;
+import io.prestosql.spi.NodeState;
 
 import javax.inject.Inject;
 import javax.ws.rs.GET;

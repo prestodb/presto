@@ -13,36 +13,36 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
-import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.sql.planner.assertions.ExpectedValueProvider;
+import io.prestosql.sql.planner.assertions.PlanMatchPattern;
+import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.planner.plan.ExchangeNode;
+import io.prestosql.sql.tree.FunctionCall;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.ENABLE_INTERMEDIATE_AGGREGATIONS;
-import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anySymbol;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.globalAggregation;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.INTERMEDIATE;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static io.prestosql.SystemSessionProperties.ENABLE_INTERMEDIATE_AGGREGATIONS;
+import static io.prestosql.SystemSessionProperties.TASK_CONCURRENCY;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anySymbol;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.exchange;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.globalAggregation;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.prestosql.sql.planner.plan.AggregationNode.Step.FINAL;
+import static io.prestosql.sql.planner.plan.AggregationNode.Step.INTERMEDIATE;
+import static io.prestosql.sql.planner.plan.AggregationNode.Step.PARTIAL;
+import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static io.prestosql.sql.planner.plan.ExchangeNode.Type.GATHER;
+import static io.prestosql.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 
 public class TestAddIntermediateAggregations
         extends BaseRuleTest

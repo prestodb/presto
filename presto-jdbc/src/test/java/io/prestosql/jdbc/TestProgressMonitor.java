@@ -13,12 +13,12 @@
  */
 package io.prestosql.jdbc;
 
-import com.facebook.presto.client.Column;
-import com.facebook.presto.client.QueryResults;
-import com.facebook.presto.client.StatementStats;
-import com.facebook.presto.spi.type.BigintType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
+import io.prestosql.client.Column;
+import io.prestosql.client.QueryResults;
+import io.prestosql.client.StatementStats;
+import io.prestosql.spi.type.BigintType;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.testng.annotations.AfterMethod;

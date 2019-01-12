@@ -13,10 +13,10 @@
  */
 package io.prestosql.operator.exchange;
 
-import com.facebook.presto.operator.OperatorInfo;
-import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.operator.OperatorInfo;
+import io.prestosql.util.Mergeable;
 
 public class LocalExchangeBufferInfo
         implements Mergeable<LocalExchangeBufferInfo>, OperatorInfo

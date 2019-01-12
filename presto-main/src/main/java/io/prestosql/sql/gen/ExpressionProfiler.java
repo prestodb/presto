@@ -17,9 +17,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import io.airlift.units.Duration;
 
-import static com.facebook.presto.execution.executor.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
 import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.execution.executor.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 

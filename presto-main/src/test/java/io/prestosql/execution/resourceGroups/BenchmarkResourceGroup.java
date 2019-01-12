@@ -13,9 +13,9 @@
  */
 package io.prestosql.execution.resourceGroups;
 
-import com.facebook.presto.execution.MockQueryExecution;
-import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
 import io.airlift.units.DataSize;
+import io.prestosql.execution.MockQueryExecution;
+import io.prestosql.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;

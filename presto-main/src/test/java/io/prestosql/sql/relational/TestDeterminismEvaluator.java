@@ -13,20 +13,20 @@
  */
 package io.prestosql.sql.relational;
 
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.Signature;
+import io.prestosql.spi.type.StandardTypes;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.metadata.FunctionKind.SCALAR;
-import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
-import static com.facebook.presto.metadata.Signature.internalOperator;
-import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.sql.relational.Expressions.constant;
-import static com.facebook.presto.sql.relational.Expressions.field;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.metadata.Signature.internalOperator;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.sql.relational.Expressions.constant;
+import static io.prestosql.sql.relational.Expressions.field;
 import static java.util.Collections.singletonList;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

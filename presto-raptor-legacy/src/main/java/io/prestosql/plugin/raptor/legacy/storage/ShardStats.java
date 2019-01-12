@@ -13,29 +13,29 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage;
 
-import com.facebook.presto.orc.OrcPredicate;
-import com.facebook.presto.orc.OrcReader;
-import com.facebook.presto.orc.OrcRecordReader;
-import com.facebook.presto.raptor.metadata.ColumnStats;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.TimestampType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+import io.prestosql.orc.OrcPredicate;
+import io.prestosql.orc.OrcReader;
+import io.prestosql.orc.OrcRecordReader;
+import io.prestosql.plugin.raptor.legacy.metadata.ColumnStats;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.BooleanType;
+import io.prestosql.spi.type.DateType;
+import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
-import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
+import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
+import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static org.joda.time.DateTimeZone.UTC;

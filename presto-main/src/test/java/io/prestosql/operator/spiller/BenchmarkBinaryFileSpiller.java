@@ -13,21 +13,21 @@
  */
 package io.prestosql.operator.spiller;
 
-import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
-import com.facebook.presto.spiller.GenericSpillerFactory;
-import com.facebook.presto.spiller.Spiller;
-import com.facebook.presto.spiller.SpillerFactory;
-import com.facebook.presto.spiller.SpillerStats;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.tpch.LineItem;
 import io.airlift.tpch.LineItemGenerator;
+import io.prestosql.block.BlockEncodingManager;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.block.BlockEncodingSerde;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spiller.FileSingleStreamSpillerFactory;
+import io.prestosql.spiller.GenericSpillerFactory;
+import io.prestosql.spiller.Spiller;
+import io.prestosql.spiller.SpillerFactory;
+import io.prestosql.spiller.SpillerStats;
+import io.prestosql.type.TypeRegistry;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -46,11 +46,11 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @State(Scope.Thread)

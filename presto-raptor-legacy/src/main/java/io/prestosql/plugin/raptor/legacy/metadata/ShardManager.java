@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.raptor.legacy.metadata;
 
-import com.facebook.presto.raptor.RaptorColumnHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import io.prestosql.plugin.raptor.legacy.RaptorColumnHandle;
+import io.prestosql.spi.predicate.TupleDomain;
 import org.skife.jdbi.v2.ResultIterator;
 
 import java.util.Collection;

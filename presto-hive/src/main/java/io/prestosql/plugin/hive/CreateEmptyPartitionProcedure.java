@@ -13,17 +13,17 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.LocationService.WriteInfo;
-import com.facebook.presto.hive.PartitionUpdate.UpdateMode;
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.procedure.Procedure;
-import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.plugin.hive.LocationService.WriteInfo;
+import io.prestosql.plugin.hive.PartitionUpdate.UpdateMode;
+import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.procedure.Procedure;
+import io.prestosql.spi.procedure.Procedure.Argument;
 import org.apache.hadoop.hive.common.FileUtils;
 
 import javax.inject.Inject;
@@ -35,11 +35,11 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
-import static com.facebook.presto.spi.block.MethodHandleUtil.methodHandle;
-import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.prestosql.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
+import static io.prestosql.spi.block.MethodHandleUtil.methodHandle;
+import static io.prestosql.spi.type.StandardTypes.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class CreateEmptyPartitionProcedure

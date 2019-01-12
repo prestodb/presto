@@ -13,14 +13,14 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage.organization;
 
-import com.facebook.presto.raptor.metadata.ForMetadata;
-import com.facebook.presto.raptor.metadata.MetadataDao;
-import com.facebook.presto.raptor.metadata.ShardManager;
+import io.prestosql.plugin.raptor.legacy.metadata.ForMetadata;
+import io.prestosql.plugin.raptor.legacy.metadata.MetadataDao;
+import io.prestosql.plugin.raptor.legacy.metadata.ShardManager;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.inject.Inject;
 
-import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
+import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.onDemandDao;
 import static java.util.Objects.requireNonNull;
 
 public class OrganizationJobFactory

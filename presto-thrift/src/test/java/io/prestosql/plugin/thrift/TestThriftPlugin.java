@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.thrift;
 
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.connector.Connector;
-import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.testing.TestingConnectorContext;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.Plugin;
+import io.prestosql.spi.connector.Connector;
+import io.prestosql.spi.connector.ConnectorFactory;
+import io.prestosql.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
 import java.util.Map;

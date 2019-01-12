@@ -13,12 +13,12 @@
  */
 package io.prestosql.sql;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.sql.parser.ParsingOptions;
+import io.prestosql.Session;
+import io.prestosql.sql.parser.ParsingOptions;
 
-import static com.facebook.presto.SystemSessionProperties.isParseDecimalLiteralsAsDouble;
-import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
-import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
+import static io.prestosql.SystemSessionProperties.isParseDecimalLiteralsAsDouble;
+import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
+import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 
 public class ParsingUtil
 {

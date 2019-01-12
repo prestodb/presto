@@ -13,11 +13,11 @@
  */
 package io.prestosql.operator.aggregation.multimapagg;
 
-import com.facebook.presto.operator.aggregation.AbstractGroupCollectionAggregationState;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.operator.aggregation.AbstractGroupCollectionAggregationState;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.Type;
 
 public final class GroupedMultimapAggregationState
         extends AbstractGroupCollectionAggregationState<MultimapAggregationStateConsumer>

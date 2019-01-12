@@ -13,18 +13,18 @@
  */
 package io.prestosql.operator.exchange;
 
-import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.operator.DriverContext;
-import com.facebook.presto.operator.LocalPlannerAware;
-import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeFactory;
-import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
-import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeSinkFactoryId;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.execution.Lifespan;
+import io.prestosql.operator.DriverContext;
+import io.prestosql.operator.LocalPlannerAware;
+import io.prestosql.operator.Operator;
+import io.prestosql.operator.OperatorContext;
+import io.prestosql.operator.OperatorFactory;
+import io.prestosql.operator.exchange.LocalExchange.LocalExchangeFactory;
+import io.prestosql.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
+import io.prestosql.operator.exchange.LocalExchange.LocalExchangeSinkFactoryId;
+import io.prestosql.spi.Page;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.function.Function;
 

@@ -13,8 +13,8 @@
  */
 package io.prestosql.operator.aggregation.state;
 
-import com.facebook.presto.operator.aggregation.TypedHeap;
-import com.facebook.presto.spi.function.AccumulatorState;
+import io.prestosql.operator.aggregation.TypedHeap;
+import io.prestosql.spi.function.AccumulatorState;
 
 public interface MinMaxNState
         extends AccumulatorState

@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.password;
 
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.Plugin;
+import io.prestosql.spi.security.PasswordAuthenticatorFactory;
 
 public class PasswordAuthenticatorPlugin
         implements Plugin

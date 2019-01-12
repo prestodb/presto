@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.base.security;
 
-import com.facebook.presto.spi.CatalogSchemaName;
-import com.facebook.presto.spi.CatalogSchemaTableName;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.security.Privilege;
-import com.facebook.presto.spi.security.SystemAccessControl;
+import io.prestosql.spi.connector.CatalogSchemaName;
+import io.prestosql.spi.connector.CatalogSchemaTableName;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.security.Privilege;
+import io.prestosql.spi.security.SystemAccessControl;
 
 import java.security.Principal;
 import java.util.Optional;

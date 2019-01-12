@@ -13,10 +13,10 @@
  */
 package io.prestosql.execution.executor;
 
-import com.facebook.presto.execution.SplitConcurrencyController;
-import com.facebook.presto.execution.TaskId;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
+import io.prestosql.execution.SplitConcurrencyController;
+import io.prestosql.execution.TaskId;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;

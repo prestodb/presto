@@ -13,21 +13,21 @@
  */
 package io.prestosql.operator.project;
 
-import com.facebook.presto.array.ReferenceCountMap;
-import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.operator.DriverYieldSignal;
-import com.facebook.presto.operator.Work;
-import com.facebook.presto.operator.WorkProcessor;
-import com.facebook.presto.operator.WorkProcessor.ProcessState;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.DictionaryId;
-import com.facebook.presto.spi.block.LazyBlock;
-import com.facebook.presto.sql.gen.ExpressionProfiler;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.SizeOf;
+import io.prestosql.array.ReferenceCountMap;
+import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.operator.DriverYieldSignal;
+import io.prestosql.operator.Work;
+import io.prestosql.operator.WorkProcessor;
+import io.prestosql.operator.WorkProcessor.ProcessState;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.DictionaryBlock;
+import io.prestosql.spi.block.DictionaryId;
+import io.prestosql.spi.block.LazyBlock;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.sql.gen.ExpressionProfiler;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -39,14 +39,14 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Function;
 
-import static com.facebook.presto.operator.WorkProcessor.ProcessState.finished;
-import static com.facebook.presto.operator.WorkProcessor.ProcessState.ofResult;
-import static com.facebook.presto.operator.WorkProcessor.ProcessState.yield;
-import static com.facebook.presto.operator.project.SelectedPositions.positionsRange;
-import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.operator.WorkProcessor.ProcessState.finished;
+import static io.prestosql.operator.WorkProcessor.ProcessState.ofResult;
+import static io.prestosql.operator.WorkProcessor.ProcessState.yield;
+import static io.prestosql.operator.project.SelectedPositions.positionsRange;
+import static io.prestosql.spi.block.DictionaryId.randomDictionaryId;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe

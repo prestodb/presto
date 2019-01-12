@@ -13,16 +13,16 @@
  */
 package io.prestosql.connector.system;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.connector.ConnectorSplitManager;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.transaction.IsolationLevel;
-import com.facebook.presto.transaction.InternalConnector;
-import com.facebook.presto.transaction.TransactionId;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.metadata.InternalNodeManager;
+import io.prestosql.spi.connector.ConnectorMetadata;
+import io.prestosql.spi.connector.ConnectorPageSourceProvider;
+import io.prestosql.spi.connector.ConnectorSplitManager;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.transaction.IsolationLevel;
+import io.prestosql.transaction.InternalConnector;
+import io.prestosql.transaction.TransactionId;
 
 import java.util.Set;
 import java.util.function.Function;

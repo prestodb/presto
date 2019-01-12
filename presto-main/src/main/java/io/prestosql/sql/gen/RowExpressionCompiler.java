@@ -13,36 +13,24 @@
  */
 package io.prestosql.sql.gen;
 
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
-import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
-import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Scope;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
+import io.prestosql.sql.relational.CallExpression;
+import io.prestosql.sql.relational.ConstantExpression;
+import io.prestosql.sql.relational.InputReferenceExpression;
+import io.prestosql.sql.relational.LambdaDefinitionExpression;
+import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.relational.RowExpressionVisitor;
+import io.prestosql.sql.relational.VariableReferenceExpression;
 
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
-import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.generateLambda;
-import static com.facebook.presto.sql.relational.Signatures.BIND;
-import static com.facebook.presto.sql.relational.Signatures.CAST;
-import static com.facebook.presto.sql.relational.Signatures.COALESCE;
-import static com.facebook.presto.sql.relational.Signatures.DEREFERENCE;
-import static com.facebook.presto.sql.relational.Signatures.IF;
-import static com.facebook.presto.sql.relational.Signatures.IN;
-import static com.facebook.presto.sql.relational.Signatures.IS_NULL;
-import static com.facebook.presto.sql.relational.Signatures.NULL_IF;
-import static com.facebook.presto.sql.relational.Signatures.ROW_CONSTRUCTOR;
-import static com.facebook.presto.sql.relational.Signatures.SWITCH;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.instruction.Constant.loadBoolean;
@@ -51,6 +39,18 @@ import static io.airlift.bytecode.instruction.Constant.loadFloat;
 import static io.airlift.bytecode.instruction.Constant.loadInt;
 import static io.airlift.bytecode.instruction.Constant.loadLong;
 import static io.airlift.bytecode.instruction.Constant.loadString;
+import static io.prestosql.sql.gen.BytecodeUtils.loadConstant;
+import static io.prestosql.sql.gen.LambdaBytecodeGenerator.generateLambda;
+import static io.prestosql.sql.relational.Signatures.BIND;
+import static io.prestosql.sql.relational.Signatures.CAST;
+import static io.prestosql.sql.relational.Signatures.COALESCE;
+import static io.prestosql.sql.relational.Signatures.DEREFERENCE;
+import static io.prestosql.sql.relational.Signatures.IF;
+import static io.prestosql.sql.relational.Signatures.IN;
+import static io.prestosql.sql.relational.Signatures.IS_NULL;
+import static io.prestosql.sql.relational.Signatures.NULL_IF;
+import static io.prestosql.sql.relational.Signatures.ROW_CONSTRUCTOR;
+import static io.prestosql.sql.relational.Signatures.SWITCH;
 
 public class RowExpressionCompiler
 {

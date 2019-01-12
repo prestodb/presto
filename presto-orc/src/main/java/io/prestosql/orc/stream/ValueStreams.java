@@ -13,27 +13,27 @@
  */
 package io.prestosql.orc.stream;
 
-import com.facebook.presto.orc.StreamId;
-import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
-import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
+import io.prestosql.orc.StreamId;
+import io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind;
+import io.prestosql.orc.metadata.OrcType.OrcTypeKind;
 
-import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
-import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
-import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
-import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
-import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_DIRECT;
-import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.DECIMAL;
-import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.INT;
-import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_MAP;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
+import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
+import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
+import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
+import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
+import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_DIRECT;
+import static io.prestosql.orc.metadata.OrcType.OrcTypeKind.DECIMAL;
+import static io.prestosql.orc.metadata.OrcType.OrcTypeKind.INT;
+import static io.prestosql.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP;
+import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
+import static io.prestosql.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
+import static io.prestosql.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
+import static io.prestosql.orc.metadata.Stream.StreamKind.IN_MAP;
+import static io.prestosql.orc.metadata.Stream.StreamKind.LENGTH;
+import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
+import static io.prestosql.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
+import static io.prestosql.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
+import static io.prestosql.orc.metadata.Stream.StreamKind.SECONDARY;
 import static java.lang.String.format;
 
 public final class ValueStreams

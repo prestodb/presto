@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.blackhole;
 
-import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.connector.Connector;
-import com.facebook.presto.spi.connector.ConnectorContext;
-import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import io.prestosql.spi.connector.Connector;
+import io.prestosql.spi.connector.ConnectorContext;
+import io.prestosql.spi.connector.ConnectorFactory;
+import io.prestosql.spi.connector.ConnectorHandleResolver;
 
 import java.util.Map;
 

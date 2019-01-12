@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.redshift;
 
-import com.facebook.presto.plugin.jdbc.JdbcPlugin;
+import io.prestosql.plugin.jdbc.JdbcPlugin;
 
 public class RedshiftPlugin
         extends JdbcPlugin

@@ -13,9 +13,9 @@
  */
 package io.prestosql.spi.classloader;
 
-import com.facebook.presto.spi.ConnectorPageSink;
-import com.facebook.presto.spi.Page;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.connector.ConnectorPageSink;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;

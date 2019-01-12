@@ -13,13 +13,6 @@
  */
 package io.prestosql.execution.scheduler;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.execution.NodeTaskMap;
-import com.facebook.presto.execution.RemoteTask;
-import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.Node;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.HashMultimap;
@@ -30,6 +23,13 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.execution.NodeTaskMap;
+import io.prestosql.execution.RemoteTask;
+import io.prestosql.metadata.InternalNodeManager;
+import io.prestosql.metadata.Split;
+import io.prestosql.spi.HostAddress;
+import io.prestosql.spi.Node;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -47,13 +47,13 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType;
-import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.MoreFutures.whenAnyCompleteCancelOthers;
+import static io.prestosql.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType;
+import static io.prestosql.spi.NodeState.ACTIVE;
 import static java.util.Objects.requireNonNull;
 
 public class NodeScheduler

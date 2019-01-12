@@ -13,7 +13,7 @@
  */
 package io.prestosql.spi.session;
 
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
 
 import java.util.HashSet;
 import java.util.Optional;

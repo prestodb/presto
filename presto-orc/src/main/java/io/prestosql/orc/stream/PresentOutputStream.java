@@ -13,10 +13,10 @@
  */
 package io.prestosql.orc.stream;
 
-import com.facebook.presto.orc.OrcOutputBuffer;
-import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
-import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.orc.metadata.Stream;
+import io.prestosql.orc.OrcOutputBuffer;
+import io.prestosql.orc.checkpoint.BooleanStreamCheckpoint;
+import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.Stream;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -25,9 +25,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
 import static java.lang.Math.toIntExact;
 
 public class PresentOutputStream

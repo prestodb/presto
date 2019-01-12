@@ -13,22 +13,22 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlOperator;
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.SqlOperator;
+import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 
-import static com.facebook.presto.metadata.Signature.typeVariable;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.metadata.Signature.typeVariable;
+import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 
 public class IdentityCast
         extends SqlOperator

@@ -13,7 +13,7 @@
  */
 package io.prestosql.orc;
 
-import com.facebook.presto.orc.stream.InputStreamSources;
+import io.prestosql.orc.stream.InputStreamSources;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;

@@ -13,17 +13,17 @@
  */
 package io.prestosql.spi.type;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.LongArrayBlockBuilder;
-import com.facebook.presto.spi.block.PageBuilderStatus;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.BlockBuilderStatus;
+import io.prestosql.spi.block.LongArrayBlockBuilder;
+import io.prestosql.spi.block.PageBuilderStatus;
+import io.prestosql.spi.connector.ConnectorSession;
 
 import java.math.BigInteger;
 
-import static com.facebook.presto.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.prestosql.spi.type.Decimals.MAX_SHORT_PRECISION;
 
 final class ShortDecimalType
         extends DecimalType

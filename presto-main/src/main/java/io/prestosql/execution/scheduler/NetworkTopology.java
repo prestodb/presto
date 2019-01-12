@@ -13,7 +13,7 @@
  */
 package io.prestosql.execution.scheduler;
 
-import com.facebook.presto.spi.HostAddress;
+import io.prestosql.spi.HostAddress;
 
 import javax.annotation.concurrent.ThreadSafe;
 

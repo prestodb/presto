@@ -13,7 +13,7 @@
  */
 package io.prestosql.orc.metadata.statistics;
 
-import com.facebook.presto.orc.metadata.statistics.StatisticsHasher.Hashable;
+import io.prestosql.orc.metadata.statistics.StatisticsHasher.Hashable;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;

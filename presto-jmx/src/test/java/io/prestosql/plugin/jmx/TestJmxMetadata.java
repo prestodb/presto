@@ -13,19 +13,19 @@
  */
 package io.prestosql.plugin.jmx;
 
-import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.connector.SchemaTableName;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.connector.jmx.JmxMetadata.HISTORY_SCHEMA_NAME;
-import static com.facebook.presto.connector.jmx.JmxMetadata.JMX_SCHEMA_NAME;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static io.prestosql.plugin.jmx.JmxMetadata.HISTORY_SCHEMA_NAME;
+import static io.prestosql.plugin.jmx.JmxMetadata.JMX_SCHEMA_NAME;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
 import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;

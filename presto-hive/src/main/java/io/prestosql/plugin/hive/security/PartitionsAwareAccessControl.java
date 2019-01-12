@@ -14,18 +14,18 @@
 
 package io.prestosql.plugin.hive.security;
 
-import com.facebook.presto.plugin.base.security.ForwardingConnectorAccessControl;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.connector.ConnectorAccessControl;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.security.AccessDeniedException;
-import com.facebook.presto.spi.security.Identity;
+import io.prestosql.plugin.base.security.ForwardingConnectorAccessControl;
+import io.prestosql.spi.connector.ConnectorAccessControl;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.security.AccessDeniedException;
+import io.prestosql.spi.security.Identity;
 
 import java.util.Set;
 
-import static com.facebook.presto.hive.HiveMetadata.getSourceTableNameForPartitionsTable;
-import static com.facebook.presto.hive.HiveMetadata.isPartitionsSystemTable;
-import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
+import static io.prestosql.plugin.hive.HiveMetadata.getSourceTableNameForPartitionsTable;
+import static io.prestosql.plugin.hive.HiveMetadata.isPartitionsSystemTable;
+import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionsAwareAccessControl

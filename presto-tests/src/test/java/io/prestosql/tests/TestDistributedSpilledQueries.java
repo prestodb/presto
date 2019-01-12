@@ -13,15 +13,15 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.SystemSessionProperties;
+import io.prestosql.plugin.tpch.TpchPlugin;
 
 import java.nio.file.Paths;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public class TestDistributedSpilledQueries
         extends AbstractTestQueries

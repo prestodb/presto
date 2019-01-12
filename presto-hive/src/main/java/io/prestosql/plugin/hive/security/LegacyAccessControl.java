@@ -13,14 +13,14 @@
  */
 package io.prestosql.plugin.hive.security;
 
-import com.facebook.presto.hive.HiveTransactionHandle;
-import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
-import com.facebook.presto.hive.metastore.Table;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.connector.ConnectorAccessControl;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.security.Privilege;
+import io.prestosql.plugin.hive.HiveTransactionHandle;
+import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
+import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.spi.connector.ConnectorAccessControl;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.security.Privilege;
 
 import javax.inject.Inject;
 
@@ -28,11 +28,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
-import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyDropColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
 import static java.util.Objects.requireNonNull;
 
 public class LegacyAccessControl

@@ -13,10 +13,10 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
 
-import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static io.prestosql.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 
 public class TestIntervalYearMonthType
         extends AbstractTestType

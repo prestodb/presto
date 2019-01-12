@@ -13,7 +13,7 @@
  */
 package io.prestosql.cost;
 
-import com.facebook.presto.sql.planner.Symbol;
+import io.prestosql.sql.planner.Symbol;
 
 import java.util.function.BiFunction;
 

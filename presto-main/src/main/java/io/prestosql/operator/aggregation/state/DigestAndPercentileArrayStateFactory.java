@@ -13,10 +13,10 @@
  */
 package io.prestosql.operator.aggregation.state;
 
-import com.facebook.presto.array.ObjectBigArray;
-import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import io.airlift.slice.SizeOf;
 import io.airlift.stats.QuantileDigest;
+import io.prestosql.array.ObjectBigArray;
+import io.prestosql.spi.function.AccumulatorStateFactory;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;

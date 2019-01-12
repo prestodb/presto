@@ -13,9 +13,9 @@
  */
 package io.prestosql.testing;
 
-import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorOutputTableHandle;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import io.prestosql.spi.connector.ConnectorInsertTableHandle;
+import io.prestosql.spi.connector.ConnectorOutputTableHandle;
+import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 
 public enum TestingHandle
         implements ConnectorOutputTableHandle, ConnectorInsertTableHandle, ConnectorTableLayoutHandle

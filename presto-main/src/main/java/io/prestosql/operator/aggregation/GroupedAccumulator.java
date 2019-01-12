@@ -13,11 +13,11 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.operator.GroupByIdBlock;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.Type;
 
 public interface GroupedAccumulator
 {

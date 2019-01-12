@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.hive.metastore;
 
-import com.facebook.presto.hive.HiveBucketProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.hive.HiveBucketProperty;
 
 import javax.annotation.concurrent.Immutable;
 

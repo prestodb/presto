@@ -13,20 +13,20 @@
  */
 package io.prestosql.sql.planner.plan;
 
-import com.facebook.presto.metadata.InsertTableHandle;
-import com.facebook.presto.metadata.NewTableLayout;
-import com.facebook.presto.metadata.OutputTableHandle;
-import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.sql.planner.PartitioningScheme;
-import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import io.prestosql.metadata.InsertTableHandle;
+import io.prestosql.metadata.NewTableLayout;
+import io.prestosql.metadata.OutputTableHandle;
+import io.prestosql.metadata.TableHandle;
+import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.sql.planner.PartitioningScheme;
+import io.prestosql.sql.planner.Symbol;
 
 import javax.annotation.concurrent.Immutable;
 

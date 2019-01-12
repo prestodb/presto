@@ -13,15 +13,15 @@
  */
 package io.prestosql.sql.planner.assertions;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.sql.planner.OrderingScheme;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.assertions.PlanMatchPattern.Ordering;
+import io.prestosql.Session;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.TableHandle;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.sql.planner.OrderingScheme;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.assertions.PlanMatchPattern.Ordering;
 
 import java.util.List;
 import java.util.Map;

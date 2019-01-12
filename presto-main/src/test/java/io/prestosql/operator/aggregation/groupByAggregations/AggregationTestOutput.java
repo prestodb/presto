@@ -14,9 +14,9 @@
 
 package io.prestosql.operator.aggregation.groupByAggregations;
 
-import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.operator.aggregation.GroupedAccumulator;
-import com.facebook.presto.spi.block.BlockBuilder;
+import io.prestosql.block.BlockAssertions;
+import io.prestosql.operator.aggregation.GroupedAccumulator;
+import io.prestosql.spi.block.BlockBuilder;
 
 import java.util.function.BiConsumer;
 

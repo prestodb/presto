@@ -13,9 +13,9 @@
  */
 package io.prestosql.sql.analyzer;
 
-import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.tree.QualifiedName;
+import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.Optional;
 

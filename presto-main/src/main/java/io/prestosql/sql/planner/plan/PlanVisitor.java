@@ -13,7 +13,7 @@
  */
 package io.prestosql.sql.planner.plan;
 
-import com.facebook.presto.sql.planner.iterative.GroupReference;
+import io.prestosql.sql.planner.iterative.GroupReference;
 
 public abstract class PlanVisitor<R, C>
 {

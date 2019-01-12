@@ -22,10 +22,10 @@ import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
 import static io.airlift.bytecode.Access.a;
+import static io.prestosql.sql.gen.BytecodeUtils.invoke;
 import static java.util.Objects.requireNonNull;
 
 public final class CachedInstanceBinder

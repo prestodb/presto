@@ -13,19 +13,19 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.matching.Captures;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.matching.Captures;
+import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.plan.JoinNode;
+import io.prestosql.sql.planner.plan.LateralJoinNode;
 
 import java.util.Optional;
 
-import static com.facebook.presto.matching.Pattern.empty;
-import static com.facebook.presto.sql.planner.plan.Patterns.LateralJoin.correlation;
-import static com.facebook.presto.sql.planner.plan.Patterns.lateralJoin;
+import static io.prestosql.matching.Pattern.empty;
+import static io.prestosql.sql.planner.plan.Patterns.LateralJoin.correlation;
+import static io.prestosql.sql.planner.plan.Patterns.lateralJoin;
 
 public class TransformUncorrelatedLateralToJoin
         implements Rule<LateralJoinNode>

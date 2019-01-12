@@ -13,23 +13,23 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage.organization;
 
-import com.facebook.presto.raptor.RaptorMetadata;
-import com.facebook.presto.raptor.metadata.ColumnInfo;
-import com.facebook.presto.raptor.metadata.ColumnStats;
-import com.facebook.presto.raptor.metadata.MetadataDao;
-import com.facebook.presto.raptor.metadata.ShardInfo;
-import com.facebook.presto.raptor.metadata.ShardManager;
-import com.facebook.presto.raptor.metadata.ShardMetadata;
-import com.facebook.presto.raptor.metadata.Table;
-import com.facebook.presto.raptor.metadata.TableColumn;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.io.Files;
+import io.prestosql.plugin.raptor.legacy.RaptorMetadata;
+import io.prestosql.plugin.raptor.legacy.metadata.ColumnInfo;
+import io.prestosql.plugin.raptor.legacy.metadata.ColumnStats;
+import io.prestosql.plugin.raptor.legacy.metadata.MetadataDao;
+import io.prestosql.plugin.raptor.legacy.metadata.ShardInfo;
+import io.prestosql.plugin.raptor.legacy.metadata.ShardManager;
+import io.prestosql.plugin.raptor.legacy.metadata.ShardMetadata;
+import io.prestosql.plugin.raptor.legacy.metadata.Table;
+import io.prestosql.plugin.raptor.legacy.metadata.TableColumn;
+import io.prestosql.spi.connector.ConnectorMetadata;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.type.Type;
+import io.prestosql.type.TypeRegistry;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.testng.annotations.AfterMethod;
@@ -44,19 +44,19 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
-import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
-import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.shardInfo;
-import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.getOrganizationEligibleShards;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
-import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static io.prestosql.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
+import static io.prestosql.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
+import static io.prestosql.plugin.raptor.legacy.metadata.TestDatabaseShardManager.shardInfo;
+import static io.prestosql.plugin.raptor.legacy.storage.organization.ShardOrganizerUtil.getOrganizationEligibleShards;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)

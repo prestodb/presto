@@ -13,15 +13,15 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.metadata.Signature;
+import io.prestosql.spi.type.Type;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
 
 public class TestApproximateCountDistinctInteger
         extends AbstractTestApproximateCountDistinct

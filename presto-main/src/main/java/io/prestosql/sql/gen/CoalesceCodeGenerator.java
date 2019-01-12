@@ -13,14 +13,14 @@
  */
 package io.prestosql.sql.gen;
 
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.Lists;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
+import io.prestosql.metadata.Signature;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.relational.RowExpression;
 
 import java.util.ArrayList;
 import java.util.List;

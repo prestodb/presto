@@ -13,32 +13,32 @@
  */
 package io.prestosql.sql.planner.sanity;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableLayoutHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.assertions.BasePlanTest;
-import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.testing.TestingTransactionHandle;
-import com.facebook.presto.tpch.TpchColumnHandle;
-import com.facebook.presto.tpch.TpchTableHandle;
-import com.facebook.presto.tpch.TpchTableLayoutHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.TableHandle;
+import io.prestosql.metadata.TableLayoutHandle;
+import io.prestosql.plugin.tpch.TpchColumnHandle;
+import io.prestosql.plugin.tpch.TpchTableHandle;
+import io.prestosql.plugin.tpch.TpchTableLayoutHandle;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.PlanNodeIdAllocator;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.planner.assertions.BasePlanTest;
+import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.testing.TestingTransactionHandle;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 import java.util.function.Function;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.sql.planner.plan.AggregationNode.Step.SINGLE;
 
 public class TestValidateStreamingAggregations
         extends BasePlanTest

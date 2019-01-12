@@ -13,14 +13,14 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.sql.SqlEnvironmentConfig;
-import com.facebook.presto.sql.SqlPath;
-import com.facebook.presto.transaction.TransactionManager;
+import io.prestosql.Session;
+import io.prestosql.metadata.SessionPropertyManager;
+import io.prestosql.security.AccessControl;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.security.Identity;
+import io.prestosql.sql.SqlEnvironmentConfig;
+import io.prestosql.sql.SqlPath;
+import io.prestosql.transaction.TransactionManager;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -29,8 +29,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.Session.SessionBuilder;
-import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.prestosql.Session.SessionBuilder;
+import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
 

@@ -20,8 +20,8 @@ import io.prestodb.tempto.internal.fulfillment.table.cassandra.CassandraTableDef
 import java.sql.Timestamp;
 import java.util.List;
 
-import static com.facebook.presto.tests.cassandra.TestConstants.CONNECTOR_NAME;
-import static com.facebook.presto.tests.cassandra.TestConstants.KEY_SPACE;
+import static io.prestosql.tests.cassandra.TestConstants.CONNECTOR_NAME;
+import static io.prestosql.tests.cassandra.TestConstants.KEY_SPACE;
 
 public class MultiColumnKeyTableDefinition
 {

@@ -13,15 +13,15 @@
  */
 package io.prestosql.orc.writer;
 
-import com.facebook.presto.array.IntBigArray;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
+import io.prestosql.array.IntBigArray;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.VariableWidthBlockBuilder;
 import org.openjdk.jol.info.ClassLayout;
 
-import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;

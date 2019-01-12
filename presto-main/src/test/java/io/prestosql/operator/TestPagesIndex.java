@@ -13,17 +13,17 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
 
-import static com.facebook.presto.SequencePageBuilder.createSequencePage;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.SequencePageBuilder.createSequencePage;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

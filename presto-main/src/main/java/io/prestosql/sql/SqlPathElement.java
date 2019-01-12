@@ -13,9 +13,9 @@
  */
 package io.prestosql.sql;
 
-import com.facebook.presto.sql.tree.Identifier;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.sql.tree.Identifier;
 
 import java.util.Objects;
 import java.util.Optional;

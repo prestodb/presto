@@ -13,18 +13,18 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.memory.LocalMemoryManager;
-import com.facebook.presto.memory.MemoryPool;
-import com.facebook.presto.memory.MemoryPoolListener;
-import com.facebook.presto.memory.QueryContext;
-import com.facebook.presto.memory.TraversingQueryContextVisitor;
-import com.facebook.presto.memory.VoidTraversingQueryContextVisitor;
-import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import io.airlift.log.Logger;
+import io.prestosql.memory.LocalMemoryManager;
+import io.prestosql.memory.MemoryPool;
+import io.prestosql.memory.MemoryPoolListener;
+import io.prestosql.memory.QueryContext;
+import io.prestosql.memory.TraversingQueryContextVisitor;
+import io.prestosql.memory.VoidTraversingQueryContextVisitor;
+import io.prestosql.operator.OperatorContext;
+import io.prestosql.sql.analyzer.FeaturesConfig;
 
 import javax.annotation.Nullable;
 import javax.annotation.PostConstruct;

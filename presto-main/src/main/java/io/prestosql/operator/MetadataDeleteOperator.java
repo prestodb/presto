@@ -13,22 +13,22 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableLayoutHandle;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.Session;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.TableHandle;
+import io.prestosql.metadata.TableLayoutHandle;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.OptionalLong;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
 public class MetadataDeleteOperator

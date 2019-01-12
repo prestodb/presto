@@ -13,26 +13,26 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.tree.Deallocate;
-import com.facebook.presto.sql.tree.Execute;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Prepare;
-import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AccessControl;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.tree.Deallocate;
+import io.prestosql.sql.tree.Execute;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Prepare;
+import io.prestosql.sql.tree.Statement;
+import io.prestosql.transaction.TransactionManager;
 
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.sql.SqlFormatterUtil.getFormattedSql;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.sql.SqlFormatterUtil.getFormattedSql;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 

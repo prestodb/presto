@@ -13,15 +13,15 @@
  */
 package io.prestosql.plugin.hive.util;
 
-import com.facebook.presto.orc.OrcDataSink;
-import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
-import com.facebook.presto.orc.OrcWriter;
-import com.facebook.presto.orc.OrcWriterOptions;
-import com.facebook.presto.orc.OrcWriterStats;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import io.prestosql.orc.OrcDataSink;
+import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
+import io.prestosql.orc.OrcWriter;
+import io.prestosql.orc.OrcWriterOptions;
+import io.prestosql.orc.OrcWriterStats;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.type.Type;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -29,11 +29,11 @@ import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.orc.OrcEncoding.ORC;
-import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.orc.OrcEncoding.ORC;
+import static io.prestosql.orc.metadata.CompressionKind.LZ4;
 import static org.joda.time.DateTimeZone.UTC;
 
 public class TempFileWriter

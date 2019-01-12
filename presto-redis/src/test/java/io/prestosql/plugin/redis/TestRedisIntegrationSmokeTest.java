@@ -13,14 +13,14 @@
  */
 package io.prestosql.plugin.redis;
 
-import com.facebook.presto.redis.util.EmbeddedRedis;
-import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
+import io.prestosql.plugin.redis.util.EmbeddedRedis;
+import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.redis.RedisQueryRunner.createRedisQueryRunner;
-import static com.facebook.presto.redis.util.EmbeddedRedis.createEmbeddedRedis;
 import static io.airlift.tpch.TpchTable.ORDERS;
+import static io.prestosql.plugin.redis.RedisQueryRunner.createRedisQueryRunner;
+import static io.prestosql.plugin.redis.util.EmbeddedRedis.createEmbeddedRedis;
 
 @Test
 public class TestRedisIntegrationSmokeTest

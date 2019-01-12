@@ -13,11 +13,11 @@
  */
 package io.prestosql;
 
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.primitives.Longs;
+import io.prestosql.metadata.Split;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;

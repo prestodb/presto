@@ -13,23 +13,23 @@
  */
 package io.prestosql.testing;
 
-import com.facebook.presto.GroupByHashPageIndexerFactory;
-import com.facebook.presto.PagesIndexPageSorter;
-import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.connector.ConnectorAwareNodeManager;
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.InMemoryNodeManager;
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.PageIndexerFactory;
-import com.facebook.presto.spi.PageSorter;
-import com.facebook.presto.spi.connector.ConnectorContext;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.gen.JoinCompiler;
-import com.facebook.presto.type.TypeRegistry;
+import io.prestosql.GroupByHashPageIndexerFactory;
+import io.prestosql.PagesIndexPageSorter;
+import io.prestosql.block.BlockEncodingManager;
+import io.prestosql.connector.ConnectorAwareNodeManager;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.InMemoryNodeManager;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.operator.PagesIndex;
+import io.prestosql.spi.NodeManager;
+import io.prestosql.spi.PageIndexerFactory;
+import io.prestosql.spi.PageSorter;
+import io.prestosql.spi.connector.ConnectorContext;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.sql.gen.JoinCompiler;
+import io.prestosql.type.TypeRegistry;
 
 public class TestingConnectorContext
         implements ConnectorContext

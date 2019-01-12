@@ -13,18 +13,18 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.histogram.SingleTypedHistogram;
-import com.facebook.presto.operator.aggregation.histogram.TypedHistogram;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.MapType;
+import io.prestosql.operator.aggregation.histogram.SingleTypedHistogram;
+import io.prestosql.operator.aggregation.histogram.TypedHistogram;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.MapType;
 import org.testng.annotations.Test;
 
 import java.util.function.IntUnaryOperator;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.util.StructuralTestUtil.mapType;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.util.StructuralTestUtil.mapType;
 import static org.testng.Assert.assertEquals;
 
 public class TestTypedHistogram

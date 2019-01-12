@@ -18,7 +18,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestUpdateablePriorityQueue

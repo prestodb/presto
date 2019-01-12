@@ -13,10 +13,10 @@
  */
 package io.prestosql.orc.stream;
 
-import com.facebook.presto.orc.OrcDataSourceId;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import io.prestosql.orc.OrcDataSourceId;
 import org.testng.annotations.Test;
 
 import java.io.EOFException;
@@ -25,9 +25,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Optional;
 
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.orc.stream.LongDecode.readVInt;
-import static com.facebook.presto.orc.stream.LongDecode.writeVLong;
+import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.orc.stream.LongDecode.readVInt;
+import static io.prestosql.orc.stream.LongDecode.writeVLong;
 import static org.testng.Assert.assertEquals;
 
 public class TestLongDecode

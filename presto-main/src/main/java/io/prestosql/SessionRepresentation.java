@@ -13,18 +13,18 @@
  */
 package io.prestosql;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.security.BasicPrincipal;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.session.ResourceEstimates;
-import com.facebook.presto.spi.type.TimeZoneKey;
-import com.facebook.presto.sql.SqlPath;
-import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.metadata.SessionPropertyManager;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.security.BasicPrincipal;
+import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.session.ResourceEstimates;
+import io.prestosql.spi.type.TimeZoneKey;
+import io.prestosql.sql.SqlPath;
+import io.prestosql.transaction.TransactionId;
 
 import java.util.Locale;
 import java.util.Map;

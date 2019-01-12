@@ -13,8 +13,8 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.testing.MaterializedResult;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -23,9 +23,9 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static org.testng.Assert.assertEquals;
 
 public class TestH2QueryRunner

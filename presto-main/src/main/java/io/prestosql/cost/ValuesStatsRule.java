@@ -13,16 +13,16 @@
  */
 package io.prestosql.cost;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.cost.ComposableStatsCalculator.Rule;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.Session;
+import io.prestosql.cost.ComposableStatsCalculator.Rule;
+import io.prestosql.matching.Pattern;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.planner.iterative.Lookup;
+import io.prestosql.sql.planner.plan.ValuesNode;
 
 import java.util.List;
 import java.util.Objects;
@@ -31,11 +31,11 @@ import java.util.OptionalDouble;
 import java.util.stream.DoubleStream;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
-import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
-import static com.facebook.presto.sql.planner.plan.Patterns.values;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.cost.StatsUtil.toStatsRepresentation;
+import static io.prestosql.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
+import static io.prestosql.sql.planner.plan.Patterns.values;
+import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.util.stream.Collectors.toList;
 
 public class ValuesStatsRule

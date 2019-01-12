@@ -13,13 +13,13 @@
  */
 package io.prestosql.plugin.jdbc;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.base.VerifyException;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.type.Type;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -28,9 +28,9 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 
-import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

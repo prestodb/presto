@@ -23,9 +23,9 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.verifier.QueryType.CREATE;
-import static com.facebook.presto.verifier.QueryType.MODIFY;
-import static com.facebook.presto.verifier.QueryType.READ;
+import static io.prestosql.verifier.QueryType.CREATE;
+import static io.prestosql.verifier.QueryType.MODIFY;
+import static io.prestosql.verifier.QueryType.READ;
 
 public class TestVerifierConfig
 {

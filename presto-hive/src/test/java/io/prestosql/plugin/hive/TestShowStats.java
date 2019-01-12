@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.tests.AbstractTestQueryFramework;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
+import static io.prestosql.plugin.hive.HiveQueryRunner.createQueryRunner;
 
 public class TestShowStats
         extends AbstractTestQueryFramework

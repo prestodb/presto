@@ -13,9 +13,9 @@
  */
 package io.prestosql.security;
 
-import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.transaction.TransactionId;
+import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.spi.security.Identity;
+import io.prestosql.transaction.TransactionId;
 
 import java.util.Set;
 

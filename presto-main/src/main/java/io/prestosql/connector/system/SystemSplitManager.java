@@ -13,31 +13,31 @@
  */
 package io.prestosql.connector.system;
 
-import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.ConnectorSplitSource;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.FixedSplitSource;
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.SystemTable.Distribution;
-import com.facebook.presto.spi.connector.ConnectorSplitManager;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.metadata.InternalNodeManager;
+import io.prestosql.spi.HostAddress;
+import io.prestosql.spi.Node;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorSplitManager;
+import io.prestosql.spi.connector.ConnectorSplitSource;
+import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.FixedSplitSource;
+import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.connector.SystemTable.Distribution;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Set;
 
-import static com.facebook.presto.spi.NodeState.ACTIVE;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
-import static com.facebook.presto.spi.SystemTable.Distribution.ALL_COORDINATORS;
-import static com.facebook.presto.spi.SystemTable.Distribution.ALL_NODES;
-import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
+import static io.prestosql.spi.NodeState.ACTIVE;
+import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
+import static io.prestosql.spi.connector.SystemTable.Distribution.ALL_COORDINATORS;
+import static io.prestosql.spi.connector.SystemTable.Distribution.ALL_NODES;
+import static io.prestosql.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

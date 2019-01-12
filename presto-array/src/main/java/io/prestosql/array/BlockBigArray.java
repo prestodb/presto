@@ -13,7 +13,7 @@
  */
 package io.prestosql.array;
 
-import com.facebook.presto.spi.block.Block;
+import io.prestosql.spi.block.Block;
 import org.openjdk.jol.info.ClassLayout;
 
 public final class BlockBigArray

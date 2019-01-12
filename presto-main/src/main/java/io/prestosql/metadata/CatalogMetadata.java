@@ -13,11 +13,11 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.Session;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.spi.connector.ConnectorMetadata;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 import java.util.List;
 

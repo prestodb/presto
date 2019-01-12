@@ -13,37 +13,37 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.LongArrayBlock;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.block.BlockEncodingManager;
+import io.prestosql.operator.scalar.ScalarFunctionImplementation;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.LongArrayBlock;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.Test;
 
 import java.util.Collections;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.FunctionKind.SCALAR;
-import static com.facebook.presto.metadata.Signature.comparableWithVariadicBound;
-import static com.facebook.presto.metadata.TestPolymorphicScalarFunction.TestMethods.VARCHAR_TO_BIGINT_RETURN_VALUE;
-import static com.facebook.presto.metadata.TestPolymorphicScalarFunction.TestMethods.VARCHAR_TO_VARCHAR_RETURN_VALUE;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
-import static com.facebook.presto.spi.function.OperatorType.ADD;
-import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
-import static com.facebook.presto.spi.type.Decimals.MAX_SHORT_PRECISION;
-import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
-import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.metadata.Signature.comparableWithVariadicBound;
+import static io.prestosql.metadata.TestPolymorphicScalarFunction.TestMethods.VARCHAR_TO_BIGINT_RETURN_VALUE;
+import static io.prestosql.metadata.TestPolymorphicScalarFunction.TestMethods.VARCHAR_TO_VARCHAR_RETURN_VALUE;
+import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
+import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
+import static io.prestosql.spi.function.OperatorType.ADD;
+import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.prestosql.spi.type.Decimals.MAX_SHORT_PRECISION;
+import static io.prestosql.spi.type.StandardTypes.BOOLEAN;
+import static io.prestosql.spi.type.StandardTypes.VARCHAR;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Math.toIntExact;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;

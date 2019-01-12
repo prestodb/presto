@@ -13,40 +13,40 @@
  */
 package io.prestosql.orc.checkpoint;
 
-import com.facebook.presto.orc.StreamId;
-import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
-import com.facebook.presto.orc.metadata.OrcType;
-import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
-import com.facebook.presto.orc.metadata.RowGroupIndex;
-import com.facebook.presto.orc.metadata.Stream;
-import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.SetMultimap;
+import io.prestosql.orc.StreamId;
+import io.prestosql.orc.metadata.ColumnEncoding;
+import io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind;
+import io.prestosql.orc.metadata.OrcType;
+import io.prestosql.orc.metadata.OrcType.OrcTypeKind;
+import io.prestosql.orc.metadata.RowGroupIndex;
+import io.prestosql.orc.metadata.Stream;
+import io.prestosql.orc.metadata.Stream.StreamKind;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
-import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
-import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
-import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
-import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
-import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_DIRECT;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_MAP;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
 import static com.google.common.base.Predicates.equalTo;
+import static io.prestosql.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
+import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
+import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
+import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
+import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
+import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_DIRECT;
+import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
+import static io.prestosql.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
+import static io.prestosql.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
+import static io.prestosql.orc.metadata.Stream.StreamKind.IN_MAP;
+import static io.prestosql.orc.metadata.Stream.StreamKind.LENGTH;
+import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
+import static io.prestosql.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
+import static io.prestosql.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
+import static io.prestosql.orc.metadata.Stream.StreamKind.SECONDARY;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

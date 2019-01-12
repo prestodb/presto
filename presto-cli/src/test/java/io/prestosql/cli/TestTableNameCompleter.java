@@ -13,11 +13,11 @@
  */
 package io.prestosql.cli;
 
-import com.facebook.presto.client.ClientSession;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.client.ClientSession;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.cli.TestQueryRunner.createQueryRunner;
+import static io.prestosql.cli.TestQueryRunner.createQueryRunner;
 import static org.testng.Assert.assertEquals;
 
 public class TestTableNameCompleter

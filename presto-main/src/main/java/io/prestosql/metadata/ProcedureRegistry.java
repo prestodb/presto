@@ -13,15 +13,15 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.procedure.Procedure;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Primitives;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.procedure.Procedure;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -30,16 +30,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static com.facebook.presto.spi.StandardErrorCode.PROCEDURE_NOT_FOUND;
-import static com.facebook.presto.spi.procedure.Procedure.Argument;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
-import static com.facebook.presto.spi.type.StandardTypes.MAP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.spi.StandardErrorCode.PROCEDURE_NOT_FOUND;
+import static io.prestosql.spi.procedure.Procedure.Argument;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.StandardTypes.ARRAY;
+import static io.prestosql.spi.type.StandardTypes.MAP;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 

@@ -13,14 +13,14 @@
  */
 package io.prestosql.plugin.resourcegroups.db;
 
-import com.facebook.presto.resourceGroups.ResourceGroupNameTemplate;
-import com.facebook.presto.resourceGroups.SelectorResourceEstimate;
-import com.facebook.presto.resourceGroups.SelectorResourceEstimate.Range;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.resourcegroups.ResourceGroupNameTemplate;
+import io.prestosql.plugin.resourcegroups.SelectorResourceEstimate;
+import io.prestosql.plugin.resourcegroups.SelectorResourceEstimate.Range;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import org.h2.jdbc.JdbcSQLException;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.testng.annotations.Test;
@@ -31,12 +31,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
-import static com.facebook.presto.spi.resourceGroups.QueryType.DELETE;
-import static com.facebook.presto.spi.resourceGroups.QueryType.EXPLAIN;
-import static com.facebook.presto.spi.resourceGroups.QueryType.INSERT;
-import static com.facebook.presto.spi.resourceGroups.QueryType.SELECT;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.json.JsonCodec.listJsonCodec;
+import static io.prestosql.spi.resourcegroups.QueryType.DELETE;
+import static io.prestosql.spi.resourcegroups.QueryType.EXPLAIN;
+import static io.prestosql.spi.resourcegroups.QueryType.INSERT;
+import static io.prestosql.spi.resourcegroups.QueryType.SELECT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;

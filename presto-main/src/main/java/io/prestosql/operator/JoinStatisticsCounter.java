@@ -13,12 +13,12 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.operator.LookupJoinOperators.JoinType;
+import io.prestosql.operator.LookupJoinOperators.JoinType;
 
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.operator.JoinOperatorInfo.createJoinOperatorInfo;
+import static io.prestosql.operator.JoinOperatorInfo.createJoinOperatorInfo;
 import static java.util.Objects.requireNonNull;
 
 public class JoinStatisticsCounter

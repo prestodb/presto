@@ -13,34 +13,34 @@ package io.prestosql.operator.scalar;
  * limitations under the License.
  */
 
-import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionInvoker;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.metadata.SqlOperator;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.function.InvocationConvention;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionInvoker;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.SqlOperator;
+import io.prestosql.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.function.InvocationConvention;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.Signature.comparableWithVariadicBound;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
-import static com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
-import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
-import static com.facebook.presto.util.Failures.internalError;
-import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Defaults.defaultValue;
+import static io.prestosql.metadata.Signature.comparableWithVariadicBound;
+import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
+import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeUtils.readNativeValue;
+import static io.prestosql.util.Failures.internalError;
+import static io.prestosql.util.Reflection.methodHandle;
 
 public class RowDistinctFromOperator
         extends SqlOperator

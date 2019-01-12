@@ -13,12 +13,12 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.testing.assertions.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
+import io.prestosql.spi.Page;
+import io.prestosql.testing.assertions.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;

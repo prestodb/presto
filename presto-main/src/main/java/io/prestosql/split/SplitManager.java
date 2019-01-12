@@ -13,14 +13,14 @@
  */
 package io.prestosql.split;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.execution.QueryManagerConfig;
-import com.facebook.presto.metadata.TableLayoutHandle;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplitSource;
-import com.facebook.presto.spi.connector.ConnectorSplitManager;
-import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
+import io.prestosql.Session;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.execution.QueryManagerConfig;
+import io.prestosql.metadata.TableLayoutHandle;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorSplitManager;
+import io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
+import io.prestosql.spi.connector.ConnectorSplitSource;
 
 import javax.inject.Inject;
 

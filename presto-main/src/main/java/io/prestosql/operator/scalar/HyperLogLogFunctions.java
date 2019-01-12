@@ -13,13 +13,13 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.facebook.presto.operator.aggregation.ApproximateSetAggregation;
-import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
+import io.prestosql.operator.aggregation.ApproximateSetAggregation;
+import io.prestosql.spi.function.Description;
+import io.prestosql.spi.function.ScalarFunction;
+import io.prestosql.spi.function.SqlType;
+import io.prestosql.spi.type.StandardTypes;
 
 public final class HyperLogLogFunctions
 {

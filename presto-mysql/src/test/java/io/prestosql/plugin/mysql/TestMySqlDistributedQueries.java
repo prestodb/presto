@@ -13,17 +13,17 @@
  */
 package io.prestosql.plugin.mysql;
 
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.tests.AbstractTestQueries;
 import io.airlift.testing.mysql.TestingMySqlServer;
 import io.airlift.tpch.TpchTable;
+import io.prestosql.testing.MaterializedResult;
+import io.prestosql.tests.AbstractTestQueries;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static io.prestosql.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.MaterializedResult.resultBuilder;
+import static io.prestosql.testing.assertions.Assert.assertEquals;
 
 @Test
 public class TestMySqlDistributedQueries

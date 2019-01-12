@@ -13,15 +13,15 @@
  */
 package io.prestosql.security;
 
-import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.spi.CatalogSchemaName;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.security.AccessDeniedException;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.security.SystemAccessControl;
-import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.spi.connector.CatalogSchemaName;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.security.AccessDeniedException;
+import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.security.SystemAccessControl;
+import io.prestosql.transaction.TransactionManager;
 import org.testng.annotations.Test;
 
 import javax.security.auth.kerberos.KerberosPrincipal;
@@ -30,13 +30,13 @@ import java.io.File;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
-import static com.facebook.presto.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
-import static com.facebook.presto.spi.security.Privilege.SELECT;
-import static com.facebook.presto.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
-import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
-import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.io.Files.copy;
+import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
+import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
+import static io.prestosql.spi.security.Privilege.SELECT;
+import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
+import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.Thread.sleep;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.util.Files.newTemporaryFile;

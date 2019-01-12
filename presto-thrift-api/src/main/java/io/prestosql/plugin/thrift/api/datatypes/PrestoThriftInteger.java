@@ -13,14 +13,14 @@
  */
 package io.prestosql.plugin.thrift.api.datatypes;
 
-import com.facebook.presto.connector.thrift.api.PrestoThriftBlock;
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.IntArrayBlock;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.drift.annotations.ThriftConstructor;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
+import io.prestosql.plugin.thrift.api.PrestoThriftBlock;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.IntArrayBlock;
+import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.spi.type.Type;
 
 import javax.annotation.Nullable;
 
@@ -28,13 +28,13 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.integerData;
-import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTypeUtils.fromIntBasedBlock;
-import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTypeUtils.fromIntBasedColumn;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
+import static io.prestosql.plugin.thrift.api.PrestoThriftBlock.integerData;
+import static io.prestosql.plugin.thrift.api.datatypes.PrestoThriftTypeUtils.fromIntBasedBlock;
+import static io.prestosql.plugin.thrift.api.datatypes.PrestoThriftTypeUtils.fromIntBasedColumn;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
 
 /**
  * Elements of {@code nulls} array determine if a value for a corresponding row is null.

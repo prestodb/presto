@@ -13,17 +13,17 @@
  */
 package io.prestosql.execution.resourceGroups.db;
 
-import com.facebook.presto.resourceGroups.db.DbResourceGroupConfig;
-import com.facebook.presto.resourceGroups.db.DbResourceGroupConfigurationManager;
-import com.facebook.presto.resourceGroups.db.ForEnvironment;
-import com.facebook.presto.resourceGroups.db.H2DaoProvider;
-import com.facebook.presto.resourceGroups.db.ResourceGroupsDao;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerContext;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import io.prestosql.plugin.resourcegroups.db.DbResourceGroupConfig;
+import io.prestosql.plugin.resourcegroups.db.DbResourceGroupConfigurationManager;
+import io.prestosql.plugin.resourcegroups.db.ForEnvironment;
+import io.prestosql.plugin.resourcegroups.db.H2DaoProvider;
+import io.prestosql.plugin.resourcegroups.db.ResourceGroupsDao;
+import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManager;
+import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerContext;
 
 import javax.inject.Singleton;
 

@@ -13,12 +13,12 @@
  */
 package io.prestosql.jdbc;
 
-import com.facebook.presto.hive.HiveHadoop2Plugin;
-import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logging;
+import io.prestosql.plugin.hive.HiveHadoop2Plugin;
+import io.prestosql.server.testing.TestingPrestoServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -31,7 +31,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Set;
 
-import static com.facebook.presto.jdbc.TestPrestoDriver.closeQuietly;
+import static io.prestosql.jdbc.TestPrestoDriver.closeQuietly;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;

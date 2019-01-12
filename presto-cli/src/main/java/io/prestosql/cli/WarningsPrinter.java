@@ -13,7 +13,7 @@
  */
 package io.prestosql.cli;
 
-import com.facebook.presto.spi.PrestoWarning;
+import io.prestosql.spi.PrestoWarning;
 
 import java.util.List;
 

@@ -13,15 +13,15 @@
  */
 package io.prestosql.plugin.raptor.legacy.metadata;
 
-import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
+import io.prestosql.spi.ErrorCodeSupplier;
+import io.prestosql.spi.PrestoException;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_REASSIGNMENT_DELAY;
-import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_REASSIGNMENT_THROTTLE;
+import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_REASSIGNMENT_DELAY;
+import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_REASSIGNMENT_THROTTLE;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;

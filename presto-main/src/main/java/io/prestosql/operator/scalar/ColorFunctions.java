@@ -13,23 +13,23 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.LiteralParameters;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.ColorType;
-import com.facebook.presto.type.Constraint;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.function.LiteralParameters;
+import io.prestosql.spi.function.ScalarFunction;
+import io.prestosql.spi.function.SqlType;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.type.ColorType;
+import io.prestosql.type.Constraint;
 
 import java.awt.Color;
 
-import static com.facebook.presto.operator.scalar.StringFunctions.upper;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.operator.scalar.StringFunctions.upper;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.util.Failures.checkCondition;
 import static java.lang.String.format;
 
 public final class ColorFunctions

@@ -13,36 +13,36 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Signature;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.StandardTypes;
 import org.testng.annotations.Test;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
-import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
-import static com.facebook.presto.block.BlockAssertions.createStringArraysBlock;
-import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
-import static com.facebook.presto.block.BlockAssertions.createTypedLongsBlock;
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
-import static com.facebook.presto.operator.OperatorAssertion.toRow;
-import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.operator.aggregation.MapAggregationFunction.NAME;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
-import static com.facebook.presto.util.StructuralTestUtil.mapType;
+import static io.prestosql.block.BlockAssertions.createBooleansBlock;
+import static io.prestosql.block.BlockAssertions.createDoublesBlock;
+import static io.prestosql.block.BlockAssertions.createStringArraysBlock;
+import static io.prestosql.block.BlockAssertions.createStringsBlock;
+import static io.prestosql.block.BlockAssertions.createTypedLongsBlock;
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.operator.OperatorAssertion.toRow;
+import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static io.prestosql.operator.aggregation.MapAggregationFunction.NAME;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.util.StructuralTestUtil.mapBlockOf;
+import static io.prestosql.util.StructuralTestUtil.mapType;
 
 public class TestMapAggAggregation
 {

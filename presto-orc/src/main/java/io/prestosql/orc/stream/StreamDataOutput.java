@@ -13,9 +13,9 @@
  */
 package io.prestosql.orc.stream;
 
-import com.facebook.presto.orc.metadata.Stream;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.prestosql.orc.metadata.Stream;
 
 import java.util.function.ToLongFunction;
 

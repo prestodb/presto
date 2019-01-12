@@ -18,11 +18,11 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 
-import static com.facebook.presto.array.BigArrays.INITIAL_SEGMENTS;
-import static com.facebook.presto.array.BigArrays.SEGMENT_SIZE;
-import static com.facebook.presto.array.BigArrays.offset;
-import static com.facebook.presto.array.BigArrays.segment;
 import static io.airlift.slice.SizeOf.sizeOfByteArray;
+import static io.prestosql.array.BigArrays.INITIAL_SEGMENTS;
+import static io.prestosql.array.BigArrays.SEGMENT_SIZE;
+import static io.prestosql.array.BigArrays.offset;
+import static io.prestosql.array.BigArrays.segment;
 
 // Note: this code was forked from fastutil (http://fastutil.di.unimi.it/)
 // Copyright (C) 2010-2013 Sebastiano Vigna

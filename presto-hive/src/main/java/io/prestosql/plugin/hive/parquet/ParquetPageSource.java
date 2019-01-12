@@ -13,21 +13,21 @@
  */
 package io.prestosql.plugin.hive.parquet;
 
-import com.facebook.presto.hive.HiveColumnHandle;
-import com.facebook.presto.parquet.Field;
-import com.facebook.presto.parquet.ParquetCorruptionException;
-import com.facebook.presto.parquet.reader.ParquetReader;
-import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.LazyBlock;
-import com.facebook.presto.spi.block.LazyBlockLoader;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.parquet.Field;
+import io.prestosql.parquet.ParquetCorruptionException;
+import io.prestosql.parquet.reader.ParquetReader;
+import io.prestosql.plugin.hive.HiveColumnHandle;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.LazyBlock;
+import io.prestosql.spi.block.LazyBlockLoader;
+import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
 import parquet.io.MessageColumnIO;
 import parquet.schema.MessageType;
 
@@ -37,13 +37,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
-import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.getParquetType;
-import static com.facebook.presto.parquet.ParquetTypeUtils.getFieldIndex;
-import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.parquet.ParquetTypeUtils.getFieldIndex;
+import static io.prestosql.parquet.ParquetTypeUtils.lookupColumnByName;
+import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
+import static io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory.getParquetType;
 import static java.util.Objects.requireNonNull;
 import static parquet.io.ColumnIOConverter.constructField;
 

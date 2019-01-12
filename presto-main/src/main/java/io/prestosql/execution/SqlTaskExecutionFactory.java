@@ -13,25 +13,25 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.TaskSource;
-import com.facebook.presto.event.SplitMonitor;
-import com.facebook.presto.execution.buffer.OutputBuffer;
-import com.facebook.presto.execution.executor.TaskExecutor;
-import com.facebook.presto.memory.QueryContext;
-import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.sql.planner.LocalExecutionPlanner;
-import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
-import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.TypeProvider;
 import io.airlift.concurrent.SetThreadName;
+import io.prestosql.Session;
+import io.prestosql.TaskSource;
+import io.prestosql.event.SplitMonitor;
+import io.prestosql.execution.buffer.OutputBuffer;
+import io.prestosql.execution.executor.TaskExecutor;
+import io.prestosql.memory.QueryContext;
+import io.prestosql.operator.TaskContext;
+import io.prestosql.sql.planner.LocalExecutionPlanner;
+import io.prestosql.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
+import io.prestosql.sql.planner.PlanFragment;
+import io.prestosql.sql.planner.TypeProvider;
 
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.concurrent.Executor;
 
-import static com.facebook.presto.execution.SqlTaskExecution.createSqlTaskExecution;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static io.prestosql.execution.SqlTaskExecution.createSqlTaskExecution;
 import static java.util.Objects.requireNonNull;
 
 public class SqlTaskExecutionFactory

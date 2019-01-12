@@ -13,23 +13,23 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.tree.DropTable;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.Session;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.metadata.TableHandle;
+import io.prestosql.security.AccessControl;
+import io.prestosql.sql.analyzer.SemanticException;
+import io.prestosql.sql.tree.DropTable;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.transaction.TransactionManager;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 
 public class DropTableTask
         implements DataDefinitionTask<DropTable>

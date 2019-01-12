@@ -13,19 +13,19 @@
  */
 package io.prestosql.plugin.raptor.legacy;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.benchmark.BenchmarkSuite;
-import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.benchmark.BenchmarkSuite;
+import io.prestosql.plugin.tpch.TpchConnectorFactory;
+import io.prestosql.spi.connector.ConnectorFactory;
+import io.prestosql.testing.LocalQueryRunner;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
 public final class RaptorBenchmarkQueryRunner

@@ -13,22 +13,22 @@
  */
 package io.prestosql.plugin.thrift.api.valuesets;
 
-import com.facebook.presto.connector.thrift.api.PrestoThriftBlock;
-import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftBigint;
-import com.facebook.presto.connector.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftMarker;
-import com.facebook.presto.connector.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftRange;
-import com.facebook.presto.spi.predicate.Range;
-import com.facebook.presto.spi.predicate.ValueSet;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.thrift.api.PrestoThriftBlock;
+import io.prestosql.plugin.thrift.api.datatypes.PrestoThriftBigint;
+import io.prestosql.plugin.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftMarker;
+import io.prestosql.plugin.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftRange;
+import io.prestosql.spi.predicate.Range;
+import io.prestosql.spi.predicate.ValueSet;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.bigintData;
-import static com.facebook.presto.connector.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftBound.ABOVE;
-import static com.facebook.presto.connector.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftBound.BELOW;
-import static com.facebook.presto.connector.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftBound.EXACTLY;
-import static com.facebook.presto.connector.thrift.api.valuesets.PrestoThriftValueSet.fromValueSet;
-import static com.facebook.presto.spi.predicate.Range.range;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static io.prestosql.plugin.thrift.api.PrestoThriftBlock.bigintData;
+import static io.prestosql.plugin.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftBound.ABOVE;
+import static io.prestosql.plugin.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftBound.BELOW;
+import static io.prestosql.plugin.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftBound.EXACTLY;
+import static io.prestosql.plugin.thrift.api.valuesets.PrestoThriftValueSet.fromValueSet;
+import static io.prestosql.spi.predicate.Range.range;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 

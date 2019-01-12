@@ -13,8 +13,8 @@
  */
 package io.prestosql.orc;
 
-import com.facebook.presto.orc.stream.OrcDataOutput;
 import io.airlift.slice.OutputStreamSliceOutput;
+import io.prestosql.orc.stream.OrcDataOutput;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;

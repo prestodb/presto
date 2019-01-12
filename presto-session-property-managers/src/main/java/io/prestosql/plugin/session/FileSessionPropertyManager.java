@@ -13,14 +13,14 @@
  */
 package io.prestosql.plugin.session;
 
-import com.facebook.presto.spi.session.SessionConfigurationContext;
-import com.facebook.presto.spi.session.SessionPropertyConfigurationManager;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
+import io.prestosql.spi.session.SessionConfigurationContext;
+import io.prestosql.spi.session.SessionPropertyConfigurationManager;
 
 import javax.inject.Inject;
 

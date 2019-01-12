@@ -13,26 +13,26 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.metadata.FunctionKind;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.sql.planner.OrderingScheme;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
-import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.Signature;
+import io.prestosql.spi.block.SortOrder;
+import io.prestosql.sql.planner.OrderingScheme;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.assertions.ExpectedValueProvider;
+import io.prestosql.sql.planner.assertions.PlanMatchPattern;
+import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
+import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.WindowNode;
+import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.WindowFrame;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -40,17 +40,17 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.windowFrame;
-import static com.facebook.presto.sql.tree.FrameBound.Type.CURRENT_ROW;
-import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictProject;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.window;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.windowFrame;
+import static io.prestosql.sql.tree.FrameBound.Type.CURRENT_ROW;
+import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 
 public class TestPruneWindowColumns
         extends BaseRuleTest

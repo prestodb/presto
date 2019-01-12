@@ -13,13 +13,13 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryTracker.TrackedQuery;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.prestosql.Session;
+import io.prestosql.execution.QueryTracker.TrackedQuery;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.QueryId;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -36,12 +36,12 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.SystemSessionProperties.getQueryMaxExecutionTime;
-import static com.facebook.presto.SystemSessionProperties.getQueryMaxRunTime;
-import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
-import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.SystemSessionProperties.getQueryMaxExecutionTime;
+import static io.prestosql.SystemSessionProperties.getQueryMaxRunTime;
+import static io.prestosql.spi.StandardErrorCode.ABANDONED_QUERY;
+import static io.prestosql.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
+import static io.prestosql.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

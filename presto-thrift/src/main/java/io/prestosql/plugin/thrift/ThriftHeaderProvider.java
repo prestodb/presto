@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.thrift;
 
-import com.facebook.presto.spi.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorSession;
 
 import java.util.Map;
 

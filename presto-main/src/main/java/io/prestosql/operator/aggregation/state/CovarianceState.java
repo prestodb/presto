@@ -13,7 +13,7 @@
  */
 package io.prestosql.operator.aggregation.state;
 
-import com.facebook.presto.spi.function.AccumulatorState;
+import io.prestosql.spi.function.AccumulatorState;
 
 public interface CovarianceState
         extends AccumulatorState

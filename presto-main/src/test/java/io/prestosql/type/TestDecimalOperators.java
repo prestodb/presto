@@ -13,14 +13,14 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import io.prestosql.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
-import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
-import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
+import static io.prestosql.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
 
 public class TestDecimalOperators
         extends AbstractTestFunctions

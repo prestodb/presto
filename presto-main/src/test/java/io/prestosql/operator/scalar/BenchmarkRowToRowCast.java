@@ -13,21 +13,21 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.DriverYieldSignal;
-import com.facebook.presto.operator.project.PageProcessor;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.sql.gen.ExpressionCompiler;
-import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Signature;
+import io.prestosql.operator.DriverYieldSignal;
+import io.prestosql.operator.project.PageProcessor;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
+import io.prestosql.sql.gen.ExpressionCompiler;
+import io.prestosql.sql.gen.PageFunctionCompiler;
+import io.prestosql.sql.relational.CallExpression;
+import io.prestosql.sql.relational.RowExpression;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -47,14 +47,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.metadata.FunctionKind.SCALAR;
-import static com.facebook.presto.spi.block.RowBlock.fromFieldBlocks;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
-import static com.facebook.presto.sql.relational.Expressions.field;
-import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.spi.block.RowBlock.fromFieldBlocks;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.sql.relational.Expressions.field;
+import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 

@@ -13,7 +13,7 @@
  */
 package io.prestosql.spi.security;
 
-import com.facebook.presto.spi.SchemaTableName;
+import io.prestosql.spi.connector.SchemaTableName;
 
 import java.util.Objects;
 import java.util.Optional;

@@ -13,10 +13,10 @@
  */
 package io.prestosql.sql.tree;
 
-import com.facebook.presto.sql.parser.ParsingException;
 import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.sql.parser.ParsingException;
 
 import java.util.Objects;
 import java.util.Optional;

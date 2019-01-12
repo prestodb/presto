@@ -13,17 +13,17 @@
  */
 package io.prestosql.cost;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.plan.Patterns;
-import com.facebook.presto.sql.planner.plan.RowNumberNode;
+import io.prestosql.Session;
+import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.planner.iterative.Lookup;
+import io.prestosql.sql.planner.plan.Patterns;
+import io.prestosql.sql.planner.plan.RowNumberNode;
 
 import java.util.Optional;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.min;
 

@@ -13,11 +13,11 @@
  */
 package io.prestosql.operator.aggregation.arrayagg;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.AccumulatorStateSerializer;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.Type;
 
 public class ArrayAggregationStateSerializer
         implements AccumulatorStateSerializer<ArrayAggregationState>

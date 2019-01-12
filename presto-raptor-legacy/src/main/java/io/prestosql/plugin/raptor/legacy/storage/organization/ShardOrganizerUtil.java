@@ -13,15 +13,15 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage.organization;
 
-import com.facebook.presto.raptor.metadata.MetadataDao;
-import com.facebook.presto.raptor.metadata.ShardMetadata;
-import com.facebook.presto.raptor.metadata.Table;
-import com.facebook.presto.raptor.metadata.TableColumn;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimaps;
+import io.prestosql.plugin.raptor.legacy.metadata.MetadataDao;
+import io.prestosql.plugin.raptor.legacy.metadata.ShardMetadata;
+import io.prestosql.plugin.raptor.legacy.metadata.Table;
+import io.prestosql.plugin.raptor.legacy.metadata.TableColumn;
+import io.prestosql.spi.type.Type;
 import org.skife.jdbi.v2.IDBI;
 
 import java.sql.Connection;
@@ -37,15 +37,15 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.facebook.presto.raptor.metadata.DatabaseShardManager.maxColumn;
-import static com.facebook.presto.raptor.metadata.DatabaseShardManager.minColumn;
-import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
-import static com.facebook.presto.raptor.storage.ColumnIndexStatsUtils.jdbcType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.prestosql.plugin.raptor.legacy.metadata.DatabaseShardManager.maxColumn;
+import static io.prestosql.plugin.raptor.legacy.metadata.DatabaseShardManager.minColumn;
+import static io.prestosql.plugin.raptor.legacy.metadata.DatabaseShardManager.shardIndexTable;
+import static io.prestosql.plugin.raptor.legacy.storage.ColumnIndexStatsUtils.jdbcType;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toSet;

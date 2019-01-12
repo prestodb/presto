@@ -13,9 +13,9 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.predicate.NullableValue;
 
 import java.util.Map;
 

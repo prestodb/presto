@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.raptor.legacy.util;
 
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
 
 public final class Types
 {

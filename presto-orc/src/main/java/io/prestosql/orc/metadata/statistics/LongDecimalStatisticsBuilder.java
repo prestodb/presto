@@ -13,18 +13,18 @@
  */
 package io.prestosql.orc.metadata.statistics;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.Decimals;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.Type;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.orc.metadata.statistics.DecimalStatistics.DECIMAL_VALUE_BYTES_OVERHEAD;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.orc.metadata.statistics.DecimalStatistics.DECIMAL_VALUE_BYTES_OVERHEAD;
 import static java.util.Objects.requireNonNull;
 
 public class LongDecimalStatisticsBuilder

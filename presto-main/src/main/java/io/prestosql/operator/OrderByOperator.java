@@ -13,14 +13,14 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 

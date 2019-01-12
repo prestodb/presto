@@ -13,7 +13,6 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.spi.NodeState;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
@@ -22,6 +21,7 @@ import io.airlift.http.client.HttpClient.HttpResponseFuture;
 import io.airlift.http.client.Request;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.prestosql.spi.NodeState;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;

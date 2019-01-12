@@ -13,17 +13,17 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.execution.QueryStats;
-import com.facebook.presto.execution.resourceGroups.InternalResourceGroup;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.execution.QueryInfo;
+import io.prestosql.execution.QueryState;
+import io.prestosql.execution.QueryStats;
+import io.prestosql.execution.resourceGroups.InternalResourceGroup;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.memory.MemoryPoolId;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
@@ -31,13 +31,13 @@ import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.execution.QueryState.QUEUED;
-import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
-import static com.facebook.presto.server.QueryStateInfo.createQueuedQueryStateInfo;
-import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.execution.QueryState.QUEUED;
+import static io.prestosql.operator.BlockedReason.WAITING_FOR_MEMORY;
+import static io.prestosql.server.QueryStateInfo.createQueuedQueryStateInfo;
+import static io.prestosql.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
 import static org.testng.Assert.assertEquals;
 
 public class TestQueryStateInfo

@@ -13,12 +13,12 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.ProcedureRegistry;
-import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.testing.ProcedureTester;
-import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
+import io.prestosql.Session;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.metadata.ProcedureRegistry;
+import io.prestosql.server.testing.TestingPrestoServer;
+import io.prestosql.testing.ProcedureTester;
+import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -26,8 +26,8 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.testing.TestingSession.TESTING_CATALOG;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;

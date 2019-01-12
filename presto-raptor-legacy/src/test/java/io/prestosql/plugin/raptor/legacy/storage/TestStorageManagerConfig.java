@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage;
 
-import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.spi.type.TimeZoneKey;
 import org.testng.annotations.Test;
 
 import javax.validation.constraints.NotNull;

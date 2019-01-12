@@ -13,10 +13,10 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.operator.BlockedReason;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.operator.BlockedReason;
 
 import java.util.HashSet;
 import java.util.OptionalDouble;

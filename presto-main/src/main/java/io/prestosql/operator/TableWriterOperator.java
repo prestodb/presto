@@ -13,21 +13,6 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.operator.OperationTimer.OperationTiming;
-import com.facebook.presto.spi.ConnectorPageSink;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.split.PageSinkManager;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
-import com.facebook.presto.util.AutoCloseableCloser;
-import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
@@ -35,23 +20,38 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
+import io.prestosql.Session;
+import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.operator.OperationTimer.OperationTiming;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.connector.ConnectorPageSink;
+import io.prestosql.spi.type.Type;
+import io.prestosql.split.PageSinkManager;
+import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.sql.planner.plan.TableWriterNode.WriterTarget;
+import io.prestosql.util.AutoCloseableCloser;
+import io.prestosql.util.Mergeable;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.presto.SystemSessionProperties.isStatisticsCpuTimerEnabled;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
-import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.allAsList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.prestosql.SystemSessionProperties.isStatisticsCpuTimerEnabled;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.sql.planner.plan.TableWriterNode.CreateHandle;
+import static io.prestosql.sql.planner.plan.TableWriterNode.InsertHandle;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 

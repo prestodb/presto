@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.hive.statistics;
 
-import com.facebook.presto.hive.HivePartition;
-import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.hive.HivePartition;
+import io.prestosql.spi.connector.SchemaTableName;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -35,7 +35,7 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.hive.statistics.MetastoreHiveStatisticsProvider.getPartitionsSample;
+import static io.prestosql.plugin.hive.statistics.MetastoreHiveStatisticsProvider.getPartitionsSample;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)

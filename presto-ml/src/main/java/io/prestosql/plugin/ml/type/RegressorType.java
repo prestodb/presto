@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.ml.type;
 
-import com.facebook.presto.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeSignature;
 
 // Layout is <size>:<model>, where
 //   size: is an int describing the length of the model bytes

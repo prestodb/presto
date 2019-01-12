@@ -13,42 +13,42 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.type.Decimals;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.InterpretedFunctionInvoker;
-import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.tree.AstVisitor;
-import com.facebook.presto.sql.tree.BinaryLiteral;
-import com.facebook.presto.sql.tree.BooleanLiteral;
-import com.facebook.presto.sql.tree.CharLiteral;
-import com.facebook.presto.sql.tree.DecimalLiteral;
-import com.facebook.presto.sql.tree.DoubleLiteral;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.GenericLiteral;
-import com.facebook.presto.sql.tree.IntervalLiteral;
-import com.facebook.presto.sql.tree.Literal;
-import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.StringLiteral;
-import com.facebook.presto.sql.tree.TimeLiteral;
-import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.Signature;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.InterpretedFunctionInvoker;
+import io.prestosql.sql.analyzer.SemanticException;
+import io.prestosql.sql.tree.AstVisitor;
+import io.prestosql.sql.tree.BinaryLiteral;
+import io.prestosql.sql.tree.BooleanLiteral;
+import io.prestosql.sql.tree.CharLiteral;
+import io.prestosql.sql.tree.DecimalLiteral;
+import io.prestosql.sql.tree.DoubleLiteral;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.GenericLiteral;
+import io.prestosql.sql.tree.IntervalLiteral;
+import io.prestosql.sql.tree.Literal;
+import io.prestosql.sql.tree.LongLiteral;
+import io.prestosql.sql.tree.NullLiteral;
+import io.prestosql.sql.tree.StringLiteral;
+import io.prestosql.sql.tree.TimeLiteral;
+import io.prestosql.sql.tree.TimestampLiteral;
 
-import static com.facebook.presto.metadata.FunctionKind.SCALAR;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
-import static com.facebook.presto.type.JsonType.JSON;
-import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
-import static com.facebook.presto.util.DateTimeUtils.parseTimeLiteral;
-import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
-import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static io.prestosql.type.JsonType.JSON;
+import static io.prestosql.util.DateTimeUtils.parseDayTimeInterval;
+import static io.prestosql.util.DateTimeUtils.parseTimeLiteral;
+import static io.prestosql.util.DateTimeUtils.parseTimestampLiteral;
+import static io.prestosql.util.DateTimeUtils.parseYearMonthInterval;
 
 public final class LiteralInterpreter
 {

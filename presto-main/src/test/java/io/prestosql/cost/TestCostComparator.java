@@ -13,11 +13,11 @@
  */
 package io.prestosql.cost;
 
-import com.facebook.presto.Session;
+import io.prestosql.Session;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 

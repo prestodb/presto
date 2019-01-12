@@ -13,7 +13,7 @@
  */
 package io.prestosql.spi.function;
 
-import com.facebook.presto.spi.block.BlockBuilder;
+import io.prestosql.spi.block.BlockBuilder;
 
 public abstract class ValueWindowFunction
         implements WindowFunction

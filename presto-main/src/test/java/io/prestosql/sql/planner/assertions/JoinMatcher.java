@@ -13,23 +13,23 @@
  */
 package io.prestosql.sql.planner.assertions;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.cost.StatsProvider;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.JoinNode.DistributionType;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.Session;
+import io.prestosql.cost.StatsProvider;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.sql.planner.plan.JoinNode;
+import io.prestosql.sql.planner.plan.JoinNode.DistributionType;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.tree.Expression;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.sql.planner.assertions.MatchResult.NO_MATCH;
 import static java.util.Objects.requireNonNull;
 
 final class JoinMatcher

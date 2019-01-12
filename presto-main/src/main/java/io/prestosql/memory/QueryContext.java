@@ -13,11 +13,11 @@
  */
 package io.prestosql.memory;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.execution.TaskStateMachine;
-import com.facebook.presto.operator.TaskContext;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.Session;
+import io.prestosql.execution.TaskId;
+import io.prestosql.execution.TaskStateMachine;
+import io.prestosql.operator.TaskContext;
 
 import java.util.List;
 import java.util.OptionalInt;

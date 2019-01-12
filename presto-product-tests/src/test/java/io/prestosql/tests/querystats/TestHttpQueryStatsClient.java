@@ -13,7 +13,6 @@
  */
 package io.prestosql.tests.querystats;
 
-import com.facebook.presto.execution.QueryStats;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.io.Resources;
@@ -22,6 +21,7 @@ import io.airlift.http.client.Response;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.json.ObjectMapperProvider;
+import io.prestosql.execution.QueryStats;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 

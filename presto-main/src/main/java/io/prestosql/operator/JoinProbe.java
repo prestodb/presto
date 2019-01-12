@@ -13,14 +13,14 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 
 public class JoinProbe
 {

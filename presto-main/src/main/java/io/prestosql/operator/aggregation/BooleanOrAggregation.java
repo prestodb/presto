@@ -13,20 +13,20 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.TriStateBooleanState;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.AggregationFunction;
-import com.facebook.presto.spi.function.AggregationState;
-import com.facebook.presto.spi.function.CombineFunction;
-import com.facebook.presto.spi.function.InputFunction;
-import com.facebook.presto.spi.function.OutputFunction;
-import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.StandardTypes;
+import io.prestosql.operator.aggregation.state.TriStateBooleanState;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.AggregationFunction;
+import io.prestosql.spi.function.AggregationState;
+import io.prestosql.spi.function.CombineFunction;
+import io.prestosql.spi.function.InputFunction;
+import io.prestosql.spi.function.OutputFunction;
+import io.prestosql.spi.function.SqlType;
+import io.prestosql.spi.type.BooleanType;
+import io.prestosql.spi.type.StandardTypes;
 
-import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.FALSE_VALUE;
-import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.NULL_VALUE;
-import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.TRUE_VALUE;
+import static io.prestosql.operator.aggregation.state.TriStateBooleanState.FALSE_VALUE;
+import static io.prestosql.operator.aggregation.state.TriStateBooleanState.NULL_VALUE;
+import static io.prestosql.operator.aggregation.state.TriStateBooleanState.TRUE_VALUE;
 
 @AggregationFunction(value = "bool_or")
 public final class BooleanOrAggregation

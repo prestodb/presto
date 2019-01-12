@@ -13,11 +13,11 @@
  */
 package io.prestosql.orc;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.SqlDecimal;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.SqlDecimal;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -44,17 +44,17 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.orc.OrcEncoding.ORC;
-import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
-import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
-import static com.facebook.presto.orc.OrcTester.writeOrcColumnHive;
-import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
-import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.orc.OrcEncoding.ORC;
+import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
+import static io.prestosql.orc.OrcTester.Format.ORC_12;
+import static io.prestosql.orc.OrcTester.writeOrcColumnHive;
+import static io.prestosql.orc.metadata.CompressionKind.NONE;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static java.util.UUID.randomUUID;
 
 @SuppressWarnings("MethodMayBeStatic")

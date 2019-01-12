@@ -13,20 +13,20 @@
  */
 package io.prestosql.plugin.hive.authentication;
 
-import com.facebook.presto.hive.ForHdfs;
-import com.facebook.presto.hive.ForHiveMetastore;
-import com.facebook.presto.hive.HdfsConfigurationUpdater;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
+import io.prestosql.plugin.hive.ForHdfs;
+import io.prestosql.plugin.hive.ForHiveMetastore;
+import io.prestosql.plugin.hive.HdfsConfigurationUpdater;
 
 import javax.inject.Inject;
 
-import static com.facebook.presto.hive.authentication.KerberosHadoopAuthentication.createKerberosHadoopAuthentication;
 import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.prestosql.plugin.hive.authentication.KerberosHadoopAuthentication.createKerberosHadoopAuthentication;
 
 public final class AuthenticationModules
 {

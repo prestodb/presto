@@ -13,8 +13,8 @@
  */
 package io.prestosql.spi.block;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.Type;
 
 import static java.lang.String.format;
 

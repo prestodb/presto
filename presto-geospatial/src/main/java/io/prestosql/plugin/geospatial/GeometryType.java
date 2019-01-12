@@ -13,14 +13,14 @@
  */
 package io.prestosql.plugin.geospatial;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.AbstractVariableWidthType;
-import com.facebook.presto.spi.type.TypeSignature;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.AbstractVariableWidthType;
+import io.prestosql.spi.type.TypeSignature;
 
-import static com.facebook.presto.geospatial.serde.GeometrySerde.deserialize;
+import static io.prestosql.geospatial.serde.GeometrySerde.deserialize;
 
 public class GeometryType
         extends AbstractVariableWidthType

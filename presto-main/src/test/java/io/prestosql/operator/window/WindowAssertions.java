@@ -13,8 +13,8 @@
  */
 package io.prestosql.operator.window;
 
-import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.testing.MaterializedResult;
+import io.prestosql.testing.LocalQueryRunner;
+import io.prestosql.testing.MaterializedResult;
 import org.intellij.lang.annotations.Language;
 
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;

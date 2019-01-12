@@ -13,28 +13,28 @@
  */
 package io.prestosql.plugin.raptor.legacy;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.raptor.storage.StorageManagerConfig;
-import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.tpch.TpchTable;
+import io.prestosql.Session;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.metadata.SessionPropertyManager;
+import io.prestosql.plugin.raptor.legacy.storage.StorageManagerConfig;
+import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.tests.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
 
 import java.io.File;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
-import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.tests.QueryAssertions.copyTpchTables;
 import static java.lang.String.format;
 
 public final class RaptorQueryRunner

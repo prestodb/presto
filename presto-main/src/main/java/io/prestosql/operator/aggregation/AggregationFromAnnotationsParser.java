@@ -13,18 +13,18 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.operator.ParametricImplementationsGroup;
-import com.facebook.presto.operator.annotations.FunctionsParserHelper;
-import com.facebook.presto.spi.function.AccumulatorState;
-import com.facebook.presto.spi.function.AggregationFunction;
-import com.facebook.presto.spi.function.AggregationStateSerializerFactory;
-import com.facebook.presto.spi.function.CombineFunction;
-import com.facebook.presto.spi.function.InputFunction;
-import com.facebook.presto.spi.function.OutputFunction;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.operator.ParametricImplementationsGroup;
+import io.prestosql.operator.annotations.FunctionsParserHelper;
+import io.prestosql.spi.function.AccumulatorState;
+import io.prestosql.spi.function.AggregationFunction;
+import io.prestosql.spi.function.AggregationStateSerializerFactory;
+import io.prestosql.spi.function.CombineFunction;
+import io.prestosql.spi.function.InputFunction;
+import io.prestosql.spi.function.OutputFunction;
+import io.prestosql.spi.type.TypeSignature;
 
 import javax.annotation.Nullable;
 
@@ -35,11 +35,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.operator.aggregation.AggregationImplementation.Parser.parseImplementation;
-import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseDescription;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.operator.aggregation.AggregationImplementation.Parser.parseImplementation;
+import static io.prestosql.operator.annotations.FunctionsParserHelper.parseDescription;
 import static java.util.Objects.requireNonNull;
 
 public class AggregationFromAnnotationsParser

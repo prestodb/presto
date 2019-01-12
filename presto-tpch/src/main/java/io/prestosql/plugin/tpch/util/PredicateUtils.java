@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.tpch.util;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.predicate.NullableValue;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.tpch.TpchColumnHandle;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.tpch.TpchColumnHandle;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.predicate.NullableValue;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.function.Predicate;
 

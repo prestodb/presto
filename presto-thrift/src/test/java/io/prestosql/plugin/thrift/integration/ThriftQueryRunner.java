@@ -13,23 +13,6 @@
  */
 package io.prestosql.plugin.thrift.integration;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.connector.thrift.ThriftPlugin;
-import com.facebook.presto.connector.thrift.server.ThriftIndexedTpchService;
-import com.facebook.presto.connector.thrift.server.ThriftTpchService;
-import com.facebook.presto.cost.StatsCalculator;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.split.PageSourceManager;
-import com.facebook.presto.split.SplitManager;
-import com.facebook.presto.sql.planner.NodePartitioningManager;
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.testing.TestingAccessControlManager;
-import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -42,14 +25,31 @@ import io.airlift.drift.transport.netty.server.DriftNettyServerTransport;
 import io.airlift.drift.transport.netty.server.DriftNettyServerTransportFactory;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.prestosql.Session;
+import io.prestosql.cost.StatsCalculator;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.plugin.thrift.ThriftPlugin;
+import io.prestosql.plugin.thrift.server.ThriftIndexedTpchService;
+import io.prestosql.plugin.thrift.server.ThriftTpchService;
+import io.prestosql.server.testing.TestingPrestoServer;
+import io.prestosql.spi.Plugin;
+import io.prestosql.split.PageSourceManager;
+import io.prestosql.split.SplitManager;
+import io.prestosql.sql.planner.NodePartitioningManager;
+import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.TestingAccessControlManager;
+import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.transaction.TransactionManager;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.Lock;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.testing.Closeables.closeQuietly;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 

@@ -13,10 +13,10 @@
  */
 package io.prestosql.sql.relational;
 
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.FunctionType;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.type.Type;
+import io.prestosql.type.FunctionType;
 
 import java.util.List;
 import java.util.Objects;

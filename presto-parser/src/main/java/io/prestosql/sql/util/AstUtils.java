@@ -13,9 +13,9 @@
  */
 package io.prestosql.sql.util;
 
-import com.facebook.presto.sql.tree.Node;
 import com.google.common.graph.SuccessorsFunction;
 import com.google.common.graph.Traverser;
+import io.prestosql.sql.tree.Node;
 
 import java.util.stream.Stream;
 

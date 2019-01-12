@@ -13,20 +13,20 @@
  */
 package io.prestosql.plugin.kudu.procedures;
 
-import com.facebook.presto.kudu.KuduClientSession;
-import com.facebook.presto.kudu.properties.KuduTableProperties;
-import com.facebook.presto.kudu.properties.RangePartition;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.procedure.Procedure;
-import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.kudu.KuduClientSession;
+import io.prestosql.plugin.kudu.properties.KuduTableProperties;
+import io.prestosql.plugin.kudu.properties.RangePartition;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.procedure.Procedure;
+import io.prestosql.spi.procedure.Procedure.Argument;
 
 import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.spi.block.MethodHandleUtil.methodHandle;
-import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
+import static io.prestosql.spi.block.MethodHandleUtil.methodHandle;
+import static io.prestosql.spi.type.StandardTypes.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class RangePartitionProcedures

@@ -13,8 +13,8 @@
  */
 package io.prestosql.orc;
 
-import com.facebook.presto.orc.metadata.CompressionKind;
 import io.airlift.slice.DynamicSliceOutput;
+import io.prestosql.orc.metadata.CompressionKind;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;

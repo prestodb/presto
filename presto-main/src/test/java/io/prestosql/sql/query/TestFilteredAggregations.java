@@ -13,19 +13,19 @@
  */
 package io.prestosql.sql.query;
 
-import com.facebook.presto.sql.planner.LogicalPlanner;
-import com.facebook.presto.sql.planner.assertions.BasePlanTest;
-import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.sql.planner.LogicalPlanner;
+import io.prestosql.sql.planner.assertions.BasePlanTest;
+import io.prestosql.sql.planner.plan.FilterNode;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static com.facebook.presto.util.MorePredicates.isInstanceOfAny;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static io.prestosql.util.MorePredicates.isInstanceOfAny;
 import static org.testng.Assert.assertFalse;
 
 public class TestFilteredAggregations

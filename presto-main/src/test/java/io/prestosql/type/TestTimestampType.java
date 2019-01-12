@@ -13,11 +13,11 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.SqlTimestamp;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.SqlTimestamp;
 
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 
 public class TestTimestampType
         extends AbstractTestType

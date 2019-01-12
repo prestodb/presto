@@ -13,15 +13,6 @@
  */
 package io.prestosql.transaction;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.Catalog;
-import com.facebook.presto.metadata.CatalogManager;
-import com.facebook.presto.metadata.CatalogMetadata;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.connector.Connector;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
@@ -31,6 +22,15 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.concurrent.ExecutorServiceAdapter;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.metadata.Catalog;
+import io.prestosql.metadata.CatalogManager;
+import io.prestosql.metadata.CatalogMetadata;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.Connector;
+import io.prestosql.spi.connector.ConnectorMetadata;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.transaction.IsolationLevel;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -52,12 +52,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.spi.StandardErrorCode.AUTOCOMMIT_WRITE_CONFLICT;
-import static com.facebook.presto.spi.StandardErrorCode.MULTI_CATALOG_WRITE_CONFLICT;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
-import static com.facebook.presto.spi.StandardErrorCode.READ_ONLY_VIOLATION;
-import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
-import static com.facebook.presto.spi.StandardErrorCode.UNKNOWN_TRANSACTION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -68,6 +62,12 @@ import static com.google.common.util.concurrent.Futures.nonCancellationPropagati
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
+import static io.prestosql.spi.StandardErrorCode.AUTOCOMMIT_WRITE_CONFLICT;
+import static io.prestosql.spi.StandardErrorCode.MULTI_CATALOG_WRITE_CONFLICT;
+import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
+import static io.prestosql.spi.StandardErrorCode.READ_ONLY_VIOLATION;
+import static io.prestosql.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
+import static io.prestosql.spi.StandardErrorCode.UNKNOWN_TRANSACTION;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;

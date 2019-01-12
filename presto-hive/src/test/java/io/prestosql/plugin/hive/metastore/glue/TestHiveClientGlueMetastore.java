@@ -13,14 +13,14 @@
  */
 package io.prestosql.plugin.hive.metastore.glue;
 
-import com.facebook.presto.hive.AbstractTestHiveClientLocal;
-import com.facebook.presto.hive.HdfsConfiguration;
-import com.facebook.presto.hive.HdfsConfigurationUpdater;
-import com.facebook.presto.hive.HdfsEnvironment;
-import com.facebook.presto.hive.HiveClientConfig;
-import com.facebook.presto.hive.HiveHdfsConfiguration;
-import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import io.prestosql.plugin.hive.AbstractTestHiveClientLocal;
+import io.prestosql.plugin.hive.HdfsConfiguration;
+import io.prestosql.plugin.hive.HdfsConfigurationUpdater;
+import io.prestosql.plugin.hive.HdfsEnvironment;
+import io.prestosql.plugin.hive.HiveClientConfig;
+import io.prestosql.plugin.hive.HiveHdfsConfiguration;
+import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
+import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
 
 import java.io.File;
 

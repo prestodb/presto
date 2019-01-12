@@ -13,11 +13,11 @@
  */
 package io.prestosql.sql;
 
-import com.facebook.presto.sql.parser.ParsingException;
-import com.facebook.presto.sql.parser.SqlBaseLexer;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.tree.Identifier;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.sql.parser.ParsingException;
+import io.prestosql.sql.parser.SqlBaseLexer;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.tree.Identifier;
 import org.antlr.v4.runtime.Vocabulary;
 
 import java.io.IOException;

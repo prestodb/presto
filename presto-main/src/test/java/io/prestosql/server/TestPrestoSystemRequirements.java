@@ -15,8 +15,8 @@ package io.prestosql.server;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.server.PrestoSystemRequirements.verifyJvmRequirements;
-import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
+import static io.prestosql.server.PrestoSystemRequirements.verifyJvmRequirements;
+import static io.prestosql.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
 
 public class TestPrestoSystemRequirements
 {

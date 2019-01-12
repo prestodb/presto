@@ -13,20 +13,20 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.annotations.VisibleForTesting;
+import io.prestosql.Session;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.gen.JoinCompiler;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregationEnabled;
-import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.SystemSessionProperties.isDictionaryAggregationEnabled;
+import static io.prestosql.operator.GroupByHash.createGroupByHash;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 
 public class MarkDistinctHash
 {

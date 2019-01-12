@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.memory;
 
-import com.facebook.presto.spi.HostAddress;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.spi.HostAddress;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.json.JsonCodec.jsonCodec;

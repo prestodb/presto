@@ -14,7 +14,7 @@
 
 package io.prestosql.spi.block;
 
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.type.Type;
 
 import javax.annotation.Nullable;
 
@@ -22,12 +22,12 @@ import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
-import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
-import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
-import static com.facebook.presto.spi.block.BlockUtil.compactArray;
-import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
-import static com.facebook.presto.spi.block.MapBlock.createMapBlockInternal;
+import static io.prestosql.spi.block.BlockUtil.checkArrayRange;
+import static io.prestosql.spi.block.BlockUtil.checkValidPositions;
+import static io.prestosql.spi.block.BlockUtil.checkValidRegion;
+import static io.prestosql.spi.block.BlockUtil.compactArray;
+import static io.prestosql.spi.block.BlockUtil.compactOffsets;
+import static io.prestosql.spi.block.MapBlock.createMapBlockInternal;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractMapBlock

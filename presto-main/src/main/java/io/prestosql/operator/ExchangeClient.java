@@ -13,10 +13,6 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.execution.buffer.SerializedPage;
-import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
-import com.facebook.presto.operator.WorkProcessor.ProcessState;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -24,6 +20,10 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.http.client.HttpClient;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.execution.buffer.SerializedPage;
+import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.operator.HttpPageBufferClient.ClientCallback;
+import io.prestosql.operator.WorkProcessor.ProcessState;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -44,11 +44,11 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.execution.buffer.PageCompression.UNCOMPRESSED;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static io.prestosql.execution.buffer.PageCompression.UNCOMPRESSED;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe

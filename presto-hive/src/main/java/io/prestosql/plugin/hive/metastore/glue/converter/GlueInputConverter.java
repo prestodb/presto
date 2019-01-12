@@ -18,20 +18,20 @@ import com.amazonaws.services.glue.model.PartitionInput;
 import com.amazonaws.services.glue.model.SerDeInfo;
 import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.amazonaws.services.glue.model.TableInput;
-import com.facebook.presto.hive.PartitionStatistics;
-import com.facebook.presto.hive.metastore.Column;
-import com.facebook.presto.hive.metastore.Database;
-import com.facebook.presto.hive.metastore.Partition;
-import com.facebook.presto.hive.metastore.PartitionWithStatistics;
-import com.facebook.presto.hive.metastore.Storage;
-import com.facebook.presto.hive.metastore.Table;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.hive.PartitionStatistics;
+import io.prestosql.plugin.hive.metastore.Column;
+import io.prestosql.plugin.hive.metastore.Database;
+import io.prestosql.plugin.hive.metastore.Partition;
+import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
+import io.prestosql.plugin.hive.metastore.Storage;
+import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.spi.PrestoException;
 
 import java.util.List;
 
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.stream.Collectors.toList;
 
 public final class GlueInputConverter

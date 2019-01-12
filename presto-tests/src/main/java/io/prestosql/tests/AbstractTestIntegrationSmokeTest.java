@@ -13,13 +13,13 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.testing.MaterializedResult;
+import io.prestosql.testing.MaterializedResult;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static com.facebook.presto.tests.QueryAssertions.assertContains;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.prestosql.tests.QueryAssertions.assertContains;
 
 public abstract class AbstractTestIntegrationSmokeTest
         extends AbstractTestQueryFramework

@@ -13,9 +13,9 @@
  */
 package io.prestosql.operator.aggregation.multimapagg;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.function.AccumulatorState;
-import com.facebook.presto.spi.function.AccumulatorStateMetadata;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.function.AccumulatorState;
+import io.prestosql.spi.function.AccumulatorStateMetadata;
 
 @AccumulatorStateMetadata(stateFactoryClass = MultimapAggregationStateFactory.class, stateSerializerClass = MultimapAggregationStateSerializer.class)
 public interface MultimapAggregationState

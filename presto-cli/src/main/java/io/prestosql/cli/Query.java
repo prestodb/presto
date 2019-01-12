@@ -13,17 +13,17 @@
  */
 package io.prestosql.cli;
 
-import com.facebook.presto.cli.ClientOptions.OutputFormat;
-import com.facebook.presto.client.Column;
-import com.facebook.presto.client.ErrorLocation;
-import com.facebook.presto.client.QueryError;
-import com.facebook.presto.client.QueryStatusInfo;
-import com.facebook.presto.client.StatementClient;
-import com.facebook.presto.spi.PrestoWarning;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import io.prestosql.cli.ClientOptions.OutputFormat;
+import io.prestosql.client.Column;
+import io.prestosql.client.ErrorLocation;
+import io.prestosql.client.QueryError;
+import io.prestosql.client.QueryStatusInfo;
+import io.prestosql.client.StatementClient;
+import io.prestosql.spi.PrestoWarning;
 import org.fusesource.jansi.Ansi;
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
@@ -42,9 +42,9 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.cli.ConsolePrinter.REAL_TERMINAL;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.cli.ConsolePrinter.REAL_TERMINAL;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;

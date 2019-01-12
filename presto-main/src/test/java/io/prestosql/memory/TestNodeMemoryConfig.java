@@ -20,11 +20,11 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.facebook.presto.memory.LocalMemoryManager.validateHeapHeadroom;
-import static com.facebook.presto.memory.NodeMemoryConfig.AVAILABLE_HEAP_MEMORY;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.prestosql.memory.LocalMemoryManager.validateHeapHeadroom;
+import static io.prestosql.memory.NodeMemoryConfig.AVAILABLE_HEAP_MEMORY;
 
 public class TestNodeMemoryConfig
 {

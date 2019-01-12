@@ -14,12 +14,12 @@
 
 package io.prestosql.sql.gen;
 
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
-import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
-import com.facebook.presto.sql.relational.RowExpression;
 import io.airlift.bytecode.BytecodeNode;
+import io.prestosql.metadata.Signature;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
+import io.prestosql.sql.relational.LambdaDefinitionExpression;
+import io.prestosql.sql.relational.RowExpression;
 
 import java.util.List;
 import java.util.Map;

@@ -13,19 +13,19 @@
  */
 package io.prestosql.plugin.memory;
 
-import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.prestosql.spi.NodeManager;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Objects.requireNonNull;
 
 public class MemoryModule

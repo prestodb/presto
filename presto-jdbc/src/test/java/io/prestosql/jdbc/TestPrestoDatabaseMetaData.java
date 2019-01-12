@@ -13,10 +13,10 @@
  */
 package io.prestosql.jdbc;
 
-import com.facebook.presto.server.BasicQueryInfo;
-import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.spi.QueryId;
 import io.airlift.log.Logging;
+import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.server.testing.TestingPrestoServer;
+import io.prestosql.spi.QueryId;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
@@ -32,10 +32,10 @@ import java.sql.Types;
 import java.util.Set;
 import java.util.concurrent.Callable;
 
-import static com.facebook.presto.jdbc.TestPrestoDriver.closeQuietly;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertContains;
+import static io.prestosql.jdbc.TestPrestoDriver.closeQuietly;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

@@ -13,12 +13,6 @@
  */
 package io.prestosql.execution.executor;
 
-import com.facebook.presto.execution.SplitRunner;
-import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.execution.TaskManagerConfig;
-import com.facebook.presto.server.ServerConfig;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.version.EmbedVersion;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ComparisonChain;
@@ -30,6 +24,12 @@ import io.airlift.stats.CounterStat;
 import io.airlift.stats.TimeDistribution;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
+import io.prestosql.execution.SplitRunner;
+import io.prestosql.execution.TaskId;
+import io.prestosql.execution.TaskManagerConfig;
+import io.prestosql.server.ServerConfig;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.version.EmbedVersion;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -60,14 +60,14 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.function.DoubleSupplier;
 
-import static com.facebook.presto.execution.executor.MultilevelSplitQueue.computeLevel;
-import static com.facebook.presto.util.MoreMath.min;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.prestosql.execution.executor.MultilevelSplitQueue.computeLevel;
+import static io.prestosql.util.MoreMath.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;

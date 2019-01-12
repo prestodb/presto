@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.redis;
 
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 
 public class RedisTableLayoutHandle
         implements ConnectorTableLayoutHandle

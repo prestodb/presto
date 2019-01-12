@@ -13,23 +13,23 @@
  */
 package io.prestosql.execution.buffer;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.execution.buffer.PagesSerdeUtil.readPages;
-import static com.facebook.presto.execution.buffer.PagesSerdeUtil.writePages;
-import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.execution.buffer.PagesSerdeUtil.readPages;
+import static io.prestosql.execution.buffer.PagesSerdeUtil.writePages;
+import static io.prestosql.operator.PageAssertions.assertPageEquals;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 

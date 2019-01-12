@@ -13,11 +13,11 @@
  */
 package io.prestosql.split;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.UpdatablePageSource;
-import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.connector.UpdatablePageSource;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;

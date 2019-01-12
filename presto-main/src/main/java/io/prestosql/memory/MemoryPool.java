@@ -13,15 +13,15 @@
  */
 package io.prestosql.memory;
 
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.memory.MemoryAllocation;
-import com.facebook.presto.spi.memory.MemoryPoolId;
-import com.facebook.presto.spi.memory.MemoryPoolInfo;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.memory.MemoryAllocation;
+import io.prestosql.spi.memory.MemoryPoolId;
+import io.prestosql.spi.memory.MemoryPoolInfo;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.Nullable;
@@ -34,10 +34,10 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.operator.Operator.NOT_BLOCKED;
 import static java.util.Objects.requireNonNull;
 
 public class MemoryPool

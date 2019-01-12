@@ -13,12 +13,12 @@
  */
 package io.prestosql.sql.planner.optimizations;
 
-import com.facebook.presto.spi.LocalProperty;
-import com.facebook.presto.sql.planner.Partitioning;
-import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.prestosql.spi.connector.LocalProperty;
+import io.prestosql.sql.planner.Partitioning;
+import io.prestosql.sql.planner.Symbol;
 
 import javax.annotation.concurrent.Immutable;
 

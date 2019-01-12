@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.redis;
 
-import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldValueProvider;
+import io.prestosql.decoder.DecoderColumnHandle;
+import io.prestosql.decoder.FieldValueProvider;
 
 /**
  * Format specific field decoder description.

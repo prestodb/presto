@@ -13,7 +13,7 @@
  */
 package io.prestosql.spi.resourcegroups;
 
-import com.facebook.presto.spi.session.ResourceEstimates;
+import io.prestosql.spi.session.ResourceEstimates;
 
 import java.util.Optional;
 import java.util.Set;

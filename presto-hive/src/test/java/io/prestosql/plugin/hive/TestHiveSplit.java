@@ -13,21 +13,21 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.HiveColumnHandle.ColumnType;
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
+import io.prestosql.plugin.hive.HiveColumnHandle.ColumnType;
+import io.prestosql.spi.HostAddress;
+import io.prestosql.spi.predicate.TupleDomain;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveType.HIVE_LONG;
-import static com.facebook.presto.hive.HiveType.HIVE_STRING;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
+import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveSplit

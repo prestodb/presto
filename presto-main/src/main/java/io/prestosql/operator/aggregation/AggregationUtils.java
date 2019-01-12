@@ -13,15 +13,15 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.CentralMomentsState;
-import com.facebook.presto.operator.aggregation.state.CorrelationState;
-import com.facebook.presto.operator.aggregation.state.CovarianceState;
-import com.facebook.presto.operator.aggregation.state.RegressionState;
-import com.facebook.presto.operator.aggregation.state.VarianceState;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.CaseFormat;
+import io.prestosql.operator.aggregation.state.CentralMomentsState;
+import io.prestosql.operator.aggregation.state.CorrelationState;
+import io.prestosql.operator.aggregation.state.CovarianceState;
+import io.prestosql.operator.aggregation.state.RegressionState;
+import io.prestosql.operator.aggregation.state.VarianceState;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.util.List;
 import java.util.function.Function;

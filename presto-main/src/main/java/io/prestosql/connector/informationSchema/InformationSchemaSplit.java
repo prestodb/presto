@@ -13,13 +13,13 @@
  */
 package io.prestosql.connector.informationSchema;
 
-import com.facebook.presto.metadata.QualifiedTablePrefix;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.HostAddress;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.metadata.QualifiedTablePrefix;
+import io.prestosql.spi.HostAddress;
+import io.prestosql.spi.connector.ConnectorSplit;
 
 import java.util.List;
 import java.util.Set;

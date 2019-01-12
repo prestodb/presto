@@ -13,10 +13,10 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.index.IndexHandleJacksonModule;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.prestosql.index.IndexHandleJacksonModule;
 
 import static io.airlift.json.JsonBinder.jsonBinder;
 

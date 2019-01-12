@@ -13,16 +13,16 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.operator.ChannelSet.ChannelSetBuilder;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.JoinCompiler;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.prestosql.operator.ChannelSet.ChannelSetBuilder;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.gen.JoinCompiler;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;

@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
-import com.facebook.presto.hive.metastore.thrift.InMemoryHiveMetastore;
+import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
+import io.prestosql.plugin.hive.metastore.thrift.BridgingHiveMetastore;
+import io.prestosql.plugin.hive.metastore.thrift.InMemoryHiveMetastore;
 
 import java.io.File;
 

@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.tpch;
 
-import com.facebook.presto.spi.ConnectorTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 
 import java.util.Objects;
 

@@ -13,8 +13,8 @@
  */
 package io.prestosql.parquet.reader;
 
-import com.facebook.presto.parquet.Field;
-import com.facebook.presto.parquet.ParquetTypeUtils;
+import io.prestosql.parquet.Field;
+import io.prestosql.parquet.ParquetTypeUtils;
 import it.unimi.dsi.fastutil.booleans.BooleanList;
 import it.unimi.dsi.fastutil.ints.IntList;
 

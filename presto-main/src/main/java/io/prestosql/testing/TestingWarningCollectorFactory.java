@@ -13,9 +13,9 @@
  */
 package io.prestosql.testing;
 
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.execution.warnings.WarningCollectorConfig;
-import com.facebook.presto.execution.warnings.WarningCollectorFactory;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.execution.warnings.WarningCollectorConfig;
+import io.prestosql.execution.warnings.WarningCollectorFactory;
 
 import static java.util.Objects.requireNonNull;
 

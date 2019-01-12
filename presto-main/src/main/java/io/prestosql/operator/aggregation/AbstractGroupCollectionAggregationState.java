@@ -13,11 +13,11 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.array.IntBigArray;
-import com.facebook.presto.array.ShortBigArray;
-import com.facebook.presto.operator.aggregation.state.AbstractGroupedAccumulatorState;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
+import io.prestosql.array.IntBigArray;
+import io.prestosql.array.ShortBigArray;
+import io.prestosql.operator.aggregation.state.AbstractGroupedAccumulatorState;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.block.Block;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongList;
 import org.openjdk.jol.info.ClassLayout;

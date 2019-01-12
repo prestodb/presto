@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.ml;
 
-import com.facebook.presto.spi.function.AccumulatorState;
-import com.facebook.presto.spi.function.AccumulatorStateMetadata;
+import io.prestosql.spi.function.AccumulatorState;
+import io.prestosql.spi.function.AccumulatorStateMetadata;
 
 import java.util.Map;
 

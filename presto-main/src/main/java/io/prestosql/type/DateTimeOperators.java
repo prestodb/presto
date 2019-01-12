@@ -13,23 +13,23 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.StandardTypes;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.ScalarOperator;
+import io.prestosql.spi.function.SqlType;
+import io.prestosql.spi.type.StandardTypes;
 import org.joda.time.DateTimeField;
 import org.joda.time.chrono.ISOChronology;
 
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.function.OperatorType.ADD;
-import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
-import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static com.facebook.presto.spi.type.DateTimeEncoding.updateMillisUtc;
-import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
-import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.function.OperatorType.ADD;
+import static io.prestosql.spi.function.OperatorType.SUBTRACT;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.prestosql.spi.type.DateTimeEncoding.updateMillisUtc;
+import static io.prestosql.util.DateTimeZoneIndex.getChronology;
+import static io.prestosql.util.DateTimeZoneIndex.unpackChronology;
 
 public final class DateTimeOperators
 {

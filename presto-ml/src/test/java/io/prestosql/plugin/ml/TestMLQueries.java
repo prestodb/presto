@@ -13,18 +13,18 @@
  */
 package io.prestosql.plugin.ml;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.spi.type.ParametricType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.tests.AbstractTestQueryFramework;
-import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.plugin.tpch.TpchConnectorFactory;
+import io.prestosql.spi.type.ParametricType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.testing.LocalQueryRunner;
+import io.prestosql.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
+import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public class TestMLQueries
         extends AbstractTestQueryFramework

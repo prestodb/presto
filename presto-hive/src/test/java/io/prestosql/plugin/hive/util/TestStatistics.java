@@ -13,14 +13,14 @@
  */
 package io.prestosql.plugin.hive.util;
 
-import com.facebook.presto.hive.HiveBasicStatistics;
-import com.facebook.presto.hive.metastore.BooleanStatistics;
-import com.facebook.presto.hive.metastore.DateStatistics;
-import com.facebook.presto.hive.metastore.DecimalStatistics;
-import com.facebook.presto.hive.metastore.DoubleStatistics;
-import com.facebook.presto.hive.metastore.HiveColumnStatistics;
-import com.facebook.presto.hive.metastore.IntegerStatistics;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.hive.HiveBasicStatistics;
+import io.prestosql.plugin.hive.metastore.BooleanStatistics;
+import io.prestosql.plugin.hive.metastore.DateStatistics;
+import io.prestosql.plugin.hive.metastore.DecimalStatistics;
+import io.prestosql.plugin.hive.metastore.DoubleStatistics;
+import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
+import io.prestosql.plugin.hive.metastore.IntegerStatistics;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -30,16 +30,16 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
-import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
-import static com.facebook.presto.hive.HiveBasicStatistics.createZeroStatistics;
-import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
-import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
-import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
-import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
-import static com.facebook.presto.hive.util.Statistics.ReduceOperator.ADD;
-import static com.facebook.presto.hive.util.Statistics.ReduceOperator.SUBTRACT;
-import static com.facebook.presto.hive.util.Statistics.merge;
-import static com.facebook.presto.hive.util.Statistics.reduce;
+import static io.prestosql.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
+import static io.prestosql.plugin.hive.HiveBasicStatistics.createZeroStatistics;
+import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
+import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
+import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
+import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
+import static io.prestosql.plugin.hive.util.Statistics.ReduceOperator.ADD;
+import static io.prestosql.plugin.hive.util.Statistics.ReduceOperator.SUBTRACT;
+import static io.prestosql.plugin.hive.util.Statistics.merge;
+import static io.prestosql.plugin.hive.util.Statistics.reduce;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestStatistics

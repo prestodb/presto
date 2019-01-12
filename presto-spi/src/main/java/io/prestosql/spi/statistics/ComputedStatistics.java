@@ -13,7 +13,7 @@
  */
 package io.prestosql.spi.statistics;
 
-import com.facebook.presto.spi.block.Block;
+import io.prestosql.spi.block.Block;
 
 import java.util.ArrayList;
 import java.util.HashMap;

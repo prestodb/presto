@@ -20,9 +20,9 @@ import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Statement;
 import com.datastax.driver.core.TokenRange;
 import com.datastax.driver.core.VersionNumber;
-import com.facebook.presto.spi.SchemaNotFoundException;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TableNotFoundException;
+import io.prestosql.spi.connector.SchemaNotFoundException;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.connector.TableNotFoundException;
 
 import java.nio.ByteBuffer;
 import java.util.List;

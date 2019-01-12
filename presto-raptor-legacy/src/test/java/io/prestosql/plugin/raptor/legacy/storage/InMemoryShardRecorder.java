@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage;
 
-import com.facebook.presto.raptor.metadata.ShardRecorder;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.raptor.legacy.metadata.ShardRecorder;
 
 import java.util.ArrayList;
 import java.util.List;

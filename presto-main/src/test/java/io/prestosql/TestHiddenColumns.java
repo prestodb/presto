@@ -13,17 +13,17 @@
  */
 package io.prestosql;
 
-import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.tpch.TpchConnectorFactory;
+import io.prestosql.testing.LocalQueryRunner;
+import io.prestosql.testing.MaterializedResult;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.assertions.Assert.assertEquals;
 
 public class TestHiddenColumns
 {

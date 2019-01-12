@@ -15,8 +15,8 @@ package io.prestosql.sql.query;
 
 import org.testng.annotations.BeforeClass;
 
-import static com.facebook.presto.SystemSessionProperties.USE_MARK_DISTINCT;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.SystemSessionProperties.USE_MARK_DISTINCT;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public class TestDistinctAggregationsNoMarkDistinct
         extends TestDistinctAggregations

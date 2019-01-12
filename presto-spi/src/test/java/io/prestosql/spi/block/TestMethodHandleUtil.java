@@ -19,9 +19,9 @@ import org.testng.annotations.Test;
 import java.lang.invoke.MethodHandle;
 import java.util.Objects;
 
-import static com.facebook.presto.spi.block.MethodHandleUtil.compose;
-import static com.facebook.presto.spi.block.MethodHandleUtil.methodHandle;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.spi.block.MethodHandleUtil.compose;
+import static io.prestosql.spi.block.MethodHandleUtil.methodHandle;
 import static org.testng.Assert.assertEquals;
 
 public class TestMethodHandleUtil

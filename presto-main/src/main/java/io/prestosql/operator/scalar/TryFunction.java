@@ -13,23 +13,23 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.SqlNullable;
-import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.function.TypeParameter;
-import com.facebook.presto.spi.function.TypeParameterSpecialization;
-import com.facebook.presto.sql.gen.lambda.LambdaFunctionInterface;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.function.Description;
+import io.prestosql.spi.function.ScalarFunction;
+import io.prestosql.spi.function.SqlNullable;
+import io.prestosql.spi.function.SqlType;
+import io.prestosql.spi.function.TypeParameter;
+import io.prestosql.spi.function.TypeParameterSpecialization;
+import io.prestosql.sql.gen.lambda.LambdaFunctionInterface;
 
 import java.util.function.Supplier;
 
-import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.prestosql.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 
 @Description("internal try function for desugaring TRY")
 @ScalarFunction(value = "$internal$try", hidden = true, deterministic = false)

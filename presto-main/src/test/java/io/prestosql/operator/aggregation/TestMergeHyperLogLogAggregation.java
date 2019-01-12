@@ -13,16 +13,16 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.SqlVarbinary;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
 import io.airlift.stats.cardinality.HyperLogLog;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.SqlVarbinary;
+import io.prestosql.spi.type.StandardTypes;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
+import static io.prestosql.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 
 public class TestMergeHyperLogLogAggregation
         extends AbstractTestAggregationFunction

@@ -13,27 +13,27 @@
  */
 package io.prestosql.block;
 
-import com.facebook.presto.spi.block.ArrayBlockEncoding;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockEncoding;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.block.ByteArrayBlockEncoding;
-import com.facebook.presto.spi.block.DictionaryBlockEncoding;
-import com.facebook.presto.spi.block.FixedWidthBlockEncoding;
-import com.facebook.presto.spi.block.IntArrayBlockEncoding;
-import com.facebook.presto.spi.block.LazyBlockEncoding;
-import com.facebook.presto.spi.block.LongArrayBlockEncoding;
-import com.facebook.presto.spi.block.MapBlockEncoding;
-import com.facebook.presto.spi.block.RowBlockEncoding;
-import com.facebook.presto.spi.block.RunLengthBlockEncoding;
-import com.facebook.presto.spi.block.ShortArrayBlockEncoding;
-import com.facebook.presto.spi.block.SingleMapBlockEncoding;
-import com.facebook.presto.spi.block.SingleRowBlockEncoding;
-import com.facebook.presto.spi.block.VariableWidthBlockEncoding;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.prestosql.spi.block.ArrayBlockEncoding;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockEncoding;
+import io.prestosql.spi.block.BlockEncodingSerde;
+import io.prestosql.spi.block.ByteArrayBlockEncoding;
+import io.prestosql.spi.block.DictionaryBlockEncoding;
+import io.prestosql.spi.block.FixedWidthBlockEncoding;
+import io.prestosql.spi.block.IntArrayBlockEncoding;
+import io.prestosql.spi.block.LazyBlockEncoding;
+import io.prestosql.spi.block.LongArrayBlockEncoding;
+import io.prestosql.spi.block.MapBlockEncoding;
+import io.prestosql.spi.block.RowBlockEncoding;
+import io.prestosql.spi.block.RunLengthBlockEncoding;
+import io.prestosql.spi.block.ShortArrayBlockEncoding;
+import io.prestosql.spi.block.SingleMapBlockEncoding;
+import io.prestosql.spi.block.SingleRowBlockEncoding;
+import io.prestosql.spi.block.VariableWidthBlockEncoding;
+import io.prestosql.spi.type.TypeManager;
 
 import javax.inject.Inject;
 

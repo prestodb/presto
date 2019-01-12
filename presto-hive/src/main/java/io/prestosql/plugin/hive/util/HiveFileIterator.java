@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.hive.util;
 
-import com.facebook.presto.hive.DirectoryLister;
-import com.facebook.presto.hive.NamenodeStats;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.AbstractIterator;
 import io.airlift.stats.TimeStat;
+import io.prestosql.plugin.hive.DirectoryLister;
+import io.prestosql.plugin.hive.NamenodeStats;
+import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
@@ -30,8 +30,8 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.Iterator;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static java.util.Objects.requireNonNull;
 
 public class HiveFileIterator

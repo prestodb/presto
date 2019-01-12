@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage;
 
-import com.facebook.presto.raptor.util.Closer;
-import com.facebook.presto.raptor.util.SyncingFileSystem;
-import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import io.airlift.log.Logger;
+import io.prestosql.plugin.raptor.legacy.util.Closer;
+import io.prestosql.plugin.raptor.legacy.util.SyncingFileSystem;
+import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -42,11 +42,11 @@ import java.util.BitSet;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.raptor.util.Closer.closer;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.plugin.raptor.legacy.util.Closer.closer;
 import static java.lang.Math.toIntExact;
 import static org.apache.hadoop.hive.ql.io.orc.OrcFile.createReader;
 import static org.apache.hadoop.hive.ql.io.orc.OrcFile.createWriter;

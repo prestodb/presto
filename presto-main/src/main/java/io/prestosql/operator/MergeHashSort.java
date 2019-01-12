@@ -13,19 +13,19 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.util.MergeSortedPages.PageWithPosition;
+import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.type.Type;
+import io.prestosql.util.MergeSortedPages.PageWithPosition;
 
 import java.io.Closeable;
 import java.util.List;
 import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.util.MergeSortedPages.mergeSortedPages;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.util.MergeSortedPages.mergeSortedPages;
 
 /**
  * This class performs merge of previously hash sorted pages streams.

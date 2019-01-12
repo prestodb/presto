@@ -13,11 +13,11 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.memory.context.LocalMemoryContext;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.http.client.HttpClient;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.memory.context.LocalMemoryContext;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 

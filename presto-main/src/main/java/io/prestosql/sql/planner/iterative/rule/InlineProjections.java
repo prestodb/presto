@@ -13,30 +13,30 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.matching.Capture;
-import com.facebook.presto.matching.Captures;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
-import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Literal;
-import com.facebook.presto.sql.tree.TryExpression;
-import com.facebook.presto.sql.util.AstUtils;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.prestosql.matching.Capture;
+import io.prestosql.matching.Captures;
+import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.SymbolsExtractor;
+import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.planner.plan.ProjectNode;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Literal;
+import io.prestosql.sql.tree.TryExpression;
+import io.prestosql.sql.util.AstUtils;
 
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.sql.planner.ExpressionSymbolInliner.inlineSymbols;
-import static com.facebook.presto.sql.planner.plan.Patterns.project;
-import static com.facebook.presto.sql.planner.plan.Patterns.source;
+import static io.prestosql.matching.Capture.newCapture;
+import static io.prestosql.sql.planner.ExpressionSymbolInliner.inlineSymbols;
+import static io.prestosql.sql.planner.plan.Patterns.project;
+import static io.prestosql.sql.planner.plan.Patterns.source;
 import static java.util.stream.Collectors.toSet;
 
 /**

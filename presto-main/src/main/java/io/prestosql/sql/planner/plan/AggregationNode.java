@@ -13,17 +13,17 @@
  */
 package io.prestosql.sql.planner.plan;
 
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Signature;
+import io.prestosql.operator.aggregation.InternalAggregationFunction;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.tree.FunctionCall;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -32,8 +32,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static java.util.Objects.requireNonNull;
 
 @Immutable

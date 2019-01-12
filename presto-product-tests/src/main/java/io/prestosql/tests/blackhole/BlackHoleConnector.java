@@ -18,10 +18,10 @@ import org.testng.annotations.Test;
 
 import java.util.UUID;
 
-import static com.facebook.presto.tests.TestGroups.BLACKHOLE_CONNECTOR;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestosql.tests.TestGroups.BLACKHOLE_CONNECTOR;
 import static java.lang.String.format;
 
 public class BlackHoleConnector

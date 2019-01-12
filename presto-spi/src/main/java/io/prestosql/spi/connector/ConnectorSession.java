@@ -13,8 +13,8 @@
  */
 package io.prestosql.spi.connector;
 
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.type.TimeZoneKey;
+import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.type.TimeZoneKey;
 
 import java.util.Locale;
 import java.util.Optional;

@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.VarcharType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.VarcharType;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
@@ -25,13 +25,13 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
-import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
-import static com.facebook.presto.hive.HiveType.HIVE_FLOAT;
-import static com.facebook.presto.hive.HiveType.HIVE_INT;
-import static com.facebook.presto.hive.HiveType.HIVE_LONG;
-import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
-import static com.facebook.presto.hive.HiveUtil.extractStructFieldTypes;
+import static io.prestosql.plugin.hive.HiveType.HIVE_BYTE;
+import static io.prestosql.plugin.hive.HiveType.HIVE_DOUBLE;
+import static io.prestosql.plugin.hive.HiveType.HIVE_FLOAT;
+import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
+import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
+import static io.prestosql.plugin.hive.HiveType.HIVE_SHORT;
+import static io.prestosql.plugin.hive.HiveUtil.extractStructFieldTypes;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 

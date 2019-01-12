@@ -13,13 +13,13 @@
  */
 package io.prestosql.cost;
 
-import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.sql.planner.Symbol;
 
 import java.util.function.Consumer;
 
-import static com.facebook.presto.cost.EstimateAssertion.assertEstimateEquals;
 import static com.google.common.collect.Sets.union;
+import static io.prestosql.cost.EstimateAssertion.assertEstimateEquals;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

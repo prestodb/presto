@@ -14,15 +14,15 @@
 
 package io.prestosql.type.setdigest;
 
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.AggregationFunction;
-import com.facebook.presto.spi.function.CombineFunction;
-import com.facebook.presto.spi.function.InputFunction;
-import com.facebook.presto.spi.function.OutputFunction;
-import com.facebook.presto.spi.function.SqlType;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.AggregationFunction;
+import io.prestosql.spi.function.CombineFunction;
+import io.prestosql.spi.function.InputFunction;
+import io.prestosql.spi.function.OutputFunction;
+import io.prestosql.spi.function.SqlType;
 
-import static com.facebook.presto.type.setdigest.SetDigestType.SET_DIGEST;
+import static io.prestosql.type.setdigest.SetDigestType.SET_DIGEST;
 
 @AggregationFunction("merge_set_digest")
 public final class MergeSetDigestAggregation

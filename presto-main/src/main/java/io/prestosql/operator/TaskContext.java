@@ -13,16 +13,6 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.execution.TaskState;
-import com.facebook.presto.execution.TaskStateMachine;
-import com.facebook.presto.execution.buffer.LazyOutputBuffer;
-import com.facebook.presto.memory.QueryContext;
-import com.facebook.presto.memory.QueryContextVisitor;
-import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -32,6 +22,16 @@ import io.airlift.stats.CounterStat;
 import io.airlift.stats.GcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.Session;
+import io.prestosql.execution.Lifespan;
+import io.prestosql.execution.TaskId;
+import io.prestosql.execution.TaskState;
+import io.prestosql.execution.TaskStateMachine;
+import io.prestosql.execution.buffer.LazyOutputBuffer;
+import io.prestosql.memory.QueryContext;
+import io.prestosql.memory.QueryContextVisitor;
+import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.memory.context.MemoryTrackingContext;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;

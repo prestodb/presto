@@ -13,20 +13,20 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.SessionRepresentation;
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.ErrorType;
-import com.facebook.presto.spi.PrestoWarning;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.memory.MemoryPoolId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.Session;
+import io.prestosql.SessionRepresentation;
+import io.prestosql.spi.ErrorCode;
+import io.prestosql.spi.ErrorType;
+import io.prestosql.spi.PrestoWarning;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.memory.MemoryPoolId;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.transaction.TransactionId;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -37,12 +37,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.execution.QueryState.FAILED;
-import static com.facebook.presto.execution.QueryStats.immediateFailureQueryStats;
-import static com.facebook.presto.execution.StageInfo.getAllStages;
-import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
-import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.execution.QueryState.FAILED;
+import static io.prestosql.execution.QueryStats.immediateFailureQueryStats;
+import static io.prestosql.execution.StageInfo.getAllStages;
+import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
+import static io.prestosql.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
 
 @Immutable

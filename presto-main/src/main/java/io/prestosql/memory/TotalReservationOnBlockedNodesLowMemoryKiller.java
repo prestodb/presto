@@ -14,15 +14,15 @@
 
 package io.prestosql.memory;
 
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.memory.MemoryPoolInfo;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.memory.MemoryPoolInfo;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
+import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
 import static java.util.Comparator.comparingLong;
 
 public class TotalReservationOnBlockedNodesLowMemoryKiller

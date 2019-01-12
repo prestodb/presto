@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.spi.type.DecimalType;
+import io.prestosql.spi.type.DecimalType;
 
 import java.math.BigDecimal;
 
-import static com.facebook.presto.spi.type.Decimals.rescale;
+import static io.prestosql.spi.type.Decimals.rescale;
 import static java.math.RoundingMode.HALF_UP;
 import static java.nio.charset.StandardCharsets.UTF_8;
 

@@ -13,14 +13,14 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.facebook.presto.client.FailureInfo;
-import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.util.Failures;
 import io.airlift.json.JsonCodec;
+import io.prestosql.client.FailureInfo;
+import io.prestosql.testing.LocalQueryRunner;
+import io.prestosql.util.Failures;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.type.UnknownType.UNKNOWN;
 
 public class TestFailureFunction
         extends AbstractTestFunctions

@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.cassandra;
 
-import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.connector.ConnectorInsertTableHandle;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 

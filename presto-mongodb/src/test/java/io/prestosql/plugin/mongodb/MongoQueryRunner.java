@@ -13,23 +13,23 @@
  */
 package io.prestosql.plugin.mongodb;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.mongodb.MongoClient;
 import com.mongodb.ServerAddress;
 import de.bwaldvogel.mongo.MongoServer;
 import io.airlift.tpch.TpchTable;
+import io.prestosql.Session;
+import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.tests.DistributedQueryRunner;
 
 import java.net.InetSocketAddress;
 import java.util.Map;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
-import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.tests.QueryAssertions.copyTpchTables;
 
 public class MongoQueryRunner
         extends DistributedQueryRunner

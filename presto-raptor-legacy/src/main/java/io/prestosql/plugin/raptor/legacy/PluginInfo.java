@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.raptor.legacy;
 
-import com.facebook.presto.raptor.metadata.DatabaseMetadataModule;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
+import io.prestosql.plugin.raptor.legacy.metadata.DatabaseMetadataModule;
 
 import java.util.Map;
 

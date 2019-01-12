@@ -13,20 +13,20 @@
  */
 package io.prestosql.execution.executor;
 
-import com.facebook.presto.execution.executor.SimulationController.TaskSpecification;
-import com.facebook.presto.execution.executor.SplitGenerators.AggregatedLeafSplitGenerator;
-import com.facebook.presto.execution.executor.SplitGenerators.FastLeafSplitGenerator;
-import com.facebook.presto.execution.executor.SplitGenerators.IntermediateSplitGenerator;
-import com.facebook.presto.execution.executor.SplitGenerators.L4LeafSplitGenerator;
-import com.facebook.presto.execution.executor.SplitGenerators.QuantaExceedingSplitGenerator;
-import com.facebook.presto.execution.executor.SplitGenerators.SimpleLeafSplitGenerator;
-import com.facebook.presto.execution.executor.SplitGenerators.SlowLeafSplitGenerator;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.units.Duration;
+import io.prestosql.execution.executor.SimulationController.TaskSpecification;
+import io.prestosql.execution.executor.SplitGenerators.AggregatedLeafSplitGenerator;
+import io.prestosql.execution.executor.SplitGenerators.FastLeafSplitGenerator;
+import io.prestosql.execution.executor.SplitGenerators.IntermediateSplitGenerator;
+import io.prestosql.execution.executor.SplitGenerators.L4LeafSplitGenerator;
+import io.prestosql.execution.executor.SplitGenerators.QuantaExceedingSplitGenerator;
+import io.prestosql.execution.executor.SplitGenerators.SimpleLeafSplitGenerator;
+import io.prestosql.execution.executor.SplitGenerators.SlowLeafSplitGenerator;
 import org.joda.time.DateTime;
 
 import java.io.Closeable;
@@ -38,14 +38,14 @@ import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.execution.executor.Histogram.fromContinuous;
-import static com.facebook.presto.execution.executor.Histogram.fromDiscrete;
-import static com.facebook.presto.execution.executor.SimulationController.TaskSpecification.Type.INTERMEDIATE;
-import static com.facebook.presto.execution.executor.SimulationController.TaskSpecification.Type.LEAF;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.units.Duration.nanosSince;
 import static io.airlift.units.Duration.succinctNanos;
+import static io.prestosql.execution.executor.Histogram.fromContinuous;
+import static io.prestosql.execution.executor.Histogram.fromDiscrete;
+import static io.prestosql.execution.executor.SimulationController.TaskSpecification.Type.INTERMEDIATE;
+import static io.prestosql.execution.executor.SimulationController.TaskSpecification.Type.LEAF;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;

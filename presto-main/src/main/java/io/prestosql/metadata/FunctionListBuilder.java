@@ -13,10 +13,10 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.operator.scalar.annotations.ScalarFromAnnotationsParser;
-import com.facebook.presto.operator.window.WindowAnnotationsParser;
-import com.facebook.presto.spi.function.WindowFunction;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.operator.scalar.annotations.ScalarFromAnnotationsParser;
+import io.prestosql.operator.window.WindowAnnotationsParser;
+import io.prestosql.spi.function.WindowFunction;
 
 import java.util.ArrayList;
 import java.util.List;

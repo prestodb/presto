@@ -13,23 +13,23 @@
  */
 package io.prestosql.plugin.accumulo.metadata;
 
-import com.facebook.presto.accumulo.index.Indexer;
-import com.facebook.presto.accumulo.model.AccumuloColumnHandle;
-import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
-import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.accumulo.index.Indexer;
+import io.prestosql.plugin.accumulo.model.AccumuloColumnHandle;
+import io.prestosql.plugin.accumulo.serializers.AccumuloRowSerializer;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ColumnMetadata;
+import io.prestosql.spi.connector.SchemaTableName;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static java.util.Objects.requireNonNull;
 
 /**

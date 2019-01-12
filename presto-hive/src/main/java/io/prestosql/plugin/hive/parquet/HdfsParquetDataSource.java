@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.hive.parquet;
 
-import com.facebook.presto.hive.FileFormatDataSourceStats;
-import com.facebook.presto.parquet.ParquetDataSource;
-import com.facebook.presto.parquet.ParquetDataSourceId;
-import com.facebook.presto.spi.PrestoException;
+import io.prestosql.parquet.ParquetDataSource;
+import io.prestosql.parquet.ParquetDataSourceId;
+import io.prestosql.plugin.hive.FileFormatDataSourceStats;
+import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -24,9 +24,9 @@ import org.apache.hadoop.fs.Path;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.google.common.base.Strings.nullToEmpty;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

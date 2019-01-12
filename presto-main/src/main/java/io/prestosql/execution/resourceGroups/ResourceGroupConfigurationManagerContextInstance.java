@@ -13,8 +13,8 @@
  */
 package io.prestosql.execution.resourceGroups;
 
-import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerContext;
+import io.prestosql.spi.memory.ClusterMemoryPoolManager;
+import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerContext;
 
 import static java.util.Objects.requireNonNull;
 

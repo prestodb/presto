@@ -13,9 +13,9 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignature;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;

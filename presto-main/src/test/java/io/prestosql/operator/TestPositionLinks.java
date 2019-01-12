@@ -13,20 +13,20 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.RowPagesBuilder;
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.RowPagesBuilder;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.spi.Page;
+import io.prestosql.sql.analyzer.FeaturesConfig;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.operator.SyntheticAddress.encodeSyntheticAddress;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 
 public class TestPositionLinks

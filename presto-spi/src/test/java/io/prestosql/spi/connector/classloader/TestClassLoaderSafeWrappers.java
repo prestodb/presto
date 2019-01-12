@@ -13,16 +13,16 @@
  */
 package io.prestosql.spi.connector.classloader;
 
-import com.facebook.presto.spi.ConnectorPageSink;
-import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorPageSink;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
-import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
-import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import io.prestosql.spi.classloader.ClassLoaderSafeConnectorPageSink;
+import io.prestosql.spi.connector.ConnectorMetadata;
+import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
+import io.prestosql.spi.connector.ConnectorPageSink;
+import io.prestosql.spi.connector.ConnectorPageSinkProvider;
+import io.prestosql.spi.connector.ConnectorPageSourceProvider;
+import io.prestosql.spi.connector.ConnectorSplitManager;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 
 public class TestClassLoaderSafeWrappers
 {

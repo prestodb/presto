@@ -13,7 +13,7 @@
  */
 package io.prestosql.sql.planner.assertions;
 
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import io.prestosql.sql.planner.plan.JoinNode;
 
 import static java.util.Objects.requireNonNull;
 

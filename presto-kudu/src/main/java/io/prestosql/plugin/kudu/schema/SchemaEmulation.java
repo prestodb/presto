@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.kudu.schema;
 
-import com.facebook.presto.spi.SchemaTableName;
+import io.prestosql.spi.connector.SchemaTableName;
 import org.apache.kudu.client.KuduClient;
 
 import java.util.List;

@@ -13,21 +13,21 @@
  */
 package io.prestosql.plugin.blackhole;
 
-import com.facebook.presto.spi.ConnectorOutputTableHandle;
-import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorOutputTableHandle;
+import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.SchemaTableName;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
-import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
+import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

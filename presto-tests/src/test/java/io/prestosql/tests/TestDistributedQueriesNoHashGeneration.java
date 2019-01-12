@@ -13,7 +13,7 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
+import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 
 public class TestDistributedQueriesNoHashGeneration
         extends AbstractTestQueries

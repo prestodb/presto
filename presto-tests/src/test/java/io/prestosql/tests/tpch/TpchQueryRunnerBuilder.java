@@ -13,13 +13,13 @@
  */
 package io.prestosql.tests.tpch;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tpch.TpchPlugin;
+import io.prestosql.Session;
+import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.tests.DistributedQueryRunner;
 
 import java.util.function.Function;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public final class TpchQueryRunnerBuilder
         extends DistributedQueryRunner.Builder

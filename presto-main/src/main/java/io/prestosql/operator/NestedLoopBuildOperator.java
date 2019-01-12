@@ -13,10 +13,10 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.spi.Page;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.Optional;
 import java.util.concurrent.Future;

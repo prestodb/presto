@@ -13,12 +13,6 @@
  */
 package io.prestosql.proxy;
 
-import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.jdbc.PrestoResultSet;
-import com.facebook.presto.jdbc.PrestoStatement;
-import com.facebook.presto.plugin.blackhole.BlackHolePlugin;
-import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.tpch.TpchPlugin;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
@@ -29,6 +23,12 @@ import io.airlift.jmx.testing.TestingJmxModule;
 import io.airlift.json.JsonModule;
 import io.airlift.log.Logging;
 import io.airlift.node.testing.TestingNodeModule;
+import io.prestosql.execution.QueryState;
+import io.prestosql.jdbc.PrestoResultSet;
+import io.prestosql.jdbc.PrestoStatement;
+import io.prestosql.plugin.blackhole.BlackHolePlugin;
+import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.server.testing.TestingPrestoServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -46,8 +46,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.execution.QueryState.FAILED;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.prestosql.execution.QueryState.FAILED;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.concurrent.Executors.newCachedThreadPool;

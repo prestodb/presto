@@ -13,20 +13,20 @@
  */
 package io.prestosql.plugin.resourcegroups.db;
 
-import com.facebook.presto.resourceGroups.ResourceGroupSelector;
-import com.facebook.presto.resourceGroups.VariableMap;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.SelectionContext;
-import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
+import io.prestosql.plugin.resourcegroups.ResourceGroupSelector;
+import io.prestosql.plugin.resourcegroups.VariableMap;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.spi.resourcegroups.SelectionContext;
+import io.prestosql.spi.resourcegroups.SelectionCriteria;
 import org.jdbi.v3.core.JdbiException;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.resourceGroups.VariableMap.emptyVariableMap;
 import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.plugin.resourcegroups.VariableMap.emptyVariableMap;
 import static java.util.Objects.requireNonNull;
 
 public class DbSourceExactMatchSelector

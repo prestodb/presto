@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.redis;
 
-import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.RowDecoder;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.decoder.DecoderColumnHandle;
+import io.prestosql.decoder.RowDecoder;
+import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 

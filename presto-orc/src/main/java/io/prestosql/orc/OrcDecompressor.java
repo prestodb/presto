@@ -13,13 +13,13 @@
  */
 package io.prestosql.orc;
 
-import com.facebook.presto.orc.metadata.CompressionKind;
 import io.airlift.units.DataSize;
+import io.prestosql.orc.metadata.CompressionKind;
 
 import java.util.Optional;
 
-import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.orc.metadata.CompressionKind.NONE;
 import static java.lang.Math.toIntExact;
 
 public interface OrcDecompressor

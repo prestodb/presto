@@ -13,39 +13,39 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.matching.Captures;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.AssignUniqueId;
-import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
-import com.facebook.presto.sql.planner.plan.FilterNode;
-import com.facebook.presto.sql.planner.plan.LateralJoinNode;
-import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.tree.Cast;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.SimpleCaseExpression;
-import com.facebook.presto.sql.tree.StringLiteral;
-import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.matching.Captures;
+import io.prestosql.matching.Pattern;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.BooleanType;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.plan.AssignUniqueId;
+import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
+import io.prestosql.sql.planner.plan.FilterNode;
+import io.prestosql.sql.planner.plan.LateralJoinNode;
+import io.prestosql.sql.planner.plan.MarkDistinctNode;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.ProjectNode;
+import io.prestosql.sql.tree.Cast;
+import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.LongLiteral;
+import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.SimpleCaseExpression;
+import io.prestosql.sql.tree.StringLiteral;
+import io.prestosql.sql.tree.WhenClause;
 
 import java.util.Optional;
 
-import static com.facebook.presto.matching.Pattern.nonEmpty;
-import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
-import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
-import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
-import static com.facebook.presto.sql.planner.plan.Patterns.LateralJoin.correlation;
-import static com.facebook.presto.sql.planner.plan.Patterns.lateralJoin;
-import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.prestosql.matching.Pattern.nonEmpty;
+import static io.prestosql.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
+import static io.prestosql.spi.type.StandardTypes.BOOLEAN;
+import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
+import static io.prestosql.sql.planner.plan.Patterns.LateralJoin.correlation;
+import static io.prestosql.sql.planner.plan.Patterns.lateralJoin;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 /**
  * Scalar filter scan query is something like:

@@ -13,14 +13,14 @@
  */
 package io.prestosql.decoder.json;
 
-import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldValueProvider;
-import com.facebook.presto.decoder.RowDecoder;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.MissingNode;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.decoder.DecoderColumnHandle;
+import io.prestosql.decoder.FieldValueProvider;
+import io.prestosql.decoder.RowDecoder;
 
 import java.util.HashMap;
 import java.util.Map;

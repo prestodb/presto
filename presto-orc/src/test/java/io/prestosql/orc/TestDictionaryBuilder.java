@@ -13,10 +13,10 @@
  */
 package io.prestosql.orc;
 
-import com.facebook.presto.orc.writer.DictionaryBuilder;
-import com.facebook.presto.spi.block.VariableWidthBlock;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+import io.prestosql.orc.writer.DictionaryBuilder;
+import io.prestosql.spi.block.VariableWidthBlock;
 import org.testng.annotations.Test;
 
 import java.util.HashSet;

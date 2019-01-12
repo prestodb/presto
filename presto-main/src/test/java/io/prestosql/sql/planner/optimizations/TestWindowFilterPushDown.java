@@ -13,20 +13,20 @@
  */
 package io.prestosql.sql.planner.optimizations;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.sql.planner.assertions.BasePlanTest;
-import com.facebook.presto.sql.planner.plan.FilterNode;
-import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
+import io.prestosql.Session;
+import io.prestosql.sql.planner.assertions.BasePlanTest;
+import io.prestosql.sql.planner.plan.FilterNode;
+import io.prestosql.sql.planner.plan.TopNRowNumberNode;
+import io.prestosql.sql.planner.plan.WindowNode;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_TOP_N_ROW_NUMBER;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.limit;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.prestosql.SystemSessionProperties.OPTIMIZE_TOP_N_ROW_NUMBER;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyNot;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.limit;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
 
 public class TestWindowFilterPushDown
         extends BasePlanTest

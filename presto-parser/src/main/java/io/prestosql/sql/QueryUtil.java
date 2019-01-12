@@ -13,40 +13,40 @@
  */
 package io.prestosql.sql;
 
-import com.facebook.presto.sql.tree.AliasedRelation;
-import com.facebook.presto.sql.tree.AllColumns;
-import com.facebook.presto.sql.tree.CoalesceExpression;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.GroupBy;
-import com.facebook.presto.sql.tree.Identifier;
-import com.facebook.presto.sql.tree.LogicalBinaryExpression;
-import com.facebook.presto.sql.tree.OrderBy;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.Query;
-import com.facebook.presto.sql.tree.QueryBody;
-import com.facebook.presto.sql.tree.QuerySpecification;
-import com.facebook.presto.sql.tree.Relation;
-import com.facebook.presto.sql.tree.Row;
-import com.facebook.presto.sql.tree.SearchedCaseExpression;
-import com.facebook.presto.sql.tree.Select;
-import com.facebook.presto.sql.tree.SelectItem;
-import com.facebook.presto.sql.tree.SingleColumn;
-import com.facebook.presto.sql.tree.SortItem;
-import com.facebook.presto.sql.tree.StringLiteral;
-import com.facebook.presto.sql.tree.Table;
-import com.facebook.presto.sql.tree.TableSubquery;
-import com.facebook.presto.sql.tree.Values;
-import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.sql.tree.AliasedRelation;
+import io.prestosql.sql.tree.AllColumns;
+import io.prestosql.sql.tree.CoalesceExpression;
+import io.prestosql.sql.tree.ComparisonExpression;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.GroupBy;
+import io.prestosql.sql.tree.Identifier;
+import io.prestosql.sql.tree.LogicalBinaryExpression;
+import io.prestosql.sql.tree.OrderBy;
+import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.Query;
+import io.prestosql.sql.tree.QueryBody;
+import io.prestosql.sql.tree.QuerySpecification;
+import io.prestosql.sql.tree.Relation;
+import io.prestosql.sql.tree.Row;
+import io.prestosql.sql.tree.SearchedCaseExpression;
+import io.prestosql.sql.tree.Select;
+import io.prestosql.sql.tree.SelectItem;
+import io.prestosql.sql.tree.SingleColumn;
+import io.prestosql.sql.tree.SortItem;
+import io.prestosql.sql.tree.StringLiteral;
+import io.prestosql.sql.tree.Table;
+import io.prestosql.sql.tree.TableSubquery;
+import io.prestosql.sql.tree.Values;
+import io.prestosql.sql.tree.WhenClause;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
-import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.prestosql.sql.tree.BooleanLiteral.FALSE_LITERAL;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Arrays.asList;
 
 public final class QueryUtil

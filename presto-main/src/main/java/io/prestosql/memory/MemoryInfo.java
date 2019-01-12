@@ -13,12 +13,12 @@
  */
 package io.prestosql.memory;
 
-import com.facebook.presto.spi.memory.MemoryPoolId;
-import com.facebook.presto.spi.memory.MemoryPoolInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import io.prestosql.spi.memory.MemoryPoolId;
+import io.prestosql.spi.memory.MemoryPoolInfo;
 
 import java.util.Map;
 

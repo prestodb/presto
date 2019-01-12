@@ -13,11 +13,11 @@
  */
 package io.prestosql.execution.buffer;
 
-import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.OutputBuffers.OutputBufferId;
-import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
+import io.prestosql.OutputBuffers;
+import io.prestosql.OutputBuffers.OutputBufferId;
+import io.prestosql.execution.StateMachine.StateChangeListener;
 
 import java.util.List;
 

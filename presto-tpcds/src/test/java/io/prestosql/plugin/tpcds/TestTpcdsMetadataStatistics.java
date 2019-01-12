@@ -14,23 +14,23 @@
 
 package io.prestosql.plugin.tpcds;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.statistics.ColumnStatistics;
-import com.facebook.presto.spi.statistics.DoubleRange;
-import com.facebook.presto.spi.statistics.Estimate;
-import com.facebook.presto.spi.statistics.TableStatistics;
 import com.teradata.tpcds.Table;
 import com.teradata.tpcds.column.CallCenterColumn;
 import com.teradata.tpcds.column.WebSiteColumn;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorTableHandle;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.statistics.ColumnStatistics;
+import io.prestosql.spi.statistics.DoubleRange;
+import io.prestosql.spi.statistics.Estimate;
+import io.prestosql.spi.statistics.TableStatistics;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.spi.Constraint.alwaysTrue;
+import static io.prestosql.spi.connector.Constraint.alwaysTrue;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;

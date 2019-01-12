@@ -14,31 +14,31 @@
 
 package io.prestosql.plugin.tpcds.statistics;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.statistics.ColumnStatistics;
-import com.facebook.presto.spi.statistics.DoubleRange;
-import com.facebook.presto.spi.statistics.Estimate;
-import com.facebook.presto.spi.statistics.TableStatistics;
-import com.facebook.presto.spi.type.CharType;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.Decimals;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.tpcds.TpcdsColumnHandle;
 import com.teradata.tpcds.Table;
 import io.airlift.slice.Slice;
+import io.prestosql.plugin.tpcds.TpcdsColumnHandle;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.statistics.ColumnStatistics;
+import io.prestosql.spi.statistics.DoubleRange;
+import io.prestosql.spi.statistics.Estimate;
+import io.prestosql.spi.statistics.TableStatistics;
+import io.prestosql.spi.type.CharType;
+import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
-import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.TimeType.TIME;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.Decimals.isLongDecimal;
+import static io.prestosql.spi.type.Decimals.isShortDecimal;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.TimeType.TIME;
 import static java.lang.Double.parseDouble;
 
 public class TpcdsTableStatisticsFactory

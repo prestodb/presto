@@ -13,9 +13,9 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 public class RemoteTransactionHandle
         implements ConnectorTransactionHandle

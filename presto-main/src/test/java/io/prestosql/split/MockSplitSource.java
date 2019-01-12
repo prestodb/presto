@@ -13,29 +13,29 @@
  */
 package io.prestosql.split;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.execution.Lifespan;
+import io.prestosql.metadata.Split;
+import io.prestosql.spi.HostAddress;
+import io.prestosql.spi.connector.ConnectorPartitionHandle;
+import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.Collections;
 import java.util.List;
 
-import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
-import static com.facebook.presto.split.MockSplitSource.Action.DO_NOTHING;
-import static com.facebook.presto.split.MockSplitSource.Action.FINISH;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static io.prestosql.split.MockSplitSource.Action.DO_NOTHING;
+import static io.prestosql.split.MockSplitSource.Action.FINISH;
 
 @NotThreadSafe
 public class MockSplitSource

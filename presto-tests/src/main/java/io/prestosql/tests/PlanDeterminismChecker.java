@@ -13,12 +13,12 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.sql.planner.LogicalPlanner;
-import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
-import com.facebook.presto.testing.LocalQueryRunner;
+import io.prestosql.Session;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.sql.planner.LogicalPlanner;
+import io.prestosql.sql.planner.Plan;
+import io.prestosql.sql.planner.planPrinter.PlanPrinter;
+import io.prestosql.testing.LocalQueryRunner;
 
 import java.util.function.Function;
 import java.util.stream.IntStream;

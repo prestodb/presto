@@ -13,7 +13,7 @@
  */
 package io.prestosql.sql.planner.assertions;
 
-import com.facebook.presto.sql.planner.Symbol;
+import io.prestosql.sql.planner.Symbol;
 
 import static java.util.Objects.requireNonNull;
 

@@ -13,13 +13,13 @@
  */
 package io.prestosql.plugin.accumulo.index;
 
-import com.facebook.presto.accumulo.metadata.AccumuloTable;
-import com.facebook.presto.accumulo.model.AccumuloColumnHandle;
-import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
-import com.facebook.presto.accumulo.serializers.LexicoderRowSerializer;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.accumulo.metadata.AccumuloTable;
+import io.prestosql.plugin.accumulo.model.AccumuloColumnHandle;
+import io.prestosql.plugin.accumulo.serializers.AccumuloRowSerializer;
+import io.prestosql.plugin.accumulo.serializers.LexicoderRowSerializer;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.Type;
 import org.apache.accumulo.core.client.BatchWriterConfig;
 import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.Instance;
@@ -40,8 +40,8 @@ import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

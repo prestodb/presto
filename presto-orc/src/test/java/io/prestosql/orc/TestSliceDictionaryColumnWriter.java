@@ -13,20 +13,20 @@
  */
 package io.prestosql.orc;
 
-import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.orc.writer.SliceDictionaryColumnWriter;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.writer.SliceDictionaryColumnWriter;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.RunLengthEncodedBlock;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
-import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.orc.OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
+import static io.prestosql.orc.OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertFalse;
 

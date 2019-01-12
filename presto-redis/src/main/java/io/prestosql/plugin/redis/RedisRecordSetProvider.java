@@ -13,22 +13,22 @@
  */
 package io.prestosql.plugin.redis;
 
-import com.facebook.presto.decoder.DispatchingRowDecoderFactory;
-import com.facebook.presto.decoder.RowDecoder;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.decoder.DispatchingRowDecoderFactory;
+import io.prestosql.decoder.RowDecoder;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorRecordSetProvider;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.RecordSet;
 
 import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.facebook.presto.redis.RedisHandleResolver.convertSplit;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.plugin.redis.RedisHandleResolver.convertSplit;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 

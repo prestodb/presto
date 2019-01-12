@@ -13,21 +13,21 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.memory.VersionedMemoryPoolId;
-import com.facebook.presto.server.BasicQueryInfo;
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.memory.MemoryPoolId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.sql.planner.Plan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.Session;
+import io.prestosql.execution.StateMachine.StateChangeListener;
+import io.prestosql.memory.VersionedMemoryPoolId;
+import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.spi.ErrorCode;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.memory.MemoryPoolId;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.sql.planner.Plan;
 import org.joda.time.DateTime;
 
 import java.net.URI;
@@ -36,15 +36,15 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.SystemSessionProperties.QUERY_PRIORITY;
-import static com.facebook.presto.execution.QueryState.FAILED;
-import static com.facebook.presto.execution.QueryState.FINISHED;
-import static com.facebook.presto.execution.QueryState.QUEUED;
-import static com.facebook.presto.execution.QueryState.RUNNING;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.prestosql.SystemSessionProperties.QUERY_PRIORITY;
+import static io.prestosql.execution.QueryState.FAILED;
+import static io.prestosql.execution.QueryState.FINISHED;
+import static io.prestosql.execution.QueryState.QUEUED;
+import static io.prestosql.execution.QueryState.RUNNING;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 

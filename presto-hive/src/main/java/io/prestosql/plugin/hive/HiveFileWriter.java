@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.spi.Page;
+import io.prestosql.spi.Page;
 
 import java.util.Optional;
 

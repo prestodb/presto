@@ -13,19 +13,19 @@
  */
 package io.prestosql.benchmark;
 
-import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
-import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
-import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.operator.LimitOperator.LimitOperatorFactory;
+import io.prestosql.operator.OperatorFactory;
+import io.prestosql.operator.OrderByOperator.OrderByOperatorFactory;
+import io.prestosql.operator.PagesIndex;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.testing.LocalQueryRunner;
 
 import java.util.List;
 
-import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
+import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static io.prestosql.spi.block.SortOrder.ASC_NULLS_LAST;
 
 public class OrderByBenchmark
         extends AbstractSimpleOperatorBenchmark

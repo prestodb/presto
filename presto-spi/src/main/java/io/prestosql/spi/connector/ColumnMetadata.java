@@ -13,13 +13,13 @@
  */
 package io.prestosql.spi.connector;
 
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.type.Type;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
-import static com.facebook.presto.spi.SchemaUtil.checkNotEmpty;
+import static io.prestosql.spi.connector.SchemaUtil.checkNotEmpty;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Locale.ENGLISH;

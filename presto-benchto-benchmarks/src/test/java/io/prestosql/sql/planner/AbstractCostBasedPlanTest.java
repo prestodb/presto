@@ -14,19 +14,19 @@
 
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.sql.planner.assertions.BasePlanTest;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
-import com.facebook.presto.tpcds.TpcdsTableHandle;
-import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.base.Strings;
 import com.google.common.base.VerifyException;
 import com.google.common.io.Resources;
+import io.prestosql.plugin.tpcds.TpcdsTableHandle;
+import io.prestosql.plugin.tpch.TpchTableHandle;
+import io.prestosql.spi.connector.ConnectorTableHandle;
+import io.prestosql.sql.planner.assertions.BasePlanTest;
+import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.planner.plan.ExchangeNode;
+import io.prestosql.sql.planner.plan.JoinNode;
+import io.prestosql.sql.planner.plan.SemiJoinNode;
+import io.prestosql.sql.planner.plan.TableScanNode;
+import io.prestosql.sql.planner.plan.ValuesNode;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -36,14 +36,14 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.testing.TestngUtils.toDataProvider;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.io.Files.createParentDirs;
 import static com.google.common.io.Files.write;
 import static com.google.common.io.Resources.getResource;
+import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
+import static io.prestosql.testing.TestngUtils.toDataProvider;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.isDirectory;

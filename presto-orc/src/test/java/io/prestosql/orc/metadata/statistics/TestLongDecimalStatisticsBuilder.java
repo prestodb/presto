@@ -23,10 +23,10 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.DECIMAL;
-import static com.facebook.presto.orc.metadata.statistics.DecimalStatistics.DECIMAL_VALUE_BYTES_OVERHEAD;
-import static com.facebook.presto.orc.metadata.statistics.LongDecimalStatisticsBuilder.LONG_DECIMAL_VALUE_BYTES;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.DECIMAL;
+import static io.prestosql.orc.metadata.statistics.DecimalStatistics.DECIMAL_VALUE_BYTES_OVERHEAD;
+import static io.prestosql.orc.metadata.statistics.LongDecimalStatisticsBuilder.LONG_DECIMAL_VALUE_BYTES;
 import static java.math.BigDecimal.ZERO;
 
 public class TestLongDecimalStatisticsBuilder

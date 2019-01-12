@@ -13,15 +13,15 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.SqlIntervalDayTime;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.type.SqlIntervalDayTime;
 
 import java.util.List;
 
-import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static io.prestosql.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static java.lang.Math.round;
 
 public class TestIntervalDayToSecondAverageAggregation

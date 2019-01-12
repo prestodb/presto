@@ -13,17 +13,17 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import io.prestosql.execution.TaskId;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
 public class AssignUniqueIdOperator

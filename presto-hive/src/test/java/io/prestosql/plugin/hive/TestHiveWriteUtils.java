@@ -13,14 +13,14 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
+import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
-import static com.facebook.presto.hive.HiveWriteUtils.isS3FileSystem;
-import static com.facebook.presto.hive.HiveWriteUtils.isViewFileSystem;
-import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static io.prestosql.plugin.hive.HiveTestUtils.createTestHdfsEnvironment;
+import static io.prestosql.plugin.hive.HiveWriteUtils.isS3FileSystem;
+import static io.prestosql.plugin.hive.HiveWriteUtils.isViewFileSystem;
+import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 

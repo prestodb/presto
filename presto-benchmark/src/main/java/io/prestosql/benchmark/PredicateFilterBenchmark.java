@@ -13,30 +13,30 @@
  */
 package io.prestosql.benchmark;
 
-import com.facebook.presto.operator.FilterAndProjectOperator;
-import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.operator.project.PageProcessor;
-import com.facebook.presto.sql.gen.ExpressionCompiler;
-import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.prestosql.operator.FilterAndProjectOperator;
+import io.prestosql.operator.OperatorFactory;
+import io.prestosql.operator.project.PageProcessor;
+import io.prestosql.sql.gen.ExpressionCompiler;
+import io.prestosql.sql.gen.PageFunctionCompiler;
+import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.testing.LocalQueryRunner;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static com.facebook.presto.metadata.Signature.internalOperator;
-import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.sql.relational.Expressions.call;
-import static com.facebook.presto.sql.relational.Expressions.constant;
-import static com.facebook.presto.sql.relational.Expressions.field;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static io.prestosql.metadata.Signature.internalOperator;
+import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.sql.relational.Expressions.call;
+import static io.prestosql.sql.relational.Expressions.constant;
+import static io.prestosql.sql.relational.Expressions.field;
 
 public class PredicateFilterBenchmark
         extends AbstractSimpleOperatorBenchmark

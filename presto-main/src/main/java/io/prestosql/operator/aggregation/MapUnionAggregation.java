@@ -13,35 +13,35 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlAggregationFunction;
-import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import com.facebook.presto.operator.aggregation.state.KeyValuePairStateSerializer;
-import com.facebook.presto.operator.aggregation.state.KeyValuePairsState;
-import com.facebook.presto.operator.aggregation.state.KeyValuePairsStateFactory;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
+import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.SqlAggregationFunction;
+import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
+import io.prestosql.operator.aggregation.state.KeyValuePairStateSerializer;
+import io.prestosql.operator.aggregation.state.KeyValuePairsState;
+import io.prestosql.operator.aggregation.state.KeyValuePairsStateFactory;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
-import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
-import static com.facebook.presto.metadata.Signature.typeVariable;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.Signature.comparableTypeParameter;
+import static io.prestosql.metadata.Signature.typeVariable;
+import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata;
+import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
+import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.util.Reflection.methodHandle;
 
 public class MapUnionAggregation
         extends SqlAggregationFunction

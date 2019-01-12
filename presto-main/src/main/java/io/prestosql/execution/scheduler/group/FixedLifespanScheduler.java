@@ -13,13 +13,13 @@
  */
 package io.prestosql.execution.scheduler.group;
 
-import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.execution.scheduler.BucketNodeMap;
-import com.facebook.presto.execution.scheduler.SourceScheduler;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.SettableFuture;
+import io.prestosql.execution.Lifespan;
+import io.prestosql.execution.scheduler.BucketNodeMap;
+import io.prestosql.execution.scheduler.SourceScheduler;
+import io.prestosql.spi.Node;
+import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -34,11 +34,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 
-import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static java.util.Objects.requireNonNull;
 
 /**

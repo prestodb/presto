@@ -13,17 +13,17 @@
  */
 package io.prestosql.plugin.raptor.legacy;
 
-import com.facebook.presto.raptor.storage.ReaderAttributes;
-import com.facebook.presto.raptor.storage.StorageManager;
-import com.facebook.presto.raptor.util.ConcatPageSource;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.plugin.raptor.legacy.storage.ReaderAttributes;
+import io.prestosql.plugin.raptor.legacy.storage.StorageManager;
+import io.prestosql.plugin.raptor.legacy.util.ConcatPageSource;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.ConnectorPageSourceProvider;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.Type;
 
 import javax.inject.Inject;
 

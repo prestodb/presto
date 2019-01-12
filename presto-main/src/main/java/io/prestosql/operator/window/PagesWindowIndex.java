@@ -13,11 +13,11 @@
  */
 package io.prestosql.operator.window;
 
-import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.WindowIndex;
 import io.airlift.slice.Slice;
+import io.prestosql.operator.PagesIndex;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.WindowIndex;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;

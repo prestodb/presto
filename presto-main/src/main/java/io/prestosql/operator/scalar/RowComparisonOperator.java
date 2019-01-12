@@ -13,24 +13,24 @@ package io.prestosql.operator.scalar;
  * limitations under the License.
  */
 
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.metadata.SqlOperator;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.SqlOperator;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
-import static com.facebook.presto.metadata.Signature.orderableWithVariadicBound;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
-import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
-import static com.facebook.presto.util.Failures.internalError;
+import static io.prestosql.metadata.Signature.orderableWithVariadicBound;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeUtils.readNativeValue;
+import static io.prestosql.type.TypeUtils.checkElementNotNull;
+import static io.prestosql.util.Failures.internalError;
 
 public abstract class RowComparisonOperator
         extends SqlOperator

@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.accumulo;
 
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
 
 /**
  * Utility class for Presto Type-related functionality.

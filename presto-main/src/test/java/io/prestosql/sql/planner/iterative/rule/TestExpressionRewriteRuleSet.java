@@ -13,28 +13,28 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.InListExpression;
-import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.DateType;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.assertions.PlanMatchPattern;
+import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
+import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.InListExpression;
+import io.prestosql.sql.tree.InPredicate;
+import io.prestosql.sql.tree.LongLiteral;
+import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.apply;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.apply;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 
 public class TestExpressionRewriteRuleSet
         extends BaseRuleTest

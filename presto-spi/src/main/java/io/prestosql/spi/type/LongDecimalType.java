@@ -13,19 +13,19 @@
  */
 package io.prestosql.spi.type;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
-import com.facebook.presto.spi.block.PageBuilderStatus;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.BlockBuilderStatus;
+import io.prestosql.spi.block.FixedWidthBlockBuilder;
+import io.prestosql.spi.block.PageBuilderStatus;
+import io.prestosql.spi.connector.ConnectorSession;
 
-import static com.facebook.presto.spi.type.Decimals.MAX_PRECISION;
-import static com.facebook.presto.spi.type.Decimals.decodeUnscaledValue;
-import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
-import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.compare;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.prestosql.spi.type.Decimals.MAX_PRECISION;
+import static io.prestosql.spi.type.Decimals.decodeUnscaledValue;
+import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
+import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.compare;
 
 final class LongDecimalType
         extends DecimalType

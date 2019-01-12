@@ -13,11 +13,11 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.DesugarAtTimeZoneRewriter;
-import com.facebook.presto.sql.planner.iterative.Rule;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.DesugarAtTimeZoneRewriter;
+import io.prestosql.sql.planner.iterative.Rule;
 
 import java.util.Set;
 

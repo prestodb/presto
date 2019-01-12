@@ -13,17 +13,17 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.StandardTypes;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.stream.LongStream;
 
-import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static io.prestosql.block.BlockAssertions.createLongsBlock;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 
 public class TestBitwiseAndAggregation
         extends AbstractTestAggregationFunction

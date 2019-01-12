@@ -13,12 +13,12 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
-import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.sql.planner.PlanNodeIdAllocator;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.ValuesNode;
+import io.prestosql.sql.tree.Expression;
 
 import java.util.Arrays;
 import java.util.List;
@@ -26,8 +26,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.sql.planner.plan.Patterns.values;
-import static com.facebook.presto.util.MoreLists.filteredCopy;
+import static io.prestosql.sql.planner.plan.Patterns.values;
+import static io.prestosql.util.MoreLists.filteredCopy;
 
 public class PruneValuesColumns
         extends ProjectOffPushDownRule<ValuesNode>

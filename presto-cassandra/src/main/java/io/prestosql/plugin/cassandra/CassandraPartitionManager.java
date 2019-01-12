@@ -13,17 +13,17 @@
  */
 package io.prestosql.plugin.cassandra;
 
-import com.facebook.presto.cassandra.util.CassandraCqlUtils;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.Range;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
+import io.prestosql.plugin.cassandra.util.CassandraCqlUtils;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorTableHandle;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.Range;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
@@ -32,9 +32,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.cassandra.util.CassandraCqlUtils.toCQLCompatibleString;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
+import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.toCQLCompatibleString;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 

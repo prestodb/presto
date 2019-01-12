@@ -13,11 +13,11 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.spi.QueryId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Chars;
 import com.google.common.util.concurrent.Uninterruptibles;
+import io.prestosql.spi.QueryId;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 

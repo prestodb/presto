@@ -13,31 +13,31 @@
  */
 package io.prestosql.operator.aggregation.builder;
 
-import com.facebook.presto.array.IntBigArray;
-import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.operator.GroupByHash;
-import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.operator.HashCollisionsCounter;
-import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.operator.TransformWork;
-import com.facebook.presto.operator.UpdateMemory;
-import com.facebook.presto.operator.Work;
-import com.facebook.presto.operator.WorkProcessor;
-import com.facebook.presto.operator.WorkProcessor.ProcessState;
-import com.facebook.presto.operator.aggregation.AccumulatorFactory;
-import com.facebook.presto.operator.aggregation.GroupedAccumulator;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.JoinCompiler;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
+import io.prestosql.array.IntBigArray;
+import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.operator.GroupByHash;
+import io.prestosql.operator.GroupByIdBlock;
+import io.prestosql.operator.HashCollisionsCounter;
+import io.prestosql.operator.OperatorContext;
+import io.prestosql.operator.TransformWork;
+import io.prestosql.operator.UpdateMemory;
+import io.prestosql.operator.Work;
+import io.prestosql.operator.WorkProcessor;
+import io.prestosql.operator.WorkProcessor.ProcessState;
+import io.prestosql.operator.aggregation.AccumulatorFactory;
+import io.prestosql.operator.aggregation.GroupedAccumulator;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.gen.JoinCompiler;
+import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.planner.plan.AggregationNode.Step;
 import it.unimi.dsi.fastutil.ints.AbstractIntIterator;
 import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntIterators;
@@ -47,10 +47,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 
-import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregationEnabled;
-import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.SystemSessionProperties.isDictionaryAggregationEnabled;
+import static io.prestosql.operator.GroupByHash.createGroupByHash;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
 public class InMemoryHashAggregationBuilder

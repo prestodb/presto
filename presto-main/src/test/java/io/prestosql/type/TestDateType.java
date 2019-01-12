@@ -13,11 +13,11 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.SqlDate;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.SqlDate;
 
-import static com.facebook.presto.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.DateType.DATE;
 
 public class TestDateType
         extends AbstractTestType

@@ -13,13 +13,13 @@
  */
 package io.prestosql.transaction;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.CatalogMetadata;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.Session;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.metadata.CatalogMetadata;
+import io.prestosql.security.AccessControl;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.transaction.IsolationLevel;
 
 import java.util.List;
 import java.util.Map;

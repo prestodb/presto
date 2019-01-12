@@ -13,17 +13,6 @@
  */
 package io.prestosql.sql.gen;
 
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.operator.InternalJoinFilterFunction;
-import com.facebook.presto.operator.JoinFilterFunction;
-import com.facebook.presto.operator.StandardJoinFilterFunction;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
-import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
-import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -40,6 +29,17 @@ import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.operator.InternalJoinFilterFunction;
+import io.prestosql.operator.JoinFilterFunction;
+import io.prestosql.operator.StandardJoinFilterFunction;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
+import io.prestosql.sql.relational.LambdaDefinitionExpression;
+import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.relational.RowExpressionVisitor;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -52,10 +52,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
-import static com.facebook.presto.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
-import static com.facebook.presto.util.CompilerUtils.defineClass;
-import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
@@ -65,6 +61,10 @@ import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
+import static io.prestosql.sql.gen.BytecodeUtils.invoke;
+import static io.prestosql.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
+import static io.prestosql.util.CompilerUtils.defineClass;
+import static io.prestosql.util.CompilerUtils.makeClassName;
 import static java.util.Objects.requireNonNull;
 
 public class JoinFilterFunctionCompiler

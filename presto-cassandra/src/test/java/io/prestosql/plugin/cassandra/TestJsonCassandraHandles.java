@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.cassandra;
 
-import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
+import io.prestosql.spi.connector.SchemaTableName;
 import org.testng.annotations.Test;
 
 import java.util.Map;

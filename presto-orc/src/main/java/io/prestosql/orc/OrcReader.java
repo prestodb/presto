@@ -13,21 +13,21 @@
  */
 package io.prestosql.orc;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
-import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.orc.metadata.ExceptionWrappingMetadataReader;
-import com.facebook.presto.orc.metadata.Footer;
-import com.facebook.presto.orc.metadata.Metadata;
-import com.facebook.presto.orc.metadata.PostScript;
-import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
-import com.facebook.presto.orc.stream.OrcInputStream;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.ExceptionWrappingMetadataReader;
+import io.prestosql.orc.metadata.Footer;
+import io.prestosql.orc.metadata.Metadata;
+import io.prestosql.orc.metadata.PostScript;
+import io.prestosql.orc.metadata.PostScript.HiveWriterVersion;
+import io.prestosql.orc.stream.OrcInputStream;
+import io.prestosql.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
@@ -37,11 +37,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
-import static com.facebook.presto.orc.metadata.PostScript.MAGIC;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.orc.OrcDecompressor.createOrcDecompressor;
+import static io.prestosql.orc.metadata.PostScript.MAGIC;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;

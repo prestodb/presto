@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.tpch;
 
-import com.facebook.presto.spi.statistics.DoubleRange;
-import com.facebook.presto.spi.statistics.Estimate;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.statistics.DoubleRange;
+import io.prestosql.spi.statistics.Estimate;
 
 import java.util.Optional;
 

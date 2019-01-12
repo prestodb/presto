@@ -13,9 +13,9 @@
  */
 package io.prestosql.operator.aggregation.state;
 
-import com.facebook.presto.array.ObjectBigArray;
-import com.facebook.presto.operator.aggregation.TypedHeap;
-import com.facebook.presto.spi.function.AccumulatorStateFactory;
+import io.prestosql.array.ObjectBigArray;
+import io.prestosql.operator.aggregation.TypedHeap;
+import io.prestosql.spi.function.AccumulatorStateFactory;
 import org.openjdk.jol.info.ClassLayout;
 
 public class MinMaxNStateFactory

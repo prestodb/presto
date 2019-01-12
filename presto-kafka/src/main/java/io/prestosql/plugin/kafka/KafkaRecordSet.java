@@ -13,18 +13,18 @@
  */
 package io.prestosql.plugin.kafka;
 
-import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldValueProvider;
-import com.facebook.presto.decoder.RowDecoder;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.prestosql.decoder.DecoderColumnHandle;
+import io.prestosql.decoder.FieldValueProvider;
+import io.prestosql.decoder.RowDecoder;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.spi.type.Type;
 import kafka.api.FetchRequest;
 import kafka.api.FetchRequestBuilder;
 import kafka.javaapi.FetchResponse;
@@ -39,11 +39,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.decoder.FieldValueProviders.booleanValueProvider;
-import static com.facebook.presto.decoder.FieldValueProviders.bytesValueProvider;
-import static com.facebook.presto.decoder.FieldValueProviders.longValueProvider;
-import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.decoder.FieldValueProviders.booleanValueProvider;
+import static io.prestosql.decoder.FieldValueProviders.bytesValueProvider;
+import static io.prestosql.decoder.FieldValueProviders.longValueProvider;
+import static io.prestosql.plugin.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

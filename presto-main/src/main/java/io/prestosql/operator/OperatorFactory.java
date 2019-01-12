@@ -13,7 +13,7 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.execution.Lifespan;
+import io.prestosql.execution.Lifespan;
 
 public interface OperatorFactory
 {

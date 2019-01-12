@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.kafka;
 
-import com.facebook.presto.spi.HostAddress;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
@@ -21,6 +20,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
+import io.prestosql.spi.HostAddress;
 
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;

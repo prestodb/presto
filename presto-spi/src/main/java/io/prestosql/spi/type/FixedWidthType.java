@@ -13,7 +13,7 @@
  */
 package io.prestosql.spi.type;
 
-import com.facebook.presto.spi.block.BlockBuilder;
+import io.prestosql.spi.block.BlockBuilder;
 
 /**
  * FixedWidthType is a type that has a fixed size for every value.

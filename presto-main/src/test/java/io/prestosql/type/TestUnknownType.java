@@ -13,7 +13,7 @@
  */
 package io.prestosql.type;
 
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static io.prestosql.type.UnknownType.UNKNOWN;
 
 public class TestUnknownType
         extends AbstractTestType

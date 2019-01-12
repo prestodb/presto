@@ -13,19 +13,19 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage.organization;
 
-import com.facebook.presto.raptor.storage.StorageManagerConfig;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.plugin.raptor.legacy.storage.StorageManagerConfig;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
 import java.time.Duration;
 
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;

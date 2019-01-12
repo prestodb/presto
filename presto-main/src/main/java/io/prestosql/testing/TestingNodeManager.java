@@ -13,11 +13,11 @@
  */
 package io.prestosql.testing;
 
-import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.metadata.PrestoNode;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.NodeManager;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.client.NodeVersion;
+import io.prestosql.metadata.PrestoNode;
+import io.prestosql.spi.Node;
+import io.prestosql.spi.NodeManager;
 
 import java.net.URI;
 import java.util.Collection;

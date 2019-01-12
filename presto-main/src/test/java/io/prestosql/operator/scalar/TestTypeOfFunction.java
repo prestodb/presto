@@ -13,7 +13,7 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.facebook.presto.spi.type.VarcharType;
+import io.prestosql.spi.type.VarcharType;
 import org.testng.annotations.Test;
 
 public class TestTypeOfFunction

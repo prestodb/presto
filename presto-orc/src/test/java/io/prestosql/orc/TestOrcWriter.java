@@ -13,19 +13,19 @@
  */
 package io.prestosql.orc;
 
-import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
-import com.facebook.presto.orc.metadata.Footer;
-import com.facebook.presto.orc.metadata.Stream;
-import com.facebook.presto.orc.metadata.StripeFooter;
-import com.facebook.presto.orc.metadata.StripeInformation;
-import com.facebook.presto.orc.stream.OrcInputStream;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
+import io.prestosql.orc.metadata.Footer;
+import io.prestosql.orc.metadata.Stream;
+import io.prestosql.orc.metadata.StripeFooter;
+import io.prestosql.orc.metadata.StripeInformation;
+import io.prestosql.orc.stream.OrcInputStream;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
 import org.testng.annotations.Test;
 
 import java.io.FileOutputStream;
@@ -33,16 +33,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Optional;
 
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.orc.OrcEncoding.ORC;
-import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
-import static com.facebook.presto.orc.StripeReader.isIndexStream;
-import static com.facebook.presto.orc.TestingOrcPredicate.ORC_ROW_GROUP_SIZE;
-import static com.facebook.presto.orc.TestingOrcPredicate.ORC_STRIPE_SIZE;
-import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.orc.OrcEncoding.ORC;
+import static io.prestosql.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
+import static io.prestosql.orc.StripeReader.isIndexStream;
+import static io.prestosql.orc.TestingOrcPredicate.ORC_ROW_GROUP_SIZE;
+import static io.prestosql.orc.TestingOrcPredicate.ORC_STRIPE_SIZE;
+import static io.prestosql.orc.metadata.CompressionKind.NONE;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertFalse;
 

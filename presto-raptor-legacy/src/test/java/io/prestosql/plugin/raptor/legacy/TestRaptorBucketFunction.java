@@ -13,19 +13,19 @@
  */
 package io.prestosql.plugin.raptor.legacy;
 
-import com.facebook.presto.spi.BucketFunction;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.connector.BucketFunction;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.block.BlockAssertions.createIntsBlock;
-import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
-import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.prestosql.block.BlockAssertions.createIntsBlock;
+import static io.prestosql.block.BlockAssertions.createLongsBlock;
+import static io.prestosql.block.BlockAssertions.createStringsBlock;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static org.testng.Assert.assertEquals;
 
 public class TestRaptorBucketFunction

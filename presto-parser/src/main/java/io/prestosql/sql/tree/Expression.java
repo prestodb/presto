@@ -13,7 +13,7 @@
  */
 package io.prestosql.sql.tree;
 
-import com.facebook.presto.sql.ExpressionFormatter;
+import io.prestosql.sql.ExpressionFormatter;
 
 import java.util.Optional;
 

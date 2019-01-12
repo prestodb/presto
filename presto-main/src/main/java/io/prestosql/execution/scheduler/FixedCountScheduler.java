@@ -13,10 +13,10 @@
  */
 package io.prestosql.execution.scheduler;
 
-import com.facebook.presto.execution.RemoteTask;
-import com.facebook.presto.execution.SqlStageExecution;
-import com.facebook.presto.spi.Node;
 import com.google.common.annotations.VisibleForTesting;
+import io.prestosql.execution.RemoteTask;
+import io.prestosql.execution.SqlStageExecution;
+import io.prestosql.spi.Node;
 
 import java.util.List;
 import java.util.Optional;

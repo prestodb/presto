@@ -13,11 +13,11 @@
  */
 package io.prestosql.execution.executor;
 
-import com.facebook.presto.execution.SplitRunner;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
+import io.prestosql.execution.SplitRunner;
 
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -25,8 +25,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static io.airlift.units.Duration.succinctNanos;
+import static io.prestosql.operator.Operator.NOT_BLOCKED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 

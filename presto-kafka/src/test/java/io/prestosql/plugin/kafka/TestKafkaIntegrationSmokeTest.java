@@ -13,16 +13,16 @@
  */
 package io.prestosql.plugin.kafka;
 
-import com.facebook.presto.kafka.util.EmbeddedKafka;
-import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
+import io.prestosql.plugin.kafka.util.EmbeddedKafka;
+import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 
-import static com.facebook.presto.kafka.KafkaQueryRunner.createKafkaQueryRunner;
-import static com.facebook.presto.kafka.util.EmbeddedKafka.createEmbeddedKafka;
 import static io.airlift.tpch.TpchTable.ORDERS;
+import static io.prestosql.plugin.kafka.KafkaQueryRunner.createKafkaQueryRunner;
+import static io.prestosql.plugin.kafka.util.EmbeddedKafka.createEmbeddedKafka;
 
 @Test
 public class TestKafkaIntegrationSmokeTest

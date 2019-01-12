@@ -13,10 +13,10 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.execution.buffer.PagesSerdeFactory;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import io.prestosql.execution.buffer.PagesSerdeFactory;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.function.Function;

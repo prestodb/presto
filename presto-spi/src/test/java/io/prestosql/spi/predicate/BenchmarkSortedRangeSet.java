@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 
 @Fork(1)
 @Warmup(iterations = 5)

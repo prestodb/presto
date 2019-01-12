@@ -13,24 +13,24 @@
  */
 package io.prestosql.security;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.spi.CatalogSchemaName;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.connector.ConnectorAccessControl;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.security.Privilege;
-import com.facebook.presto.spi.security.SystemAccessControl;
-import com.facebook.presto.spi.security.SystemAccessControlFactory;
-import com.facebook.presto.transaction.TransactionId;
-import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.CatalogSchemaName;
+import io.prestosql.spi.connector.ConnectorAccessControl;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.security.Privilege;
+import io.prestosql.spi.security.SystemAccessControl;
+import io.prestosql.spi.security.SystemAccessControlFactory;
+import io.prestosql.transaction.TransactionId;
+import io.prestosql.transaction.TransactionManager;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -46,11 +46,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
-import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.prestosql.spi.StandardErrorCode.SERVER_STARTING_UP;
+import static io.prestosql.util.PropertiesUtil.loadProperties;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

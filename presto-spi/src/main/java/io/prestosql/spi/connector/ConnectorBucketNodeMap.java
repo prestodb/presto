@@ -13,7 +13,7 @@
  */
 package io.prestosql.spi.connector;
 
-import com.facebook.presto.spi.Node;
+import io.prestosql.spi.Node;
 
 import java.util.ArrayList;
 import java.util.Collections;

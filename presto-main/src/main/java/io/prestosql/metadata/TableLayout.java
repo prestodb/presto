@@ -13,15 +13,15 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorTableLayout;
-import com.facebook.presto.spi.DiscretePredicates;
-import com.facebook.presto.spi.LocalProperty;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorTableLayout;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.DiscretePredicates;
+import io.prestosql.spi.connector.LocalProperty;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.sql.planner.PartitioningHandle;
 
 import java.util.List;
 import java.util.Objects;

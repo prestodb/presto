@@ -13,8 +13,8 @@
  */
 package io.prestosql.parquet;
 
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 import java.util.Optional;

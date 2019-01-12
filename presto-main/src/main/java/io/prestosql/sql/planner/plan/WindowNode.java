@@ -13,19 +13,19 @@
  */
 package io.prestosql.sql.planner.plan;
 
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.sql.planner.OrderingScheme;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FrameBound;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.WindowFrame;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import io.prestosql.metadata.Signature;
+import io.prestosql.sql.planner.OrderingScheme;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FrameBound;
+import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.WindowFrame;
 
 import javax.annotation.concurrent.Immutable;
 

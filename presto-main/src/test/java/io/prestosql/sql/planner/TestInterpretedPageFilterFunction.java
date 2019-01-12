@@ -13,18 +13,18 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.operator.project.InterpretedPageFilter;
-import com.facebook.presto.operator.project.SelectedPositions;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.operator.project.InterpretedPageFilter;
+import io.prestosql.operator.project.SelectedPositions;
+import io.prestosql.spi.Page;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.tree.ComparisonExpression;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.operator.scalar.FunctionAssertions.createExpression;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.operator.scalar.FunctionAssertions.createExpression;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

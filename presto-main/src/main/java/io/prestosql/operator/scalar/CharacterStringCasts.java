@@ -13,27 +13,27 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.facebook.presto.spi.function.LiteralParameters;
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.type.LiteralParameter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
+import io.prestosql.spi.function.LiteralParameters;
+import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.function.ScalarOperator;
+import io.prestosql.spi.function.SqlType;
+import io.prestosql.type.LiteralParameter;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.spi.type.Chars.padSpaces;
-import static com.facebook.presto.spi.type.Chars.truncateToLengthAndTrimSpaces;
-import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.airlift.slice.SliceUtf8.setCodePointAt;
+import static io.prestosql.spi.type.Chars.padSpaces;
+import static io.prestosql.spi.type.Chars.truncateToLengthAndTrimSpaces;
+import static io.prestosql.spi.type.Varchars.truncateToLength;
 import static java.lang.Math.toIntExact;
 import static java.util.Collections.nCopies;
 

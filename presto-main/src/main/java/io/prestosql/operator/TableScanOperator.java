@@ -13,19 +13,19 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.UpdatablePageSource;
-import com.facebook.presto.split.EmptySplit;
-import com.facebook.presto.split.EmptySplitPageSource;
-import com.facebook.presto.split.PageSourceProvider;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.metadata.Split;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.UpdatablePageSource;
+import io.prestosql.split.EmptySplit;
+import io.prestosql.split.EmptySplitPageSource;
+import io.prestosql.split.PageSourceProvider;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.io.Closeable;
 import java.io.IOException;

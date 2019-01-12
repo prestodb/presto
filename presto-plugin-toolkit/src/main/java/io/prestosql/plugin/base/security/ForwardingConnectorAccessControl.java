@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.base.security;
 
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.connector.ConnectorAccessControl;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.security.Privilege;
+import io.prestosql.spi.connector.ConnectorAccessControl;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.security.Privilege;
 
 import java.util.Set;
 import java.util.function.Supplier;

@@ -13,13 +13,6 @@
  */
 package io.prestosql.sql.gen;
 
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
-import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
-import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.bytecode.BytecodeBlock;
@@ -31,12 +24,19 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.relational.CallExpression;
+import io.prestosql.sql.relational.ConstantExpression;
+import io.prestosql.sql.relational.InputReferenceExpression;
+import io.prestosql.sql.relational.LambdaDefinitionExpression;
+import io.prestosql.sql.relational.RowExpressionVisitor;
+import io.prestosql.sql.relational.VariableReferenceExpression;
 import org.objectweb.asm.MethodVisitor;
 
 import java.util.List;
 import java.util.function.BiFunction;
 
-import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
+import static io.prestosql.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static java.util.Objects.requireNonNull;
 
 class InputReferenceCompiler

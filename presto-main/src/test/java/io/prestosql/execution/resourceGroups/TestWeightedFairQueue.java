@@ -13,7 +13,7 @@
  */
 package io.prestosql.execution.resourceGroups;
 
-import com.facebook.presto.execution.resourceGroups.WeightedFairQueue.Usage;
+import io.prestosql.execution.resourceGroups.WeightedFairQueue.Usage;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;

@@ -13,7 +13,6 @@
  */
 package io.prestosql.sql.gen;
 
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
@@ -22,13 +21,14 @@ import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodGenerationContext;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.expression.BytecodeExpression;
+import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.gen.BytecodeUtils.generateInvocation;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.ParameterizedType.type;
+import static io.prestosql.sql.gen.BytecodeUtils.generateInvocation;
 import static java.util.Objects.requireNonNull;
 
 public class InvokeFunctionBytecodeExpression

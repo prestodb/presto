@@ -13,18 +13,18 @@
  */
 package io.prestosql.testing;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.execution.TaskStateMachine;
-import com.facebook.presto.memory.DefaultQueryContext;
-import com.facebook.presto.memory.MemoryPool;
-import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.memory.MemoryPoolId;
-import com.facebook.presto.spiller.SpillSpaceTracker;
 import io.airlift.stats.GcMonitor;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
+import io.prestosql.Session;
+import io.prestosql.execution.TaskId;
+import io.prestosql.execution.TaskStateMachine;
+import io.prestosql.memory.DefaultQueryContext;
+import io.prestosql.memory.MemoryPool;
+import io.prestosql.operator.TaskContext;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.memory.MemoryPoolId;
+import io.prestosql.spiller.SpillSpaceTracker;
 
 import java.util.OptionalInt;
 import java.util.concurrent.Executor;

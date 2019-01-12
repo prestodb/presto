@@ -13,28 +13,28 @@
  */
 package io.prestosql.testing;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.Session.SessionBuilder;
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.connector.system.StaticSystemTablesProvider;
-import com.facebook.presto.connector.system.SystemTablesMetadata;
-import com.facebook.presto.execution.QueryIdGenerator;
-import com.facebook.presto.metadata.Catalog;
-import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.spi.connector.Connector;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.connector.ConnectorSplitManager;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.transaction.IsolationLevel;
-import com.facebook.presto.spi.type.TimeZoneKey;
-import com.facebook.presto.sql.SqlPath;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.Session;
+import io.prestosql.Session.SessionBuilder;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.system.StaticSystemTablesProvider;
+import io.prestosql.connector.system.SystemTablesMetadata;
+import io.prestosql.execution.QueryIdGenerator;
+import io.prestosql.metadata.Catalog;
+import io.prestosql.metadata.SessionPropertyManager;
+import io.prestosql.spi.connector.Connector;
+import io.prestosql.spi.connector.ConnectorMetadata;
+import io.prestosql.spi.connector.ConnectorSplitManager;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.transaction.IsolationLevel;
+import io.prestosql.spi.type.TimeZoneKey;
+import io.prestosql.sql.SqlPath;
 
 import java.util.Optional;
 
-import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
-import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
+import static io.prestosql.connector.ConnectorId.createInformationSchemaConnectorId;
+import static io.prestosql.connector.ConnectorId.createSystemTablesConnectorId;
 import static java.util.Locale.ENGLISH;
 
 public final class TestingSession

@@ -13,21 +13,21 @@
  */
 package io.prestosql.cost;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.tree.Expression;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;

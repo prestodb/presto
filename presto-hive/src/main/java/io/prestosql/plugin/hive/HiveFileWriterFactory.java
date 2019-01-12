@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.metastore.StorageFormat;
-import com.facebook.presto.spi.ConnectorSession;
+import io.prestosql.plugin.hive.metastore.StorageFormat;
+import io.prestosql.spi.connector.ConnectorSession;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 

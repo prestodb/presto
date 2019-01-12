@@ -13,17 +13,17 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.metadata.TableHandle;
+import io.prestosql.plugin.tpch.TpchTableHandle;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.sql.planner.assertions.PlanMatchPattern;
+import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.sql.planner.iterative.rule.test.RuleTester.CONNECTOR_ID;
+import static io.prestosql.sql.planner.iterative.rule.test.RuleTester.CONNECTOR_ID;
 
 public class TestRemoveEmptyDelete
         extends BaseRuleTest

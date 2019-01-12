@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.authentication.ImpersonatingHdfsAuthentication;
-import com.facebook.presto.hive.authentication.SimpleHadoopAuthentication;
+import io.prestosql.plugin.hive.authentication.ImpersonatingHdfsAuthentication;
+import io.prestosql.plugin.hive.authentication.SimpleHadoopAuthentication;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;

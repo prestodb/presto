@@ -13,13 +13,13 @@
  */
 package io.prestosql.util;
 
-import com.facebook.presto.execution.ExecutionFailureInfo;
-import com.facebook.presto.spi.PrestoException;
+import io.prestosql.execution.ExecutionFailureInfo;
+import io.prestosql.spi.PrestoException;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
-import static com.facebook.presto.util.Failures.toFailure;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
+import static io.prestosql.util.Failures.toFailure;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;

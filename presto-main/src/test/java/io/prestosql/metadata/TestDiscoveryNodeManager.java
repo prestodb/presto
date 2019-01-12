@@ -13,10 +13,6 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.failureDetector.NoOpFailureDetector;
-import com.facebook.presto.server.InternalCommunicationConfig;
-import com.facebook.presto.spi.Node;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -29,6 +25,10 @@ import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.node.NodeConfig;
 import io.airlift.node.NodeInfo;
+import io.prestosql.client.NodeVersion;
+import io.prestosql.failureDetector.NoOpFailureDetector;
+import io.prestosql.server.InternalCommunicationConfig;
+import io.prestosql.spi.Node;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -38,11 +38,11 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.facebook.presto.spi.NodeState.ACTIVE;
-import static com.facebook.presto.spi.NodeState.INACTIVE;
 import static io.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
 import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static io.prestosql.spi.NodeState.ACTIVE;
+import static io.prestosql.spi.NodeState.INACTIVE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotSame;
 

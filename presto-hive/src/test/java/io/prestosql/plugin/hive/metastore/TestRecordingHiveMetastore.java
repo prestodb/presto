@@ -13,19 +13,19 @@
  */
 package io.prestosql.plugin.hive.metastore;
 
-import com.facebook.presto.hive.HiveBasicStatistics;
-import com.facebook.presto.hive.HiveBucketProperty;
-import com.facebook.presto.hive.HiveClientConfig;
-import com.facebook.presto.hive.HiveType;
-import com.facebook.presto.hive.PartitionStatistics;
-import com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
-import com.facebook.presto.hive.metastore.SortingColumn.Order;
-import com.facebook.presto.spi.statistics.ColumnStatisticType;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.hive.HiveBasicStatistics;
+import io.prestosql.plugin.hive.HiveBucketProperty;
+import io.prestosql.plugin.hive.HiveClientConfig;
+import io.prestosql.plugin.hive.HiveType;
+import io.prestosql.plugin.hive.PartitionStatistics;
+import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
+import io.prestosql.plugin.hive.metastore.SortingColumn.Order;
+import io.prestosql.spi.statistics.ColumnStatisticType;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -37,10 +37,10 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
-import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE;
-import static com.facebook.presto.spi.statistics.ColumnStatisticType.MIN_VALUE;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
+import static io.prestosql.spi.statistics.ColumnStatisticType.MAX_VALUE;
+import static io.prestosql.spi.statistics.ColumnStatisticType.MIN_VALUE;
+import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static org.testng.Assert.assertEquals;
 
 public class TestRecordingHiveMetastore

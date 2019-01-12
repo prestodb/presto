@@ -13,19 +13,19 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.ErrorCode;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static io.airlift.testing.Assertions.assertContains;
+import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;

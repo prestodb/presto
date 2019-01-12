@@ -13,7 +13,7 @@
  */
 package io.prestosql.orc.stream;
 
-import com.facebook.presto.orc.checkpoint.ByteArrayStreamCheckpoint;
+import io.prestosql.orc.checkpoint.ByteArrayStreamCheckpoint;
 
 import java.io.IOException;
 

@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.raptor.legacy;
 
-import com.facebook.presto.raptor.metadata.ForMetadata;
-import com.facebook.presto.raptor.metadata.ShardManager;
+import io.prestosql.plugin.raptor.legacy.metadata.ForMetadata;
+import io.prestosql.plugin.raptor.legacy.metadata.ShardManager;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.inject.Inject;

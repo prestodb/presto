@@ -13,16 +13,16 @@
  */
 package io.prestosql;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 
-import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.util.StructuralTestUtil.appendToBlockBuilder;
 import static java.util.Objects.requireNonNull;
 
 public class RowPageBuilder

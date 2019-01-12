@@ -13,32 +13,32 @@
  */
 package io.prestosql.plugin.thrift.server;
 
-import com.facebook.presto.connector.thrift.api.PrestoThriftBlock;
-import com.facebook.presto.connector.thrift.api.PrestoThriftId;
-import com.facebook.presto.connector.thrift.api.PrestoThriftNullableToken;
-import com.facebook.presto.connector.thrift.api.PrestoThriftPageResult;
-import com.facebook.presto.connector.thrift.api.PrestoThriftSchemaTableName;
-import com.facebook.presto.connector.thrift.api.PrestoThriftServiceException;
-import com.facebook.presto.connector.thrift.api.PrestoThriftSplit;
-import com.facebook.presto.connector.thrift.api.PrestoThriftSplitBatch;
-import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.RecordPageSource;
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.split.MappedRecordSet;
-import com.facebook.presto.tests.tpch.TpchIndexedData;
-import com.facebook.presto.tests.tpch.TpchIndexedData.IndexedTable;
-import com.facebook.presto.tests.tpch.TpchScaledTable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.plugin.thrift.api.PrestoThriftBlock;
+import io.prestosql.plugin.thrift.api.PrestoThriftId;
+import io.prestosql.plugin.thrift.api.PrestoThriftNullableToken;
+import io.prestosql.plugin.thrift.api.PrestoThriftPageResult;
+import io.prestosql.plugin.thrift.api.PrestoThriftSchemaTableName;
+import io.prestosql.plugin.thrift.api.PrestoThriftServiceException;
+import io.prestosql.plugin.thrift.api.PrestoThriftSplit;
+import io.prestosql.plugin.thrift.api.PrestoThriftSplitBatch;
+import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.RecordPageSource;
+import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.spi.type.Type;
+import io.prestosql.split.MappedRecordSet;
+import io.prestosql.tests.tpch.TpchIndexedData;
+import io.prestosql.tests.tpch.TpchIndexedData.IndexedTable;
+import io.prestosql.tests.tpch.TpchScaledTable;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.connector.thrift.server.SplitInfo.indexSplit;
-import static com.facebook.presto.tests.AbstractTestIndexedQueries.INDEX_SPEC;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.plugin.thrift.server.SplitInfo.indexSplit;
+import static io.prestosql.tests.AbstractTestIndexedQueries.INDEX_SPEC;
 
 public class ThriftIndexedTpchService
         extends ThriftTpchService

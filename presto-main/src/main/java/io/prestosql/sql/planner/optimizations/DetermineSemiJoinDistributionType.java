@@ -13,19 +13,19 @@
  */
 package io.prestosql.sql.planner.optimizations;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.plan.DeleteNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
+import io.prestosql.Session;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.sql.planner.PlanNodeIdAllocator;
+import io.prestosql.sql.planner.SymbolAllocator;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.planner.plan.DeleteNode;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.SemiJoinNode;
+import io.prestosql.sql.planner.plan.SimplePlanRewriter;
 
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
+import static io.prestosql.SystemSessionProperties.getJoinDistributionType;
 import static java.util.Objects.requireNonNull;
 
 public class DetermineSemiJoinDistributionType

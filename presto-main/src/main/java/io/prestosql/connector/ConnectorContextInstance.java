@@ -13,11 +13,11 @@
  */
 package io.prestosql.connector;
 
-import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.PageIndexerFactory;
-import com.facebook.presto.spi.PageSorter;
-import com.facebook.presto.spi.connector.ConnectorContext;
-import com.facebook.presto.spi.type.TypeManager;
+import io.prestosql.spi.NodeManager;
+import io.prestosql.spi.PageIndexerFactory;
+import io.prestosql.spi.PageSorter;
+import io.prestosql.spi.connector.ConnectorContext;
+import io.prestosql.spi.type.TypeManager;
 
 import static java.util.Objects.requireNonNull;
 

@@ -13,9 +13,9 @@
  */
 package io.prestosql.benchmark.driver;
 
-import com.facebook.presto.client.ClientSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
+import io.prestosql.client.ClientSession;
 
 import java.io.Closeable;
 import java.util.HashMap;

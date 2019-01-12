@@ -25,15 +25,15 @@ import org.testng.annotations.Test;
 
 import java.sql.Date;
 
-import static com.facebook.presto.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static com.facebook.presto.tests.TestGroups.SQL_SERVER;
-import static com.facebook.presto.tests.sqlserver.SqlServerDataTypesTableDefinition.SQLSERVER_INSERT;
-import static com.facebook.presto.tests.sqlserver.TestConstants.KEY_SPACE;
-import static com.facebook.presto.tests.utils.QueryExecutors.onPresto;
-import static com.facebook.presto.tests.utils.QueryExecutors.onSqlServer;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.fulfillment.table.TableRequirements.immutableTable;
+import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.prestosql.tests.TestGroups.SQL_SERVER;
+import static io.prestosql.tests.sqlserver.SqlServerDataTypesTableDefinition.SQLSERVER_INSERT;
+import static io.prestosql.tests.sqlserver.TestConstants.KEY_SPACE;
+import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static io.prestosql.tests.utils.QueryExecutors.onSqlServer;
 import static java.lang.String.format;
 
 public class TestInsert

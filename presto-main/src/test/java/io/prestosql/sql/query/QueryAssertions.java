@@ -13,24 +13,24 @@
  */
 package io.prestosql.sql.query;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.planner.assertions.PlanAssert;
-import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.MaterializedRow;
-import com.facebook.presto.testing.QueryRunner;
+import io.prestosql.Session;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.sql.planner.Plan;
+import io.prestosql.sql.planner.assertions.PlanAssert;
+import io.prestosql.sql.planner.assertions.PlanMatchPattern;
+import io.prestosql.testing.LocalQueryRunner;
+import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.MaterializedRow;
+import io.prestosql.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 
 import java.io.Closeable;
 import java.util.List;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;

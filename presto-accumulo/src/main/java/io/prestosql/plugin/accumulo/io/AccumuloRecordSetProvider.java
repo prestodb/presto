@@ -13,17 +13,17 @@
  */
 package io.prestosql.plugin.accumulo.io;
 
-import com.facebook.presto.accumulo.AccumuloConnectorId;
-import com.facebook.presto.accumulo.conf.AccumuloConfig;
-import com.facebook.presto.accumulo.model.AccumuloColumnHandle;
-import com.facebook.presto.accumulo.model.AccumuloSplit;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.accumulo.AccumuloConnectorId;
+import io.prestosql.plugin.accumulo.conf.AccumuloConfig;
+import io.prestosql.plugin.accumulo.model.AccumuloColumnHandle;
+import io.prestosql.plugin.accumulo.model.AccumuloSplit;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorRecordSetProvider;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.RecordSet;
 import org.apache.accumulo.core.client.Connector;
 
 import javax.inject.Inject;

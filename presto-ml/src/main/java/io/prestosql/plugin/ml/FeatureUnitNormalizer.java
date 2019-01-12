@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.ml;
 
-import com.facebook.presto.ml.type.ModelType;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import io.prestosql.plugin.ml.type.ModelType;
 import it.unimi.dsi.fastutil.ints.Int2DoubleMap;
 import it.unimi.dsi.fastutil.ints.Int2DoubleOpenHashMap;
 

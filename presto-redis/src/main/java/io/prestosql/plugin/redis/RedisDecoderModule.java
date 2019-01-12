@@ -13,25 +13,25 @@
  */
 package io.prestosql.plugin.redis;
 
-import com.facebook.presto.decoder.DispatchingRowDecoderFactory;
-import com.facebook.presto.decoder.RowDecoderFactory;
-import com.facebook.presto.decoder.avro.AvroRowDecoder;
-import com.facebook.presto.decoder.avro.AvroRowDecoderFactory;
-import com.facebook.presto.decoder.csv.CsvRowDecoder;
-import com.facebook.presto.decoder.csv.CsvRowDecoderFactory;
-import com.facebook.presto.decoder.dummy.DummyRowDecoder;
-import com.facebook.presto.decoder.dummy.DummyRowDecoderFactory;
-import com.facebook.presto.decoder.json.JsonRowDecoder;
-import com.facebook.presto.decoder.json.JsonRowDecoderFactory;
-import com.facebook.presto.decoder.raw.RawRowDecoder;
-import com.facebook.presto.decoder.raw.RawRowDecoderFactory;
-import com.facebook.presto.redis.decoder.hash.HashRedisRowDecoder;
-import com.facebook.presto.redis.decoder.hash.HashRedisRowDecoderFactory;
-import com.facebook.presto.redis.decoder.zset.ZsetRedisRowDecoder;
-import com.facebook.presto.redis.decoder.zset.ZsetRedisRowDecoderFactory;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.multibindings.MapBinder;
+import io.prestosql.decoder.DispatchingRowDecoderFactory;
+import io.prestosql.decoder.RowDecoderFactory;
+import io.prestosql.decoder.avro.AvroRowDecoder;
+import io.prestosql.decoder.avro.AvroRowDecoderFactory;
+import io.prestosql.decoder.csv.CsvRowDecoder;
+import io.prestosql.decoder.csv.CsvRowDecoderFactory;
+import io.prestosql.decoder.dummy.DummyRowDecoder;
+import io.prestosql.decoder.dummy.DummyRowDecoderFactory;
+import io.prestosql.decoder.json.JsonRowDecoder;
+import io.prestosql.decoder.json.JsonRowDecoderFactory;
+import io.prestosql.decoder.raw.RawRowDecoder;
+import io.prestosql.decoder.raw.RawRowDecoderFactory;
+import io.prestosql.plugin.redis.decoder.hash.HashRedisRowDecoder;
+import io.prestosql.plugin.redis.decoder.hash.HashRedisRowDecoderFactory;
+import io.prestosql.plugin.redis.decoder.zset.ZsetRedisRowDecoder;
+import io.prestosql.plugin.redis.decoder.zset.ZsetRedisRowDecoderFactory;
 
 import static com.google.inject.Scopes.SINGLETON;
 

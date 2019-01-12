@@ -13,8 +13,8 @@
  */
 package io.prestosql.parquet.reader;
 
-import com.facebook.presto.parquet.RichColumnDescriptor;
-import com.facebook.presto.spi.type.DecimalType;
+import io.prestosql.parquet.RichColumnDescriptor;
+import io.prestosql.spi.type.DecimalType;
 
 public final class DecimalColumnReaderFactory
 {

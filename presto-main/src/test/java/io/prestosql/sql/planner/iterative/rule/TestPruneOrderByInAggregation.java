@@ -13,27 +13,27 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.tree.SortItem;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
+import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.tree.SortItem;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.sort;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.prestosql.sql.planner.plan.AggregationNode.Step.SINGLE;
 
 public class TestPruneOrderByInAggregation
         extends BaseRuleTest

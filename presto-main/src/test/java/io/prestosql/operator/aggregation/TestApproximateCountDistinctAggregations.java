@@ -13,11 +13,11 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.spi.PrestoException;
+import io.prestosql.spi.PrestoException;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregation.standardErrorToBuckets;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.operator.aggregation.ApproximateCountDistinctAggregation.standardErrorToBuckets;
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 

@@ -13,12 +13,12 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.connector.ConnectorManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.airlift.log.Logger;
+import io.prestosql.connector.ConnectorManager;
 
 import javax.inject.Inject;
 
@@ -29,9 +29,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.util.PropertiesUtil.loadProperties;
 
 public class StaticCatalogStore
 {

@@ -20,11 +20,11 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.function.BiConsumer;
 
-import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
-import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
-import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
-import static com.facebook.presto.spi.block.BlockUtil.countUsedPositions;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.prestosql.spi.block.BlockUtil.calculateBlockResetSize;
+import static io.prestosql.spi.block.BlockUtil.checkArrayRange;
+import static io.prestosql.spi.block.BlockUtil.checkValidRegion;
+import static io.prestosql.spi.block.BlockUtil.countUsedPositions;
 import static java.lang.Math.max;
 
 public class ShortArrayBlockBuilder

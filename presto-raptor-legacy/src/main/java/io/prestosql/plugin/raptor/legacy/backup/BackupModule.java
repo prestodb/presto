@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.raptor.legacy.backup;
 
-import com.facebook.presto.raptor.RaptorConnectorId;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -23,6 +22,7 @@ import com.google.inject.util.Providers;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.configuration.ConfigurationAwareModule;
+import io.prestosql.plugin.raptor.legacy.RaptorConnectorId;
 import org.weakref.jmx.MBeanExporter;
 
 import javax.annotation.Nullable;

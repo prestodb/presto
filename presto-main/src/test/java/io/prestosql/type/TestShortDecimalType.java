@@ -13,12 +13,12 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.SqlDecimal;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.SqlDecimal;
 
-import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
 
 public class TestShortDecimalType
         extends AbstractTestType

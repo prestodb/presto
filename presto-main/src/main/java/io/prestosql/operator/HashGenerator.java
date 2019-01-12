@@ -13,7 +13,7 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.spi.Page;
+import io.prestosql.spi.Page;
 
 import static com.google.common.base.Preconditions.checkState;
 

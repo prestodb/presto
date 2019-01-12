@@ -13,13 +13,13 @@
  */
 package io.prestosql.sql.query;
 
-import com.facebook.presto.Session;
+import io.prestosql.Session;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public class TestPrecomputedHashes
 {

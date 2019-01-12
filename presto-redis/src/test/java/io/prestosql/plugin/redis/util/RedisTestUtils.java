@@ -13,16 +13,16 @@
  */
 package io.prestosql.plugin.redis.util;
 
-import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.redis.RedisPlugin;
-import com.facebook.presto.redis.RedisTableDescription;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.TestingPrestoClient;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import io.airlift.json.JsonCodec;
+import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.plugin.redis.RedisPlugin;
+import io.prestosql.plugin.redis.RedisTableDescription;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.tests.TestingPrestoClient;
 
 import java.io.IOException;
 import java.io.InputStream;

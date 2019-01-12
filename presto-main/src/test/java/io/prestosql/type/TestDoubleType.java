@@ -13,12 +13,12 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.LongArrayBlockBuilder;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.LongArrayBlockBuilder;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Double.doubleToRawLongBits;
 import static org.testng.Assert.assertEquals;

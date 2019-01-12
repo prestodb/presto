@@ -22,9 +22,9 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 
-import static com.facebook.presto.raptor.util.DatabaseUtil.getOptionalInt;
-import static com.facebook.presto.raptor.util.DatabaseUtil.getOptionalLong;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.getOptionalInt;
+import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.getOptionalLong;
 import static java.util.Objects.requireNonNull;
 
 public final class Table

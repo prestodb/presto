@@ -13,23 +13,23 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.SqlVarbinary;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeParameter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.stats.QuantileDigest;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.SqlVarbinary;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeParameter;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.function.BiFunction;
 
-import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.spi.type.QuantileDigestParametricType.QDIGEST;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static io.prestosql.spi.type.QuantileDigestParametricType.QDIGEST;
 import static java.util.Objects.requireNonNull;
 
 public class TestMergeQuantileDigestFunction

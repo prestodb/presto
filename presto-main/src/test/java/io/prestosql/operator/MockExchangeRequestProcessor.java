@@ -13,12 +13,6 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.client.PrestoHeaders;
-import com.facebook.presto.execution.buffer.BufferResult;
-import com.facebook.presto.execution.buffer.PagesSerde;
-import com.facebook.presto.execution.buffer.PagesSerdeUtil;
-import com.facebook.presto.execution.buffer.SerializedPage;
-import com.facebook.presto.spi.Page;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -30,6 +24,12 @@ import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.units.DataSize;
+import io.prestosql.client.PrestoHeaders;
+import io.prestosql.execution.buffer.BufferResult;
+import io.prestosql.execution.buffer.PagesSerde;
+import io.prestosql.execution.buffer.PagesSerdeUtil;
+import io.prestosql.execution.buffer.SerializedPage;
+import io.prestosql.spi.Page;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -40,14 +40,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
-import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
+import static io.prestosql.PrestoMediaTypes.PRESTO_PAGES;
+import static io.prestosql.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
+import static io.prestosql.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
+import static io.prestosql.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
+import static io.prestosql.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
+import static io.prestosql.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

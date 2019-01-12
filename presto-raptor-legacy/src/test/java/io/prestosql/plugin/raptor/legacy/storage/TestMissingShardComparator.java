@@ -15,8 +15,8 @@ package io.prestosql.plugin.raptor.legacy.storage;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.raptor.storage.ShardRecoveryManager.MissingShardComparator;
-import static com.facebook.presto.raptor.storage.ShardRecoveryManager.MissingShardRunnable;
+import static io.prestosql.plugin.raptor.legacy.storage.ShardRecoveryManager.MissingShardComparator;
+import static io.prestosql.plugin.raptor.legacy.storage.ShardRecoveryManager.MissingShardRunnable;
 import static org.testng.Assert.assertEquals;
 
 public class TestMissingShardComparator

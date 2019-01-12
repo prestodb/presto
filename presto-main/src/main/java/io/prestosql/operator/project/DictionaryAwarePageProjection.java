@@ -13,16 +13,16 @@
  */
 package io.prestosql.operator.project;
 
-import com.facebook.presto.operator.CompletedWork;
-import com.facebook.presto.operator.DriverYieldSignal;
-import com.facebook.presto.operator.Work;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.DictionaryId;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.operator.CompletedWork;
+import io.prestosql.operator.DriverYieldSignal;
+import io.prestosql.operator.Work;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.DictionaryBlock;
+import io.prestosql.spi.block.DictionaryId;
+import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.Type;
 
 import javax.annotation.Nullable;
 

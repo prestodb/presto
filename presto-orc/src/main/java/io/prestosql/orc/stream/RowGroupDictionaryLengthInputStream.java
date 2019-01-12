@@ -13,8 +13,8 @@
  */
 package io.prestosql.orc.stream;
 
-import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
-import com.facebook.presto.orc.checkpoint.RowGroupDictionaryLengthStreamCheckpoint;
+import io.prestosql.orc.checkpoint.LongStreamCheckpoint;
+import io.prestosql.orc.checkpoint.RowGroupDictionaryLengthStreamCheckpoint;
 
 import java.io.IOException;
 

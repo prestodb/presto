@@ -13,23 +13,23 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.tree.BindExpression;
-import com.facebook.presto.sql.tree.Identifier;
-import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
-import com.facebook.presto.sql.tree.LambdaExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.SymbolAllocator;
+import io.prestosql.sql.tree.BindExpression;
+import io.prestosql.sql.tree.Identifier;
+import io.prestosql.sql.tree.LambdaArgumentDeclaration;
+import io.prestosql.sql.tree.LambdaExpression;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.sql.planner.iterative.rule.LambdaCaptureDesugaringRewriter.rewrite;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.prestosql.sql.planner.iterative.rule.LambdaCaptureDesugaringRewriter.rewrite;
+import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 

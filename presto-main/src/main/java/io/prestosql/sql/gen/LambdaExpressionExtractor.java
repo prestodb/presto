@@ -13,14 +13,14 @@
  */
 package io.prestosql.sql.gen;
 
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
-import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
-import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.sql.relational.CallExpression;
+import io.prestosql.sql.relational.ConstantExpression;
+import io.prestosql.sql.relational.InputReferenceExpression;
+import io.prestosql.sql.relational.LambdaDefinitionExpression;
+import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.relational.RowExpressionVisitor;
+import io.prestosql.sql.relational.VariableReferenceExpression;
 
 import java.util.List;
 

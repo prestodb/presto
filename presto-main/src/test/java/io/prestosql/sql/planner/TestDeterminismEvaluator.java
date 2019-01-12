@@ -13,10 +13,10 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.Identifier;
-import com.facebook.presto.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.Identifier;
+import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;

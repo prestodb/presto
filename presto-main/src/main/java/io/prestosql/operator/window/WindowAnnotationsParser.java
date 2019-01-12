@@ -13,21 +13,21 @@
  */
 package io.prestosql.operator.window;
 
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.metadata.TypeVariableConstraint;
-import com.facebook.presto.spi.function.WindowFunction;
-import com.facebook.presto.spi.function.WindowFunctionSignature;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.TypeVariableConstraint;
+import io.prestosql.spi.function.WindowFunction;
+import io.prestosql.spi.function.WindowFunctionSignature;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.util.List;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.metadata.FunctionKind.WINDOW;
-import static com.facebook.presto.metadata.Signature.typeVariable;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.FunctionKind.WINDOW;
+import static io.prestosql.metadata.Signature.typeVariable;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 
 public final class WindowAnnotationsParser
 {

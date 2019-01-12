@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.blackhole;
 
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.HostAddress;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
+import io.prestosql.spi.HostAddress;
+import io.prestosql.spi.connector.ConnectorSplit;
 
 import java.util.List;
 import java.util.Objects;

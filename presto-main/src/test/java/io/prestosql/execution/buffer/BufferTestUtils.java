@@ -13,26 +13,26 @@
  */
 package io.prestosql.execution.buffer;
 
-import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.OutputBuffers.OutputBufferId;
-import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.operator.PageAssertions;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.OutputBuffers;
+import io.prestosql.OutputBuffers.OutputBufferId;
+import io.prestosql.block.BlockAssertions;
+import io.prestosql.operator.PageAssertions;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.prestosql.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;

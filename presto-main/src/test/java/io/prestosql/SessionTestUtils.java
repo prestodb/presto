@@ -13,11 +13,11 @@
  */
 package io.prestosql;
 
-import com.facebook.presto.client.ClientCapabilities;
+import io.prestosql.client.ClientCapabilities;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.util.Arrays.stream;
 
 public final class SessionTestUtils

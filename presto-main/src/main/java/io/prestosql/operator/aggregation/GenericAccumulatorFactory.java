@@ -13,22 +13,22 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.operator.MarkDistinctHash;
-import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.operator.UpdateMemory;
-import com.facebook.presto.operator.Work;
-import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.function.WindowIndex;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import io.prestosql.Session;
+import io.prestosql.operator.GroupByIdBlock;
+import io.prestosql.operator.MarkDistinctHash;
+import io.prestosql.operator.PagesIndex;
+import io.prestosql.operator.UpdateMemory;
+import io.prestosql.operator.Work;
+import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.function.WindowIndex;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.gen.JoinCompiler;
 
 import javax.annotation.Nullable;
 
@@ -40,10 +40,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static java.lang.Long.max;
 import static java.util.Objects.isNull;
 import static java.util.Objects.requireNonNull;

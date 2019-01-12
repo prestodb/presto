@@ -13,14 +13,14 @@
  */
 package io.prestosql.spi.type;
 
-import com.facebook.presto.spi.PrestoException;
+import io.prestosql.spi.PrestoException;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.Decimals.MAX_PRECISION;
-import static com.facebook.presto.spi.type.Decimals.MAX_SHORT_PRECISION;
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.type.Decimals.MAX_PRECISION;
+import static io.prestosql.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static java.util.Collections.unmodifiableList;
 
 public abstract class DecimalType

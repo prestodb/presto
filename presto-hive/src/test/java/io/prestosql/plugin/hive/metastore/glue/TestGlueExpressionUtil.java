@@ -13,16 +13,16 @@
  */
 package io.prestosql.plugin.hive.metastore.glue;
 
-import com.facebook.presto.hive.HiveType;
-import com.facebook.presto.hive.metastore.Column;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.hive.HiveType;
+import io.prestosql.plugin.hive.metastore.Column;
+import io.prestosql.spi.PrestoException;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.hive.metastore.glue.GlueExpressionUtil.buildGlueExpression;
+import static io.prestosql.plugin.hive.metastore.glue.GlueExpressionUtil.buildGlueExpression;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 

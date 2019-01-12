@@ -13,17 +13,17 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.NullableLongState;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.AggregationFunction;
-import com.facebook.presto.spi.function.CombineFunction;
-import com.facebook.presto.spi.function.InputFunction;
-import com.facebook.presto.spi.function.OutputFunction;
-import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.type.BigintOperators;
+import io.prestosql.operator.aggregation.state.NullableLongState;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.AggregationFunction;
+import io.prestosql.spi.function.CombineFunction;
+import io.prestosql.spi.function.InputFunction;
+import io.prestosql.spi.function.OutputFunction;
+import io.prestosql.spi.function.SqlType;
+import io.prestosql.type.BigintOperators;
 
-import static com.facebook.presto.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
-import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static io.prestosql.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
+import static io.prestosql.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 
 @AggregationFunction("sum")
 public final class IntervalDayToSecondSumAggregation

@@ -13,10 +13,10 @@
  */
 package io.prestosql.spi.type;
 
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.PageBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.BlockBuilderStatus;
+import io.prestosql.spi.block.PageBuilderStatus;
+import io.prestosql.spi.block.VariableWidthBlockBuilder;
 
 import static java.lang.Math.min;
 

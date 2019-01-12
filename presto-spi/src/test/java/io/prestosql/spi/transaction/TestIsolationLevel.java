@@ -15,10 +15,10 @@ package io.prestosql.spi.transaction;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.transaction.IsolationLevel.READ_COMMITTED;
-import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
-import static com.facebook.presto.spi.transaction.IsolationLevel.REPEATABLE_READ;
-import static com.facebook.presto.spi.transaction.IsolationLevel.SERIALIZABLE;
+import static io.prestosql.spi.transaction.IsolationLevel.READ_COMMITTED;
+import static io.prestosql.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
+import static io.prestosql.spi.transaction.IsolationLevel.REPEATABLE_READ;
+import static io.prestosql.spi.transaction.IsolationLevel.SERIALIZABLE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

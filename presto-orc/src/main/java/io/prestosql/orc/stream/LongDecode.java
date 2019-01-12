@@ -13,24 +13,24 @@
  */
 package io.prestosql.orc.stream;
 
-import com.facebook.presto.orc.OrcCorruptionException;
-import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import io.airlift.slice.SliceOutput;
+import io.prestosql.orc.OrcCorruptionException;
+import io.prestosql.orc.metadata.OrcType.OrcTypeKind;
 
 import java.io.IOException;
 
-import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.INT;
-import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.LONG;
-import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.SHORT;
-import static com.facebook.presto.orc.stream.LongDecode.FixedBitSizes.FIFTY_SIX;
-import static com.facebook.presto.orc.stream.LongDecode.FixedBitSizes.FORTY;
-import static com.facebook.presto.orc.stream.LongDecode.FixedBitSizes.FORTY_EIGHT;
-import static com.facebook.presto.orc.stream.LongDecode.FixedBitSizes.ONE;
-import static com.facebook.presto.orc.stream.LongDecode.FixedBitSizes.THIRTY;
-import static com.facebook.presto.orc.stream.LongDecode.FixedBitSizes.THIRTY_TWO;
-import static com.facebook.presto.orc.stream.LongDecode.FixedBitSizes.TWENTY_EIGHT;
-import static com.facebook.presto.orc.stream.LongDecode.FixedBitSizes.TWENTY_FOUR;
-import static com.facebook.presto.orc.stream.LongDecode.FixedBitSizes.TWENTY_SIX;
+import static io.prestosql.orc.metadata.OrcType.OrcTypeKind.INT;
+import static io.prestosql.orc.metadata.OrcType.OrcTypeKind.LONG;
+import static io.prestosql.orc.metadata.OrcType.OrcTypeKind.SHORT;
+import static io.prestosql.orc.stream.LongDecode.FixedBitSizes.FIFTY_SIX;
+import static io.prestosql.orc.stream.LongDecode.FixedBitSizes.FORTY;
+import static io.prestosql.orc.stream.LongDecode.FixedBitSizes.FORTY_EIGHT;
+import static io.prestosql.orc.stream.LongDecode.FixedBitSizes.ONE;
+import static io.prestosql.orc.stream.LongDecode.FixedBitSizes.THIRTY;
+import static io.prestosql.orc.stream.LongDecode.FixedBitSizes.THIRTY_TWO;
+import static io.prestosql.orc.stream.LongDecode.FixedBitSizes.TWENTY_EIGHT;
+import static io.prestosql.orc.stream.LongDecode.FixedBitSizes.TWENTY_FOUR;
+import static io.prestosql.orc.stream.LongDecode.FixedBitSizes.TWENTY_SIX;
 
 // This is based on the Apache Hive ORC code
 public final class LongDecode

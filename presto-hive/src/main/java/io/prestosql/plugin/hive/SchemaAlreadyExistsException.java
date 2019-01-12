@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.spi.PrestoException;
+import io.prestosql.spi.PrestoException;
 
-import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static java.lang.String.format;
 
 public class SchemaAlreadyExistsException

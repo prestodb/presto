@@ -13,13 +13,13 @@
  */
 package io.prestosql.operator.aggregation.minmaxby;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.function.AccumulatorState;
-import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.function.AccumulatorState;
+import io.prestosql.spi.function.AccumulatorStateSerializer;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 import java.util.Map;

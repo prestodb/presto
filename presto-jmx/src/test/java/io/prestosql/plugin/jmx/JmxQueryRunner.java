@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.jmx;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.tests.DistributedQueryRunner;
+import io.prestosql.Session;
+import io.prestosql.tests.DistributedQueryRunner;
 
-import static com.facebook.presto.connector.jmx.JmxMetadata.JMX_SCHEMA_NAME;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.prestosql.plugin.jmx.JmxMetadata.JMX_SCHEMA_NAME;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public final class JmxQueryRunner
 {

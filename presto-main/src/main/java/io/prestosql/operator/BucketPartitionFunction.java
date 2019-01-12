@@ -13,8 +13,8 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.spi.BucketFunction;
-import com.facebook.presto.spi.Page;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.connector.BucketFunction;
 
 import java.util.stream.IntStream;
 

@@ -13,17 +13,17 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.tree.ExistsPredicate;
-import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.SymbolReference;
+import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.planner.plan.SemiJoinNode;
+import io.prestosql.sql.tree.ExistsPredicate;
+import io.prestosql.sql.tree.InPredicate;
+import io.prestosql.sql.tree.LongLiteral;
+import io.prestosql.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static java.util.Collections.emptyList;
 
 public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin

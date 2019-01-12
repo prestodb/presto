@@ -19,8 +19,8 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.security.auth.Subject;
 import javax.security.auth.kerberos.KerberosTicket;
 
-import static com.facebook.presto.hive.authentication.KerberosTicketUtils.getTicketGrantingTicket;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.plugin.hive.authentication.KerberosTicketUtils.getTicketGrantingTicket;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.security.UserGroupInformationShim.getSubject;
 

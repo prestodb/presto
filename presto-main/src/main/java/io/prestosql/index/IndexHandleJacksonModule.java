@@ -13,9 +13,9 @@
  */
 package io.prestosql.index;
 
-import com.facebook.presto.metadata.AbstractTypedJacksonModule;
-import com.facebook.presto.metadata.HandleResolver;
-import com.facebook.presto.spi.ConnectorIndexHandle;
+import io.prestosql.metadata.AbstractTypedJacksonModule;
+import io.prestosql.metadata.HandleResolver;
+import io.prestosql.spi.connector.ConnectorIndexHandle;
 
 import javax.inject.Inject;
 

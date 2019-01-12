@@ -13,11 +13,11 @@
  */
 package io.prestosql.execution.resourceGroups.db;
 
-import com.facebook.presto.tests.DistributedQueryRunner;
+import io.prestosql.tests.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.execution.resourceGroups.TestResourceGroupIntegration.waitForGlobalResourceGroup;
-import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getSimpleQueryRunner;
+import static io.prestosql.execution.resourceGroups.TestResourceGroupIntegration.waitForGlobalResourceGroup;
+import static io.prestosql.execution.resourceGroups.db.H2TestUtil.getSimpleQueryRunner;
 
 public class TestResourceGroupDbIntegration
 {

@@ -13,8 +13,8 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.execution.QueryManager;
-import com.facebook.presto.execution.StageId;
+import io.prestosql.execution.QueryManager;
+import io.prestosql.execution.StageId;
 
 import javax.inject.Inject;
 import javax.ws.rs.DELETE;

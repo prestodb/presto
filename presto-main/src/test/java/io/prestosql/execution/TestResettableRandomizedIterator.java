@@ -13,8 +13,8 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.execution.scheduler.ResettableRandomizedIterator;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.execution.scheduler.ResettableRandomizedIterator;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;

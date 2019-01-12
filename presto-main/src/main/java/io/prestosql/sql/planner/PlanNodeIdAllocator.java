@@ -13,7 +13,7 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 public class PlanNodeIdAllocator
 {

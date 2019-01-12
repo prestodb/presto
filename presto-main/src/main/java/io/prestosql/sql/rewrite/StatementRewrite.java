@@ -13,15 +13,15 @@
  */
 package io.prestosql.sql.rewrite;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.sql.analyzer.QueryExplainer;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.Session;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AccessControl;
+import io.prestosql.sql.analyzer.QueryExplainer;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Statement;
 
 import java.util.List;
 import java.util.Optional;

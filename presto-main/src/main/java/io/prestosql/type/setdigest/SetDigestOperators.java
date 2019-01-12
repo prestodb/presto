@@ -14,16 +14,16 @@
 
 package io.prestosql.type.setdigest;
 
-import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.spi.function.ScalarOperator;
+import io.prestosql.spi.function.SqlType;
+import io.prestosql.spi.type.StandardTypes;
 
-import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.prestosql.spi.function.OperatorType.CAST;
 
 public final class SetDigestOperators
 {

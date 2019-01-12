@@ -31,10 +31,10 @@ import org.locationtech.jts.geom.Polygon;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.geospatial.GeometryUtils.translateToAVNaN;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
+import static io.prestosql.geospatial.GeometryUtils.translateToAVNaN;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
 import static java.util.Objects.requireNonNull;

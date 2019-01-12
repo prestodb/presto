@@ -13,9 +13,9 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
-import com.facebook.presto.sql.tree.Parameter;
-import com.facebook.presto.sql.tree.Statement;
+import io.prestosql.sql.tree.DefaultTraversalVisitor;
+import io.prestosql.sql.tree.Parameter;
+import io.prestosql.sql.tree.Statement;
 
 import java.util.ArrayList;
 import java.util.List;

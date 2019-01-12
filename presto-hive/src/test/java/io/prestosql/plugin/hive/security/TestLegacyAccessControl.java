@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.hive.security;
 
-import com.facebook.presto.spi.connector.ConnectorAccessControl;
+import io.prestosql.spi.connector.ConnectorAccessControl;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 
 public class TestLegacyAccessControl
 {

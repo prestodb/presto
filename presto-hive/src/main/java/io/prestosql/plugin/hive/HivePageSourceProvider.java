@@ -13,21 +13,21 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
-import com.facebook.presto.hive.HiveSplit.BucketConversion;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.RecordPageSource;
-import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.prestosql.plugin.hive.HiveSplit.BucketConversion;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.ConnectorPageSourceProvider;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.connector.RecordPageSource;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTimeZone;
@@ -42,15 +42,15 @@ import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
 
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
-import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
-import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
+import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
+import static io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
+import static io.prestosql.plugin.hive.HiveUtil.getPrefilledColumnValue;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 

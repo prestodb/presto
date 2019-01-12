@@ -13,8 +13,8 @@
  */
 package io.prestosql.cli;
 
-import com.facebook.presto.client.StatementClient;
 import io.airlift.units.Duration;
+import io.prestosql.client.StatementClient;
 
 import java.io.Closeable;
 import java.io.IOException;

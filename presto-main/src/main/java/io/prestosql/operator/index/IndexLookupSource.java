@@ -13,14 +13,14 @@
  */
 package io.prestosql.operator.index;
 
-import com.facebook.presto.operator.LookupSource;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
+import io.prestosql.operator.LookupSource;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
-import static com.facebook.presto.operator.index.IndexSnapshot.UNLOADED_INDEX_KEY;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.operator.index.IndexSnapshot.UNLOADED_INDEX_KEY;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe

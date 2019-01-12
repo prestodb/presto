@@ -13,16 +13,16 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.spi.type.SqlVarbinary;
+import io.prestosql.operator.scalar.AbstractTestFunctions;
+import io.prestosql.spi.type.SqlVarbinary;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.type.IpAddressType.IPADDRESS;
 import static com.google.common.io.BaseEncoding.base16;
+import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.type.IpAddressType.IPADDRESS;
 
 public class TestIpAddressOperators
         extends AbstractTestFunctions

@@ -13,9 +13,9 @@
  */
 package io.prestosql.orc.metadata.statistics;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.Type;
 
 public interface SliceColumnStatisticsBuilder
         extends StatisticsBuilder

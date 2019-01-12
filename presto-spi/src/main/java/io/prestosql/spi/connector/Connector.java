@@ -13,10 +13,9 @@
  */
 package io.prestosql.spi.connector;
 
-import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.procedure.Procedure;
-import com.facebook.presto.spi.session.PropertyMetadata;
-import com.facebook.presto.spi.transaction.IsolationLevel;
+import io.prestosql.spi.procedure.Procedure;
+import io.prestosql.spi.session.PropertyMetadata;
+import io.prestosql.spi.transaction.IsolationLevel;
 
 import java.util.List;
 import java.util.Set;

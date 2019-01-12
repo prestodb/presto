@@ -13,18 +13,18 @@
  */
 package io.prestosql.plugin.ml;
 
-import com.facebook.presto.ml.type.ClassifierParametricType;
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.type.ParametricType;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.plugin.ml.type.ClassifierParametricType;
+import io.prestosql.spi.Plugin;
+import io.prestosql.spi.type.ParametricType;
+import io.prestosql.spi.type.Type;
 
 import java.util.Set;
 
-import static com.facebook.presto.ml.MLFeaturesFunctions.ML_FEATURE_FUNCTIONS;
-import static com.facebook.presto.ml.type.ModelType.MODEL;
-import static com.facebook.presto.ml.type.RegressorType.REGRESSOR;
+import static io.prestosql.plugin.ml.MLFeaturesFunctions.ML_FEATURE_FUNCTIONS;
+import static io.prestosql.plugin.ml.type.ModelType.MODEL;
+import static io.prestosql.plugin.ml.type.RegressorType.REGRESSOR;
 
 public class MLPlugin
         implements Plugin

@@ -13,17 +13,17 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.Session.SessionBuilder;
-import com.facebook.presto.execution.TestEventListener.EventsBuilder;
-import com.facebook.presto.execution.TestEventListenerPlugin.TestingEventListenerPlugin;
-import com.facebook.presto.execution.warnings.WarningCollectorConfig;
-import com.facebook.presto.spi.PrestoWarning;
-import com.facebook.presto.spi.WarningCode;
-import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.testing.TestingWarningCollector;
-import com.facebook.presto.testing.TestingWarningCollectorConfig;
-import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session.SessionBuilder;
+import io.prestosql.execution.TestEventListener.EventsBuilder;
+import io.prestosql.execution.TestEventListenerPlugin.TestingEventListenerPlugin;
+import io.prestosql.execution.warnings.WarningCollectorConfig;
+import io.prestosql.spi.PrestoWarning;
+import io.prestosql.spi.WarningCode;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.TestingWarningCollector;
+import io.prestosql.testing.TestingWarningCollectorConfig;
+import io.prestosql.tests.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -33,10 +33,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.fail;
 
 public class TestCompletedEventWarnings

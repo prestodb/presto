@@ -13,10 +13,10 @@
  */
 package io.prestosql.connector.system;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SystemTable;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.connector.SystemTable;
 
 import java.util.List;
 import java.util.Optional;

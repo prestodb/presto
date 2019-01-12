@@ -13,22 +13,22 @@
  */
 package io.prestosql.orc.metadata;
 
-import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
-import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
-import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
-import com.facebook.presto.orc.metadata.Stream.StreamKind;
-import com.facebook.presto.orc.metadata.statistics.BinaryStatistics;
-import com.facebook.presto.orc.metadata.statistics.BooleanStatistics;
-import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
-import com.facebook.presto.orc.metadata.statistics.DoubleStatistics;
-import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
-import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
-import com.facebook.presto.orc.metadata.statistics.StringStatistics;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
+import io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind;
+import io.prestosql.orc.metadata.OrcType.OrcTypeKind;
+import io.prestosql.orc.metadata.PostScript.HiveWriterVersion;
+import io.prestosql.orc.metadata.Stream.StreamKind;
+import io.prestosql.orc.metadata.statistics.BinaryStatistics;
+import io.prestosql.orc.metadata.statistics.BooleanStatistics;
+import io.prestosql.orc.metadata.statistics.ColumnStatistics;
+import io.prestosql.orc.metadata.statistics.DoubleStatistics;
+import io.prestosql.orc.metadata.statistics.HiveBloomFilter;
+import io.prestosql.orc.metadata.statistics.IntegerStatistics;
+import io.prestosql.orc.metadata.statistics.StringStatistics;
 import io.prestosql.orc.proto.DwrfProto;
 import io.prestosql.orc.protobuf.CodedInputStream;
 
@@ -40,23 +40,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
-import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
-import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
-import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
-import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
-import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.STATIC_METADATA;
-import static com.facebook.presto.orc.metadata.OrcMetadataReader.byteStringToSlice;
-import static com.facebook.presto.orc.metadata.OrcMetadataReader.maxStringTruncateToValidRange;
-import static com.facebook.presto.orc.metadata.OrcMetadataReader.minStringTruncateToValidRange;
-import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORC_HIVE_8732;
-import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORIGINAL;
-import static com.facebook.presto.orc.metadata.statistics.BinaryStatistics.BINARY_VALUE_BYTES_OVERHEAD;
-import static com.facebook.presto.orc.metadata.statistics.BooleanStatistics.BOOLEAN_VALUE_BYTES;
-import static com.facebook.presto.orc.metadata.statistics.DoubleStatistics.DOUBLE_VALUE_BYTES;
-import static com.facebook.presto.orc.metadata.statistics.IntegerStatistics.INTEGER_VALUE_BYTES;
-import static com.facebook.presto.orc.metadata.statistics.StringStatistics.STRING_VALUE_BYTES_OVERHEAD;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.orc.metadata.CompressionKind.LZ4;
+import static io.prestosql.orc.metadata.CompressionKind.NONE;
+import static io.prestosql.orc.metadata.CompressionKind.SNAPPY;
+import static io.prestosql.orc.metadata.CompressionKind.ZLIB;
+import static io.prestosql.orc.metadata.CompressionKind.ZSTD;
+import static io.prestosql.orc.metadata.DwrfMetadataWriter.STATIC_METADATA;
+import static io.prestosql.orc.metadata.OrcMetadataReader.byteStringToSlice;
+import static io.prestosql.orc.metadata.OrcMetadataReader.maxStringTruncateToValidRange;
+import static io.prestosql.orc.metadata.OrcMetadataReader.minStringTruncateToValidRange;
+import static io.prestosql.orc.metadata.PostScript.HiveWriterVersion.ORC_HIVE_8732;
+import static io.prestosql.orc.metadata.PostScript.HiveWriterVersion.ORIGINAL;
+import static io.prestosql.orc.metadata.statistics.BinaryStatistics.BINARY_VALUE_BYTES_OVERHEAD;
+import static io.prestosql.orc.metadata.statistics.BooleanStatistics.BOOLEAN_VALUE_BYTES;
+import static io.prestosql.orc.metadata.statistics.DoubleStatistics.DOUBLE_VALUE_BYTES;
+import static io.prestosql.orc.metadata.statistics.IntegerStatistics.INTEGER_VALUE_BYTES;
+import static io.prestosql.orc.metadata.statistics.StringStatistics.STRING_VALUE_BYTES_OVERHEAD;
 import static java.lang.Math.toIntExact;
 
 public class DwrfMetadataReader

@@ -13,14 +13,14 @@
  */
 package io.prestosql.jdbc;
 
-import com.facebook.presto.client.ClientSession;
-import com.facebook.presto.client.ServerInfo;
-import com.facebook.presto.client.StatementClient;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import io.airlift.units.Duration;
+import io.prestosql.client.ClientSession;
+import io.prestosql.client.ServerInfo;
+import io.prestosql.client.StatementClient;
 
 import java.net.URI;
 import java.nio.charset.CharsetEncoder;

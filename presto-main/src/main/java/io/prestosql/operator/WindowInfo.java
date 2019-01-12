@@ -13,11 +13,11 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.operator.window.WindowPartition;
-import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.operator.window.WindowPartition;
+import io.prestosql.util.Mergeable;
 
 import javax.annotation.concurrent.Immutable;
 

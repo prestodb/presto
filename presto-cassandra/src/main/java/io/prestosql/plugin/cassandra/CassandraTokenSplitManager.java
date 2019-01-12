@@ -15,9 +15,9 @@ package io.prestosql.plugin.cassandra;
 
 import com.datastax.driver.core.Host;
 import com.datastax.driver.core.TokenRange;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.PrestoException;
 
 import javax.inject.Inject;
 
@@ -27,10 +27,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.cassandra.CassandraErrorCode.CASSANDRA_METADATA_ERROR;
-import static com.facebook.presto.cassandra.TokenRing.createForPartitioner;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.plugin.cassandra.CassandraErrorCode.CASSANDRA_METADATA_ERROR;
+import static io.prestosql.plugin.cassandra.TokenRing.createForPartitioner;
 import static java.lang.Math.max;
 import static java.lang.Math.round;
 import static java.lang.StrictMath.toIntExact;

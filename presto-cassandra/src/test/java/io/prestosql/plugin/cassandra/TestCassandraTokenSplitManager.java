@@ -13,14 +13,14 @@
  */
 package io.prestosql.plugin.cassandra;
 
-import com.facebook.presto.cassandra.CassandraTokenSplitManager.TokenSplit;
+import io.prestosql.plugin.cassandra.CassandraTokenSplitManager.TokenSplit;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.cassandra.CassandraTestingUtils.createKeyspace;
+import static io.prestosql.plugin.cassandra.CassandraTestingUtils.createKeyspace;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 

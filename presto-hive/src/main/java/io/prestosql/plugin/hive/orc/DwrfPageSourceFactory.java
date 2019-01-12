@@ -14,15 +14,15 @@
 package io.prestosql.plugin.hive.orc;
 
 import com.facebook.hive.orc.OrcSerde;
-import com.facebook.presto.hive.FileFormatDataSourceStats;
-import com.facebook.presto.hive.HdfsEnvironment;
-import com.facebook.presto.hive.HiveColumnHandle;
-import com.facebook.presto.hive.HivePageSourceFactory;
-import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.TypeManager;
+import io.prestosql.plugin.hive.FileFormatDataSourceStats;
+import io.prestosql.plugin.hive.HdfsEnvironment;
+import io.prestosql.plugin.hive.HiveColumnHandle;
+import io.prestosql.plugin.hive.HivePageSourceFactory;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTimeZone;
@@ -33,16 +33,16 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
-import static com.facebook.presto.hive.HiveSessionProperties.getOrcLazyReadSmallRanges;
-import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
-import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
-import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadBlockSize;
-import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
-import static com.facebook.presto.hive.HiveSessionProperties.getOrcTinyStripeThreshold;
-import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
-import static com.facebook.presto.hive.orc.OrcPageSourceFactory.createOrcPageSource;
-import static com.facebook.presto.orc.OrcEncoding.DWRF;
+import static io.prestosql.orc.OrcEncoding.DWRF;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcLazyReadSmallRanges;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcMaxBufferSize;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcMaxMergeDistance;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcMaxReadBlockSize;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcStreamBufferSize;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcTinyStripeThreshold;
+import static io.prestosql.plugin.hive.HiveUtil.isDeserializerClass;
+import static io.prestosql.plugin.hive.orc.OrcPageSourceFactory.createOrcPageSource;
 import static java.util.Objects.requireNonNull;
 
 public class DwrfPageSourceFactory

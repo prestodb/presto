@@ -13,20 +13,20 @@
  */
 package io.prestosql;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.metadata.SessionPropertyManager;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.type.TimeZoneKey;
 
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

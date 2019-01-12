@@ -14,10 +14,10 @@
 
 package io.prestosql.cost;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.inject.BindingAnnotation;
+import io.prestosql.Session;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.planner.plan.PlanNode;
 
 import javax.annotation.concurrent.ThreadSafe;
 

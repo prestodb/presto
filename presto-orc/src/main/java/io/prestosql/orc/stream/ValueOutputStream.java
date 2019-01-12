@@ -13,7 +13,7 @@
  */
 package io.prestosql.orc.stream;
 
-import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
+import io.prestosql.orc.checkpoint.StreamCheckpoint;
 
 import java.util.List;
 

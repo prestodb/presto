@@ -14,12 +14,12 @@
 package io.prestosql.plugin.geospatial;
 
 import com.esri.core.geometry.Envelope;
-import com.facebook.presto.array.IntBigArray;
-import com.facebook.presto.array.LongBigArray;
-import com.facebook.presto.array.ObjectBigArray;
-import com.facebook.presto.geospatial.Rectangle;
-import com.facebook.presto.spi.function.AccumulatorStateFactory;
-import com.facebook.presto.spi.function.GroupedAccumulatorState;
+import io.prestosql.array.IntBigArray;
+import io.prestosql.array.LongBigArray;
+import io.prestosql.array.ObjectBigArray;
+import io.prestosql.geospatial.Rectangle;
+import io.prestosql.spi.function.AccumulatorStateFactory;
+import io.prestosql.spi.function.GroupedAccumulatorState;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;

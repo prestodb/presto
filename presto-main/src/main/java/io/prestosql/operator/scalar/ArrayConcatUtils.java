@@ -13,11 +13,11 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.facebook.presto.annotation.UsedByGeneratedCode;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import io.prestosql.annotation.UsedByGeneratedCode;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.Type;
 
 public final class ArrayConcatUtils
 {

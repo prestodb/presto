@@ -13,10 +13,10 @@
  */
 package io.prestosql.connector;
 
-import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.NodeManager;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.metadata.InternalNodeManager;
+import io.prestosql.spi.Node;
+import io.prestosql.spi.NodeManager;
 
 import java.util.Set;
 

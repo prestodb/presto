@@ -13,7 +13,7 @@
  */
 package io.prestosql.jdbc;
 
-import com.facebook.presto.client.SocketChannelSocketFactory;
+import io.prestosql.client.SocketChannelSocketFactory;
 import okhttp3.OkHttpClient;
 
 import java.io.Closeable;
@@ -28,8 +28,8 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.facebook.presto.client.OkHttpUtil.userAgent;
 import static com.google.common.base.Strings.nullToEmpty;
+import static io.prestosql.client.OkHttpUtil.userAgent;
 import static java.lang.Integer.parseInt;
 
 public class PrestoDriver

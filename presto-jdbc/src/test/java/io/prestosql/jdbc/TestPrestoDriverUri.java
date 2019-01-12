@@ -19,10 +19,10 @@ import java.net.URI;
 import java.sql.SQLException;
 import java.util.Properties;
 
-import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROXY;
-import static com.facebook.presto.jdbc.ConnectionProperties.SOCKS_PROXY;
-import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
-import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH;
+import static io.prestosql.jdbc.ConnectionProperties.HTTP_PROXY;
+import static io.prestosql.jdbc.ConnectionProperties.SOCKS_PROXY;
+import static io.prestosql.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
+import static io.prestosql.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;

@@ -13,11 +13,11 @@
  */
 package io.prestosql.cost;
 
-import com.facebook.presto.metadata.Metadata;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
+import io.prestosql.metadata.Metadata;
 
 import javax.inject.Singleton;
 

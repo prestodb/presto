@@ -16,9 +16,9 @@ package io.prestosql.spi.type;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.TypeSerde.readType;
-import static com.facebook.presto.spi.type.TypeSerde.writeType;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.TypeSerde.readType;
+import static io.prestosql.spi.type.TypeSerde.writeType;
 import static org.testng.Assert.assertEquals;
 
 public class TestTypeSerde

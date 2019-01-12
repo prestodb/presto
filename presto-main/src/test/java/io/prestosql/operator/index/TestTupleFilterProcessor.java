@@ -13,30 +13,30 @@
  */
 package io.prestosql.operator.index;
 
-import com.facebook.presto.operator.DriverYieldSignal;
-import com.facebook.presto.operator.project.PageProcessor;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import io.prestosql.operator.DriverYieldSignal;
+import io.prestosql.operator.project.PageProcessor;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.gen.PageFunctionCompiler;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.OptionalInt;
 
-import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
-import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
-import static com.facebook.presto.operator.project.PageProcessor.MAX_BATCH_SIZE;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.collect.Iterators.getOnlyElement;
+import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
+import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.operator.PageAssertions.assertPageEquals;
+import static io.prestosql.operator.project.PageProcessor.MAX_BATCH_SIZE;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.TestingConnectorSession.SESSION;
 
 public class TestTupleFilterProcessor
 {

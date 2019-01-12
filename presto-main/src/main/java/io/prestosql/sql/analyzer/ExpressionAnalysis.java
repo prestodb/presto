@@ -13,18 +13,18 @@
  */
 package io.prestosql.sql.analyzer;
 
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.tree.ExistsPredicate;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.Identifier;
-import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
-import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
-import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.tree.ExistsPredicate;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.Identifier;
+import io.prestosql.sql.tree.InPredicate;
+import io.prestosql.sql.tree.LambdaArgumentDeclaration;
+import io.prestosql.sql.tree.NodeRef;
+import io.prestosql.sql.tree.QuantifiedComparisonExpression;
+import io.prestosql.sql.tree.SubqueryExpression;
 
 import java.util.Map;
 import java.util.Set;

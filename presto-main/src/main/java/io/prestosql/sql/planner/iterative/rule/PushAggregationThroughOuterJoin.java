@@ -13,28 +13,28 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.matching.Capture;
-import com.facebook.presto.matching.Captures;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
-import com.facebook.presto.sql.tree.CoalesceExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.matching.Capture;
+import io.prestosql.matching.Captures;
+import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.PlanNodeIdAllocator;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.SymbolAllocator;
+import io.prestosql.sql.planner.iterative.Lookup;
+import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.planner.plan.JoinNode;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.ProjectNode;
+import io.prestosql.sql.planner.plan.ValuesNode;
+import io.prestosql.sql.tree.CoalesceExpression;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.NullLiteral;
+import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.HashSet;
 import java.util.List;
@@ -42,17 +42,17 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.SystemSessionProperties.shouldPushAggregationThroughJoin;
-import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.sql.planner.ExpressionSymbolInliner.inlineSymbols;
-import static com.facebook.presto.sql.planner.optimizations.DistinctOutputQueryUtil.isDistinct;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.globalAggregation;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
-import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
-import static com.facebook.presto.sql.planner.plan.Patterns.join;
-import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.SystemSessionProperties.shouldPushAggregationThroughJoin;
+import static io.prestosql.matching.Capture.newCapture;
+import static io.prestosql.sql.planner.ExpressionSymbolInliner.inlineSymbols;
+import static io.prestosql.sql.planner.optimizations.DistinctOutputQueryUtil.isDistinct;
+import static io.prestosql.sql.planner.plan.AggregationNode.globalAggregation;
+import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static io.prestosql.sql.planner.plan.Patterns.aggregation;
+import static io.prestosql.sql.planner.plan.Patterns.join;
+import static io.prestosql.sql.planner.plan.Patterns.source;
 
 /**
  * This optimizer pushes aggregations below outer joins when: the aggregation

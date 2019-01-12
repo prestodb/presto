@@ -13,21 +13,21 @@
  */
 package io.prestosql.operator.index;
 
-import com.facebook.presto.operator.LookupSourceFactory;
-import com.facebook.presto.operator.LookupSourceProvider;
-import com.facebook.presto.operator.OuterPositionIterator;
-import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.operator.StaticLookupSourceProvider;
-import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.JoinCompiler;
-import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
+import io.prestosql.operator.LookupSourceFactory;
+import io.prestosql.operator.LookupSourceProvider;
+import io.prestosql.operator.OuterPositionIterator;
+import io.prestosql.operator.PagesIndex;
+import io.prestosql.operator.StaticLookupSourceProvider;
+import io.prestosql.operator.TaskContext;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.gen.JoinCompiler;
+import io.prestosql.sql.planner.Symbol;
 
 import java.util.List;
 import java.util.Map;

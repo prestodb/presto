@@ -13,9 +13,6 @@
  */
 package io.prestosql.cli;
 
-import com.facebook.presto.cli.ClientOptions.OutputFormat;
-import com.facebook.presto.client.ClientSession;
-import com.facebook.presto.sql.parser.StatementSplitter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
@@ -25,6 +22,9 @@ import io.airlift.airline.HelpOption;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
 import io.airlift.units.Duration;
+import io.prestosql.cli.ClientOptions.OutputFormat;
+import io.prestosql.client.ClientSession;
+import io.prestosql.sql.parser.StatementSplitter;
 import jline.console.history.FileHistory;
 import jline.console.history.History;
 import jline.console.history.MemoryHistory;
@@ -43,19 +43,19 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
-import static com.facebook.presto.cli.Completion.commandCompleter;
-import static com.facebook.presto.cli.Completion.lowerCaseCommandCompleter;
-import static com.facebook.presto.cli.Help.getHelpText;
-import static com.facebook.presto.cli.QueryPreprocessor.preprocessQuery;
-import static com.facebook.presto.client.ClientSession.stripTransactionId;
-import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
-import static com.facebook.presto.sql.parser.StatementSplitter.isEmptyStatement;
-import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.io.Files.createParentDirs;
 import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
+import static io.prestosql.cli.Completion.commandCompleter;
+import static io.prestosql.cli.Completion.lowerCaseCommandCompleter;
+import static io.prestosql.cli.Help.getHelpText;
+import static io.prestosql.cli.QueryPreprocessor.preprocessQuery;
+import static io.prestosql.client.ClientSession.stripTransactionId;
+import static io.prestosql.sql.parser.StatementSplitter.Statement;
+import static io.prestosql.sql.parser.StatementSplitter.isEmptyStatement;
+import static io.prestosql.sql.parser.StatementSplitter.squeezeStatement;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;

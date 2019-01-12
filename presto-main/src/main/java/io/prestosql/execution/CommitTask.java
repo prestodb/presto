@@ -13,19 +13,19 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.sql.tree.Commit;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.transaction.TransactionId;
-import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.Session;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AccessControl;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.sql.tree.Commit;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.transaction.TransactionId;
+import io.prestosql.transaction.TransactionManager;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_IN_TRANSACTION;
+import static io.prestosql.spi.StandardErrorCode.NOT_IN_TRANSACTION;
 
 public class CommitTask
         implements DataDefinitionTask<Commit>

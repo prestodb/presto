@@ -13,21 +13,21 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.orc.OrcDataSink;
-import com.facebook.presto.orc.OrcDataSource;
-import com.facebook.presto.orc.OrcEncoding;
-import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
-import com.facebook.presto.orc.OrcWriter;
-import com.facebook.presto.orc.OrcWriterOptions;
-import com.facebook.presto.orc.OrcWriterStats;
-import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.orc.OrcDataSink;
+import io.prestosql.orc.OrcDataSource;
+import io.prestosql.orc.OrcEncoding;
+import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
+import io.prestosql.orc.OrcWriter;
+import io.prestosql.orc.OrcWriterOptions;
+import io.prestosql.orc.OrcWriterStats;
+import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.type.Type;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -41,10 +41,10 @@ import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static java.util.Objects.requireNonNull;
 
 public class OrcFileWriter

@@ -13,14 +13,14 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.MaterializedRow;
+import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.MaterializedRow;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
-import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.prestosql.testing.MaterializedResult.resultBuilder;
+import static io.prestosql.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

@@ -13,14 +13,14 @@
  */
 package io.prestosql.plugin.mysql;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.MaterializedRow;
-import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
-import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.mysql.TestingMySqlServer;
+import io.prestosql.Session;
+import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.MaterializedRow;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
+import io.prestosql.tests.DistributedQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -30,12 +30,12 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Map;
 
-import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.ORDERS;
+import static io.prestosql.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 

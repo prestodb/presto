@@ -13,15 +13,15 @@
  */
 package io.prestosql.testing;
 
-import com.facebook.presto.execution.buffer.PagesSerdeFactory;
-import com.facebook.presto.operator.DriverContext;
-import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.operator.OutputFactory;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import io.prestosql.execution.buffer.PagesSerdeFactory;
+import io.prestosql.operator.DriverContext;
+import io.prestosql.operator.Operator;
+import io.prestosql.operator.OperatorContext;
+import io.prestosql.operator.OperatorFactory;
+import io.prestosql.operator.OutputFactory;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.function.Consumer;

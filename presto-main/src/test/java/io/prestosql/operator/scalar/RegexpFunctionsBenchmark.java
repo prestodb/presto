@@ -13,12 +13,12 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.facebook.presto.type.Re2JRegexp;
 import io.airlift.joni.Regex;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import io.prestosql.type.Re2JRegexp;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -37,8 +37,8 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 import static org.openjdk.jmh.annotations.Scope.Thread;

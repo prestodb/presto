@@ -13,26 +13,26 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.assertions.PlanMatchPattern;
+import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
+import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.planner.plan.JoinNode;
+import io.prestosql.sql.planner.plan.PlanNode;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictProject;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 
 public class TestPruneCrossJoinColumns
         extends BaseRuleTest

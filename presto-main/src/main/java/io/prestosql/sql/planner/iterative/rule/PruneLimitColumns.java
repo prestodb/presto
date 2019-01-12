@@ -13,16 +13,16 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.LimitNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.PlanNodeIdAllocator;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.plan.LimitNode;
+import io.prestosql.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildOutputs;
-import static com.facebook.presto.sql.planner.plan.Patterns.limit;
+import static io.prestosql.sql.planner.iterative.rule.Util.restrictChildOutputs;
+import static io.prestosql.sql.planner.plan.Patterns.limit;
 
 public class PruneLimitColumns
         extends ProjectOffPushDownRule<LimitNode>

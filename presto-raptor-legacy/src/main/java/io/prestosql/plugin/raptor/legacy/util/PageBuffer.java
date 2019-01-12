@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.raptor.legacy.util;
 
-import com.facebook.presto.raptor.storage.StoragePageSink;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageSorter;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.raptor.legacy.storage.StoragePageSink;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageSorter;
+import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.List;

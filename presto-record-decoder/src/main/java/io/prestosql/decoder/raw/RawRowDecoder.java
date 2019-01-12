@@ -13,9 +13,9 @@
  */
 package io.prestosql.decoder.raw;
 
-import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldValueProvider;
-import com.facebook.presto.decoder.RowDecoder;
+import io.prestosql.decoder.DecoderColumnHandle;
+import io.prestosql.decoder.FieldValueProvider;
+import io.prestosql.decoder.RowDecoder;
 
 import java.util.Map;
 import java.util.Optional;

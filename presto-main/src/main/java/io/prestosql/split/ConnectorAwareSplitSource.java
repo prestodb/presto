@@ -13,17 +13,17 @@
  */
 package io.prestosql.split;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.ConnectorSplitSource;
-import com.facebook.presto.spi.ConnectorSplitSource.ConnectorSplitBatch;
-import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.execution.Lifespan;
+import io.prestosql.metadata.Split;
+import io.prestosql.spi.connector.ConnectorPartitionHandle;
+import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorSplitSource;
+import io.prestosql.spi.connector.ConnectorSplitSource.ConnectorSplitBatch;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;

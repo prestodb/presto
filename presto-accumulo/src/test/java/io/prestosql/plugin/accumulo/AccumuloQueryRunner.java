@@ -13,18 +13,18 @@
  */
 package io.prestosql.plugin.accumulo;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.accumulo.conf.AccumuloConfig;
-import com.facebook.presto.accumulo.serializers.LexicoderRowSerializer;
-import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import io.airlift.log.Logger;
 import io.airlift.tpch.TpchTable;
+import io.prestosql.Session;
+import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.plugin.accumulo.conf.AccumuloConfig;
+import io.prestosql.plugin.accumulo.serializers.LexicoderRowSerializer;
+import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.tests.DistributedQueryRunner;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.Connector;
@@ -41,13 +41,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Map;
 
-import static com.facebook.presto.accumulo.AccumuloErrorCode.MINI_ACCUMULO;
-import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
-import static com.facebook.presto.accumulo.MiniAccumuloConfigUtil.setConfigClassPath;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.plugin.accumulo.AccumuloErrorCode.MINI_ACCUMULO;
+import static io.prestosql.plugin.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
+import static io.prestosql.plugin.accumulo.MiniAccumuloConfigUtil.setConfigClassPath;
+import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.accumulo.minicluster.MemoryUnit.MEGABYTE;

@@ -13,11 +13,11 @@
  */
 package io.prestosql.testing;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.type.SqlTime;
-import com.facebook.presto.spi.type.SqlTimestamp;
-import com.facebook.presto.spi.type.TimeZoneKey;
+import io.prestosql.Session;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.SqlTime;
+import io.prestosql.spi.type.SqlTimestamp;
+import io.prestosql.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
@@ -26,7 +26,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 
-import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
+import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.lang.Math.toIntExact;
 import static java.time.ZoneOffset.UTC;
 import static java.util.concurrent.TimeUnit.DAYS;

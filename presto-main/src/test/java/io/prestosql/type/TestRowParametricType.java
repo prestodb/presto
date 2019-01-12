@@ -13,23 +13,23 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.spi.type.NamedTypeSignature;
-import com.facebook.presto.spi.type.RowFieldName;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeParameter;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
+import io.prestosql.spi.type.NamedTypeSignature;
+import io.prestosql.spi.type.RowFieldName;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeParameter;
+import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeSignatureParameter;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
-import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
-import static com.facebook.presto.spi.type.StandardTypes.ROW;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static io.prestosql.spi.type.StandardTypes.BIGINT;
+import static io.prestosql.spi.type.StandardTypes.DOUBLE;
+import static io.prestosql.spi.type.StandardTypes.ROW;
+import static io.prestosql.testing.assertions.Assert.assertEquals;
 
 public class TestRowParametricType
 {

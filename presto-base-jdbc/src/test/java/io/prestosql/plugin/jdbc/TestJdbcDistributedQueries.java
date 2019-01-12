@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.jdbc;
 
-import com.facebook.presto.tests.AbstractTestQueries;
 import io.airlift.tpch.TpchTable;
+import io.prestosql.tests.AbstractTestQueries;
 
-import static com.facebook.presto.plugin.jdbc.JdbcQueryRunner.createJdbcQueryRunner;
+import static io.prestosql.plugin.jdbc.JdbcQueryRunner.createJdbcQueryRunner;
 
 public class TestJdbcDistributedQueries
         extends AbstractTestQueries

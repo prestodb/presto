@@ -13,22 +13,22 @@
  */
 package io.prestosql.cost;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.IntegerType;
-import com.facebook.presto.spi.type.RealType;
-import com.facebook.presto.spi.type.SmallintType;
-import com.facebook.presto.spi.type.TinyintType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.InterpretedFunctionInvoker;
+import io.prestosql.Session;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.Signature;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.BooleanType;
+import io.prestosql.spi.type.DateType;
+import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.IntegerType;
+import io.prestosql.spi.type.RealType;
+import io.prestosql.spi.type.SmallintType;
+import io.prestosql.spi.type.TinyintType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.InterpretedFunctionInvoker;
 
 import java.util.OptionalDouble;
 

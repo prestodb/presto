@@ -29,10 +29,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveUtil.getDeserializer;
-import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
-import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static io.prestosql.plugin.hive.HiveUtil.getDeserializer;
+import static io.prestosql.plugin.hive.HiveUtil.parseHiveTimestamp;
+import static io.prestosql.plugin.hive.HiveUtil.toPartitionValues;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_CLASS;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;

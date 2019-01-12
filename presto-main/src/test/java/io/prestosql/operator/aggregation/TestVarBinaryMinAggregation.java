@@ -13,18 +13,18 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.StandardTypes;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 
 public class TestVarBinaryMinAggregation
         extends AbstractTestAggregationFunction

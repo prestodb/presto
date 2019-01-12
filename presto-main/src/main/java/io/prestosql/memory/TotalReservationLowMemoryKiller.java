@@ -14,12 +14,12 @@
 
 package io.prestosql.memory;
 
-import com.facebook.presto.spi.QueryId;
+import io.prestosql.spi.QueryId;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
+import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
 
 public class TotalReservationLowMemoryKiller
         implements LowMemoryKiller

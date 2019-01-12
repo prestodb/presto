@@ -13,16 +13,16 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.matching.Capture;
-import com.facebook.presto.matching.Captures;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.FilterNode;
+import io.prestosql.matching.Capture;
+import io.prestosql.matching.Captures;
+import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.plan.FilterNode;
 
-import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
-import static com.facebook.presto.sql.planner.plan.Patterns.filter;
-import static com.facebook.presto.sql.planner.plan.Patterns.source;
+import static io.prestosql.matching.Capture.newCapture;
+import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
+import static io.prestosql.sql.planner.plan.Patterns.filter;
+import static io.prestosql.sql.planner.plan.Patterns.source;
 
 public class MergeFilters
         implements Rule<FilterNode>

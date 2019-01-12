@@ -13,20 +13,20 @@
  */
 package io.prestosql.util;
 
-import com.facebook.presto.client.ErrorLocation;
-import com.facebook.presto.execution.ExecutionFailureInfo;
-import com.facebook.presto.execution.Failure;
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.PrestoTransportException;
-import com.facebook.presto.spi.StandardErrorCode;
-import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.parser.ParsingException;
-import com.facebook.presto.sql.tree.NodeLocation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import io.prestosql.client.ErrorLocation;
+import io.prestosql.execution.ExecutionFailureInfo;
+import io.prestosql.execution.Failure;
+import io.prestosql.spi.ErrorCode;
+import io.prestosql.spi.ErrorCodeSupplier;
+import io.prestosql.spi.HostAddress;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.PrestoTransportException;
+import io.prestosql.spi.StandardErrorCode;
+import io.prestosql.sql.analyzer.SemanticException;
+import io.prestosql.sql.parser.ParsingException;
+import io.prestosql.sql.tree.NodeLocation;
 
 import javax.annotation.Nullable;
 
@@ -35,13 +35,13 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.google.common.base.Functions.toStringFunction;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.newIdentityHashSet;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;

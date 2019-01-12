@@ -13,9 +13,9 @@
  */
 package io.prestosql.teradata.functions.dateformat;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
-import com.facebook.presto.teradata.functions.DateFormat;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.StandardErrorCode;
+import io.prestosql.teradata.functions.DateFormat;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.Token;
 import org.joda.time.format.DateTimeFormatter;
@@ -23,7 +23,7 @@ import org.joda.time.format.DateTimeFormatterBuilder;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
 public class DateFormatParser
 {

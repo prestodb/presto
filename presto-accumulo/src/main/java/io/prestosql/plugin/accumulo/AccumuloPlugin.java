@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.accumulo;
 
-import com.facebook.presto.accumulo.udf.AccumuloStringFunctions;
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.plugin.accumulo.udf.AccumuloStringFunctions;
+import io.prestosql.spi.Plugin;
+import io.prestosql.spi.connector.ConnectorFactory;
 
 import java.util.Set;
 

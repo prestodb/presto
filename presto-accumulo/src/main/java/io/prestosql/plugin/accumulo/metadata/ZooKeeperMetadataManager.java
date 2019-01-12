@@ -13,16 +13,16 @@
  */
 package io.prestosql.plugin.accumulo.metadata;
 
-import com.facebook.presto.accumulo.AccumuloModule;
-import com.facebook.presto.accumulo.conf.AccumuloConfig;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
+import io.prestosql.plugin.accumulo.AccumuloModule;
+import io.prestosql.plugin.accumulo.conf.AccumuloConfig;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.RetryForever;
@@ -35,8 +35,8 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 
-import static com.facebook.presto.accumulo.AccumuloErrorCode.ZOOKEEPER_ERROR;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.plugin.accumulo.AccumuloErrorCode.ZOOKEEPER_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.zookeeper.KeeperException.Code.NONODE;

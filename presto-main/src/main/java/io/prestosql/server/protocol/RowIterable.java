@@ -13,12 +13,12 @@
  */
 package io.prestosql.server.protocol;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.Collections;

@@ -15,10 +15,10 @@ package io.prestosql.tests.statistics;
 
 import java.util.OptionalDouble;
 
-import static com.facebook.presto.tests.statistics.MetricComparison.Result.DIFFER;
-import static com.facebook.presto.tests.statistics.MetricComparison.Result.MATCH;
-import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_BASELINE;
-import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_ESTIMATE;
+import static io.prestosql.tests.statistics.MetricComparison.Result.DIFFER;
+import static io.prestosql.tests.statistics.MetricComparison.Result.MATCH;
+import static io.prestosql.tests.statistics.MetricComparison.Result.NO_BASELINE;
+import static io.prestosql.tests.statistics.MetricComparison.Result.NO_ESTIMATE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

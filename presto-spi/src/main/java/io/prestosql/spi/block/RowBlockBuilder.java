@@ -14,7 +14,7 @@
 
 package io.prestosql.spi.block;
 
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -23,9 +23,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.function.BiConsumer;
 
-import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
-import static com.facebook.presto.spi.block.RowBlock.createRowBlockInternal;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.prestosql.spi.block.BlockUtil.calculateBlockResetSize;
+import static io.prestosql.spi.block.RowBlock.createRowBlockInternal;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

@@ -13,27 +13,27 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
-import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.memory.VersionedMemoryPoolId;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.server.BasicQueryInfo;
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.Session;
+import io.prestosql.execution.QueryPreparer.PreparedQuery;
+import io.prestosql.execution.StateMachine.StateChangeListener;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.memory.VersionedMemoryPoolId;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.security.AccessControl;
+import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.spi.ErrorCode;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.sql.planner.Plan;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Statement;
+import io.prestosql.transaction.TransactionManager;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;

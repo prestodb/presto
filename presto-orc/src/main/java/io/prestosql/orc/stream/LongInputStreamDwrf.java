@@ -13,13 +13,13 @@
  */
 package io.prestosql.orc.stream;
 
-import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
-import com.facebook.presto.orc.checkpoint.LongStreamDwrfCheckpoint;
-import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
+import io.prestosql.orc.checkpoint.LongStreamCheckpoint;
+import io.prestosql.orc.checkpoint.LongStreamDwrfCheckpoint;
+import io.prestosql.orc.metadata.OrcType.OrcTypeKind;
 
 import java.io.IOException;
 
-import static com.facebook.presto.orc.stream.LongDecode.readDwrfLong;
+import static io.prestosql.orc.stream.LongDecode.readDwrfLong;
 
 public class LongInputStreamDwrf
         implements LongInputStream

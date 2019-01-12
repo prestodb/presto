@@ -13,14 +13,14 @@
  */
 package io.prestosql.plugin.hive.metastore.thrift;
 
-import com.facebook.presto.hive.HiveBasicStatistics;
-import com.facebook.presto.hive.metastore.BooleanStatistics;
-import com.facebook.presto.hive.metastore.DateStatistics;
-import com.facebook.presto.hive.metastore.DecimalStatistics;
-import com.facebook.presto.hive.metastore.DoubleStatistics;
-import com.facebook.presto.hive.metastore.HiveColumnStatistics;
-import com.facebook.presto.hive.metastore.IntegerStatistics;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.hive.HiveBasicStatistics;
+import io.prestosql.plugin.hive.metastore.BooleanStatistics;
+import io.prestosql.plugin.hive.metastore.DateStatistics;
+import io.prestosql.plugin.hive.metastore.DecimalStatistics;
+import io.prestosql.plugin.hive.metastore.DoubleStatistics;
+import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
+import io.prestosql.plugin.hive.metastore.IntegerStatistics;
 import org.apache.hadoop.hive.metastore.api.BinaryColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.BooleanColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
@@ -40,9 +40,9 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiColumnStatistics;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
+import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiColumnStatistics;
+import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
+import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.binaryStats;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.booleanStats;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.dateStats;

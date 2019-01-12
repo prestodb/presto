@@ -13,13 +13,13 @@
  */
 package io.prestosql.testing;
 
-import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.operator.aggregation.AggregationFromAnnotationsParser;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.annotations.VisibleForTesting;
+import io.prestosql.metadata.BoundVariables;
+import io.prestosql.operator.aggregation.AggregationFromAnnotationsParser;
+import io.prestosql.operator.aggregation.InternalAggregationFunction;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.type.TypeRegistry;
 
 import java.util.List;
 

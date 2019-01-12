@@ -13,20 +13,20 @@
  */
 package io.prestosql.plugin.geospatial;
 
-import com.facebook.presto.sql.planner.iterative.rule.ExtractSpatialJoins.ExtractSpatialInnerJoin;
-import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.sql.planner.iterative.rule.ExtractSpatialJoins.ExtractSpatialInnerJoin;
+import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
+import io.prestosql.sql.planner.iterative.rule.test.RuleAssert;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.spatialJoin;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.spatialJoin;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 
 public class TestExtractSpatialInnerJoin
         extends BaseRuleTest

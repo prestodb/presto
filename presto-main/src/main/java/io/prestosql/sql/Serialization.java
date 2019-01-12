@@ -13,22 +13,22 @@
  */
 package io.prestosql.sql;
 
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FunctionCall;
 
 import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 
 public final class Serialization
 {

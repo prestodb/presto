@@ -19,12 +19,12 @@ import com.amazonaws.services.glue.model.Partition;
 import com.amazonaws.services.glue.model.SerDeInfo;
 import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.amazonaws.services.glue.model.Table;
-import com.facebook.presto.hive.HiveType;
-import com.facebook.presto.hive.metastore.PrincipalType;
-import com.facebook.presto.hive.metastore.Storage;
-import com.facebook.presto.hive.metastore.StorageFormat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.hive.HiveType;
+import io.prestosql.plugin.hive.metastore.PrincipalType;
+import io.prestosql.plugin.hive.metastore.Storage;
+import io.prestosql.plugin.hive.metastore.StorageFormat;
 import org.apache.hadoop.hive.metastore.TableType;
 
 import java.util.List;

@@ -13,8 +13,8 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.client.QueryData;
-import com.facebook.presto.client.QueryStatusInfo;
+import io.prestosql.client.QueryData;
+import io.prestosql.client.QueryStatusInfo;
 
 import java.util.Map;
 import java.util.Set;

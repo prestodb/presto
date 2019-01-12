@@ -13,16 +13,16 @@
  */
 package io.prestosql.plugin.kudu.schema;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaNotFoundException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.SchemaNotFoundException;
+import io.prestosql.spi.connector.SchemaTableName;
 import org.apache.kudu.client.KuduClient;
 
 import java.util.List;
 
-import static com.facebook.presto.kudu.KuduClientSession.DEFAULT_SCHEMA;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static io.prestosql.plugin.kudu.KuduClientSession.DEFAULT_SCHEMA;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_USER_ERROR;
 
 public class NoSchemaEmulation
         implements SchemaEmulation

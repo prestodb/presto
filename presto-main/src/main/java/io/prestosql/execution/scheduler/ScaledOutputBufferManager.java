@@ -13,16 +13,16 @@
  */
 package io.prestosql.execution.scheduler;
 
-import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.OutputBuffers.OutputBufferId;
+import io.prestosql.OutputBuffers;
+import io.prestosql.OutputBuffers.OutputBufferId;
 
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.List;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.OutputBuffers.BufferType.ARBITRARY;
-import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.prestosql.OutputBuffers.BufferType.ARBITRARY;
+import static io.prestosql.OutputBuffers.createInitialEmptyOutputBuffers;
 import static java.util.Objects.requireNonNull;
 
 public class ScaledOutputBufferManager

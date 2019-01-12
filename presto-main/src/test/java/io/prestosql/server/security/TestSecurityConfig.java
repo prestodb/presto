@@ -20,8 +20,8 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.KERBEROS;
-import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.PASSWORD;
+import static io.prestosql.server.security.SecurityConfig.AuthenticationType.KERBEROS;
+import static io.prestosql.server.security.SecurityConfig.AuthenticationType.PASSWORD;
 
 public class TestSecurityConfig
 {

@@ -13,9 +13,9 @@
  */
 package io.prestosql.execution.buffer;
 
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import io.airlift.compress.lz4.Lz4Compressor;
 import io.airlift.compress.lz4.Lz4Decompressor;
+import io.prestosql.spi.block.BlockEncodingSerde;
 
 import java.util.Optional;
 

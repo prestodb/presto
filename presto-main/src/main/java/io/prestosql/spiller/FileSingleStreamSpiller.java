@@ -13,13 +13,6 @@
  */
 package io.prestosql.spiller;
 
-import com.facebook.presto.execution.buffer.PagesSerde;
-import com.facebook.presto.execution.buffer.PagesSerdeUtil;
-import com.facebook.presto.execution.buffer.SerializedPage;
-import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.operator.SpillContext;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -30,6 +23,13 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.SliceOutput;
+import io.prestosql.execution.buffer.PagesSerde;
+import io.prestosql.execution.buffer.PagesSerdeUtil;
+import io.prestosql.execution.buffer.SerializedPage;
+import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.operator.SpillContext;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PrestoException;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -42,11 +42,11 @@ import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.execution.buffer.PagesSerdeUtil.writeSerializedPage;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PREFIX;
-import static com.facebook.presto.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_SUFFIX;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.execution.buffer.PagesSerdeUtil.writeSerializedPage;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PREFIX;
+import static io.prestosql.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_SUFFIX;
 import static java.nio.file.StandardOpenOption.APPEND;
 import static java.util.Objects.requireNonNull;
 

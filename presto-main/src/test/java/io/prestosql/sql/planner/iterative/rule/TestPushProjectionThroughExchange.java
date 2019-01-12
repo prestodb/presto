@@ -13,27 +13,27 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.sql.planner.OrderingScheme;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
-import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.block.SortOrder;
+import io.prestosql.sql.planner.OrderingScheme;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.tree.ArithmeticBinaryExpression;
+import io.prestosql.sql.tree.LongLiteral;
+import io.prestosql.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
-import static com.facebook.presto.sql.tree.SortItem.NullOrdering.FIRST;
-import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.exchange;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.sort;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static io.prestosql.sql.planner.plan.ExchangeNode.Type.GATHER;
+import static io.prestosql.sql.tree.SortItem.NullOrdering.FIRST;
+import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
 
 public class TestPushProjectionThroughExchange
         extends BaseRuleTest

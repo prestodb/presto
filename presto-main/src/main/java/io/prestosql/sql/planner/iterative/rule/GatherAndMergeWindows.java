@@ -13,23 +13,23 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.matching.Capture;
-import com.facebook.presto.matching.Captures;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.matching.PropertyPattern;
-import com.facebook.presto.sql.planner.OrderingScheme;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
-import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import io.prestosql.matching.Capture;
+import io.prestosql.matching.Captures;
+import io.prestosql.matching.Pattern;
+import io.prestosql.matching.PropertyPattern;
+import io.prestosql.sql.planner.OrderingScheme;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.SymbolsExtractor;
+import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.ProjectNode;
+import io.prestosql.sql.planner.plan.WindowNode;
+import io.prestosql.sql.tree.Expression;
 
 import java.util.Iterator;
 import java.util.List;
@@ -39,15 +39,15 @@ import java.util.Set;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
-import static com.facebook.presto.sql.planner.iterative.rule.Util.transpose;
-import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.dependsOn;
-import static com.facebook.presto.sql.planner.plan.Patterns.project;
-import static com.facebook.presto.sql.planner.plan.Patterns.source;
-import static com.facebook.presto.sql.planner.plan.Patterns.window;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.matching.Capture.newCapture;
+import static io.prestosql.sql.planner.iterative.rule.Util.restrictOutputs;
+import static io.prestosql.sql.planner.iterative.rule.Util.transpose;
+import static io.prestosql.sql.planner.optimizations.WindowNodeUtil.dependsOn;
+import static io.prestosql.sql.planner.plan.Patterns.project;
+import static io.prestosql.sql.planner.plan.Patterns.source;
+import static io.prestosql.sql.planner.plan.Patterns.window;
 
 public class GatherAndMergeWindows
 {

@@ -13,22 +13,22 @@
  */
 package io.prestosql.sql.planner.optimizations;
 
-import com.facebook.presto.sql.planner.RuleStatsRecorder;
-import com.facebook.presto.sql.planner.assertions.BasePlanTest;
-import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
-import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.sql.planner.RuleStatsRecorder;
+import io.prestosql.sql.planner.assertions.BasePlanTest;
+import io.prestosql.sql.planner.assertions.PlanMatchPattern;
+import io.prestosql.sql.planner.iterative.IterativeOptimizer;
+import io.prestosql.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.except;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.intersect;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.union;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.except;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.intersect;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.union;
 
 public class TestSetFlatteningOptimizer
         extends BasePlanTest

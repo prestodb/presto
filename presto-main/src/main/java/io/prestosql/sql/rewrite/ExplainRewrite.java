@@ -13,33 +13,33 @@
  */
 package io.prestosql.sql.rewrite;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryPreparer;
-import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.sql.analyzer.QueryExplainer;
-import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.tree.AstVisitor;
-import com.facebook.presto.sql.tree.Explain;
-import com.facebook.presto.sql.tree.ExplainFormat;
-import com.facebook.presto.sql.tree.ExplainOption;
-import com.facebook.presto.sql.tree.ExplainType;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.Statement;
+import io.prestosql.Session;
+import io.prestosql.execution.QueryPreparer;
+import io.prestosql.execution.QueryPreparer.PreparedQuery;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AccessControl;
+import io.prestosql.sql.analyzer.QueryExplainer;
+import io.prestosql.sql.analyzer.SemanticException;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.tree.AstVisitor;
+import io.prestosql.sql.tree.Explain;
+import io.prestosql.sql.tree.ExplainFormat;
+import io.prestosql.sql.tree.ExplainOption;
+import io.prestosql.sql.tree.ExplainType;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Node;
+import io.prestosql.sql.tree.Statement;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.QueryUtil.singleValueQuery;
-import static com.facebook.presto.sql.tree.ExplainFormat.Type.JSON;
-import static com.facebook.presto.sql.tree.ExplainFormat.Type.TEXT;
-import static com.facebook.presto.sql.tree.ExplainType.Type.IO;
-import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
-import static com.facebook.presto.sql.tree.ExplainType.Type.VALIDATE;
+import static io.prestosql.sql.QueryUtil.singleValueQuery;
+import static io.prestosql.sql.tree.ExplainFormat.Type.JSON;
+import static io.prestosql.sql.tree.ExplainFormat.Type.TEXT;
+import static io.prestosql.sql.tree.ExplainType.Type.IO;
+import static io.prestosql.sql.tree.ExplainType.Type.LOGICAL;
+import static io.prestosql.sql.tree.ExplainType.Type.VALIDATE;
 import static java.util.Objects.requireNonNull;
 
 final class ExplainRewrite

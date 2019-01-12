@@ -13,8 +13,6 @@
  */
 package io.prestosql.sql.planner.plan;
 
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
@@ -26,6 +24,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.tree.SymbolReference;
 
 import javax.annotation.concurrent.Immutable;
 

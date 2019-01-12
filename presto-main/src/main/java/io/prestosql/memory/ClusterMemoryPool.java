@@ -13,11 +13,11 @@
  */
 package io.prestosql.memory;
 
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.memory.MemoryAllocation;
-import com.facebook.presto.spi.memory.MemoryPoolId;
-import com.facebook.presto.spi.memory.MemoryPoolInfo;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.memory.MemoryAllocation;
+import io.prestosql.spi.memory.MemoryPoolId;
+import io.prestosql.spi.memory.MemoryPoolInfo;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.GuardedBy;

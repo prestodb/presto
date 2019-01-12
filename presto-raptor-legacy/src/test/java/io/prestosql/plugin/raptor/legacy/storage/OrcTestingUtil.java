@@ -13,14 +13,14 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage;
 
-import com.facebook.presto.orc.FileOrcDataSource;
-import com.facebook.presto.orc.OrcDataSource;
-import com.facebook.presto.orc.OrcPredicate;
-import com.facebook.presto.orc.OrcReader;
-import com.facebook.presto.orc.OrcRecordReader;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import io.prestosql.orc.FileOrcDataSource;
+import io.prestosql.orc.OrcDataSource;
+import io.prestosql.orc.OrcPredicate;
+import io.prestosql.orc.OrcReader;
+import io.prestosql.orc.OrcRecordReader;
+import io.prestosql.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
 import java.io.File;
@@ -30,11 +30,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.orc.OrcEncoding.ORC;
-import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.orc.OrcEncoding.ORC;
+import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
 import static org.testng.Assert.assertEquals;
 
 final class OrcTestingUtil

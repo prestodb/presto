@@ -13,13 +13,13 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage.organization;
 
-import com.facebook.presto.raptor.metadata.ColumnInfo;
-import com.facebook.presto.raptor.metadata.MetadataDao;
-import com.facebook.presto.raptor.metadata.ShardInfo;
-import com.facebook.presto.raptor.metadata.ShardManager;
-import com.facebook.presto.raptor.metadata.TableColumn;
-import com.facebook.presto.raptor.metadata.TableMetadata;
 import io.airlift.log.Logger;
+import io.prestosql.plugin.raptor.legacy.metadata.ColumnInfo;
+import io.prestosql.plugin.raptor.legacy.metadata.MetadataDao;
+import io.prestosql.plugin.raptor.legacy.metadata.ShardInfo;
+import io.prestosql.plugin.raptor.legacy.metadata.ShardManager;
+import io.prestosql.plugin.raptor.legacy.metadata.TableColumn;
+import io.prestosql.plugin.raptor.legacy.metadata.TableMetadata;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -29,7 +29,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
+import static io.prestosql.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;

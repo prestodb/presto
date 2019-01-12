@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.ml.type;
 
-import com.facebook.presto.spi.type.ParameterKind;
-import com.facebook.presto.spi.type.ParametricType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeParameter;
+import io.prestosql.spi.type.ParameterKind;
+import io.prestosql.spi.type.ParametricType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeParameter;
 
 import java.util.List;
 

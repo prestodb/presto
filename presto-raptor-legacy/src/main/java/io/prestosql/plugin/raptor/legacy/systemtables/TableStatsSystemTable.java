@@ -13,22 +13,22 @@
  */
 package io.prestosql.plugin.raptor.legacy.systemtables;
 
-import com.facebook.presto.raptor.metadata.ForMetadata;
-import com.facebook.presto.raptor.metadata.MetadataDao;
-import com.facebook.presto.raptor.metadata.TableStatsRow;
-import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.FixedPageSource;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.NullableValue;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.raptor.legacy.metadata.ForMetadata;
+import io.prestosql.plugin.raptor.legacy.metadata.MetadataDao;
+import io.prestosql.plugin.raptor.legacy.metadata.TableStatsRow;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.connector.ColumnMetadata;
+import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.FixedPageSource;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.predicate.NullableValue;
+import io.prestosql.spi.predicate.TupleDomain;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.inject.Inject;
@@ -36,16 +36,16 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.raptor.systemtables.TableMetadataSystemTable.getColumnIndex;
-import static com.facebook.presto.raptor.systemtables.TableMetadataSystemTable.getStringValue;
-import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
-import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
-import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.plugin.raptor.legacy.systemtables.TableMetadataSystemTable.getColumnIndex;
+import static io.prestosql.plugin.raptor.legacy.systemtables.TableMetadataSystemTable.getStringValue;
+import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.onDemandDao;
+import static io.prestosql.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
+import static io.prestosql.spi.predicate.TupleDomain.extractFixedValues;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.stream.Collectors.toList;
 
 public class TableStatsSystemTable

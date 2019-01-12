@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.hive.metastore;
 
-import com.facebook.presto.hive.PartitionOfflineException;
-import com.facebook.presto.hive.TableOfflineException;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TableNotFoundException;
+import io.prestosql.plugin.hive.PartitionOfflineException;
+import io.prestosql.plugin.hive.TableOfflineException;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.connector.TableNotFoundException;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 
@@ -26,10 +26,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveSplitManager.PRESTO_OFFLINE;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.prestosql.plugin.hive.HiveSplitManager.PRESTO_OFFLINE;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.MetaStoreUtils.typeToThriftType;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;

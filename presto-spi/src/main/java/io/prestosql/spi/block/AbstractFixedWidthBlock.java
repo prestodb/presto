@@ -17,8 +17,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 
-import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
-import static com.facebook.presto.spi.block.BlockUtil.countUsedPositions;
+import static io.prestosql.spi.block.BlockUtil.checkValidRegion;
+import static io.prestosql.spi.block.BlockUtil.countUsedPositions;
 
 public abstract class AbstractFixedWidthBlock
         implements Block

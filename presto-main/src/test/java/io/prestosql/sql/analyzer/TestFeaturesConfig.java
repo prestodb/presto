@@ -13,31 +13,31 @@
  */
 package io.prestosql.sql.analyzer;
 
-import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
-import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
-import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
+import io.prestosql.operator.aggregation.histogram.HistogramGroupImplementation;
+import io.prestosql.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.SPILLER_SPILL_PATH;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.SPILL_ENABLED;
-import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
-import static com.facebook.presto.sql.analyzer.RegexLibrary.RE2J;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
+import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
+import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
+import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
+import static io.prestosql.sql.analyzer.FeaturesConfig.SPILLER_SPILL_PATH;
+import static io.prestosql.sql.analyzer.FeaturesConfig.SPILL_ENABLED;
+import static io.prestosql.sql.analyzer.RegexLibrary.JONI;
+import static io.prestosql.sql.analyzer.RegexLibrary.RE2J;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 

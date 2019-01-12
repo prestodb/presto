@@ -14,12 +14,12 @@
 
 package io.prestosql.plugin.hive.statistics;
 
-import com.facebook.presto.hive.HivePartition;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.statistics.TableStatistics;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.plugin.hive.HivePartition;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.statistics.TableStatistics;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 import java.util.Map;

@@ -13,10 +13,10 @@
  */
 package io.prestosql.util;
 
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.Type;
 import it.unimi.dsi.fastutil.Hash;
 import it.unimi.dsi.fastutil.booleans.BooleanOpenHashSet;
 import it.unimi.dsi.fastutil.doubles.DoubleHash;
@@ -30,11 +30,11 @@ import java.lang.invoke.MethodType;
 import java.util.Collection;
 import java.util.Set;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.function.OperatorType.EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static java.lang.Boolean.TRUE;
 import static java.lang.Math.toIntExact;
 

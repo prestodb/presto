@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.accumulo.metadata;
 
-import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.connector.SchemaTableName;
 
 import java.util.Objects;
 

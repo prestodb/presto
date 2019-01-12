@@ -13,10 +13,10 @@
  */
 package io.prestosql.operator.project;
 
-import com.facebook.presto.operator.DriverYieldSignal;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.RecordCursor;
+import io.prestosql.operator.DriverYieldSignal;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.RecordCursor;
 
 public interface CursorProcessor
 {

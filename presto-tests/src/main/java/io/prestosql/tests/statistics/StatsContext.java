@@ -13,10 +13,10 @@
  */
 package io.prestosql.tests.statistics;
 
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeProvider;
 
 import java.util.Map;
 

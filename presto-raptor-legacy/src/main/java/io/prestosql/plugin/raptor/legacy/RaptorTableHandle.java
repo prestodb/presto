@@ -13,18 +13,18 @@
  */
 package io.prestosql.plugin.raptor.legacy;
 
-import com.facebook.presto.spi.ConnectorTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 
-import static com.facebook.presto.raptor.util.MetadataUtil.checkSchemaName;
-import static com.facebook.presto.raptor.util.MetadataUtil.checkTableName;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.plugin.raptor.legacy.util.MetadataUtil.checkSchemaName;
+import static io.prestosql.plugin.raptor.legacy.util.MetadataUtil.checkTableName;
 import static java.util.Objects.requireNonNull;
 
 public final class RaptorTableHandle

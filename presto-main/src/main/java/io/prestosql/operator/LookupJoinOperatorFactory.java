@@ -13,24 +13,24 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.operator.JoinProbe.JoinProbeFactory;
-import com.facebook.presto.operator.LookupJoinOperators.JoinType;
-import com.facebook.presto.operator.LookupOuterOperator.LookupOuterOperatorFactory;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spiller.PartitioningSpillerFactory;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.execution.Lifespan;
+import io.prestosql.operator.JoinProbe.JoinProbeFactory;
+import io.prestosql.operator.LookupJoinOperators.JoinType;
+import io.prestosql.operator.LookupOuterOperator.LookupOuterOperatorFactory;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spiller.PartitioningSpillerFactory;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static com.facebook.presto.operator.LookupJoinOperators.JoinType.INNER;
-import static com.facebook.presto.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.operator.LookupJoinOperators.JoinType.INNER;
+import static io.prestosql.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
 import static java.util.Objects.requireNonNull;
 
 public class LookupJoinOperatorFactory

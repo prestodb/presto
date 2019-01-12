@@ -13,10 +13,10 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.operator.annotations.ImplementationDependency;
-import com.facebook.presto.spi.type.TypeManager;
+import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.operator.annotations.ImplementationDependency;
+import io.prestosql.spi.type.TypeManager;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;

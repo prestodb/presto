@@ -15,8 +15,8 @@ package io.prestosql.sql.query;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SystemSessionProperties.LEGACY_UNNEST;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.SystemSessionProperties.LEGACY_UNNEST;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public class TestLegacyUnnestArrayRows
 {

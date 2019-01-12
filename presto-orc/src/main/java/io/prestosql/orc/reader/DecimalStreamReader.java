@@ -13,22 +13,22 @@
  */
 package io.prestosql.orc.reader;
 
-import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.orc.OrcCorruptionException;
-import com.facebook.presto.orc.StreamDescriptor;
-import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.stream.BooleanInputStream;
-import com.facebook.presto.orc.stream.DecimalInputStream;
-import com.facebook.presto.orc.stream.InputStreamSource;
-import com.facebook.presto.orc.stream.InputStreamSources;
-import com.facebook.presto.orc.stream.LongInputStream;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.Decimals;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic;
 import io.airlift.slice.Slice;
+import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.orc.OrcCorruptionException;
+import io.prestosql.orc.StreamDescriptor;
+import io.prestosql.orc.metadata.ColumnEncoding;
+import io.prestosql.orc.stream.BooleanInputStream;
+import io.prestosql.orc.stream.DecimalInputStream;
+import io.prestosql.orc.stream.InputStreamSource;
+import io.prestosql.orc.stream.InputStreamSources;
+import io.prestosql.orc.stream.LongInputStream;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.UnscaledDecimal128Arithmetic;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -36,14 +36,14 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
-import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
-import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.rescale;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
+import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
+import static io.prestosql.orc.metadata.Stream.StreamKind.SECONDARY;
+import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.rescale;
 import static java.util.Objects.requireNonNull;
 
 public class DecimalStreamReader

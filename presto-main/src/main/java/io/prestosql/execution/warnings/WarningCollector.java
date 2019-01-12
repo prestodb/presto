@@ -13,8 +13,8 @@
  */
 package io.prestosql.execution.warnings;
 
-import com.facebook.presto.spi.PrestoWarning;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.PrestoWarning;
 
 import java.util.List;
 

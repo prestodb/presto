@@ -13,26 +13,26 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.SymbolReference;
-import com.facebook.presto.tpch.TpchColumnHandle;
-import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.metadata.TableHandle;
+import io.prestosql.plugin.tpch.TpchColumnHandle;
+import io.prestosql.plugin.tpch.TpchTableHandle;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
-import static com.facebook.presto.tpch.TpchMetadata.TINY_SCALE_FACTOR;
+import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 
 public class TestPruneCountAggregationOverScalar
         extends BaseRuleTest

@@ -13,7 +13,7 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import io.prestosql.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
 public class TestDecimalToDecimalCasts

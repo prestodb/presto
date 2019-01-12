@@ -13,14 +13,14 @@
  */
 package io.prestosql.sql.planner.optimizations;
 
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
+import io.prestosql.sql.planner.PlanNodeIdAllocator;
+import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.metadata.AbstractMockMetadata.dummyMetadata;
-import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
+import static io.prestosql.metadata.AbstractMockMetadata.dummyMetadata;
+import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
 import static java.util.Collections.emptyList;
 import static org.testng.Assert.assertEquals;
 

@@ -13,7 +13,7 @@
  */
 package io.prestosql.orc.metadata;
 
-import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
+import io.prestosql.orc.metadata.statistics.StripeStatistics;
 
 import java.util.List;
 

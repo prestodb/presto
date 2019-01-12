@@ -16,17 +16,17 @@ package io.prestosql.operator.scalar;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.operator.scalar.ColorFunctions.bar;
-import static com.facebook.presto.operator.scalar.ColorFunctions.color;
-import static com.facebook.presto.operator.scalar.ColorFunctions.getBlue;
-import static com.facebook.presto.operator.scalar.ColorFunctions.getGreen;
-import static com.facebook.presto.operator.scalar.ColorFunctions.getRed;
-import static com.facebook.presto.operator.scalar.ColorFunctions.parseRgb;
-import static com.facebook.presto.operator.scalar.ColorFunctions.render;
-import static com.facebook.presto.operator.scalar.ColorFunctions.rgb;
-import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.operator.scalar.ColorFunctions.bar;
+import static io.prestosql.operator.scalar.ColorFunctions.color;
+import static io.prestosql.operator.scalar.ColorFunctions.getBlue;
+import static io.prestosql.operator.scalar.ColorFunctions.getGreen;
+import static io.prestosql.operator.scalar.ColorFunctions.getRed;
+import static io.prestosql.operator.scalar.ColorFunctions.parseRgb;
+import static io.prestosql.operator.scalar.ColorFunctions.render;
+import static io.prestosql.operator.scalar.ColorFunctions.rgb;
+import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 

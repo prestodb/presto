@@ -13,18 +13,18 @@
  */
 package io.prestosql;
 
-import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageSorter;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.operator.PagesIndex;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageSorter;
+import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.type.Type;
 
 import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
-import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
+import static io.prestosql.operator.SyntheticAddress.decodePosition;
+import static io.prestosql.operator.SyntheticAddress.decodeSliceIndex;
 import static java.util.Objects.requireNonNull;
 
 public class PagesIndexPageSorter

@@ -13,12 +13,12 @@ package io.prestosql.operator.scalar;
  * limitations under the License.
  */
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.SingleMapBlock;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.SingleMapBlock;
+import io.prestosql.spi.type.Type;
 
-import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
-import static com.facebook.presto.util.Failures.internalError;
+import static io.prestosql.spi.type.TypeUtils.readNativeValue;
+import static io.prestosql.util.Failures.internalError;
 
 public final class MapGenericEquality
 {

@@ -13,21 +13,21 @@
  */
 package io.prestosql.plugin.ml;
 
-import com.facebook.presto.ml.type.RegressorType;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.hash.HashCode;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.plugin.ml.type.RegressorType;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.function.ScalarFunction;
+import io.prestosql.spi.function.SqlType;
+import io.prestosql.spi.type.StandardTypes;
 
-import static com.facebook.presto.ml.type.ClassifierType.BIGINT_CLASSIFIER;
-import static com.facebook.presto.ml.type.ClassifierType.VARCHAR_CLASSIFIER;
-import static com.facebook.presto.ml.type.RegressorType.REGRESSOR;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.plugin.ml.type.ClassifierType.BIGINT_CLASSIFIER;
+import static io.prestosql.plugin.ml.type.ClassifierType.VARCHAR_CLASSIFIER;
+import static io.prestosql.plugin.ml.type.RegressorType.REGRESSOR;
 
 public final class MLFunctions
 {

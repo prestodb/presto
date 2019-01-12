@@ -13,11 +13,11 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.SqlTime;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.SqlTime;
 
-import static com.facebook.presto.spi.type.TimeType.TIME;
+import static io.prestosql.spi.type.TimeType.TIME;
 
 public class TestTimeType
         extends AbstractTestType

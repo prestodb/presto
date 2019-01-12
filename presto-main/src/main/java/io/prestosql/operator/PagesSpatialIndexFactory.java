@@ -13,10 +13,10 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.prestosql.spi.type.Type;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -26,9 +26,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.prestosql.operator.Operator.NOT_BLOCKED;
 import static java.util.Objects.requireNonNull;
 
 /**

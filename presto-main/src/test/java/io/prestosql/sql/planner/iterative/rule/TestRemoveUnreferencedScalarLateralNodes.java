@@ -13,12 +13,12 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static java.util.Collections.emptyList;
 
 public class TestRemoveUnreferencedScalarLateralNodes

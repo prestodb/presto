@@ -13,16 +13,16 @@
  */
 package io.prestosql.plugin.jmx;
 
-import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import io.airlift.testing.EquivalenceTester;
+import io.prestosql.spi.connector.SchemaTableName;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.connector.jmx.MetadataUtil.TABLE_CODEC;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.prestosql.plugin.jmx.MetadataUtil.TABLE_CODEC;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static org.testng.Assert.assertEquals;
 
 public class TestJmxTableHandle

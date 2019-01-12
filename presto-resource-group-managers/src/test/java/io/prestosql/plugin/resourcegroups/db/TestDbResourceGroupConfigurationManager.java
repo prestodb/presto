@@ -13,21 +13,21 @@
  */
 package io.prestosql.plugin.resourcegroups.db;
 
-import com.facebook.presto.execution.resourceGroups.InternalResourceGroup;
-import com.facebook.presto.resourceGroups.ResourceGroupSelector;
-import com.facebook.presto.resourceGroups.ResourceGroupSpec;
-import com.facebook.presto.resourceGroups.StaticSelector;
-import com.facebook.presto.resourceGroups.VariableMap;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
-import com.facebook.presto.spi.resourceGroups.SelectionContext;
-import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
-import com.facebook.presto.spi.session.ResourceEstimates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.execution.resourceGroups.InternalResourceGroup;
+import io.prestosql.plugin.resourcegroups.ResourceGroupSelector;
+import io.prestosql.plugin.resourcegroups.ResourceGroupSpec;
+import io.prestosql.plugin.resourcegroups.StaticSelector;
+import io.prestosql.plugin.resourcegroups.VariableMap;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.spi.resourcegroups.SchedulingPolicy;
+import io.prestosql.spi.resourcegroups.SelectionContext;
+import io.prestosql.spi.resourcegroups.SelectionCriteria;
+import io.prestosql.spi.session.ResourceEstimates;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.testng.annotations.Test;
 
@@ -39,10 +39,10 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
-import static com.facebook.presto.execution.resourceGroups.InternalResourceGroup.DEFAULT_WEIGHT;
-import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.FAIR;
-import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.prestosql.execution.resourceGroups.InternalResourceGroup.DEFAULT_WEIGHT;
+import static io.prestosql.spi.resourcegroups.SchedulingPolicy.FAIR;
+import static io.prestosql.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;

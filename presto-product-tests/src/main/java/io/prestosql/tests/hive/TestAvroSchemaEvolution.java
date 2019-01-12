@@ -19,11 +19,11 @@ import io.prestodb.tempto.ProductTest;
 import io.prestodb.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tests.TestGroups.AVRO;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.context.ThreadLocalTestContextHolder.testContext;
 import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestosql.tests.TestGroups.AVRO;
 import static java.lang.String.format;
 
 public class TestAvroSchemaEvolution

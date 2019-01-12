@@ -13,13 +13,13 @@
  */
 package io.prestosql.sql.planner.assertions;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.ApplyNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.Session;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.plan.ApplyNode;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.ProjectNode;
 
 import java.util.Collection;
 import java.util.Optional;

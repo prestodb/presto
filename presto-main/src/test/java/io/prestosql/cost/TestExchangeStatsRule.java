@@ -14,11 +14,11 @@
 
 package io.prestosql.cost;
 
-import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.sql.planner.Symbol;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.util.Collections.emptyList;
 
 public class TestExchangeStatsRule

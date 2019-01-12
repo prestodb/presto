@@ -13,10 +13,10 @@
  */
 package io.prestosql.connector.system;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import io.airlift.json.JsonCodec;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.spi.HostAddress;
+import io.prestosql.spi.predicate.TupleDomain;
 import org.testng.annotations.Test;
 
 import static io.airlift.json.JsonCodec.jsonCodec;

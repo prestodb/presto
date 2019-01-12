@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.PartitionUpdate.UpdateMode;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
+import io.prestosql.plugin.hive.PartitionUpdate.UpdateMode;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 

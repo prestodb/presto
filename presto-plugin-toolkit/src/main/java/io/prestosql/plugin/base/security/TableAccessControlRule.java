@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.base.security;
 
-import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.connector.SchemaTableName;
 
 import java.util.Optional;
 import java.util.Set;

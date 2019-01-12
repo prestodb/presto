@@ -13,12 +13,12 @@
  */
 package io.prestosql.orc.stream;
 
-import com.facebook.presto.orc.OrcEncoding;
-import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
-import com.facebook.presto.orc.metadata.CompressionKind;
+import io.prestosql.orc.OrcEncoding;
+import io.prestosql.orc.checkpoint.LongStreamCheckpoint;
+import io.prestosql.orc.metadata.CompressionKind;
 
-import static com.facebook.presto.orc.OrcEncoding.DWRF;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
+import static io.prestosql.orc.OrcEncoding.DWRF;
+import static io.prestosql.orc.metadata.Stream.StreamKind.LENGTH;
 
 public interface LongOutputStream
         extends ValueOutputStream<LongStreamCheckpoint>

@@ -13,24 +13,24 @@
  */
 package io.prestosql.tests.tpch;
 
-import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.connector.Connector;
-import com.facebook.presto.spi.connector.ConnectorContext;
-import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorIndexProvider;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
-import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.connector.ConnectorSplitManager;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.transaction.IsolationLevel;
-import com.facebook.presto.tpch.TpchNodePartitioningProvider;
-import com.facebook.presto.tpch.TpchRecordSetProvider;
-import com.facebook.presto.tpch.TpchSplitManager;
-import com.facebook.presto.tpch.TpchTransactionHandle;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.plugin.tpch.TpchNodePartitioningProvider;
+import io.prestosql.plugin.tpch.TpchRecordSetProvider;
+import io.prestosql.plugin.tpch.TpchSplitManager;
+import io.prestosql.plugin.tpch.TpchTransactionHandle;
+import io.prestosql.spi.NodeManager;
+import io.prestosql.spi.connector.Connector;
+import io.prestosql.spi.connector.ConnectorContext;
+import io.prestosql.spi.connector.ConnectorFactory;
+import io.prestosql.spi.connector.ConnectorHandleResolver;
+import io.prestosql.spi.connector.ConnectorIndexProvider;
+import io.prestosql.spi.connector.ConnectorMetadata;
+import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
+import io.prestosql.spi.connector.ConnectorRecordSetProvider;
+import io.prestosql.spi.connector.ConnectorSplitManager;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.transaction.IsolationLevel;
 
 import java.util.Map;
 import java.util.Set;

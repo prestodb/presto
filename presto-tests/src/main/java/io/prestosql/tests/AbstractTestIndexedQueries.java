@@ -13,11 +13,11 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.tests.tpch.TpchIndexSpec;
-import com.facebook.presto.tests.tpch.TpchIndexSpec.Builder;
-import com.facebook.presto.tpch.TpchMetadata;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.plugin.tpch.TpchMetadata;
+import io.prestosql.testing.MaterializedResult;
+import io.prestosql.tests.tpch.TpchIndexSpec;
+import io.prestosql.tests.tpch.TpchIndexSpec.Builder;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;

@@ -13,12 +13,12 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.tree.CurrentUser;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.sql.tree.CurrentUser;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.ExpressionTreeRewriter;
+import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.QualifiedName;
 
 public class DesugarCurrentUser
         extends ExpressionRewriteRuleSet

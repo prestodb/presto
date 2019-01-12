@@ -13,25 +13,25 @@
  */
 package io.prestosql.plugin.accumulo;
 
-import com.facebook.presto.accumulo.model.AccumuloColumnConstraint;
-import com.facebook.presto.accumulo.model.AccumuloColumnHandle;
-import com.facebook.presto.accumulo.model.AccumuloSplit;
-import com.facebook.presto.accumulo.model.AccumuloTableHandle;
-import com.facebook.presto.accumulo.model.AccumuloTableLayoutHandle;
-import com.facebook.presto.accumulo.model.TabletSplitMetadata;
-import com.facebook.presto.accumulo.model.WrappedRange;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.ConnectorSplitSource;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.FixedSplitSource;
-import com.facebook.presto.spi.connector.ConnectorSplitManager;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.predicate.TupleDomain.ColumnDomain;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.accumulo.model.AccumuloColumnConstraint;
+import io.prestosql.plugin.accumulo.model.AccumuloColumnHandle;
+import io.prestosql.plugin.accumulo.model.AccumuloSplit;
+import io.prestosql.plugin.accumulo.model.AccumuloTableHandle;
+import io.prestosql.plugin.accumulo.model.AccumuloTableLayoutHandle;
+import io.prestosql.plugin.accumulo.model.TabletSplitMetadata;
+import io.prestosql.plugin.accumulo.model.WrappedRange;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorSplitManager;
+import io.prestosql.spi.connector.ConnectorSplitSource;
+import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.FixedSplitSource;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.predicate.TupleDomain.ColumnDomain;
 
 import javax.inject.Inject;
 

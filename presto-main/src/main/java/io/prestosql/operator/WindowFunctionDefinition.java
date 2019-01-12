@@ -13,11 +13,11 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.operator.window.FrameInfo;
-import com.facebook.presto.operator.window.WindowFunctionSupplier;
-import com.facebook.presto.spi.function.WindowFunction;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.operator.window.FrameInfo;
+import io.prestosql.operator.window.WindowFunctionSupplier;
+import io.prestosql.spi.function.WindowFunction;
+import io.prestosql.spi.type.Type;
 
 import java.util.Arrays;
 import java.util.List;

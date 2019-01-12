@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.SchemaTableName;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_OFFLINE;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_TABLE_OFFLINE;
 import static java.util.Objects.requireNonNull;
 
 public class TableOfflineException

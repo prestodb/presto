@@ -13,8 +13,8 @@
  */
 package io.prestosql.execution.executor;
 
-import com.facebook.presto.execution.executor.SimulationSplit.IntermediateSplit;
-import com.facebook.presto.execution.executor.SimulationSplit.LeafSplit;
+import io.prestosql.execution.executor.SimulationSplit.IntermediateSplit;
+import io.prestosql.execution.executor.SimulationSplit.LeafSplit;
 
 import java.util.concurrent.ScheduledExecutorService;
 

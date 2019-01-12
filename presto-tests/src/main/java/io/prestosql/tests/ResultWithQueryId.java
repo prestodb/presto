@@ -13,7 +13,7 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.spi.QueryId;
+import io.prestosql.spi.QueryId;
 
 public class ResultWithQueryId<T>
 {

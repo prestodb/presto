@@ -13,14 +13,14 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import io.prestosql.testing.MaterializedResult;
+import io.prestosql.tests.AbstractTestDistributedQueries;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
-import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.getTables;
+import static io.prestosql.plugin.hive.HiveQueryRunner.createQueryRunner;
+import static io.prestosql.sql.tree.ExplainType.Type.LOGICAL;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveDistributedQueries

@@ -13,7 +13,7 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.execution.executor.TaskExecutor;
+import io.prestosql.execution.executor.TaskExecutor;
 
 import javax.inject.Inject;
 import javax.ws.rs.GET;

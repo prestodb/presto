@@ -25,10 +25,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 
-import static com.facebook.presto.tests.TestGroups.HIVE_TABLE_STATISTICS;
-import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
-import static com.facebook.presto.tests.utils.QueryExecutors.onPresto;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.tests.TestGroups.HIVE_TABLE_STATISTICS;
+import static io.prestosql.tests.utils.QueryExecutors.onHive;
+import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;

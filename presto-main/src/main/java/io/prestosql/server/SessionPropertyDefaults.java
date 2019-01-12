@@ -13,15 +13,15 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.SessionPropertyConfigurationManagerContext;
-import com.facebook.presto.spi.session.SessionConfigurationContext;
-import com.facebook.presto.spi.session.SessionPropertyConfigurationManager;
-import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
+import io.prestosql.Session;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.spi.resourcegroups.SessionPropertyConfigurationManagerContext;
+import io.prestosql.spi.session.SessionConfigurationContext;
+import io.prestosql.spi.session.SessionPropertyConfigurationManager;
+import io.prestosql.spi.session.SessionPropertyConfigurationManagerFactory;
 
 import javax.inject.Inject;
 
@@ -33,9 +33,9 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.util.PropertiesUtil.loadProperties;
 import static java.lang.String.format;
 
 public class SessionPropertyDefaults

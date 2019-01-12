@@ -15,9 +15,9 @@ package io.prestosql.client;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.client.IntervalDayTime.formatMillis;
-import static com.facebook.presto.client.IntervalDayTime.parseMillis;
-import static com.facebook.presto.client.IntervalDayTime.toMillis;
+import static io.prestosql.client.IntervalDayTime.formatMillis;
+import static io.prestosql.client.IntervalDayTime.parseMillis;
+import static io.prestosql.client.IntervalDayTime.toMillis;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static org.testng.Assert.assertEquals;
 

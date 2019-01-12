@@ -13,10 +13,10 @@
  */
 package io.prestosql.spi.type;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.block.Block;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.connector.ConnectorSession;
 
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 
 //
 // A time is stored as milliseconds from midnight on 1970-01-01T00:00:00 in the time zone of the session.

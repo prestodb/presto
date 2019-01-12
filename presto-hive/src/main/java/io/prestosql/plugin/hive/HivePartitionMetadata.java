@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.metastore.Partition;
+import io.prestosql.plugin.hive.metastore.Partition;
 
 import java.util.Map;
 import java.util.Optional;

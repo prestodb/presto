@@ -13,12 +13,12 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.sql.tree.Deallocate;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AccessControl;
+import io.prestosql.sql.tree.Deallocate;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.transaction.TransactionManager;
 
 import java.util.List;
 

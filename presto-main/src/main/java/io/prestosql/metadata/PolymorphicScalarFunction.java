@@ -13,19 +13,19 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.metadata.PolymorphicScalarFunctionBuilder.MethodAndNativeContainerTypes;
-import com.facebook.presto.metadata.PolymorphicScalarFunctionBuilder.MethodsGroup;
-import com.facebook.presto.metadata.PolymorphicScalarFunctionBuilder.SpecializeContext;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.util.Reflection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
+import io.prestosql.metadata.PolymorphicScalarFunctionBuilder.MethodAndNativeContainerTypes;
+import io.prestosql.metadata.PolymorphicScalarFunctionBuilder.MethodsGroup;
+import io.prestosql.metadata.PolymorphicScalarFunctionBuilder.SpecializeContext;
+import io.prestosql.operator.scalar.ScalarFunctionImplementation;
+import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
+import io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention;
+import io.prestosql.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.util.Reflection;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -33,11 +33,11 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
-import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
+import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
+import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
+import static io.prestosql.type.TypeUtils.resolveTypes;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 

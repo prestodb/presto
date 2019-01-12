@@ -13,16 +13,16 @@
  */
 package io.prestosql.spi.block;
 
-import com.facebook.presto.spi.predicate.Utils;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.predicate.Utils;
+import io.prestosql.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.function.BiConsumer;
 
-import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
-import static com.facebook.presto.spi.block.BlockUtil.checkValidPosition;
-import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
+import static io.prestosql.spi.block.BlockUtil.checkArrayRange;
+import static io.prestosql.spi.block.BlockUtil.checkValidPosition;
+import static io.prestosql.spi.block.BlockUtil.checkValidRegion;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

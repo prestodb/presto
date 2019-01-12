@@ -13,15 +13,15 @@
  */
 package io.prestosql.memory;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.server.BasicQueryInfo;
-import com.facebook.presto.server.BasicQueryStats;
-import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.server.BasicQueryStats;
+import io.prestosql.server.testing.TestingPrestoServer;
+import io.prestosql.spi.QueryId;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.tests.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -36,13 +36,13 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
-import static com.facebook.presto.SystemSessionProperties.RESOURCE_OVERCOMMIT;
-import static com.facebook.presto.execution.QueryState.FINISHED;
-import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
-import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
-import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
-import static com.facebook.presto.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.SystemSessionProperties.RESOURCE_OVERCOMMIT;
+import static io.prestosql.execution.QueryState.FINISHED;
+import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
+import static io.prestosql.memory.LocalMemoryManager.RESERVED_POOL;
+import static io.prestosql.operator.BlockedReason.WAITING_FOR_MEMORY;
+import static io.prestosql.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;

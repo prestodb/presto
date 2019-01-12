@@ -13,13 +13,13 @@
  */
 package io.prestosql.plugin.raptor.legacy.backup;
 
-import com.facebook.presto.raptor.storage.BackupStats;
-import com.facebook.presto.raptor.storage.StorageService;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.io.Files;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.raptor.legacy.storage.BackupStats;
+import io.prestosql.plugin.raptor.legacy.storage.StorageService;
+import io.prestosql.spi.PrestoException;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
@@ -35,10 +35,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;

@@ -13,9 +13,6 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.execution.buffer.PagesSerde;
-import com.facebook.presto.execution.buffer.PagesSerdeUtil;
-import com.facebook.presto.spi.Page;
 import com.google.common.base.Splitter;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
@@ -26,13 +23,16 @@ import io.airlift.http.client.Response;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.slice.DynamicSliceOutput;
+import io.prestosql.execution.buffer.PagesSerde;
+import io.prestosql.execution.buffer.PagesSerdeUtil;
+import io.prestosql.spi.Page;
 
-import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
-import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
+import static io.prestosql.PrestoMediaTypes.PRESTO_PAGES;
+import static io.prestosql.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
+import static io.prestosql.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
+import static io.prestosql.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
+import static io.prestosql.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
+import static io.prestosql.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static org.testng.Assert.assertEquals;

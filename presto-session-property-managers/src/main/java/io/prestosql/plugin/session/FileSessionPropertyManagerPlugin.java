@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.session;
 
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.Plugin;
+import io.prestosql.spi.session.SessionPropertyConfigurationManagerFactory;
 
 public class FileSessionPropertyManagerPlugin
         implements Plugin

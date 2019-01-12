@@ -13,18 +13,18 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.Session.ResourceEstimateBuilder;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.session.ResourceEstimates;
-import com.facebook.presto.sql.parser.ParsingException;
-import com.facebook.presto.sql.parser.ParsingOptions;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.transaction.TransactionId;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.Session.ResourceEstimateBuilder;
+import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.session.ResourceEstimates;
+import io.prestosql.sql.parser.ParsingException;
+import io.prestosql.sql.parser.ParsingOptions;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.transaction.TransactionId;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.WebApplicationException;
@@ -44,27 +44,27 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_CAPABILITIES;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_PATH;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_RESOURCE_ESTIMATE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRACE_TOKEN;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
-import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
+import static io.prestosql.client.PrestoHeaders.PRESTO_CATALOG;
+import static io.prestosql.client.PrestoHeaders.PRESTO_CLIENT_CAPABILITIES;
+import static io.prestosql.client.PrestoHeaders.PRESTO_CLIENT_INFO;
+import static io.prestosql.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
+import static io.prestosql.client.PrestoHeaders.PRESTO_LANGUAGE;
+import static io.prestosql.client.PrestoHeaders.PRESTO_PATH;
+import static io.prestosql.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
+import static io.prestosql.client.PrestoHeaders.PRESTO_RESOURCE_ESTIMATE;
+import static io.prestosql.client.PrestoHeaders.PRESTO_SCHEMA;
+import static io.prestosql.client.PrestoHeaders.PRESTO_SESSION;
+import static io.prestosql.client.PrestoHeaders.PRESTO_SOURCE;
+import static io.prestosql.client.PrestoHeaders.PRESTO_TIME_ZONE;
+import static io.prestosql.client.PrestoHeaders.PRESTO_TRACE_TOKEN;
+import static io.prestosql.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
+import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
+import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static java.lang.String.format;
 
 public final class HttpRequestSessionContext

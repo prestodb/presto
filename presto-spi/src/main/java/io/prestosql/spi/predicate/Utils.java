@@ -13,12 +13,12 @@
  */
 package io.prestosql.spi.predicate;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.Type;
 
-import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
-import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
+import static io.prestosql.spi.type.TypeUtils.readNativeValue;
+import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
 
 public final class Utils
 {

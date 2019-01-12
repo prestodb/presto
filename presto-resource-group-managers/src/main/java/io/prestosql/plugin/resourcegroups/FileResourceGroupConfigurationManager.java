@@ -13,10 +13,6 @@
  */
 package io.prestosql.plugin.resourcegroups;
 
-import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
-import com.facebook.presto.spi.resourceGroups.ResourceGroup;
-import com.facebook.presto.spi.resourceGroups.SelectionContext;
-import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import com.google.common.annotations.VisibleForTesting;
@@ -24,6 +20,10 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.units.Duration;
+import io.prestosql.spi.memory.ClusterMemoryPoolManager;
+import io.prestosql.spi.resourcegroups.ResourceGroup;
+import io.prestosql.spi.resourcegroups.SelectionContext;
+import io.prestosql.spi.resourcegroups.SelectionCriteria;
 
 import javax.inject.Inject;
 

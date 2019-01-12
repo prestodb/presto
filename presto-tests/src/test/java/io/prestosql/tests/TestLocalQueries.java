@@ -13,37 +13,37 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.spi.CatalogSchemaTableName;
-import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.ColumnConstraint;
-import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.FormattedDomain;
-import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.FormattedMarker;
-import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.FormattedRange;
-import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.IOPlan;
-import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.IOPlan.TableColumnInfo;
-import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.Session;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.metadata.SessionPropertyManager;
+import io.prestosql.plugin.tpch.TpchConnectorFactory;
+import io.prestosql.spi.connector.CatalogSchemaTableName;
+import io.prestosql.sql.planner.planPrinter.IOPlanPrinter.ColumnConstraint;
+import io.prestosql.sql.planner.planPrinter.IOPlanPrinter.FormattedDomain;
+import io.prestosql.sql.planner.planPrinter.IOPlanPrinter.FormattedMarker;
+import io.prestosql.sql.planner.planPrinter.IOPlanPrinter.FormattedRange;
+import io.prestosql.sql.planner.planPrinter.IOPlanPrinter.IOPlan;
+import io.prestosql.sql.planner.planPrinter.IOPlanPrinter.IOPlan.TableColumnInfo;
+import io.prestosql.testing.LocalQueryRunner;
+import io.prestosql.testing.MaterializedResult;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN;
-import static com.facebook.presto.spi.predicate.Marker.Bound.EXACTLY;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
-import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
-import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.prestosql.SystemSessionProperties.PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN;
+import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.testing.MaterializedResult.resultBuilder;
+import static io.prestosql.testing.TestingSession.TESTING_CATALOG;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.testing.assertions.Assert.assertEquals;
 
 public class TestLocalQueries
         extends AbstractTestQueries

@@ -13,25 +13,25 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.spi.PrestoException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.operator.scalar.JsonExtract.JsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.JsonValueJsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.ObjectFieldJsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.ScalarValueJsonExtractor;
-import static com.facebook.presto.operator.scalar.JsonExtract.generateExtractor;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.operator.scalar.JsonExtract.JsonExtractor;
+import static io.prestosql.operator.scalar.JsonExtract.JsonValueJsonExtractor;
+import static io.prestosql.operator.scalar.JsonExtract.ObjectFieldJsonExtractor;
+import static io.prestosql.operator.scalar.JsonExtract.ScalarValueJsonExtractor;
+import static io.prestosql.operator.scalar.JsonExtract.generateExtractor;
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;

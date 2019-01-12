@@ -13,15 +13,15 @@
  */
 package io.prestosql.sql.planner.plan;
 
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.ExistsPredicate;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.tree.ExistsPredicate;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.InPredicate;
+import io.prestosql.sql.tree.Node;
+import io.prestosql.sql.tree.QuantifiedComparisonExpression;
 
 import javax.annotation.concurrent.Immutable;
 

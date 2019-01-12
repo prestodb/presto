@@ -13,16 +13,16 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.OutputBuffers.OutputBufferId;
-import com.facebook.presto.Session;
-import com.facebook.presto.TaskSource;
-import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.execution.buffer.BufferResult;
-import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
-import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
+import io.prestosql.OutputBuffers;
+import io.prestosql.OutputBuffers.OutputBufferId;
+import io.prestosql.Session;
+import io.prestosql.TaskSource;
+import io.prestosql.execution.StateMachine.StateChangeListener;
+import io.prestosql.execution.buffer.BufferResult;
+import io.prestosql.memory.MemoryPoolAssignmentsRequest;
+import io.prestosql.sql.planner.PlanFragment;
 
 import java.util.List;
 import java.util.Optional;

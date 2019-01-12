@@ -13,7 +13,7 @@
  */
 package io.prestosql.sql.analyzer;
 
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.type.Type;
 
 import javax.annotation.concurrent.Immutable;
 

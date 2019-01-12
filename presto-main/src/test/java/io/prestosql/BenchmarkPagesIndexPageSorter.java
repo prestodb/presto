@@ -13,13 +13,13 @@
  */
 package io.prestosql;
 
-import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageSorter;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.PageBuilderStatus;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.block.BlockAssertions;
+import io.prestosql.operator.PagesIndex;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageSorter;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.PageBuilderStatus;
+import io.prestosql.spi.type.Type;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -39,11 +39,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.spi.block.SortOrder.ASC_NULLS_FIRST;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Collections.nCopies;
 
 @State(Scope.Thread)

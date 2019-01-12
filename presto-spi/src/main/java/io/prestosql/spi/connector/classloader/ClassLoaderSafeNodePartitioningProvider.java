@@ -13,16 +13,16 @@
  */
 package io.prestosql.spi.connector.classloader;
 
-import com.facebook.presto.spi.BucketFunction;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
-import com.facebook.presto.spi.connector.ConnectorBucketNodeMap;
-import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
-import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
-import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.classloader.ThreadContextClassLoader;
+import io.prestosql.spi.connector.BucketFunction;
+import io.prestosql.spi.connector.ConnectorBucketNodeMap;
+import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
+import io.prestosql.spi.connector.ConnectorPartitionHandle;
+import io.prestosql.spi.connector.ConnectorPartitioningHandle;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 import java.util.function.ToIntFunction;

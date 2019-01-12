@@ -13,42 +13,42 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.function.BlockIndex;
-import com.facebook.presto.spi.function.BlockPosition;
-import com.facebook.presto.spi.function.IsNull;
-import com.facebook.presto.spi.function.LiteralParameters;
-import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.function.SqlNullable;
-import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.AbstractLongType;
-import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.BlockIndex;
+import io.prestosql.spi.function.BlockPosition;
+import io.prestosql.spi.function.IsNull;
+import io.prestosql.spi.function.LiteralParameters;
+import io.prestosql.spi.function.ScalarOperator;
+import io.prestosql.spi.function.SqlNullable;
+import io.prestosql.spi.function.SqlType;
+import io.prestosql.spi.type.AbstractLongType;
+import io.prestosql.spi.type.StandardTypes;
 import org.joda.time.chrono.ISOChronology;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
-import static com.facebook.presto.spi.function.OperatorType.CAST;
-import static com.facebook.presto.spi.function.OperatorType.EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
-import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
-import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
-import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
-import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
-import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
-import static com.facebook.presto.spi.function.OperatorType.XX_HASH_64;
-import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static com.facebook.presto.spi.type.TimeType.TIME;
-import static com.facebook.presto.util.DateTimeUtils.parseTimeWithoutTimeZone;
-import static com.facebook.presto.util.DateTimeUtils.printTimeWithoutTimeZone;
-import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.prestosql.spi.function.OperatorType.BETWEEN;
+import static io.prestosql.spi.function.OperatorType.CAST;
+import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
+import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
+import static io.prestosql.spi.function.OperatorType.HASH_CODE;
+import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
+import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
+import static io.prestosql.spi.function.OperatorType.SUBTRACT;
+import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.TimeType.TIME;
+import static io.prestosql.util.DateTimeUtils.parseTimeWithoutTimeZone;
+import static io.prestosql.util.DateTimeUtils.printTimeWithoutTimeZone;
+import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 
 public final class TimeOperators
 {

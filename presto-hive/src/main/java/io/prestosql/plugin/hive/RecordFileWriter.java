@@ -13,17 +13,17 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.HiveWriteUtils.FieldSetter;
-import com.facebook.presto.hive.metastore.StorageFormat;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.prestosql.plugin.hive.HiveWriteUtils.FieldSetter;
+import io.prestosql.plugin.hive.metastore.StorageFormat;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.serde2.SerDeException;
@@ -41,14 +41,14 @@ import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
-import static com.facebook.presto.hive.HiveType.toHiveTypes;
-import static com.facebook.presto.hive.HiveWriteUtils.createFieldSetter;
-import static com.facebook.presto.hive.HiveWriteUtils.createRecordWriter;
-import static com.facebook.presto.hive.HiveWriteUtils.getRowColumnInspectors;
-import static com.facebook.presto.hive.HiveWriteUtils.initializeSerializer;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
+import static io.prestosql.plugin.hive.HiveType.toHiveTypes;
+import static io.prestosql.plugin.hive.HiveWriteUtils.createFieldSetter;
+import static io.prestosql.plugin.hive.HiveWriteUtils.createRecordWriter;
+import static io.prestosql.plugin.hive.HiveWriteUtils.getRowColumnInspectors;
+import static io.prestosql.plugin.hive.HiveWriteUtils.initializeSerializer;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;

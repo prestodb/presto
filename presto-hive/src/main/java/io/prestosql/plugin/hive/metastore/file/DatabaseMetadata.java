@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.hive.metastore.file;
 
-import com.facebook.presto.hive.metastore.Database;
-import com.facebook.presto.hive.metastore.PrincipalType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.hive.metastore.Database;
+import io.prestosql.plugin.hive.metastore.PrincipalType;
 
 import java.util.Map;
 import java.util.Optional;

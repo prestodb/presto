@@ -13,21 +13,21 @@
  */
 package io.prestosql.cost;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import io.prestosql.Session;
+import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.planner.iterative.Lookup;
+import io.prestosql.sql.planner.plan.ExchangeNode;
+import io.prestosql.sql.planner.plan.PlanNode;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndMaxDistinctValues;
-import static com.facebook.presto.sql.planner.plan.Patterns.exchange;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.cost.PlanNodeStatsEstimateMath.addStatsAndMaxDistinctValues;
+import static io.prestosql.sql.planner.plan.Patterns.exchange;
 
 public class ExchangeStatsRule
         extends SimpleStatsRule<ExchangeNode>

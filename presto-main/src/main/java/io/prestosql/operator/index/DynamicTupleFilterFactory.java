@@ -13,19 +13,19 @@
  */
 package io.prestosql.operator.index;
 
-import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.operator.project.PageProcessor;
-import com.facebook.presto.operator.project.PageProjection;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.relational.Expressions;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
+import io.prestosql.operator.OperatorFactory;
+import io.prestosql.operator.project.PageProcessor;
+import io.prestosql.operator.project.PageProjection;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.gen.PageFunctionCompiler;
+import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.sql.relational.Expressions;
 
 import java.util.List;
 import java.util.Optional;
@@ -33,10 +33,10 @@ import java.util.OptionalInt;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.prestosql.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
 import static java.util.Objects.requireNonNull;
 
 public class DynamicTupleFilterFactory

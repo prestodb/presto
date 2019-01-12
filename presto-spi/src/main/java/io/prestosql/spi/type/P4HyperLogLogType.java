@@ -13,14 +13,14 @@
  */
 package io.prestosql.spi.type;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.connector.ConnectorSession;
 
-import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.HyperLogLogType.HYPER_LOG_LOG;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 
 public class P4HyperLogLogType
         extends AbstractVariableWidthType

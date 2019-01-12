@@ -20,7 +20,7 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
+import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY;
 import static java.lang.String.format;
 import static java.util.Collections.reverse;
 import static java.util.stream.Collectors.toList;

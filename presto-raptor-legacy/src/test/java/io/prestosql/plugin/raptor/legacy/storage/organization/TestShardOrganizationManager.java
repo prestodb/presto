@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage.organization;
 
-import com.facebook.presto.raptor.metadata.MetadataDao;
-import com.facebook.presto.raptor.metadata.Table;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.raptor.legacy.metadata.MetadataDao;
+import io.prestosql.plugin.raptor.legacy.metadata.Table;
+import io.prestosql.spi.type.Type;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
@@ -33,17 +33,17 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
-import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
-import static com.facebook.presto.raptor.storage.organization.ShardOrganizationManager.createOrganizationSets;
-import static com.facebook.presto.raptor.storage.organization.TestCompactionSetCreator.extractIndexes;
-import static com.facebook.presto.raptor.storage.organization.TestShardOrganizer.createShardOrganizer;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
+import static io.prestosql.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
+import static io.prestosql.plugin.raptor.legacy.storage.organization.ShardOrganizationManager.createOrganizationSets;
+import static io.prestosql.plugin.raptor.legacy.storage.organization.TestCompactionSetCreator.extractIndexes;
+import static io.prestosql.plugin.raptor.legacy.storage.organization.TestShardOrganizer.createShardOrganizer;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toSet;

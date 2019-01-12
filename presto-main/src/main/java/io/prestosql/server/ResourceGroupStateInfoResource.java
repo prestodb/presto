@@ -13,8 +13,8 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import io.prestosql.execution.resourceGroups.ResourceGroupManager;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
 
 import javax.inject.Inject;
 import javax.ws.rs.Encoded;

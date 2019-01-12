@@ -13,9 +13,9 @@
  */
 package io.prestosql.execution.resourceGroups.db;
 
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.Plugin;
+import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 

@@ -13,23 +13,23 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.execution.QueryManager;
-import com.facebook.presto.execution.SqlTaskManager;
-import com.facebook.presto.execution.TestingSessionContext;
-import com.facebook.presto.memory.LegacyQueryContext;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.execution.QueryManager;
+import io.prestosql.execution.SqlTaskManager;
+import io.prestosql.execution.TestingSessionContext;
+import io.prestosql.memory.LegacyQueryContext;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.QueryId;
+import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.execution.QueryState.RUNNING;
-import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.execution.QueryState.RUNNING;
+import static io.prestosql.execution.TestQueryRunnerUtil.waitForQueryState;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
 @Test(singleThreaded = true)
 public class TestLegacyQueryContext

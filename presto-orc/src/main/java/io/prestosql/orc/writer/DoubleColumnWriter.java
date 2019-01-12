@@ -13,24 +13,24 @@
  */
 package io.prestosql.orc.writer;
 
-import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
-import com.facebook.presto.orc.checkpoint.DoubleStreamCheckpoint;
-import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
-import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.orc.metadata.RowGroupIndex;
-import com.facebook.presto.orc.metadata.Stream;
-import com.facebook.presto.orc.metadata.Stream.StreamKind;
-import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
-import com.facebook.presto.orc.metadata.statistics.DoubleStatisticsBuilder;
-import com.facebook.presto.orc.stream.DoubleOutputStream;
-import com.facebook.presto.orc.stream.PresentOutputStream;
-import com.facebook.presto.orc.stream.StreamDataOutput;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+import io.prestosql.orc.checkpoint.BooleanStreamCheckpoint;
+import io.prestosql.orc.checkpoint.DoubleStreamCheckpoint;
+import io.prestosql.orc.metadata.ColumnEncoding;
+import io.prestosql.orc.metadata.CompressedMetadataWriter;
+import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.RowGroupIndex;
+import io.prestosql.orc.metadata.Stream;
+import io.prestosql.orc.metadata.Stream.StreamKind;
+import io.prestosql.orc.metadata.statistics.ColumnStatistics;
+import io.prestosql.orc.metadata.statistics.DoubleStatisticsBuilder;
+import io.prestosql.orc.stream.DoubleOutputStream;
+import io.prestosql.orc.stream.PresentOutputStream;
+import io.prestosql.orc.stream.StreamDataOutput;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
@@ -39,10 +39,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
-import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
+import static io.prestosql.orc.metadata.CompressionKind.NONE;
 import static java.util.Objects.requireNonNull;
 
 public class DoubleColumnWriter

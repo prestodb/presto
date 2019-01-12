@@ -14,15 +14,15 @@
 package io.prestosql.plugin.geospatial.aggregation;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
-import com.facebook.presto.operator.aggregation.state.StateCompiler;
-import com.facebook.presto.plugin.geospatial.GeometryType;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.AccumulatorStateFactory;
-import com.facebook.presto.spi.function.AccumulatorStateSerializer;
+import io.prestosql.operator.aggregation.state.StateCompiler;
+import io.prestosql.plugin.geospatial.GeometryType;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.AccumulatorStateFactory;
+import io.prestosql.spi.function.AccumulatorStateSerializer;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.plugin.geospatial.aggregation.GeometryStateFactory.GroupedGeometryState;
+import static io.prestosql.plugin.geospatial.aggregation.GeometryStateFactory.GroupedGeometryState;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 

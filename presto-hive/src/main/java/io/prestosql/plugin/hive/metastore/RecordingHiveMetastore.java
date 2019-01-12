@@ -13,13 +13,6 @@
  */
 package io.prestosql.plugin.hive.metastore;
 
-import com.facebook.presto.hive.ForRecordingHiveMetastore;
-import com.facebook.presto.hive.HiveClientConfig;
-import com.facebook.presto.hive.HiveType;
-import com.facebook.presto.hive.PartitionStatistics;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.statistics.ColumnStatisticType;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
@@ -28,6 +21,13 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
+import io.prestosql.plugin.hive.ForRecordingHiveMetastore;
+import io.prestosql.plugin.hive.HiveClientConfig;
+import io.prestosql.plugin.hive.HiveType;
+import io.prestosql.plugin.hive.PartitionStatistics;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.statistics.ColumnStatisticType;
+import io.prestosql.spi.type.Type;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.Immutable;
@@ -42,11 +42,11 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.hive.metastore.HivePartitionName.hivePartitionName;
-import static com.facebook.presto.hive.metastore.HiveTableName.hiveTableName;
-import static com.facebook.presto.hive.metastore.PartitionFilter.partitionFilter;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.plugin.hive.metastore.HivePartitionName.hivePartitionName;
+import static io.prestosql.plugin.hive.metastore.HiveTableName.hiveTableName;
+import static io.prestosql.plugin.hive.metastore.PartitionFilter.partitionFilter;
+import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 

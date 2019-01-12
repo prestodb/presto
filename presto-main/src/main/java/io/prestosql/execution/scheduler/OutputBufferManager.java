@@ -13,7 +13,7 @@
  */
 package io.prestosql.execution.scheduler;
 
-import com.facebook.presto.OutputBuffers.OutputBufferId;
+import io.prestosql.OutputBuffers.OutputBufferId;
 
 import java.util.List;
 

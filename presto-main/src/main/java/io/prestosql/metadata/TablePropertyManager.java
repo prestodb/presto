@@ -13,7 +13,7 @@
  */
 package io.prestosql.metadata;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 
 public class TablePropertyManager
         extends AbstractPropertyManager

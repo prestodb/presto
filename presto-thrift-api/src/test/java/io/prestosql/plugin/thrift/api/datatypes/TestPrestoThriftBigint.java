@@ -13,19 +13,19 @@
  */
 package io.prestosql.plugin.thrift.api.datatypes;
 
-import com.facebook.presto.connector.thrift.api.PrestoThriftBlock;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
+import io.prestosql.plugin.thrift.api.PrestoThriftBlock;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
 
-import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.bigintData;
-import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.integerData;
-import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftBigint.fromBlock;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static io.prestosql.plugin.thrift.api.PrestoThriftBlock.bigintData;
+import static io.prestosql.plugin.thrift.api.PrestoThriftBlock.integerData;
+import static io.prestosql.plugin.thrift.api.datatypes.PrestoThriftBigint.fromBlock;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static java.util.Collections.unmodifiableList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;

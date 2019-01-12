@@ -17,7 +17,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.SelectObjectContentEventVisitor;
 import com.amazonaws.services.s3.model.SelectObjectContentRequest;
 import com.amazonaws.services.s3.model.SelectObjectContentResult;
-import com.facebook.presto.hive.HiveClientConfig;
+import io.prestosql.plugin.hive.HiveClientConfig;
 import org.apache.hadoop.conf.Configuration;
 
 import java.io.Closeable;

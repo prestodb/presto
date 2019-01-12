@@ -13,9 +13,9 @@
  */
 package io.prestosql.connector.system;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SystemTable;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.connector.SystemTable;
 
 import java.util.Optional;
 import java.util.Set;

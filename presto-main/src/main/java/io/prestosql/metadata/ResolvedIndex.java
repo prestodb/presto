@@ -13,11 +13,11 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorResolvedIndex;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorResolvedIndex;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import static java.util.Objects.requireNonNull;
 

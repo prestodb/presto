@@ -13,7 +13,7 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.facebook.presto.spi.function.OperatorType;
+import io.prestosql.spi.function.OperatorType;
 
 public final class Least
         extends AbstractGreatestLeast

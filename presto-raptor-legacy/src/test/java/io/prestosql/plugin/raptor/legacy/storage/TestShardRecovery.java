@@ -13,14 +13,14 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage;
 
-import com.facebook.presto.raptor.backup.BackupStore;
-import com.facebook.presto.raptor.backup.FileBackupStore;
-import com.facebook.presto.raptor.metadata.ShardManager;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.raptor.legacy.backup.BackupStore;
+import io.prestosql.plugin.raptor.legacy.backup.FileBackupStore;
+import io.prestosql.plugin.raptor.legacy.metadata.ShardManager;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.testing.TestingNodeManager;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
@@ -34,14 +34,14 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.UUID;
 
-import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
-import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
-import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
-import static com.facebook.presto.raptor.storage.OrcStorageManager.xxhash64;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
+import static io.prestosql.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
+import static io.prestosql.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
+import static io.prestosql.plugin.raptor.legacy.storage.OrcStorageManager.xxhash64;
 import static java.io.File.createTempFile;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MINUTES;

@@ -13,13 +13,13 @@
  */
 package io.prestosql.benchmark.driver;
 
-import com.facebook.presto.client.ClientSession;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.airline.Option;
 import io.airlift.units.Duration;
+import io.prestosql.client.ClientSession;
 
 import java.net.URI;
 import java.net.URISyntaxException;

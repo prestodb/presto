@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.tpch;
 
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 public enum TpchTransactionHandle
         implements ConnectorTransactionHandle

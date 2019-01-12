@@ -13,10 +13,10 @@
  */
 package io.prestosql.orc;
 
-import com.facebook.presto.orc.DictionaryCompressionOptimizer.DictionaryColumn;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+import io.prestosql.orc.DictionaryCompressionOptimizer.DictionaryColumn;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -24,11 +24,11 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.orc.DictionaryCompressionOptimizer.DICTIONARY_MEMORY_MAX_RANGE;
-import static com.facebook.presto.orc.DictionaryCompressionOptimizer.estimateIndexBytesPerValue;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.testing.Assertions.assertLessThan;
+import static io.prestosql.orc.DictionaryCompressionOptimizer.DICTIONARY_MEMORY_MAX_RANGE;
+import static io.prestosql.orc.DictionaryCompressionOptimizer.estimateIndexBytesPerValue;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;

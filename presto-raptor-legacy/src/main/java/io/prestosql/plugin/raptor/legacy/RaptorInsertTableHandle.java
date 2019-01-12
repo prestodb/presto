@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.raptor.legacy;
 
-import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.ConnectorInsertTableHandle;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 import java.util.Optional;

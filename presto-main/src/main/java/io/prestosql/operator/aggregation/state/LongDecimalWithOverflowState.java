@@ -13,9 +13,9 @@
  */
 package io.prestosql.operator.aggregation.state;
 
-import com.facebook.presto.spi.function.AccumulatorState;
-import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.function.AccumulatorState;
+import io.prestosql.spi.function.AccumulatorStateMetadata;
 
 @AccumulatorStateMetadata(stateFactoryClass = LongDecimalWithOverflowStateFactory.class, stateSerializerClass = LongDecimalWithOverflowStateSerializer.class)
 public interface LongDecimalWithOverflowState

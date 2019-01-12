@@ -13,13 +13,13 @@
  */
 package io.prestosql.sql.analyzer;
 
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Node;
+import io.prestosql.sql.tree.QualifiedName;
 
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 
 public final class SemanticExceptions
 {

@@ -13,12 +13,6 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage;
 
-import com.facebook.presto.raptor.backup.BackupStore;
-import com.facebook.presto.raptor.metadata.ShardManager;
-import com.facebook.presto.raptor.metadata.ShardMetadata;
-import com.facebook.presto.raptor.util.PrioritizedFifoExecutor;
-import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -28,6 +22,12 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.raptor.legacy.backup.BackupStore;
+import io.prestosql.plugin.raptor.legacy.metadata.ShardManager;
+import io.prestosql.plugin.raptor.legacy.metadata.ShardMetadata;
+import io.prestosql.plugin.raptor.legacy.util.PrioritizedFifoExecutor;
+import io.prestosql.spi.NodeManager;
+import io.prestosql.spi.PrestoException;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
@@ -54,10 +54,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
-import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
-import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
-import static com.facebook.presto.raptor.storage.OrcStorageManager.xxhash64;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
@@ -66,6 +62,10 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.DataSize.succinctDataSize;
 import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
+import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
+import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
+import static io.prestosql.plugin.raptor.legacy.storage.OrcStorageManager.xxhash64;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;

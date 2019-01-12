@@ -13,9 +13,9 @@
  */
 package io.prestosql.spi.type;
 
-import com.facebook.presto.spi.PrestoException;
+import io.prestosql.spi.PrestoException;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public class TimeZoneNotSupportedException
         extends PrestoException

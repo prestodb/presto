@@ -13,12 +13,12 @@
  */
 package io.prestosql.operator.aggregation.histogram;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.AccumulatorStateSerializer;
+import io.prestosql.spi.type.Type;
 
-import static com.facebook.presto.operator.aggregation.histogram.Histogram.EXPECTED_SIZE_FOR_HASHING;
+import static io.prestosql.operator.aggregation.histogram.Histogram.EXPECTED_SIZE_FOR_HASHING;
 
 public class HistogramStateSerializer
         implements AccumulatorStateSerializer<HistogramState>

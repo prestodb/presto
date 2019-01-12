@@ -13,10 +13,10 @@
  */
 package io.prestosql.cost;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Ordering;
+import io.prestosql.Session;
+import io.prestosql.sql.analyzer.FeaturesConfig;
 
 import javax.inject.Inject;
 

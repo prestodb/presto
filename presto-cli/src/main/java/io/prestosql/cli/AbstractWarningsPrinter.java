@@ -13,13 +13,13 @@
  */
 package io.prestosql.cli;
 
-import com.facebook.presto.spi.PrestoWarning;
+import io.prestosql.spi.PrestoWarning;
 
 import java.util.List;
 import java.util.OptionalInt;
 
-import static com.facebook.presto.cli.ConsolePrinter.REAL_TERMINAL;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.cli.ConsolePrinter.REAL_TERMINAL;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

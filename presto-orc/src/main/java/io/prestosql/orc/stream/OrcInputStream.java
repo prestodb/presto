@@ -13,26 +13,26 @@
  */
 package io.prestosql.orc.stream;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
-import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.orc.OrcCorruptionException;
-import com.facebook.presto.orc.OrcDataSourceId;
-import com.facebook.presto.orc.OrcDecompressor;
 import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.orc.OrcCorruptionException;
+import io.prestosql.orc.OrcDataSourceId;
+import io.prestosql.orc.OrcDecompressor;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Optional;
 
-import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
-import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.decodeCompressedBlockOffset;
-import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.decodeDecompressedOffset;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static io.prestosql.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
+import static io.prestosql.orc.checkpoint.InputStreamCheckpoint.decodeCompressedBlockOffset;
+import static io.prestosql.orc.checkpoint.InputStreamCheckpoint.decodeDecompressedOffset;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;

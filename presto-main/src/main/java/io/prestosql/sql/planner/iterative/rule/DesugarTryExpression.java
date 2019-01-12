@@ -13,7 +13,7 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.DesugarTryExpressionRewriter;
+import io.prestosql.sql.planner.DesugarTryExpressionRewriter;
 
 public class DesugarTryExpression
         extends ExpressionRewriteRuleSet

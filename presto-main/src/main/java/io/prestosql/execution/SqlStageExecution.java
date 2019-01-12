@@ -13,20 +13,6 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
-import com.facebook.presto.failureDetector.FailureDetector;
-import com.facebook.presto.metadata.RemoteTransactionHandle;
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.split.RemoteSplit;
-import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -34,6 +20,20 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import io.airlift.units.Duration;
+import io.prestosql.OutputBuffers;
+import io.prestosql.Session;
+import io.prestosql.execution.StateMachine.StateChangeListener;
+import io.prestosql.execution.scheduler.SplitSchedulerStats;
+import io.prestosql.failureDetector.FailureDetector;
+import io.prestosql.metadata.RemoteTransactionHandle;
+import io.prestosql.metadata.Split;
+import io.prestosql.spi.Node;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.split.RemoteSplit;
+import io.prestosql.sql.planner.PlanFragment;
+import io.prestosql.sql.planner.plan.PlanFragmentId;
+import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.sql.planner.plan.RemoteSourceNode;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -57,15 +57,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.failureDetector.FailureDetector.State.GONE;
-import static com.facebook.presto.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.prestosql.failureDetector.FailureDetector.State.GONE;
+import static io.prestosql.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.spi.StandardErrorCode.REMOTE_HOST_GONE;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe

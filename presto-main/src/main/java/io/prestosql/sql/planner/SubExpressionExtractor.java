@@ -13,9 +13,9 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.util.AstUtils;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.util.AstUtils;
 
 import java.util.Set;
 

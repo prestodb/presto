@@ -13,12 +13,12 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.server.BasicQueryInfo;
-import com.facebook.presto.spi.ErrorCode;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.Session;
+import io.prestosql.execution.StateMachine.StateChangeListener;
+import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.spi.ErrorCode;
 
 import java.util.Optional;
 

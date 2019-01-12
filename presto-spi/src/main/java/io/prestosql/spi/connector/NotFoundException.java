@@ -13,7 +13,9 @@
  */
 package io.prestosql.spi.connector;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import io.prestosql.spi.PrestoException;
+
+import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 
 public abstract class NotFoundException
         extends PrestoException

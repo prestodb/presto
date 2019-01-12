@@ -13,8 +13,8 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.sql.planner.optimizations.OptimizerStats;
-import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import io.prestosql.sql.planner.optimizations.OptimizerStats;
+import io.prestosql.sql.planner.optimizations.PlanOptimizer;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.ObjectNames;
 

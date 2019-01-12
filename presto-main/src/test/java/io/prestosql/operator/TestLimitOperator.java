@@ -13,11 +13,11 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.operator.LimitOperator.LimitOperatorFactory;
+import io.prestosql.spi.Page;
+import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.testing.MaterializedResult;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -26,13 +26,13 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.SequencePageBuilder.createSequencePage;
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
-import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
+import static io.prestosql.SequencePageBuilder.createSequencePage;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.testing.MaterializedResult.resultBuilder;
+import static io.prestosql.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 

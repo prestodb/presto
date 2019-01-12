@@ -13,13 +13,13 @@
  */
 package io.prestosql.execution.resourceGroups;
 
-import com.facebook.presto.execution.MockQueryExecution;
-import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
-import com.facebook.presto.server.QueryStateInfo;
-import com.facebook.presto.server.ResourceGroupInfo;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.execution.MockQueryExecution;
+import io.prestosql.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
+import io.prestosql.server.QueryStateInfo;
+import io.prestosql.server.ResourceGroupInfo;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.testng.annotations.Test;
 
@@ -34,15 +34,6 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
-import static com.facebook.presto.execution.QueryState.FAILED;
-import static com.facebook.presto.execution.QueryState.QUEUED;
-import static com.facebook.presto.execution.QueryState.RUNNING;
-import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_QUEUE;
-import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_RUN;
-import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.FAIR;
-import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.QUERY_PRIORITY;
-import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
-import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED_FAIR;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.testing.Assertions.assertBetweenInclusive;
 import static io.airlift.testing.Assertions.assertGreaterThan;
@@ -50,6 +41,15 @@ import static io.airlift.testing.Assertions.assertLessThan;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.execution.QueryState.FAILED;
+import static io.prestosql.execution.QueryState.QUEUED;
+import static io.prestosql.execution.QueryState.RUNNING;
+import static io.prestosql.spi.resourcegroups.ResourceGroupState.CAN_QUEUE;
+import static io.prestosql.spi.resourcegroups.ResourceGroupState.CAN_RUN;
+import static io.prestosql.spi.resourcegroups.SchedulingPolicy.FAIR;
+import static io.prestosql.spi.resourcegroups.SchedulingPolicy.QUERY_PRIORITY;
+import static io.prestosql.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
+import static io.prestosql.spi.resourcegroups.SchedulingPolicy.WEIGHTED_FAIR;
 import static java.util.Collections.reverse;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;

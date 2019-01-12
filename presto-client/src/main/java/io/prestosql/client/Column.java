@@ -13,10 +13,10 @@
  */
 package io.prestosql.client;
 
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 
 import javax.annotation.concurrent.Immutable;
 

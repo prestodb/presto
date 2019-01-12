@@ -13,8 +13,8 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.connector.ConnectorId;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.connector.ConnectorId;
 
 import javax.annotation.concurrent.ThreadSafe;
 

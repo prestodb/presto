@@ -16,10 +16,10 @@ package io.prestosql.execution.buffer;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
-import static com.facebook.presto.execution.buffer.PageCompression.COMPRESSED;
-import static com.facebook.presto.execution.buffer.PageCompression.UNCOMPRESSED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.execution.buffer.PageCompression.COMPRESSED;
+import static io.prestosql.execution.buffer.PageCompression.UNCOMPRESSED;
 import static java.util.Objects.requireNonNull;
 
 public class SerializedPage

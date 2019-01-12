@@ -13,16 +13,16 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.spi.type.ParameterKind;
-import com.facebook.presto.spi.type.ParametricType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeParameter;
+import io.prestosql.spi.type.ParameterKind;
+import io.prestosql.spi.type.ParametricType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeParameter;
 
 import java.util.List;
 
-import static com.facebook.presto.type.FunctionType.NAME;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.type.FunctionType.NAME;
 import static java.util.stream.Collectors.toList;
 
 public final class FunctionParametricType

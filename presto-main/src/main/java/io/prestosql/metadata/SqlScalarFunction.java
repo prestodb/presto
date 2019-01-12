@@ -13,11 +13,11 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
-import com.facebook.presto.spi.type.TypeManager;
+import io.prestosql.operator.scalar.ScalarFunctionImplementation;
+import io.prestosql.spi.type.TypeManager;
 
-import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static java.util.Objects.requireNonNull;
 
 public abstract class SqlScalarFunction

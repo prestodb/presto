@@ -13,18 +13,18 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
-import com.facebook.presto.sql.tree.DecimalLiteral;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.LambdaExpression;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.TryExpression;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.prestosql.sql.tree.ArithmeticBinaryExpression;
+import io.prestosql.sql.tree.DecimalLiteral;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.LambdaExpression;
+import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.TryExpression;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
+import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static org.testng.Assert.assertEquals;
 
 public class TestDesugarTryExpressionRewriter

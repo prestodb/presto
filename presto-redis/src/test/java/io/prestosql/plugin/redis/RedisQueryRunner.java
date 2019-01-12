@@ -13,30 +13,30 @@
  */
 package io.prestosql.plugin.redis;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.redis.util.CodecSupplier;
-import com.facebook.presto.redis.util.EmbeddedRedis;
-import com.facebook.presto.redis.util.RedisTestUtils;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tests.TestingPrestoClient;
-import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.tpch.TpchTable;
+import io.prestosql.Session;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.plugin.redis.util.CodecSupplier;
+import io.prestosql.plugin.redis.util.EmbeddedRedis;
+import io.prestosql.plugin.redis.util.RedisTestUtils;
+import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.tests.TestingPrestoClient;
 
 import java.util.Map;
 
-import static com.facebook.presto.redis.util.RedisTestUtils.installRedisPlugin;
-import static com.facebook.presto.redis.util.RedisTestUtils.loadTpchTableDescription;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.plugin.redis.util.RedisTestUtils.installRedisPlugin;
+import static io.prestosql.plugin.redis.util.RedisTestUtils.loadTpchTableDescription;
+import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
 

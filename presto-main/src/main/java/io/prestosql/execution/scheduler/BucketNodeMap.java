@@ -13,8 +13,8 @@
  */
 package io.prestosql.execution.scheduler;
 
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.Node;
+import io.prestosql.metadata.Split;
+import io.prestosql.spi.Node;
 
 import java.util.Optional;
 import java.util.function.ToIntFunction;

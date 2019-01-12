@@ -14,38 +14,38 @@
 
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.cost.CostComparator;
-import com.facebook.presto.cost.PlanNodeCostEstimate;
-import com.facebook.presto.cost.PlanNodeStatsEstimate;
-import com.facebook.presto.cost.StatsProvider;
-import com.facebook.presto.cost.TaskCountEstimator;
-import com.facebook.presto.matching.Captures;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
+import io.prestosql.cost.CostComparator;
+import io.prestosql.cost.PlanNodeCostEstimate;
+import io.prestosql.cost.PlanNodeStatsEstimate;
+import io.prestosql.cost.StatsProvider;
+import io.prestosql.cost.TaskCountEstimator;
+import io.prestosql.matching.Captures;
+import io.prestosql.matching.Pattern;
+import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.plan.JoinNode;
+import io.prestosql.sql.planner.plan.PlanNode;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
-import static com.facebook.presto.SystemSessionProperties.getJoinMaxBroadcastTableSize;
-import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateJoinExchangeCost;
-import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateJoinInputCost;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
-import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
-import static com.facebook.presto.sql.planner.plan.Patterns.join;
+import static io.prestosql.SystemSessionProperties.getJoinDistributionType;
+import static io.prestosql.SystemSessionProperties.getJoinMaxBroadcastTableSize;
+import static io.prestosql.cost.CostCalculatorWithEstimatedExchanges.calculateJoinExchangeCost;
+import static io.prestosql.cost.CostCalculatorWithEstimatedExchanges.calculateJoinInputCost;
+import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
+import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
+import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
+import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.FULL;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
+import static io.prestosql.sql.planner.plan.Patterns.join;
 import static java.util.Objects.requireNonNull;
 
 public class DetermineJoinDistributionType

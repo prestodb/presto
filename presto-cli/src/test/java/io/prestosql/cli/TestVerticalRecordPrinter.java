@@ -19,9 +19,9 @@ import org.testng.annotations.Test;
 import java.io.StringWriter;
 import java.util.List;
 
-import static com.facebook.presto.cli.TestAlignedTablePrinter.bytes;
-import static com.facebook.presto.cli.TestAlignedTablePrinter.row;
-import static com.facebook.presto.cli.TestAlignedTablePrinter.rows;
+import static io.prestosql.cli.TestAlignedTablePrinter.bytes;
+import static io.prestosql.cli.TestAlignedTablePrinter.row;
+import static io.prestosql.cli.TestAlignedTablePrinter.rows;
 import static org.testng.Assert.assertEquals;
 
 @SuppressWarnings("Duplicates")

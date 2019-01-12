@@ -13,17 +13,17 @@
  */
 package io.prestosql.operator.index;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.operator.DriverContext;
-import com.facebook.presto.operator.LookupSource;
-import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.operator.index.UnloadedIndexKeyRecordSet.UnloadedIndexKeyRecordCursor;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.prestosql.Session;
+import io.prestosql.operator.DriverContext;
+import io.prestosql.operator.LookupSource;
+import io.prestosql.operator.PagesIndex;
+import io.prestosql.operator.index.UnloadedIndexKeyRecordSet.UnloadedIndexKeyRecordCursor;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.List;

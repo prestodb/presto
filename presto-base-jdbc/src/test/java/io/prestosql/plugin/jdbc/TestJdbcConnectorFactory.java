@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.jdbc;
 
-import com.facebook.presto.testing.TestingConnectorContext;
+import io.prestosql.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
 public class TestJdbcConnectorFactory

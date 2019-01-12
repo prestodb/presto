@@ -13,21 +13,21 @@
  */
 package io.prestosql.plugin.mongodb;
 
-import com.facebook.presto.spi.connector.Connector;
-import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.testing.TestingConnectorContext;
 import com.google.common.collect.ImmutableMap;
 import de.bwaldvogel.mongo.MongoServer;
 import de.bwaldvogel.mongo.backend.memory.MemoryBackend;
+import io.prestosql.spi.connector.Connector;
+import io.prestosql.spi.connector.ConnectorFactory;
+import io.prestosql.spi.type.Type;
+import io.prestosql.testing.TestingConnectorContext;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.InetSocketAddress;
 
-import static com.facebook.presto.mongodb.ObjectIdType.OBJECT_ID;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static org.testng.Assert.assertEquals;
 
 public class TestMongoPlugin

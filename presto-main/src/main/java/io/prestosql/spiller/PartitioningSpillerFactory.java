@@ -13,10 +13,10 @@
  */
 package io.prestosql.spiller;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
-import com.facebook.presto.operator.PartitionFunction;
-import com.facebook.presto.operator.SpillContext;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.operator.PartitionFunction;
+import io.prestosql.operator.SpillContext;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 

@@ -13,14 +13,14 @@
  */
 package io.prestosql.cost;
 
-import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.sql.planner.Symbol;
 import org.testng.annotations.Test;
 
 import java.util.function.Consumer;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
 public class TestAggregationStatsRule
         extends BaseStatsCalculatorTest

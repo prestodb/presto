@@ -13,17 +13,17 @@
  */
 package io.prestosql.plugin.raptor.legacy;
 
-import com.facebook.presto.raptor.storage.StorageManager;
-import com.facebook.presto.raptor.storage.StorageManagerConfig;
-import com.facebook.presto.raptor.storage.organization.TemporalFunction;
-import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorOutputTableHandle;
-import com.facebook.presto.spi.ConnectorPageSink;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PageSorter;
-import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import io.airlift.units.DataSize;
+import io.prestosql.plugin.raptor.legacy.storage.StorageManager;
+import io.prestosql.plugin.raptor.legacy.storage.StorageManagerConfig;
+import io.prestosql.plugin.raptor.legacy.storage.organization.TemporalFunction;
+import io.prestosql.spi.PageSorter;
+import io.prestosql.spi.connector.ConnectorInsertTableHandle;
+import io.prestosql.spi.connector.ConnectorOutputTableHandle;
+import io.prestosql.spi.connector.ConnectorPageSink;
+import io.prestosql.spi.connector.ConnectorPageSinkProvider;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
 

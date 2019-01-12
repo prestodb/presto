@@ -13,8 +13,8 @@
  */
 package io.prestosql.orc;
 
-import com.facebook.presto.orc.metadata.Stream;
-import com.facebook.presto.orc.metadata.Stream.StreamKind;
+import io.prestosql.orc.metadata.Stream;
+import io.prestosql.orc.metadata.Stream.StreamKind;
 
 import java.util.Objects;
 

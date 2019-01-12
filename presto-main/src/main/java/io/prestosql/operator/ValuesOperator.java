@@ -13,10 +13,10 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
+import io.prestosql.spi.Page;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.Iterator;
 import java.util.List;

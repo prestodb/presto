@@ -13,8 +13,8 @@
  */
 package io.prestosql.parquet.predicate;
 
-import com.facebook.presto.parquet.ParquetCorruptionException;
-import com.facebook.presto.parquet.ParquetDataSourceId;
+import io.prestosql.parquet.ParquetCorruptionException;
+import io.prestosql.parquet.ParquetDataSourceId;
 import parquet.column.ColumnDescriptor;
 import parquet.column.statistics.Statistics;
 

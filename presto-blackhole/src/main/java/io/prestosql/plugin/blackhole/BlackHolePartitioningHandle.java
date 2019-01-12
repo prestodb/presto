@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.blackhole;
 
-import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import io.prestosql.spi.connector.ConnectorPartitioningHandle;
 
 public enum BlackHolePartitioningHandle
         implements ConnectorPartitioningHandle

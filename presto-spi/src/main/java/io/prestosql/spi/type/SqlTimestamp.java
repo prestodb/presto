@@ -21,7 +21,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 
 public final class SqlTimestamp
 {

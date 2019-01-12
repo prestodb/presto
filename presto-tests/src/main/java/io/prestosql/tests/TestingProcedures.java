@@ -13,26 +13,26 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.annotation.UsedByGeneratedCode;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.procedure.Procedure;
-import com.facebook.presto.spi.procedure.Procedure.Argument;
-import com.facebook.presto.testing.ProcedureTester;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.annotation.UsedByGeneratedCode;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.procedure.Procedure;
+import io.prestosql.spi.procedure.Procedure.Argument;
+import io.prestosql.testing.ProcedureTester;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
-import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
-import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
-import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
-import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
-import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
+import static io.prestosql.spi.type.StandardTypes.BIGINT;
+import static io.prestosql.spi.type.StandardTypes.BOOLEAN;
+import static io.prestosql.spi.type.StandardTypes.DOUBLE;
+import static io.prestosql.spi.type.StandardTypes.VARCHAR;
+import static io.prestosql.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 

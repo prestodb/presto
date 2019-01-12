@@ -13,16 +13,16 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.operator.aggregation.groupByAggregations.GroupByAggregationTestUtils;
-import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Signature;
+import io.prestosql.operator.GroupByIdBlock;
+import io.prestosql.operator.aggregation.groupByAggregations.GroupByAggregationTestUtils;
+import io.prestosql.operator.aggregation.histogram.HistogramGroupImplementation;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.sql.analyzer.FeaturesConfig;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -48,13 +48,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
-import static com.facebook.presto.operator.aggregation.histogram.Histogram.NAME;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.util.StructuralTestUtil.mapType;
+import static io.prestosql.block.BlockAssertions.createStringsBlock;
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.operator.aggregation.histogram.Histogram.NAME;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.util.StructuralTestUtil.mapType;
 
 @OutputTimeUnit(TimeUnit.SECONDS)
 //@BenchmarkMode(Mode.AverageTime)

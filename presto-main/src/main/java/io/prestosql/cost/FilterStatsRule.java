@@ -13,17 +13,17 @@
  */
 package io.prestosql.cost;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.plan.FilterNode;
+import io.prestosql.Session;
+import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.planner.iterative.Lookup;
+import io.prestosql.sql.planner.plan.FilterNode;
 
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.isDefaultFilterFactorEnabled;
-import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
-import static com.facebook.presto.sql.planner.plan.Patterns.filter;
+import static io.prestosql.SystemSessionProperties.isDefaultFilterFactorEnabled;
+import static io.prestosql.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
+import static io.prestosql.sql.planner.plan.Patterns.filter;
 
 public class FilterStatsRule
         extends SimpleStatsRule<FilterNode>

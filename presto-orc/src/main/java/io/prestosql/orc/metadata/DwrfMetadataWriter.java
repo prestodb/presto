@@ -13,15 +13,15 @@
  */
 package io.prestosql.orc.metadata;
 
-import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
-import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
-import com.facebook.presto.orc.metadata.Stream.StreamKind;
-import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.CountingOutputStream;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind;
+import io.prestosql.orc.metadata.OrcType.OrcTypeKind;
+import io.prestosql.orc.metadata.Stream.StreamKind;
+import io.prestosql.orc.metadata.statistics.ColumnStatistics;
 import io.prestosql.orc.proto.DwrfProto;
 import io.prestosql.orc.proto.DwrfProto.RowIndexEntry;
 import io.prestosql.orc.proto.DwrfProto.Type;

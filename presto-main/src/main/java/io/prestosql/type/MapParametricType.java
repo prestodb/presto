@@ -13,22 +13,22 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.ParameterKind;
-import com.facebook.presto.spi.type.ParametricType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeParameter;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.ParameterKind;
+import io.prestosql.spi.type.ParametricType;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeParameter;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
-import static com.facebook.presto.spi.block.MethodHandleUtil.compose;
-import static com.facebook.presto.spi.block.MethodHandleUtil.nativeValueGetter;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.block.MethodHandleUtil.compose;
+import static io.prestosql.spi.block.MethodHandleUtil.nativeValueGetter;
 
 public final class MapParametricType
         implements ParametricType

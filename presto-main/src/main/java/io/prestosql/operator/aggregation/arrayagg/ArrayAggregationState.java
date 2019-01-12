@@ -13,8 +13,8 @@
  */
 package io.prestosql.operator.aggregation.arrayagg;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.function.AccumulatorState;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.function.AccumulatorState;
 
 public interface ArrayAggregationState
         extends AccumulatorState

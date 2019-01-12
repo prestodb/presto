@@ -18,10 +18,10 @@ import io.prestodb.tempto.ProductTest;
 import io.prestodb.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tests.TestGroups.AUTHORIZATION;
-import static com.facebook.presto.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static com.facebook.presto.tests.utils.QueryExecutors.connectToPresto;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestosql.tests.TestGroups.AUTHORIZATION;
+import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.prestosql.tests.utils.QueryExecutors.connectToPresto;
 import static java.lang.String.format;
 
 public class TestSqlStandardAccessControlChecks

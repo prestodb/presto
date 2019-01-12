@@ -14,8 +14,8 @@
 
 package io.prestosql.spi.block;
 
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -25,8 +25,8 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
-import static com.facebook.presto.spi.block.MapBlockBuilder.buildHashTable;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.prestosql.spi.block.MapBlockBuilder.buildHashTable;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

@@ -13,22 +13,22 @@
  */
 package io.prestosql.decoder.csv;
 
-import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.DecoderTestColumnHandle;
-import com.facebook.presto.decoder.FieldValueProvider;
-import com.facebook.presto.decoder.RowDecoder;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.IntegerType;
-import com.facebook.presto.spi.type.RealType;
-import com.facebook.presto.spi.type.SmallintType;
-import com.facebook.presto.spi.type.TinyintType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarbinaryType;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.decoder.DecoderColumnHandle;
+import io.prestosql.decoder.DecoderTestColumnHandle;
+import io.prestosql.decoder.FieldValueProvider;
+import io.prestosql.decoder.RowDecoder;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.BooleanType;
+import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.IntegerType;
+import io.prestosql.spi.type.RealType;
+import io.prestosql.spi.type.SmallintType;
+import io.prestosql.spi.type.TinyintType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarbinaryType;
 import org.assertj.core.api.ThrowableAssert;
 import org.testng.annotations.Test;
 
@@ -36,10 +36,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.decoder.util.DecoderTestUtil.checkIsNull;
-import static com.facebook.presto.decoder.util.DecoderTestUtil.checkValue;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.decoder.util.DecoderTestUtil.checkIsNull;
+import static io.prestosql.decoder.util.DecoderTestUtil.checkValue;
+import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static java.util.Collections.emptyMap;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;

@@ -13,28 +13,28 @@
  */
 package io.prestosql.sql.gen;
 
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.RowExpression;
 import io.airlift.slice.Slices;
+import io.prestosql.metadata.Signature;
+import io.prestosql.sql.relational.CallExpression;
+import io.prestosql.sql.relational.RowExpression;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static com.facebook.presto.metadata.FunctionKind.SCALAR;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.gen.InCodeGenerator.SwitchGenerationCase.DIRECT_SWITCH;
-import static com.facebook.presto.sql.gen.InCodeGenerator.SwitchGenerationCase.HASH_SWITCH;
-import static com.facebook.presto.sql.gen.InCodeGenerator.SwitchGenerationCase.SET_CONTAINS;
-import static com.facebook.presto.sql.gen.InCodeGenerator.checkSwitchGenerationCase;
-import static com.facebook.presto.sql.relational.Expressions.constant;
-import static com.facebook.presto.sql.relational.Signatures.CAST;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.gen.InCodeGenerator.SwitchGenerationCase.DIRECT_SWITCH;
+import static io.prestosql.sql.gen.InCodeGenerator.SwitchGenerationCase.HASH_SWITCH;
+import static io.prestosql.sql.gen.InCodeGenerator.SwitchGenerationCase.SET_CONTAINS;
+import static io.prestosql.sql.gen.InCodeGenerator.checkSwitchGenerationCase;
+import static io.prestosql.sql.relational.Expressions.constant;
+import static io.prestosql.sql.relational.Signatures.CAST;
 import static org.testng.Assert.assertEquals;
 
 public class TestInCodeGenerator

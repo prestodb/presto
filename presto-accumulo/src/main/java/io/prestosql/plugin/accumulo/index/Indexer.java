@@ -13,21 +13,21 @@
  */
 package io.prestosql.plugin.accumulo.index;
 
-import com.facebook.presto.accumulo.Types;
-import com.facebook.presto.accumulo.iterators.MaxByteArrayCombiner;
-import com.facebook.presto.accumulo.iterators.MinByteArrayCombiner;
-import com.facebook.presto.accumulo.metadata.AccumuloTable;
-import com.facebook.presto.accumulo.model.AccumuloColumnHandle;
-import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.primitives.UnsignedBytes;
+import io.prestosql.plugin.accumulo.Types;
+import io.prestosql.plugin.accumulo.iterators.MaxByteArrayCombiner;
+import io.prestosql.plugin.accumulo.iterators.MinByteArrayCombiner;
+import io.prestosql.plugin.accumulo.metadata.AccumuloTable;
+import io.prestosql.plugin.accumulo.model.AccumuloColumnHandle;
+import io.prestosql.plugin.accumulo.serializers.AccumuloRowSerializer;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.type.Type;
 import org.apache.accumulo.core.client.BatchWriter;
 import org.apache.accumulo.core.client.BatchWriterConfig;
 import org.apache.accumulo.core.client.Connector;
@@ -64,10 +64,10 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_DNE;
-import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.plugin.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_DNE;
+import static io.prestosql.plugin.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.nio.ByteBuffer.wrap;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;

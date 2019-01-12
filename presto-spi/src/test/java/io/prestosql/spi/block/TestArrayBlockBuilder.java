@@ -16,7 +16,7 @@ package io.prestosql.spi.block;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

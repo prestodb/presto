@@ -13,15 +13,15 @@
  */
 package io.prestosql.plugin.thrift.api.valuesets;
 
-import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftJson;
-import com.facebook.presto.spi.predicate.ValueSet;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.thrift.api.datatypes.PrestoThriftJson;
+import io.prestosql.spi.predicate.ValueSet;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.jsonData;
-import static com.facebook.presto.connector.thrift.api.valuesets.PrestoThriftValueSet.fromValueSet;
-import static com.facebook.presto.type.JsonType.JSON;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.plugin.thrift.api.PrestoThriftBlock.jsonData;
+import static io.prestosql.plugin.thrift.api.valuesets.PrestoThriftValueSet.fromValueSet;
+import static io.prestosql.type.JsonType.JSON;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

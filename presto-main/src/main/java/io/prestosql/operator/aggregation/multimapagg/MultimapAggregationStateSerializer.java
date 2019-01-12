@@ -13,18 +13,18 @@
  */
 package io.prestosql.operator.aggregation.multimapagg;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.ColumnarRow;
-import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.ColumnarRow;
+import io.prestosql.spi.function.AccumulatorStateSerializer;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.Type;
 
-import static com.facebook.presto.operator.aggregation.multimapagg.GroupedMultimapAggregationState.KEY_CHANNEL;
-import static com.facebook.presto.operator.aggregation.multimapagg.GroupedMultimapAggregationState.VALUE_CHANNEL;
-import static com.facebook.presto.spi.block.ColumnarRow.toColumnarRow;
+import static io.prestosql.operator.aggregation.multimapagg.GroupedMultimapAggregationState.KEY_CHANNEL;
+import static io.prestosql.operator.aggregation.multimapagg.GroupedMultimapAggregationState.VALUE_CHANNEL;
+import static io.prestosql.spi.block.ColumnarRow.toColumnarRow;
 import static java.util.Objects.requireNonNull;
 
 public class MultimapAggregationStateSerializer

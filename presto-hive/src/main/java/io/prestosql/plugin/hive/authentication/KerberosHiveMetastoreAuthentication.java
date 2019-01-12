@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.hive.authentication;
 
-import com.facebook.presto.hive.ForHiveMetastore;
-import com.facebook.presto.hive.HiveClientConfig;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.hive.ForHiveMetastore;
+import io.prestosql.plugin.hive.HiveClientConfig;
 import org.apache.hadoop.hive.thrift.client.TUGIAssumingTransport;
 import org.apache.hadoop.security.SaslRpcServer;
 import org.apache.thrift.transport.TSaslClientTransport;

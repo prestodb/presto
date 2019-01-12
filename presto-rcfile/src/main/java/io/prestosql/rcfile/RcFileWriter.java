@@ -13,16 +13,16 @@
  */
 package io.prestosql.rcfile;
 
-import com.facebook.presto.rcfile.RcFileCompressor.CompressedSliceOutput;
-import com.facebook.presto.rcfile.RcFileWriteValidation.RcFileWriteValidationBuilder;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.io.Closer;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.units.DataSize;
+import io.prestosql.rcfile.RcFileCompressor.CompressedSliceOutput;
+import io.prestosql.rcfile.RcFileWriteValidation.RcFileWriteValidationBuilder;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -36,15 +36,15 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.rcfile.PageSplitterUtil.splitPage;
-import static com.facebook.presto.rcfile.RcFileDecoderUtils.writeLengthPrefixedString;
-import static com.facebook.presto.rcfile.RcFileDecoderUtils.writeVInt;
-import static com.facebook.presto.rcfile.RcFileReader.validateFile;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.rcfile.PageSplitterUtil.splitPage;
+import static io.prestosql.rcfile.RcFileDecoderUtils.writeLengthPrefixedString;
+import static io.prestosql.rcfile.RcFileDecoderUtils.writeVInt;
+import static io.prestosql.rcfile.RcFileReader.validateFile;
 import static java.lang.StrictMath.toIntExact;
 import static java.util.Objects.requireNonNull;
 

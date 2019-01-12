@@ -13,15 +13,15 @@
  */
 package io.prestosql.sql.planner.sanity;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.analyzer.ExpressionTreeUtils;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.ExpressionExtractor;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.tree.Identifier;
+import io.prestosql.Session;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.sql.analyzer.ExpressionTreeUtils;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.ExpressionExtractor;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.tree.Identifier;
 
 import java.util.List;
 

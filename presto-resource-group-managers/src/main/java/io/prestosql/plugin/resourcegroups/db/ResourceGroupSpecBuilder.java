@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.resourcegroups.db;
 
-import com.facebook.presto.resourceGroups.ResourceGroupNameTemplate;
-import com.facebook.presto.resourceGroups.ResourceGroupSpec;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.resourcegroups.ResourceGroupNameTemplate;
+import io.prestosql.plugin.resourcegroups.ResourceGroupSpec;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 

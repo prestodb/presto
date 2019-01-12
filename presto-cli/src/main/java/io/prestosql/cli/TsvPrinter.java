@@ -20,7 +20,7 @@ import java.io.Writer;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.cli.CsvPrinter.formatValue;
+import static io.prestosql.cli.CsvPrinter.formatValue;
 import static java.util.Objects.requireNonNull;
 
 public class TsvPrinter

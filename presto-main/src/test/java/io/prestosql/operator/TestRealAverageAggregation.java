@@ -13,24 +13,24 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.metadata.FunctionKind;
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.aggregation.AbstractTestAggregationFunction;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Signature;
+import io.prestosql.operator.aggregation.AbstractTestAggregationFunction;
+import io.prestosql.operator.aggregation.InternalAggregationFunction;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.StandardTypes;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.block.BlockAssertions.createBlockOfReals;
-import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.spi.type.RealType.REAL;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.block.BlockAssertions.createBlockOfReals;
+import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static io.prestosql.spi.type.RealType.REAL;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Float.floatToRawIntBits;
 
 @Test(singleThreaded = true)

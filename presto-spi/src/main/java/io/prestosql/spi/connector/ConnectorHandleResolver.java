@@ -13,9 +13,6 @@
  */
 package io.prestosql.spi.connector;
 
-import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-
 public interface ConnectorHandleResolver
 {
     Class<? extends ConnectorTableHandle> getTableHandleClass();

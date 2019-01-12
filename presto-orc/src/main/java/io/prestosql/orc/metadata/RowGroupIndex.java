@@ -13,8 +13,8 @@
  */
 package io.prestosql.orc.metadata;
 
-import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.orc.metadata.statistics.ColumnStatistics;
 
 import java.util.List;
 

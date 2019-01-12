@@ -13,17 +13,17 @@
  */
 package io.prestosql.parquet.reader;
 
-import com.facebook.presto.parquet.DataPage;
-import com.facebook.presto.parquet.DataPageV1;
-import com.facebook.presto.parquet.DataPageV2;
-import com.facebook.presto.parquet.DictionaryPage;
+import io.prestosql.parquet.DataPage;
+import io.prestosql.parquet.DataPageV1;
+import io.prestosql.parquet.DataPageV2;
+import io.prestosql.parquet.DictionaryPage;
 import parquet.hadoop.metadata.CompressionCodecName;
 
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
-import static com.facebook.presto.parquet.ParquetCompressionUtils.decompress;
+import static io.prestosql.parquet.ParquetCompressionUtils.decompress;
 import static java.lang.Math.toIntExact;
 
 class PageReader

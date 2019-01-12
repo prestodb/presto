@@ -21,9 +21,9 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
+import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;

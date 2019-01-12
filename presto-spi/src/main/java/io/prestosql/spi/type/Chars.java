@@ -16,9 +16,9 @@ package io.prestosql.spi.type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import static com.facebook.presto.spi.type.Varchars.byteCount;
-import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
+import static io.prestosql.spi.type.Varchars.byteCount;
+import static io.prestosql.spi.type.Varchars.truncateToLength;
 import static java.util.Objects.requireNonNull;
 
 public final class Chars

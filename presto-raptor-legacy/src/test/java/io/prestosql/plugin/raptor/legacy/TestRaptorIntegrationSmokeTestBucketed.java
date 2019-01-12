@@ -16,7 +16,7 @@ package io.prestosql.plugin.raptor.legacy;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
+import static io.prestosql.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
 
 public class TestRaptorIntegrationSmokeTestBucketed
         extends TestRaptorIntegrationSmokeTest

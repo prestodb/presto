@@ -13,19 +13,19 @@
  */
 package io.prestosql.sql.planner.assertions;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.cost.CachingStatsProvider;
-import com.facebook.presto.cost.StatsAndCosts;
-import com.facebook.presto.cost.StatsCalculator;
-import com.facebook.presto.cost.StatsProvider;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import io.prestosql.Session;
+import io.prestosql.cost.CachingStatsProvider;
+import io.prestosql.cost.StatsAndCosts;
+import io.prestosql.cost.StatsCalculator;
+import io.prestosql.cost.StatsProvider;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.sql.planner.Plan;
+import io.prestosql.sql.planner.iterative.Lookup;
+import io.prestosql.sql.planner.plan.PlanNode;
 
-import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
-import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupReferences;
-import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
+import static io.prestosql.sql.planner.iterative.Lookup.noLookup;
+import static io.prestosql.sql.planner.iterative.Plans.resolveGroupReferences;
+import static io.prestosql.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
 import static java.lang.String.format;
 
 public final class PlanAssert

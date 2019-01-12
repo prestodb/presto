@@ -13,16 +13,16 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.TaskManager;
-import com.facebook.presto.server.BasicQueryInfo;
-import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.server.testing.TestingPrestoServer.TestShutdownAction;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import io.prestosql.Session;
+import io.prestosql.execution.TaskManager;
+import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.server.testing.TestingPrestoServer;
+import io.prestosql.server.testing.TestingPrestoServer.TestShutdownAction;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -31,9 +31,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.execution.QueryState.FINISHED;
-import static com.facebook.presto.memory.TestMemoryManager.createQueryRunner;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.execution.QueryState.FINISHED;
+import static io.prestosql.memory.TestMemoryManager.createQueryRunner;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;

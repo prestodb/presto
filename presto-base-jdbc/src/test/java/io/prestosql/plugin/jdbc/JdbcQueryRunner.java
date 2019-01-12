@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.jdbc;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import io.airlift.tpch.TpchTable;
+import io.prestosql.Session;
+import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.tests.DistributedQueryRunner;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -25,10 +25,10 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Map;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
-import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.tests.QueryAssertions.copyTpchTables;
 
 public final class JdbcQueryRunner
 {

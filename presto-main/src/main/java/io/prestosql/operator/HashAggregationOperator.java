@@ -13,35 +13,35 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.operator.aggregation.Accumulator;
-import com.facebook.presto.operator.aggregation.AccumulatorFactory;
-import com.facebook.presto.operator.aggregation.builder.HashAggregationBuilder;
-import com.facebook.presto.operator.aggregation.builder.InMemoryHashAggregationBuilder;
-import com.facebook.presto.operator.aggregation.builder.SpillableHashAggregationBuilder;
-import com.facebook.presto.operator.scalar.CombineHashFunction;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spiller.SpillerFactory;
-import com.facebook.presto.sql.gen.JoinCompiler;
-import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
+import io.prestosql.operator.aggregation.Accumulator;
+import io.prestosql.operator.aggregation.AccumulatorFactory;
+import io.prestosql.operator.aggregation.builder.HashAggregationBuilder;
+import io.prestosql.operator.aggregation.builder.InMemoryHashAggregationBuilder;
+import io.prestosql.operator.aggregation.builder.SpillableHashAggregationBuilder;
+import io.prestosql.operator.scalar.CombineHashFunction;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spiller.SpillerFactory;
+import io.prestosql.sql.gen.JoinCompiler;
+import io.prestosql.sql.planner.plan.AggregationNode.Step;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.operator.aggregation.builder.InMemoryHashAggregationBuilder.toTypes;
-import static com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer.INITIAL_HASH_VALUE;
-import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.operator.aggregation.builder.InMemoryHashAggregationBuilder.toTypes;
+import static io.prestosql.sql.planner.optimizations.HashGenerationOptimizer.INITIAL_HASH_VALUE;
+import static io.prestosql.type.TypeUtils.NULL_HASH_CODE;
 import static java.util.Objects.requireNonNull;
 
 public class HashAggregationOperator

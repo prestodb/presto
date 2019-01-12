@@ -13,7 +13,7 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
 

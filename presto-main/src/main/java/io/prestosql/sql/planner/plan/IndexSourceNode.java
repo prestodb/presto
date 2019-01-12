@@ -13,17 +13,17 @@
  */
 package io.prestosql.sql.planner.plan;
 
-import com.facebook.presto.metadata.IndexHandle;
-import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableLayoutHandle;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.metadata.IndexHandle;
+import io.prestosql.metadata.TableHandle;
+import io.prestosql.metadata.TableLayoutHandle;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.sql.planner.Symbol;
 
 import java.util.List;
 import java.util.Map;

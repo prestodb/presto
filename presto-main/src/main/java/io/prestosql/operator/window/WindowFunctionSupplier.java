@@ -13,8 +13,8 @@
  */
 package io.prestosql.operator.window;
 
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.function.WindowFunction;
+import io.prestosql.metadata.Signature;
+import io.prestosql.spi.function.WindowFunction;
 
 import java.util.List;
 

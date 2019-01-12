@@ -13,19 +13,19 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.Streams;
+import io.prestosql.sql.planner.PlanNodeIdAllocator;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.plan.MarkDistinctNode;
+import io.prestosql.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildOutputs;
-import static com.facebook.presto.sql.planner.plan.Patterns.markDistinct;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.sql.planner.iterative.rule.Util.restrictChildOutputs;
+import static io.prestosql.sql.planner.plan.Patterns.markDistinct;
 
 public class PruneMarkDistinctColumns
         extends ProjectOffPushDownRule<MarkDistinctNode>

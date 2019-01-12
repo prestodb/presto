@@ -13,11 +13,11 @@
  */
 package io.prestosql.sql;
 
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.tree.PathElement;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.tree.PathElement;
 
 import java.util.List;
 import java.util.Objects;

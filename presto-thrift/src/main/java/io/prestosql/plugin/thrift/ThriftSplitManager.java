@@ -13,27 +13,27 @@
  */
 package io.prestosql.plugin.thrift;
 
-import com.facebook.presto.connector.thrift.api.PrestoThriftHostAddress;
-import com.facebook.presto.connector.thrift.api.PrestoThriftId;
-import com.facebook.presto.connector.thrift.api.PrestoThriftNullableColumnSet;
-import com.facebook.presto.connector.thrift.api.PrestoThriftNullableToken;
-import com.facebook.presto.connector.thrift.api.PrestoThriftSchemaTableName;
-import com.facebook.presto.connector.thrift.api.PrestoThriftService;
-import com.facebook.presto.connector.thrift.api.PrestoThriftSplit;
-import com.facebook.presto.connector.thrift.api.PrestoThriftSplitBatch;
-import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.ConnectorSplitSource;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
-import com.facebook.presto.spi.connector.ConnectorSplitManager;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.drift.client.DriftClient;
+import io.prestosql.plugin.thrift.api.PrestoThriftHostAddress;
+import io.prestosql.plugin.thrift.api.PrestoThriftId;
+import io.prestosql.plugin.thrift.api.PrestoThriftNullableColumnSet;
+import io.prestosql.plugin.thrift.api.PrestoThriftNullableToken;
+import io.prestosql.plugin.thrift.api.PrestoThriftSchemaTableName;
+import io.prestosql.plugin.thrift.api.PrestoThriftService;
+import io.prestosql.plugin.thrift.api.PrestoThriftSplit;
+import io.prestosql.plugin.thrift.api.PrestoThriftSplitBatch;
+import io.prestosql.plugin.thrift.api.PrestoThriftTupleDomain;
+import io.prestosql.spi.HostAddress;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorPartitionHandle;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorSplitManager;
+import io.prestosql.spi.connector.ConnectorSplitSource;
+import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.inject.Inject;
@@ -46,13 +46,13 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.connector.thrift.util.ThriftExceptions.catchingThriftException;
-import static com.facebook.presto.connector.thrift.util.TupleDomainConversion.tupleDomainToThriftTupleDomain;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
+import static io.prestosql.plugin.thrift.util.ThriftExceptions.catchingThriftException;
+import static io.prestosql.plugin.thrift.util.TupleDomainConversion.tupleDomainToThriftTupleDomain;
 import static java.util.Objects.requireNonNull;
 
 public class ThriftSplitManager

@@ -14,27 +14,27 @@
 
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.tree.BindExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionRewriter;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.Identifier;
-import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
-import com.facebook.presto.sql.tree.LambdaExpression;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.SymbolAllocator;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.tree.BindExpression;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.ExpressionRewriter;
+import io.prestosql.sql.tree.ExpressionTreeRewriter;
+import io.prestosql.sql.tree.Identifier;
+import io.prestosql.sql.tree.LambdaArgumentDeclaration;
+import io.prestosql.sql.tree.LambdaExpression;
+import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
-import static com.facebook.presto.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static java.util.Objects.requireNonNull;
 
 public class LambdaCaptureDesugaringRewriter

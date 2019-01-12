@@ -14,20 +14,20 @@
 
 package io.prestosql.cost;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.google.common.collect.ListMultimap;
+import io.prestosql.Session;
+import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.planner.iterative.Lookup;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.UnionNode;
 
 import java.util.Optional;
 
-import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndCollapseDistinctValues;
-import static com.facebook.presto.sql.planner.plan.Patterns.union;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.cost.PlanNodeStatsEstimateMath.addStatsAndCollapseDistinctValues;
+import static io.prestosql.sql.planner.plan.Patterns.union;
 
 public class UnionStatsRule
         extends SimpleStatsRule<UnionNode>

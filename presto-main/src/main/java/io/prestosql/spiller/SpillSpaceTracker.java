@@ -13,19 +13,19 @@
  */
 package io.prestosql.spiller;
 
-import com.facebook.presto.ExceededSpillLimitException;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
+import io.prestosql.ExceededSpillLimitException;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
-import static com.facebook.presto.ExceededSpillLimitException.exceededLocalLimit;
-import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.prestosql.ExceededSpillLimitException.exceededLocalLimit;
+import static io.prestosql.operator.Operator.NOT_BLOCKED;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe

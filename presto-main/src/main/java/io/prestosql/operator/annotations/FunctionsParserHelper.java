@@ -13,22 +13,22 @@
  */
 package io.prestosql.operator.annotations;
 
-import com.facebook.presto.metadata.LongVariableConstraint;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.metadata.TypeVariableConstraint;
-import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.IsNull;
-import com.facebook.presto.spi.function.LiteralParameters;
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.function.SqlNullable;
-import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.function.TypeParameter;
-import com.facebook.presto.spi.function.TypeParameterSpecialization;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.type.Constraint;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import io.prestosql.metadata.LongVariableConstraint;
+import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.TypeVariableConstraint;
+import io.prestosql.spi.function.Description;
+import io.prestosql.spi.function.IsNull;
+import io.prestosql.spi.function.LiteralParameters;
+import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.function.SqlNullable;
+import io.prestosql.spi.function.SqlType;
+import io.prestosql.spi.function.TypeParameter;
+import io.prestosql.spi.function.TypeParameterSpecialization;
+import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.type.Constraint;
 
 import javax.annotation.Nullable;
 
@@ -47,22 +47,22 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
-import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
-import static com.facebook.presto.metadata.Signature.typeVariable;
-import static com.facebook.presto.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
-import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
-import static com.facebook.presto.spi.function.OperatorType.CAST;
-import static com.facebook.presto.spi.function.OperatorType.EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
-import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
-import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
-import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.metadata.Signature.comparableTypeParameter;
+import static io.prestosql.metadata.Signature.orderableTypeParameter;
+import static io.prestosql.metadata.Signature.typeVariable;
+import static io.prestosql.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
+import static io.prestosql.spi.function.OperatorType.BETWEEN;
+import static io.prestosql.spi.function.OperatorType.CAST;
+import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
+import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
+import static io.prestosql.spi.function.OperatorType.HASH_CODE;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 
 public class FunctionsParserHelper
 {

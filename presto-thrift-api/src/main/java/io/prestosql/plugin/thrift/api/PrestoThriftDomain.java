@@ -13,16 +13,16 @@
  */
 package io.prestosql.plugin.thrift.api;
 
-import com.facebook.presto.connector.thrift.api.valuesets.PrestoThriftValueSet;
-import com.facebook.presto.spi.predicate.Domain;
 import io.airlift.drift.annotations.ThriftConstructor;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
+import io.prestosql.plugin.thrift.api.valuesets.PrestoThriftValueSet;
+import io.prestosql.spi.predicate.Domain;
 
 import java.util.Objects;
 
-import static com.facebook.presto.connector.thrift.api.valuesets.PrestoThriftValueSet.fromValueSet;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.plugin.thrift.api.valuesets.PrestoThriftValueSet.fromValueSet;
 import static java.util.Objects.requireNonNull;
 
 @ThriftStruct

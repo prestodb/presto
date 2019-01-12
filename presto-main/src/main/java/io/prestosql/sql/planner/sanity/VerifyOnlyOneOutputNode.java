@@ -13,16 +13,16 @@
  */
 package io.prestosql.sql.planner.sanity;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.plan.OutputNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import io.prestosql.Session;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.planner.plan.OutputNode;
+import io.prestosql.sql.planner.plan.PlanNode;
 
-import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 
 public final class VerifyOnlyOneOutputNode
         implements PlanSanityChecker.Checker

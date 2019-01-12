@@ -13,34 +13,34 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.resourceGroups.ResourceGroupManagerPlugin;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.session.ResourceEstimates;
-import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.Session;
+import io.prestosql.plugin.resourcegroups.ResourceGroupManagerPlugin;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.spi.session.ResourceEstimates;
+import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
-import static com.facebook.presto.execution.QueryState.FAILED;
-import static com.facebook.presto.execution.QueryState.FINISHED;
-import static com.facebook.presto.execution.QueryState.QUEUED;
-import static com.facebook.presto.execution.QueryState.RUNNING;
-import static com.facebook.presto.execution.TestQueryRunnerUtil.cancelQuery;
-import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
-import static com.facebook.presto.execution.TestQueryRunnerUtil.createQueryRunner;
-import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
-import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.SystemSessionProperties.HASH_PARTITION_COUNT;
+import static io.prestosql.execution.QueryState.FAILED;
+import static io.prestosql.execution.QueryState.FINISHED;
+import static io.prestosql.execution.QueryState.QUEUED;
+import static io.prestosql.execution.QueryState.RUNNING;
+import static io.prestosql.execution.TestQueryRunnerUtil.cancelQuery;
+import static io.prestosql.execution.TestQueryRunnerUtil.createQuery;
+import static io.prestosql.execution.TestQueryRunnerUtil.createQueryRunner;
+import static io.prestosql.execution.TestQueryRunnerUtil.waitForQueryState;
+import static io.prestosql.spi.StandardErrorCode.QUERY_REJECTED;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;

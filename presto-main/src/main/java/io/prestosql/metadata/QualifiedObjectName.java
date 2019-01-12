@@ -13,20 +13,20 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.spi.CatalogSchemaTableName;
-import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.base.Function;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.connector.CatalogSchemaTableName;
+import io.prestosql.spi.connector.SchemaTableName;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 
-import static com.facebook.presto.metadata.MetadataUtil.checkObjectName;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.metadata.MetadataUtil.checkObjectName;
 import static java.util.Objects.requireNonNull;
 
 @Immutable

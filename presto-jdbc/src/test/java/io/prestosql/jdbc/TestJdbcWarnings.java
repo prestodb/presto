@@ -13,20 +13,20 @@
  */
 package io.prestosql.jdbc;
 
-import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.execution.warnings.WarningCollectorConfig;
-import com.facebook.presto.plugin.blackhole.BlackHolePlugin;
-import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.spi.PrestoWarning;
-import com.facebook.presto.spi.WarningCode;
-import com.facebook.presto.sql.parser.SqlParserOptions;
-import com.facebook.presto.testing.TestingWarningCollector;
-import com.facebook.presto.testing.TestingWarningCollectorConfig;
-import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.AbstractFuture;
+import io.prestosql.execution.QueryInfo;
+import io.prestosql.execution.warnings.WarningCollectorConfig;
+import io.prestosql.plugin.blackhole.BlackHolePlugin;
+import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.server.testing.TestingPrestoServer;
+import io.prestosql.spi.PrestoWarning;
+import io.prestosql.spi.WarningCode;
+import io.prestosql.sql.parser.SqlParserOptions;
+import io.prestosql.testing.TestingWarningCollector;
+import io.prestosql.testing.TestingWarningCollectorConfig;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
@@ -46,9 +46,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.jdbc.TestPrestoDriver.closeQuietly;
-import static com.facebook.presto.jdbc.TestPrestoDriver.waitForNodeRefresh;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.prestosql.jdbc.TestPrestoDriver.closeQuietly;
+import static io.prestosql.jdbc.TestPrestoDriver.waitForNodeRefresh;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;

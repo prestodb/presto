@@ -13,15 +13,15 @@
  */
 package io.prestosql.plugin.accumulo.model;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static java.lang.String.format;
 
 public class RowSchema

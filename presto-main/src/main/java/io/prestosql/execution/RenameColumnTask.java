@@ -13,27 +13,27 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.RenameColumn;
-import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.Session;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.metadata.TableHandle;
+import io.prestosql.security.AccessControl;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.sql.analyzer.SemanticException;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.RenameColumn;
+import io.prestosql.transaction.TransactionManager;
 
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_ALREADY_EXISTS;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.COLUMN_ALREADY_EXISTS;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static java.util.Locale.ENGLISH;
 
 public class RenameColumnTask

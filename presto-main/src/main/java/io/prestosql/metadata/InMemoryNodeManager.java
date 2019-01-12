@@ -13,15 +13,15 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.NodeState;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
+import io.prestosql.client.NodeVersion;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.spi.Node;
+import io.prestosql.spi.NodeState;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;

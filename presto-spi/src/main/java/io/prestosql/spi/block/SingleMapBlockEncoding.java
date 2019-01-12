@@ -14,19 +14,19 @@
 
 package io.prestosql.spi.block;
 
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSerde;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSerde;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.spi.block.AbstractMapBlock.HASH_MULTIPLIER;
-import static com.facebook.presto.spi.block.MethodHandleUtil.compose;
-import static com.facebook.presto.spi.block.MethodHandleUtil.nativeValueGetter;
 import static io.airlift.slice.Slices.wrappedIntArray;
+import static io.prestosql.spi.block.AbstractMapBlock.HASH_MULTIPLIER;
+import static io.prestosql.spi.block.MethodHandleUtil.compose;
+import static io.prestosql.spi.block.MethodHandleUtil.nativeValueGetter;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;

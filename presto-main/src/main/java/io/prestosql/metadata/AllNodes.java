@@ -13,8 +13,8 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.spi.Node;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.Node;
 
 import java.util.Set;
 

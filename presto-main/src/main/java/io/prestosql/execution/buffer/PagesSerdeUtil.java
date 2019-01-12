@@ -13,19 +13,19 @@
  */
 package io.prestosql.execution.buffer;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.google.common.collect.AbstractIterator;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockEncodingSerde;
 
 import java.util.Iterator;
 
-import static com.facebook.presto.block.BlockSerdeUtil.readBlock;
-import static com.facebook.presto.block.BlockSerdeUtil.writeBlock;
-import static com.facebook.presto.execution.buffer.PageCompression.lookupCodecFromMarker;
+import static io.prestosql.block.BlockSerdeUtil.readBlock;
+import static io.prestosql.block.BlockSerdeUtil.writeBlock;
+import static io.prestosql.execution.buffer.PageCompression.lookupCodecFromMarker;
 import static java.lang.Math.toIntExact;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;

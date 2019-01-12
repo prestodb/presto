@@ -13,33 +13,33 @@
  */
 package io.prestosql.plugin.hive.orc;
 
-import com.facebook.presto.hive.FileFormatDataSourceStats;
-import com.facebook.presto.hive.HiveColumnHandle;
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
-import com.facebook.presto.orc.OrcCorruptionException;
-import com.facebook.presto.orc.OrcDataSource;
-import com.facebook.presto.orc.OrcRecordReader;
-import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.LazyBlock;
-import com.facebook.presto.spi.block.LazyBlockLoader;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.orc.OrcCorruptionException;
+import io.prestosql.orc.OrcDataSource;
+import io.prestosql.orc.OrcRecordReader;
+import io.prestosql.plugin.hive.FileFormatDataSourceStats;
+import io.prestosql.plugin.hive.HiveColumnHandle;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.LazyBlock;
+import io.prestosql.spi.block.LazyBlockLoader;
+import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
-import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
+import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

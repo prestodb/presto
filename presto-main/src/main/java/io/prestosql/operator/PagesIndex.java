@@ -13,28 +13,28 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.geospatial.Rectangle;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.operator.SpatialIndexBuilderOperator.SpatialPredicate;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.gen.JoinCompiler;
-import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceSupplierFactory;
-import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
-import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
+import io.prestosql.Session;
+import io.prestosql.geospatial.Rectangle;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.operator.SpatialIndexBuilderOperator.SpatialPredicate;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.sql.gen.JoinCompiler;
+import io.prestosql.sql.gen.JoinCompiler.LookupSourceSupplierFactory;
+import io.prestosql.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
+import io.prestosql.sql.gen.OrderingCompiler;
 import it.unimi.dsi.fastutil.Swapper;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
@@ -53,13 +53,13 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
-import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
-import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.prestosql.operator.SyntheticAddress.decodePosition;
+import static io.prestosql.operator.SyntheticAddress.decodeSliceIndex;
+import static io.prestosql.operator.SyntheticAddress.encodeSyntheticAddress;
 import static java.util.Objects.requireNonNull;
 
 /**

@@ -30,8 +30,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
-import static com.facebook.presto.tests.cassandra.TestConstants.CONNECTOR_NAME;
-import static com.facebook.presto.tests.cassandra.TestConstants.KEY_SPACE;
+import static io.prestosql.tests.cassandra.TestConstants.CONNECTOR_NAME;
+import static io.prestosql.tests.cassandra.TestConstants.KEY_SPACE;
 
 public class DataTypesTableDefinition
 {

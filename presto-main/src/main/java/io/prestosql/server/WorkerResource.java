@@ -13,12 +13,12 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.NodeState;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.ResponseHandler;
+import io.prestosql.metadata.InternalNodeManager;
+import io.prestosql.spi.Node;
+import io.prestosql.spi.NodeState;
 
 import javax.inject.Inject;
 import javax.ws.rs.GET;

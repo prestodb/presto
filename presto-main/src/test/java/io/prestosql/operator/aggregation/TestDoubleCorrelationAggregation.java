@@ -13,19 +13,19 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.StandardTypes;
 import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.stream.DoubleStream;
 
-import static com.facebook.presto.block.BlockAssertions.createDoubleSequenceBlock;
-import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
-import static com.facebook.presto.operator.aggregation.AggregationTestUtils.constructDoublePrimitiveArray;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.block.BlockAssertions.createDoubleSequenceBlock;
+import static io.prestosql.block.BlockAssertions.createDoublesBlock;
+import static io.prestosql.operator.aggregation.AggregationTestUtils.constructDoublePrimitiveArray;
 
 public class TestDoubleCorrelationAggregation
         extends AbstractTestAggregationFunction

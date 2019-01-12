@@ -13,13 +13,13 @@
  */
 package io.prestosql.plugin.mongodb;
 
-import com.facebook.presto.tests.AbstractTestQueries;
 import io.airlift.tpch.TpchTable;
+import io.prestosql.tests.AbstractTestQueries;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.mongodb.MongoQueryRunner.createMongoQueryRunner;
+import static io.prestosql.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
 
 @Test
 public class TestMongoDistributedQueries

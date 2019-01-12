@@ -13,24 +13,24 @@
  */
 package io.prestosql.plugin.raptor.legacy;
 
-import com.facebook.presto.raptor.metadata.ForMetadata;
-import com.facebook.presto.raptor.metadata.MetadataDao;
-import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.connector.Connector;
-import com.facebook.presto.spi.connector.ConnectorAccessControl;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
-import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
-import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.connector.ConnectorSplitManager;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.session.PropertyMetadata;
-import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.SetMultimap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
+import io.prestosql.plugin.raptor.legacy.metadata.ForMetadata;
+import io.prestosql.plugin.raptor.legacy.metadata.MetadataDao;
+import io.prestosql.spi.NodeManager;
+import io.prestosql.spi.connector.Connector;
+import io.prestosql.spi.connector.ConnectorAccessControl;
+import io.prestosql.spi.connector.ConnectorMetadata;
+import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
+import io.prestosql.spi.connector.ConnectorPageSinkProvider;
+import io.prestosql.spi.connector.ConnectorPageSourceProvider;
+import io.prestosql.spi.connector.ConnectorSplitManager;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.session.PropertyMetadata;
+import io.prestosql.spi.transaction.IsolationLevel;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.annotation.PostConstruct;
@@ -44,12 +44,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
-import static com.facebook.presto.spi.transaction.IsolationLevel.READ_COMMITTED;
-import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.onDemandDao;
+import static io.prestosql.spi.transaction.IsolationLevel.READ_COMMITTED;
+import static io.prestosql.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;

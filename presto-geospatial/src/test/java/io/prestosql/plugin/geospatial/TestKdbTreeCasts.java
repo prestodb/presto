@@ -13,15 +13,15 @@
  */
 package io.prestosql.plugin.geospatial;
 
-import com.facebook.presto.geospatial.KdbTreeUtils;
-import com.facebook.presto.geospatial.Rectangle;
-import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.geospatial.KdbTreeUtils;
+import io.prestosql.geospatial.Rectangle;
+import io.prestosql.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.geospatial.KdbTree.buildKdbTree;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.geospatial.KdbTree.buildKdbTree;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 
 public class TestKdbTreeCasts

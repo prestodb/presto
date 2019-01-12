@@ -13,13 +13,13 @@
  */
 package io.prestosql.plugin.redis;
 
-import com.facebook.presto.redis.util.EmbeddedRedis;
-import com.facebook.presto.tests.AbstractTestQueries;
 import io.airlift.tpch.TpchTable;
+import io.prestosql.plugin.redis.util.EmbeddedRedis;
+import io.prestosql.tests.AbstractTestQueries;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.redis.util.EmbeddedRedis.createEmbeddedRedis;
+import static io.prestosql.plugin.redis.util.EmbeddedRedis.createEmbeddedRedis;
 
 @Test
 public class TestRedisDistributedHash

@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.redis.decoder.hash;
 
-import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldValueProvider;
-import com.facebook.presto.decoder.RowDecoder;
-import com.facebook.presto.redis.RedisFieldDecoder;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.decoder.DecoderColumnHandle;
+import io.prestosql.decoder.FieldValueProvider;
+import io.prestosql.decoder.RowDecoder;
+import io.prestosql.plugin.redis.RedisFieldDecoder;
 
 import java.util.HashMap;
 import java.util.Map;

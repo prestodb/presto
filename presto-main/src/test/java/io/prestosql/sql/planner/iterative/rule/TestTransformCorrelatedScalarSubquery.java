@@ -14,37 +14,37 @@
 
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.spi.StandardErrorCode;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.tree.Cast;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.SimpleCaseExpression;
-import com.facebook.presto.sql.tree.StringLiteral;
-import com.facebook.presto.sql.tree.SymbolReference;
-import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.StandardErrorCode;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.tree.Cast;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.LongLiteral;
+import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.SimpleCaseExpression;
+import io.prestosql.sql.tree.StringLiteral;
+import io.prestosql.sql.tree.SymbolReference;
+import io.prestosql.sql.tree.WhenClause;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.lateral;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.markDistinct;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expressions;
-import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.lateral;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.markDistinct;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expressions;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 public class TestTransformCorrelatedScalarSubquery
         extends BaseRuleTest

@@ -13,15 +13,15 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.type.IpAddressType.IPADDRESS;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.type.IpAddressType.IPADDRESS;
 import static org.testng.Assert.assertEquals;
 
 public class TestIpAddressType

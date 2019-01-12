@@ -13,24 +13,24 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage;
 
-import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.metadata.PrestoNode;
-import com.facebook.presto.raptor.NodeSupplier;
-import com.facebook.presto.raptor.metadata.BucketNode;
-import com.facebook.presto.raptor.metadata.ColumnInfo;
-import com.facebook.presto.raptor.metadata.Distribution;
-import com.facebook.presto.raptor.metadata.MetadataDao;
-import com.facebook.presto.raptor.metadata.ShardManager;
-import com.facebook.presto.raptor.storage.BucketBalancer.BucketAssignment;
-import com.facebook.presto.raptor.storage.BucketBalancer.ClusterState;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.testing.TestingNodeManager;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multiset;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.client.NodeVersion;
+import io.prestosql.metadata.PrestoNode;
+import io.prestosql.plugin.raptor.legacy.NodeSupplier;
+import io.prestosql.plugin.raptor.legacy.metadata.BucketNode;
+import io.prestosql.plugin.raptor.legacy.metadata.ColumnInfo;
+import io.prestosql.plugin.raptor.legacy.metadata.Distribution;
+import io.prestosql.plugin.raptor.legacy.metadata.MetadataDao;
+import io.prestosql.plugin.raptor.legacy.metadata.ShardManager;
+import io.prestosql.plugin.raptor.legacy.storage.BucketBalancer.BucketAssignment;
+import io.prestosql.plugin.raptor.legacy.storage.BucketBalancer.ClusterState;
+import io.prestosql.spi.Node;
+import io.prestosql.testing.TestingNodeManager;
+import io.prestosql.type.TypeRegistry;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.testng.annotations.AfterMethod;
@@ -42,13 +42,13 @@ import java.util.List;
 import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.raptor.metadata.Distribution.serializeColumnTypes;
-import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
-import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.testing.Assertions.assertLessThanOrEqual;
+import static io.prestosql.plugin.raptor.legacy.metadata.Distribution.serializeColumnTypes;
+import static io.prestosql.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
+import static io.prestosql.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static org.testng.Assert.assertEquals;
 

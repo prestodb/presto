@@ -13,16 +13,16 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.sql.parser.CaseInsensitiveStream;
-import com.facebook.presto.sql.parser.ParsingException;
-import com.facebook.presto.type.TypeCalculationParser.ArithmeticBinaryContext;
-import com.facebook.presto.type.TypeCalculationParser.ArithmeticUnaryContext;
-import com.facebook.presto.type.TypeCalculationParser.BinaryFunctionContext;
-import com.facebook.presto.type.TypeCalculationParser.IdentifierContext;
-import com.facebook.presto.type.TypeCalculationParser.NullLiteralContext;
-import com.facebook.presto.type.TypeCalculationParser.NumericLiteralContext;
-import com.facebook.presto.type.TypeCalculationParser.ParenthesizedExpressionContext;
-import com.facebook.presto.type.TypeCalculationParser.TypeCalculationContext;
+import io.prestosql.sql.parser.CaseInsensitiveStream;
+import io.prestosql.sql.parser.ParsingException;
+import io.prestosql.type.TypeCalculationParser.ArithmeticBinaryContext;
+import io.prestosql.type.TypeCalculationParser.ArithmeticUnaryContext;
+import io.prestosql.type.TypeCalculationParser.BinaryFunctionContext;
+import io.prestosql.type.TypeCalculationParser.IdentifierContext;
+import io.prestosql.type.TypeCalculationParser.NullLiteralContext;
+import io.prestosql.type.TypeCalculationParser.NumericLiteralContext;
+import io.prestosql.type.TypeCalculationParser.ParenthesizedExpressionContext;
+import io.prestosql.type.TypeCalculationParser.TypeCalculationContext;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -35,13 +35,13 @@ import org.antlr.v4.runtime.misc.ParseCancellationException;
 import java.math.BigInteger;
 import java.util.Map;
 
-import static com.facebook.presto.type.TypeCalculationParser.ASTERISK;
-import static com.facebook.presto.type.TypeCalculationParser.MAX;
-import static com.facebook.presto.type.TypeCalculationParser.MIN;
-import static com.facebook.presto.type.TypeCalculationParser.MINUS;
-import static com.facebook.presto.type.TypeCalculationParser.PLUS;
-import static com.facebook.presto.type.TypeCalculationParser.SLASH;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.type.TypeCalculationParser.ASTERISK;
+import static io.prestosql.type.TypeCalculationParser.MAX;
+import static io.prestosql.type.TypeCalculationParser.MIN;
+import static io.prestosql.type.TypeCalculationParser.MINUS;
+import static io.prestosql.type.TypeCalculationParser.PLUS;
+import static io.prestosql.type.TypeCalculationParser.SLASH;
 import static java.util.Objects.requireNonNull;
 
 public final class TypeCalculation

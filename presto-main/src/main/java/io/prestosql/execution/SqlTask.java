@@ -13,21 +13,6 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.OutputBuffers.OutputBufferId;
-import com.facebook.presto.Session;
-import com.facebook.presto.TaskSource;
-import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.execution.buffer.BufferResult;
-import com.facebook.presto.execution.buffer.LazyOutputBuffer;
-import com.facebook.presto.execution.buffer.OutputBuffer;
-import com.facebook.presto.memory.QueryContext;
-import com.facebook.presto.operator.PipelineContext;
-import com.facebook.presto.operator.PipelineStatus;
-import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.operator.TaskStats;
-import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -38,6 +23,21 @@ import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.OutputBuffers;
+import io.prestosql.OutputBuffers.OutputBufferId;
+import io.prestosql.Session;
+import io.prestosql.TaskSource;
+import io.prestosql.execution.StateMachine.StateChangeListener;
+import io.prestosql.execution.buffer.BufferResult;
+import io.prestosql.execution.buffer.LazyOutputBuffer;
+import io.prestosql.execution.buffer.OutputBuffer;
+import io.prestosql.memory.QueryContext;
+import io.prestosql.operator.PipelineContext;
+import io.prestosql.operator.PipelineStatus;
+import io.prestosql.operator.TaskContext;
+import io.prestosql.operator.TaskStats;
+import io.prestosql.sql.planner.PlanFragment;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
@@ -53,15 +53,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.execution.TaskState.ABORTED;
-import static com.facebook.presto.execution.TaskState.FAILED;
-import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.prestosql.execution.TaskState.ABORTED;
+import static io.prestosql.execution.TaskState.FAILED;
+import static io.prestosql.util.Failures.toFailures;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 

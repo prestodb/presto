@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.raptor.legacy.systemtables;
 
-import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.type.Type;
 
 import javax.annotation.Nullable;
 

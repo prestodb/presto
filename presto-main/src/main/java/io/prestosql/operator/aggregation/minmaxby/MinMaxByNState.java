@@ -13,8 +13,8 @@
  */
 package io.prestosql.operator.aggregation.minmaxby;
 
-import com.facebook.presto.operator.aggregation.TypedKeyValueHeap;
-import com.facebook.presto.spi.function.AccumulatorState;
+import io.prestosql.operator.aggregation.TypedKeyValueHeap;
+import io.prestosql.spi.function.AccumulatorState;
 
 public interface MinMaxByNState
         extends AccumulatorState

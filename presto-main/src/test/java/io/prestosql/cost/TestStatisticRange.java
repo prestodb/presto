@@ -15,7 +15,7 @@ package io.prestosql.cost;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.cost.EstimateAssertion.assertEstimateEquals;
+import static io.prestosql.cost.EstimateAssertion.assertEstimateEquals;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;

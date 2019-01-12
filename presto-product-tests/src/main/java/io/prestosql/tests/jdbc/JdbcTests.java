@@ -13,8 +13,6 @@
  */
 package io.prestosql.tests.jdbc;
 
-import com.facebook.presto.jdbc.PrestoConnection;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import io.airlift.log.Logger;
 import io.prestodb.tempto.ProductTest;
 import io.prestodb.tempto.Requirement;
@@ -23,6 +21,8 @@ import io.prestodb.tempto.Requires;
 import io.prestodb.tempto.configuration.Configuration;
 import io.prestodb.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import io.prestodb.tempto.query.QueryResult;
+import io.prestosql.jdbc.PrestoConnection;
+import io.prestosql.sql.analyzer.FeaturesConfig;
 import org.testng.annotations.Test;
 
 import javax.inject.Inject;
@@ -37,15 +37,6 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-import static com.facebook.presto.tests.TestGroups.JDBC;
-import static com.facebook.presto.tests.TestGroups.SIMBA_JDBC;
-import static com.facebook.presto.tests.TpchTableResults.PRESTO_NATION_RESULT;
-import static com.facebook.presto.tests.utils.JdbcDriverUtils.getSessionProperty;
-import static com.facebook.presto.tests.utils.JdbcDriverUtils.resetSessionProperty;
-import static com.facebook.presto.tests.utils.JdbcDriverUtils.setSessionProperty;
-import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingPrestoJdbcDriver;
-import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingTeradataJdbc4Driver;
-import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingTeradataJdbcDriver;
 import static com.google.common.base.Strings.repeat;
 import static io.prestodb.tempto.Requirements.compose;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
@@ -58,6 +49,15 @@ import static io.prestodb.tempto.fulfillment.table.hive.tpch.TpchTableDefinition
 import static io.prestodb.tempto.internal.convention.SqlResultDescriptor.sqlResultDescriptorForResource;
 import static io.prestodb.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestosql.tests.TestGroups.JDBC;
+import static io.prestosql.tests.TestGroups.SIMBA_JDBC;
+import static io.prestosql.tests.TpchTableResults.PRESTO_NATION_RESULT;
+import static io.prestosql.tests.utils.JdbcDriverUtils.getSessionProperty;
+import static io.prestosql.tests.utils.JdbcDriverUtils.resetSessionProperty;
+import static io.prestosql.tests.utils.JdbcDriverUtils.setSessionProperty;
+import static io.prestosql.tests.utils.JdbcDriverUtils.usingPrestoJdbcDriver;
+import static io.prestosql.tests.utils.JdbcDriverUtils.usingTeradataJdbc4Driver;
+import static io.prestosql.tests.utils.JdbcDriverUtils.usingTeradataJdbcDriver;
 import static java.util.Locale.CHINESE;
 import static org.assertj.core.api.Assertions.assertThat;
 

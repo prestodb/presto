@@ -15,7 +15,7 @@ package io.prestosql.plugin.hive;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.hive.HiveBooleanParser.parseHiveBoolean;
+import static io.prestosql.plugin.hive.HiveBooleanParser.parseHiveBoolean;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;

@@ -13,13 +13,13 @@
  */
 package io.prestosql.orc.metadata.statistics;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.orc.metadata.statistics.BooleanStatistics.BOOLEAN_VALUE_BYTES;
+import static io.prestosql.orc.metadata.statistics.BooleanStatistics.BOOLEAN_VALUE_BYTES;
 import static java.util.Objects.requireNonNull;
 
 public class BooleanStatisticsBuilder

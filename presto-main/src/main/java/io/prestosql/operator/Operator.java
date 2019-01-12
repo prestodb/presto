@@ -13,9 +13,9 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.spi.Page;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.spi.Page;
 
 public interface Operator
         extends AutoCloseable

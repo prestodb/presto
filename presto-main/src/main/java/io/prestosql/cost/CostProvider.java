@@ -13,7 +13,7 @@
  */
 package io.prestosql.cost;
 
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.PlanNode;
 
 public interface CostProvider
 {

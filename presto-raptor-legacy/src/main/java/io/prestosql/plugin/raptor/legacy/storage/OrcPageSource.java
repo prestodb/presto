@@ -13,20 +13,20 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
-import com.facebook.presto.orc.OrcDataSource;
-import com.facebook.presto.orc.OrcRecordReader;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.UpdatablePageSource;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.LazyBlock;
-import com.facebook.presto.spi.block.LazyBlockLoader;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.orc.OrcDataSource;
+import io.prestosql.orc.OrcRecordReader;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.LazyBlock;
+import io.prestosql.spi.block.LazyBlockLoader;
+import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.connector.UpdatablePageSource;
+import io.prestosql.spi.type.Type;
 
 import java.io.IOException;
 import java.util.BitSet;
@@ -37,14 +37,14 @@ import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
-import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
-import static com.facebook.presto.spi.predicate.Utils.nativeValueToBlock;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
+import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
+import static io.prestosql.spi.predicate.Utils.nativeValueToBlock;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

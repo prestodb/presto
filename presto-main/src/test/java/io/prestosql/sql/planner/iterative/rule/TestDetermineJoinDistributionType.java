@@ -13,41 +13,41 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.cost.CostComparator;
-import com.facebook.presto.cost.PlanNodeStatsEstimate;
-import com.facebook.presto.cost.SymbolStatsEstimate;
-import com.facebook.presto.cost.TaskCountEstimator;
-import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;
-import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.JoinNode.DistributionType;
-import com.facebook.presto.sql.planner.plan.JoinNode.Type;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.cost.CostComparator;
+import io.prestosql.cost.PlanNodeStatsEstimate;
+import io.prestosql.cost.SymbolStatsEstimate;
+import io.prestosql.cost.TaskCountEstimator;
+import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.iterative.rule.test.RuleAssert;
+import io.prestosql.sql.planner.iterative.rule.test.RuleTester;
+import io.prestosql.sql.planner.plan.JoinNode;
+import io.prestosql.sql.planner.plan.JoinNode.DistributionType;
+import io.prestosql.sql.planner.plan.JoinNode.Type;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static com.facebook.presto.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.enforceSingleRow;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expressions;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
+import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.prestosql.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.enforceSingleRow;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expressions;
+import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
+import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.FULL;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
 
 @Test(singleThreaded = true)
 public class TestDetermineJoinDistributionType

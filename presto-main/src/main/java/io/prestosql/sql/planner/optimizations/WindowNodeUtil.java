@@ -13,8 +13,8 @@
  */
 package io.prestosql.sql.planner.optimizations;
 
-import com.facebook.presto.sql.planner.SymbolsExtractor;
-import com.facebook.presto.sql.planner.plan.WindowNode;
+import io.prestosql.sql.planner.SymbolsExtractor;
+import io.prestosql.sql.planner.plan.WindowNode;
 
 import java.util.Collection;
 

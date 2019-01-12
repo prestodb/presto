@@ -13,9 +13,9 @@
  */
 package io.prestosql.connector.system.jdbc;
 
-import com.facebook.presto.spi.SystemTable;
+import io.prestosql.spi.connector.SystemTable;
 
-import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
+import static io.prestosql.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
 
 abstract class JdbcTable
         implements SystemTable

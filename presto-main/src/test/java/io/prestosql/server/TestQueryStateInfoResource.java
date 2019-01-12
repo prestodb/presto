@@ -13,23 +13,20 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.client.QueryResults;
-import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.tpch.TpchPlugin;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.UnexpectedResponseException;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
+import io.prestosql.client.QueryResults;
+import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.server.testing.TestingPrestoServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
-import static com.facebook.presto.execution.QueryState.RUNNING;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.http.client.Request.Builder.prepareGet;
@@ -38,6 +35,9 @@ import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerat
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.testing.Closeables.closeQuietly;
+import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
+import static io.prestosql.execution.QueryState.RUNNING;
+import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;

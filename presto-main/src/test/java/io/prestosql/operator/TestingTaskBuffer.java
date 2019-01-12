@@ -13,17 +13,17 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static com.facebook.presto.SequencePageBuilder.createSequencePage;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.SequencePageBuilder.createSequencePage;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 
 public class TestingTaskBuffer
 {

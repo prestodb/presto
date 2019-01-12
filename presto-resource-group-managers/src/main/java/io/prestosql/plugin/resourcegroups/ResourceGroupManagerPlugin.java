@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.resourcegroups;
 
-import com.facebook.presto.resourceGroups.db.DbResourceGroupConfigurationManagerFactory;
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.resourcegroups.db.DbResourceGroupConfigurationManagerFactory;
+import io.prestosql.spi.Plugin;
+import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 
 public class ResourceGroupManagerPlugin
         implements Plugin

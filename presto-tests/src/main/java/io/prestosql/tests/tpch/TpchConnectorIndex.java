@@ -13,12 +13,12 @@
  */
 package io.prestosql.tests.tpch;
 
-import com.facebook.presto.spi.ConnectorIndex;
-import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.RecordPageSource;
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.tests.tpch.TpchIndexedData.IndexedTable;
 import com.google.common.base.Function;
+import io.prestosql.spi.connector.ConnectorIndex;
+import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.RecordPageSource;
+import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.tests.tpch.TpchIndexedData.IndexedTable;
 
 import static java.util.Objects.requireNonNull;
 

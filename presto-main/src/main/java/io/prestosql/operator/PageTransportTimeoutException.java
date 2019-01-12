@@ -13,10 +13,10 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.PrestoTransportException;
+import io.prestosql.spi.HostAddress;
+import io.prestosql.spi.PrestoTransportException;
 
-import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
+import static io.prestosql.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
 
 public class PageTransportTimeoutException
         extends PrestoTransportException

@@ -13,13 +13,13 @@
  */
 package io.prestosql.plugin.redis;
 
-import com.facebook.presto.decoder.dummy.DummyRowDecoder;
-import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
+import io.prestosql.decoder.dummy.DummyRowDecoder;
+import io.prestosql.spi.connector.SchemaTableName;
 
 import javax.inject.Inject;
 

@@ -13,25 +13,25 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.client.ClientSession;
-import com.facebook.presto.client.StatementClient;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
+import io.prestosql.Session;
+import io.prestosql.client.ClientSession;
+import io.prestosql.client.StatementClient;
+import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.spi.QueryId;
+import io.prestosql.tests.DistributedQueryRunner;
 import okhttp3.OkHttpClient;
 import org.testng.annotations.Test;
 
 import java.util.Locale;
 import java.util.Optional;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.client.StatementClientFactory.newStatementClient;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertTrue;

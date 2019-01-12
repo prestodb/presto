@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.thrift;
 
-import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.session.PropertyMetadata;
 
 import javax.inject.Inject;
 

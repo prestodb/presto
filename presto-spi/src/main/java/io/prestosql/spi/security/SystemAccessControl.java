@@ -13,36 +13,36 @@
  */
 package io.prestosql.spi.security;
 
-import com.facebook.presto.spi.CatalogSchemaName;
-import com.facebook.presto.spi.CatalogSchemaTableName;
-import com.facebook.presto.spi.SchemaTableName;
+import io.prestosql.spi.connector.CatalogSchemaName;
+import io.prestosql.spi.connector.CatalogSchemaTableName;
+import io.prestosql.spi.connector.SchemaTableName;
 
 import java.security.Principal;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyGrantTablePrivilege;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyInsertTable;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameSchema;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
-import static com.facebook.presto.spi.security.AccessDeniedException.denySelectColumns;
-import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyShowSchemas;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyShowTablesMetadata;
+import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyCatalogAccess;
+import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
+import static io.prestosql.spi.security.AccessDeniedException.denyCreateTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyCreateView;
+import static io.prestosql.spi.security.AccessDeniedException.denyCreateViewWithSelect;
+import static io.prestosql.spi.security.AccessDeniedException.denyDeleteTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyDropColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyDropSchema;
+import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
+import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
+import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyRenameSchema;
+import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
+import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
+import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowTablesMetadata;
 
 public interface SystemAccessControl
 {

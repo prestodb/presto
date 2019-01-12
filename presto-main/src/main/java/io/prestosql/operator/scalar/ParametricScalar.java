@@ -13,23 +13,23 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.operator.ParametricImplementationsGroup;
-import com.facebook.presto.operator.scalar.annotations.ParametricScalarImplementation;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.annotations.VisibleForTesting;
+import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.SqlScalarFunction;
+import io.prestosql.operator.ParametricImplementationsGroup;
+import io.prestosql.operator.scalar.annotations.ParametricScalarImplementation;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.TypeManager;
 
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
-import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_IMPLEMENTATION;
-import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
-import static com.facebook.presto.util.Failures.checkCondition;
+import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
+import static io.prestosql.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_IMPLEMENTATION;
+import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
+import static io.prestosql.util.Failures.checkCondition;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

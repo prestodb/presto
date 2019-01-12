@@ -13,15 +13,15 @@
  */
 package io.prestosql.operator.exchange;
 
-import com.facebook.presto.operator.HashGenerator;
-import com.facebook.presto.operator.InterpretedHashGenerator;
-import com.facebook.presto.operator.PrecomputedHashGenerator;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.operator.HashGenerator;
+import io.prestosql.operator.InterpretedHashGenerator;
+import io.prestosql.operator.PrecomputedHashGenerator;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 

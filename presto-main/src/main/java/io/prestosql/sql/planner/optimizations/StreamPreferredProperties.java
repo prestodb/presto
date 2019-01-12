@@ -13,13 +13,13 @@
  */
 package io.prestosql.sql.planner.optimizations;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
-import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.prestosql.Session;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
+import io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution;
 
 import java.util.Collection;
 import java.util.List;
@@ -27,14 +27,14 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
-import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
-import static com.facebook.presto.SystemSessionProperties.preferStreamingOperators;
-import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.FIXED;
-import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.MULTIPLE;
-import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.SystemSessionProperties.getTaskConcurrency;
+import static io.prestosql.SystemSessionProperties.preferStreamingOperators;
+import static io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.FIXED;
+import static io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.MULTIPLE;
+import static io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
 import static java.util.Objects.requireNonNull;
 
 class StreamPreferredProperties

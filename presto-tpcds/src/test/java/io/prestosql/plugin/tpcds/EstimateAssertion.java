@@ -14,8 +14,8 @@
 
 package io.prestosql.plugin.tpcds;
 
-import com.facebook.presto.spi.statistics.Estimate;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.statistics.Estimate;
 
 import java.util.Optional;
 

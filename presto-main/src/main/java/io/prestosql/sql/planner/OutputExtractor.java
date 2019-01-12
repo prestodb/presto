@@ -13,12 +13,12 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.execution.Output;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.execution.Output;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.PlanVisitor;
+import io.prestosql.sql.planner.plan.TableWriterNode;
 
 import java.util.Optional;
 

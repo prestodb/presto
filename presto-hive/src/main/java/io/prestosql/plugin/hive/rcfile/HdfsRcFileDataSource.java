@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.hive.rcfile;
 
-import com.facebook.presto.hive.FileFormatDataSourceStats;
-import com.facebook.presto.rcfile.RcFileDataSource;
-import com.facebook.presto.rcfile.RcFileDataSourceId;
+import io.prestosql.plugin.hive.FileFormatDataSourceStats;
+import io.prestosql.rcfile.RcFileDataSource;
+import io.prestosql.rcfile.RcFileDataSourceId;
 import org.apache.hadoop.fs.FSDataInputStream;
 
 import java.io.IOException;

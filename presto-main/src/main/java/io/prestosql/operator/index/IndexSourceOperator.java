@@ -13,21 +13,21 @@
  */
 package io.prestosql.operator.index;
 
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.operator.DriverContext;
-import com.facebook.presto.operator.FinishedOperator;
-import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.operator.PageSourceOperator;
-import com.facebook.presto.operator.SourceOperator;
-import com.facebook.presto.operator.SourceOperatorFactory;
-import com.facebook.presto.operator.SplitOperatorInfo;
-import com.facebook.presto.spi.ConnectorIndex;
-import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.UpdatablePageSource;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import io.prestosql.metadata.Split;
+import io.prestosql.operator.DriverContext;
+import io.prestosql.operator.FinishedOperator;
+import io.prestosql.operator.Operator;
+import io.prestosql.operator.OperatorContext;
+import io.prestosql.operator.PageSourceOperator;
+import io.prestosql.operator.SourceOperator;
+import io.prestosql.operator.SourceOperatorFactory;
+import io.prestosql.operator.SplitOperatorInfo;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.connector.ConnectorIndex;
+import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.spi.connector.UpdatablePageSource;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.Optional;
 import java.util.function.Function;

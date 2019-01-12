@@ -17,8 +17,8 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.Objects;
 
-import static com.facebook.presto.client.IntervalYearMonth.formatMonths;
-import static com.facebook.presto.client.IntervalYearMonth.toMonths;
+import static io.prestosql.client.IntervalYearMonth.formatMonths;
+import static io.prestosql.client.IntervalYearMonth.toMonths;
 
 public class SqlIntervalYearMonth
 {

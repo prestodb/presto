@@ -14,13 +14,13 @@
 
 package io.prestosql.cost;
 
-import com.facebook.presto.sql.planner.Symbol;
+import io.prestosql.sql.planner.Symbol;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.cost.PlanNodeStatsAssertion.assertThat;
-import static com.facebook.presto.cost.SemiJoinStatsCalculator.computeAntiJoin;
-import static com.facebook.presto.cost.SemiJoinStatsCalculator.computeSemiJoin;
+import static io.prestosql.cost.PlanNodeStatsAssertion.assertThat;
+import static io.prestosql.cost.SemiJoinStatsCalculator.computeAntiJoin;
+import static io.prestosql.cost.SemiJoinStatsCalculator.computeSemiJoin;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;

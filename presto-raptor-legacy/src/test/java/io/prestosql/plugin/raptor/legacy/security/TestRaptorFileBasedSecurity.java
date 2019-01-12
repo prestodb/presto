@@ -13,18 +13,18 @@
  */
 package io.prestosql.plugin.raptor.legacy.security;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.spi.security.Identity;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public class TestRaptorFileBasedSecurity
 {

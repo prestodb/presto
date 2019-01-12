@@ -13,13 +13,13 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.execution.QueryStats;
-import com.facebook.presto.operator.BlockedReason;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.execution.QueryStats;
+import io.prestosql.operator.BlockedReason;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.Immutable;

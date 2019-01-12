@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.raptor.legacy.metadata;
 
-import com.facebook.presto.raptor.NodeSupplier;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Ticker;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.raptor.legacy.NodeSupplier;
+import io.prestosql.spi.Node;
+import io.prestosql.spi.PrestoException;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -33,9 +33,9 @@ import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_REASSIGNMENT_DELAY;
-import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_REASSIGNMENT_THROTTLE;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_REASSIGNMENT_DELAY;
+import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_REASSIGNMENT_THROTTLE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;

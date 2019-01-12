@@ -51,7 +51,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.parquet.ParquetValidationUtils.validateParquet;
+import static io.prestosql.parquet.ParquetValidationUtils.validateParquet;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static parquet.format.Util.readFileMetaData;
 

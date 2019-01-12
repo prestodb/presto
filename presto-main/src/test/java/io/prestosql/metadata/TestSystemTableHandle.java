@@ -13,16 +13,16 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.connector.system.SystemTableHandle;
-import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import io.airlift.json.JsonModule;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.system.SystemTableHandle;
+import io.prestosql.spi.connector.ConnectorTableHandle;
+import io.prestosql.spi.connector.SchemaTableName;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 

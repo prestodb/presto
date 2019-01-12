@@ -13,15 +13,15 @@
  */
 package io.prestosql.plugin.hive.metastore.thrift;
 
-import com.facebook.presto.hive.ForCachingHiveMetastore;
-import com.facebook.presto.hive.ForRecordingHiveMetastore;
-import com.facebook.presto.hive.HiveClientConfig;
-import com.facebook.presto.hive.metastore.CachingHiveMetastore;
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.hive.metastore.RecordingHiveMetastore;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.prestosql.plugin.hive.ForCachingHiveMetastore;
+import io.prestosql.plugin.hive.ForRecordingHiveMetastore;
+import io.prestosql.plugin.hive.HiveClientConfig;
+import io.prestosql.plugin.hive.metastore.CachingHiveMetastore;
+import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
+import io.prestosql.plugin.hive.metastore.RecordingHiveMetastore;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;

@@ -21,7 +21,7 @@ import java.sql.SQLException;
 import java.util.Objects;
 import java.util.UUID;
 
-import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
+import static io.prestosql.plugin.raptor.legacy.util.UuidUtil.uuidFromBytes;
 import static java.util.Objects.requireNonNull;
 
 public class ShardNodeId

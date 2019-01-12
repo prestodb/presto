@@ -13,26 +13,26 @@
  */
 package io.prestosql.sql.planner.iterative;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.cost.CachingCostProvider;
-import com.facebook.presto.cost.CachingStatsProvider;
-import com.facebook.presto.cost.CostCalculator;
-import com.facebook.presto.cost.CostProvider;
-import com.facebook.presto.cost.StatsCalculator;
-import com.facebook.presto.cost.StatsProvider;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.matching.Match;
-import com.facebook.presto.matching.Matcher;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.RuleStatsRecorder;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
+import io.prestosql.Session;
+import io.prestosql.SystemSessionProperties;
+import io.prestosql.cost.CachingCostProvider;
+import io.prestosql.cost.CachingStatsProvider;
+import io.prestosql.cost.CostCalculator;
+import io.prestosql.cost.CostProvider;
+import io.prestosql.cost.StatsCalculator;
+import io.prestosql.cost.StatsProvider;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.matching.Match;
+import io.prestosql.matching.Matcher;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.sql.planner.PlanNodeIdAllocator;
+import io.prestosql.sql.planner.RuleStatsRecorder;
+import io.prestosql.sql.planner.SymbolAllocator;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.planner.optimizations.PlanOptimizer;
+import io.prestosql.sql.planner.plan.PlanNode;
 
 import java.util.Iterator;
 import java.util.List;
@@ -40,9 +40,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;

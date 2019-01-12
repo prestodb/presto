@@ -13,9 +13,9 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.util.Mergeable;
 
 public class HashCollisionsInfo
         implements Mergeable<HashCollisionsInfo>, OperatorInfo

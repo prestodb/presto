@@ -13,9 +13,9 @@
  */
 package io.prestosql.operator.index;
 
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.RecordSet;
+import io.prestosql.spi.HostAddress;
+import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.RecordSet;
 
 import java.util.List;
 

@@ -13,9 +13,9 @@
  */
 package io.prestosql.execution.buffer;
 
-import com.facebook.presto.spi.PrestoException;
+import io.prestosql.spi.PrestoException;
 
-import static com.facebook.presto.spi.StandardErrorCode.CORRUPT_PAGE;
+import static io.prestosql.spi.StandardErrorCode.CORRUPT_PAGE;
 
 public enum PageCompression
 {

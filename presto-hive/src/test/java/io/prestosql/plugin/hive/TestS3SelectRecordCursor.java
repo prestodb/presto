@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.TestingTypeManager;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TestingTypeManager;
+import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
@@ -29,12 +29,12 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.hive.HiveType.HIVE_INT;
-import static com.facebook.presto.hive.HiveType.HIVE_STRING;
-import static com.facebook.presto.hive.S3SelectRecordCursor.updateSplitSchema;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
+import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
+import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
+import static io.prestosql.plugin.hive.S3SelectRecordCursor.updateSplitSchema;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.joining;

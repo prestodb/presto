@@ -13,14 +13,14 @@
  */
 package io.prestosql.execution.executor;
 
-import com.facebook.presto.execution.SplitRunner;
-import com.facebook.presto.execution.TaskId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
+import io.prestosql.execution.SplitRunner;
+import io.prestosql.execution.TaskId;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -31,11 +31,11 @@ import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.facebook.presto.execution.executor.MultilevelSplitQueue.LEVEL_CONTRIBUTION_CAP;
-import static com.facebook.presto.execution.executor.MultilevelSplitQueue.LEVEL_THRESHOLD_SECONDS;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertLessThan;
+import static io.prestosql.execution.executor.MultilevelSplitQueue.LEVEL_CONTRIBUTION_CAP;
+import static io.prestosql.execution.executor.MultilevelSplitQueue.LEVEL_THRESHOLD_SECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;

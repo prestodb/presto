@@ -13,19 +13,19 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.matching.Capture;
-import com.facebook.presto.matching.Captures;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
-import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
+import io.prestosql.Session;
+import io.prestosql.matching.Capture;
+import io.prestosql.matching.Captures;
+import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.SymbolsExtractor;
+import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.planner.plan.JoinNode;
+import io.prestosql.sql.planner.plan.PlanNode;
 
 import java.util.HashSet;
 import java.util.List;
@@ -33,17 +33,17 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.SystemSessionProperties.isPushAggregationThroughJoin;
-import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUnique;
-import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
-import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
-import static com.facebook.presto.sql.planner.plan.Patterns.join;
-import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
+import static io.prestosql.SystemSessionProperties.isPushAggregationThroughJoin;
+import static io.prestosql.sql.planner.SymbolsExtractor.extractUnique;
+import static io.prestosql.sql.planner.iterative.rule.Util.restrictOutputs;
+import static io.prestosql.sql.planner.plan.AggregationNode.Step.PARTIAL;
+import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static io.prestosql.sql.planner.plan.Patterns.aggregation;
+import static io.prestosql.sql.planner.plan.Patterns.join;
+import static io.prestosql.sql.planner.plan.Patterns.source;
 
 public class PushPartialAggregationThroughJoin
         implements Rule<AggregationNode>

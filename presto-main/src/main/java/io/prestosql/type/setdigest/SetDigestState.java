@@ -14,8 +14,8 @@
 
 package io.prestosql.type.setdigest;
 
-import com.facebook.presto.spi.function.AccumulatorState;
-import com.facebook.presto.spi.function.AccumulatorStateMetadata;
+import io.prestosql.spi.function.AccumulatorState;
+import io.prestosql.spi.function.AccumulatorStateMetadata;
 
 @AccumulatorStateMetadata(stateSerializerClass = SetDigestStateSerializer.class, stateFactoryClass = SetDigestStateFactory.class)
 public interface SetDigestState

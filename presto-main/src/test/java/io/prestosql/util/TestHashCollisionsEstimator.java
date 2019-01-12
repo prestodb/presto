@@ -16,8 +16,8 @@ package io.prestosql.util;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
-import static com.facebook.presto.util.HashCollisionsSimulator.simulate;
+import static io.prestosql.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
+import static io.prestosql.util.HashCollisionsSimulator.simulate;
 import static java.lang.Math.pow;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

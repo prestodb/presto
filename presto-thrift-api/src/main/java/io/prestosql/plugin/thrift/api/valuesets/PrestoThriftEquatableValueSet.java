@@ -13,22 +13,22 @@
  */
 package io.prestosql.plugin.thrift.api.valuesets;
 
-import com.facebook.presto.connector.thrift.api.PrestoThriftBlock;
-import com.facebook.presto.spi.predicate.EquatableValueSet;
-import com.facebook.presto.spi.predicate.EquatableValueSet.ValueEntry;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.drift.annotations.ThriftConstructor;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
+import io.prestosql.plugin.thrift.api.PrestoThriftBlock;
+import io.prestosql.spi.predicate.EquatableValueSet;
+import io.prestosql.spi.predicate.EquatableValueSet.ValueEntry;
+import io.prestosql.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.fromBlock;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.plugin.thrift.api.PrestoThriftBlock.fromBlock;
 import static java.util.Objects.requireNonNull;
 
 /**

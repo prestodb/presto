@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.raptor.legacy.metadata;
 
-import com.facebook.presto.raptor.util.UuidUtil.UuidArgumentFactory;
-import com.facebook.presto.raptor.util.UuidUtil.UuidMapperFactory;
+import io.prestosql.plugin.raptor.legacy.util.UuidUtil.UuidArgumentFactory;
+import io.prestosql.plugin.raptor.legacy.util.UuidUtil.UuidMapperFactory;
 import org.skife.jdbi.v2.sqlobject.Bind;
 import org.skife.jdbi.v2.sqlobject.SqlBatch;
 import org.skife.jdbi.v2.sqlobject.SqlUpdate;

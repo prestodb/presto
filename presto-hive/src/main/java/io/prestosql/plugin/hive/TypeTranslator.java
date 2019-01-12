@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.type.Type;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 public interface TypeTranslator

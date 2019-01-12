@@ -13,17 +13,17 @@
  */
 package io.prestosql.plugin.raptor.legacy.metadata;
 
-import com.facebook.presto.raptor.util.DaoSupplier;
-import com.facebook.presto.spi.PrestoException;
 import io.airlift.log.Logger;
+import io.prestosql.plugin.raptor.legacy.util.DaoSupplier;
+import io.prestosql.spi.PrestoException;
 
 import javax.inject.Inject;
 
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
-import static com.facebook.presto.raptor.util.DatabaseUtil.runIgnoringConstraintViolation;
+import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.metadataError;
+import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.runIgnoringConstraintViolation;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class DatabaseShardRecorder

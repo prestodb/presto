@@ -13,20 +13,20 @@
  */
 package io.prestosql.orc;
 
-import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
-import com.facebook.presto.orc.metadata.OrcMetadataReader;
-import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
-import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
-import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
+import io.prestosql.orc.TupleDomainOrcPredicate.ColumnReference;
+import io.prestosql.orc.metadata.OrcMetadataReader;
+import io.prestosql.orc.metadata.statistics.ColumnStatistics;
+import io.prestosql.orc.metadata.statistics.HiveBloomFilter;
+import io.prestosql.orc.metadata.statistics.IntegerStatistics;
 import io.prestosql.orc.proto.OrcProto;
 import io.prestosql.orc.protobuf.CodedInputStream;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.Type;
 import org.apache.hive.common.util.BloomFilter;
 import org.testng.annotations.Test;
 
@@ -43,17 +43,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.orc.TupleDomainOrcPredicate.checkInBloomFilter;
-import static com.facebook.presto.orc.TupleDomainOrcPredicate.extractDiscreteValues;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.prestosql.orc.TupleDomainOrcPredicate.checkInBloomFilter;
+import static io.prestosql.orc.TupleDomainOrcPredicate.extractDiscreteValues;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

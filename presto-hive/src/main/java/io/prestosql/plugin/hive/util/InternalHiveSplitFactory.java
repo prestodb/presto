@@ -13,17 +13,17 @@
  */
 package io.prestosql.plugin.hive.util;
 
-import com.facebook.presto.hive.HiveColumnHandle;
-import com.facebook.presto.hive.HivePartitionKey;
-import com.facebook.presto.hive.HiveSplit.BucketConversion;
-import com.facebook.presto.hive.HiveTypeName;
-import com.facebook.presto.hive.InternalHiveSplit;
-import com.facebook.presto.hive.InternalHiveSplit.InternalHiveBlock;
-import com.facebook.presto.hive.S3SelectPushdown;
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.hive.HiveColumnHandle;
+import io.prestosql.plugin.hive.HivePartitionKey;
+import io.prestosql.plugin.hive.HiveSplit.BucketConversion;
+import io.prestosql.plugin.hive.HiveTypeName;
+import io.prestosql.plugin.hive.InternalHiveSplit;
+import io.prestosql.plugin.hive.InternalHiveSplit.InternalHiveBlock;
+import io.prestosql.plugin.hive.S3SelectPushdown;
+import io.prestosql.spi.HostAddress;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.TupleDomain;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -41,11 +41,11 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
-import static com.facebook.presto.hive.HiveUtil.isSplittable;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.plugin.hive.HiveColumnHandle.isPathColumnHandle;
+import static io.prestosql.plugin.hive.HiveUtil.isSplittable;
 import static java.util.Objects.requireNonNull;
 
 public class InternalHiveSplitFactory

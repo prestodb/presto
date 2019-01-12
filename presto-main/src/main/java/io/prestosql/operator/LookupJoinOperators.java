@@ -13,10 +13,10 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.operator.JoinProbe.JoinProbeFactory;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spiller.PartitioningSpillerFactory;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import io.prestosql.operator.JoinProbe.JoinProbeFactory;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spiller.PartitioningSpillerFactory;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import javax.inject.Inject;
 

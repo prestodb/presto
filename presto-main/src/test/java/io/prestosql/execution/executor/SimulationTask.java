@@ -13,11 +13,11 @@
  */
 package io.prestosql.execution.executor;
 
-import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.execution.executor.SimulationController.TaskSpecification;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import io.airlift.units.Duration;
+import io.prestosql.execution.TaskId;
+import io.prestosql.execution.executor.SimulationController.TaskSpecification;
 
 import java.util.OptionalInt;
 import java.util.Set;

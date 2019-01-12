@@ -13,7 +13,7 @@
  */
 package io.prestosql.operator.aggregation.state;
 
-import com.facebook.presto.spi.function.AccumulatorStateMetadata;
+import io.prestosql.spi.function.AccumulatorStateMetadata;
 
 @AccumulatorStateMetadata(stateFactoryClass = LongDecimalWithOverflowAndLongStateFactory.class, stateSerializerClass = LongDecimalWithOverflowAndLongStateSerializer.class)
 public interface LongDecimalWithOverflowAndLongState

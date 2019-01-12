@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
+import io.prestosql.spi.Plugin;
+import io.prestosql.spi.connector.ConnectorFactory;
 
 import java.util.Optional;
 

@@ -13,7 +13,7 @@
  */
 package io.prestosql.parquet.reader;
 
-import com.facebook.presto.spi.block.Block;
+import io.prestosql.spi.block.Block;
 
 import static java.util.Objects.requireNonNull;
 

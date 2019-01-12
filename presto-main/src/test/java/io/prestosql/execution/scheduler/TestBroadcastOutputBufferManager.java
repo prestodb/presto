@@ -13,16 +13,16 @@
  */
 package io.prestosql.execution.scheduler;
 
-import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.OutputBuffers;
+import io.prestosql.OutputBuffers.OutputBufferId;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
-import static com.facebook.presto.OutputBuffers.BufferType.BROADCAST;
-import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.prestosql.OutputBuffers.BROADCAST_PARTITION_ID;
+import static io.prestosql.OutputBuffers.BufferType.BROADCAST;
+import static io.prestosql.OutputBuffers.createInitialEmptyOutputBuffers;
 import static org.testng.Assert.assertEquals;
 
 public class TestBroadcastOutputBufferManager

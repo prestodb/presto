@@ -13,16 +13,16 @@
  */
 package io.prestosql.plugin.memory;
 
-import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.MaterializedRow;
-import com.facebook.presto.tests.AbstractTestQueryFramework;
+import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.MaterializedRow;
+import io.prestosql.tests.AbstractTestQueryFramework;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
 

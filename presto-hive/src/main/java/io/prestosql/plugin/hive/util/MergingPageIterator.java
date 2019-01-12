@@ -13,23 +13,23 @@
  */
 package io.prestosql.plugin.hive.util;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.type.Type;
 
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.hive.util.SortBuffer.appendPositionTo;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterators.concat;
 import static com.google.common.collect.Iterators.mergeSorted;
 import static com.google.common.collect.Iterators.transform;
+import static io.prestosql.plugin.hive.util.SortBuffer.appendPositionTo;
 import static java.util.Comparator.naturalOrder;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;

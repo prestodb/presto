@@ -33,11 +33,11 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.geospatial.serde.GeometrySerde.deserialize;
-import static com.facebook.presto.plugin.geospatial.GeoFunctions.stEnvelope;
-import static com.facebook.presto.plugin.geospatial.GeoFunctions.stGeometryFromText;
-import static com.facebook.presto.plugin.geospatial.GeoFunctions.stIntersection;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.geospatial.serde.GeometrySerde.deserialize;
+import static io.prestosql.plugin.geospatial.GeoFunctions.stEnvelope;
+import static io.prestosql.plugin.geospatial.GeoFunctions.stGeometryFromText;
+import static io.prestosql.plugin.geospatial.GeoFunctions.stIntersection;
 import static org.testng.Assert.assertEquals;
 
 @State(Scope.Thread)

@@ -13,8 +13,8 @@
  */
 package io.prestosql.decoder.json;
 
-import com.facebook.presto.decoder.FieldValueProvider;
 import com.fasterxml.jackson.databind.JsonNode;
+import io.prestosql.decoder.FieldValueProvider;
 
 public interface JsonFieldDecoder
 {

@@ -13,14 +13,14 @@
  */
 package io.prestosql.operator.index;
 
-import com.facebook.presto.operator.project.InputChannels;
-import com.facebook.presto.operator.project.PageFilter;
-import com.facebook.presto.operator.project.SelectedPositions;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.operator.project.InputChannels;
+import io.prestosql.operator.project.PageFilter;
+import io.prestosql.operator.project.SelectedPositions;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 

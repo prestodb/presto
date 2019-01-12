@@ -13,22 +13,22 @@
  */
 package io.prestosql.plugin.hive.authentication;
 
-import com.facebook.presto.hive.HiveClientConfig;
-import com.facebook.presto.hive.HiveClientConfig.HdfsAuthenticationType;
-import com.facebook.presto.hive.HiveClientConfig.HiveMetastoreAuthenticationType;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.prestosql.plugin.hive.HiveClientConfig;
+import io.prestosql.plugin.hive.HiveClientConfig.HdfsAuthenticationType;
+import io.prestosql.plugin.hive.HiveClientConfig.HiveMetastoreAuthenticationType;
 
 import java.util.function.Predicate;
 
-import static com.facebook.presto.hive.authentication.AuthenticationModules.kerberosHdfsAuthenticationModule;
-import static com.facebook.presto.hive.authentication.AuthenticationModules.kerberosHiveMetastoreAuthenticationModule;
-import static com.facebook.presto.hive.authentication.AuthenticationModules.kerberosImpersonatingHdfsAuthenticationModule;
-import static com.facebook.presto.hive.authentication.AuthenticationModules.noHdfsAuthenticationModule;
-import static com.facebook.presto.hive.authentication.AuthenticationModules.noHiveMetastoreAuthenticationModule;
-import static com.facebook.presto.hive.authentication.AuthenticationModules.simpleImpersonatingHdfsAuthenticationModule;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.prestosql.plugin.hive.authentication.AuthenticationModules.kerberosHdfsAuthenticationModule;
+import static io.prestosql.plugin.hive.authentication.AuthenticationModules.kerberosHiveMetastoreAuthenticationModule;
+import static io.prestosql.plugin.hive.authentication.AuthenticationModules.kerberosImpersonatingHdfsAuthenticationModule;
+import static io.prestosql.plugin.hive.authentication.AuthenticationModules.noHdfsAuthenticationModule;
+import static io.prestosql.plugin.hive.authentication.AuthenticationModules.noHiveMetastoreAuthenticationModule;
+import static io.prestosql.plugin.hive.authentication.AuthenticationModules.simpleImpersonatingHdfsAuthenticationModule;
 
 public class HiveAuthenticationModule
         extends AbstractConfigurationAwareModule

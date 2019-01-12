@@ -13,8 +13,8 @@
  */
 package io.prestosql.server.security;
 
-import com.facebook.presto.spi.security.AccessDeniedException;
 import com.google.common.base.Splitter;
+import io.prestosql.spi.security.AccessDeniedException;
 
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;

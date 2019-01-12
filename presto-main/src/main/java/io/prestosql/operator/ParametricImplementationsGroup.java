@@ -13,17 +13,17 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.metadata.Signature;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.operator.annotations.FunctionsParserHelper.validateSignaturesCompatibility;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.operator.annotations.FunctionsParserHelper.validateSignaturesCompatibility;
 import static java.util.Objects.requireNonNull;
 
 /**

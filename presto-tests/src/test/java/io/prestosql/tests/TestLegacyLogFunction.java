@@ -13,14 +13,14 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.QueryRunner;
+import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.sql.analyzer.SemanticException;
+import io.prestosql.testing.LocalQueryRunner;
+import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 
 // run single threaded to avoid creating multiple query runners at once

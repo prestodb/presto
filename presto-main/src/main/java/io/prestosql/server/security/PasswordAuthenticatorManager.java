@@ -13,10 +13,10 @@
  */
 package io.prestosql.server.security;
 
-import com.facebook.presto.spi.security.PasswordAuthenticator;
-import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
+import io.prestosql.spi.security.PasswordAuthenticator;
+import io.prestosql.spi.security.PasswordAuthenticatorFactory;
 
 import java.io.File;
 import java.util.HashMap;
@@ -25,10 +25,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.prestosql.util.PropertiesUtil.loadProperties;
 import static java.util.Objects.requireNonNull;
 
 public class PasswordAuthenticatorManager

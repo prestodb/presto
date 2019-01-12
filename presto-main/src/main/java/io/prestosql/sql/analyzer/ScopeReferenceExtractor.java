@@ -13,10 +13,10 @@
  */
 package io.prestosql.sql.analyzer;
 
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.sql.util.AstUtils;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Node;
+import io.prestosql.sql.tree.NodeRef;
+import io.prestosql.sql.util.AstUtils;
 
 import java.util.Map;
 import java.util.Objects;

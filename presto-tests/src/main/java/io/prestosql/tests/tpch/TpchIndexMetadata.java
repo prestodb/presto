@@ -13,27 +13,27 @@
  */
 package io.prestosql.tests.tpch;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorResolvedIndex;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.predicate.NullableValue;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.tpch.TpchMetadata;
-import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import io.prestosql.plugin.tpch.TpchMetadata;
+import io.prestosql.plugin.tpch.TpchTableHandle;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorResolvedIndex;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorTableHandle;
+import io.prestosql.spi.predicate.NullableValue;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.tests.tpch.TpchIndexProvider.handleToNames;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
+import static io.prestosql.tests.tpch.TpchIndexProvider.handleToNames;
 import static java.util.Objects.requireNonNull;
 
 public class TpchIndexMetadata

@@ -13,19 +13,19 @@
  */
 package io.prestosql.plugin.ml;
 
-import com.facebook.presto.ml.type.ModelType;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.plugin.ml.type.ModelType;
 
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.facebook.presto.ml.ModelUtils.serialize;
-import static com.facebook.presto.ml.type.ClassifierType.VARCHAR_CLASSIFIER;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.plugin.ml.ModelUtils.serialize;
+import static io.prestosql.plugin.ml.type.ClassifierType.VARCHAR_CLASSIFIER;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 

@@ -14,10 +14,10 @@
 
 package io.prestosql.plugin.ml;
 
-import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import io.prestosql.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.BeforeClass;
 
-import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
+import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
 
 abstract class AbstractTestMLFunctions
         extends AbstractTestFunctions

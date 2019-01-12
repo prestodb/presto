@@ -13,15 +13,15 @@
  */
 package io.prestosql.plugin.thrift;
 
-import com.facebook.presto.connector.thrift.annotations.ForMetadataRefresh;
-import com.facebook.presto.connector.thrift.api.PrestoThriftService;
-import com.facebook.presto.connector.thrift.api.PrestoThriftServiceException;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.drift.client.ExceptionClassification;
 import io.airlift.drift.client.ExceptionClassification.HostStatus;
+import io.prestosql.plugin.thrift.annotations.ForMetadataRefresh;
+import io.prestosql.plugin.thrift.api.PrestoThriftService;
+import io.prestosql.plugin.thrift.api.PrestoThriftServiceException;
 
 import javax.inject.Singleton;
 

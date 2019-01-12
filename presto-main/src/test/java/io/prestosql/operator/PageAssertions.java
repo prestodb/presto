@@ -13,12 +13,12 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 
-import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
+import static io.prestosql.block.BlockAssertions.assertBlockEquals;
 import static org.testng.Assert.assertEquals;
 
 public final class PageAssertions

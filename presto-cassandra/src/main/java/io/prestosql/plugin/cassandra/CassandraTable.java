@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.cassandra;
 
-import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.cassandra.util.CassandraCqlUtils;
 
 import java.util.List;
 

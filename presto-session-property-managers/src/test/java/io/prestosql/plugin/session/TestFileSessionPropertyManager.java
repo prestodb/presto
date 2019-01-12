@@ -14,14 +14,14 @@
 
 package io.prestosql.plugin.session;
 
-import com.facebook.presto.spi.resourceGroups.QueryType;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.session.SessionConfigurationContext;
-import com.facebook.presto.spi.session.SessionPropertyConfigurationManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.TempFile;
+import io.prestosql.spi.resourcegroups.QueryType;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.spi.session.SessionConfigurationContext;
+import io.prestosql.spi.session.SessionPropertyConfigurationManager;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -32,7 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
-import static com.facebook.presto.session.FileSessionPropertyManager.CODEC;
+import static io.prestosql.plugin.session.FileSessionPropertyManager.CODEC;
 import static org.testng.Assert.assertEquals;
 
 public class TestFileSessionPropertyManager

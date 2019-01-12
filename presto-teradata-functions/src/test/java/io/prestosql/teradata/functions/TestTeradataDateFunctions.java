@@ -13,21 +13,21 @@
  */
 package io.prestosql.teradata.functions;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.SqlDate;
-import com.facebook.presto.spi.type.TimestampType;
+import io.prestosql.Session;
+import io.prestosql.operator.scalar.AbstractTestFunctions;
+import io.prestosql.spi.type.DateType;
+import io.prestosql.spi.type.SqlDate;
+import io.prestosql.spi.type.TimestampType;
 import org.joda.time.DateTime;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
 
-import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.Math.toIntExact;
 
 public class TestTeradataDateFunctions

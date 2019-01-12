@@ -13,18 +13,18 @@
  */
 package io.prestosql.orc;
 
-import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.block.BlockEncodingManager;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.type.TypeRegistry;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.serde2.SerDeException;
@@ -38,18 +38,18 @@ import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
 
-import static com.facebook.presto.orc.OrcEncoding.ORC;
-import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
-import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
-import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
-import static com.facebook.presto.orc.OrcTester.createCustomOrcRecordReader;
-import static com.facebook.presto.orc.OrcTester.createOrcRecordWriter;
-import static com.facebook.presto.orc.OrcTester.createSettableStructObjectInspector;
-import static com.facebook.presto.spi.block.MethodHandleUtil.compose;
-import static com.facebook.presto.spi.block.MethodHandleUtil.nativeValueGetter;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.testing.Assertions.assertGreaterThan;
+import static io.prestosql.orc.OrcEncoding.ORC;
+import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
+import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
+import static io.prestosql.orc.OrcTester.Format.ORC_12;
+import static io.prestosql.orc.OrcTester.createCustomOrcRecordReader;
+import static io.prestosql.orc.OrcTester.createOrcRecordWriter;
+import static io.prestosql.orc.OrcTester.createSettableStructObjectInspector;
+import static io.prestosql.spi.block.MethodHandleUtil.compose;
+import static io.prestosql.spi.block.MethodHandleUtil.nativeValueGetter;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestOrcReaderMemoryUsage

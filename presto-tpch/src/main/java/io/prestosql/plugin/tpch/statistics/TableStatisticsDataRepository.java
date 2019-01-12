@@ -25,8 +25,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Optional;
 
-import static com.facebook.presto.tpch.util.Optionals.withBoth;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.plugin.tpch.util.Optionals.withBoth;
 import static java.lang.String.format;
 
 public class TableStatisticsDataRepository

@@ -13,15 +13,15 @@
  */
 package io.prestosql.parquet;
 
-import com.facebook.presto.spi.PrestoException;
+import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.hive.ql.io.parquet.timestamp.NanoTimeUtils;
 import org.testng.annotations.Test;
 import parquet.io.api.Binary;
 
 import java.sql.Timestamp;
 
-import static com.facebook.presto.parquet.ParquetTimestampUtils.getTimestampMillis;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.parquet.ParquetTimestampUtils.getTimestampMillis;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static org.testng.Assert.assertEquals;
 
 public class TestParquetTimestampUtils

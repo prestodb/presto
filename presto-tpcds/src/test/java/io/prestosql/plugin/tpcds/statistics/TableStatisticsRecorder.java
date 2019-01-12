@@ -14,14 +14,14 @@
 
 package io.prestosql.plugin.tpcds.statistics;
 
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.tpcds.TpcdsRecordSet;
 import com.google.common.collect.ImmutableList;
 import com.teradata.tpcds.Results;
 import com.teradata.tpcds.Session;
 import com.teradata.tpcds.Table;
 import com.teradata.tpcds.column.Column;
 import com.teradata.tpcds.column.ColumnType;
+import io.prestosql.plugin.tpcds.TpcdsRecordSet;
+import io.prestosql.spi.connector.RecordCursor;
 
 import java.util.List;
 import java.util.Map;

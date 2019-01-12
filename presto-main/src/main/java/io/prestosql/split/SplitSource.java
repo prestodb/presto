@@ -13,12 +13,12 @@
  */
 package io.prestosql.split;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.execution.Lifespan;
+import io.prestosql.metadata.Split;
+import io.prestosql.spi.connector.ConnectorPartitionHandle;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 import java.io.Closeable;
 import java.util.List;

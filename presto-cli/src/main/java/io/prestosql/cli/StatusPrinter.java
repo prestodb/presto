@@ -13,32 +13,32 @@
  */
 package io.prestosql.cli;
 
-import com.facebook.presto.client.QueryStatusInfo;
-import com.facebook.presto.client.StageStats;
-import com.facebook.presto.client.StatementClient;
-import com.facebook.presto.client.StatementStats;
 import com.google.common.base.Strings;
 import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.client.QueryStatusInfo;
+import io.prestosql.client.StageStats;
+import io.prestosql.client.StatementClient;
+import io.prestosql.client.StatementStats;
 
 import java.io.PrintStream;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.facebook.presto.cli.FormatUtils.formatCount;
-import static com.facebook.presto.cli.FormatUtils.formatCountRate;
-import static com.facebook.presto.cli.FormatUtils.formatDataRate;
-import static com.facebook.presto.cli.FormatUtils.formatDataSize;
-import static com.facebook.presto.cli.FormatUtils.formatProgressBar;
-import static com.facebook.presto.cli.FormatUtils.formatTime;
-import static com.facebook.presto.cli.FormatUtils.pluralize;
-import static com.facebook.presto.cli.KeyReader.readKey;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.cli.FormatUtils.formatCount;
+import static io.prestosql.cli.FormatUtils.formatCountRate;
+import static io.prestosql.cli.FormatUtils.formatDataRate;
+import static io.prestosql.cli.FormatUtils.formatDataSize;
+import static io.prestosql.cli.FormatUtils.formatProgressBar;
+import static io.prestosql.cli.FormatUtils.formatTime;
+import static io.prestosql.cli.FormatUtils.pluralize;
+import static io.prestosql.cli.KeyReader.readKey;
 import static java.lang.Character.toUpperCase;
 import static java.lang.Math.max;
 import static java.lang.Math.min;

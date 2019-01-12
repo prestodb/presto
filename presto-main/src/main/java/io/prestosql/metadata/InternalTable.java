@@ -13,19 +13,19 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.connector.ColumnMetadata;
+import io.prestosql.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
 import static java.util.Objects.requireNonNull;
 
 public class InternalTable

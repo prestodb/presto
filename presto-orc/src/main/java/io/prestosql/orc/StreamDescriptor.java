@@ -13,13 +13,13 @@
  */
 package io.prestosql.orc;
 
-import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.orc.metadata.OrcType.OrcTypeKind;
 
 import java.util.List;
 
-import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
 import static java.util.Objects.requireNonNull;
 
 public final class StreamDescriptor

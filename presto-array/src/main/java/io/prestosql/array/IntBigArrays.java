@@ -13,8 +13,8 @@
  */
 package io.prestosql.array;
 
-import static com.facebook.presto.array.BigArrays.SEGMENT_SHIFT;
-import static com.facebook.presto.array.BigArrays.SEGMENT_SIZE;
+import static io.prestosql.array.BigArrays.SEGMENT_SHIFT;
+import static io.prestosql.array.BigArrays.SEGMENT_SIZE;
 
 // Note: this code was forked from fastutil (http://fastutil.di.unimi.it/)
 // Copyright (C) 2010-2013 Sebastiano Vigna

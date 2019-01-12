@@ -13,7 +13,7 @@
  */
 package io.prestosql.spi.type;
 
-import com.facebook.presto.spi.function.OperatorType;
+import io.prestosql.spi.function.OperatorType;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collection;

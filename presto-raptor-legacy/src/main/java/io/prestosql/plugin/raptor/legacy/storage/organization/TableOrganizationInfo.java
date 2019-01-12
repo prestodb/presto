@@ -20,7 +20,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.OptionalLong;
 
-import static com.facebook.presto.raptor.util.DatabaseUtil.getOptionalLong;
+import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.getOptionalLong;
 import static java.util.Objects.requireNonNull;
 
 public class TableOrganizationInfo

@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.postgresql;
 
-import com.facebook.presto.plugin.jdbc.JdbcPlugin;
+import io.prestosql.plugin.jdbc.JdbcPlugin;
 
 public class PostgreSqlPlugin
         extends JdbcPlugin

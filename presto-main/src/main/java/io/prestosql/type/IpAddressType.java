@@ -13,18 +13,18 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.AbstractFixedWidthType;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.AbstractFixedWidthType;
+import io.prestosql.spi.type.StandardTypes;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 
 public class IpAddressType
         extends AbstractFixedWidthType

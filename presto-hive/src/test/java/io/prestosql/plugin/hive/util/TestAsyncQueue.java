@@ -14,10 +14,10 @@
 
 package io.prestosql.plugin.hive.util;
 
-import com.facebook.presto.hive.util.AsyncQueue.BorrowResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.Threads;
+import io.prestosql.plugin.hive.util.AsyncQueue.BorrowResult;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;

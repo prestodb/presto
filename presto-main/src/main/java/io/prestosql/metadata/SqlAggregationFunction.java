@@ -13,17 +13,17 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.operator.aggregation.AggregationFromAnnotationsParser;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.operator.aggregation.AggregationFromAnnotationsParser;
+import io.prestosql.operator.aggregation.InternalAggregationFunction;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.util.List;
 
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static java.util.Objects.requireNonNull;
 
 public abstract class SqlAggregationFunction

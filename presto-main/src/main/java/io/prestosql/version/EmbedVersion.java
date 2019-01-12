@@ -13,21 +13,18 @@
  */
 package io.prestosql.version;
 
-import com.facebook.presto.server.ServerConfig;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
+import io.prestosql.server.ServerConfig;
 
 import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Objects;
 
-import static com.facebook.presto.util.CompilerUtils.defineClass;
-import static com.facebook.presto.util.CompilerUtils.makeClassName;
-import static com.facebook.presto.util.Reflection.constructorMethodHandle;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
@@ -35,6 +32,9 @@ import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
+import static io.prestosql.util.CompilerUtils.defineClass;
+import static io.prestosql.util.CompilerUtils.makeClassName;
+import static io.prestosql.util.Reflection.constructorMethodHandle;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

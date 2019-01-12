@@ -13,19 +13,19 @@
  */
 package io.prestosql.sql.gen;
 
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.base.Preconditions;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Variable;
+import io.prestosql.metadata.Signature;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.relational.RowExpression;
 
 import java.util.List;
 
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.instruction.Constant.loadBoolean;
+import static io.prestosql.type.UnknownType.UNKNOWN;
 
 public class IsNullCodeGenerator
         implements BytecodeGenerator

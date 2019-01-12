@@ -13,19 +13,6 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.eventlistener.EventListenerManager;
-import com.facebook.presto.eventlistener.EventListenerModule;
-import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
-import com.facebook.presto.execution.warnings.WarningCollectorModule;
-import com.facebook.presto.metadata.Catalog;
-import com.facebook.presto.metadata.CatalogManager;
-import com.facebook.presto.metadata.StaticCatalogStore;
-import com.facebook.presto.security.AccessControlManager;
-import com.facebook.presto.security.AccessControlModule;
-import com.facebook.presto.server.security.PasswordAuthenticatorManager;
-import com.facebook.presto.server.security.ServerSecurityModule;
-import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -46,6 +33,19 @@ import io.airlift.log.LogJmxModule;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
+import io.prestosql.eventlistener.EventListenerManager;
+import io.prestosql.eventlistener.EventListenerModule;
+import io.prestosql.execution.resourceGroups.ResourceGroupManager;
+import io.prestosql.execution.scheduler.NodeSchedulerConfig;
+import io.prestosql.execution.warnings.WarningCollectorModule;
+import io.prestosql.metadata.Catalog;
+import io.prestosql.metadata.CatalogManager;
+import io.prestosql.metadata.StaticCatalogStore;
+import io.prestosql.security.AccessControlManager;
+import io.prestosql.security.AccessControlModule;
+import io.prestosql.server.security.PasswordAuthenticatorManager;
+import io.prestosql.server.security.ServerSecurityModule;
+import io.prestosql.sql.parser.SqlParserOptions;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.LinkedHashSet;
@@ -53,11 +53,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.server.PrestoSystemRequirements.verifyJvmRequirements;
-import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
+import static io.prestosql.server.PrestoSystemRequirements.verifyJvmRequirements;
+import static io.prestosql.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoServer

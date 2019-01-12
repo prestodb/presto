@@ -14,15 +14,15 @@
 
 package io.prestosql.spi.block;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodType.methodType;
 

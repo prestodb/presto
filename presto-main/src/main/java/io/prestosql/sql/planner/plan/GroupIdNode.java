@@ -13,7 +13,6 @@
  */
 package io.prestosql.sql.planner.plan;
 
-import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -21,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import io.prestosql.sql.planner.Symbol;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -31,8 +31,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.util.MoreLists.listOfListsCopy;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 

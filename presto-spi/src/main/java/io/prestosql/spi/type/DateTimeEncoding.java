@@ -13,8 +13,8 @@
  */
 package io.prestosql.spi.type;
 
-import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
-import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
+import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static java.util.Objects.requireNonNull;
 
 public final class DateTimeEncoding

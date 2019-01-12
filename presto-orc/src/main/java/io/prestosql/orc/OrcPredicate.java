@@ -13,7 +13,7 @@
  */
 package io.prestosql.orc;
 
-import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import io.prestosql.orc.metadata.statistics.ColumnStatistics;
 
 import java.util.Map;
 

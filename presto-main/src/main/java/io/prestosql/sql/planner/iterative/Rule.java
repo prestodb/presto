@@ -13,15 +13,15 @@
  */
 package io.prestosql.sql.planner.iterative;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.cost.CostProvider;
-import com.facebook.presto.cost.StatsProvider;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.matching.Captures;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import io.prestosql.Session;
+import io.prestosql.cost.CostProvider;
+import io.prestosql.cost.StatsProvider;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.matching.Captures;
+import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.PlanNodeIdAllocator;
+import io.prestosql.sql.planner.SymbolAllocator;
+import io.prestosql.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 

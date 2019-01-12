@@ -13,19 +13,19 @@
  */
 package io.prestosql.operator.exchange;
 
-import com.facebook.presto.SequencePageBuilder;
-import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.operator.InterpretedHashGenerator;
-import com.facebook.presto.operator.PageAssertions;
-import com.facebook.presto.operator.PipelineExecutionStrategy;
-import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeFactory;
-import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
-import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeSinkFactoryId;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
+import io.prestosql.SequencePageBuilder;
+import io.prestosql.execution.Lifespan;
+import io.prestosql.operator.InterpretedHashGenerator;
+import io.prestosql.operator.PageAssertions;
+import io.prestosql.operator.PipelineExecutionStrategy;
+import io.prestosql.operator.exchange.LocalExchange.LocalExchangeFactory;
+import io.prestosql.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
+import io.prestosql.operator.exchange.LocalExchange.LocalExchangeSinkFactoryId;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -33,16 +33,16 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
-import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.prestosql.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
+import static io.prestosql.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
+import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
+import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
+import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;

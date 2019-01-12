@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.ml;
 
-import com.facebook.presto.ml.type.ModelType;
-import com.facebook.presto.ml.type.RegressorType;
+import io.prestosql.plugin.ml.type.ModelType;
+import io.prestosql.plugin.ml.type.RegressorType;
 
 import java.util.List;
 

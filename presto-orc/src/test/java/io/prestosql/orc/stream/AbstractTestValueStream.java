@@ -13,13 +13,13 @@
  */
 package io.prestosql.orc.stream;
 
-import com.facebook.presto.orc.OrcCorruptionException;
-import com.facebook.presto.orc.OrcDataSourceId;
-import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
-import com.facebook.presto.orc.metadata.Stream;
-import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.prestosql.orc.OrcCorruptionException;
+import io.prestosql.orc.OrcDataSourceId;
+import io.prestosql.orc.checkpoint.StreamCheckpoint;
+import io.prestosql.orc.metadata.Stream;
+import io.prestosql.orc.metadata.Stream.StreamKind;
 
 import java.io.IOException;
 import java.util.List;

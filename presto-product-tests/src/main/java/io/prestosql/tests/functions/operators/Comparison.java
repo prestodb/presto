@@ -17,11 +17,11 @@ import io.prestodb.tempto.ProductTest;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tests.TestGroups.COMPARISON;
-import static com.facebook.presto.tests.TestGroups.QUERY_ENGINE;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestosql.tests.TestGroups.COMPARISON;
+import static io.prestosql.tests.TestGroups.QUERY_ENGINE;
 
 public class Comparison
         extends ProductTest

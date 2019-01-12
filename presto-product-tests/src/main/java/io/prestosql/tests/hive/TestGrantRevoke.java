@@ -21,15 +21,15 @@ import io.prestodb.tempto.ProductTest;
 import io.prestodb.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tests.TestGroups.AUTHORIZATION;
-import static com.facebook.presto.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static com.facebook.presto.tests.utils.QueryExecutors.connectToPresto;
-import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
 import static io.prestodb.tempto.assertions.QueryAssert.Row;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.context.ContextDsl.executeWith;
 import static io.prestodb.tempto.sql.SqlContexts.createViewAs;
+import static io.prestosql.tests.TestGroups.AUTHORIZATION;
+import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.prestosql.tests.utils.QueryExecutors.connectToPresto;
+import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
 
 public class TestGrantRevoke

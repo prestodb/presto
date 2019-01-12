@@ -15,7 +15,7 @@ package io.prestosql.operator.scalar;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.spi.type.VarcharType.createVarcharType;
 
 public class TestWordStemFunction
         extends AbstractTestFunctions

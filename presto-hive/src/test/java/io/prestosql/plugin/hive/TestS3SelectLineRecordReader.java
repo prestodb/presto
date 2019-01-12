@@ -17,7 +17,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 
-import static com.facebook.presto.hive.S3SelectLineRecordReader.UnrecoverableS3OperationException;
+import static io.prestosql.plugin.hive.S3SelectLineRecordReader.UnrecoverableS3OperationException;
 
 public class TestS3SelectLineRecordReader
 {

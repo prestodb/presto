@@ -13,21 +13,21 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage.organization;
 
-import com.facebook.presto.raptor.metadata.ForMetadata;
-import com.facebook.presto.raptor.metadata.MetadataDao;
-import com.facebook.presto.raptor.metadata.ShardManager;
-import com.facebook.presto.raptor.metadata.ShardMetadata;
-import com.facebook.presto.raptor.metadata.Table;
-import com.facebook.presto.raptor.metadata.TableColumn;
-import com.facebook.presto.raptor.storage.StorageManagerConfig;
-import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.raptor.legacy.metadata.ForMetadata;
+import io.prestosql.plugin.raptor.legacy.metadata.MetadataDao;
+import io.prestosql.plugin.raptor.legacy.metadata.ShardManager;
+import io.prestosql.plugin.raptor.legacy.metadata.ShardMetadata;
+import io.prestosql.plugin.raptor.legacy.metadata.Table;
+import io.prestosql.plugin.raptor.legacy.metadata.TableColumn;
+import io.prestosql.plugin.raptor.legacy.storage.StorageManagerConfig;
+import io.prestosql.spi.NodeManager;
+import io.prestosql.spi.type.Type;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.annotation.PostConstruct;
@@ -44,12 +44,12 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.getOrganizationEligibleShards;
-import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.prestosql.plugin.raptor.legacy.storage.organization.ShardOrganizerUtil.getOrganizationEligibleShards;
+import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.onDemandDao;
+import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;

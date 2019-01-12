@@ -13,11 +13,11 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.operator.WorkProcessor.ProcessState;
-import com.facebook.presto.operator.WorkProcessor.Transformation;
-import com.facebook.presto.operator.WorkProcessor.TransformationState;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.operator.WorkProcessor.ProcessState;
+import io.prestosql.operator.WorkProcessor.Transformation;
+import io.prestosql.operator.WorkProcessor.TransformationState;
 
 import javax.annotation.Nullable;
 

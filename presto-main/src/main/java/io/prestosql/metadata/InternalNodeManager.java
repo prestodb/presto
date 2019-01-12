@@ -13,9 +13,9 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.NodeState;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.spi.Node;
+import io.prestosql.spi.NodeState;
 
 import java.util.Set;
 import java.util.function.Consumer;

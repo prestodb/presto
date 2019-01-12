@@ -13,8 +13,8 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 import com.google.common.base.Strings;
+import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 

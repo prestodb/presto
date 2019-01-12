@@ -13,21 +13,21 @@
  */
 package io.prestosql.cost;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.tree.Cast;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.DoubleLiteral;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.StringLiteral;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.tree.Cast;
+import io.prestosql.sql.tree.ComparisonExpression;
+import io.prestosql.sql.tree.DoubleLiteral;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.LongLiteral;
+import io.prestosql.sql.tree.StringLiteral;
+import io.prestosql.sql.tree.SymbolReference;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -37,12 +37,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.spi.type.StandardTypes.BIGINT;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;

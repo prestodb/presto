@@ -13,14 +13,14 @@
  */
 package io.prestosql.plugin.thrift.integration;
 
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.testing.MaterializedResult;
+import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.connector.thrift.integration.ThriftQueryRunner.createThriftQueryRunner;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.tests.QueryAssertions.assertContains;
+import static io.prestosql.plugin.thrift.integration.ThriftQueryRunner.createThriftQueryRunner;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.tests.QueryAssertions.assertContains;
 
 public class TestThriftIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest

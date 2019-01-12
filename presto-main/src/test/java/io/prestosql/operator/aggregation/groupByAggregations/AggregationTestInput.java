@@ -14,12 +14,12 @@
 
 package io.prestosql.operator.aggregation.groupByAggregations;
 
-import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.operator.aggregation.AggregationTestUtils;
-import com.facebook.presto.operator.aggregation.GroupedAccumulator;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.spi.Page;
 import com.google.common.base.Suppliers;
+import io.prestosql.operator.GroupByIdBlock;
+import io.prestosql.operator.aggregation.AggregationTestUtils;
+import io.prestosql.operator.aggregation.GroupedAccumulator;
+import io.prestosql.operator.aggregation.InternalAggregationFunction;
+import io.prestosql.spi.Page;
 import org.testng.internal.collections.Ints;
 
 import java.util.Optional;

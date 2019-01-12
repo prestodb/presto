@@ -13,9 +13,9 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.Node;
+import io.prestosql.client.NodeVersion;
+import io.prestosql.spi.HostAddress;
+import io.prestosql.spi.Node;
 
 import java.net.URI;
 

@@ -13,19 +13,19 @@
  */
 package io.prestosql.plugin.raptor.legacy.systemtables;
 
-import com.facebook.presto.raptor.metadata.ForMetadata;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import io.prestosql.plugin.raptor.legacy.metadata.ForMetadata;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.predicate.TupleDomain;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.inject.Inject;
 
-import static com.facebook.presto.raptor.systemtables.ShardMetadataRecordCursor.SHARD_METADATA;
-import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
+import static io.prestosql.plugin.raptor.legacy.systemtables.ShardMetadataRecordCursor.SHARD_METADATA;
+import static io.prestosql.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static java.util.Objects.requireNonNull;
 
 public class ShardMetadataSystemTable

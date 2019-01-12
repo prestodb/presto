@@ -13,31 +13,31 @@
  */
 package io.prestosql.operator.project;
 
-import com.facebook.presto.operator.DriverYieldSignal;
-import com.facebook.presto.operator.Work;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.LazyBlock;
-import com.facebook.presto.spi.block.LongArrayBlock;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.operator.DriverYieldSignal;
+import io.prestosql.operator.Work;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.DictionaryBlock;
+import io.prestosql.spi.block.LazyBlock;
+import io.prestosql.spi.block.LongArrayBlock;
+import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
-import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
-import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static io.prestosql.block.BlockAssertions.assertBlockEquals;
+import static io.prestosql.block.BlockAssertions.createLongSequenceBlock;
+import static io.prestosql.spi.block.DictionaryId.randomDictionaryId;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;

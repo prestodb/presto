@@ -13,15 +13,15 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.AbstractType;
-import com.facebook.presto.spi.type.TypeSignature;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.BlockBuilderStatus;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.AbstractType;
+import io.prestosql.spi.type.TypeSignature;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
 public class CodePointsType
         extends AbstractType

@@ -13,18 +13,18 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.cost.StatsAndCosts;
-import com.facebook.presto.operator.StageExecutionStrategy;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.cost.StatsAndCosts;
+import io.prestosql.operator.StageExecutionStrategy;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.planner.plan.PlanFragmentId;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.sql.planner.plan.RemoteSourceNode;
 
 import javax.annotation.concurrent.Immutable;
 

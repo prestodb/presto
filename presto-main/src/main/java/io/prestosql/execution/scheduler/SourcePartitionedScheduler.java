@@ -13,17 +13,6 @@
  */
 package io.prestosql.execution.scheduler;
 
-import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.execution.RemoteTask;
-import com.facebook.presto.execution.SqlStageExecution;
-import com.facebook.presto.execution.scheduler.FixedSourcePartitionedScheduler.BucketedSplitPlacementPolicy;
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
-import com.facebook.presto.split.EmptySplit;
-import com.facebook.presto.split.SplitSource;
-import com.facebook.presto.split.SplitSource.SplitBatch;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -31,6 +20,17 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.prestosql.execution.Lifespan;
+import io.prestosql.execution.RemoteTask;
+import io.prestosql.execution.SqlStageExecution;
+import io.prestosql.execution.scheduler.FixedSourcePartitionedScheduler.BucketedSplitPlacementPolicy;
+import io.prestosql.metadata.Split;
+import io.prestosql.spi.Node;
+import io.prestosql.spi.connector.ConnectorPartitionHandle;
+import io.prestosql.split.EmptySplit;
+import io.prestosql.split.SplitSource;
+import io.prestosql.split.SplitSource.SplitBatch;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -41,11 +41,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE;
-import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.NO_ACTIVE_DRIVER_GROUP;
-import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.SPLIT_QUEUES_FULL;
-import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.WAITING_FOR_SOURCE;
-import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -54,6 +49,11 @@ import static com.google.common.util.concurrent.Futures.nonCancellationPropagati
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
+import static io.prestosql.execution.scheduler.ScheduleResult.BlockedReason.MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE;
+import static io.prestosql.execution.scheduler.ScheduleResult.BlockedReason.NO_ACTIVE_DRIVER_GROUP;
+import static io.prestosql.execution.scheduler.ScheduleResult.BlockedReason.SPLIT_QUEUES_FULL;
+import static io.prestosql.execution.scheduler.ScheduleResult.BlockedReason.WAITING_FOR_SOURCE;
+import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static java.util.Objects.requireNonNull;
 
 public class SourcePartitionedScheduler

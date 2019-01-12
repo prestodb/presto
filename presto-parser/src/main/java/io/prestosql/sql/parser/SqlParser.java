@@ -13,10 +13,10 @@
  */
 package io.prestosql.sql.parser;
 
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.PathSpecification;
-import com.facebook.presto.sql.tree.Statement;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Node;
+import io.prestosql.sql.tree.PathSpecification;
+import io.prestosql.sql.tree.Statement;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonToken;

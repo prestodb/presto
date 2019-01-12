@@ -13,15 +13,15 @@
  */
 package io.prestosql.jdbc;
 
-import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.sql.parser.SqlParserOptions;
-import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logging;
 import io.airlift.security.pem.PemReader;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.server.testing.TestingPrestoServer;
+import io.prestosql.sql.parser.SqlParserOptions;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -39,11 +39,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
-import static com.facebook.presto.jdbc.TestPrestoDriver.closeQuietly;
-import static com.facebook.presto.jdbc.TestPrestoDriver.waitForNodeRefresh;
 import static com.google.common.io.Files.asCharSource;
 import static com.google.common.io.Resources.getResource;
 import static io.jsonwebtoken.JwsHeader.KEY_ID;
+import static io.prestosql.jdbc.TestPrestoDriver.closeQuietly;
+import static io.prestosql.jdbc.TestPrestoDriver.waitForNodeRefresh;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Base64.getMimeDecoder;

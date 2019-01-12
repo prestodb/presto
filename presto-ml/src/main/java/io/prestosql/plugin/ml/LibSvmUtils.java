@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.ml;
 
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Splitter;
+import io.prestosql.spi.PrestoException;
 import libsvm.svm_parameter;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 

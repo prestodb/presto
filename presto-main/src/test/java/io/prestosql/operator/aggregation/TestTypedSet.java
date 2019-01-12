@@ -13,24 +13,24 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
 import org.testng.annotations.Test;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.block.BlockAssertions.createEmptyLongsBlock;
-import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
-import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.block.BlockAssertions.createEmptyLongsBlock;
+import static io.prestosql.block.BlockAssertions.createLongSequenceBlock;
+import static io.prestosql.block.BlockAssertions.createLongsBlock;
+import static io.prestosql.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

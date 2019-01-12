@@ -13,25 +13,25 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.sql.analyzer.FieldId;
-import com.facebook.presto.sql.analyzer.RelationId;
-import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
-import com.facebook.presto.sql.tree.ArrayConstructor;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.GenericLiteral;
-import com.facebook.presto.sql.tree.GroupingOperation;
-import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.sql.tree.SubscriptExpression;
+import io.prestosql.sql.analyzer.FieldId;
+import io.prestosql.sql.analyzer.RelationId;
+import io.prestosql.sql.tree.ArithmeticBinaryExpression;
+import io.prestosql.sql.tree.ArrayConstructor;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.GenericLiteral;
+import io.prestosql.sql.tree.GroupingOperation;
+import io.prestosql.sql.tree.LongLiteral;
+import io.prestosql.sql.tree.NodeRef;
+import io.prestosql.sql.tree.SubscriptExpression;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static java.util.Objects.requireNonNull;
 
 public final class GroupingOperationRewriter

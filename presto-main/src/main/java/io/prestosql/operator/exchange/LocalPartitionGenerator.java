@@ -13,10 +13,10 @@
  */
 package io.prestosql.operator.exchange;
 
-import com.facebook.presto.operator.HashGenerator;
-import com.facebook.presto.operator.PartitionFunction;
-import com.facebook.presto.spi.Page;
 import io.airlift.slice.XxHash64;
+import io.prestosql.operator.HashGenerator;
+import io.prestosql.operator.PartitionFunction;
+import io.prestosql.spi.Page;
 
 import static com.google.common.base.Preconditions.checkArgument;
 

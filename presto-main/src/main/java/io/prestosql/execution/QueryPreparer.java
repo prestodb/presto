@@ -13,29 +13,29 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.resourceGroups.QueryType;
-import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.parser.ParsingException;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.tree.Execute;
-import com.facebook.presto.sql.tree.Explain;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.util.StatementUtils;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.Session;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.resourcegroups.QueryType;
+import io.prestosql.sql.analyzer.SemanticException;
+import io.prestosql.sql.parser.ParsingException;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.tree.Execute;
+import io.prestosql.sql.tree.Explain;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Statement;
+import io.prestosql.util.StatementUtils;
 
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.execution.ParameterExtractor.getParameterCount;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
-import static com.facebook.presto.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
+import static io.prestosql.execution.ParameterExtractor.getParameterCount;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.sql.ParsingUtil.createParsingOptions;
+import static io.prestosql.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
 import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
 

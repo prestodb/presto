@@ -27,9 +27,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static com.facebook.presto.geospatial.KdbTree.Node.newInternal;
-import static com.facebook.presto.geospatial.KdbTree.Node.newLeaf;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.geospatial.KdbTree.Node.newInternal;
+import static io.prestosql.geospatial.KdbTree.Node.newLeaf;
 import static java.util.Objects.requireNonNull;
 
 /**

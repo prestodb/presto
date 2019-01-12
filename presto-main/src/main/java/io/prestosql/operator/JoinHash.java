@@ -13,8 +13,8 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;

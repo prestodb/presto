@@ -13,13 +13,13 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.server.SessionContext;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.session.ResourceEstimates;
-import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.server.SessionContext;
+import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.session.ResourceEstimates;
+import io.prestosql.transaction.TransactionId;
 
 import java.util.Map;
 import java.util.Optional;

@@ -13,18 +13,18 @@
  */
 package io.prestosql.operator.aggregation.minmaxby;
 
-import com.facebook.presto.spi.block.AbstractRowBlock;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.ColumnarRow;
-import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.block.AbstractRowBlock;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.ColumnarRow;
+import io.prestosql.spi.function.AccumulatorStateSerializer;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.Type;
 
-import static com.facebook.presto.spi.block.ColumnarRow.toColumnarRow;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.block.ColumnarRow.toColumnarRow;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
 public abstract class KeyAndBlockPositionValueStateSerializer<T extends KeyAndBlockPositionValueState>

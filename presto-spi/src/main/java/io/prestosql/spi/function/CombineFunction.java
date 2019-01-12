@@ -13,7 +13,7 @@
  */
 package io.prestosql.spi.function;
 
-import com.facebook.presto.spi.block.Block;
+import io.prestosql.spi.block.Block;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;

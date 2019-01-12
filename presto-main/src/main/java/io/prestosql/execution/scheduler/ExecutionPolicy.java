@@ -13,7 +13,7 @@
  */
 package io.prestosql.execution.scheduler;
 
-import com.facebook.presto.execution.SqlStageExecution;
+import io.prestosql.execution.SqlStageExecution;
 
 import java.util.Collection;
 

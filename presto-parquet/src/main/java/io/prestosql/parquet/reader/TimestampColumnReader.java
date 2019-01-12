@@ -13,12 +13,12 @@
  */
 package io.prestosql.parquet.reader;
 
-import com.facebook.presto.parquet.RichColumnDescriptor;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.parquet.RichColumnDescriptor;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.Type;
 import parquet.io.api.Binary;
 
-import static com.facebook.presto.parquet.ParquetTimestampUtils.getTimestampMillis;
+import static io.prestosql.parquet.ParquetTimestampUtils.getTimestampMillis;
 
 public class TimestampColumnReader
         extends PrimitiveColumnReader

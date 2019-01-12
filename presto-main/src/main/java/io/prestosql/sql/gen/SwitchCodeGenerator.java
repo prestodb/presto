@@ -13,11 +13,6 @@
  */
 package io.prestosql.sql.gen;
 
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -28,6 +23,11 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.bytecode.instruction.VariableInstruction;
+import io.prestosql.metadata.Signature;
+import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.relational.CallExpression;
+import io.prestosql.sql.relational.RowExpression;
 
 import java.util.List;
 

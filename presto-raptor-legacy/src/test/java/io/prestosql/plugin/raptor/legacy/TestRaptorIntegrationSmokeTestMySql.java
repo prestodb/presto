@@ -13,18 +13,18 @@
  */
 package io.prestosql.plugin.raptor.legacy;
 
-import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.mysql.TestingMySqlServer;
+import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.tests.DistributedQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.Map;
 
-import static com.facebook.presto.raptor.RaptorQueryRunner.copyTables;
-import static com.facebook.presto.raptor.RaptorQueryRunner.createSession;
+import static io.prestosql.plugin.raptor.legacy.RaptorQueryRunner.copyTables;
+import static io.prestosql.plugin.raptor.legacy.RaptorQueryRunner.createSession;
 
 @Test
 public class TestRaptorIntegrationSmokeTestMySql

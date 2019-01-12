@@ -13,12 +13,12 @@
  */
 package io.prestosql.sql.analyzer;
 
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
-import com.facebook.presto.sql.tree.FunctionCall;
+import io.prestosql.metadata.Signature;
+import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
+import io.prestosql.sql.tree.FunctionCall;
 
-import static com.facebook.presto.metadata.FunctionKind.WINDOW;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
+import static io.prestosql.metadata.FunctionKind.WINDOW;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
 import static java.util.Objects.requireNonNull;
 
 class WindowFunctionValidator

@@ -14,21 +14,21 @@
 
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.spi.TestingColumnHandle;
-import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.IndexJoinNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.connector.TestingColumnHandle;
+import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
+import io.prestosql.sql.planner.plan.IndexJoinNode;
+import io.prestosql.sql.planner.plan.JoinNode;
+import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.sql.planner.plan.TableScanNode;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.AbstractMockMetadata.dummyMetadata;
-import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrder;
+import static io.prestosql.metadata.AbstractMockMetadata.dummyMetadata;
+import static io.prestosql.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static org.testng.Assert.assertEquals;

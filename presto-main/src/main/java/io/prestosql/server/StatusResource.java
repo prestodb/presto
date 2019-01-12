@@ -13,10 +13,10 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.memory.LocalMemoryManager;
 import com.sun.management.OperatingSystemMXBean;
 import io.airlift.node.NodeInfo;
+import io.prestosql.client.NodeVersion;
+import io.prestosql.memory.LocalMemoryManager;
 
 import javax.inject.Inject;
 import javax.ws.rs.GET;

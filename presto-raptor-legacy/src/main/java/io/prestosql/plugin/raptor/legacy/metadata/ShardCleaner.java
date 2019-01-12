@@ -13,10 +13,6 @@
  */
 package io.prestosql.plugin.raptor.legacy.metadata;
 
-import com.facebook.presto.raptor.backup.BackupStore;
-import com.facebook.presto.raptor.storage.StorageService;
-import com.facebook.presto.raptor.util.DaoSupplier;
-import com.facebook.presto.spi.NodeManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableSet;
@@ -24,6 +20,10 @@ import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.raptor.legacy.backup.BackupStore;
+import io.prestosql.plugin.raptor.legacy.storage.StorageService;
+import io.prestosql.plugin.raptor.legacy.util.DaoSupplier;
+import io.prestosql.spi.NodeManager;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -50,11 +50,11 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.raptor.metadata.ShardDao.CLEANABLE_SHARDS_BATCH_SIZE;
-import static com.facebook.presto.raptor.metadata.ShardDao.CLEANUP_TRANSACTIONS_BATCH_SIZE;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.prestosql.plugin.raptor.legacy.metadata.ShardDao.CLEANABLE_SHARDS_BATCH_SIZE;
+import static io.prestosql.plugin.raptor.legacy.metadata.ShardDao.CLEANUP_TRANSACTIONS_BATCH_SIZE;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.runAsync;

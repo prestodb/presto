@@ -13,18 +13,18 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.connector.MockConnectorFactory;
-import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.execution.QueryManager;
-import com.facebook.presto.execution.TestingSessionContext;
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
-import com.facebook.presto.transaction.TransactionBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.connector.MockConnectorFactory;
+import io.prestosql.execution.QueryInfo;
+import io.prestosql.execution.QueryManager;
+import io.prestosql.execution.TestingSessionContext;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.spi.Plugin;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.connector.ConnectorFactory;
+import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
+import io.prestosql.transaction.TransactionBuilder;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -32,9 +32,9 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.execution.QueryState.FAILED;
-import static com.facebook.presto.execution.QueryState.RUNNING;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.execution.QueryState.FAILED;
+import static io.prestosql.execution.QueryState.RUNNING;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 

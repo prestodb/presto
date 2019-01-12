@@ -13,8 +13,8 @@
  */
 package io.prestosql.execution.scheduler;
 
-import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.HostAddress;
 
 import java.util.List;
 

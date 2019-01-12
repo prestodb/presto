@@ -13,17 +13,17 @@
  */
 package io.prestosql.plugin.accumulo;
 
-import com.facebook.presto.accumulo.conf.AccumuloConfig;
-import com.facebook.presto.accumulo.conf.AccumuloTableProperties;
-import com.facebook.presto.accumulo.index.ColumnCardinalityCache;
-import com.facebook.presto.accumulo.index.IndexLookup;
-import com.facebook.presto.accumulo.metadata.AccumuloTable;
-import com.facebook.presto.accumulo.metadata.ZooKeeperMetadataManager;
-import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.accumulo.conf.AccumuloConfig;
+import io.prestosql.plugin.accumulo.conf.AccumuloTableProperties;
+import io.prestosql.plugin.accumulo.index.ColumnCardinalityCache;
+import io.prestosql.plugin.accumulo.index.IndexLookup;
+import io.prestosql.plugin.accumulo.metadata.AccumuloTable;
+import io.prestosql.plugin.accumulo.metadata.ZooKeeperMetadataManager;
+import io.prestosql.spi.connector.ColumnMetadata;
+import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.type.TypeRegistry;
 import org.apache.accumulo.core.client.Connector;
 import org.testng.annotations.Test;
 
@@ -31,7 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertNotNull;
 
 public class TestAccumuloClient

@@ -13,7 +13,7 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.operator.LookupJoinOperators.JoinType;
+import io.prestosql.operator.LookupJoinOperators.JoinType;
 import org.testng.annotations.Test;
 
 import java.util.Optional;

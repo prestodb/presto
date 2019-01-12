@@ -16,7 +16,7 @@ package io.prestosql.type;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.type.TypeCalculation.calculateLiteralValue;
+import static io.prestosql.type.TypeCalculation.calculateLiteralValue;
 import static org.testng.Assert.assertEquals;
 
 public class TestTypeCalculation

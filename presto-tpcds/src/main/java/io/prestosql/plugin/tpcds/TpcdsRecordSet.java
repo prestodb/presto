@@ -13,18 +13,18 @@
  */
 package io.prestosql.plugin.tpcds;
 
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.type.DecimalParseResult;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.Decimals;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.teradata.tpcds.Results;
 import com.teradata.tpcds.column.Column;
 import com.teradata.tpcds.column.ColumnType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.spi.type.DecimalParseResult;
+import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.Type;
 import org.joda.time.Days;
 import org.joda.time.LocalDate;
 import org.joda.time.LocalTime;
@@ -32,10 +32,10 @@ import org.joda.time.LocalTime;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.spi.type.Chars.trimTrailingSpaces;
-import static com.facebook.presto.spi.type.Decimals.rescale;
-import static com.facebook.presto.tpcds.TpcdsMetadata.getPrestoType;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.plugin.tpcds.TpcdsMetadata.getPrestoType;
+import static io.prestosql.spi.type.Chars.trimTrailingSpaces;
+import static io.prestosql.spi.type.Decimals.rescale;
 import static java.lang.Double.parseDouble;
 import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;

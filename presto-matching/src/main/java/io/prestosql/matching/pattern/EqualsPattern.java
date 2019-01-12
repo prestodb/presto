@@ -13,11 +13,11 @@
  */
 package io.prestosql.matching.pattern;
 
-import com.facebook.presto.matching.Captures;
-import com.facebook.presto.matching.Match;
-import com.facebook.presto.matching.Matcher;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.matching.PatternVisitor;
+import io.prestosql.matching.Captures;
+import io.prestosql.matching.Match;
+import io.prestosql.matching.Matcher;
+import io.prestosql.matching.Pattern;
+import io.prestosql.matching.PatternVisitor;
 
 import static java.util.Objects.requireNonNull;
 

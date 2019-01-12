@@ -13,9 +13,9 @@
  */
 package io.prestosql.spi.eventlistener;
 
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.session.ResourceEstimates;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.spi.session.ResourceEstimates;
 
 import java.util.Map;
 import java.util.Optional;

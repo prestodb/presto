@@ -28,11 +28,6 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.tests.TestGroups.SKIP_ON_CDH;
-import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
-import static com.facebook.presto.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
-import static com.facebook.presto.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_VARCHAR_REGIONKEY;
-import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.anyOf;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
@@ -40,6 +35,11 @@ import static io.prestodb.tempto.fulfillment.table.MutableTablesState.mutableTab
 import static io.prestodb.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.prestodb.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestosql.tests.TestGroups.SKIP_ON_CDH;
+import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
+import static io.prestosql.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
+import static io.prestosql.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_VARCHAR_REGIONKEY;
+import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
 
 public class TestHiveTableStatistics

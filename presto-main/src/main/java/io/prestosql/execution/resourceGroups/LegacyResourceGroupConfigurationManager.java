@@ -13,13 +13,13 @@
  */
 package io.prestosql.execution.resourceGroups;
 
-import com.facebook.presto.execution.QueryManagerConfig;
-import com.facebook.presto.execution.resourceGroups.LegacyResourceGroupConfigurationManager.VoidContext;
-import com.facebook.presto.spi.resourceGroups.ResourceGroup;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.SelectionContext;
-import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
+import io.prestosql.execution.QueryManagerConfig;
+import io.prestosql.execution.resourceGroups.LegacyResourceGroupConfigurationManager.VoidContext;
+import io.prestosql.spi.resourcegroups.ResourceGroup;
+import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManager;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.spi.resourcegroups.SelectionContext;
+import io.prestosql.spi.resourcegroups.SelectionCriteria;
 
 import javax.inject.Inject;
 

@@ -13,27 +13,27 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.type.ArrayType;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Signature;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.type.ArrayType;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.block.BlockAssertions.createBlockOfReals;
-import static com.facebook.presto.block.BlockAssertions.createDoubleSequenceBlock;
-import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
-import static com.facebook.presto.block.BlockAssertions.createLongRepeatBlock;
-import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
-import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
-import static com.facebook.presto.block.BlockAssertions.createSequenceBlockOfReal;
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
-import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.RealType.REAL;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.block.BlockAssertions.createBlockOfReals;
+import static io.prestosql.block.BlockAssertions.createDoubleSequenceBlock;
+import static io.prestosql.block.BlockAssertions.createDoublesBlock;
+import static io.prestosql.block.BlockAssertions.createLongRepeatBlock;
+import static io.prestosql.block.BlockAssertions.createLongSequenceBlock;
+import static io.prestosql.block.BlockAssertions.createLongsBlock;
+import static io.prestosql.block.BlockAssertions.createSequenceBlockOfReal;
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.RealType.REAL;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 
 public class TestApproximatePercentileAggregation
 {

@@ -13,9 +13,9 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.spi.function.Description;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.DefunctConfig;
+import io.prestosql.spi.function.Description;
 
 import javax.validation.constraints.Min;
 

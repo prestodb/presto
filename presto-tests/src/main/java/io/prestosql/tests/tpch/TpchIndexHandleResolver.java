@@ -13,8 +13,8 @@
  */
 package io.prestosql.tests.tpch;
 
-import com.facebook.presto.spi.ConnectorIndexHandle;
-import com.facebook.presto.tpch.TpchHandleResolver;
+import io.prestosql.plugin.tpch.TpchHandleResolver;
+import io.prestosql.spi.connector.ConnectorIndexHandle;
 
 public class TpchIndexHandleResolver
         extends TpchHandleResolver

@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.session;
 
-import com.facebook.presto.spi.session.SessionConfigurationContext;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.session.SessionConfigurationContext;
 
 import java.util.List;
 import java.util.Map;

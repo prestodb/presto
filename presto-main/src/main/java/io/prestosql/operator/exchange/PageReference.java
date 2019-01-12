@@ -13,7 +13,7 @@
  */
 package io.prestosql.operator.exchange;
 
-import com.facebook.presto.spi.Page;
+import io.prestosql.spi.Page;
 
 import javax.annotation.concurrent.ThreadSafe;
 

@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.atop;
 
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.spi.ErrorType;
+import io.prestosql.spi.ErrorCode;
+import io.prestosql.spi.ErrorCodeSupplier;
+import io.prestosql.spi.ErrorType;
 
-import static com.facebook.presto.spi.ErrorType.EXTERNAL;
+import static io.prestosql.spi.ErrorType.EXTERNAL;
 
 public enum AtopErrorCode
         implements ErrorCodeSupplier

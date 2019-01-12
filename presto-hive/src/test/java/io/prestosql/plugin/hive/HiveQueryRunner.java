@@ -13,20 +13,20 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
-import com.facebook.presto.hive.metastore.Database;
-import com.facebook.presto.hive.metastore.PrincipalType;
-import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
-import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.tpch.TpchTable;
+import io.prestosql.Session;
+import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
+import io.prestosql.plugin.hive.metastore.Database;
+import io.prestosql.plugin.hive.metastore.PrincipalType;
+import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
+import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.tests.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTimeZone;
 
@@ -34,10 +34,10 @@ import java.io.File;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
-import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.tests.QueryAssertions.copyTpchTables;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;

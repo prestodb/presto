@@ -13,8 +13,8 @@
  */
 package io.prestosql.sql.planner.iterative.rule.test;
 
-import com.facebook.presto.spi.Plugin;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.Plugin;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 

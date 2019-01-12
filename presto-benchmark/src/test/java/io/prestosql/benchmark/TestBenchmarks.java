@@ -13,11 +13,11 @@
  */
 package io.prestosql.benchmark;
 
-import com.facebook.presto.testing.LocalQueryRunner;
+import io.prestosql.testing.LocalQueryRunner;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static com.facebook.presto.benchmark.BenchmarkSuite.createBenchmarks;
+import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static io.prestosql.benchmark.BenchmarkSuite.createBenchmarks;
 
 public class TestBenchmarks
 {

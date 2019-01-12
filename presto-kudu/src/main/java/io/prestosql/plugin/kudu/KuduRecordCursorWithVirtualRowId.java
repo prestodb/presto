@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.kudu;
 
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.spi.type.Type;
 import org.apache.kudu.Schema;
 import org.apache.kudu.client.KeyEncoderAccessor;
 import org.apache.kudu.client.KuduScanner;

@@ -13,32 +13,32 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.scheduler.NodeScheduler;
-import com.facebook.presto.execution.scheduler.NodeSelector;
-import com.facebook.presto.operator.BucketPartitionFunction;
-import com.facebook.presto.operator.HashGenerator;
-import com.facebook.presto.operator.InterpretedHashGenerator;
-import com.facebook.presto.operator.PartitionFunction;
-import com.facebook.presto.operator.PrecomputedHashGenerator;
-import com.facebook.presto.spi.BucketFunction;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.Session;
+import io.prestosql.execution.scheduler.NodeScheduler;
+import io.prestosql.execution.scheduler.NodeSelector;
+import io.prestosql.operator.BucketPartitionFunction;
+import io.prestosql.operator.HashGenerator;
+import io.prestosql.operator.InterpretedHashGenerator;
+import io.prestosql.operator.PartitionFunction;
+import io.prestosql.operator.PrecomputedHashGenerator;
+import io.prestosql.spi.Node;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.connector.BucketFunction;
+import io.prestosql.spi.connector.ConnectorPartitioningHandle;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
-import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
-import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.SystemSessionProperties.getHashPartitionCount;
+import static io.prestosql.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static io.prestosql.util.Failures.checkCondition;
 import static java.util.Objects.requireNonNull;
 
 public final class SystemPartitioningHandle

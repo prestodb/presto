@@ -13,11 +13,11 @@
  */
 package io.prestosql.sql.planner.assertions;
 
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.sql.planner.OrderingScheme;
-import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.block.SortOrder;
+import io.prestosql.sql.planner.OrderingScheme;
+import io.prestosql.sql.planner.plan.WindowNode;
 
 import java.util.List;
 import java.util.Map;

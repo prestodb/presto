@@ -13,8 +13,8 @@
  */
 package io.prestosql.spiller;
 
-import com.facebook.presto.ExceededSpillLimitException;
 import io.airlift.units.DataSize;
+import io.prestosql.ExceededSpillLimitException;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 

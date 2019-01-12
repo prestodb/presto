@@ -13,22 +13,22 @@
  */
 package io.prestosql.operator.aggregation.state;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.airlift.stats.QuantileDigest;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.AccumulatorStateSerializer;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 
 public class DigestAndPercentileArrayStateSerializer
         implements AccumulatorStateSerializer<DigestAndPercentileArrayState>

@@ -13,13 +13,13 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.execution.buffer.BufferInfo;
-import com.facebook.presto.execution.buffer.OutputBufferInfo;
-import com.facebook.presto.operator.TaskStats;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.execution.buffer.BufferInfo;
+import io.prestosql.execution.buffer.OutputBufferInfo;
+import io.prestosql.operator.TaskStats;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.Immutable;
@@ -28,9 +28,9 @@ import java.net.URI;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.execution.TaskStatus.initialTaskStatus;
-import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.execution.TaskStatus.initialTaskStatus;
+import static io.prestosql.execution.buffer.BufferState.OPEN;
 import static java.util.Objects.requireNonNull;
 
 @Immutable

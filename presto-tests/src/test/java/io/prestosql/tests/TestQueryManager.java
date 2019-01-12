@@ -13,26 +13,26 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.execution.QueryManager;
-import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.execution.TestingSessionContext;
-import com.facebook.presto.server.BasicQueryInfo;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
+import io.prestosql.execution.QueryInfo;
+import io.prestosql.execution.QueryManager;
+import io.prestosql.execution.QueryState;
+import io.prestosql.execution.TestingSessionContext;
+import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.QueryId;
+import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.execution.QueryState.FAILED;
-import static com.facebook.presto.execution.QueryState.RUNNING;
-import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
-import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_CPU_LIMIT;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder.builder;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.execution.QueryState.FAILED;
+import static io.prestosql.execution.QueryState.RUNNING;
+import static io.prestosql.execution.TestQueryRunnerUtil.createQuery;
+import static io.prestosql.execution.TestQueryRunnerUtil.waitForQueryState;
+import static io.prestosql.spi.StandardErrorCode.EXCEEDED_CPU_LIMIT;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.tests.tpch.TpchQueryRunnerBuilder.builder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.fail;

@@ -13,7 +13,7 @@
  */
 package io.prestosql.spi.connector;
 
-import com.facebook.presto.spi.predicate.TupleDomain;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import static java.util.Objects.requireNonNull;
 

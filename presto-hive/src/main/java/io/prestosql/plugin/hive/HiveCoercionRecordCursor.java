@@ -13,35 +13,35 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMapping;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.VarcharType;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 
 import java.util.List;
 
-import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
-import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
-import static com.facebook.presto.hive.HiveType.HIVE_FLOAT;
-import static com.facebook.presto.hive.HiveType.HIVE_INT;
-import static com.facebook.presto.hive.HiveType.HIVE_LONG;
-import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
-import static com.facebook.presto.hive.HiveUtil.extractStructFieldTypes;
-import static com.facebook.presto.hive.HiveUtil.isArrayType;
-import static com.facebook.presto.hive.HiveUtil.isMapType;
-import static com.facebook.presto.hive.HiveUtil.isRowType;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.plugin.hive.HiveType.HIVE_BYTE;
+import static io.prestosql.plugin.hive.HiveType.HIVE_DOUBLE;
+import static io.prestosql.plugin.hive.HiveType.HIVE_FLOAT;
+import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
+import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
+import static io.prestosql.plugin.hive.HiveType.HIVE_SHORT;
+import static io.prestosql.plugin.hive.HiveUtil.extractStructFieldTypes;
+import static io.prestosql.plugin.hive.HiveUtil.isArrayType;
+import static io.prestosql.plugin.hive.HiveUtil.isMapType;
+import static io.prestosql.plugin.hive.HiveUtil.isRowType;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.min;
 import static java.lang.String.format;

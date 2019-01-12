@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.resourcegroups;
 
-import com.facebook.presto.spi.resourceGroups.ResourceGroup;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.spi.resourcegroups.ResourceGroup;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.spi.resourcegroups.SchedulingPolicy;
 
 import static java.util.Objects.requireNonNull;
 

@@ -13,18 +13,18 @@
  */
 package io.prestosql.orc.reader;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
-import com.facebook.presto.orc.OrcCorruptionException;
-import com.facebook.presto.orc.StreamDescriptor;
-import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.stream.BooleanInputStream;
-import com.facebook.presto.orc.stream.InputStreamSource;
-import com.facebook.presto.orc.stream.InputStreamSources;
-import com.facebook.presto.orc.stream.LongInputStream;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.io.Closer;
+import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.orc.OrcCorruptionException;
+import io.prestosql.orc.StreamDescriptor;
+import io.prestosql.orc.metadata.ColumnEncoding;
+import io.prestosql.orc.stream.BooleanInputStream;
+import io.prestosql.orc.stream.InputStreamSource;
+import io.prestosql.orc.stream.InputStreamSources;
+import io.prestosql.orc.stream.LongInputStream;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
@@ -36,11 +36,11 @@ import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.orc.reader.StreamReaders.createStreamReader;
-import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.orc.metadata.Stream.StreamKind.LENGTH;
+import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
+import static io.prestosql.orc.reader.StreamReaders.createStreamReader;
+import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

@@ -23,15 +23,15 @@ import javax.annotation.Nullable;
 
 import java.util.function.BiConsumer;
 
-import static com.facebook.presto.spi.block.BlockUtil.MAX_ARRAY_SIZE;
-import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
-import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
-import static com.facebook.presto.spi.block.BlockUtil.checkValidPosition;
-import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
+import static io.prestosql.spi.block.BlockUtil.MAX_ARRAY_SIZE;
+import static io.prestosql.spi.block.BlockUtil.calculateBlockResetSize;
+import static io.prestosql.spi.block.BlockUtil.checkArrayRange;
+import static io.prestosql.spi.block.BlockUtil.checkValidPosition;
+import static io.prestosql.spi.block.BlockUtil.checkValidRegion;
 
 public class FixedWidthBlockBuilder
         extends AbstractFixedWidthBlock

@@ -13,13 +13,13 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.execution.QueryManager;
-import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.execution.StageId;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.execution.QueryInfo;
+import io.prestosql.execution.QueryManager;
+import io.prestosql.execution.QueryState;
+import io.prestosql.execution.StageId;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.QueryId;
 
 import javax.inject.Inject;
 import javax.ws.rs.DELETE;
@@ -35,8 +35,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.NoSuchElementException;
 
-import static com.facebook.presto.connector.system.KillQueryProcedure.createKillQueryException;
-import static com.facebook.presto.connector.system.KillQueryProcedure.createPreemptQueryException;
+import static io.prestosql.connector.system.KillQueryProcedure.createKillQueryException;
+import static io.prestosql.connector.system.KillQueryProcedure.createPreemptQueryException;
 import static java.util.Objects.requireNonNull;
 
 /**

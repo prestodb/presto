@@ -15,12 +15,12 @@ package io.prestosql.spi.block;
 
 import javax.annotation.Nullable;
 
-import static com.facebook.presto.spi.block.ArrayBlock.createArrayBlockInternal;
-import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
-import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
-import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
-import static com.facebook.presto.spi.block.BlockUtil.compactArray;
-import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
+import static io.prestosql.spi.block.ArrayBlock.createArrayBlockInternal;
+import static io.prestosql.spi.block.BlockUtil.checkArrayRange;
+import static io.prestosql.spi.block.BlockUtil.checkValidPositions;
+import static io.prestosql.spi.block.BlockUtil.checkValidRegion;
+import static io.prestosql.spi.block.BlockUtil.compactArray;
+import static io.prestosql.spi.block.BlockUtil.compactOffsets;
 
 public abstract class AbstractArrayBlock
         implements Block

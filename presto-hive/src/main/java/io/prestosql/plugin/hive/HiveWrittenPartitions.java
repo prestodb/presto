@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.connector.ConnectorOutputMetadata;
 
 import java.util.List;
 

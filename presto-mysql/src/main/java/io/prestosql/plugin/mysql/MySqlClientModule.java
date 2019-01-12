@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.mysql;
 
-import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
-import com.facebook.presto.plugin.jdbc.JdbcClient;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import com.mysql.jdbc.Driver;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.prestosql.plugin.jdbc.BaseJdbcConfig;
+import io.prestosql.plugin.jdbc.JdbcClient;
 
 import java.sql.SQLException;
 import java.util.Properties;

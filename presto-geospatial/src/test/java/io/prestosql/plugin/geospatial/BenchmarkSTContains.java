@@ -36,9 +36,9 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.geospatial.serde.GeometrySerde.deserialize;
-import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeEnvelope;
-import static com.facebook.presto.plugin.geospatial.GeometryBenchmarkUtils.loadPolygon;
+import static io.prestosql.geospatial.serde.GeometrySerde.deserialize;
+import static io.prestosql.geospatial.serde.GeometrySerde.deserializeEnvelope;
+import static io.prestosql.plugin.geospatial.GeometryBenchmarkUtils.loadPolygon;
 
 @State(Scope.Thread)
 @Fork(2)

@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.raptor.legacy.metadata;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
@@ -28,9 +28,9 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static io.airlift.json.JsonCodec.listJsonCodec;
+import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 

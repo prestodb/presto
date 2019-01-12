@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.thrift;
 
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
+import io.prestosql.spi.Plugin;
+import io.prestosql.spi.connector.ConnectorFactory;
 
 import java.util.List;
 import java.util.ServiceLoader;

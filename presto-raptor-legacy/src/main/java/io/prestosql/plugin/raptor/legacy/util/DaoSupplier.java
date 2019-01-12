@@ -16,7 +16,7 @@ package io.prestosql.plugin.raptor.legacy.util;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 
-import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
+import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.onDemandDao;
 import static java.util.Objects.requireNonNull;
 
 public class DaoSupplier<T>

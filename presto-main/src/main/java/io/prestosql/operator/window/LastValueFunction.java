@@ -13,9 +13,9 @@
  */
 package io.prestosql.operator.window;
 
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.ValueWindowFunction;
-import com.facebook.presto.spi.function.WindowFunctionSignature;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.ValueWindowFunction;
+import io.prestosql.spi.function.WindowFunctionSignature;
 
 import java.util.List;
 

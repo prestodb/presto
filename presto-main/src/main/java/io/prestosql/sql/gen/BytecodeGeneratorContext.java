@@ -13,18 +13,18 @@
  */
 package io.prestosql.sql.gen;
 
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
-import com.facebook.presto.sql.relational.RowExpression;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.operator.scalar.ScalarFunctionImplementation;
+import io.prestosql.sql.relational.RowExpression;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.gen.BytecodeUtils.generateInvocation;
+import static io.prestosql.sql.gen.BytecodeUtils.generateInvocation;
 import static java.util.Objects.requireNonNull;
 
 public class BytecodeGeneratorContext

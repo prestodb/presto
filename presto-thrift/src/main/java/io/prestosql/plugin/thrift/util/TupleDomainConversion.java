@@ -13,13 +13,13 @@
  */
 package io.prestosql.plugin.thrift.util;
 
-import com.facebook.presto.connector.thrift.ThriftColumnHandle;
-import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import io.prestosql.plugin.thrift.ThriftColumnHandle;
+import io.prestosql.plugin.thrift.api.PrestoThriftTupleDomain;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.predicate.TupleDomain;
 
-import static com.facebook.presto.connector.thrift.api.PrestoThriftDomain.fromDomain;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.prestosql.plugin.thrift.api.PrestoThriftDomain.fromDomain;
 
 public final class TupleDomainConversion
 {

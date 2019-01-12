@@ -13,10 +13,10 @@
  */
 package io.prestosql.split;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.metadata.InsertTableHandle;
-import com.facebook.presto.metadata.OutputTableHandle;
-import com.facebook.presto.spi.ConnectorPageSink;
+import io.prestosql.Session;
+import io.prestosql.metadata.InsertTableHandle;
+import io.prestosql.metadata.OutputTableHandle;
+import io.prestosql.spi.connector.ConnectorPageSink;
 
 public interface PageSinkProvider
 {

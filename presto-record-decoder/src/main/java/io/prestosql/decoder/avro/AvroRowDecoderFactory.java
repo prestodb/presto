@@ -13,9 +13,9 @@
  */
 package io.prestosql.decoder.avro;
 
-import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.RowDecoder;
-import com.facebook.presto.decoder.RowDecoderFactory;
+import io.prestosql.decoder.DecoderColumnHandle;
+import io.prestosql.decoder.RowDecoder;
+import io.prestosql.decoder.RowDecoderFactory;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
 

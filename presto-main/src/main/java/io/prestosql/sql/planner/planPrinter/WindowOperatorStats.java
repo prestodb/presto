@@ -13,9 +13,9 @@
  */
 package io.prestosql.sql.planner.planPrinter;
 
-import com.facebook.presto.operator.WindowInfo;
-import com.facebook.presto.operator.WindowInfo.DriverWindowInfo;
-import com.facebook.presto.util.Mergeable;
+import io.prestosql.operator.WindowInfo;
+import io.prestosql.operator.WindowInfo.DriverWindowInfo;
+import io.prestosql.util.Mergeable;
 
 import static com.google.common.base.Preconditions.checkArgument;
 

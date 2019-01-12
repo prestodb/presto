@@ -13,27 +13,27 @@
  */
 package io.prestosql.sql.planner.plan;
 
-import com.facebook.presto.metadata.FunctionKind;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.server.SliceDeserializer;
-import com.facebook.presto.server.SliceSerializer;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.sql.Serialization;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.OrderingScheme;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FrameBound;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.WindowFrame;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
+import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.Signature;
+import io.prestosql.server.SliceDeserializer;
+import io.prestosql.server.SliceSerializer;
+import io.prestosql.spi.block.SortOrder;
+import io.prestosql.sql.Serialization;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.OrderingScheme;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.SymbolAllocator;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FrameBound;
+import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.WindowFrame;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -42,7 +42,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 
 public class TestWindowNode

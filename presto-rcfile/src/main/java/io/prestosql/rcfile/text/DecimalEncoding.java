@@ -13,23 +13,23 @@
  */
 package io.prestosql.rcfile.text;
 
-import com.facebook.presto.rcfile.ColumnData;
-import com.facebook.presto.rcfile.EncodeOutput;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.Decimals;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.prestosql.rcfile.ColumnData;
+import io.prestosql.rcfile.EncodeOutput;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.Type;
 
 import java.math.BigDecimal;
 
-import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
-import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.spi.type.Decimals.encodeUnscaledValue;
+import static io.prestosql.spi.type.Decimals.isShortDecimal;
 import static java.math.RoundingMode.HALF_UP;
 
 public class DecimalEncoding

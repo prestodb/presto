@@ -33,16 +33,16 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
-import static com.facebook.presto.geospatial.serde.BenchmarkGeometrySerializationData.GEOMETRYCOLLECTION;
-import static com.facebook.presto.geospatial.serde.BenchmarkGeometrySerializationData.LINESTRING;
-import static com.facebook.presto.geospatial.serde.BenchmarkGeometrySerializationData.MULTILINESTRING;
-import static com.facebook.presto.geospatial.serde.BenchmarkGeometrySerializationData.MULTIPOINT;
-import static com.facebook.presto.geospatial.serde.BenchmarkGeometrySerializationData.MULTIPOLYGON;
-import static com.facebook.presto.geospatial.serde.BenchmarkGeometrySerializationData.POINT;
-import static com.facebook.presto.geospatial.serde.BenchmarkGeometrySerializationData.POLYGON;
-import static com.facebook.presto.geospatial.serde.BenchmarkGeometrySerializationData.readResource;
-import static com.facebook.presto.geospatial.serde.JtsGeometrySerde.deserialize;
-import static com.facebook.presto.geospatial.serde.JtsGeometrySerde.serialize;
+import static io.prestosql.geospatial.serde.BenchmarkGeometrySerializationData.GEOMETRYCOLLECTION;
+import static io.prestosql.geospatial.serde.BenchmarkGeometrySerializationData.LINESTRING;
+import static io.prestosql.geospatial.serde.BenchmarkGeometrySerializationData.MULTILINESTRING;
+import static io.prestosql.geospatial.serde.BenchmarkGeometrySerializationData.MULTIPOINT;
+import static io.prestosql.geospatial.serde.BenchmarkGeometrySerializationData.MULTIPOLYGON;
+import static io.prestosql.geospatial.serde.BenchmarkGeometrySerializationData.POINT;
+import static io.prestosql.geospatial.serde.BenchmarkGeometrySerializationData.POLYGON;
+import static io.prestosql.geospatial.serde.BenchmarkGeometrySerializationData.readResource;
+import static io.prestosql.geospatial.serde.JtsGeometrySerde.deserialize;
+import static io.prestosql.geospatial.serde.JtsGeometrySerde.serialize;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.openjdk.jmh.annotations.Mode.Throughput;
 

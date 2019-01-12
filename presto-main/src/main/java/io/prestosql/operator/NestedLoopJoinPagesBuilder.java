@@ -13,9 +13,9 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.prestosql.spi.Page;
 
 import java.util.ArrayList;
 import java.util.List;

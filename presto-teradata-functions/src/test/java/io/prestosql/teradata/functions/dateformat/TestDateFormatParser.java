@@ -13,8 +13,8 @@
  */
 package io.prestosql.teradata.functions.dateformat;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.teradata.functions.DateFormat;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.teradata.functions.DateFormat;
 import org.antlr.v4.runtime.Token;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormatter;

@@ -13,7 +13,7 @@
  */
 package io.prestosql.sql.analyzer;
 
-import com.facebook.presto.sql.tree.Node;
+import io.prestosql.sql.tree.Node;
 
 import javax.annotation.Nullable;
 

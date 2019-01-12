@@ -13,20 +13,20 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.operator.scalar.ZipFunction.MAX_ARITY;
-import static com.facebook.presto.operator.scalar.ZipFunction.MIN_ARITY;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static io.prestosql.operator.scalar.ZipFunction.MAX_ARITY;
+import static io.prestosql.operator.scalar.ZipFunction.MIN_ARITY;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Arrays.asList;

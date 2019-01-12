@@ -13,11 +13,6 @@
  */
 package io.prestosql.server.remotetask;
 
-import com.facebook.presto.execution.StateMachine;
-import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.execution.TaskStatus;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
@@ -27,6 +22,11 @@ import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
+import io.prestosql.execution.StateMachine;
+import io.prestosql.execution.StateMachine.StateChangeListener;
+import io.prestosql.execution.TaskId;
+import io.prestosql.execution.TaskInfo;
+import io.prestosql.execution.TaskStatus;
 
 import javax.annotation.concurrent.GuardedBy;
 

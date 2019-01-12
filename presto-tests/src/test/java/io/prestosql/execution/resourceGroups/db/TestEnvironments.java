@@ -13,21 +13,21 @@
  */
 package io.prestosql.execution.resourceGroups.db;
 
-import com.facebook.presto.resourceGroups.db.H2ResourceGroupsDao;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.tests.DistributedQueryRunner;
+import io.prestosql.plugin.resourcegroups.db.H2ResourceGroupsDao;
+import io.prestosql.spi.QueryId;
+import io.prestosql.tests.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.execution.QueryState.FAILED;
-import static com.facebook.presto.execution.QueryState.RUNNING;
-import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
-import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
-import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.TEST_ENVIRONMENT;
-import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.TEST_ENVIRONMENT_2;
-import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.adhocSession;
-import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.createQueryRunner;
-import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getDao;
-import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getDbConfigUrl;
+import static io.prestosql.execution.QueryState.FAILED;
+import static io.prestosql.execution.QueryState.RUNNING;
+import static io.prestosql.execution.TestQueryRunnerUtil.createQuery;
+import static io.prestosql.execution.TestQueryRunnerUtil.waitForQueryState;
+import static io.prestosql.execution.resourceGroups.db.H2TestUtil.TEST_ENVIRONMENT;
+import static io.prestosql.execution.resourceGroups.db.H2TestUtil.TEST_ENVIRONMENT_2;
+import static io.prestosql.execution.resourceGroups.db.H2TestUtil.adhocSession;
+import static io.prestosql.execution.resourceGroups.db.H2TestUtil.createQueryRunner;
+import static io.prestosql.execution.resourceGroups.db.H2TestUtil.getDao;
+import static io.prestosql.execution.resourceGroups.db.H2TestUtil.getDbConfigUrl;
 
 @Test(singleThreaded = true)
 public class TestEnvironments

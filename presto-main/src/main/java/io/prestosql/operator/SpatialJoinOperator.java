@@ -13,28 +13,28 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.sql.planner.plan.SpatialJoinNode;
 
 import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.plan.SpatialJoinNode.Type.INNER;
-import static com.facebook.presto.sql.planner.plan.SpatialJoinNode.Type.LEFT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.concurrent.MoreFutures.getDone;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.prestosql.sql.planner.plan.SpatialJoinNode.Type.INNER;
+import static io.prestosql.sql.planner.plan.SpatialJoinNode.Type.LEFT;
 import static java.util.Objects.requireNonNull;
 
 public class SpatialJoinOperator

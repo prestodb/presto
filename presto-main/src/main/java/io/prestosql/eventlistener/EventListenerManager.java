@@ -13,14 +13,14 @@
  */
 package io.prestosql.eventlistener;
 
-import com.facebook.presto.spi.eventlistener.EventListener;
-import com.facebook.presto.spi.eventlistener.EventListenerFactory;
-import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
-import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
-import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
+import io.prestosql.spi.eventlistener.EventListener;
+import io.prestosql.spi.eventlistener.EventListenerFactory;
+import io.prestosql.spi.eventlistener.QueryCompletedEvent;
+import io.prestosql.spi.eventlistener.QueryCreatedEvent;
+import io.prestosql.spi.eventlistener.SplitCompletedEvent;
 
 import java.io.File;
 import java.util.HashMap;
@@ -29,10 +29,10 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.prestosql.util.PropertiesUtil.loadProperties;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

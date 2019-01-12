@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.ml;
 
-import com.facebook.presto.ml.type.ModelType;
+import io.prestosql.plugin.ml.type.ModelType;
 import libsvm.svm;
 import libsvm.svm_model;
 import libsvm.svm_parameter;
@@ -24,7 +24,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 
-import static com.facebook.presto.ml.type.ClassifierType.BIGINT_CLASSIFIER;
+import static io.prestosql.plugin.ml.type.ClassifierType.BIGINT_CLASSIFIER;
 import static java.util.Objects.requireNonNull;
 
 public class SvmClassifier

@@ -13,17 +13,17 @@
  */
 package io.prestosql.operator.annotations;
 
-import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.spi.function.Convention;
-import com.facebook.presto.spi.function.FunctionDependency;
-import com.facebook.presto.spi.function.InvocationConvention;
-import com.facebook.presto.spi.function.OperatorDependency;
-import com.facebook.presto.spi.function.TypeParameter;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
-import com.facebook.presto.type.LiteralParameter;
+import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.spi.function.Convention;
+import io.prestosql.spi.function.FunctionDependency;
+import io.prestosql.spi.function.InvocationConvention;
+import io.prestosql.spi.function.OperatorDependency;
+import io.prestosql.spi.function.TypeParameter;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.type.LiteralParameter;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
@@ -35,10 +35,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.operator.annotations.FunctionsParserHelper.containsImplementationDependencyAnnotation;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.operator.annotations.FunctionsParserHelper.containsImplementationDependencyAnnotation;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 
 public interface ImplementationDependency
 {

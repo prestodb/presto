@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.raptor.legacy.metadata;
 
-import com.facebook.presto.raptor.metadata.Table.TableMapper;
-import com.facebook.presto.spi.SchemaTableName;
+import io.prestosql.plugin.raptor.legacy.metadata.Table.TableMapper;
+import io.prestosql.spi.connector.SchemaTableName;
 import org.skife.jdbi.v2.sqlobject.Bind;
 import org.skife.jdbi.v2.sqlobject.GetGeneratedKeys;
 import org.skife.jdbi.v2.sqlobject.SqlQuery;

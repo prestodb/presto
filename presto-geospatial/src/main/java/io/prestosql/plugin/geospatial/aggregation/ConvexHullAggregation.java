@@ -14,25 +14,25 @@
 package io.prestosql.plugin.geospatial.aggregation;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
-import com.facebook.presto.geospatial.GeometryType;
-import com.facebook.presto.geospatial.serde.GeometrySerde;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.AggregationFunction;
-import com.facebook.presto.spi.function.AggregationState;
-import com.facebook.presto.spi.function.CombineFunction;
-import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.InputFunction;
-import com.facebook.presto.spi.function.OutputFunction;
-import com.facebook.presto.spi.function.SqlType;
 import com.google.common.base.Joiner;
 import io.airlift.slice.Slice;
+import io.prestosql.geospatial.GeometryType;
+import io.prestosql.geospatial.serde.GeometrySerde;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.AggregationFunction;
+import io.prestosql.spi.function.AggregationState;
+import io.prestosql.spi.function.CombineFunction;
+import io.prestosql.spi.function.Description;
+import io.prestosql.spi.function.InputFunction;
+import io.prestosql.spi.function.OutputFunction;
+import io.prestosql.spi.function.SqlType;
 
 import java.util.Set;
 
-import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
-import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY;
+import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.String.format;
 
 /**

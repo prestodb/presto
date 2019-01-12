@@ -13,13 +13,13 @@
  */
 package io.prestosql.benchmark.driver;
 
-import com.facebook.presto.client.ClientSession;
 import com.google.common.collect.ImmutableList;
 import io.airlift.airline.Command;
 import io.airlift.airline.HelpOption;
 import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
+import io.prestosql.client.ClientSession;
 
 import javax.inject.Inject;
 

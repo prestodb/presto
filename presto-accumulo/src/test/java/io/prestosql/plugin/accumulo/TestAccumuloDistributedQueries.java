@@ -13,14 +13,14 @@
  */
 package io.prestosql.plugin.accumulo;
 
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.testing.MaterializedResult;
+import io.prestosql.tests.AbstractTestDistributedQueries;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
+import static io.prestosql.plugin.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

@@ -13,11 +13,11 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.JoinCompiler;
+import io.prestosql.Session;
+import io.prestosql.operator.PagesIndex;
+import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.gen.JoinCompiler;
 
 import java.util.List;
 import java.util.Optional;

@@ -13,21 +13,21 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.matching.Captures;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.TableFinishNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
-import com.facebook.presto.sql.tree.LongLiteral;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.matching.Captures;
+import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.plan.TableFinishNode;
+import io.prestosql.sql.planner.plan.ValuesNode;
+import io.prestosql.sql.tree.LongLiteral;
 
-import static com.facebook.presto.matching.Pattern.empty;
-import static com.facebook.presto.sql.planner.plan.Patterns.Values.rows;
-import static com.facebook.presto.sql.planner.plan.Patterns.delete;
-import static com.facebook.presto.sql.planner.plan.Patterns.exchange;
-import static com.facebook.presto.sql.planner.plan.Patterns.source;
-import static com.facebook.presto.sql.planner.plan.Patterns.tableFinish;
-import static com.facebook.presto.sql.planner.plan.Patterns.values;
+import static io.prestosql.matching.Pattern.empty;
+import static io.prestosql.sql.planner.plan.Patterns.Values.rows;
+import static io.prestosql.sql.planner.plan.Patterns.delete;
+import static io.prestosql.sql.planner.plan.Patterns.exchange;
+import static io.prestosql.sql.planner.plan.Patterns.source;
+import static io.prestosql.sql.planner.plan.Patterns.tableFinish;
+import static io.prestosql.sql.planner.plan.Patterns.values;
 
 /**
  * If the predicate for a delete is optimized to false, the target table scan

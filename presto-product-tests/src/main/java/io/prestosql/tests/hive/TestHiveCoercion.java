@@ -13,7 +13,6 @@
  */
 package io.prestosql.tests.hive;
 
-import com.facebook.presto.jdbc.PrestoArray;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestodb.tempto.ProductTest;
@@ -29,6 +28,7 @@ import io.prestodb.tempto.fulfillment.table.TableHandle;
 import io.prestodb.tempto.fulfillment.table.TableInstance;
 import io.prestodb.tempto.fulfillment.table.hive.HiveTableDefinition;
 import io.prestodb.tempto.query.QueryResult;
+import io.prestosql.jdbc.PrestoArray;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -39,11 +39,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.tests.TestGroups.HIVE_COERCION;
-import static com.facebook.presto.tests.TestGroups.JDBC;
-import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingPrestoJdbcDriver;
-import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingTeradataJdbcDriver;
-import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
@@ -53,6 +48,11 @@ import static io.prestodb.tempto.fulfillment.table.MutableTableRequirement.State
 import static io.prestodb.tempto.fulfillment.table.TableHandle.tableHandle;
 import static io.prestodb.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestosql.tests.TestGroups.HIVE_COERCION;
+import static io.prestosql.tests.TestGroups.JDBC;
+import static io.prestosql.tests.utils.JdbcDriverUtils.usingPrestoJdbcDriver;
+import static io.prestosql.tests.utils.JdbcDriverUtils.usingTeradataJdbcDriver;
+import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
 import static java.sql.JDBCType.ARRAY;
 import static java.sql.JDBCType.BIGINT;

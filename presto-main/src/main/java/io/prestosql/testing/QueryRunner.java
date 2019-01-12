@@ -13,17 +13,17 @@
  */
 package io.prestosql.testing;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.cost.StatsCalculator;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.split.PageSourceManager;
-import com.facebook.presto.split.SplitManager;
-import com.facebook.presto.sql.planner.NodePartitioningManager;
-import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.transaction.TransactionManager;
+import io.prestosql.Session;
+import io.prestosql.cost.StatsCalculator;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.spi.Plugin;
+import io.prestosql.split.PageSourceManager;
+import io.prestosql.split.SplitManager;
+import io.prestosql.sql.planner.NodePartitioningManager;
+import io.prestosql.sql.planner.Plan;
+import io.prestosql.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
 
 import java.io.Closeable;

@@ -13,11 +13,11 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.operator.PartitionedOutputOperator.PartitionedOutputInfo;
-import com.facebook.presto.operator.TableWriterOperator.TableWriterInfo;
-import com.facebook.presto.operator.exchange.LocalExchangeBufferInfo;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import io.prestosql.operator.PartitionedOutputOperator.PartitionedOutputInfo;
+import io.prestosql.operator.TableWriterOperator.TableWriterInfo;
+import io.prestosql.operator.exchange.LocalExchangeBufferInfo;
 
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,

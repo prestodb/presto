@@ -14,16 +14,16 @@
 
 package io.prestosql.memory;
 
-import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.QueryId;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.memory.LowMemoryKillerTestingUtils.toNodeMemoryInfoList;
-import static com.facebook.presto.memory.LowMemoryKillerTestingUtils.toQueryMemoryInfoList;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static io.prestosql.memory.LowMemoryKillerTestingUtils.toNodeMemoryInfoList;
+import static io.prestosql.memory.LowMemoryKillerTestingUtils.toQueryMemoryInfoList;
+import static io.prestosql.testing.assertions.Assert.assertEquals;
 
 @Test
 public class TestTotalReservationLowMemoryKiller

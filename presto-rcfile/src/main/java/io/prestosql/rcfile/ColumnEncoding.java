@@ -13,8 +13,8 @@
  */
 package io.prestosql.rcfile;
 
-import com.facebook.presto.spi.block.Block;
 import io.airlift.slice.SliceOutput;
+import io.prestosql.spi.block.Block;
 
 public interface ColumnEncoding
 {

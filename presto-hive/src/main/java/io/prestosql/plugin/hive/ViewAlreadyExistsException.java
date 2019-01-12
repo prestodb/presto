@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.SchemaTableName;
 
-import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static java.lang.String.format;
 
 public class ViewAlreadyExistsException

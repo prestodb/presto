@@ -13,8 +13,6 @@
  */
 package io.prestosql.spi.connector;
 
-import com.facebook.presto.spi.ConnectorHandleResolver;
-
 import java.util.Map;
 
 public interface ConnectorFactory

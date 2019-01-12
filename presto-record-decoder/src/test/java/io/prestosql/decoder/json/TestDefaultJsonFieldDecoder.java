@@ -13,17 +13,17 @@
  */
 package io.prestosql.decoder.json;
 
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
-import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static java.util.Arrays.asList;
 
 public class TestDefaultJsonFieldDecoder

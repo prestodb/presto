@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.thrift.api.datatypes;
 
-import com.facebook.presto.connector.thrift.api.PrestoThriftBlock;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.plugin.thrift.api.PrestoThriftBlock;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.spi.type.Type;
 
 import java.util.function.BiFunction;
 

@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.thrift.integration;
 
-import com.facebook.presto.tests.AbstractTestIndexedQueries;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.tests.AbstractTestIndexedQueries;
 
-import static com.facebook.presto.connector.thrift.integration.ThriftQueryRunner.createThriftQueryRunner;
+import static io.prestosql.plugin.thrift.integration.ThriftQueryRunner.createThriftQueryRunner;
 
 public class TestThriftDistributedQueriesIndexed
         extends AbstractTestIndexedQueries

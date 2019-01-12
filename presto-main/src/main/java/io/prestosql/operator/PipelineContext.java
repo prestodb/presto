@@ -13,12 +13,6 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.memory.QueryContextVisitor;
-import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -28,6 +22,12 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.Distribution;
 import io.airlift.units.Duration;
+import io.prestosql.Session;
+import io.prestosql.execution.Lifespan;
+import io.prestosql.execution.TaskId;
+import io.prestosql.memory.QueryContextVisitor;
+import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.memory.context.MemoryTrackingContext;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;

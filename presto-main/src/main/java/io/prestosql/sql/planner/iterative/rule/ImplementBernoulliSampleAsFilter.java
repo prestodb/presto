@@ -13,20 +13,20 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.matching.Captures;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.FilterNode;
-import com.facebook.presto.sql.planner.plan.SampleNode;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.DoubleLiteral;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.matching.Captures;
+import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.plan.FilterNode;
+import io.prestosql.sql.planner.plan.SampleNode;
+import io.prestosql.sql.tree.ComparisonExpression;
+import io.prestosql.sql.tree.DoubleLiteral;
+import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.QualifiedName;
 
-import static com.facebook.presto.sql.planner.plan.Patterns.Sample.sampleType;
-import static com.facebook.presto.sql.planner.plan.Patterns.sample;
-import static com.facebook.presto.sql.planner.plan.SampleNode.Type.BERNOULLI;
+import static io.prestosql.sql.planner.plan.Patterns.Sample.sampleType;
+import static io.prestosql.sql.planner.plan.Patterns.sample;
+import static io.prestosql.sql.planner.plan.SampleNode.Type.BERNOULLI;
 
 /**
  * Transforms:

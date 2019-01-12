@@ -13,17 +13,17 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spiller.SingleStreamSpiller;
-import com.facebook.presto.spiller.SingleStreamSpillerFactory;
-import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.execution.Lifespan;
+import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.spi.Page;
+import io.prestosql.spiller.SingleStreamSpiller;
+import io.prestosql.spiller.SingleStreamSpillerFactory;
+import io.prestosql.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;

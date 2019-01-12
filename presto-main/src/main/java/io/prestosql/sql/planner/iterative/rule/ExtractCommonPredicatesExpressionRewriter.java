@@ -13,23 +13,23 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.DeterminismEvaluator;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionRewriter;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.prestosql.sql.planner.DeterminismEvaluator;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.ExpressionRewriter;
+import io.prestosql.sql.tree.ExpressionTreeRewriter;
+import io.prestosql.sql.tree.LogicalBinaryExpression;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.sql.ExpressionUtils.combinePredicates;
-import static com.facebook.presto.sql.ExpressionUtils.extractPredicates;
-import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Operator.OR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.sql.ExpressionUtils.combinePredicates;
+import static io.prestosql.sql.ExpressionUtils.extractPredicates;
+import static io.prestosql.sql.tree.LogicalBinaryExpression.Operator.OR;
 import static java.util.Collections.emptySet;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;

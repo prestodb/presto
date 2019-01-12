@@ -22,10 +22,10 @@ import java.io.File;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.facebook.presto.raptor.storage.FileStorageService.getFileSystemPath;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.prestosql.plugin.raptor.legacy.storage.FileStorageService.getFileSystemPath;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 import static org.testng.Assert.assertEquals;

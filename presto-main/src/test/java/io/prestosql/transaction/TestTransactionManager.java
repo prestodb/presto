@@ -13,23 +13,23 @@
  */
 package io.prestosql.transaction;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
-import com.facebook.presto.connector.system.SystemConnector;
-import com.facebook.presto.metadata.Catalog;
-import com.facebook.presto.metadata.CatalogManager;
-import com.facebook.presto.metadata.InMemoryNodeManager;
-import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.security.AllowAllAccessControl;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.connector.Connector;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.testing.TestingConnectorContext;
-import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.informationSchema.InformationSchemaConnector;
+import io.prestosql.connector.system.SystemConnector;
+import io.prestosql.metadata.Catalog;
+import io.prestosql.metadata.CatalogManager;
+import io.prestosql.metadata.InMemoryNodeManager;
+import io.prestosql.metadata.InternalNodeManager;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.plugin.tpch.TpchConnectorFactory;
+import io.prestosql.security.AllowAllAccessControl;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.Connector;
+import io.prestosql.spi.connector.ConnectorMetadata;
+import io.prestosql.testing.TestingConnectorContext;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -38,12 +38,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
-import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
-import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.connector.ConnectorId.createInformationSchemaConnectorId;
+import static io.prestosql.connector.ConnectorId.createSystemTablesConnectorId;
+import static io.prestosql.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.testng.Assert.assertEquals;

@@ -13,20 +13,20 @@
  */
 package io.prestosql.sql.gen;
 
-import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.operator.PagesHashStrategy;
-import com.facebook.presto.operator.SimplePagesHashStrategy;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.gen.JoinCompiler.PagesHashStrategyFactory;
-import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import io.prestosql.block.BlockAssertions;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.operator.PagesHashStrategy;
+import io.prestosql.operator.SimplePagesHashStrategy;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.sql.gen.JoinCompiler.PagesHashStrategyFactory;
+import io.prestosql.type.TypeUtils;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -35,14 +35,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
-import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.type.TypeUtils.hashPosition;
-import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
+import static io.prestosql.block.BlockAssertions.assertBlockEquals;
+import static io.prestosql.operator.PageAssertions.assertPageEquals;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.type.TypeUtils.hashPosition;
+import static io.prestosql.type.TypeUtils.positionEqualsPosition;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

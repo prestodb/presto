@@ -13,14 +13,14 @@
  */
 package io.prestosql.cost;
 
-import com.facebook.presto.spi.type.FixedWidthType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VariableWidthType;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.type.FixedWidthType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VariableWidthType;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeProvider;
 import org.pcollections.HashTreePMap;
 import org.pcollections.PMap;
 
@@ -30,9 +30,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 
-import static com.facebook.presto.util.MoreMath.firstNonNaN;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.util.MoreMath.firstNonNaN;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
 import static java.util.Objects.requireNonNull;

@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.hive.metastore.file;
 
-import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
-import com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
+import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 
 import static java.util.Objects.requireNonNull;
 

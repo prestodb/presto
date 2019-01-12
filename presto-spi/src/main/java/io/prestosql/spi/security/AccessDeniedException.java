@@ -13,13 +13,13 @@
  */
 package io.prestosql.spi.security;
 
-import com.facebook.presto.spi.PrestoException;
+import io.prestosql.spi.PrestoException;
 
 import java.security.Principal;
 import java.util.Collection;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
+import static io.prestosql.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.lang.String.format;
 
 public class AccessDeniedException

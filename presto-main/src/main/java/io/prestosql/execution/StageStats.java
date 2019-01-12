@@ -13,9 +13,6 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.operator.BlockedReason;
-import com.facebook.presto.operator.OperatorStats;
-import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -23,6 +20,9 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.operator.BlockedReason;
+import io.prestosql.operator.OperatorStats;
+import io.prestosql.spi.eventlistener.StageGcStatistics;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.Immutable;
@@ -31,8 +31,8 @@ import java.util.List;
 import java.util.OptionalDouble;
 import java.util.Set;
 
-import static com.facebook.presto.execution.StageState.RUNNING;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.execution.StageState.RUNNING;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 

@@ -19,8 +19,8 @@ import org.testng.annotations.Test;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
-import static com.facebook.presto.orc.metadata.statistics.LongDecimalStatisticsBuilder.LONG_DECIMAL_VALUE_BYTES;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.prestosql.orc.metadata.statistics.LongDecimalStatisticsBuilder.LONG_DECIMAL_VALUE_BYTES;
 import static java.math.BigDecimal.ZERO;
 
 public class TestDecimalStatistics

@@ -13,10 +13,10 @@
  */
 package io.prestosql.cli;
 
-import com.facebook.presto.cli.ClientOptions.ClientResourceEstimate;
-import com.facebook.presto.cli.ClientOptions.ClientSessionProperty;
-import com.facebook.presto.client.ClientSession;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.cli.ClientOptions.ClientResourceEstimate;
+import io.prestosql.cli.ClientOptions.ClientSessionProperty;
+import io.prestosql.client.ClientSession;
 import org.testng.annotations.Test;
 
 import java.util.Optional;

@@ -24,7 +24,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.jdbc.AbstractConnectionProperty.checkedPredicate;
+import static io.prestosql.jdbc.AbstractConnectionProperty.checkedPredicate;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;

@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.PartitionUpdate.UpdateMode;
-import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.hive.PartitionUpdate.UpdateMode;
+import io.prestosql.spi.Page;
 
 import java.util.Optional;
 import java.util.function.Consumer;

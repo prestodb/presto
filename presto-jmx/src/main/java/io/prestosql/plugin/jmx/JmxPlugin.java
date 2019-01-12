@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.jmx;
 
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.Plugin;
+import io.prestosql.spi.connector.ConnectorFactory;
 
 import javax.management.MBeanServer;
 

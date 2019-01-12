@@ -14,13 +14,13 @@
 
 package io.prestosql.cost;
 
-import com.facebook.presto.sql.planner.Symbol;
+import io.prestosql.sql.planner.Symbol;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public class TestFilterStatsRule
         extends BaseStatsCalculatorTest

@@ -13,15 +13,15 @@
  */
 package io.prestosql.plugin.postgresql;
 
-import com.facebook.presto.tests.AbstractTestQueries;
 import io.airlift.testing.postgresql.TestingPostgreSqlServer;
 import io.airlift.tpch.TpchTable;
+import io.prestosql.tests.AbstractTestQueries;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 
-import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
+import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 
 @Test
 public class TestPostgreSqlDistributedQueries

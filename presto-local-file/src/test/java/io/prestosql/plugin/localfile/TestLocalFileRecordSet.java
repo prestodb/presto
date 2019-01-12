@@ -13,18 +13,18 @@
  */
 package io.prestosql.plugin.localfile;
 
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import io.prestosql.spi.HostAddress;
+import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.localfile.LocalFileTables.HttpRequestLogTable.getSchemaTableName;
-import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static io.prestosql.plugin.localfile.LocalFileTables.HttpRequestLogTable.getSchemaTableName;
+import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

@@ -13,15 +13,6 @@
  */
 package io.prestosql.tests.tpch;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.tpch.TpchMetadata;
-import com.facebook.presto.tpch.TpchRecordSetProvider;
-import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -31,6 +22,15 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.airlift.tpch.TpchTable;
+import io.prestosql.plugin.tpch.TpchMetadata;
+import io.prestosql.plugin.tpch.TpchRecordSetProvider;
+import io.prestosql.plugin.tpch.TpchTableHandle;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

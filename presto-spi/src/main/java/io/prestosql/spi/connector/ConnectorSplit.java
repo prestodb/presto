@@ -13,6 +13,8 @@
  */
 package io.prestosql.spi.connector;
 
+import io.prestosql.spi.HostAddress;
+
 import java.util.List;
 
 public interface ConnectorSplit

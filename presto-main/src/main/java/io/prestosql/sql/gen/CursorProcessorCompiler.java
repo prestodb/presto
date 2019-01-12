@@ -13,22 +13,6 @@
  */
 package io.prestosql.sql.gen;
 
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.operator.DriverYieldSignal;
-import com.facebook.presto.operator.project.CursorProcessorOutput;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
-import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
-import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
@@ -43,13 +27,27 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.control.WhileLoop;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.slice.Slice;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.operator.DriverYieldSignal;
+import io.prestosql.operator.project.CursorProcessorOutput;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
+import io.prestosql.sql.relational.CallExpression;
+import io.prestosql.sql.relational.ConstantExpression;
+import io.prestosql.sql.relational.InputReferenceExpression;
+import io.prestosql.sql.relational.LambdaDefinitionExpression;
+import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.relational.RowExpressionVisitor;
+import io.prestosql.sql.relational.VariableReferenceExpression;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
-import static com.facebook.presto.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
 import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
@@ -58,6 +56,8 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.or;
 import static io.airlift.bytecode.instruction.JumpInstruction.jump;
+import static io.prestosql.sql.gen.BytecodeUtils.generateWrite;
+import static io.prestosql.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
 import static java.lang.String.format;
 
 public class CursorProcessorCompiler

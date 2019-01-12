@@ -13,14 +13,14 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.Page;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.util.List;
 
-import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
-import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
+import static io.prestosql.operator.SyntheticAddress.decodePosition;
+import static io.prestosql.operator.SyntheticAddress.decodeSliceIndex;
 import static java.util.Objects.requireNonNull;
 
 public class StandardJoinFilterFunction

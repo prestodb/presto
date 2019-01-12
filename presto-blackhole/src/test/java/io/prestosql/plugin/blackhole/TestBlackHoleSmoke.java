@@ -13,14 +13,14 @@
  */
 package io.prestosql.plugin.blackhole;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.MaterializedRow;
-import com.facebook.presto.testing.QueryRunner;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Iterables;
 import io.airlift.units.Duration;
+import io.prestosql.Session;
+import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.MaterializedRow;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -30,14 +30,14 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.FIELD_LENGTH_PROPERTY;
-import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.PAGES_PER_SPLIT_PROPERTY;
-import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.PAGE_PROCESSING_DELAY;
-import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.ROWS_PER_PAGE_PROPERTY;
-import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.SPLIT_COUNT_PROPERTY;
-import static com.facebook.presto.plugin.blackhole.BlackHoleQueryRunner.createQueryRunner;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.testing.Assertions.assertGreaterThan;
+import static io.prestosql.plugin.blackhole.BlackHoleConnector.FIELD_LENGTH_PROPERTY;
+import static io.prestosql.plugin.blackhole.BlackHoleConnector.PAGES_PER_SPLIT_PROPERTY;
+import static io.prestosql.plugin.blackhole.BlackHoleConnector.PAGE_PROCESSING_DELAY;
+import static io.prestosql.plugin.blackhole.BlackHoleConnector.ROWS_PER_PAGE_PROPERTY;
+import static io.prestosql.plugin.blackhole.BlackHoleConnector.SPLIT_COUNT_PROPERTY;
+import static io.prestosql.plugin.blackhole.BlackHoleQueryRunner.createQueryRunner;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;

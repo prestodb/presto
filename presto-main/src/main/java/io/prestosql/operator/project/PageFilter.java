@@ -13,8 +13,8 @@
  */
 package io.prestosql.operator.project;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.Page;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.connector.ConnectorSession;
 
 public interface PageFilter
 {

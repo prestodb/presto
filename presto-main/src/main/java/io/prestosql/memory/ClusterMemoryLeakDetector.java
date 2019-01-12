@@ -13,11 +13,11 @@
  */
 package io.prestosql.memory;
 
-import com.facebook.presto.server.BasicQueryInfo;
-import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.airlift.log.Logger;
+import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.spi.QueryId;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -29,8 +29,8 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.prestosql.execution.QueryState.RUNNING;
 import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTime.now;
 import static org.joda.time.Seconds.secondsBetween;

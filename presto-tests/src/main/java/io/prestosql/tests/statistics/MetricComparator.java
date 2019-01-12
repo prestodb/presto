@@ -13,23 +13,23 @@
  */
 package io.prestosql.tests.statistics;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.cost.PlanNodeStatsEstimate;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.OutputNode;
-import com.facebook.presto.testing.MaterializedRow;
-import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.cost.PlanNodeStatsEstimate;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.sql.planner.Plan;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.plan.OutputNode;
+import io.prestosql.testing.MaterializedRow;
+import io.prestosql.testing.QueryRunner;
 
 import java.util.List;
 import java.util.OptionalDouble;
 
-import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 

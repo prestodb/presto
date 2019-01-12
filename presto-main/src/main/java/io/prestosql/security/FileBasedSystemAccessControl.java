@@ -13,19 +13,19 @@
  */
 package io.prestosql.security;
 
-import com.facebook.presto.plugin.base.security.ForwardingSystemAccessControl;
-import com.facebook.presto.spi.CatalogSchemaName;
-import com.facebook.presto.spi.CatalogSchemaTableName;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.security.Privilege;
-import com.facebook.presto.spi.security.SystemAccessControl;
-import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.base.security.ForwardingSystemAccessControl;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.CatalogSchemaName;
+import io.prestosql.spi.connector.CatalogSchemaTableName;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.security.Privilege;
+import io.prestosql.spi.security.SystemAccessControl;
+import io.prestosql.spi.security.SystemAccessControlFactory;
 
 import java.nio.file.Paths;
 import java.security.Principal;
@@ -35,14 +35,14 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import static com.facebook.presto.plugin.base.JsonUtils.parseJson;
-import static com.facebook.presto.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
-import static com.facebook.presto.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
-import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
-import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
+import static io.prestosql.plugin.base.JsonUtils.parseJson;
+import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
+import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
+import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_INVALID;
+import static io.prestosql.spi.security.AccessDeniedException.denyCatalogAccess;
+import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;

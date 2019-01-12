@@ -13,12 +13,12 @@
  */
 package io.prestosql.sql.planner.iterative;
 
-import com.facebook.presto.cost.PlanNodeCostEstimate;
-import com.facebook.presto.cost.PlanNodeStatsEstimate;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Multiset;
+import io.prestosql.cost.PlanNodeCostEstimate;
+import io.prestosql.cost.PlanNodeStatsEstimate;
+import io.prestosql.sql.planner.PlanNodeIdAllocator;
+import io.prestosql.sql.planner.plan.PlanNode;
 
 import javax.annotation.Nullable;
 
@@ -30,9 +30,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupReferences;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.sql.planner.iterative.Plans.resolveGroupReferences;
 import static java.util.Objects.requireNonNull;
 
 /**

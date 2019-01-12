@@ -13,9 +13,9 @@
  */
 package io.prestosql.operator.index;
 
-import com.facebook.presto.operator.LookupSource;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
+import io.prestosql.operator.LookupSource;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
 
 import javax.annotation.concurrent.Immutable;
 

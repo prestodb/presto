@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.raptor.legacy.util;
 
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Throwables;
+import io.prestosql.spi.PrestoException;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionCallback;
@@ -31,10 +31,10 @@ import java.util.OptionalLong;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_METADATA_ERROR;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.reflect.Reflection.newProxy;
 import static com.mysql.jdbc.MysqlErrorNumbers.ER_TRANS_CACHE_FULL;
+import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_METADATA_ERROR;
 import static java.sql.Types.INTEGER;
 import static java.util.Objects.requireNonNull;
 

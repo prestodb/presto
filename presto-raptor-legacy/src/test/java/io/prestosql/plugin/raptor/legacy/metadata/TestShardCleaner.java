@@ -13,15 +13,15 @@
  */
 package io.prestosql.plugin.raptor.legacy.metadata;
 
-import com.facebook.presto.raptor.backup.BackupStore;
-import com.facebook.presto.raptor.backup.FileBackupStore;
-import com.facebook.presto.raptor.storage.FileStorageService;
-import com.facebook.presto.raptor.storage.StorageService;
-import com.facebook.presto.raptor.util.DaoSupplier;
-import com.facebook.presto.raptor.util.UuidUtil.UuidArgumentFactory;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.raptor.legacy.backup.BackupStore;
+import io.prestosql.plugin.raptor.legacy.backup.FileBackupStore;
+import io.prestosql.plugin.raptor.legacy.storage.FileStorageService;
+import io.prestosql.plugin.raptor.legacy.storage.StorageService;
+import io.prestosql.plugin.raptor.legacy.util.DaoSupplier;
+import io.prestosql.plugin.raptor.legacy.util.UuidUtil.UuidArgumentFactory;
 import org.intellij.lang.annotations.Language;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
@@ -43,12 +43,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
-import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static io.prestosql.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
+import static io.prestosql.plugin.raptor.legacy.util.UuidUtil.uuidFromBytes;
 import static java.util.Arrays.asList;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.HOURS;

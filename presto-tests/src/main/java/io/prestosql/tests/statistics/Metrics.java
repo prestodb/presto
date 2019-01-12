@@ -13,8 +13,8 @@
  */
 package io.prestosql.tests.statistics;
 
-import com.facebook.presto.cost.PlanNodeStatsEstimate;
-import com.facebook.presto.cost.SymbolStatsEstimate;
+import io.prestosql.cost.PlanNodeStatsEstimate;
+import io.prestosql.cost.SymbolStatsEstimate;
 
 import java.util.Optional;
 import java.util.OptionalDouble;

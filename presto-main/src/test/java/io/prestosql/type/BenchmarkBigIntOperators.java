@@ -13,9 +13,9 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.StandardTypes;
+import io.prestosql.spi.function.ScalarOperator;
+import io.prestosql.spi.function.SqlType;
+import io.prestosql.spi.type.StandardTypes;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -32,11 +32,11 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.spi.function.OperatorType.ADD;
-import static com.facebook.presto.spi.function.OperatorType.DIVIDE;
-import static com.facebook.presto.spi.function.OperatorType.MULTIPLY;
-import static com.facebook.presto.spi.function.OperatorType.NEGATION;
-import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
+import static io.prestosql.spi.function.OperatorType.ADD;
+import static io.prestosql.spi.function.OperatorType.DIVIDE;
+import static io.prestosql.spi.function.OperatorType.MULTIPLY;
+import static io.prestosql.spi.function.OperatorType.NEGATION;
+import static io.prestosql.spi.function.OperatorType.SUBTRACT;
 
 @State(Scope.Thread)
 @Fork(2)

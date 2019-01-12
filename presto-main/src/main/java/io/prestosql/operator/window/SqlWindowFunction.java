@@ -13,11 +13,11 @@
  */
 package io.prestosql.operator.window;
 
-import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.metadata.SqlFunction;
-import com.facebook.presto.spi.type.TypeManager;
+import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.SqlFunction;
+import io.prestosql.spi.type.TypeManager;
 
 import static java.util.Objects.requireNonNull;
 

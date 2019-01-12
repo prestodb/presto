@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.memory;
 
-import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.connector.ConnectorInsertTableHandle;
 
 import java.util.Set;
 

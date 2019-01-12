@@ -13,15 +13,15 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.StandardTypes;
 import org.apache.commons.math3.stat.correlation.Covariance;
 
 import java.util.List;
 
-import static com.facebook.presto.block.BlockAssertions.createDoubleSequenceBlock;
-import static com.facebook.presto.operator.aggregation.AggregationTestUtils.constructDoublePrimitiveArray;
+import static io.prestosql.block.BlockAssertions.createDoubleSequenceBlock;
+import static io.prestosql.operator.aggregation.AggregationTestUtils.constructDoublePrimitiveArray;
 
 public class TestDoubleCovariancePopAggregation
         extends AbstractTestAggregationFunction

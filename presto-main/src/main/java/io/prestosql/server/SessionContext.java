@@ -13,9 +13,9 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.session.ResourceEstimates;
-import com.facebook.presto.transaction.TransactionId;
+import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.session.ResourceEstimates;
+import io.prestosql.transaction.TransactionId;
 
 import javax.annotation.Nullable;
 

@@ -13,20 +13,20 @@
  */
 package io.prestosql.plugin.raptor.legacy;
 
-import com.facebook.presto.spi.ConnectorOutputTableHandle;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.ConnectorOutputTableHandle;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 
-import static com.facebook.presto.raptor.util.MetadataUtil.checkSchemaName;
-import static com.facebook.presto.raptor.util.MetadataUtil.checkTableName;
+import static io.prestosql.plugin.raptor.legacy.util.MetadataUtil.checkSchemaName;
+import static io.prestosql.plugin.raptor.legacy.util.MetadataUtil.checkTableName;
 import static java.util.Objects.requireNonNull;
 
 public class RaptorOutputTableHandle

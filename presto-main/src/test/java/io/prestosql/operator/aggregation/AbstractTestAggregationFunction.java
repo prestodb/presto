@@ -13,29 +13,29 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.Lists;
+import io.prestosql.block.BlockEncodingManager;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Signature;
+import io.prestosql.spi.Plugin;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.sql.analyzer.TypeSignatureProvider;
+import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
-import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
+import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 
 public abstract class AbstractTestAggregationFunction
 {

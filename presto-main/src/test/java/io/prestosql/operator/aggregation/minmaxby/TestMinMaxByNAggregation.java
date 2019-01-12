@@ -13,26 +13,26 @@
  */
 package io.prestosql.operator.aggregation.minmaxby;
 
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Signature;
+import io.prestosql.operator.aggregation.InternalAggregationFunction;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.StandardTypes;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 
-import static com.facebook.presto.block.BlockAssertions.createArrayBigintBlock;
-import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
-import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
-import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
-import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
-import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.operator.aggregation.AggregationTestUtils.groupedAggregation;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.block.BlockAssertions.createArrayBigintBlock;
+import static io.prestosql.block.BlockAssertions.createDoublesBlock;
+import static io.prestosql.block.BlockAssertions.createLongsBlock;
+import static io.prestosql.block.BlockAssertions.createRLEBlock;
+import static io.prestosql.block.BlockAssertions.createStringsBlock;
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static io.prestosql.operator.aggregation.AggregationTestUtils.groupedAggregation;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static org.testng.Assert.assertEquals;
 
 public class TestMinMaxByNAggregation

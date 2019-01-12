@@ -13,19 +13,19 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionRewriter;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.LogicalBinaryExpression;
-import com.facebook.presto.sql.tree.NotExpression;
+import io.prestosql.sql.tree.ComparisonExpression;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.ExpressionRewriter;
+import io.prestosql.sql.tree.ExpressionTreeRewriter;
+import io.prestosql.sql.tree.LogicalBinaryExpression;
+import io.prestosql.sql.tree.NotExpression;
 
 import java.util.List;
 
-import static com.facebook.presto.sql.ExpressionUtils.combinePredicates;
-import static com.facebook.presto.sql.ExpressionUtils.extractPredicates;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.sql.ExpressionUtils.combinePredicates;
+import static io.prestosql.sql.ExpressionUtils.extractPredicates;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
 
 public class PushDownNegationsExpressionRewriter
 {

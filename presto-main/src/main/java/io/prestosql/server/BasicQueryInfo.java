@@ -13,16 +13,16 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.SessionRepresentation;
-import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.ErrorType;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.memory.MemoryPoolId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.SessionRepresentation;
+import io.prestosql.execution.QueryInfo;
+import io.prestosql.execution.QueryState;
+import io.prestosql.spi.ErrorCode;
+import io.prestosql.spi.ErrorType;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.memory.MemoryPoolId;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;

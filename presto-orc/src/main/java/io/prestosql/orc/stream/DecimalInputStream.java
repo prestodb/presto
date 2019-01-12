@@ -13,13 +13,13 @@
  */
 package io.prestosql.orc.stream;
 
-import com.facebook.presto.orc.OrcCorruptionException;
-import com.facebook.presto.orc.checkpoint.DecimalStreamCheckpoint;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.Decimals;
-import com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic;
 import io.airlift.slice.Slice;
+import io.prestosql.orc.OrcCorruptionException;
+import io.prestosql.orc.checkpoint.DecimalStreamCheckpoint;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.UnscaledDecimal128Arithmetic;
 
 import java.io.IOException;
 

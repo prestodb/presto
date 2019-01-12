@@ -13,13 +13,13 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.Session;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.predicate.NullableValue;
 
 import javax.annotation.concurrent.Immutable;
 

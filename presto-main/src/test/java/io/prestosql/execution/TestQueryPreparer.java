@@ -13,22 +13,22 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.tree.AllColumns;
-import com.facebook.presto.sql.tree.QualifiedName;
+import io.prestosql.Session;
+import io.prestosql.execution.QueryPreparer.PreparedQuery;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.sql.analyzer.SemanticException;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.tree.AllColumns;
+import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
-import static com.facebook.presto.sql.QueryUtil.selectList;
-import static com.facebook.presto.sql.QueryUtil.simpleQuery;
-import static com.facebook.presto.sql.QueryUtil.table;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
+import static io.prestosql.sql.QueryUtil.selectList;
+import static io.prestosql.sql.QueryUtil.simpleQuery;
+import static io.prestosql.sql.QueryUtil.table;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 

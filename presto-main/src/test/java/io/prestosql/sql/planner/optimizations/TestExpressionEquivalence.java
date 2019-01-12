@@ -13,25 +13,25 @@
  */
 package io.prestosql.sql.planner.optimizations;
 
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.sql.parser.ParsingOptions;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.tree.Expression;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.sql.parser.ParsingOptions;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.tree.Expression;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.Set;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
-import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
-import static com.facebook.presto.sql.planner.SymbolsExtractor.extractUnique;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
+import static io.prestosql.sql.planner.SymbolsExtractor.extractUnique;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 import static org.testng.Assert.assertFalse;

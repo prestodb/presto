@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.geospatial;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.AccumulatorStateSerializer;
+import io.prestosql.spi.type.Type;
 
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 
 public class SpatialPartitioningStateSerializer
         implements AccumulatorStateSerializer<SpatialPartitioningState>

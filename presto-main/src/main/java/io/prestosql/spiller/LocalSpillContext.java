@@ -13,7 +13,7 @@
  */
 package io.prestosql.spiller;
 
-import com.facebook.presto.operator.SpillContext;
+import io.prestosql.operator.SpillContext;
 
 import javax.annotation.concurrent.ThreadSafe;
 

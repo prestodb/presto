@@ -13,15 +13,15 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.ArrayType;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.ArrayType;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.util.StructuralTestUtil.arrayBlockOf;
 
 public class TestArrayMinAggregation
         extends AbstractTestAggregationFunction

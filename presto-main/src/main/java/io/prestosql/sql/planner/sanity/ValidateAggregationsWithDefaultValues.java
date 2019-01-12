@@ -13,32 +13,32 @@
  */
 package io.prestosql.sql.planner.sanity;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.optimizations.ActualProperties;
-import com.facebook.presto.sql.planner.optimizations.PropertyDerivations;
-import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations;
-import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
-import com.facebook.presto.sql.planner.sanity.PlanSanityChecker.Checker;
+import io.prestosql.Session;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.planner.optimizations.ActualProperties;
+import io.prestosql.sql.planner.optimizations.PropertyDerivations;
+import io.prestosql.sql.planner.optimizations.StreamPropertyDerivations;
+import io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
+import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.planner.plan.ExchangeNode;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.PlanVisitor;
+import io.prestosql.sql.planner.sanity.PlanSanityChecker.Checker;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.INTERMEDIATE;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
-import static com.facebook.presto.util.Optionals.combine;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.sql.planner.plan.AggregationNode.Step.FINAL;
+import static io.prestosql.sql.planner.plan.AggregationNode.Step.INTERMEDIATE;
+import static io.prestosql.sql.planner.plan.AggregationNode.Step.PARTIAL;
+import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static io.prestosql.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static io.prestosql.util.Optionals.combine;
 import static java.util.Objects.requireNonNull;
 
 /**

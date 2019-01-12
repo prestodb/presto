@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.raptor.legacy;
 
-import com.facebook.presto.spi.Node;
+import io.prestosql.spi.Node;
 
 import java.util.Set;
 

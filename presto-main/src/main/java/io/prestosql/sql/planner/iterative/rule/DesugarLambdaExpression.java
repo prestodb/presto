@@ -13,9 +13,9 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.tree.Expression;
 
 import java.util.Set;
 

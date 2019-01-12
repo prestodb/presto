@@ -13,30 +13,30 @@
  */
 package io.prestosql.cost;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.plan.FilterNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.NotExpression;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.Iterables;
+import io.prestosql.Session;
+import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.planner.iterative.Lookup;
+import io.prestosql.sql.planner.plan.FilterNode;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.ProjectNode;
+import io.prestosql.sql.planner.plan.SemiJoinNode;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.NotExpression;
+import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
-import static com.facebook.presto.cost.SemiJoinStatsCalculator.computeAntiJoin;
-import static com.facebook.presto.cost.SemiJoinStatsCalculator.computeSemiJoin;
-import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
-import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
-import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
+import static io.prestosql.cost.SemiJoinStatsCalculator.computeAntiJoin;
+import static io.prestosql.cost.SemiJoinStatsCalculator.computeSemiJoin;
+import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
+import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
+import static io.prestosql.sql.planner.plan.Patterns.filter;
 import static java.util.Objects.requireNonNull;
 
 /**

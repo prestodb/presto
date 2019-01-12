@@ -13,15 +13,15 @@
  */
 package io.prestosql.plugin.resourcegroups;
 
-import com.facebook.presto.resourceGroups.SelectorResourceEstimate.Range;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.SelectionContext;
-import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
-import com.facebook.presto.spi.session.ResourceEstimates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.resourcegroups.SelectorResourceEstimate.Range;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.spi.resourcegroups.SelectionContext;
+import io.prestosql.spi.resourcegroups.SelectionCriteria;
+import io.prestosql.spi.session.ResourceEstimates;
 import org.testng.annotations.Test;
 
 import java.util.Optional;

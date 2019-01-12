@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.kudu;
 
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 public enum KuduTransactionHandle
         implements ConnectorTransactionHandle

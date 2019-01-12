@@ -13,17 +13,17 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.execution.QueryManager;
-import com.facebook.presto.execution.resourceGroups.NoOpResourceGroupManager;
-import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
-import com.facebook.presto.failureDetector.FailureDetector;
-import com.facebook.presto.failureDetector.NoOpFailureDetector;
-import com.facebook.presto.transaction.NoOpTransactionManager;
-import com.facebook.presto.transaction.TransactionManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import io.prestosql.execution.QueryManager;
+import io.prestosql.execution.resourceGroups.NoOpResourceGroupManager;
+import io.prestosql.execution.resourceGroups.ResourceGroupManager;
+import io.prestosql.failureDetector.FailureDetector;
+import io.prestosql.failureDetector.NoOpFailureDetector;
+import io.prestosql.transaction.NoOpTransactionManager;
+import io.prestosql.transaction.TransactionManager;
 
 import javax.inject.Singleton;
 

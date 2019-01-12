@@ -15,7 +15,7 @@ package io.prestosql.verifier;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.verifier.Validator.precisionCompare;
+import static io.prestosql.verifier.Validator.precisionCompare;
 import static java.lang.Double.NaN;
 import static org.testng.Assert.assertEquals;
 

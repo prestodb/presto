@@ -13,17 +13,17 @@
  */
 package io.prestosql.spiller;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
-import com.facebook.presto.operator.PartitionFunction;
-import com.facebook.presto.operator.SpillContext;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.operator.PartitionFunction;
+import io.prestosql.operator.SpillContext;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import javax.annotation.concurrent.ThreadSafe;

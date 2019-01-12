@@ -13,8 +13,8 @@
  */
 package io.prestosql.execution.warnings;
 
-import com.facebook.presto.spi.PrestoWarning;
-import com.facebook.presto.spi.WarningCode;
+import io.prestosql.spi.PrestoWarning;
+import io.prestosql.spi.WarningCode;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;

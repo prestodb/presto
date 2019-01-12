@@ -13,15 +13,15 @@
  */
 package io.prestosql.operator.aggregation.state;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.AccumulatorStateSerializer;
+import io.prestosql.spi.type.Type;
 
-import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.FALSE_VALUE;
-import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.NULL_VALUE;
-import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.TRUE_VALUE;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.operator.aggregation.state.TriStateBooleanState.FALSE_VALUE;
+import static io.prestosql.operator.aggregation.state.TriStateBooleanState.NULL_VALUE;
+import static io.prestosql.operator.aggregation.state.TriStateBooleanState.TRUE_VALUE;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 
 public class TriStateBooleanStateSerializer
         implements AccumulatorStateSerializer<TriStateBooleanState>

@@ -13,13 +13,13 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.Type;
+import io.prestosql.type.TypeUtils;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.invoke.MethodHandle;
@@ -27,10 +27,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.util.Failures.internalError;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.util.Failures.internalError;
 import static java.util.Objects.requireNonNull;
 
 public class SimplePagesHashStrategy

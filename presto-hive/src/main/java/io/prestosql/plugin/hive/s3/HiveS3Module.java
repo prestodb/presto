@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.hive.s3;
 
-import com.facebook.presto.hive.HiveClientConfig;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.prestosql.plugin.hive.HiveClientConfig;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.common.JavaUtils;
 

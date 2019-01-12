@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.ml;
 
-import com.facebook.presto.ml.type.ModelType;
+import io.prestosql.plugin.ml.type.ModelType;
 
 public interface Model
 {

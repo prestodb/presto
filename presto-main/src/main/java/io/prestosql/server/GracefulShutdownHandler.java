@@ -13,11 +13,11 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.execution.TaskManager;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.prestosql.execution.TaskInfo;
+import io.prestosql.execution.TaskManager;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;

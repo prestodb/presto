@@ -13,8 +13,8 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;

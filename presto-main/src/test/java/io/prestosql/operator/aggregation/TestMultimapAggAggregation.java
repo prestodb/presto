@@ -13,24 +13,24 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.RowPageBuilder;
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInput;
-import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInputBuilder;
-import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestOutput;
-import com.facebook.presto.operator.aggregation.groupByAggregations.GroupByAggregationTestUtils;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.primitives.Ints;
+import io.prestosql.RowPageBuilder;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Signature;
+import io.prestosql.operator.aggregation.groupByAggregations.AggregationTestInput;
+import io.prestosql.operator.aggregation.groupByAggregations.AggregationTestInputBuilder;
+import io.prestosql.operator.aggregation.groupByAggregations.AggregationTestOutput;
+import io.prestosql.operator.aggregation.groupByAggregations.GroupByAggregationTestUtils;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -40,15 +40,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
-import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
-import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.operator.aggregation.multimapagg.MultimapAggregationFunction.NAME;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static io.prestosql.operator.aggregation.multimapagg.MultimapAggregationFunction.NAME;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.util.StructuralTestUtil.mapType;
 import static org.testng.Assert.assertTrue;
 
 public class TestMultimapAggAggregation

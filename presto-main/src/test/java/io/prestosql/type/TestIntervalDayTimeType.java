@@ -13,10 +13,10 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
 
-import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static io.prestosql.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 
 public class TestIntervalDayTimeType
         extends AbstractTestType

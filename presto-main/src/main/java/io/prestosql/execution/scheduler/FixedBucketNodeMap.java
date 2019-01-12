@@ -13,9 +13,9 @@
  */
 package io.prestosql.execution.scheduler;
 
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.Node;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.Split;
+import io.prestosql.spi.Node;
 
 import java.util.List;
 import java.util.Optional;

@@ -13,14 +13,14 @@
  */
 package io.prestosql.sql.planner.assertions;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.cost.StatsProvider;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.tree.FunctionCall;
+import io.prestosql.Session;
+import io.prestosql.cost.StatsProvider;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.Signature;
+import io.prestosql.spi.block.SortOrder;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.WindowNode;
+import io.prestosql.sql.tree.FunctionCall;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -28,12 +28,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
-import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.sql.planner.assertions.MatchResult.NO_MATCH;
+import static io.prestosql.sql.planner.assertions.MatchResult.match;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
 import static java.util.Objects.requireNonNull;
 
 /**

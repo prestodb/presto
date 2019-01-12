@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.tpcds;
 
-import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.connector.ConnectorPartitioningHandle;
 
 import java.util.Objects;
 

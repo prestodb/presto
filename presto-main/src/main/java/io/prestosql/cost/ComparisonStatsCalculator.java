@@ -13,16 +13,16 @@
  */
 package io.prestosql.cost;
 
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.ComparisonExpression;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.tree.ComparisonExpression;
 
 import java.util.Optional;
 import java.util.OptionalDouble;
 
-import static com.facebook.presto.cost.SymbolStatsEstimate.buildFrom;
-import static com.facebook.presto.util.MoreMath.firstNonNaN;
-import static com.facebook.presto.util.MoreMath.max;
-import static com.facebook.presto.util.MoreMath.min;
+import static io.prestosql.cost.SymbolStatsEstimate.buildFrom;
+import static io.prestosql.util.MoreMath.firstNonNaN;
+import static io.prestosql.util.MoreMath.max;
+import static io.prestosql.util.MoreMath.min;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;

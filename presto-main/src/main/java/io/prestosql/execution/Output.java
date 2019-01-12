@@ -13,9 +13,9 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.connector.ConnectorId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.connector.ConnectorId;
 
 import javax.annotation.concurrent.Immutable;
 

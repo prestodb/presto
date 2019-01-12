@@ -38,12 +38,12 @@ import java.io.UncheckedIOException;
 import java.sql.SQLException;
 import java.util.Map;
 
-import static com.facebook.presto.tests.TestGroups.KAFKA;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.prestodb.tempto.fulfillment.table.kafka.KafkaMessageContentsBuilder.contentsBuilder;
 import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestosql.tests.TestGroups.KAFKA;
 import static java.lang.String.format;
 
 public class KafkaAvroSmokeTest

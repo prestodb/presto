@@ -13,12 +13,12 @@
  */
 package io.prestosql.server.testing;
 
-import com.facebook.presto.server.testing.TestingPrestoServerLauncherOptions.Catalog;
-import com.facebook.presto.spi.Plugin;
 import io.airlift.airline.Command;
 import io.airlift.airline.Help;
 import io.airlift.airline.HelpOption;
 import io.airlift.airline.model.CommandMetadata;
+import io.prestosql.server.testing.TestingPrestoServerLauncherOptions.Catalog;
+import io.prestosql.spi.Plugin;
 
 import javax.inject.Inject;
 

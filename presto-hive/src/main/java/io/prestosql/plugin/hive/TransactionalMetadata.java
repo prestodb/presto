@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.spi.connector.ConnectorMetadata;
+import io.prestosql.spi.connector.ConnectorMetadata;
 
 public interface TransactionalMetadata
         extends ConnectorMetadata

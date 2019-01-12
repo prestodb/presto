@@ -13,11 +13,11 @@
  */
 package io.prestosql.matching;
 
-import com.facebook.presto.matching.pattern.CapturePattern;
-import com.facebook.presto.matching.pattern.EqualsPattern;
-import com.facebook.presto.matching.pattern.FilterPattern;
-import com.facebook.presto.matching.pattern.TypeOfPattern;
-import com.facebook.presto.matching.pattern.WithPattern;
+import io.prestosql.matching.pattern.CapturePattern;
+import io.prestosql.matching.pattern.EqualsPattern;
+import io.prestosql.matching.pattern.FilterPattern;
+import io.prestosql.matching.pattern.TypeOfPattern;
+import io.prestosql.matching.pattern.WithPattern;
 
 public interface PatternVisitor
 {

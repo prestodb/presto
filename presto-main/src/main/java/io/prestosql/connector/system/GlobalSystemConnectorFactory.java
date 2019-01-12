@@ -13,13 +13,13 @@
  */
 package io.prestosql.connector.system;
 
-import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.connector.Connector;
-import com.facebook.presto.spi.connector.ConnectorContext;
-import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.procedure.Procedure;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.connector.Connector;
+import io.prestosql.spi.connector.ConnectorContext;
+import io.prestosql.spi.connector.ConnectorFactory;
+import io.prestosql.spi.connector.ConnectorHandleResolver;
+import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.procedure.Procedure;
 
 import javax.inject.Inject;
 

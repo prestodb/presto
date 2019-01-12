@@ -13,10 +13,10 @@
  */
 package io.prestosql.operator.exchange;
 
-import com.facebook.presto.spi.Page;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.spi.Page;
 
-import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
+import static io.prestosql.operator.Operator.NOT_BLOCKED;
 
 public interface LocalExchanger
 {

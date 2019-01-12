@@ -13,8 +13,8 @@
  */
 package io.prestosql.matching;
 
-import com.facebook.presto.matching.pattern.EqualsPattern;
-import com.facebook.presto.matching.pattern.FilterPattern;
+import io.prestosql.matching.pattern.EqualsPattern;
+import io.prestosql.matching.pattern.FilterPattern;
 
 import java.util.Optional;
 import java.util.function.Function;

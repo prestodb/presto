@@ -13,31 +13,31 @@
  */
 package io.prestosql.execution.buffer;
 
-import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.OutputBuffers.OutputBufferId;
-import com.facebook.presto.execution.StateMachine;
-import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
+import io.prestosql.OutputBuffers;
+import io.prestosql.OutputBuffers.OutputBufferId;
+import io.prestosql.execution.StateMachine;
+import io.prestosql.execution.StateMachine.StateChangeListener;
+import io.prestosql.memory.context.LocalMemoryContext;
 
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.OutputBuffers.BufferType.PARTITIONED;
-import static com.facebook.presto.execution.buffer.BufferState.FAILED;
-import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
-import static com.facebook.presto.execution.buffer.BufferState.FLUSHING;
-import static com.facebook.presto.execution.buffer.BufferState.NO_MORE_BUFFERS;
-import static com.facebook.presto.execution.buffer.BufferState.NO_MORE_PAGES;
-import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.OutputBuffers.BufferType.PARTITIONED;
+import static io.prestosql.execution.buffer.BufferState.FAILED;
+import static io.prestosql.execution.buffer.BufferState.FINISHED;
+import static io.prestosql.execution.buffer.BufferState.FLUSHING;
+import static io.prestosql.execution.buffer.BufferState.NO_MORE_BUFFERS;
+import static io.prestosql.execution.buffer.BufferState.NO_MORE_PAGES;
+import static io.prestosql.execution.buffer.BufferState.OPEN;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionedOutputBuffer

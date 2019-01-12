@@ -14,16 +14,16 @@
 
 package io.prestosql.cost;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.iterative.GroupReference;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
-import com.facebook.presto.sql.planner.plan.UnionNode;
+import io.prestosql.Session;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.planner.iterative.GroupReference;
+import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.planner.plan.JoinNode;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.PlanVisitor;
+import io.prestosql.sql.planner.plan.SemiJoinNode;
+import io.prestosql.sql.planner.plan.SpatialJoinNode;
+import io.prestosql.sql.planner.plan.UnionNode;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -31,8 +31,8 @@ import javax.inject.Inject;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.presto.cost.PlanNodeCostEstimate.cpuCost;
-import static com.facebook.presto.cost.PlanNodeCostEstimate.networkCost;
+import static io.prestosql.cost.PlanNodeCostEstimate.cpuCost;
+import static io.prestosql.cost.PlanNodeCostEstimate.networkCost;
 import static java.util.Objects.requireNonNull;
 
 /**

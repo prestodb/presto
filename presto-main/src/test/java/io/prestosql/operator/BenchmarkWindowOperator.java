@@ -13,15 +13,15 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.RowPagesBuilder;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
+import io.prestosql.RowPagesBuilder;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.type.Type;
+import io.prestosql.testing.TestingTaskContext;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -44,15 +44,15 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
-import static com.facebook.presto.operator.BenchmarkWindowOperator.Context.ROWS_PER_PAGE;
-import static com.facebook.presto.operator.BenchmarkWindowOperator.Context.TOTAL_PAGES;
-import static com.facebook.presto.operator.TestWindowOperator.ROW_NUMBER;
-import static com.facebook.presto.operator.TestWindowOperator.createFactoryUnbounded;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.block.BlockAssertions.createLongSequenceBlock;
+import static io.prestosql.operator.BenchmarkWindowOperator.Context.ROWS_PER_PAGE;
+import static io.prestosql.operator.BenchmarkWindowOperator.Context.TOTAL_PAGES;
+import static io.prestosql.operator.TestWindowOperator.ROW_NUMBER;
+import static io.prestosql.operator.TestWindowOperator.createFactoryUnbounded;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;

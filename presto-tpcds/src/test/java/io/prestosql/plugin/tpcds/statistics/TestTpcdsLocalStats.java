@@ -13,21 +13,21 @@
  */
 package io.prestosql.plugin.tpcds.statistics;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.tests.statistics.StatisticsAssertion;
-import com.facebook.presto.tpcds.TpcdsConnectorFactory;
+import io.prestosql.Session;
+import io.prestosql.plugin.tpcds.TpcdsConnectorFactory;
+import io.prestosql.testing.LocalQueryRunner;
+import io.prestosql.tests.statistics.StatisticsAssertion;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.absoluteError;
-import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.defaultTolerance;
-import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.noError;
-import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.relativeError;
-import static com.facebook.presto.tests.statistics.Metrics.OUTPUT_ROW_COUNT;
-import static com.facebook.presto.tests.statistics.Metrics.distinctValuesCount;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.tests.statistics.MetricComparisonStrategies.absoluteError;
+import static io.prestosql.tests.statistics.MetricComparisonStrategies.defaultTolerance;
+import static io.prestosql.tests.statistics.MetricComparisonStrategies.noError;
+import static io.prestosql.tests.statistics.MetricComparisonStrategies.relativeError;
+import static io.prestosql.tests.statistics.Metrics.OUTPUT_ROW_COUNT;
+import static io.prestosql.tests.statistics.Metrics.distinctValuesCount;
 import static java.util.Collections.emptyMap;
 
 public class TestTpcdsLocalStats

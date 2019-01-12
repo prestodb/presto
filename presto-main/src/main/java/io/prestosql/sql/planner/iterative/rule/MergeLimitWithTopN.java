@@ -13,17 +13,17 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.matching.Capture;
-import com.facebook.presto.matching.Captures;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.LimitNode;
-import com.facebook.presto.sql.planner.plan.TopNNode;
+import io.prestosql.matching.Capture;
+import io.prestosql.matching.Captures;
+import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.plan.LimitNode;
+import io.prestosql.sql.planner.plan.TopNNode;
 
-import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.sql.planner.plan.Patterns.limit;
-import static com.facebook.presto.sql.planner.plan.Patterns.source;
-import static com.facebook.presto.sql.planner.plan.Patterns.topN;
+import static io.prestosql.matching.Capture.newCapture;
+import static io.prestosql.sql.planner.plan.Patterns.limit;
+import static io.prestosql.sql.planner.plan.Patterns.source;
+import static io.prestosql.sql.planner.plan.Patterns.topN;
 
 public class MergeLimitWithTopN
         implements Rule<LimitNode>

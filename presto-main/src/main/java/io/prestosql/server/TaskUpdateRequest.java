@@ -13,13 +13,13 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.SessionRepresentation;
-import com.facebook.presto.TaskSource;
-import com.facebook.presto.sql.planner.PlanFragment;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.OutputBuffers;
+import io.prestosql.SessionRepresentation;
+import io.prestosql.TaskSource;
+import io.prestosql.sql.planner.PlanFragment;
 
 import java.util.List;
 import java.util.Optional;

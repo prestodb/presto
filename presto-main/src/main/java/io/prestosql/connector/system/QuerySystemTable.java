@@ -13,24 +13,24 @@
  */
 package io.prestosql.connector.system;
 
-import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.execution.QueryManager;
-import com.facebook.presto.execution.QueryStats;
-import com.facebook.presto.server.BasicQueryInfo;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.InMemoryRecordSet;
-import com.facebook.presto.spi.InMemoryRecordSet.Builder;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.type.ArrayType;
 import io.airlift.units.Duration;
+import io.prestosql.execution.QueryInfo;
+import io.prestosql.execution.QueryManager;
+import io.prestosql.execution.QueryStats;
+import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.InMemoryRecordSet;
+import io.prestosql.spi.connector.InMemoryRecordSet.Builder;
+import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.spi.type.ArrayType;
 import org.joda.time.DateTime;
 
 import javax.inject.Inject;
@@ -39,13 +39,13 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 
-import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static com.facebook.presto.spi.SystemTable.Distribution.ALL_COORDINATORS;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static io.prestosql.spi.connector.SystemTable.Distribution.ALL_COORDINATORS;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
 public class QuerySystemTable

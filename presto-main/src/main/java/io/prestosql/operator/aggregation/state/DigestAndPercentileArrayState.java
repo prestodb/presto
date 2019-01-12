@@ -13,9 +13,9 @@
  */
 package io.prestosql.operator.aggregation.state;
 
-import com.facebook.presto.spi.function.AccumulatorState;
-import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 import io.airlift.stats.QuantileDigest;
+import io.prestosql.spi.function.AccumulatorState;
+import io.prestosql.spi.function.AccumulatorStateMetadata;
 
 import java.util.List;
 

@@ -13,10 +13,10 @@
  */
 package io.prestosql.verifier;
 
-import com.facebook.presto.sql.parser.SqlParser;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
+import io.prestosql.sql.parser.SqlParser;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.testng.annotations.AfterClass;
@@ -25,7 +25,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.verifier.VerifyCommand.rewriteQueries;
+import static io.prestosql.verifier.VerifyCommand.rewriteQueries;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)

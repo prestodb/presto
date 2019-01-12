@@ -13,18 +13,18 @@
  */
 package io.prestosql.plugin.kafka.util;
 
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.type.Type;
 
 import java.util.function.Supplier;
 
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 
 public final class CodecSupplier<T>
         implements Supplier<JsonCodec<T>>

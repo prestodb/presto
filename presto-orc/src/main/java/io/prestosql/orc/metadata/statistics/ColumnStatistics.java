@@ -13,20 +13,20 @@
  */
 package io.prestosql.orc.metadata.statistics;
 
-import com.facebook.presto.orc.metadata.statistics.StatisticsHasher.Hashable;
+import io.prestosql.orc.metadata.statistics.StatisticsHasher.Hashable;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Objects;
 
-import static com.facebook.presto.orc.metadata.statistics.BinaryStatisticsBuilder.mergeBinaryStatistics;
-import static com.facebook.presto.orc.metadata.statistics.BooleanStatisticsBuilder.mergeBooleanStatistics;
-import static com.facebook.presto.orc.metadata.statistics.DateStatisticsBuilder.mergeDateStatistics;
-import static com.facebook.presto.orc.metadata.statistics.DoubleStatisticsBuilder.mergeDoubleStatistics;
-import static com.facebook.presto.orc.metadata.statistics.IntegerStatisticsBuilder.mergeIntegerStatistics;
-import static com.facebook.presto.orc.metadata.statistics.LongDecimalStatisticsBuilder.mergeDecimalStatistics;
-import static com.facebook.presto.orc.metadata.statistics.StringStatisticsBuilder.mergeStringStatistics;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.orc.metadata.statistics.BinaryStatisticsBuilder.mergeBinaryStatistics;
+import static io.prestosql.orc.metadata.statistics.BooleanStatisticsBuilder.mergeBooleanStatistics;
+import static io.prestosql.orc.metadata.statistics.DateStatisticsBuilder.mergeDateStatistics;
+import static io.prestosql.orc.metadata.statistics.DoubleStatisticsBuilder.mergeDoubleStatistics;
+import static io.prestosql.orc.metadata.statistics.IntegerStatisticsBuilder.mergeIntegerStatistics;
+import static io.prestosql.orc.metadata.statistics.LongDecimalStatisticsBuilder.mergeDecimalStatistics;
+import static io.prestosql.orc.metadata.statistics.StringStatisticsBuilder.mergeStringStatistics;
 
 public class ColumnStatistics
         implements Hashable

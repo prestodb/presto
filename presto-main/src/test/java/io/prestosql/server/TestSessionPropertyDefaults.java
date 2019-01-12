@@ -13,22 +13,22 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
-import com.facebook.presto.spi.session.TestingSessionPropertyConfigurationManagerFactory;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.node.NodeInfo;
+import io.prestosql.Session;
+import io.prestosql.metadata.SessionPropertyManager;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.session.SessionPropertyConfigurationManagerFactory;
+import io.prestosql.spi.session.TestingSessionPropertyConfigurationManagerFactory;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
-import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
+import static io.prestosql.SystemSessionProperties.HASH_PARTITION_COUNT;
+import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.prestosql.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static org.testng.Assert.assertEquals;
 
 public class TestSessionPropertyDefaults

@@ -24,9 +24,9 @@ import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.tpch.TpchMetadata.schemaNameToScaleFactor;
 import static io.airlift.tpch.OrderColumn.ORDER_STATUS;
 import static io.airlift.tpch.TpchTable.ORDERS;
+import static io.prestosql.plugin.tpch.TpchMetadata.schemaNameToScaleFactor;
 import static java.lang.String.format;
 
 /**

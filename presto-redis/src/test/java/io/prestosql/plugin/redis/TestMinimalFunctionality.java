@@ -13,17 +13,17 @@
  */
 package io.prestosql.plugin.redis;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.redis.util.EmbeddedRedis;
-import com.facebook.presto.redis.util.JsonEncoder;
-import com.facebook.presto.security.AllowAllAccessControl;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.tests.StandaloneQueryRunner;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.metadata.TableHandle;
+import io.prestosql.plugin.redis.util.EmbeddedRedis;
+import io.prestosql.plugin.redis.util.JsonEncoder;
+import io.prestosql.security.AllowAllAccessControl;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.testing.MaterializedResult;
+import io.prestosql.tests.StandaloneQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
@@ -34,11 +34,11 @@ import redis.clients.jedis.Jedis;
 import java.util.Optional;
 import java.util.UUID;
 
-import static com.facebook.presto.redis.util.RedisTestUtils.createEmptyTableDescription;
-import static com.facebook.presto.redis.util.RedisTestUtils.installRedisPlugin;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static io.prestosql.plugin.redis.util.RedisTestUtils.createEmptyTableDescription;
+import static io.prestosql.plugin.redis.util.RedisTestUtils.installRedisPlugin;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)

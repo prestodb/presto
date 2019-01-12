@@ -15,7 +15,7 @@ package io.prestosql.spi.block;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

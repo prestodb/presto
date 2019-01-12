@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.ml;
 
-import com.facebook.presto.ml.type.ClassifierType;
-import com.facebook.presto.ml.type.ModelType;
+import io.prestosql.plugin.ml.type.ClassifierType;
+import io.prestosql.plugin.ml.type.ModelType;
 
 import java.util.List;
 

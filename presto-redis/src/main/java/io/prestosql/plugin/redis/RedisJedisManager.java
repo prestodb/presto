@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.redis;
 
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.NodeManager;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import io.airlift.log.Logger;
+import io.prestosql.spi.HostAddress;
+import io.prestosql.spi.NodeManager;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 

@@ -13,9 +13,9 @@
  */
 package io.prestosql.operator.index;
 
-import com.facebook.presto.spi.Page;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.MoreFutures;
+import io.prestosql.spi.Page;
 
 import javax.annotation.concurrent.ThreadSafe;
 

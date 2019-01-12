@@ -13,18 +13,18 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.execution.QueryStats;
-import com.facebook.presto.operator.BlockedReason;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.StandardErrorCode;
-import com.facebook.presto.spi.eventlistener.StageGcStatistics;
-import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.execution.QueryInfo;
+import io.prestosql.execution.QueryStats;
+import io.prestosql.operator.BlockedReason;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.StandardErrorCode;
+import io.prestosql.spi.eventlistener.StageGcStatistics;
+import io.prestosql.spi.memory.MemoryPoolId;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
@@ -32,8 +32,8 @@ import java.net.URI;
 import java.util.Optional;
 import java.util.OptionalDouble;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.execution.QueryState.RUNNING;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.execution.QueryState.RUNNING;
 import static org.testng.Assert.assertEquals;
 
 public class TestBasicQueryInfo

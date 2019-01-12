@@ -13,38 +13,38 @@
  */
 package io.prestosql.benchmark;
 
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
-import com.facebook.presto.operator.FilterAndProjectOperator;
-import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.operator.project.InputChannels;
-import com.facebook.presto.operator.project.PageFilter;
-import com.facebook.presto.operator.project.PageProcessor;
-import com.facebook.presto.operator.project.PageProjection;
-import com.facebook.presto.operator.project.SelectedPositions;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.util.DateTimeUtils;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.prestosql.metadata.Signature;
+import io.prestosql.operator.AggregationOperator.AggregationOperatorFactory;
+import io.prestosql.operator.FilterAndProjectOperator;
+import io.prestosql.operator.OperatorFactory;
+import io.prestosql.operator.aggregation.InternalAggregationFunction;
+import io.prestosql.operator.project.InputChannels;
+import io.prestosql.operator.project.PageFilter;
+import io.prestosql.operator.project.PageProcessor;
+import io.prestosql.operator.project.PageProjection;
+import io.prestosql.operator.project.SelectedPositions;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.sql.gen.PageFunctionCompiler;
+import io.prestosql.sql.planner.plan.AggregationNode.Step;
+import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.testing.LocalQueryRunner;
+import io.prestosql.util.DateTimeUtils;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.sql.relational.Expressions.field;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.sql.relational.Expressions.field;
 
 public class HandTpchQuery6
         extends AbstractSimpleOperatorBenchmark

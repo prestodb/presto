@@ -13,10 +13,10 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import io.prestosql.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.CharType.createCharType;
+import static io.prestosql.spi.type.CharType.createCharType;
 
 public class TestCharParametricType
         extends AbstractTestFunctions

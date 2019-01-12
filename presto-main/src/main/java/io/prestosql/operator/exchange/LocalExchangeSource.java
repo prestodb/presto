@@ -13,11 +13,11 @@
  */
 package io.prestosql.operator.exchange;
 
-import com.facebook.presto.operator.WorkProcessor;
-import com.facebook.presto.operator.WorkProcessor.ProcessState;
-import com.facebook.presto.spi.Page;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.prestosql.operator.WorkProcessor;
+import io.prestosql.operator.WorkProcessor.ProcessState;
+import io.prestosql.spi.Page;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;

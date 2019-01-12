@@ -13,17 +13,17 @@
  */
 package io.prestosql.plugin.blackhole;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.prestosql.Session;
+import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.tests.DistributedQueryRunner;
 
 import java.util.Map;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public final class BlackHoleQueryRunner
 {

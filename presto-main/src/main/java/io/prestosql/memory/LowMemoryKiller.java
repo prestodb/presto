@@ -14,8 +14,8 @@
 
 package io.prestosql.memory;
 
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.memory.MemoryPoolId;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.memory.MemoryPoolId;
 
 import java.util.List;
 import java.util.Optional;

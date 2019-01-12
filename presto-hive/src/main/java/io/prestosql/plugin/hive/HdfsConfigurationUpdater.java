@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.hive.s3.S3ConfigurationUpdater;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile.OrcTableProperties;
@@ -33,8 +33,8 @@ import javax.net.SocketFactory;
 import java.util.List;
 
 import static com.facebook.hive.orc.OrcConf.ConfVars.HIVE_ORC_COMPRESSION;
-import static com.facebook.presto.hive.util.ConfigurationUtils.copy;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.plugin.hive.util.ConfigurationUtils.copy;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.fs.CommonConfigurationKeys.IPC_PING_INTERVAL_KEY;

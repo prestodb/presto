@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.localfile;
 
-import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.PrestoException;
 
 import java.io.File;
 import java.io.IOException;
@@ -26,10 +26,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.localfile.LocalFileErrorCode.LOCAL_FILE_FILESYSTEM_ERROR;
-import static com.facebook.presto.localfile.LocalFileErrorCode.LOCAL_FILE_NO_FILES;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.plugin.localfile.LocalFileErrorCode.LOCAL_FILE_FILESYSTEM_ERROR;
+import static io.prestosql.plugin.localfile.LocalFileErrorCode.LOCAL_FILE_NO_FILES;
 import static java.nio.file.Files.newDirectoryStream;
 import static java.util.Objects.requireNonNull;
 

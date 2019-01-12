@@ -13,13 +13,13 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.s3.PrestoS3ClientFactory;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.plugin.hive.s3.PrestoS3ClientFactory;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
@@ -33,8 +33,8 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
-import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
+import static io.prestosql.plugin.hive.HiveUtil.getDeserializerClassName;
 import static java.util.Objects.requireNonNull;
 
 public class S3SelectRecordCursorProvider

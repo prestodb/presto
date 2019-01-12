@@ -13,23 +13,23 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.client.ClientSession;
-import com.facebook.presto.client.Column;
-import com.facebook.presto.client.QueryError;
-import com.facebook.presto.client.QueryStatusInfo;
-import com.facebook.presto.client.StatementClient;
-import com.facebook.presto.metadata.MetadataUtil;
-import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.metadata.QualifiedTablePrefix;
-import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.session.ResourceEstimates;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
+import io.prestosql.Session;
+import io.prestosql.client.ClientSession;
+import io.prestosql.client.Column;
+import io.prestosql.client.QueryError;
+import io.prestosql.client.QueryStatusInfo;
+import io.prestosql.client.StatementClient;
+import io.prestosql.metadata.MetadataUtil;
+import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.metadata.QualifiedTablePrefix;
+import io.prestosql.server.testing.TestingPrestoServer;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.session.ResourceEstimates;
+import io.prestosql.spi.type.Type;
 import okhttp3.OkHttpClient;
 import org.intellij.lang.annotations.Language;
 
@@ -41,14 +41,14 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
-import static com.facebook.presto.spi.session.ResourceEstimates.CPU_TIME;
-import static com.facebook.presto.spi.session.ResourceEstimates.EXECUTION_TIME;
-import static com.facebook.presto.spi.session.ResourceEstimates.PEAK_MEMORY;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
+import static io.prestosql.client.StatementClientFactory.newStatementClient;
+import static io.prestosql.spi.session.ResourceEstimates.CPU_TIME;
+import static io.prestosql.spi.session.ResourceEstimates.EXECUTION_TIME;
+import static io.prestosql.spi.session.ResourceEstimates.PEAK_MEMORY;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractTestingPrestoClient<T>

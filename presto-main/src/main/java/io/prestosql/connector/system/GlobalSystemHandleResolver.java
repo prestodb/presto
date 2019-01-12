@@ -13,7 +13,7 @@
  */
 package io.prestosql.connector.system;
 
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 public class GlobalSystemHandleResolver
         extends SystemHandleResolver

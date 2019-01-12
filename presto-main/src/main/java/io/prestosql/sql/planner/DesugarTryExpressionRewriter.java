@@ -14,14 +14,14 @@
 
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionRewriter;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.LambdaExpression;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.TryExpression;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.ExpressionRewriter;
+import io.prestosql.sql.tree.ExpressionTreeRewriter;
+import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.LambdaExpression;
+import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.TryExpression;
 
 public class DesugarTryExpressionRewriter
 {

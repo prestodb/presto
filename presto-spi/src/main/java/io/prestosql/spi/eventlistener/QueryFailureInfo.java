@@ -13,7 +13,7 @@
  */
 package io.prestosql.spi.eventlistener;
 
-import com.facebook.presto.spi.ErrorCode;
+import io.prestosql.spi.ErrorCode;
 
 import java.util.Optional;
 

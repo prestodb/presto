@@ -13,15 +13,15 @@
  */
 package io.prestosql.cost;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
+import io.prestosql.Session;
+import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.planner.iterative.Lookup;
+import io.prestosql.sql.planner.plan.SpatialJoinNode;
 
 import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.plan.Patterns.spatialJoin;
+import static io.prestosql.sql.planner.plan.Patterns.spatialJoin;
 import static java.util.Objects.requireNonNull;
 
 public class SpatialJoinStatsRule

@@ -13,21 +13,21 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.matching.Captures;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.ApplyNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.InPredicate;
+import io.prestosql.matching.Captures;
+import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.plan.ApplyNode;
+import io.prestosql.sql.planner.plan.SemiJoinNode;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.InPredicate;
 
 import java.util.Optional;
 
-import static com.facebook.presto.matching.Pattern.empty;
-import static com.facebook.presto.sql.planner.plan.Patterns.Apply.correlation;
-import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.matching.Pattern.empty;
+import static io.prestosql.sql.planner.plan.Patterns.Apply.correlation;
+import static io.prestosql.sql.planner.plan.Patterns.applyNode;
 
 /**
  * This optimizers looks for InPredicate expressions in ApplyNodes and replaces the nodes with SemiJoin nodes.

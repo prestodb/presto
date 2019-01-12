@@ -13,15 +13,15 @@
  */
 package io.prestosql.plugin.jmx;
 
-import com.facebook.presto.spi.connector.Connector;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.transaction.IsolationLevel;
 import io.airlift.log.Logger;
+import io.prestosql.spi.connector.Connector;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.transaction.IsolationLevel;
 
 import javax.inject.Inject;
 
-import static com.facebook.presto.spi.transaction.IsolationLevel.READ_COMMITTED;
-import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
+import static io.prestosql.spi.transaction.IsolationLevel.READ_COMMITTED;
+import static io.prestosql.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
 
 public class JmxConnector

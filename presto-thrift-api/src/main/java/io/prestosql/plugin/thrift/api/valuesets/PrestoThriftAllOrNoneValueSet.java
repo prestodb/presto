@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.thrift.api.valuesets;
 
-import com.facebook.presto.spi.predicate.AllOrNoneValueSet;
 import io.airlift.drift.annotations.ThriftConstructor;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
+import io.prestosql.spi.predicate.AllOrNoneValueSet;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 

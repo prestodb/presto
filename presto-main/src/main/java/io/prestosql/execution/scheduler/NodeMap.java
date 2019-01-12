@@ -13,9 +13,9 @@
  */
 package io.prestosql.execution.scheduler;
 
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.Node;
 import com.google.common.collect.SetMultimap;
+import io.prestosql.spi.HostAddress;
+import io.prestosql.spi.Node;
 
 import java.net.InetAddress;
 import java.util.Set;

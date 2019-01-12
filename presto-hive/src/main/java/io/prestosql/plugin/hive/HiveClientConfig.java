@@ -13,8 +13,6 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.s3.S3FileSystemType;
-import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
@@ -27,6 +25,8 @@ import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
+import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
+import io.prestosql.plugin.hive.s3.S3FileSystemType;
 import org.joda.time.DateTimeZone;
 
 import javax.validation.constraints.DecimalMax;

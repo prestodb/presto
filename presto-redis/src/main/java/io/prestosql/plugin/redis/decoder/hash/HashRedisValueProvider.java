@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.redis.decoder.hash;
 
-import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldValueProvider;
 import io.airlift.slice.Slice;
+import io.prestosql.decoder.DecoderColumnHandle;
+import io.prestosql.decoder.FieldValueProvider;
 
 import static io.airlift.slice.Slices.utf8Slice;
 

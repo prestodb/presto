@@ -13,12 +13,12 @@
  */
 package io.prestosql.testing;
 
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.execution.warnings.WarningCollectorConfig;
-import com.facebook.presto.spi.PrestoWarning;
-import com.facebook.presto.spi.WarningCode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.execution.warnings.WarningCollectorConfig;
+import io.prestosql.spi.PrestoWarning;
+import io.prestosql.spi.WarningCode;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;

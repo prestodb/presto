@@ -13,8 +13,6 @@
  */
 package io.prestosql.block;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
@@ -24,14 +22,16 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockEncodingSerde;
 
 import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.Base64;
 
-import static com.facebook.presto.block.BlockSerdeUtil.readBlock;
-import static com.facebook.presto.block.BlockSerdeUtil.writeBlock;
+import static io.prestosql.block.BlockSerdeUtil.readBlock;
+import static io.prestosql.block.BlockSerdeUtil.writeBlock;
 import static java.util.Objects.requireNonNull;
 
 public final class BlockJsonSerde

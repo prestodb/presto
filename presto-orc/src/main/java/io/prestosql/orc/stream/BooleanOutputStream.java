@@ -13,11 +13,11 @@
  */
 package io.prestosql.orc.stream;
 
-import com.facebook.presto.orc.OrcOutputBuffer;
-import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
-import com.facebook.presto.orc.checkpoint.ByteStreamCheckpoint;
-import com.facebook.presto.orc.metadata.CompressionKind;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.orc.OrcOutputBuffer;
+import io.prestosql.orc.checkpoint.BooleanStreamCheckpoint;
+import io.prestosql.orc.checkpoint.ByteStreamCheckpoint;
+import io.prestosql.orc.metadata.CompressionKind;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;

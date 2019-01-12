@@ -13,8 +13,8 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.type.Type;
 
 import java.util.Collections;
 import java.util.Map;

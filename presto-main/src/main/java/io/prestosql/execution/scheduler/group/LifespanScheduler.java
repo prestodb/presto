@@ -13,9 +13,9 @@
  */
 package io.prestosql.execution.scheduler.group;
 
-import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.execution.scheduler.SourceScheduler;
 import com.google.common.util.concurrent.SettableFuture;
+import io.prestosql.execution.Lifespan;
+import io.prestosql.execution.scheduler.SourceScheduler;
 
 public interface LifespanScheduler
 {

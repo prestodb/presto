@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.resourcegroups.db;
 
-import com.facebook.presto.resourceGroups.SelectorResourceEstimate;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
+import io.prestosql.plugin.resourcegroups.SelectorResourceEstimate;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 

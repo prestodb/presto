@@ -13,12 +13,12 @@
  */
 package io.prestosql.sql.analyzer;
 
-import com.facebook.presto.sql.tree.DereferenceExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Identifier;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.sql.tree.DereferenceExpression;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Identifier;
+import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.WithQuery;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -27,11 +27,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.analyzer.SemanticExceptions.ambiguousAttributeException;
-import static com.facebook.presto.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.sql.analyzer.SemanticExceptions.ambiguousAttributeException;
+import static io.prestosql.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static java.util.Objects.requireNonNull;
 
 @Immutable

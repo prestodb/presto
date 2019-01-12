@@ -13,10 +13,10 @@
  */
 package io.prestosql.operator.aggregation.histogram;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.function.AccumulatorState;
-import com.facebook.presto.spi.function.AccumulatorStateMetadata;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.function.AccumulatorState;
+import io.prestosql.spi.function.AccumulatorStateMetadata;
+import io.prestosql.spi.type.Type;
 
 @AccumulatorStateMetadata(stateFactoryClass = HistogramStateFactory.class, stateSerializerClass = HistogramStateSerializer.class)
 public interface HistogramState

@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.redis.decoder.hash;
 
-import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldValueProvider;
-import com.facebook.presto.redis.RedisFieldDecoder;
+import io.prestosql.decoder.DecoderColumnHandle;
+import io.prestosql.decoder.FieldValueProvider;
+import io.prestosql.plugin.redis.RedisFieldDecoder;
 
 public class HashRedisFieldDecoder
         implements RedisFieldDecoder<String>

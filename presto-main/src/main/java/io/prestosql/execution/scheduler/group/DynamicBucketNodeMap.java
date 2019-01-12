@@ -13,9 +13,9 @@
  */
 package io.prestosql.execution.scheduler.group;
 
-import com.facebook.presto.execution.scheduler.BucketNodeMap;
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.Node;
+import io.prestosql.execution.scheduler.BucketNodeMap;
+import io.prestosql.metadata.Split;
+import io.prestosql.spi.Node;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 

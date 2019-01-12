@@ -13,16 +13,16 @@
  */
 package io.prestosql.sql.analyzer;
 
-import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
-import com.facebook.presto.sql.tree.DereferenceExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FieldReference;
-import com.facebook.presto.sql.tree.Identifier;
-import com.facebook.presto.sql.tree.NodeRef;
+import io.prestosql.sql.tree.DefaultTraversalVisitor;
+import io.prestosql.sql.tree.DereferenceExpression;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FieldReference;
+import io.prestosql.sql.tree.Identifier;
+import io.prestosql.sql.tree.NodeRef;
 
 import java.util.Set;
 
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 
 public final class ConstantExpressionVerifier
 {

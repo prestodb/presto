@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.blackhole;
 
-import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Page;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.airlift.units.Duration;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.connector.ConnectorPageSource;
 
 import java.util.concurrent.CompletableFuture;
 

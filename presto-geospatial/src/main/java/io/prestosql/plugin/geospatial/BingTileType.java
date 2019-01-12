@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.geospatial;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.AbstractLongType;
-import com.facebook.presto.spi.type.TypeSignature;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.AbstractLongType;
+import io.prestosql.spi.type.TypeSignature;
 
 public class BingTileType
         extends AbstractLongType

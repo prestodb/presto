@@ -13,15 +13,15 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.StandardTypes;
 import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
 
 public class TestDoubleStdDevAggregation
         extends AbstractTestAggregationFunction

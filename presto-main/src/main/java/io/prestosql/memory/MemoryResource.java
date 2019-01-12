@@ -13,8 +13,8 @@
  */
 package io.prestosql.memory;
 
-import com.facebook.presto.execution.TaskManager;
-import com.facebook.presto.spi.memory.MemoryPoolInfo;
+import io.prestosql.execution.TaskManager;
+import io.prestosql.spi.memory.MemoryPoolInfo;
 
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
@@ -26,9 +26,9 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
-import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
-import static com.facebook.presto.memory.LocalMemoryManager.SYSTEM_POOL;
+import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
+import static io.prestosql.memory.LocalMemoryManager.RESERVED_POOL;
+import static io.prestosql.memory.LocalMemoryManager.SYSTEM_POOL;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 

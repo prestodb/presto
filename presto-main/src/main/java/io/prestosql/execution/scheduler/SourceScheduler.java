@@ -14,9 +14,9 @@
 
 package io.prestosql.execution.scheduler;
 
-import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import io.prestosql.execution.Lifespan;
+import io.prestosql.spi.connector.ConnectorPartitionHandle;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 

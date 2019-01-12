@@ -14,7 +14,7 @@
 
 package io.prestosql.util;
 
-import com.facebook.presto.spi.type.RowType;
+import io.prestosql.spi.type.RowType;
 
 import java.util.List;
 import java.util.OptionalInt;

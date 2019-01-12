@@ -13,9 +13,9 @@
  */
 package io.prestosql.orc;
 
-import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.stream.InputStreamSources;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.orc.metadata.ColumnEncoding;
+import io.prestosql.orc.stream.InputStreamSources;
 
 import java.util.List;
 

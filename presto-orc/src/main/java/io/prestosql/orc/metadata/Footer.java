@@ -13,11 +13,11 @@
  */
 package io.prestosql.orc.metadata;
 
-import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.orc.metadata.statistics.ColumnStatistics;
 
 import java.util.List;
 import java.util.Map;

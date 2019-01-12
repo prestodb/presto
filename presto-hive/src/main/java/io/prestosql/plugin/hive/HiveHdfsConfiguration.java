@@ -13,15 +13,15 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
+import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.inject.Inject;
 
 import java.net.URI;
 
-import static com.facebook.presto.hive.util.ConfigurationUtils.copy;
-import static com.facebook.presto.hive.util.ConfigurationUtils.getInitialConfiguration;
+import static io.prestosql.plugin.hive.util.ConfigurationUtils.copy;
+import static io.prestosql.plugin.hive.util.ConfigurationUtils.getInitialConfiguration;
 import static java.util.Objects.requireNonNull;
 
 public class HiveHdfsConfiguration

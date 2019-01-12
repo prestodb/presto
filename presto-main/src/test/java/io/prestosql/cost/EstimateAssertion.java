@@ -13,7 +13,7 @@
  */
 package io.prestosql.cost;
 
-import com.facebook.presto.util.MoreMath;
+import io.prestosql.util.MoreMath;
 
 import static java.lang.Double.isNaN;
 import static java.lang.String.format;

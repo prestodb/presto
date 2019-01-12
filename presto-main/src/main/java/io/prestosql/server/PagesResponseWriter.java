@@ -13,11 +13,11 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.execution.buffer.SerializedPage;
-import com.facebook.presto.spi.Page;
 import com.google.common.reflect.TypeToken;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.SliceOutput;
+import io.prestosql.execution.buffer.SerializedPage;
+import io.prestosql.spi.Page;
 
 import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
@@ -34,8 +34,8 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.util.List;
 
-import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
-import static com.facebook.presto.execution.buffer.PagesSerdeUtil.writeSerializedPages;
+import static io.prestosql.PrestoMediaTypes.PRESTO_PAGES;
+import static io.prestosql.execution.buffer.PagesSerdeUtil.writeSerializedPages;
 
 @Provider
 @Produces(PRESTO_PAGES)

@@ -13,22 +13,22 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.execution.QueryPerformanceFetcher;
-import com.facebook.presto.execution.StageId;
-import com.facebook.presto.execution.StageInfo;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.execution.QueryInfo;
+import io.prestosql.execution.QueryPerformanceFetcher;
+import io.prestosql.execution.StageId;
+import io.prestosql.execution.StageInfo;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
 import static java.util.Objects.requireNonNull;
 
 public class ExplainAnalyzeOperator

@@ -13,15 +13,15 @@
  */
 package io.prestosql.sql.planner.assertions;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.cost.StatsProvider;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import io.prestosql.Session;
+import io.prestosql.cost.StatsProvider;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
+import static io.prestosql.sql.planner.assertions.MatchResult.match;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

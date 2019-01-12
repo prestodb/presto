@@ -13,7 +13,7 @@
  */
 package io.prestosql.parquet.predicate;
 
-import com.facebook.presto.parquet.DictionaryPage;
+import io.prestosql.parquet.DictionaryPage;
 import parquet.column.ColumnDescriptor;
 
 import java.util.Optional;

@@ -13,11 +13,11 @@
  */
 package io.prestosql.tests.cli;
 
-import com.facebook.presto.cli.Presto;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.prestodb.tempto.ProductTest;
+import io.prestosql.cli.Presto;
 
 import java.io.File;
 import java.io.IOException;

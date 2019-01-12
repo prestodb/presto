@@ -13,17 +13,17 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.LiteralEncoder;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionRewriter;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.LogicalBinaryExpression;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.LiteralEncoder;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.SymbolAllocator;
+import io.prestosql.sql.planner.SymbolsExtractor;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.ExpressionRewriter;
+import io.prestosql.sql.tree.ExpressionTreeRewriter;
+import io.prestosql.sql.tree.LogicalBinaryExpression;
 import org.testng.annotations.Test;
 
 import java.util.Comparator;
@@ -31,13 +31,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.sql.ExpressionUtils.binaryExpression;
-import static com.facebook.presto.sql.ExpressionUtils.extractPredicates;
-import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
-import static com.facebook.presto.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.sql.ExpressionUtils.binaryExpression;
+import static io.prestosql.sql.ExpressionUtils.extractPredicates;
+import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static io.prestosql.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 

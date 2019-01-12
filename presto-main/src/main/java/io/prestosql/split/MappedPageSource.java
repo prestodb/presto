@@ -13,10 +13,10 @@
  */
 package io.prestosql.split;
 
-import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
 import com.google.common.primitives.Ints;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.connector.ConnectorPageSource;
 
 import java.io.IOException;
 import java.util.Arrays;

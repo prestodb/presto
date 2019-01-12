@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.hive.metastore;
 
-import com.facebook.presto.hive.HiveType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.plugin.hive.HiveType;
 
 import javax.annotation.concurrent.Immutable;
 

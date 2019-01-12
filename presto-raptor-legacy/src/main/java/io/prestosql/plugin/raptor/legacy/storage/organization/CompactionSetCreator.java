@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage.organization;
 
-import com.facebook.presto.raptor.metadata.Table;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
+import io.prestosql.plugin.raptor.legacy.metadata.Table;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -23,9 +23,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.createOrganizationSet;
-import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.getShardsByDaysBuckets;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.plugin.raptor.legacy.storage.organization.ShardOrganizerUtil.createOrganizationSet;
+import static io.prestosql.plugin.raptor.legacy.storage.organization.ShardOrganizerUtil.getShardsByDaysBuckets;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;

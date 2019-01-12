@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.jmx;
 
-import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.HostAddress;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.connector.jmx.MetadataUtil.SPLIT_CODEC;
-import static com.facebook.presto.connector.jmx.TestJmxTableHandle.TABLE;
+import static io.prestosql.plugin.jmx.MetadataUtil.SPLIT_CODEC;
+import static io.prestosql.plugin.jmx.TestJmxTableHandle.TABLE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertSame;
 

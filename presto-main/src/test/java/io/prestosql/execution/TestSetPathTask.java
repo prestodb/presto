@@ -13,26 +13,26 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.CatalogManager;
-import com.facebook.presto.metadata.ColumnPropertyManager;
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.SchemaPropertyManager;
-import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.metadata.TablePropertyManager;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.security.AllowAllAccessControl;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.tree.Identifier;
-import com.facebook.presto.sql.tree.PathElement;
-import com.facebook.presto.sql.tree.PathSpecification;
-import com.facebook.presto.sql.tree.SetPath;
-import com.facebook.presto.transaction.TransactionManager;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.block.BlockEncodingManager;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.CatalogManager;
+import io.prestosql.metadata.ColumnPropertyManager;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.SchemaPropertyManager;
+import io.prestosql.metadata.SessionPropertyManager;
+import io.prestosql.metadata.TablePropertyManager;
+import io.prestosql.security.AccessControl;
+import io.prestosql.security.AllowAllAccessControl;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.sql.tree.Identifier;
+import io.prestosql.sql.tree.PathElement;
+import io.prestosql.sql.tree.PathSpecification;
+import io.prestosql.sql.tree.SetPath;
+import io.prestosql.transaction.TransactionManager;
+import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -40,10 +40,10 @@ import java.net.URI;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;

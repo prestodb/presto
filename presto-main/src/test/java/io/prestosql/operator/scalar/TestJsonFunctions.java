@@ -15,12 +15,12 @@ package io.prestosql.operator.scalar;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.type.JsonType.JSON;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.type.JsonType.JSON;
 import static java.lang.String.format;
 
 public class TestJsonFunctions

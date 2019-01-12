@@ -13,28 +13,28 @@
  */
 package io.prestosql.plugin.raptor.legacy;
 
-import com.facebook.presto.raptor.metadata.Distribution;
-import com.facebook.presto.raptor.metadata.ForMetadata;
-import com.facebook.presto.raptor.metadata.TableColumn;
-import com.facebook.presto.raptor.systemtables.ShardMetadataSystemTable;
-import com.facebook.presto.raptor.systemtables.TableMetadataSystemTable;
-import com.facebook.presto.raptor.systemtables.TableStatsSystemTable;
-import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
+import io.prestosql.plugin.raptor.legacy.metadata.Distribution;
+import io.prestosql.plugin.raptor.legacy.metadata.ForMetadata;
+import io.prestosql.plugin.raptor.legacy.metadata.TableColumn;
+import io.prestosql.plugin.raptor.legacy.systemtables.ShardMetadataSystemTable;
+import io.prestosql.plugin.raptor.legacy.systemtables.TableMetadataSystemTable;
+import io.prestosql.plugin.raptor.legacy.systemtables.TableStatsSystemTable;
+import io.prestosql.spi.NodeManager;
+import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.type.TypeManager;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.tweak.ConnectionFactory;
 
 import javax.inject.Singleton;
 
-import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static io.prestosql.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static java.util.Objects.requireNonNull;
 
 public class RaptorModule

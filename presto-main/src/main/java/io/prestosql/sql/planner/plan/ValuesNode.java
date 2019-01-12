@@ -13,18 +13,18 @@
  */
 package io.prestosql.sql.planner.plan;
 
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.Expression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.tree.Expression;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
-import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.util.MoreLists.listOfListsCopy;
 
 @Immutable
 public class ValuesNode

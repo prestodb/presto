@@ -13,14 +13,14 @@
  */
 package io.prestosql.rcfile.text;
 
-import com.facebook.presto.rcfile.RcFileCorruptionException;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.prestosql.rcfile.RcFileCorruptionException;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.StandardErrorCode;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.Type;
 
 public class MapEncoding
         extends BlockEncoding

@@ -13,42 +13,42 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.facebook.presto.annotation.UsedByGeneratedCode;
-import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.SqlOperator;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
-import com.facebook.presto.util.JsonCastException;
-import com.facebook.presto.util.JsonUtil.BlockBuilderAppender;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.prestosql.annotation.UsedByGeneratedCode;
+import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.SqlOperator;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.util.JsonCastException;
+import io.prestosql.util.JsonUtil.BlockBuilderAppender;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.metadata.Signature.typeVariable;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.util.Failures.checkCondition;
-import static com.facebook.presto.util.JsonUtil.JSON_FACTORY;
-import static com.facebook.presto.util.JsonUtil.canCastFromJson;
-import static com.facebook.presto.util.JsonUtil.createJsonParser;
-import static com.facebook.presto.util.JsonUtil.truncateIfNecessaryForErrorMessage;
-import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.metadata.Signature.typeVariable;
+import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.util.Failures.checkCondition;
+import static io.prestosql.util.JsonUtil.JSON_FACTORY;
+import static io.prestosql.util.JsonUtil.canCastFromJson;
+import static io.prestosql.util.JsonUtil.createJsonParser;
+import static io.prestosql.util.JsonUtil.truncateIfNecessaryForErrorMessage;
+import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.String.format;
 
 public class JsonToArrayCast

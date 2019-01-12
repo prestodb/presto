@@ -13,9 +13,9 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.planner.Symbol;
 
 import java.util.List;
 import java.util.Map;

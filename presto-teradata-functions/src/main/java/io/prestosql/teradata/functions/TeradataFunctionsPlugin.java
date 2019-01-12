@@ -13,8 +13,8 @@
  */
 package io.prestosql.teradata.functions;
 
-import com.facebook.presto.spi.Plugin;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.Plugin;
 
 import java.util.Set;
 

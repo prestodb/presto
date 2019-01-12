@@ -13,13 +13,13 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.util.Mergeable;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;

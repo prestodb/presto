@@ -13,18 +13,18 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.spi.SchemaTablePrefix;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.connector.SchemaTablePrefix;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
-import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
-import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
+import static io.prestosql.metadata.MetadataUtil.checkCatalogName;
+import static io.prestosql.metadata.MetadataUtil.checkSchemaName;
+import static io.prestosql.metadata.MetadataUtil.checkTableName;
 
 @Immutable
 public class QualifiedTablePrefix

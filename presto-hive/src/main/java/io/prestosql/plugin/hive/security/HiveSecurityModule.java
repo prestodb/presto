@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.hive.security;
 
-import com.facebook.presto.plugin.base.security.FileBasedAccessControlModule;
-import com.facebook.presto.plugin.base.security.ReadOnlySecurityModule;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.prestosql.plugin.base.security.FileBasedAccessControlModule;
+import io.prestosql.plugin.base.security.ReadOnlySecurityModule;
 
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 

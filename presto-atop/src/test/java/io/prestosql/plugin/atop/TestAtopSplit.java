@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.atop;
 
-import com.facebook.presto.spi.HostAddress;
 import io.airlift.json.JsonCodec;
+import io.prestosql.spi.HostAddress;
 import org.testng.annotations.Test;
 
 import java.time.ZoneId;

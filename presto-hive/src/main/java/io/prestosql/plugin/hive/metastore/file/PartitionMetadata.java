@@ -13,20 +13,20 @@
  */
 package io.prestosql.plugin.hive.metastore.file;
 
-import com.facebook.presto.hive.HiveBucketProperty;
-import com.facebook.presto.hive.HiveStorageFormat;
-import com.facebook.presto.hive.PartitionStatistics;
-import com.facebook.presto.hive.metastore.Column;
-import com.facebook.presto.hive.metastore.HiveColumnStatistics;
-import com.facebook.presto.hive.metastore.Partition;
-import com.facebook.presto.hive.metastore.PartitionWithStatistics;
-import com.facebook.presto.hive.metastore.Storage;
-import com.facebook.presto.hive.metastore.StorageFormat;
-import com.facebook.presto.hive.metastore.Table;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.hive.HiveBucketProperty;
+import io.prestosql.plugin.hive.HiveStorageFormat;
+import io.prestosql.plugin.hive.PartitionStatistics;
+import io.prestosql.plugin.hive.metastore.Column;
+import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
+import io.prestosql.plugin.hive.metastore.Partition;
+import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
+import io.prestosql.plugin.hive.metastore.Storage;
+import io.prestosql.plugin.hive.metastore.StorageFormat;
+import io.prestosql.plugin.hive.metastore.Table;
 import org.apache.hadoop.hive.metastore.TableType;
 
 import java.util.Arrays;
@@ -34,8 +34,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
+import static io.prestosql.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
+import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionMetadata

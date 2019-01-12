@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.jmx;
 
-import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
+import io.prestosql.spi.connector.SchemaTableName;
 
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;

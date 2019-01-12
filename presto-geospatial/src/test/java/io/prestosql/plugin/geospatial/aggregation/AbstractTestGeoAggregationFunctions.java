@@ -14,17 +14,17 @@
 package io.prestosql.plugin.geospatial.aggregation;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
-import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.geospatial.serde.GeometrySerde;
-import com.facebook.presto.metadata.FunctionKind;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.plugin.geospatial.GeoPlugin;
-import com.facebook.presto.plugin.geospatial.GeometryType;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import io.prestosql.block.BlockAssertions;
+import io.prestosql.geospatial.serde.GeometrySerde;
+import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.Signature;
+import io.prestosql.operator.aggregation.InternalAggregationFunction;
+import io.prestosql.operator.scalar.AbstractTestFunctions;
+import io.prestosql.plugin.geospatial.GeoPlugin;
+import io.prestosql.plugin.geospatial.GeometryType;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.BeforeClass;
 
 import java.util.Arrays;
@@ -33,9 +33,9 @@ import java.util.List;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
-import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
+import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 
 public abstract class AbstractTestGeoAggregationFunctions
         extends AbstractTestFunctions

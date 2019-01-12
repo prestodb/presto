@@ -20,14 +20,14 @@ import io.prestodb.tempto.configuration.Configuration;
 import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tests.TestGroups.CASSANDRA;
-import static com.facebook.presto.tests.cassandra.MultiColumnKeyTableDefinition.CASSANDRA_MULTI_COLUMN_KEY;
-import static com.facebook.presto.tests.cassandra.TestConstants.CONNECTOR_NAME;
-import static com.facebook.presto.tests.cassandra.TestConstants.KEY_SPACE;
-import static com.facebook.presto.tests.utils.QueryExecutors.onPresto;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.fulfillment.table.TableRequirements.immutableTable;
+import static io.prestosql.tests.TestGroups.CASSANDRA;
+import static io.prestosql.tests.cassandra.MultiColumnKeyTableDefinition.CASSANDRA_MULTI_COLUMN_KEY;
+import static io.prestosql.tests.cassandra.TestConstants.CONNECTOR_NAME;
+import static io.prestosql.tests.cassandra.TestConstants.KEY_SPACE;
+import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 
 public class TestSelectMultiColumnKey

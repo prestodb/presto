@@ -13,18 +13,18 @@
  */
 package io.prestosql.plugin.example;
 
-import com.facebook.presto.spi.connector.Connector;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.connector.ConnectorSplitManager;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.transaction.IsolationLevel;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
+import io.prestosql.spi.connector.Connector;
+import io.prestosql.spi.connector.ConnectorMetadata;
+import io.prestosql.spi.connector.ConnectorRecordSetProvider;
+import io.prestosql.spi.connector.ConnectorSplitManager;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.transaction.IsolationLevel;
 
 import javax.inject.Inject;
 
-import static com.facebook.presto.example.ExampleTransactionHandle.INSTANCE;
+import static io.prestosql.plugin.example.ExampleTransactionHandle.INSTANCE;
 import static java.util.Objects.requireNonNull;
 
 public class ExampleConnector

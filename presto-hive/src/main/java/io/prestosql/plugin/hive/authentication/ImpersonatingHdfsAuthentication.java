@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.hive.authentication;
 
-import com.facebook.presto.hive.ForHdfs;
+import io.prestosql.plugin.hive.ForHdfs;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import javax.inject.Inject;
 
-import static com.facebook.presto.hive.authentication.UserGroupInformationUtils.executeActionInDoAs;
+import static io.prestosql.plugin.hive.authentication.UserGroupInformationUtils.executeActionInDoAs;
 import static java.util.Objects.requireNonNull;
 
 public class ImpersonatingHdfsAuthentication

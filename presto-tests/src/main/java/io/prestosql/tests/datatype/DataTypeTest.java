@@ -13,11 +13,11 @@
  */
 package io.prestosql.tests.datatype;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.sql.TestTable;
+import io.prestosql.Session;
+import io.prestosql.spi.type.Type;
+import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.tests.sql.TestTable;
 
 import java.util.ArrayList;
 import java.util.List;

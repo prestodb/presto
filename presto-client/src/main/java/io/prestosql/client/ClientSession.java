@@ -13,10 +13,10 @@
  */
 package io.prestosql.client;
 
-import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
+import io.prestosql.spi.type.TimeZoneKey;
 
 import java.net.URI;
 import java.nio.charset.CharsetEncoder;

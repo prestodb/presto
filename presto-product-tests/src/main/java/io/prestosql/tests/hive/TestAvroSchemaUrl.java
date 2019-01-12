@@ -24,11 +24,11 @@ import org.testng.annotations.Test;
 
 import java.io.InputStream;
 
-import static com.facebook.presto.tests.TestGroups.AVRO;
-import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
-import static com.facebook.presto.tests.utils.QueryExecutors.onPresto;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestosql.tests.TestGroups.AVRO;
+import static io.prestosql.tests.utils.QueryExecutors.onHive;
+import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 
 public class TestAvroSchemaUrl

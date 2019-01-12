@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage;
 
-import com.facebook.presto.spi.type.TimeZoneKey;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
@@ -23,6 +22,7 @@ import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
+import io.prestosql.spi.type.TimeZoneKey;
 import org.joda.time.DateTimeZone;
 
 import javax.validation.constraints.Max;

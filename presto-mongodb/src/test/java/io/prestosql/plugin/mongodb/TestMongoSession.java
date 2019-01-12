@@ -13,23 +13,23 @@
  */
 package io.prestosql.plugin.mongodb;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.predicate.ValueSet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.predicate.ValueSet;
 import org.bson.Document;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.predicate.Range.equal;
-import static com.facebook.presto.spi.predicate.Range.greaterThan;
-import static com.facebook.presto.spi.predicate.Range.greaterThanOrEqual;
-import static com.facebook.presto.spi.predicate.Range.lessThan;
-import static com.facebook.presto.spi.predicate.Range.range;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.spi.predicate.Range.equal;
+import static io.prestosql.spi.predicate.Range.greaterThan;
+import static io.prestosql.spi.predicate.Range.greaterThanOrEqual;
+import static io.prestosql.spi.predicate.Range.lessThan;
+import static io.prestosql.spi.predicate.Range.range;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 

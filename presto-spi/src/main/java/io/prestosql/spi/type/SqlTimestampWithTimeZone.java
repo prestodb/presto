@@ -21,8 +21,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 import java.util.TimeZone;
 
-import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 
 public final class SqlTimestampWithTimeZone
 {

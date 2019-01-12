@@ -13,9 +13,9 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
-import com.facebook.presto.sql.tree.FieldReference;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
+import io.prestosql.sql.tree.FieldReference;
 
 import java.util.Set;
 

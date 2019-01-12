@@ -13,11 +13,11 @@
  */
 package io.prestosql.matching.example.rel;
 
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.matching.Property;
+import io.prestosql.matching.Pattern;
+import io.prestosql.matching.Property;
 
-import static com.facebook.presto.matching.Pattern.typeOf;
-import static com.facebook.presto.matching.Property.property;
+import static io.prestosql.matching.Pattern.typeOf;
+import static io.prestosql.matching.Property.property;
 
 public class Patterns
 {

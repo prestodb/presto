@@ -15,8 +15,8 @@ package io.prestosql.plugin.cassandra.util;
 
 import com.datastax.driver.core.Host;
 import com.datastax.driver.core.TestHost;
-import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.HostAddress;
 import org.testng.annotations.Test;
 
 import java.net.InetAddress;

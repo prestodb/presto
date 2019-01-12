@@ -13,13 +13,13 @@
  */
 package io.prestosql.operator.project;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.DictionaryBlock;
+import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.Type;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -42,12 +42,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
-import static com.facebook.presto.block.BlockAssertions.createSlicesBlock;
-import static com.facebook.presto.spi.block.MethodHandleUtil.compose;
-import static com.facebook.presto.spi.block.MethodHandleUtil.nativeValueGetter;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.testing.TestingEnvironment.TYPE_MANAGER;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.block.BlockAssertions.createSlicesBlock;
+import static io.prestosql.spi.block.MethodHandleUtil.compose;
+import static io.prestosql.spi.block.MethodHandleUtil.nativeValueGetter;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.TestingEnvironment.TYPE_MANAGER;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
 @SuppressWarnings("MethodMayBeStatic")

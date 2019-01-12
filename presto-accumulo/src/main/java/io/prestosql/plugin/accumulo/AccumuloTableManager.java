@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.accumulo;
 
-import com.facebook.presto.spi.PrestoException;
 import io.airlift.log.Logger;
+import io.prestosql.spi.PrestoException;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.Connector;
@@ -31,9 +31,9 @@ import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_DNE;
-import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_EXISTS;
-import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
+import static io.prestosql.plugin.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_DNE;
+import static io.prestosql.plugin.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_EXISTS;
+import static io.prestosql.plugin.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
 import static java.util.Objects.requireNonNull;
 
 /**

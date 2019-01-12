@@ -18,9 +18,9 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.ceil;
 import static org.openjdk.jol.info.ClassLayout.parseClass;
 import static org.testng.Assert.assertEquals;

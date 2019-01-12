@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage.organization;
 
-import com.facebook.presto.raptor.metadata.Table;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
+import io.prestosql.plugin.raptor.legacy.metadata.Table;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.time.Duration;
@@ -29,9 +29,9 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

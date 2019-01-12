@@ -13,13 +13,6 @@
  */
 package io.prestosql.sql.gen;
 
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.operator.project.CursorProcessor;
-import com.facebook.presto.operator.project.PageFilter;
-import com.facebook.presto.operator.project.PageProcessor;
-import com.facebook.presto.operator.project.PageProjection;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -27,6 +20,13 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.CompilationException;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.operator.project.CursorProcessor;
+import io.prestosql.operator.project.PageFilter;
+import io.prestosql.operator.project.PageProcessor;
+import io.prestosql.operator.project.PageProjection;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.sql.relational.RowExpression;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -38,18 +38,18 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
-import static com.facebook.presto.sql.relational.Expressions.constant;
-import static com.facebook.presto.util.CompilerUtils.defineClass;
-import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.ParameterizedType.type;
+import static io.prestosql.spi.StandardErrorCode.COMPILER_ERROR;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.sql.gen.BytecodeUtils.invoke;
+import static io.prestosql.sql.relational.Expressions.constant;
+import static io.prestosql.util.CompilerUtils.defineClass;
+import static io.prestosql.util.CompilerUtils.makeClassName;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionCompiler

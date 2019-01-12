@@ -14,18 +14,18 @@
 package io.prestosql.plugin.hive.metastore.glue;
 
 import com.amazonaws.services.glue.model.GetPartitionsRequest;
-import com.facebook.presto.hive.HiveType;
-import com.facebook.presto.hive.metastore.Column;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.plugin.hive.HiveType;
+import io.prestosql.plugin.hive.metastore.Column;
+import io.prestosql.spi.PrestoException;
 
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 
 public final class GlueExpressionUtil
 {

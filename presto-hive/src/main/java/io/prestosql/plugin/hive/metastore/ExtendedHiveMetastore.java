@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.hive.metastore;
 
-import com.facebook.presto.hive.HiveType;
-import com.facebook.presto.hive.PartitionStatistics;
-import com.facebook.presto.spi.statistics.ColumnStatisticType;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.plugin.hive.HiveType;
+import io.prestosql.plugin.hive.PartitionStatistics;
+import io.prestosql.spi.statistics.ColumnStatisticType;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 import java.util.Map;

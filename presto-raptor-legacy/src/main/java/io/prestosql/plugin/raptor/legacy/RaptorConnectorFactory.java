@@ -13,22 +13,22 @@
  */
 package io.prestosql.plugin.raptor.legacy;
 
-import com.facebook.presto.raptor.backup.BackupModule;
-import com.facebook.presto.raptor.security.RaptorSecurityModule;
-import com.facebook.presto.raptor.storage.StorageModule;
-import com.facebook.presto.raptor.util.RebindSafeMBeanServer;
-import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.PageSorter;
-import com.facebook.presto.spi.connector.Connector;
-import com.facebook.presto.spi.connector.ConnectorContext;
-import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.prestosql.plugin.raptor.legacy.backup.BackupModule;
+import io.prestosql.plugin.raptor.legacy.security.RaptorSecurityModule;
+import io.prestosql.plugin.raptor.legacy.storage.StorageModule;
+import io.prestosql.plugin.raptor.legacy.util.RebindSafeMBeanServer;
+import io.prestosql.spi.NodeManager;
+import io.prestosql.spi.PageSorter;
+import io.prestosql.spi.connector.Connector;
+import io.prestosql.spi.connector.ConnectorContext;
+import io.prestosql.spi.connector.ConnectorFactory;
+import io.prestosql.spi.connector.ConnectorHandleResolver;
+import io.prestosql.spi.type.TypeManager;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.management.MBeanServer;

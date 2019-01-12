@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.mongodb;
 
-import com.facebook.presto.spi.SchemaTableName;
 import io.airlift.json.JsonCodec;
+import io.prestosql.spi.connector.SchemaTableName;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;

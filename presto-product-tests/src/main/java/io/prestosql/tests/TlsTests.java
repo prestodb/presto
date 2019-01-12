@@ -28,9 +28,9 @@ import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.util.List;
 
-import static com.facebook.presto.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static com.facebook.presto.tests.TestGroups.TLS;
-import static com.facebook.presto.tests.utils.QueryExecutors.onPresto;
+import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.prestosql.tests.TestGroups.TLS;
+import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;

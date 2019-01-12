@@ -13,23 +13,23 @@
  */
 package io.prestosql.plugin.atop;
 
-import com.facebook.presto.plugin.base.security.AllowAllAccessControlModule;
-import com.facebook.presto.plugin.base.security.FileBasedAccessControlModule;
-import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
-import com.facebook.presto.spi.connector.Connector;
-import com.facebook.presto.spi.connector.ConnectorContext;
-import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.prestosql.plugin.base.security.AllowAllAccessControlModule;
+import io.prestosql.plugin.base.security.FileBasedAccessControlModule;
+import io.prestosql.spi.classloader.ThreadContextClassLoader;
+import io.prestosql.spi.connector.Connector;
+import io.prestosql.spi.connector.ConnectorContext;
+import io.prestosql.spi.connector.ConnectorFactory;
+import io.prestosql.spi.connector.ConnectorHandleResolver;
 
 import java.util.Map;
 
-import static com.facebook.presto.atop.AtopConnectorConfig.SECURITY_FILE;
-import static com.facebook.presto.atop.AtopConnectorConfig.SECURITY_NONE;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.prestosql.plugin.atop.AtopConnectorConfig.SECURITY_FILE;
+import static io.prestosql.plugin.atop.AtopConnectorConfig.SECURITY_NONE;
 import static java.util.Objects.requireNonNull;
 
 public class AtopConnectorFactory

@@ -13,8 +13,8 @@
  */
 package io.prestosql.operator.aggregation.minmaxby;
 
-import com.facebook.presto.operator.aggregation.state.InitialBooleanValue;
-import com.facebook.presto.spi.function.AccumulatorState;
+import io.prestosql.operator.aggregation.state.InitialBooleanValue;
+import io.prestosql.spi.function.AccumulatorState;
 
 // TODO: Add multiple aggregation states support to aggregation framework to avoid
 // cartesian product of types for aggregation functions takes multiple parameters.

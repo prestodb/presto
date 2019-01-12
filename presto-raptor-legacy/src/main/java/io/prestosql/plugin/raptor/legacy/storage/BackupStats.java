@@ -22,7 +22,7 @@ import org.weakref.jmx.Nested;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import static com.facebook.presto.raptor.storage.ShardRecoveryManager.dataRate;
+import static io.prestosql.plugin.raptor.legacy.storage.ShardRecoveryManager.dataRate;
 
 @ThreadSafe
 public class BackupStats

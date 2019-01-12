@@ -13,7 +13,6 @@
  */
 package io.prestosql.proxy;
 
-import com.facebook.presto.proxy.ProxyResponseHandler.ProxyResponse;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -26,6 +25,7 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.prestosql.proxy.ProxyResponseHandler.ProxyResponse;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;

@@ -13,27 +13,27 @@
  */
 package io.prestosql.orc.reader;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
-import com.facebook.presto.orc.StreamDescriptor;
-import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.metadata.DwrfSequenceEncoding;
-import com.facebook.presto.orc.metadata.OrcType;
-import com.facebook.presto.orc.stream.BooleanInputStream;
-import com.facebook.presto.orc.stream.InputStreamSource;
-import com.facebook.presto.orc.stream.InputStreamSources;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.IntegerType;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.SmallintType;
-import com.facebook.presto.spi.type.TinyintType;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.orc.StreamDescriptor;
+import io.prestosql.orc.metadata.ColumnEncoding;
+import io.prestosql.orc.metadata.DwrfSequenceEncoding;
+import io.prestosql.orc.metadata.OrcType;
+import io.prestosql.orc.stream.BooleanInputStream;
+import io.prestosql.orc.stream.InputStreamSource;
+import io.prestosql.orc.stream.InputStreamSources;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.DictionaryBlock;
+import io.prestosql.spi.block.VariableWidthBlockBuilder;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.IntegerType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.SmallintType;
+import io.prestosql.spi.type.TinyintType;
+import io.prestosql.spi.type.Type;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -46,11 +46,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_MAP;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.orc.metadata.Stream.StreamKind.IN_MAP;
+import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
+import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static java.util.Objects.requireNonNull;
 
 /**

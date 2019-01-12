@@ -13,8 +13,7 @@
  */
 package io.prestosql.spi.connector;
 
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import io.prestosql.spi.predicate.TupleDomain;
 
 /**
  * Exactly one of {@link #cursor} or {@link #pageSource} must be implemented.

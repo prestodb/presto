@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.kudu;
 
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.type.Type;
 import org.apache.kudu.client.KuduException;
 import org.apache.kudu.client.KuduScanner;
 import org.apache.kudu.client.RowResult;

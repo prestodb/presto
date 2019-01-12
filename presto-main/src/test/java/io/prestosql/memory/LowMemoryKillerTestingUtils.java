@@ -14,24 +14,24 @@
 
 package io.prestosql.memory;
 
-import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.metadata.PrestoNode;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.memory.MemoryPoolId;
-import com.facebook.presto.spi.memory.MemoryPoolInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import io.prestosql.client.NodeVersion;
+import io.prestosql.metadata.PrestoNode;
+import io.prestosql.spi.Node;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.memory.MemoryPoolId;
+import io.prestosql.spi.memory.MemoryPoolInfo;
 
 import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
-import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
+import static io.prestosql.memory.LocalMemoryManager.RESERVED_POOL;
 
 public class LowMemoryKillerTestingUtils
 {

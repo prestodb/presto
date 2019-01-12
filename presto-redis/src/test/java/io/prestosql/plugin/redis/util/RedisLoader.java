@@ -13,17 +13,17 @@
  */
 package io.prestosql.plugin.redis.util;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.client.Column;
-import com.facebook.presto.client.QueryData;
-import com.facebook.presto.client.QueryStatusInfo;
-import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.spi.type.TimeZoneKey;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.Varchars;
-import com.facebook.presto.tests.AbstractTestingPrestoClient;
-import com.facebook.presto.tests.ResultsSession;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.client.Column;
+import io.prestosql.client.QueryData;
+import io.prestosql.client.QueryStatusInfo;
+import io.prestosql.server.testing.TestingPrestoServer;
+import io.prestosql.spi.type.TimeZoneKey;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.Varchars;
+import io.prestosql.tests.AbstractTestingPrestoClient;
+import io.prestosql.tests.ResultsSession;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 import redis.clients.jedis.Jedis;
@@ -35,20 +35,20 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.TimeType.TIME;
-import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static com.facebook.presto.util.DateTimeUtils.parseTimeLiteral;
-import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
-import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.TimeType.TIME;
+import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.util.DateTimeUtils.parseTimeLiteral;
+import static io.prestosql.util.DateTimeUtils.parseTimestampWithTimeZone;
+import static io.prestosql.util.DateTimeUtils.parseTimestampWithoutTimeZone;
 import static java.util.Objects.requireNonNull;
 
 public class RedisLoader

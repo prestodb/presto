@@ -37,8 +37,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-import static com.facebook.presto.raptor.backup.HttpBackupStore.CONTENT_XXH64;
-import static com.facebook.presto.raptor.backup.HttpBackupStore.PRESTO_ENVIRONMENT;
+import static io.prestosql.plugin.raptor.legacy.backup.HttpBackupStore.CONTENT_XXH64;
+import static io.prestosql.plugin.raptor.legacy.backup.HttpBackupStore.PRESTO_ENVIRONMENT;
 import static java.lang.Long.parseUnsignedLong;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_OCTET_STREAM;

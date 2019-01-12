@@ -13,21 +13,21 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.spi.connector.Connector;
-import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
-import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorSplitManager;
-import com.facebook.presto.testing.TestingConnectorContext;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.connector.Connector;
+import io.prestosql.spi.connector.ConnectorPageSourceProvider;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
+import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorSplitManager;
+import io.prestosql.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static io.prestosql.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static org.testng.Assert.fail;
 
 public class TestHiveConnectorFactory

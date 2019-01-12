@@ -26,17 +26,17 @@ import org.testng.annotations.Test;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
-import static com.facebook.presto.tests.TestGroups.CASSANDRA;
-import static com.facebook.presto.tests.cassandra.DataTypesTableDefinition.CASSANDRA_ALL_TYPES;
-import static com.facebook.presto.tests.cassandra.TestConstants.CONNECTOR_NAME;
-import static com.facebook.presto.tests.cassandra.TestConstants.KEY_SPACE;
-import static com.facebook.presto.tests.utils.QueryAssertions.assertContainsEventually;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.prestodb.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
 import static io.prestodb.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestosql.tests.TestGroups.CASSANDRA;
+import static io.prestosql.tests.cassandra.DataTypesTableDefinition.CASSANDRA_ALL_TYPES;
+import static io.prestosql.tests.cassandra.TestConstants.CONNECTOR_NAME;
+import static io.prestosql.tests.cassandra.TestConstants.KEY_SPACE;
+import static io.prestosql.tests.utils.QueryAssertions.assertContainsEventually;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
 

@@ -13,11 +13,11 @@
  */
 package io.prestosql.tests.hive;
 
-import com.facebook.presto.jdbc.PrestoResultSet;
-import com.facebook.presto.tests.querystats.QueryStatsClient;
 import io.prestodb.tempto.BeforeTestWithContext;
 import io.prestodb.tempto.ProductTest;
 import io.prestodb.tempto.query.QueryResult;
+import io.prestosql.jdbc.PrestoResultSet;
+import io.prestosql.tests.querystats.QueryStatsClient;
 
 import javax.inject.Inject;
 

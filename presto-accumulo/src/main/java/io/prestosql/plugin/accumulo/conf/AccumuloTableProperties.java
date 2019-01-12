@@ -13,17 +13,17 @@
  */
 package io.prestosql.plugin.accumulo.conf;
 
-import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
-import com.facebook.presto.accumulo.serializers.LexicoderRowSerializer;
-import com.facebook.presto.accumulo.serializers.StringRowSerializer;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.session.PropertyMetadata;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import io.prestosql.plugin.accumulo.serializers.AccumuloRowSerializer;
+import io.prestosql.plugin.accumulo.serializers.LexicoderRowSerializer;
+import io.prestosql.plugin.accumulo.serializers.StringRowSerializer;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.session.PropertyMetadata;
+import io.prestosql.spi.type.VarcharType;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -34,10 +34,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
-import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
-import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
+import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

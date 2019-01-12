@@ -13,9 +13,9 @@
  */
 package io.prestosql.rcfile.binary;
 
-import com.facebook.presto.rcfile.ColumnEncoding;
-import com.facebook.presto.rcfile.RcFileEncoding;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.rcfile.ColumnEncoding;
+import io.prestosql.rcfile.RcFileEncoding;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 import java.util.stream.Collectors;

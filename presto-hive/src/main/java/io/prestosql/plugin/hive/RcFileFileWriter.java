@@ -13,20 +13,20 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.rcfile.AircompressorCodecFactory;
-import com.facebook.presto.rcfile.HadoopCodecFactory;
-import com.facebook.presto.rcfile.RcFileDataSource;
-import com.facebook.presto.rcfile.RcFileEncoding;
-import com.facebook.presto.rcfile.RcFileWriter;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CountingOutputStream;
 import io.airlift.slice.OutputStreamSliceOutput;
+import io.prestosql.rcfile.AircompressorCodecFactory;
+import io.prestosql.rcfile.HadoopCodecFactory;
+import io.prestosql.rcfile.RcFileDataSource;
+import io.prestosql.rcfile.RcFileEncoding;
+import io.prestosql.rcfile.RcFileWriter;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
@@ -40,10 +40,10 @@ import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static java.util.Objects.requireNonNull;
 
 public class RcFileFileWriter

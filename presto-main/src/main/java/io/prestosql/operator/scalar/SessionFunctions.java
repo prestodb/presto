@@ -13,13 +13,13 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.facebook.presto.FullConnectorSession;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
+import io.prestosql.FullConnectorSession;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.Description;
+import io.prestosql.spi.function.ScalarFunction;
+import io.prestosql.spi.function.SqlType;
+import io.prestosql.spi.type.StandardTypes;
 
 import static io.airlift.slice.Slices.utf8Slice;
 

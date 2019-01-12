@@ -14,11 +14,11 @@
 
 package io.prestosql.sql.planner.iterative;
 
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.matching.pattern.TypeOfPattern;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.reflect.TypeToken;
+import io.prestosql.matching.Pattern;
+import io.prestosql.matching.pattern.TypeOfPattern;
 
 import java.util.Set;
 import java.util.stream.Stream;

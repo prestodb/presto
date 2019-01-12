@@ -13,7 +13,7 @@
  */
 package io.prestosql.operator.aggregation.state;
 
-import com.facebook.presto.spi.function.GroupedAccumulatorState;
+import io.prestosql.spi.function.GroupedAccumulatorState;
 
 public abstract class AbstractGroupedAccumulatorState
         implements GroupedAccumulatorState

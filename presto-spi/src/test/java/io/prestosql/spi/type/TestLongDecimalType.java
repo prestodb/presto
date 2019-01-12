@@ -13,15 +13,15 @@
  */
 package io.prestosql.spi.type;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.VariableWidthBlockBuilder;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 
-import static com.facebook.presto.spi.type.Decimals.encodeScaledValue;
+import static io.prestosql.spi.type.Decimals.encodeScaledValue;
 import static java.lang.Math.signum;
 import static org.testng.Assert.assertEquals;
 

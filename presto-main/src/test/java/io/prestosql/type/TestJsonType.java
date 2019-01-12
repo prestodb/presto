@@ -13,12 +13,12 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
 
-import static com.facebook.presto.type.JsonType.JSON;
+import static io.prestosql.type.JsonType.JSON;
 
 public class TestJsonType
         extends AbstractTestType

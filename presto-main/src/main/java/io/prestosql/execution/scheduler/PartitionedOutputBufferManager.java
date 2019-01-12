@@ -13,10 +13,10 @@
  */
 package io.prestosql.execution.scheduler;
 
-import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.OutputBuffers.OutputBufferId;
-import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.OutputBuffers;
+import io.prestosql.OutputBuffers.OutputBufferId;
+import io.prestosql.sql.planner.PartitioningHandle;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -24,8 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.OutputBuffers.createInitialEmptyOutputBuffers;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe

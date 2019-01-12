@@ -20,9 +20,9 @@ import java.util.List;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.DOUBLE;
-import static com.facebook.presto.orc.metadata.statistics.DoubleStatistics.DOUBLE_VALUE_BYTES;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.DOUBLE;
+import static io.prestosql.orc.metadata.statistics.DoubleStatistics.DOUBLE_VALUE_BYTES;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;

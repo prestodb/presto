@@ -13,10 +13,10 @@
  */
 package io.prestosql.operator.aggregation.state;
 
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.AccumulatorState;
-import com.facebook.presto.spi.function.AccumulatorStateMetadata;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.AccumulatorState;
+import io.prestosql.spi.function.AccumulatorStateMetadata;
+import io.prestosql.spi.type.Type;
 
 @AccumulatorStateMetadata(stateSerializerClass = NullableBooleanStateSerializer.class)
 public interface NullableBooleanState

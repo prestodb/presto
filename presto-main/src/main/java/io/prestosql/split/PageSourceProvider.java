@@ -13,10 +13,10 @@
  */
 package io.prestosql.split;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorPageSource;
+import io.prestosql.Session;
+import io.prestosql.metadata.Split;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorPageSource;
 
 import java.util.List;
 

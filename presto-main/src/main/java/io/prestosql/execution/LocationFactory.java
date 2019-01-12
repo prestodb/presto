@@ -13,8 +13,8 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.QueryId;
+import io.prestosql.spi.Node;
+import io.prestosql.spi.QueryId;
 
 import java.net.URI;
 

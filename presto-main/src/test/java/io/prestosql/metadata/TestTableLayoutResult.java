@@ -14,16 +14,16 @@
 
 package io.prestosql.metadata;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.TestingColumnHandle;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.TestingColumnHandle;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.TupleDomain;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.metadata.TableLayoutResult.computeEnforced;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static io.prestosql.metadata.TableLayoutResult.computeEnforced;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.fail;
 
 public class TestTableLayoutResult

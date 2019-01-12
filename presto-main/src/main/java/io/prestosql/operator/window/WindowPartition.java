@@ -13,23 +13,23 @@
  */
 package io.prestosql.operator.window;
 
-import com.facebook.presto.operator.PagesHashStrategy;
-import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.function.WindowIndex;
-import com.facebook.presto.sql.tree.FrameBound;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.operator.PagesHashStrategy;
+import io.prestosql.operator.PagesIndex;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.function.WindowIndex;
+import io.prestosql.sql.tree.FrameBound;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
-import static com.facebook.presto.sql.tree.FrameBound.Type.FOLLOWING;
-import static com.facebook.presto.sql.tree.FrameBound.Type.PRECEDING;
-import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
-import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
-import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
-import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
+import static io.prestosql.sql.tree.FrameBound.Type.FOLLOWING;
+import static io.prestosql.sql.tree.FrameBound.Type.PRECEDING;
+import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
+import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static io.prestosql.sql.tree.WindowFrame.Type.RANGE;
+import static io.prestosql.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
 
 public final class WindowPartition

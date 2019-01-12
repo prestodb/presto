@@ -13,18 +13,18 @@
  */
 package io.prestosql.plugin.cassandra.util;
 
-import com.facebook.presto.cassandra.CassandraColumnHandle;
-import com.facebook.presto.cassandra.CassandraType;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.cassandra.CassandraColumnHandle;
+import io.prestosql.plugin.cassandra.CassandraType;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.cassandra.util.CassandraCqlUtils.quoteStringLiteral;
-import static com.facebook.presto.cassandra.util.CassandraCqlUtils.quoteStringLiteralForJson;
-import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validColumnName;
-import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validSchemaName;
-import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validTableName;
+import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.quoteStringLiteral;
+import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.quoteStringLiteralForJson;
+import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validColumnName;
+import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validSchemaName;
+import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validTableName;
 import static org.testng.Assert.assertEquals;
 
 public class TestCassandraCqlUtils

@@ -13,19 +13,19 @@
  */
 package io.prestosql.parquet.predicate;
 
-import com.facebook.presto.parquet.DictionaryPage;
-import com.facebook.presto.parquet.ParquetCorruptionException;
-import com.facebook.presto.parquet.ParquetDataSource;
-import com.facebook.presto.parquet.ParquetEncoding;
-import com.facebook.presto.parquet.RichColumnDescriptor;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
+import io.prestosql.parquet.DictionaryPage;
+import io.prestosql.parquet.ParquetCorruptionException;
+import io.prestosql.parquet.ParquetDataSource;
+import io.prestosql.parquet.ParquetEncoding;
+import io.prestosql.parquet.RichColumnDescriptor;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.Type;
 import parquet.column.ColumnDescriptor;
 import parquet.column.Encoding;
 import parquet.column.statistics.Statistics;
@@ -46,13 +46,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.parquet.ParquetCompressionUtils.decompress;
-import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetEncoding;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
-import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.prestosql.parquet.ParquetCompressionUtils.decompress;
+import static io.prestosql.parquet.ParquetTypeUtils.getParquetEncoding;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static java.lang.Math.toIntExact;
 import static parquet.column.Encoding.BIT_PACKED;
 import static parquet.column.Encoding.PLAIN_DICTIONARY;

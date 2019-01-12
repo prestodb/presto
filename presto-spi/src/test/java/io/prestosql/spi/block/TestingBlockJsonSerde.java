@@ -13,7 +13,6 @@
  */
 package io.prestosql.spi.block;
 
-import com.facebook.presto.spi.type.TestingTypeManager;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
@@ -24,6 +23,7 @@ import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import io.prestosql.spi.type.TestingTypeManager;
 
 import java.io.IOException;
 import java.util.Base64;

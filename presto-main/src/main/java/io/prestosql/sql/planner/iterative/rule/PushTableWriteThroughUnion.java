@@ -13,30 +13,30 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.matching.Capture;
-import com.facebook.presto.matching.Captures;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.optimizations.SymbolMapper;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
-import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.matching.Capture;
+import io.prestosql.matching.Captures;
+import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.optimizations.SymbolMapper;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.TableWriterNode;
+import io.prestosql.sql.planner.plan.UnionNode;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.SystemSessionProperties.isPushTableWriteThroughUnion;
-import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.sql.planner.plan.Patterns.source;
-import static com.facebook.presto.sql.planner.plan.Patterns.tableWriterNode;
-import static com.facebook.presto.sql.planner.plan.Patterns.union;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.prestosql.SystemSessionProperties.isPushTableWriteThroughUnion;
+import static io.prestosql.matching.Capture.newCapture;
+import static io.prestosql.sql.planner.plan.Patterns.source;
+import static io.prestosql.sql.planner.plan.Patterns.tableWriterNode;
+import static io.prestosql.sql.planner.plan.Patterns.union;
 
 public class PushTableWriteThroughUnion
         implements Rule<TableWriterNode>

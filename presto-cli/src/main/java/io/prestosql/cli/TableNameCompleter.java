@@ -13,12 +13,12 @@
  */
 package io.prestosql.cli;
 
-import com.facebook.presto.client.QueryData;
-import com.facebook.presto.client.StatementClient;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.client.QueryData;
+import io.prestosql.client.StatementClient;
 import jline.console.completer.Completer;
 
 import java.io.Closeable;

@@ -13,25 +13,25 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.procedure.Procedure;
-import com.facebook.presto.spi.procedure.Procedure.Argument;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.planner.ParameterRewriter;
-import com.facebook.presto.sql.tree.Call;
-import com.facebook.presto.sql.tree.CallArgument;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.Session;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.security.AccessControl;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.procedure.Procedure;
+import io.prestosql.spi.procedure.Procedure.Argument;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.analyzer.SemanticException;
+import io.prestosql.sql.planner.ParameterRewriter;
+import io.prestosql.sql.tree.Call;
+import io.prestosql.sql.tree.CallArgument;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.ExpressionTreeRewriter;
+import io.prestosql.transaction.TransactionManager;
 
 import java.lang.invoke.MethodType;
 import java.util.ArrayList;
@@ -43,18 +43,18 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_DEFINITION;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.StandardErrorCode.PROCEDURE_CALL_FAILED;
-import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
-import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
-import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
+import static io.prestosql.spi.StandardErrorCode.INVALID_PROCEDURE_DEFINITION;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.StandardErrorCode.PROCEDURE_CALL_FAILED;
+import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
+import static io.prestosql.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
+import static io.prestosql.util.Failures.checkCondition;
 import static java.util.Arrays.asList;
 
 public class CallTask

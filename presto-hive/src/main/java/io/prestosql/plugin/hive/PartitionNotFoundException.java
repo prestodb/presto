@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.spi.NotFoundException;
-import com.facebook.presto.spi.SchemaTableName;
+import io.prestosql.spi.connector.NotFoundException;
+import io.prestosql.spi.connector.SchemaTableName;
 
 import java.util.List;
 

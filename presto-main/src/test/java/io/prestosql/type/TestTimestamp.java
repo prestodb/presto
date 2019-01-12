@@ -17,8 +17,8 @@ import org.testng.annotations.Test;
 
 import java.time.LocalDateTime;
 
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 
 public class TestTimestamp
         extends TestTimestampBase

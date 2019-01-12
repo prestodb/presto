@@ -13,10 +13,10 @@
  */
 package io.prestosql.spi.predicate;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.Type;
 
 import java.util.Objects;
 

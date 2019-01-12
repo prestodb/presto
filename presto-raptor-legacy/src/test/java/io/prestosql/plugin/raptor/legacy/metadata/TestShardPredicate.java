@@ -13,26 +13,26 @@
  */
 package io.prestosql.plugin.raptor.legacy.metadata;
 
-import com.facebook.presto.raptor.RaptorColumnHandle;
-import com.facebook.presto.spi.predicate.SortedRangeSet;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+import io.prestosql.plugin.raptor.legacy.RaptorColumnHandle;
+import io.prestosql.spi.predicate.SortedRangeSet;
+import io.prestosql.spi.predicate.TupleDomain;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.raptor.RaptorColumnHandle.bucketNumberColumnHandle;
-import static com.facebook.presto.raptor.RaptorColumnHandle.shardUuidColumnHandle;
-import static com.facebook.presto.raptor.util.UuidUtil.uuidStringToBytes;
-import static com.facebook.presto.spi.predicate.Domain.create;
-import static com.facebook.presto.spi.predicate.Domain.singleValue;
-import static com.facebook.presto.spi.predicate.Range.equal;
-import static com.facebook.presto.spi.predicate.Range.greaterThanOrEqual;
-import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.plugin.raptor.legacy.RaptorColumnHandle.bucketNumberColumnHandle;
+import static io.prestosql.plugin.raptor.legacy.RaptorColumnHandle.shardUuidColumnHandle;
+import static io.prestosql.plugin.raptor.legacy.util.UuidUtil.uuidStringToBytes;
+import static io.prestosql.spi.predicate.Domain.create;
+import static io.prestosql.spi.predicate.Domain.singleValue;
+import static io.prestosql.spi.predicate.Range.equal;
+import static io.prestosql.spi.predicate.Range.greaterThanOrEqual;
+import static io.prestosql.spi.predicate.TupleDomain.withColumnDomains;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.sql.JDBCType.VARBINARY;
 import static java.util.UUID.randomUUID;
 import static org.testng.Assert.assertEquals;

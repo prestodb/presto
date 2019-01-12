@@ -13,9 +13,9 @@
  */
 package io.prestosql.cost;
 
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
-import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.spi.Node;
+import io.prestosql.execution.scheduler.NodeSchedulerConfig;
+import io.prestosql.metadata.InternalNodeManager;
+import io.prestosql.spi.Node;
 
 import javax.inject.Inject;
 

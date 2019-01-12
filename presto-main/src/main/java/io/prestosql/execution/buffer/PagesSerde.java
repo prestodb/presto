@@ -13,25 +13,25 @@
  */
 package io.prestosql.execution.buffer;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import io.airlift.compress.Compressor;
 import io.airlift.compress.Decompressor;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.BlockEncodingSerde;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.Optional;
 
-import static com.facebook.presto.execution.buffer.PageCompression.COMPRESSED;
-import static com.facebook.presto.execution.buffer.PageCompression.UNCOMPRESSED;
-import static com.facebook.presto.execution.buffer.PagesSerdeUtil.readRawPage;
-import static com.facebook.presto.execution.buffer.PagesSerdeUtil.writeRawPage;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.compress.lz4.Lz4RawCompressor.maxCompressedLength;
+import static io.prestosql.execution.buffer.PageCompression.COMPRESSED;
+import static io.prestosql.execution.buffer.PageCompression.UNCOMPRESSED;
+import static io.prestosql.execution.buffer.PagesSerdeUtil.readRawPage;
+import static io.prestosql.execution.buffer.PagesSerdeUtil.writeRawPage;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.raptor.legacy.metadata;
 
-import com.facebook.presto.raptor.RaptorColumnHandle;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.plugin.raptor.legacy.RaptorColumnHandle;
+import io.prestosql.spi.type.Type;
 
 import static java.util.Objects.requireNonNull;
 

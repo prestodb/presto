@@ -13,29 +13,29 @@
  */
 package io.prestosql.plugin.thrift.api.valuesets;
 
-import com.facebook.presto.connector.thrift.api.PrestoThriftBlock;
-import com.facebook.presto.spi.predicate.Marker;
-import com.facebook.presto.spi.predicate.Marker.Bound;
-import com.facebook.presto.spi.predicate.Range;
-import com.facebook.presto.spi.predicate.SortedRangeSet;
 import io.airlift.drift.annotations.ThriftConstructor;
 import io.airlift.drift.annotations.ThriftEnum;
 import io.airlift.drift.annotations.ThriftEnumValue;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
+import io.prestosql.plugin.thrift.api.PrestoThriftBlock;
+import io.prestosql.spi.predicate.Marker;
+import io.prestosql.spi.predicate.Marker.Bound;
+import io.prestosql.spi.predicate.Range;
+import io.prestosql.spi.predicate.SortedRangeSet;
 
 import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Objects;
 
-import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.fromBlock;
-import static com.facebook.presto.connector.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftBound.fromBound;
-import static com.facebook.presto.connector.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftMarker.fromMarker;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
+import static io.prestosql.plugin.thrift.api.PrestoThriftBlock.fromBlock;
+import static io.prestosql.plugin.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftBound.fromBound;
+import static io.prestosql.plugin.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftMarker.fromMarker;
 import static java.util.Objects.requireNonNull;
 
 /**

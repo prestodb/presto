@@ -13,16 +13,16 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.RowPagesBuilder;
-import com.facebook.presto.operator.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
-import com.facebook.presto.operator.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
-import com.facebook.presto.operator.NestedLoopJoinOperator.NestedLoopPageBuilder;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.RowPagesBuilder;
+import io.prestosql.operator.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
+import io.prestosql.operator.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
+import io.prestosql.operator.NestedLoopJoinOperator.NestedLoopPageBuilder;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.TestingTaskContext;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -31,15 +31,15 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
-import static com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.google.common.collect.Iterables.concat;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.operator.OperatorAssertion.assertOperatorEquals;
+import static io.prestosql.operator.ValuesOperator.ValuesOperatorFactory;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;

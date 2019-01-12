@@ -13,8 +13,8 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.connector.ConnectorId;
 import io.airlift.json.JsonCodec;
+import io.prestosql.connector.ConnectorId;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;

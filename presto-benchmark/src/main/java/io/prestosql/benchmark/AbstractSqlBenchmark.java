@@ -13,10 +13,10 @@
  */
 package io.prestosql.benchmark;
 
-import com.facebook.presto.operator.Driver;
-import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.testing.NullOutputOperator.NullOutputFactory;
+import io.prestosql.operator.Driver;
+import io.prestosql.operator.TaskContext;
+import io.prestosql.testing.LocalQueryRunner;
+import io.prestosql.testing.NullOutputOperator.NullOutputFactory;
 import org.intellij.lang.annotations.Language;
 
 import java.util.List;

@@ -15,7 +15,7 @@ package io.prestosql.spi.block;
 
 import java.util.Arrays;
 
-import static com.facebook.presto.spi.block.BlockUtil.MAX_ARRAY_SIZE;
+import static io.prestosql.spi.block.BlockUtil.MAX_ARRAY_SIZE;
 import static java.lang.String.format;
 
 /**

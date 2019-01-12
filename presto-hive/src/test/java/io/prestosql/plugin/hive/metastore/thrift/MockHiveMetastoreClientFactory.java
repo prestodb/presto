@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.hive.metastore.thrift;
 
-import com.facebook.presto.hive.authentication.NoHiveMetastoreAuthentication;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.hive.authentication.NoHiveMetastoreAuthentication;
 import org.apache.thrift.transport.TTransportException;
 
 import java.util.ArrayList;

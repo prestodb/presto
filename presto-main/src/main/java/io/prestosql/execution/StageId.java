@@ -13,9 +13,9 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.spi.QueryId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import io.prestosql.spi.QueryId;
 
 import java.util.List;
 import java.util.Objects;

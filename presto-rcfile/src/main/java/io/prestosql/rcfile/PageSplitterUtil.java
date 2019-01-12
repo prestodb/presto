@@ -13,8 +13,8 @@
  */
 package io.prestosql.rcfile;
 
-import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.Page;
 
 import java.util.List;
 

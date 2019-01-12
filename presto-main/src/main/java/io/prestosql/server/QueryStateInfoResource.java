@@ -13,10 +13,10 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.execution.QueryManager;
-import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import io.prestosql.execution.QueryManager;
+import io.prestosql.execution.resourceGroups.ResourceGroupManager;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
 
 import javax.inject.Inject;
 import javax.ws.rs.GET;
@@ -32,11 +32,11 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
-import static com.facebook.presto.execution.QueryState.QUEUED;
-import static com.facebook.presto.server.QueryStateInfo.createQueryStateInfo;
-import static com.facebook.presto.server.QueryStateInfo.createQueuedQueryStateInfo;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.execution.QueryState.QUEUED;
+import static io.prestosql.server.QueryStateInfo.createQueryStateInfo;
+import static io.prestosql.server.QueryStateInfo.createQueuedQueryStateInfo;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 

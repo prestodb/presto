@@ -13,9 +13,6 @@
  */
 package io.prestosql.sql.planner.plan;
 
-import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
-import com.facebook.presto.spi.statistics.ColumnStatisticType;
-import com.facebook.presto.spi.statistics.TableStatisticType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -27,6 +24,9 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.statistics.ColumnStatisticMetadata;
+import io.prestosql.spi.statistics.ColumnStatisticType;
+import io.prestosql.spi.statistics.TableStatisticType;
 
 import java.io.IOException;
 import java.util.Map;

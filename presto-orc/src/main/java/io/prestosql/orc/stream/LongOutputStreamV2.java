@@ -13,31 +13,31 @@
  */
 package io.prestosql.orc.stream;
 
-import com.facebook.presto.orc.OrcOutputBuffer;
-import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
-import com.facebook.presto.orc.checkpoint.LongStreamV2Checkpoint;
-import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.orc.metadata.Stream;
-import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.SliceOutput;
+import io.prestosql.orc.OrcOutputBuffer;
+import io.prestosql.orc.checkpoint.LongStreamCheckpoint;
+import io.prestosql.orc.checkpoint.LongStreamV2Checkpoint;
+import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.Stream;
+import io.prestosql.orc.metadata.Stream.StreamKind;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.orc.stream.LongOutputStreamV2.SerializationUtils.encodeBitWidth;
-import static com.facebook.presto.orc.stream.LongOutputStreamV2.SerializationUtils.findClosestNumBits;
-import static com.facebook.presto.orc.stream.LongOutputStreamV2.SerializationUtils.getClosestAlignedFixedBits;
-import static com.facebook.presto.orc.stream.LongOutputStreamV2.SerializationUtils.getClosestFixedBits;
-import static com.facebook.presto.orc.stream.LongOutputStreamV2.SerializationUtils.isSafeSubtract;
-import static com.facebook.presto.orc.stream.LongOutputStreamV2.SerializationUtils.percentileBits;
-import static com.facebook.presto.orc.stream.LongOutputStreamV2.SerializationUtils.writeVslong;
-import static com.facebook.presto.orc.stream.LongOutputStreamV2.SerializationUtils.writeVulong;
-import static com.facebook.presto.orc.stream.LongOutputStreamV2.SerializationUtils.zigzagEncode;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.orc.stream.LongOutputStreamV2.SerializationUtils.encodeBitWidth;
+import static io.prestosql.orc.stream.LongOutputStreamV2.SerializationUtils.findClosestNumBits;
+import static io.prestosql.orc.stream.LongOutputStreamV2.SerializationUtils.getClosestAlignedFixedBits;
+import static io.prestosql.orc.stream.LongOutputStreamV2.SerializationUtils.getClosestFixedBits;
+import static io.prestosql.orc.stream.LongOutputStreamV2.SerializationUtils.isSafeSubtract;
+import static io.prestosql.orc.stream.LongOutputStreamV2.SerializationUtils.percentileBits;
+import static io.prestosql.orc.stream.LongOutputStreamV2.SerializationUtils.writeVslong;
+import static io.prestosql.orc.stream.LongOutputStreamV2.SerializationUtils.writeVulong;
+import static io.prestosql.orc.stream.LongOutputStreamV2.SerializationUtils.zigzagEncode;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.memory;
 
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.Plugin;
+import io.prestosql.spi.connector.ConnectorFactory;
 
 public final class MemoryPlugin
         implements Plugin

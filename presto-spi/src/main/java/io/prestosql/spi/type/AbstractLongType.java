@@ -13,12 +13,12 @@
  */
 package io.prestosql.spi.type;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.LongArrayBlockBuilder;
-import com.facebook.presto.spi.block.PageBuilderStatus;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.BlockBuilderStatus;
+import io.prestosql.spi.block.LongArrayBlockBuilder;
+import io.prestosql.spi.block.PageBuilderStatus;
 
 import static java.lang.Long.rotateLeft;
 

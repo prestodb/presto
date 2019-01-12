@@ -13,8 +13,8 @@
  */
 package io.prestosql.orc.checkpoint;
 
-import com.facebook.presto.orc.checkpoint.Checkpoints.ColumnPositionsList;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.orc.checkpoint.Checkpoints.ColumnPositionsList;
 
 import java.util.List;
 

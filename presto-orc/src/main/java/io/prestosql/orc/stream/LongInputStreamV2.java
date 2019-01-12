@@ -13,9 +13,9 @@
  */
 package io.prestosql.orc.stream;
 
-import com.facebook.presto.orc.OrcCorruptionException;
-import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
-import com.facebook.presto.orc.checkpoint.LongStreamV2Checkpoint;
+import io.prestosql.orc.OrcCorruptionException;
+import io.prestosql.orc.checkpoint.LongStreamCheckpoint;
+import io.prestosql.orc.checkpoint.LongStreamV2Checkpoint;
 
 import java.io.IOException;
 import java.io.InputStream;

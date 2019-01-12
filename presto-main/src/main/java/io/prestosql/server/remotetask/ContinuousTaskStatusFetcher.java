@@ -13,11 +13,6 @@
  */
 package io.prestosql.server.remotetask;
 
-import com.facebook.presto.execution.StateMachine;
-import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.execution.TaskStatus;
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
@@ -27,6 +22,11 @@ import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.prestosql.execution.StateMachine;
+import io.prestosql.execution.TaskId;
+import io.prestosql.execution.TaskStatus;
+import io.prestosql.spi.HostAddress;
+import io.prestosql.spi.PrestoException;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -36,10 +36,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
-import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
-import static com.facebook.presto.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
@@ -47,6 +43,10 @@ import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonRespo
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.client.PrestoHeaders.PRESTO_CURRENT_STATE;
+import static io.prestosql.client.PrestoHeaders.PRESTO_MAX_WAIT;
+import static io.prestosql.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
+import static io.prestosql.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

@@ -13,14 +13,14 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.util.List;
 
-import static com.facebook.presto.metadata.FunctionKind.SCALAR;
-import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.metadata.FunctionRegistry.mangleOperatorName;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;

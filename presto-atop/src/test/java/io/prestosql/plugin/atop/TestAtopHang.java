@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.atop;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -26,10 +26,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static com.facebook.presto.atop.AtopErrorCode.ATOP_READ_TIMEOUT;
-import static com.facebook.presto.atop.LocalAtopQueryRunner.createQueryRunner;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.Resources.toByteArray;
+import static io.prestosql.plugin.atop.AtopErrorCode.ATOP_READ_TIMEOUT;
+import static io.prestosql.plugin.atop.LocalAtopQueryRunner.createQueryRunner;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 

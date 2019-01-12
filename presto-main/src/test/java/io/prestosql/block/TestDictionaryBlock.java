@@ -13,17 +13,17 @@
  */
 package io.prestosql.block;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.DictionaryId;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.DictionaryBlock;
+import io.prestosql.spi.block.DictionaryId;
+import io.prestosql.spi.block.VariableWidthBlockBuilder;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.block.BlockAssertions.createSlicesBlock;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.prestosql.block.BlockAssertions.createSlicesBlock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;

@@ -13,8 +13,8 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.failureDetector.HeartbeatFailureDetector;
 import com.google.common.collect.Maps;
+import io.prestosql.failureDetector.HeartbeatFailureDetector;
 
 import javax.inject.Inject;
 import javax.ws.rs.GET;

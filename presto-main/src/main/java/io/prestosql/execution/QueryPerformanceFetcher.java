@@ -13,7 +13,7 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.spi.QueryId;
+import io.prestosql.spi.QueryId;
 
 public interface QueryPerformanceFetcher
 {

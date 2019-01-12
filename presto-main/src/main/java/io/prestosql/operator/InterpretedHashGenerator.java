@@ -13,13 +13,13 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.operator.scalar.CombineHashFunction;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
-import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.operator.scalar.CombineHashFunction;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.planner.optimizations.HashGenerationOptimizer;
+import io.prestosql.type.TypeUtils;
 
 import java.util.List;
 import java.util.function.IntFunction;

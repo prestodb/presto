@@ -13,11 +13,11 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupState;
-import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.units.DataSize;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.spi.resourcegroups.ResourceGroupState;
+import io.prestosql.spi.resourcegroups.SchedulingPolicy;
 
 import javax.annotation.Nullable;
 

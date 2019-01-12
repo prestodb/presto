@@ -13,8 +13,8 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.spi.type.TimeZoneKey;
+import io.prestosql.Session;
+import io.prestosql.spi.type.TimeZoneKey;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 

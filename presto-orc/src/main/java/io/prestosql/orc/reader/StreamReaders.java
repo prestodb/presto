@@ -13,8 +13,8 @@
  */
 package io.prestosql.orc.reader;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
-import com.facebook.presto.orc.StreamDescriptor;
+import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.orc.StreamDescriptor;
 import org.joda.time.DateTimeZone;
 
 public final class StreamReaders

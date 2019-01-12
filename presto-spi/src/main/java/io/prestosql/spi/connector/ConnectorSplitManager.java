@@ -13,10 +13,6 @@
  */
 package io.prestosql.spi.connector;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplitSource;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-
 public interface ConnectorSplitManager
 {
     ConnectorSplitSource getSplits(

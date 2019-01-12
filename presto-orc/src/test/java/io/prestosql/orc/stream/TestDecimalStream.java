@@ -13,11 +13,11 @@
  */
 package io.prestosql.orc.stream;
 
-import com.facebook.presto.orc.OrcCorruptionException;
-import com.facebook.presto.orc.OrcDataSourceId;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.orc.OrcCorruptionException;
+import io.prestosql.orc.OrcDataSourceId;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -26,11 +26,11 @@ import java.io.OutputStream;
 import java.math.BigInteger;
 import java.util.Optional;
 
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.spi.type.Decimals.MAX_DECIMAL_UNSCALED_VALUE;
-import static com.facebook.presto.spi.type.Decimals.MIN_DECIMAL_UNSCALED_VALUE;
-import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
-import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
+import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.spi.type.Decimals.MAX_DECIMAL_UNSCALED_VALUE;
+import static io.prestosql.spi.type.Decimals.MIN_DECIMAL_UNSCALED_VALUE;
+import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
+import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
 import static java.math.BigInteger.ONE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;

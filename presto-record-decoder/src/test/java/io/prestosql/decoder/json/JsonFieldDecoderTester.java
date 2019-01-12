@@ -13,15 +13,15 @@
  */
 package io.prestosql.decoder.json;
 
-import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.DecoderTestColumnHandle;
-import com.facebook.presto.decoder.FieldValueProvider;
-import com.facebook.presto.decoder.RowDecoder;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
+import io.prestosql.decoder.DecoderColumnHandle;
+import io.prestosql.decoder.DecoderTestColumnHandle;
+import io.prestosql.decoder.FieldValueProvider;
+import io.prestosql.decoder.RowDecoder;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.Type;
 
 import java.util.Map;
 import java.util.Optional;

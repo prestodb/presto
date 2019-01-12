@@ -13,13 +13,13 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.client.ErrorLocation;
-import com.facebook.presto.client.FailureInfo;
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.HostAddress;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.client.ErrorLocation;
+import io.prestosql.client.FailureInfo;
+import io.prestosql.spi.ErrorCode;
+import io.prestosql.spi.HostAddress;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;

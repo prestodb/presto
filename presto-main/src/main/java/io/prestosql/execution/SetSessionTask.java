@@ -13,28 +13,28 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
-import com.facebook.presto.spi.session.PropertyMetadata;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.SetSession;
-import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.Session;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AccessControl;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.StandardErrorCode;
+import io.prestosql.spi.session.PropertyMetadata;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.analyzer.SemanticException;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.SetSession;
+import io.prestosql.transaction.TransactionManager;
 
 import java.util.List;
 
-import static com.facebook.presto.metadata.SessionPropertyManager.evaluatePropertyValue;
-import static com.facebook.presto.metadata.SessionPropertyManager.serializeSessionProperty;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SESSION_PROPERTY;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.prestosql.metadata.SessionPropertyManager.evaluatePropertyValue;
+import static io.prestosql.metadata.SessionPropertyManager.serializeSessionProperty;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_SESSION_PROPERTY;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static java.lang.String.format;
 
 public class SetSessionTask

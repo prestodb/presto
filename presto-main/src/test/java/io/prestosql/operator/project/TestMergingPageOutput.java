@@ -13,22 +13,22 @@
  */
 package io.prestosql.operator.project;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.SequencePageBuilder.createSequencePage;
-import static com.facebook.presto.execution.buffer.PageSplitterUtil.splitPage;
-import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.google.common.collect.Iterators.transform;
+import static io.prestosql.SequencePageBuilder.createSequencePage;
+import static io.prestosql.execution.buffer.PageSplitterUtil.splitPage;
+import static io.prestosql.operator.PageAssertions.assertPageEquals;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.RealType.REAL;
 import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;

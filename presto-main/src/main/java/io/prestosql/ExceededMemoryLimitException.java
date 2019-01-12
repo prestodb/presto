@@ -13,12 +13,12 @@
  */
 package io.prestosql;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import io.airlift.units.DataSize;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.StandardErrorCode;
 
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
+import static io.prestosql.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
+import static io.prestosql.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 import static java.lang.String.format;
 
 public class ExceededMemoryLimitException

@@ -13,24 +13,24 @@
  */
 package io.prestosql.execution.scheduler;
 
-import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.execution.RemoteTask;
-import com.facebook.presto.execution.SqlStageExecution;
-import com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason;
-import com.facebook.presto.execution.scheduler.group.DynamicLifespanScheduler;
-import com.facebook.presto.execution.scheduler.group.FixedLifespanScheduler;
-import com.facebook.presto.execution.scheduler.group.LifespanScheduler;
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.operator.StageExecutionStrategy;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
-import com.facebook.presto.split.SplitSource;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
+import io.prestosql.execution.Lifespan;
+import io.prestosql.execution.RemoteTask;
+import io.prestosql.execution.SqlStageExecution;
+import io.prestosql.execution.scheduler.ScheduleResult.BlockedReason;
+import io.prestosql.execution.scheduler.group.DynamicLifespanScheduler;
+import io.prestosql.execution.scheduler.group.FixedLifespanScheduler;
+import io.prestosql.execution.scheduler.group.LifespanScheduler;
+import io.prestosql.metadata.Split;
+import io.prestosql.operator.StageExecutionStrategy;
+import io.prestosql.spi.Node;
+import io.prestosql.spi.connector.ConnectorPartitionHandle;
+import io.prestosql.split.SplitSource;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -41,13 +41,13 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsSourceScheduler;
-import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
+import static io.prestosql.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsSourceScheduler;
+import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

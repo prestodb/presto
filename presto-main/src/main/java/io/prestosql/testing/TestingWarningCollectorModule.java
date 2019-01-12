@@ -13,12 +13,12 @@
  */
 package io.prestosql.testing;
 
-import com.facebook.presto.execution.warnings.WarningCollectorConfig;
-import com.facebook.presto.execution.warnings.WarningCollectorFactory;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
+import io.prestosql.execution.warnings.WarningCollectorConfig;
+import io.prestosql.execution.warnings.WarningCollectorFactory;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;

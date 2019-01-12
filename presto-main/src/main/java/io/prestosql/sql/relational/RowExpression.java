@@ -13,7 +13,7 @@
  */
 package io.prestosql.sql.relational;
 
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.type.Type;
 
 public abstract class RowExpression
 {

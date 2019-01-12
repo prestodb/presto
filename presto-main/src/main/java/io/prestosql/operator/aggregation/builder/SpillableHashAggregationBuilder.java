@@ -13,23 +13,23 @@
  */
 package io.prestosql.operator.aggregation.builder;
 
-import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.operator.HashCollisionsCounter;
-import com.facebook.presto.operator.MergeHashSort;
-import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.operator.Work;
-import com.facebook.presto.operator.WorkProcessor;
-import com.facebook.presto.operator.aggregation.AccumulatorFactory;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spiller.Spiller;
-import com.facebook.presto.spiller.SpillerFactory;
-import com.facebook.presto.sql.gen.JoinCompiler;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
+import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.operator.HashCollisionsCounter;
+import io.prestosql.operator.MergeHashSort;
+import io.prestosql.operator.OperatorContext;
+import io.prestosql.operator.Work;
+import io.prestosql.operator.WorkProcessor;
+import io.prestosql.operator.aggregation.AccumulatorFactory;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spiller.Spiller;
+import io.prestosql.spiller.SpillerFactory;
+import io.prestosql.sql.gen.JoinCompiler;
+import io.prestosql.sql.planner.plan.AggregationNode;
 
 import java.io.IOException;
 import java.util.List;

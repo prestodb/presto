@@ -24,12 +24,12 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
 
-import static com.facebook.presto.raptor.util.DatabaseUtil.getOptionalInt;
-import static com.facebook.presto.raptor.util.DatabaseUtil.getOptionalLong;
-import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
 import static com.google.common.base.MoreObjects.ToStringHelper;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.getOptionalInt;
+import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.getOptionalLong;
+import static io.prestosql.plugin.raptor.legacy.util.UuidUtil.uuidFromBytes;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

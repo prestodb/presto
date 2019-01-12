@@ -13,10 +13,6 @@
  */
 package io.prestosql.failureDetector;
 
-import com.facebook.presto.client.FailureInfo;
-import com.facebook.presto.server.InternalCommunicationConfig;
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.util.Failures;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
@@ -34,6 +30,10 @@ import io.airlift.node.NodeInfo;
 import io.airlift.stats.DecayCounter;
 import io.airlift.stats.ExponentialDecay;
 import io.airlift.units.Duration;
+import io.prestosql.client.FailureInfo;
+import io.prestosql.server.InternalCommunicationConfig;
+import io.prestosql.spi.HostAddress;
+import io.prestosql.util.Failures;
 import org.joda.time.DateTime;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -62,16 +62,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.failureDetector.FailureDetector.State.ALIVE;
-import static com.facebook.presto.failureDetector.FailureDetector.State.GONE;
-import static com.facebook.presto.failureDetector.FailureDetector.State.UNKNOWN;
-import static com.facebook.presto.failureDetector.FailureDetector.State.UNRESPONSIVE;
-import static com.facebook.presto.spi.HostAddress.fromUri;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.Request.Builder.prepareHead;
+import static io.prestosql.failureDetector.FailureDetector.State.ALIVE;
+import static io.prestosql.failureDetector.FailureDetector.State.GONE;
+import static io.prestosql.failureDetector.FailureDetector.State.UNKNOWN;
+import static io.prestosql.failureDetector.FailureDetector.State.UNRESPONSIVE;
+import static io.prestosql.spi.HostAddress.fromUri;
 import static java.util.Objects.requireNonNull;
 
 public class HeartbeatFailureDetector

@@ -15,7 +15,7 @@ package io.prestosql.spi;
 
 import java.util.Set;
 
-import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static io.prestosql.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 
 public interface NodeManager
 {

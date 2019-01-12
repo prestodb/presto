@@ -13,37 +13,37 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.SqlVarbinary;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarbinaryType;
-import com.facebook.presto.spi.type.VarcharType;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Signature;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.BooleanType;
+import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.SqlVarbinary;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarbinaryType;
+import io.prestosql.spi.type.VarcharType;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.block.BlockAssertions.createArrayBigintBlock;
-import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
-import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
-import static com.facebook.presto.block.BlockAssertions.createLongDecimalsBlock;
-import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
-import static com.facebook.presto.block.BlockAssertions.createShortDecimalsBlock;
-import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
-import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.operator.aggregation.ChecksumAggregationFunction.PRIME64;
-import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
-import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
-import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
-import static com.facebook.presto.spi.type.StandardTypes.VARBINARY;
-import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static io.airlift.slice.Slices.wrappedLongArray;
+import static io.prestosql.block.BlockAssertions.createArrayBigintBlock;
+import static io.prestosql.block.BlockAssertions.createBooleansBlock;
+import static io.prestosql.block.BlockAssertions.createDoublesBlock;
+import static io.prestosql.block.BlockAssertions.createLongDecimalsBlock;
+import static io.prestosql.block.BlockAssertions.createLongsBlock;
+import static io.prestosql.block.BlockAssertions.createShortDecimalsBlock;
+import static io.prestosql.block.BlockAssertions.createStringsBlock;
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static io.prestosql.operator.aggregation.ChecksumAggregationFunction.PRIME64;
+import static io.prestosql.spi.type.StandardTypes.BIGINT;
+import static io.prestosql.spi.type.StandardTypes.BOOLEAN;
+import static io.prestosql.spi.type.StandardTypes.DOUBLE;
+import static io.prestosql.spi.type.StandardTypes.VARBINARY;
+import static io.prestosql.spi.type.StandardTypes.VARCHAR;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Arrays.asList;
 
 public class TestChecksumAggregation

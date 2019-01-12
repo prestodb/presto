@@ -13,15 +13,15 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
-import com.facebook.presto.metadata.AllNodes;
-import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
+import io.prestosql.execution.scheduler.NodeSchedulerConfig;
+import io.prestosql.metadata.AllNodes;
+import io.prestosql.metadata.InternalNodeManager;
+import io.prestosql.spi.PrestoException;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -34,12 +34,12 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
-import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
+import static io.prestosql.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;

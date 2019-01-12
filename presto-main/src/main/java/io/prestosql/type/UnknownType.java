@@ -13,11 +13,11 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.AbstractFixedWidthType;
-import com.facebook.presto.spi.type.TypeSignature;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.AbstractFixedWidthType;
+import io.prestosql.spi.type.TypeSignature;
 
 import static com.google.common.base.Preconditions.checkArgument;
 

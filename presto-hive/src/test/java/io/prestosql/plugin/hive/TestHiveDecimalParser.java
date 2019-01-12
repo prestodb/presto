@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.spi.type.DecimalType;
+import io.prestosql.spi.type.DecimalType;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;

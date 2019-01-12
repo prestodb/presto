@@ -13,25 +13,25 @@
  */
 package io.prestosql.sql.planner.iterative.rule.test;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.split.PageSourceManager;
-import com.facebook.presto.split.SplitManager;
-import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.tpch.TpchConnectorFactory;
-import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.plugin.tpch.TpchConnectorFactory;
+import io.prestosql.security.AccessControl;
+import io.prestosql.spi.Plugin;
+import io.prestosql.split.PageSourceManager;
+import io.prestosql.split.SplitManager;
+import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.testing.LocalQueryRunner;
+import io.prestosql.transaction.TransactionManager;
 
 import java.io.Closeable;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.util.Collections.emptyList;
 
 public class RuleTester

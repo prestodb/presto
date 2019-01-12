@@ -13,10 +13,10 @@
  */
 package io.prestosql.spi.block;
 
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.prestosql.spi.type.TypeManager;
 
 import java.util.Optional;
 import java.util.Set;

@@ -13,8 +13,8 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.operator.aggregation.AggregationImplementation;
-import com.facebook.presto.operator.scalar.ParametricScalar;
+import io.prestosql.operator.aggregation.AggregationImplementation;
+import io.prestosql.operator.scalar.ParametricScalar;
 
 import static org.testng.Assert.assertEquals;
 

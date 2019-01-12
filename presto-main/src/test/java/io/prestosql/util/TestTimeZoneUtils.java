@@ -13,8 +13,8 @@
  */
 package io.prestosql.util;
 
-import com.facebook.presto.spi.type.TimeZoneKey;
 import io.airlift.jodabridge.JdkBasedZoneInfoProvider;
+import io.prestosql.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
@@ -23,11 +23,11 @@ import org.testng.annotations.Test;
 import java.time.ZoneId;
 import java.util.TreeSet;
 
-import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static com.facebook.presto.spi.type.TimeZoneKey.isUtcZoneId;
-import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
-import static com.facebook.presto.util.DateTimeZoneIndex.packDateTimeWithZone;
-import static com.facebook.presto.util.DateTimeZoneIndex.unpackDateTimeZone;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.TimeZoneKey.isUtcZoneId;
+import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
+import static io.prestosql.util.DateTimeZoneIndex.packDateTimeWithZone;
+import static io.prestosql.util.DateTimeZoneIndex.unpackDateTimeZone;
 import static org.testng.Assert.assertEquals;
 
 public class TestTimeZoneUtils

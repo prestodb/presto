@@ -13,9 +13,9 @@
  */
 package io.prestosql.tests.datatype;
 
-import com.facebook.presto.tests.sql.SqlExecutor;
-import com.facebook.presto.tests.sql.TestTable;
 import com.google.common.base.Joiner;
+import io.prestosql.tests.sql.SqlExecutor;
+import io.prestosql.tests.sql.TestTable;
 
 import java.util.List;
 import java.util.stream.Stream;

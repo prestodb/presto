@@ -13,13 +13,13 @@
  */
 package io.prestosql.proxy;
 
-import com.facebook.presto.proxy.ProxyResponseHandler.ProxyResponse;
 import com.google.common.collect.ListMultimap;
 import com.google.common.net.MediaType;
 import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
+import io.prestosql.proxy.ProxyResponseHandler.ProxyResponse;
 
 import java.io.IOException;
 

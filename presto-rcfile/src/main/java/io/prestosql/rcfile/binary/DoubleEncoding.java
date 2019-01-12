@@ -13,13 +13,13 @@
  */
 package io.prestosql.rcfile.binary;
 
-import com.facebook.presto.rcfile.ColumnData;
-import com.facebook.presto.rcfile.EncodeOutput;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.prestosql.rcfile.ColumnData;
+import io.prestosql.rcfile.EncodeOutput;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.Type;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;

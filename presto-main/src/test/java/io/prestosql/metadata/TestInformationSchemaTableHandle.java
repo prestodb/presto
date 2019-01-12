@@ -13,14 +13,14 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.connector.informationSchema.InformationSchemaTableHandle;
-import com.facebook.presto.spi.ConnectorTableHandle;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import io.airlift.json.JsonModule;
+import io.prestosql.connector.informationSchema.InformationSchemaTableHandle;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 

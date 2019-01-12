@@ -13,13 +13,13 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.CharType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.CharType;
 
-import static com.facebook.presto.spi.type.CharType.createCharType;
+import static io.prestosql.spi.type.CharType.createCharType;
 
 public class TestCharType
         extends AbstractTestType

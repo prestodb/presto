@@ -13,14 +13,14 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.session.PropertyMetadata;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
+import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 
 public final class HiveSchemaProperties
 {

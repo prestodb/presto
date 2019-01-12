@@ -14,20 +14,20 @@
 
 package io.prestosql.spi.block;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.invoke.MethodHandle;
 import java.util.function.BiConsumer;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.block.AbstractMapBlock.HASH_MULTIPLIER;
-import static com.facebook.presto.spi.block.MapBlockBuilder.computePosition;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.block.AbstractMapBlock.HASH_MULTIPLIER;
+import static io.prestosql.spi.block.MapBlockBuilder.computePosition;
 import static java.lang.String.format;
 
 public class SingleMapBlock

@@ -13,27 +13,27 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.FixedWidthType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.DateTimeOperators;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.Description;
+import io.prestosql.spi.function.ScalarFunction;
+import io.prestosql.spi.function.SqlType;
+import io.prestosql.spi.type.FixedWidthType;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.type.DateTimeOperators;
 
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.operator.scalar.DateTimeFunctions.diffDate;
-import static com.facebook.presto.operator.scalar.DateTimeFunctions.diffTimestamp;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.util.Failures.checkCondition;
+import static io.prestosql.operator.scalar.DateTimeFunctions.diffDate;
+import static io.prestosql.operator.scalar.DateTimeFunctions.diffTimestamp;
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
 
 public final class SequenceFunction

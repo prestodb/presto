@@ -14,24 +14,24 @@
 
 package io.prestosql.tests.statistics;
 
-import com.facebook.presto.testing.QueryRunner;
+import io.prestosql.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.tests.statistics.MetricComparator.getMetricComparisons;
-import static com.facebook.presto.tests.statistics.MetricComparison.Result.MATCH;
-import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_BASELINE;
-import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_ESTIMATE;
-import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.noError;
-import static com.facebook.presto.tests.statistics.Metrics.distinctValuesCount;
-import static com.facebook.presto.tests.statistics.Metrics.highValue;
-import static com.facebook.presto.tests.statistics.Metrics.lowValue;
-import static com.facebook.presto.tests.statistics.Metrics.nullsFraction;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.tests.statistics.MetricComparator.getMetricComparisons;
+import static io.prestosql.tests.statistics.MetricComparison.Result.MATCH;
+import static io.prestosql.tests.statistics.MetricComparison.Result.NO_BASELINE;
+import static io.prestosql.tests.statistics.MetricComparison.Result.NO_ESTIMATE;
+import static io.prestosql.tests.statistics.MetricComparisonStrategies.noError;
+import static io.prestosql.tests.statistics.Metrics.distinctValuesCount;
+import static io.prestosql.tests.statistics.Metrics.highValue;
+import static io.prestosql.tests.statistics.Metrics.lowValue;
+import static io.prestosql.tests.statistics.Metrics.nullsFraction;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertSame;
 

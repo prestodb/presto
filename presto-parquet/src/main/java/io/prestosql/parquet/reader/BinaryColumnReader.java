@@ -13,18 +13,18 @@
  */
 package io.prestosql.parquet.reader;
 
-import com.facebook.presto.parquet.RichColumnDescriptor;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import io.prestosql.parquet.RichColumnDescriptor;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.Type;
 import parquet.io.api.Binary;
 
-import static com.facebook.presto.spi.type.Chars.isCharType;
-import static com.facebook.presto.spi.type.Chars.truncateToLengthAndTrimSpaces;
-import static com.facebook.presto.spi.type.Varchars.isVarcharType;
-import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.prestosql.spi.type.Chars.isCharType;
+import static io.prestosql.spi.type.Chars.truncateToLengthAndTrimSpaces;
+import static io.prestosql.spi.type.Varchars.isVarcharType;
+import static io.prestosql.spi.type.Varchars.truncateToLength;
 
 public class BinaryColumnReader
         extends PrimitiveColumnReader

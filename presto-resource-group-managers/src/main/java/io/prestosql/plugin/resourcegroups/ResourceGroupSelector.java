@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.resourcegroups;
 
-import com.facebook.presto.spi.resourceGroups.SelectionContext;
-import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
+import io.prestosql.spi.resourcegroups.SelectionContext;
+import io.prestosql.spi.resourcegroups.SelectionCriteria;
 
 import java.util.Optional;
 

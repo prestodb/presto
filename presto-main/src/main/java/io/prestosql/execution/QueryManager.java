@@ -13,12 +13,12 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
-import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.server.BasicQueryInfo;
-import com.facebook.presto.server.SessionContext;
-import com.facebook.presto.spi.QueryId;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.execution.QueryExecution.QueryOutputInfo;
+import io.prestosql.execution.StateMachine.StateChangeListener;
+import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.server.SessionContext;
+import io.prestosql.spi.QueryId;
 
 import java.util.List;
 import java.util.NoSuchElementException;

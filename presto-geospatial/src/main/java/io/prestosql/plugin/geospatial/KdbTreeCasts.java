@@ -13,15 +13,15 @@
  */
 package io.prestosql.plugin.geospatial;
 
-import com.facebook.presto.geospatial.KdbTreeUtils;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.LiteralParameters;
-import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.function.SqlType;
 import io.airlift.slice.Slice;
+import io.prestosql.geospatial.KdbTreeUtils;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.function.LiteralParameters;
+import io.prestosql.spi.function.ScalarOperator;
+import io.prestosql.spi.function.SqlType;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static com.facebook.presto.spi.function.OperatorType.CAST;
+import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.prestosql.spi.function.OperatorType.CAST;
 
 public final class KdbTreeCasts
 {

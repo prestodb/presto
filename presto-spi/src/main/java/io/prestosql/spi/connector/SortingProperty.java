@@ -13,9 +13,9 @@
  */
 package io.prestosql.spi.connector;
 
-import com.facebook.presto.spi.block.SortOrder;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.block.SortOrder;
 
 import java.util.Collections;
 import java.util.Objects;

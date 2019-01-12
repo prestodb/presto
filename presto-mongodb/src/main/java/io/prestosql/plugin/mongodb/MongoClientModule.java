@@ -13,13 +13,13 @@
  */
 package io.prestosql.plugin.mongodb;
 
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions;
+import io.prestosql.spi.type.TypeManager;
 
 import javax.inject.Singleton;
 

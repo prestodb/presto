@@ -22,8 +22,8 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Objects;
 
-import static com.facebook.presto.hive.metastore.HiveTableName.hiveTableName;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.plugin.hive.metastore.HiveTableName.hiveTableName;
 import static java.util.Objects.requireNonNull;
 
 @Immutable

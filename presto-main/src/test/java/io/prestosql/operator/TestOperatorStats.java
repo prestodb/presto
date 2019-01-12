@@ -13,11 +13,11 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.operator.PartitionedOutputOperator.PartitionedOutputInfo;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.operator.PartitionedOutputOperator.PartitionedOutputInfo;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.Test;
 
 import java.util.Optional;

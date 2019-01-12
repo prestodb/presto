@@ -14,19 +14,19 @@
 
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
-import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
-import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.tpcds.TpcdsConnectorFactory;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.plugin.tpcds.TpcdsConnectorFactory;
+import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
+import io.prestosql.testing.LocalQueryRunner;
 
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 
 /**

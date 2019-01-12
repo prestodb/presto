@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.memory;
 
-import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.tests.AbstractTestQueryFramework;
-import com.facebook.presto.tests.DistributedQueryRunner;
 import io.airlift.units.Duration;
+import io.prestosql.server.testing.TestingPrestoServer;
+import io.prestosql.tests.AbstractTestQueryFramework;
+import io.prestosql.tests.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
 import static io.airlift.testing.Assertions.assertLessThan;

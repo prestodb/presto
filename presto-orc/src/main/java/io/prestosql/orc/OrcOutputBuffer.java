@@ -13,9 +13,6 @@
  */
 package io.prestosql.orc;
 
-import com.facebook.presto.orc.checkpoint.InputStreamCheckpoint;
-import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.orc.zstd.ZstdJniCompressor;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.compress.Compressor;
 import io.airlift.compress.lz4.Lz4Compressor;
@@ -23,6 +20,9 @@ import io.airlift.compress.snappy.SnappyCompressor;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.prestosql.orc.checkpoint.InputStreamCheckpoint;
+import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.zstd.ZstdJniCompressor;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;

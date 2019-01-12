@@ -13,16 +13,16 @@
  */
 package io.prestosql.util;
 
-import com.facebook.presto.spi.type.DateTimeEncoding;
-import com.facebook.presto.spi.type.TimeZoneKey;
+import io.prestosql.spi.type.DateTimeEncoding;
+import io.prestosql.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.chrono.ISOChronology;
 
-import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
-import static com.facebook.presto.spi.type.TimeZoneKey.MAX_TIME_ZONE_KEY;
-import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeys;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
+import static io.prestosql.spi.type.TimeZoneKey.MAX_TIME_ZONE_KEY;
+import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeys;
 
 public final class DateTimeZoneIndex
 {

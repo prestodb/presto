@@ -14,9 +14,9 @@
 package io.prestosql.decoder.csv;
 
 import au.com.bytecode.opencsv.CSVParser;
-import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldValueProvider;
-import com.facebook.presto.decoder.RowDecoder;
+import io.prestosql.decoder.DecoderColumnHandle;
+import io.prestosql.decoder.FieldValueProvider;
+import io.prestosql.decoder.RowDecoder;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;

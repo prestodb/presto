@@ -13,18 +13,18 @@
  */
 package io.prestosql.plugin.mysql;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.spi.type.TimeZoneKey;
-import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.tests.AbstractTestQueryFramework;
-import com.facebook.presto.tests.datatype.CreateAndInsertDataSetup;
-import com.facebook.presto.tests.datatype.CreateAsSelectDataSetup;
-import com.facebook.presto.tests.datatype.DataSetup;
-import com.facebook.presto.tests.datatype.DataTypeTest;
-import com.facebook.presto.tests.sql.JdbcSqlExecutor;
-import com.facebook.presto.tests.sql.PrestoSqlExecutor;
 import com.google.common.collect.ImmutableList;
 import io.airlift.testing.mysql.TestingMySqlServer;
+import io.prestosql.Session;
+import io.prestosql.spi.type.TimeZoneKey;
+import io.prestosql.spi.type.VarcharType;
+import io.prestosql.tests.AbstractTestQueryFramework;
+import io.prestosql.tests.datatype.CreateAndInsertDataSetup;
+import io.prestosql.tests.datatype.CreateAsSelectDataSetup;
+import io.prestosql.tests.datatype.DataSetup;
+import io.prestosql.tests.datatype.DataTypeTest;
+import io.prestosql.tests.sql.JdbcSqlExecutor;
+import io.prestosql.tests.sql.PrestoSqlExecutor;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -32,24 +32,24 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
 
-import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
-import static com.facebook.presto.tests.datatype.DataType.bigintDataType;
-import static com.facebook.presto.tests.datatype.DataType.charDataType;
-import static com.facebook.presto.tests.datatype.DataType.dateDataType;
-import static com.facebook.presto.tests.datatype.DataType.decimalDataType;
-import static com.facebook.presto.tests.datatype.DataType.doubleDataType;
-import static com.facebook.presto.tests.datatype.DataType.integerDataType;
-import static com.facebook.presto.tests.datatype.DataType.realDataType;
-import static com.facebook.presto.tests.datatype.DataType.smallintDataType;
-import static com.facebook.presto.tests.datatype.DataType.stringDataType;
-import static com.facebook.presto.tests.datatype.DataType.tinyintDataType;
-import static com.facebook.presto.tests.datatype.DataType.varcharDataType;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.repeat;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
+import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.tests.datatype.DataType.bigintDataType;
+import static io.prestosql.tests.datatype.DataType.charDataType;
+import static io.prestosql.tests.datatype.DataType.dateDataType;
+import static io.prestosql.tests.datatype.DataType.decimalDataType;
+import static io.prestosql.tests.datatype.DataType.doubleDataType;
+import static io.prestosql.tests.datatype.DataType.integerDataType;
+import static io.prestosql.tests.datatype.DataType.realDataType;
+import static io.prestosql.tests.datatype.DataType.smallintDataType;
+import static io.prestosql.tests.datatype.DataType.stringDataType;
+import static io.prestosql.tests.datatype.DataType.tinyintDataType;
+import static io.prestosql.tests.datatype.DataType.varcharDataType;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 

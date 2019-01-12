@@ -13,10 +13,10 @@
  */
 package io.prestosql.memory;
 
-import com.facebook.presto.operator.DriverContext;
-import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.operator.PipelineContext;
-import com.facebook.presto.operator.TaskContext;
+import io.prestosql.operator.DriverContext;
+import io.prestosql.operator.OperatorContext;
+import io.prestosql.operator.PipelineContext;
+import io.prestosql.operator.TaskContext;
 
 public interface QueryContextVisitor<C, R>
 {

@@ -13,17 +13,17 @@
  */
 package io.prestosql.sql.planner.plan;
 
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.matching.Property;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.Expression;
+import io.prestosql.matching.Pattern;
+import io.prestosql.matching.Property;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.tree.Expression;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.matching.Pattern.typeOf;
-import static com.facebook.presto.matching.Property.optionalProperty;
-import static com.facebook.presto.matching.Property.property;
+import static io.prestosql.matching.Pattern.typeOf;
+import static io.prestosql.matching.Property.optionalProperty;
+import static io.prestosql.matching.Property.property;
 
 public class Patterns
 {

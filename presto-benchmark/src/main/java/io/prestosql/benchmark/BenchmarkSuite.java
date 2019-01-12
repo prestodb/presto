@@ -13,11 +13,11 @@
  */
 package io.prestosql.benchmark;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import io.airlift.log.Logger;
+import io.prestosql.Session;
+import io.prestosql.testing.LocalQueryRunner;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -26,7 +26,7 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
+import static io.prestosql.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static java.util.Objects.requireNonNull;
 
 public class BenchmarkSuite

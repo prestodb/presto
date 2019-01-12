@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.tests.AbstractTestAggregations;
+import io.prestosql.tests.AbstractTestAggregations;
 
-import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static io.airlift.tpch.TpchTable.getTables;
+import static io.prestosql.plugin.hive.HiveQueryRunner.createQueryRunner;
 
 public class TestHiveDistributedAggregations
         extends AbstractTestAggregations

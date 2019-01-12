@@ -18,9 +18,9 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
-import static com.facebook.presto.spi.block.EncoderUtil.decodeNullBits;
-import static com.facebook.presto.spi.block.EncoderUtil.encodeNullsAsBits;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.prestosql.spi.block.EncoderUtil.decodeNullBits;
+import static io.prestosql.spi.block.EncoderUtil.encodeNullsAsBits;
 
 public class VariableWidthBlockEncoding
         implements BlockEncoding

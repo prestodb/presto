@@ -13,8 +13,8 @@
  */
 package io.prestosql.sql.analyzer;
 
-import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.NodeLocation;
+import io.prestosql.sql.tree.Node;
+import io.prestosql.sql.tree.NodeLocation;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;

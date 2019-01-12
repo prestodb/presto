@@ -13,21 +13,21 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.analyzer.Analysis;
-import com.facebook.presto.sql.analyzer.ResolvedField;
-import com.facebook.presto.sql.tree.Cast;
-import com.facebook.presto.sql.tree.DereferenceExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionRewriter;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.FieldReference;
-import com.facebook.presto.sql.tree.Identifier;
-import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
-import com.facebook.presto.sql.tree.LambdaExpression;
-import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.sql.tree.Parameter;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.analyzer.Analysis;
+import io.prestosql.sql.analyzer.ResolvedField;
+import io.prestosql.sql.tree.Cast;
+import io.prestosql.sql.tree.DereferenceExpression;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.ExpressionRewriter;
+import io.prestosql.sql.tree.ExpressionTreeRewriter;
+import io.prestosql.sql.tree.FieldReference;
+import io.prestosql.sql.tree.Identifier;
+import io.prestosql.sql.tree.LambdaArgumentDeclaration;
+import io.prestosql.sql.tree.LambdaExpression;
+import io.prestosql.sql.tree.NodeRef;
+import io.prestosql.sql.tree.Parameter;
 
 import java.util.HashMap;
 import java.util.List;

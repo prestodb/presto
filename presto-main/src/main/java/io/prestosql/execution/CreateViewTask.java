@@ -13,33 +13,33 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.metadata.ViewDefinition;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.sql.analyzer.Analysis;
-import com.facebook.presto.sql.analyzer.Analyzer;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.tree.CreateView;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.json.JsonCodec;
+import io.prestosql.Session;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.metadata.ViewDefinition;
+import io.prestosql.security.AccessControl;
+import io.prestosql.sql.analyzer.Analysis;
+import io.prestosql.sql.analyzer.Analyzer;
+import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.tree.CreateView;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Statement;
+import io.prestosql.transaction.TransactionManager;
 
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
-import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
-import static com.facebook.presto.sql.SqlFormatterUtil.getFormattedSql;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.metadata.ViewDefinition.ViewColumn;
+import static io.prestosql.sql.SqlFormatterUtil.getFormattedSql;
 import static java.util.Objects.requireNonNull;
 
 public class CreateViewTask

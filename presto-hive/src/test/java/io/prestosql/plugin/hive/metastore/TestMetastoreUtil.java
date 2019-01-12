@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.hive.metastore;
 
-import com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
+import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
 import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Order;

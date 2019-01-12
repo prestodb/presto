@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.hive.metastore.thrift;
 
-import com.facebook.presto.hive.HiveClientConfig;
-import com.facebook.presto.hive.authentication.NoHiveMetastoreAuthentication;
 import com.google.common.net.HostAndPort;
+import io.prestosql.plugin.hive.HiveClientConfig;
+import io.prestosql.plugin.hive.authentication.NoHiveMetastoreAuthentication;
 import org.apache.thrift.TException;
 
 import java.util.Objects;

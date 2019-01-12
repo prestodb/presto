@@ -13,9 +13,9 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.spi.security.Identity;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.security.Identity;
 import org.testng.annotations.Test;
 
 import javax.servlet.http.HttpServletRequest;
@@ -23,19 +23,19 @@ import javax.ws.rs.WebApplicationException;
 
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
-import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_PATH;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
+import static io.prestosql.SystemSessionProperties.HASH_PARTITION_COUNT;
+import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.prestosql.SystemSessionProperties.QUERY_MAX_MEMORY;
+import static io.prestosql.client.PrestoHeaders.PRESTO_CATALOG;
+import static io.prestosql.client.PrestoHeaders.PRESTO_CLIENT_INFO;
+import static io.prestosql.client.PrestoHeaders.PRESTO_LANGUAGE;
+import static io.prestosql.client.PrestoHeaders.PRESTO_PATH;
+import static io.prestosql.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
+import static io.prestosql.client.PrestoHeaders.PRESTO_SCHEMA;
+import static io.prestosql.client.PrestoHeaders.PRESTO_SESSION;
+import static io.prestosql.client.PrestoHeaders.PRESTO_SOURCE;
+import static io.prestosql.client.PrestoHeaders.PRESTO_TIME_ZONE;
+import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
 import static org.testng.Assert.assertEquals;
 
 public class TestHttpRequestSessionContext

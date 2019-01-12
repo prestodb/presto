@@ -13,17 +13,17 @@
  */
 package io.prestosql.plugin.geospatial;
 
-import com.facebook.presto.spi.function.IsNull;
-import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.function.SqlNullable;
-import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.AbstractLongType;
-import com.facebook.presto.spi.type.StandardTypes;
+import io.prestosql.spi.function.IsNull;
+import io.prestosql.spi.function.ScalarOperator;
+import io.prestosql.spi.function.SqlNullable;
+import io.prestosql.spi.function.SqlType;
+import io.prestosql.spi.type.AbstractLongType;
+import io.prestosql.spi.type.StandardTypes;
 
-import static com.facebook.presto.spi.function.OperatorType.EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
-import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
-import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
+import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.OperatorType.HASH_CODE;
+import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 
 public final class BingTileOperators
 {

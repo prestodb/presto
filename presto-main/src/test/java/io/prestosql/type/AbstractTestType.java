@@ -13,19 +13,19 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import io.prestosql.block.BlockEncodingManager;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.BlockEncodingSerde;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -34,19 +34,19 @@ import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
-import static com.facebook.presto.block.BlockSerdeUtil.writeBlock;
-import static com.facebook.presto.operator.OperatorAssertion.toRow;
-import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
-import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
-import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_FIRST;
-import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_LAST;
-import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
-import static com.facebook.presto.type.TypeUtils.hashPosition;
-import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
-import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
-import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static io.prestosql.block.BlockSerdeUtil.writeBlock;
+import static io.prestosql.operator.OperatorAssertion.toRow;
+import static io.prestosql.spi.block.SortOrder.ASC_NULLS_FIRST;
+import static io.prestosql.spi.block.SortOrder.ASC_NULLS_LAST;
+import static io.prestosql.spi.block.SortOrder.DESC_NULLS_FIRST;
+import static io.prestosql.spi.block.SortOrder.DESC_NULLS_LAST;
+import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static io.prestosql.type.TypeUtils.hashPosition;
+import static io.prestosql.type.TypeUtils.positionEqualsPosition;
+import static io.prestosql.util.StructuralTestUtil.arrayBlockOf;
+import static io.prestosql.util.StructuralTestUtil.mapBlockOf;
 import static java.util.Collections.unmodifiableSortedMap;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;

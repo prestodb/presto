@@ -13,8 +13,8 @@
  */
 package io.prestosql.sql;
 
-import com.facebook.presto.sql.parser.ParsingException;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.sql.parser.ParsingException;
 import org.testng.annotations.Test;
 
 import java.util.Map;

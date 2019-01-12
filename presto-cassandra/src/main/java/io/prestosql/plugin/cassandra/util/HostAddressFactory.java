@@ -14,7 +14,7 @@
 package io.prestosql.plugin.cassandra.util;
 
 import com.datastax.driver.core.Host;
-import com.facebook.presto.spi.HostAddress;
+import io.prestosql.spi.HostAddress;
 
 import java.util.ArrayList;
 import java.util.Collection;

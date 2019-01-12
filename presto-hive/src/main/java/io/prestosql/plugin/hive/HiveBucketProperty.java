@@ -13,20 +13,20 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.metastore.SortingColumn;
-import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.hive.metastore.SortingColumn;
+import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static java.util.Objects.requireNonNull;
 
 public class HiveBucketProperty

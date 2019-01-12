@@ -13,7 +13,7 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.memory.context.LocalMemoryContext;
+import io.prestosql.memory.context.LocalMemoryContext;
 
 public interface ExchangeClientSupplier
 {

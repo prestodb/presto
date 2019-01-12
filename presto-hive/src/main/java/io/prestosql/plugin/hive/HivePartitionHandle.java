@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
+import io.prestosql.spi.connector.ConnectorPartitionHandle;
 
 import java.util.Objects;
 

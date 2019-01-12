@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.hive.benchmark;
 
-import com.facebook.presto.spi.Page;
+import io.prestosql.spi.Page;
 
 import java.io.Closeable;
 import java.io.IOException;

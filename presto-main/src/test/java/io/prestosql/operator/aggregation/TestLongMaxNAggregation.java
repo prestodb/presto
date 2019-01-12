@@ -13,20 +13,20 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.StandardTypes;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.PriorityQueue;
 
-import static com.facebook.presto.block.BlockAssertions.createLongRepeatBlock;
-import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
-import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.block.BlockAssertions.createLongRepeatBlock;
+import static io.prestosql.block.BlockAssertions.createLongSequenceBlock;
+import static io.prestosql.block.BlockAssertions.createLongsBlock;
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static org.testng.Assert.assertEquals;
 
 public class TestLongMaxNAggregation

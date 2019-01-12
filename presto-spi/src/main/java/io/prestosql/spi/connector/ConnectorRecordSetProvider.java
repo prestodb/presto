@@ -13,11 +13,6 @@
  */
 package io.prestosql.spi.connector;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.RecordSet;
-
 import java.util.List;
 
 public interface ConnectorRecordSetProvider

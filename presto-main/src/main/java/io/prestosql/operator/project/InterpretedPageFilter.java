@@ -13,28 +13,28 @@
  */
 package io.prestosql.operator.project;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.DeterminismEvaluator;
-import com.facebook.presto.sql.planner.ExpressionInterpreter;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolToInputParameterRewriter;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.NodeRef;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.DeterminismEvaluator;
+import io.prestosql.sql.planner.ExpressionInterpreter;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.SymbolToInputParameterRewriter;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.NodeRef;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
+import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
 import static java.lang.Boolean.TRUE;
 import static java.util.Collections.emptyList;
 

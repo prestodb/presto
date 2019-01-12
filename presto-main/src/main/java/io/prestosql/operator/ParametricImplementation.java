@@ -13,7 +13,7 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.metadata.Signature;
+import io.prestosql.metadata.Signature;
 
 public interface ParametricImplementation
 {

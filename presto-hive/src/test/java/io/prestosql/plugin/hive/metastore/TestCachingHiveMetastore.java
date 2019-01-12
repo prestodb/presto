@@ -13,16 +13,16 @@
  */
 package io.prestosql.plugin.hive.metastore;
 
-import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
-import com.facebook.presto.hive.metastore.thrift.HiveCluster;
-import com.facebook.presto.hive.metastore.thrift.HiveMetastoreClient;
-import com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient;
-import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastore;
-import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastoreStats;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.hive.metastore.thrift.BridgingHiveMetastore;
+import io.prestosql.plugin.hive.metastore.thrift.HiveCluster;
+import io.prestosql.plugin.hive.metastore.thrift.HiveMetastoreClient;
+import io.prestosql.plugin.hive.metastore.thrift.MockHiveMetastoreClient;
+import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastore;
+import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastoreStats;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -30,13 +30,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.BAD_DATABASE;
-import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_DATABASE;
-import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_PARTITION1;
-import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_PARTITION2;
-import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_TABLE;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.prestosql.plugin.hive.metastore.thrift.MockHiveMetastoreClient.BAD_DATABASE;
+import static io.prestosql.plugin.hive.metastore.thrift.MockHiveMetastoreClient.TEST_DATABASE;
+import static io.prestosql.plugin.hive.metastore.thrift.MockHiveMetastoreClient.TEST_PARTITION1;
+import static io.prestosql.plugin.hive.metastore.thrift.MockHiveMetastoreClient.TEST_PARTITION2;
+import static io.prestosql.plugin.hive.metastore.thrift.MockHiveMetastoreClient.TEST_TABLE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

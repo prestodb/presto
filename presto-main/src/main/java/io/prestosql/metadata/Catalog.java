@@ -13,11 +13,11 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.spi.connector.Connector;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.spi.connector.Connector;
 
-import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.metadata.MetadataUtil.checkCatalogName;
 import static java.util.Objects.requireNonNull;
 
 public class Catalog

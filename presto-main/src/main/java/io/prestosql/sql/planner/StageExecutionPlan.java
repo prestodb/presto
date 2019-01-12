@@ -13,10 +13,10 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.split.SplitSource;
-import com.facebook.presto.sql.planner.plan.OutputNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.split.SplitSource;
+import io.prestosql.sql.planner.plan.OutputNode;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.Map;

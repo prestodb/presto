@@ -13,10 +13,10 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
 
-import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
 
 public class TestSmallintType
         extends AbstractTestType

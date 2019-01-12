@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.accumulo.model;
 
-import com.facebook.presto.spi.predicate.Domain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.predicate.Domain;
 
 import java.util.Objects;
 import java.util.Optional;

@@ -13,10 +13,10 @@
  */
 package io.prestosql.orc.reader;
 
-import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.stream.InputStreamSources;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.orc.metadata.ColumnEncoding;
+import io.prestosql.orc.stream.InputStreamSources;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.Type;
 
 import java.io.IOException;
 import java.util.List;

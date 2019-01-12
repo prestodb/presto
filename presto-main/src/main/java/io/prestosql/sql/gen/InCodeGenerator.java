@@ -13,17 +13,6 @@
  */
 package io.prestosql.sql.gen;
 
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.IntegerType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.util.FastutilSetHelper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -35,6 +24,17 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.control.SwitchStatement.SwitchBuilder;
 import io.airlift.bytecode.instruction.LabelNode;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Signature;
+import io.prestosql.operator.scalar.ScalarFunctionImplementation;
+import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.DateType;
+import io.prestosql.spi.type.IntegerType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.relational.ConstantExpression;
+import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.util.FastutilSetHelper;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collection;
@@ -42,18 +42,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
-import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
-import static com.facebook.presto.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
-import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
-import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
-import static com.facebook.presto.util.FastutilSetHelper.toFastutilHashSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.instruction.JumpInstruction.jump;
+import static io.prestosql.spi.function.OperatorType.HASH_CODE;
+import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
+import static io.prestosql.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
+import static io.prestosql.sql.gen.BytecodeUtils.invoke;
+import static io.prestosql.sql.gen.BytecodeUtils.loadConstant;
+import static io.prestosql.util.FastutilSetHelper.toFastutilHashSet;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

@@ -13,7 +13,7 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.spi.resourceGroups.SessionPropertyConfigurationManagerContext;
+import io.prestosql.spi.resourcegroups.SessionPropertyConfigurationManagerContext;
 
 import static java.util.Objects.requireNonNull;
 

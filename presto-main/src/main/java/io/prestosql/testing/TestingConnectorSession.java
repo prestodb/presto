@@ -13,25 +13,25 @@
  */
 package io.prestosql.testing;
 
-import com.facebook.presto.execution.QueryIdGenerator;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.session.PropertyMetadata;
-import com.facebook.presto.spi.type.TimeZoneKey;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import io.prestosql.execution.QueryIdGenerator;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.session.PropertyMetadata;
+import io.prestosql.spi.type.TimeZoneKey;
+import io.prestosql.sql.analyzer.FeaturesConfig;
 
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 

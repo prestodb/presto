@@ -13,22 +13,22 @@
  */
 package io.prestosql.orc.stream;
 
-import com.facebook.presto.orc.OrcOutputBuffer;
-import com.facebook.presto.orc.checkpoint.DecimalStreamCheckpoint;
-import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.orc.metadata.Stream;
-import com.facebook.presto.spi.type.Decimals;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.prestosql.orc.OrcOutputBuffer;
+import io.prestosql.orc.checkpoint.DecimalStreamCheckpoint;
+import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.Stream;
+import io.prestosql.spi.type.Decimals;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
-import static com.facebook.presto.orc.stream.LongDecode.writeVLong;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
+import static io.prestosql.orc.stream.LongDecode.writeVLong;
 import static java.lang.Math.toIntExact;
 
 /**

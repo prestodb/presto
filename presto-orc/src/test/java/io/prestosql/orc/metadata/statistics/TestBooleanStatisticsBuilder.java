@@ -19,9 +19,9 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.BOOLEAN;
-import static com.facebook.presto.orc.metadata.statistics.BooleanStatistics.BOOLEAN_VALUE_BYTES;
-import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
+import static io.prestosql.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.BOOLEAN;
+import static io.prestosql.orc.metadata.statistics.BooleanStatistics.BOOLEAN_VALUE_BYTES;
+import static io.prestosql.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
 import static org.testng.Assert.assertEquals;
 
 public class TestBooleanStatisticsBuilder

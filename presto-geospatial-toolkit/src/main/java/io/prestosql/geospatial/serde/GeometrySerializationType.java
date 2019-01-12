@@ -13,7 +13,7 @@
  */
 package io.prestosql.geospatial.serde;
 
-import com.facebook.presto.geospatial.GeometryType;
+import io.prestosql.geospatial.GeometryType;
 
 public enum GeometrySerializationType
 {

@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.tpch;
 
-import com.facebook.presto.spi.BucketFunction;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.connector.BucketFunction;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.lang.Math.toIntExact;
 
 public class TpchBucketFunction

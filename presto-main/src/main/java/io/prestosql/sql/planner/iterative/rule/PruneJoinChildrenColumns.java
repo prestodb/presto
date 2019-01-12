@@ -13,19 +13,19 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.matching.Captures;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolsExtractor;
-import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.matching.Captures;
+import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.SymbolsExtractor;
+import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.plan.JoinNode;
 
 import java.util.Set;
 
-import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildOutputs;
-import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.google.common.base.Predicates.not;
+import static io.prestosql.sql.planner.iterative.rule.Util.restrictChildOutputs;
+import static io.prestosql.sql.planner.plan.Patterns.join;
 
 /**
  * Non-Cross joins support output symbol selection, so make any project-off of child columns explicit in project nodes.

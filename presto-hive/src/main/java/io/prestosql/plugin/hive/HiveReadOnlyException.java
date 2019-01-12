@@ -13,13 +13,13 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.SchemaTableName;
 
 import java.util.Optional;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_READ_ONLY;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_TABLE_READ_ONLY;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

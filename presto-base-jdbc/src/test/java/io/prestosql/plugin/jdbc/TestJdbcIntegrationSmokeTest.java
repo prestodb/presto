@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.jdbc;
 
-import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
+import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
 
-import static com.facebook.presto.plugin.jdbc.JdbcQueryRunner.createJdbcQueryRunner;
 import static io.airlift.tpch.TpchTable.ORDERS;
+import static io.prestosql.plugin.jdbc.JdbcQueryRunner.createJdbcQueryRunner;
 
 public class TestJdbcIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest

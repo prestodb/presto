@@ -13,19 +13,19 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.operator.JoinProbe.JoinProbeFactory;
-import com.facebook.presto.operator.LookupJoinOperators.JoinType;
-import com.facebook.presto.operator.LookupSourceProvider.LookupSourceLease;
-import com.facebook.presto.operator.PartitionedConsumption.Partition;
-import com.facebook.presto.operator.exchange.LocalPartitionGenerator;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spiller.PartitioningSpiller;
-import com.facebook.presto.spiller.PartitioningSpiller.PartitioningSpillResult;
-import com.facebook.presto.spiller.PartitioningSpillerFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.operator.JoinProbe.JoinProbeFactory;
+import io.prestosql.operator.LookupJoinOperators.JoinType;
+import io.prestosql.operator.LookupSourceProvider.LookupSourceLease;
+import io.prestosql.operator.PartitionedConsumption.Partition;
+import io.prestosql.operator.exchange.LocalPartitionGenerator;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spiller.PartitioningSpiller;
+import io.prestosql.spiller.PartitioningSpiller.PartitioningSpillResult;
+import io.prestosql.spiller.PartitioningSpillerFactory;
 
 import javax.annotation.Nullable;
 
@@ -39,13 +39,13 @@ import java.util.OptionalInt;
 import java.util.function.IntPredicate;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.operator.LookupJoinOperators.JoinType.FULL_OUTER;
-import static com.facebook.presto.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.airlift.concurrent.MoreFutures.getDone;
+import static io.prestosql.operator.LookupJoinOperators.JoinType.FULL_OUTER;
+import static io.prestosql.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
 import static java.lang.String.format;
 import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;

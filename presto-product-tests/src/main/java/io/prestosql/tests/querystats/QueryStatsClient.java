@@ -13,7 +13,7 @@
  */
 package io.prestosql.tests.querystats;
 
-import com.facebook.presto.execution.QueryStats;
+import io.prestosql.execution.QueryStats;
 
 import java.util.Optional;
 

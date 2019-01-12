@@ -13,15 +13,15 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.DecimalType;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.DecimalType;
 
 import java.math.BigDecimal;
 import java.util.List;
 
-import static com.facebook.presto.spi.type.Decimals.MAX_SHORT_PRECISION;
-import static com.facebook.presto.spi.type.Decimals.encodeScaledValue;
+import static io.prestosql.spi.type.Decimals.MAX_SHORT_PRECISION;
+import static io.prestosql.spi.type.Decimals.encodeScaledValue;
 
 public class TestLongDecimalAverageAggregation
         extends AbstractTestDecimalAverageAggregation

@@ -13,8 +13,8 @@
  */
 package io.prestosql.spi;
 
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 

@@ -13,7 +13,7 @@
  */
 package io.prestosql.spi.eventlistener;
 
-import com.facebook.presto.spi.PrestoWarning;
+import io.prestosql.spi.PrestoWarning;
 
 import java.time.Instant;
 import java.util.List;

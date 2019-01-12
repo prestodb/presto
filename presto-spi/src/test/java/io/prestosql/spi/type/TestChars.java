@@ -16,10 +16,10 @@ package io.prestosql.spi.type;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.Chars.byteCountWithoutTrailingSpace;
-import static com.facebook.presto.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.prestosql.spi.type.Chars.byteCountWithoutTrailingSpace;
+import static io.prestosql.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 

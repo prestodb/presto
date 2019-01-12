@@ -13,20 +13,20 @@
  */
 package io.prestosql.memory;
 
-import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.execution.TaskStateMachine;
-import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.operator.DriverContext;
-import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spiller.SpillSpaceTracker;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
+import io.prestosql.execution.TaskId;
+import io.prestosql.execution.TaskStateMachine;
+import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.operator.DriverContext;
+import io.prestosql.operator.OperatorContext;
+import io.prestosql.operator.TaskContext;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spiller.SpillSpaceTracker;
+import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -35,12 +35,12 @@ import java.util.Map;
 import java.util.OptionalInt;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
-import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
-import static com.facebook.presto.memory.LocalMemoryManager.SYSTEM_POOL;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
+import static io.prestosql.memory.LocalMemoryManager.RESERVED_POOL;
+import static io.prestosql.memory.LocalMemoryManager.SYSTEM_POOL;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;

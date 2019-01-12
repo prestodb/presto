@@ -13,33 +13,33 @@
  */
 package io.prestosql.connector.system;
 
-import com.facebook.presto.metadata.AllNodes;
-import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.metadata.PrestoNode;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.InMemoryRecordSet;
-import com.facebook.presto.spi.InMemoryRecordSet.Builder;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.NodeState;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import io.prestosql.metadata.AllNodes;
+import io.prestosql.metadata.InternalNodeManager;
+import io.prestosql.metadata.PrestoNode;
+import io.prestosql.spi.Node;
+import io.prestosql.spi.NodeState;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.InMemoryRecordSet;
+import io.prestosql.spi.connector.InMemoryRecordSet.Builder;
+import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
 import java.util.Locale;
 import java.util.Set;
 
-import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static com.facebook.presto.spi.NodeState.ACTIVE;
-import static com.facebook.presto.spi.NodeState.INACTIVE;
-import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
-import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static io.prestosql.spi.NodeState.ACTIVE;
+import static io.prestosql.spi.NodeState.INACTIVE;
+import static io.prestosql.spi.NodeState.SHUTTING_DOWN;
+import static io.prestosql.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
 public class NodeSystemTable

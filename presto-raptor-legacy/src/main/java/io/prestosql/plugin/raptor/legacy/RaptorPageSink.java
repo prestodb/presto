@@ -13,24 +13,24 @@
  */
 package io.prestosql.plugin.raptor.legacy;
 
-import com.facebook.presto.raptor.metadata.ShardInfo;
-import com.facebook.presto.raptor.storage.StorageManager;
-import com.facebook.presto.raptor.storage.organization.TemporalFunction;
-import com.facebook.presto.raptor.util.PageBuffer;
-import com.facebook.presto.spi.BucketFunction;
-import com.facebook.presto.spi.ConnectorPageSink;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.PageSorter;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.prestosql.plugin.raptor.legacy.metadata.ShardInfo;
+import io.prestosql.plugin.raptor.legacy.storage.StorageManager;
+import io.prestosql.plugin.raptor.legacy.storage.organization.TemporalFunction;
+import io.prestosql.plugin.raptor.legacy.util.PageBuffer;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.PageSorter;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.BucketFunction;
+import io.prestosql.spi.connector.ConnectorPageSink;
+import io.prestosql.spi.type.Type;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
@@ -41,11 +41,11 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.allAsList;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 

@@ -13,6 +13,8 @@
  */
 package io.prestosql.spi.connector;
 
+import io.prestosql.spi.Page;
+
 import java.io.IOException;
 import java.util.Iterator;
 

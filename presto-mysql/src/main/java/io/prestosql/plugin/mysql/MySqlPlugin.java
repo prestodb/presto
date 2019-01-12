@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.mysql;
 
-import com.facebook.presto.plugin.jdbc.JdbcPlugin;
+import io.prestosql.plugin.jdbc.JdbcPlugin;
 
 public class MySqlPlugin
         extends JdbcPlugin

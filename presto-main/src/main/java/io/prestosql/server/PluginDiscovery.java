@@ -13,9 +13,9 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.spi.Plugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.Plugin;
 import org.objectweb.asm.ClassReader;
 import org.sonatype.aether.artifact.Artifact;
 

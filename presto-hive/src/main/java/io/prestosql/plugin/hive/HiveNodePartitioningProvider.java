@@ -13,22 +13,22 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.spi.BucketFunction;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.connector.ConnectorBucketNodeMap;
-import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
-import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
-import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.connector.BucketFunction;
+import io.prestosql.spi.connector.ConnectorBucketNodeMap;
+import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
+import io.prestosql.spi.connector.ConnectorPartitionHandle;
+import io.prestosql.spi.connector.ConnectorPartitioningHandle;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 import java.util.function.ToIntFunction;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 
 public class HiveNodePartitioningProvider
         implements ConnectorNodePartitioningProvider

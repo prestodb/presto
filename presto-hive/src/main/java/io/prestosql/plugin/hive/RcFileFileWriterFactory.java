@@ -13,17 +13,17 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.metastore.StorageFormat;
-import com.facebook.presto.hive.rcfile.HdfsRcFileDataSource;
-import com.facebook.presto.rcfile.RcFileDataSource;
-import com.facebook.presto.rcfile.RcFileEncoding;
-import com.facebook.presto.rcfile.binary.BinaryRcFileEncoding;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.hive.metastore.StorageFormat;
+import io.prestosql.plugin.hive.rcfile.HdfsRcFileDataSource;
+import io.prestosql.rcfile.RcFileDataSource;
+import io.prestosql.rcfile.RcFileEncoding;
+import io.prestosql.rcfile.binary.BinaryRcFileEncoding;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
@@ -43,10 +43,10 @@ import java.util.Properties;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
-import static com.facebook.presto.hive.HiveType.toHiveTypes;
-import static com.facebook.presto.hive.rcfile.RcFilePageSourceFactory.createTextVectorEncoding;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
+import static io.prestosql.plugin.hive.HiveType.toHiveTypes;
+import static io.prestosql.plugin.hive.rcfile.RcFilePageSourceFactory.createTextVectorEncoding;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;

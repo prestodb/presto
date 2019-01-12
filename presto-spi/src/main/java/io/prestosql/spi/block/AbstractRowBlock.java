@@ -13,13 +13,13 @@
  */
 package io.prestosql.spi.block;
 
-import static com.facebook.presto.spi.block.BlockUtil.arraySame;
-import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
-import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
-import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
-import static com.facebook.presto.spi.block.BlockUtil.compactArray;
-import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
-import static com.facebook.presto.spi.block.RowBlock.createRowBlockInternal;
+import static io.prestosql.spi.block.BlockUtil.arraySame;
+import static io.prestosql.spi.block.BlockUtil.checkArrayRange;
+import static io.prestosql.spi.block.BlockUtil.checkValidPositions;
+import static io.prestosql.spi.block.BlockUtil.checkValidRegion;
+import static io.prestosql.spi.block.BlockUtil.compactArray;
+import static io.prestosql.spi.block.BlockUtil.compactOffsets;
+import static io.prestosql.spi.block.RowBlock.createRowBlockInternal;
 
 public abstract class AbstractRowBlock
         implements Block

@@ -13,14 +13,14 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.tpch.TpchConnectorFactory;
+import io.prestosql.testing.LocalQueryRunner;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SystemSessionProperties.DICTIONARY_AGGREGATION;
-import static com.facebook.presto.SystemSessionProperties.REORDER_JOINS;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.SystemSessionProperties.DICTIONARY_AGGREGATION;
+import static io.prestosql.SystemSessionProperties.REORDER_JOINS;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public class TestDictionaryAggregation
         extends AbstractTestQueryFramework

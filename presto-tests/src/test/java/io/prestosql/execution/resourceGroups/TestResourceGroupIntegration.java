@@ -13,19 +13,19 @@
  */
 package io.prestosql.execution.resourceGroups;
 
-import com.facebook.presto.resourceGroups.ResourceGroupManagerPlugin;
-import com.facebook.presto.server.ResourceGroupInfo;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.resourcegroups.ResourceGroupManagerPlugin;
+import io.prestosql.server.ResourceGroupInfo;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.tests.DistributedQueryRunner;
+import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

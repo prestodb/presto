@@ -13,7 +13,6 @@
  */
 package io.prestosql.server.security;
 
-import com.facebook.presto.spi.security.BasicPrincipal;
 import com.google.common.base.CharMatcher;
 import io.airlift.security.pem.PemReader;
 import io.jsonwebtoken.Claims;
@@ -26,6 +25,7 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.SignatureException;
 import io.jsonwebtoken.SigningKeyResolver;
 import io.jsonwebtoken.UnsupportedJwtException;
+import io.prestosql.spi.security.BasicPrincipal;
 
 import javax.crypto.spec.SecretKeySpec;
 import javax.inject.Inject;

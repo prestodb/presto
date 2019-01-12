@@ -13,12 +13,12 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.sql.analyzer.Analysis;
-import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.sql.analyzer.Analysis;
+import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.ProjectNode;
+import io.prestosql.sql.tree.Expression;
 
 import java.util.List;
 import java.util.Map;

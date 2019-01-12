@@ -13,9 +13,9 @@
  */
 package io.prestosql.operator.project;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
 import com.google.common.primitives.Ints;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
 
 import java.util.Arrays;
 import java.util.Collections;

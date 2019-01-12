@@ -13,18 +13,18 @@
  */
 package io.prestosql.memory;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.execution.TaskStateMachine;
-import com.facebook.presto.memory.context.MemoryReservationHandler;
-import com.facebook.presto.memory.context.MemoryTrackingContext;
-import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.GcMonitor;
 import io.airlift.units.DataSize;
+import io.prestosql.Session;
+import io.prestosql.execution.TaskId;
+import io.prestosql.execution.TaskStateMachine;
+import io.prestosql.memory.context.MemoryReservationHandler;
+import io.prestosql.memory.context.MemoryTrackingContext;
+import io.prestosql.operator.TaskContext;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spiller.SpillSpaceTracker;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -38,16 +38,16 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 
-import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalTotalMemoryLimit;
-import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalUserMemoryLimit;
-import static com.facebook.presto.ExceededSpillLimitException.exceededPerQueryLocalLimit;
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
-import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.prestosql.ExceededMemoryLimitException.exceededLocalTotalMemoryLimit;
+import static io.prestosql.ExceededMemoryLimitException.exceededLocalUserMemoryLimit;
+import static io.prestosql.ExceededSpillLimitException.exceededPerQueryLocalLimit;
+import static io.prestosql.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
+import static io.prestosql.operator.Operator.NOT_BLOCKED;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 

@@ -13,17 +13,17 @@
  */
 package io.prestosql.operator.window;
 
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.WindowFunction;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.Lists;
+import io.prestosql.metadata.Signature;
+import io.prestosql.spi.function.Description;
+import io.prestosql.spi.function.WindowFunction;
+import io.prestosql.spi.type.Type;
 
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
 import java.util.List;
 
-import static com.facebook.presto.metadata.FunctionKind.WINDOW;
+import static io.prestosql.metadata.FunctionKind.WINDOW;
 import static java.util.Objects.requireNonNull;
 
 public class ReflectionWindowFunctionSupplier<T extends WindowFunction>

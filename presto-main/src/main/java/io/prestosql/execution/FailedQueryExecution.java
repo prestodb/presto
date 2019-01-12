@@ -13,17 +13,17 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.memory.VersionedMemoryPoolId;
-import com.facebook.presto.server.BasicQueryInfo;
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.sql.planner.Plan;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.Session;
+import io.prestosql.execution.StateMachine.StateChangeListener;
+import io.prestosql.memory.VersionedMemoryPoolId;
+import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.spi.ErrorCode;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.sql.planner.Plan;
 import org.joda.time.DateTime;
 
 import java.net.URI;
@@ -31,11 +31,11 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.execution.QueryInfo.immediateFailureQueryInfo;
-import static com.facebook.presto.execution.QueryState.FAILED;
-import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.prestosql.execution.QueryInfo.immediateFailureQueryInfo;
+import static io.prestosql.execution.QueryState.FAILED;
+import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 

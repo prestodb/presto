@@ -13,14 +13,14 @@
  */
 package io.prestosql.operator.exchange;
 
-import com.facebook.presto.spi.Page;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.spi.Page;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
-import static com.facebook.presto.operator.exchange.LocalExchanger.FINISHED;
+import static io.prestosql.operator.Operator.NOT_BLOCKED;
+import static io.prestosql.operator.exchange.LocalExchanger.FINISHED;
 import static java.util.Objects.requireNonNull;
 
 public class LocalExchangeSink

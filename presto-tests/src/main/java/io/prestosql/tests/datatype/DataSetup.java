@@ -13,7 +13,7 @@
  */
 package io.prestosql.tests.datatype;
 
-import com.facebook.presto.tests.sql.TestTable;
+import io.prestosql.tests.sql.TestTable;
 
 import java.util.List;
 

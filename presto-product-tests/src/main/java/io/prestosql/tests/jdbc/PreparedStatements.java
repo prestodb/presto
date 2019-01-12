@@ -30,10 +30,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 
-import static com.facebook.presto.tests.TestGroups.JDBC;
-import static com.facebook.presto.tests.TestGroups.SIMBA_JDBC;
-import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
-import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingTeradataJdbcDriver;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
@@ -43,6 +39,10 @@ import static io.prestodb.tempto.fulfillment.table.TableRequirements.mutableTabl
 import static io.prestodb.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.prestodb.tempto.query.QueryExecutor.param;
 import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestosql.tests.TestGroups.JDBC;
+import static io.prestosql.tests.TestGroups.SIMBA_JDBC;
+import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
+import static io.prestosql.tests.utils.JdbcDriverUtils.usingTeradataJdbcDriver;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.BOOLEAN;
 import static java.sql.JDBCType.CHAR;

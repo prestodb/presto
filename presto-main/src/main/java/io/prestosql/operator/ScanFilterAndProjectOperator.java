@@ -13,30 +13,30 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.operator.project.CursorProcessor;
-import com.facebook.presto.operator.project.CursorProcessorOutput;
-import com.facebook.presto.operator.project.MergingPageOutput;
-import com.facebook.presto.operator.project.PageProcessor;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.RecordPageSource;
-import com.facebook.presto.spi.UpdatablePageSource;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.LazyBlock;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.split.EmptySplit;
-import com.facebook.presto.split.EmptySplitPageSource;
-import com.facebook.presto.split.PageSourceProvider;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
+import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.metadata.Split;
+import io.prestosql.operator.project.CursorProcessor;
+import io.prestosql.operator.project.CursorProcessorOutput;
+import io.prestosql.operator.project.MergingPageOutput;
+import io.prestosql.operator.project.PageProcessor;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.LazyBlock;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.connector.RecordPageSource;
+import io.prestosql.spi.connector.UpdatablePageSource;
+import io.prestosql.spi.type.Type;
+import io.prestosql.split.EmptySplit;
+import io.prestosql.split.EmptySplitPageSource;
+import io.prestosql.split.PageSourceProvider;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -47,9 +47,9 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static java.util.Objects.requireNonNull;
 
 public class ScanFilterAndProjectOperator

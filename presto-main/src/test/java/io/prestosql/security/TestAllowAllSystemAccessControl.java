@@ -13,10 +13,10 @@
  */
 package io.prestosql.security;
 
-import com.facebook.presto.spi.security.SystemAccessControl;
+import io.prestosql.spi.security.SystemAccessControl;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 
 public class TestAllowAllSystemAccessControl
 {

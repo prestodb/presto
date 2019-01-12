@@ -13,10 +13,10 @@
  */
 package io.prestosql.connector.informationSchema;
 
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.transaction.TransactionId;
 
 import java.util.Objects;
 

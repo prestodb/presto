@@ -13,17 +13,17 @@
  */
 package io.prestosql.orc.stream;
 
-import com.facebook.presto.orc.OrcOutputBuffer;
-import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
-import com.facebook.presto.orc.checkpoint.ByteStreamCheckpoint;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.prestosql.orc.OrcOutputBuffer;
+import io.prestosql.orc.checkpoint.BooleanStreamCheckpoint;
+import io.prestosql.orc.checkpoint.ByteStreamCheckpoint;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
+import static io.prestosql.orc.metadata.CompressionKind.NONE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;

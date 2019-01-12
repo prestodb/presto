@@ -15,7 +15,7 @@ package io.prestosql.spi;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.ErrorType.USER_ERROR;
+import static io.prestosql.spi.ErrorType.USER_ERROR;
 import static org.testng.Assert.assertEquals;
 
 public class TestPrestoException

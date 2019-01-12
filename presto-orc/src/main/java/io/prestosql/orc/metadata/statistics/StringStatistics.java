@@ -13,8 +13,8 @@
  */
 package io.prestosql.orc.metadata.statistics;
 
-import com.facebook.presto.orc.metadata.statistics.StatisticsHasher.Hashable;
 import io.airlift.slice.Slice;
+import io.prestosql.orc.metadata.statistics.StatisticsHasher.Hashable;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;

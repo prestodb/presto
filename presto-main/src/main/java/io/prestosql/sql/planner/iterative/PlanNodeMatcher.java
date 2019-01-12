@@ -13,10 +13,10 @@
  */
 package io.prestosql.sql.planner.iterative;
 
-import com.facebook.presto.matching.Captures;
-import com.facebook.presto.matching.DefaultMatcher;
-import com.facebook.presto.matching.Match;
-import com.facebook.presto.matching.pattern.WithPattern;
+import io.prestosql.matching.Captures;
+import io.prestosql.matching.DefaultMatcher;
+import io.prestosql.matching.Match;
+import io.prestosql.matching.pattern.WithPattern;
 
 import java.util.Optional;
 import java.util.function.Function;

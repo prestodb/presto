@@ -13,15 +13,15 @@
  */
 package io.prestosql.orc.checkpoint;
 
-import com.facebook.presto.orc.checkpoint.Checkpoints.ColumnPositionsList;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.orc.checkpoint.Checkpoints.ColumnPositionsList;
 
 import java.util.List;
 
-import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
-import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.createInputStreamPositionList;
-import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.inputStreamCheckpointToString;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
+import static io.prestosql.orc.checkpoint.InputStreamCheckpoint.createInputStreamPositionList;
+import static io.prestosql.orc.checkpoint.InputStreamCheckpoint.inputStreamCheckpointToString;
 
 public class LongStreamV1Checkpoint
         implements LongStreamCheckpoint

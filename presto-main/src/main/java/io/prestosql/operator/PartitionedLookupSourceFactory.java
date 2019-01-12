@@ -13,16 +13,16 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.operator.LookupSourceProvider.LookupSourceLease;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.prestosql.operator.LookupSourceProvider.LookupSourceLease;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.planner.Symbol;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.Immutable;
@@ -41,8 +41,6 @@ import java.util.function.Function;
 import java.util.function.IntPredicate;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.operator.OuterLookupSource.createOuterLookupSourceSupplier;
-import static com.facebook.presto.operator.PartitionedLookupSource.createPartitionedLookupSourceSupplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -50,6 +48,8 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.prestosql.operator.OuterLookupSource.createOuterLookupSourceSupplier;
+import static io.prestosql.operator.PartitionedLookupSource.createPartitionedLookupSourceSupplier;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 

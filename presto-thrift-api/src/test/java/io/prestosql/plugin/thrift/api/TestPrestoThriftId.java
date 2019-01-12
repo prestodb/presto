@@ -15,7 +15,7 @@ package io.prestosql.plugin.thrift.api;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.connector.thrift.api.PrestoThriftId.summarize;
+import static io.prestosql.plugin.thrift.api.PrestoThriftId.summarize;
 import static org.testng.Assert.assertEquals;
 
 public class TestPrestoThriftId

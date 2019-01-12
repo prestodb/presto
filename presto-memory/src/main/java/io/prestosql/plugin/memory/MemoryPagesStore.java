@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.memory;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.Block;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -30,8 +30,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.plugin.memory.MemoryErrorCode.MEMORY_LIMIT_EXCEEDED;
-import static com.facebook.presto.plugin.memory.MemoryErrorCode.MISSING_DATA;
+import static io.prestosql.plugin.memory.MemoryErrorCode.MEMORY_LIMIT_EXCEEDED;
+import static io.prestosql.plugin.memory.MemoryErrorCode.MISSING_DATA;
 import static java.lang.String.format;
 
 @ThreadSafe

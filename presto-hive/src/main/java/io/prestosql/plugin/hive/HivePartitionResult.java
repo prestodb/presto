@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import io.prestosql.plugin.hive.HiveBucketing.HiveBucketFilter;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Iterator;
 import java.util.List;

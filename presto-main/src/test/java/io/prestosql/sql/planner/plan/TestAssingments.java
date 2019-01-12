@@ -13,11 +13,11 @@
  */
 package io.prestosql.sql.planner.plan;
 
-import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableCollection;
+import io.prestosql.sql.planner.Symbol;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static org.testng.Assert.assertTrue;
 
 public class TestAssingments

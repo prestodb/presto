@@ -13,9 +13,9 @@
  */
 package io.prestosql.orc.stream;
 
-import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.orc.checkpoint.LongStreamCheckpoint;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.Type;
 
 import java.io.IOException;
 

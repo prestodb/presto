@@ -13,22 +13,22 @@
  */
 package io.prestosql.operator.scalar.annotations;
 
-import com.facebook.presto.operator.scalar.ScalarHeader;
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.ScalarOperator;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.operator.scalar.ScalarHeader;
+import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.function.ScalarFunction;
+import io.prestosql.spi.function.ScalarOperator;
 
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
-import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseDescription;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.metadata.FunctionRegistry.mangleOperatorName;
+import static io.prestosql.operator.annotations.FunctionsParserHelper.parseDescription;
 import static java.util.Objects.requireNonNull;
 
 public class ScalarImplementationHeader

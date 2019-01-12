@@ -14,12 +14,12 @@
 
 package io.prestosql.type.setdigest;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.AccumulatorStateSerializer;
+import io.prestosql.spi.type.Type;
 
-import static com.facebook.presto.type.setdigest.SetDigestType.SET_DIGEST;
+import static io.prestosql.type.setdigest.SetDigestType.SET_DIGEST;
 
 public class SetDigestStateSerializer
         implements AccumulatorStateSerializer<SetDigestState>

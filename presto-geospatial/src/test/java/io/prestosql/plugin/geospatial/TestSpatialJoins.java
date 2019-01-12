@@ -13,26 +13,26 @@
  */
 package io.prestosql.plugin.geospatial;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.hive.HdfsConfiguration;
-import com.facebook.presto.hive.HdfsConfigurationUpdater;
-import com.facebook.presto.hive.HdfsEnvironment;
-import com.facebook.presto.hive.HiveClientConfig;
-import com.facebook.presto.hive.HiveHdfsConfiguration;
-import com.facebook.presto.hive.HivePlugin;
-import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
-import com.facebook.presto.hive.metastore.Database;
-import com.facebook.presto.hive.metastore.PrincipalType;
-import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
-import com.facebook.presto.tests.AbstractTestQueryFramework;
-import com.facebook.presto.tests.DistributedQueryRunner;
+import io.prestosql.Session;
+import io.prestosql.plugin.hive.HdfsConfiguration;
+import io.prestosql.plugin.hive.HdfsConfigurationUpdater;
+import io.prestosql.plugin.hive.HdfsEnvironment;
+import io.prestosql.plugin.hive.HiveClientConfig;
+import io.prestosql.plugin.hive.HiveHdfsConfiguration;
+import io.prestosql.plugin.hive.HivePlugin;
+import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
+import io.prestosql.plugin.hive.metastore.Database;
+import io.prestosql.plugin.hive.metastore.PrincipalType;
+import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
+import io.prestosql.tests.AbstractTestQueryFramework;
+import io.prestosql.tests.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.SPATIAL_PARTITIONING_TABLE_NAME;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.SystemSessionProperties.SPATIAL_PARTITIONING_TABLE_NAME;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 
 public class TestSpatialJoins

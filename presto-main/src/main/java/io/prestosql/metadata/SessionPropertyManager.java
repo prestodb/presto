@@ -13,27 +13,27 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.session.PropertyMetadata;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.IntegerType;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.sql.planner.ParameterRewriter;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
+import io.prestosql.Session;
+import io.prestosql.SystemSessionProperties;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.session.PropertyMetadata;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.BooleanType;
+import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.IntegerType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
+import io.prestosql.sql.planner.ParameterRewriter;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.ExpressionTreeRewriter;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -46,11 +46,11 @@ import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
-import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
-import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
+import static io.prestosql.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

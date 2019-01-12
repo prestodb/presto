@@ -13,8 +13,8 @@
  */
 package io.prestosql.orc.metadata;
 
-import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
-import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
+import io.prestosql.orc.metadata.PostScript.HiveWriterVersion;
+import io.prestosql.orc.metadata.statistics.HiveBloomFilter;
 
 import java.io.IOException;
 import java.io.InputStream;

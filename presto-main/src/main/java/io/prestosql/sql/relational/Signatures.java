@@ -13,32 +13,32 @@
  */
 package io.prestosql.sql.relational;
 
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.CharType;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.LogicalBinaryExpression;
-import com.facebook.presto.type.LikePatternType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import io.prestosql.metadata.Signature;
+import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.CharType;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.sql.tree.ArithmeticBinaryExpression;
+import io.prestosql.sql.tree.ComparisonExpression;
+import io.prestosql.sql.tree.LogicalBinaryExpression;
+import io.prestosql.type.LikePatternType;
 
 import java.util.List;
 
-import static com.facebook.presto.metadata.FunctionKind.SCALAR;
-import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
-import static com.facebook.presto.metadata.Signature.internalOperator;
-import static com.facebook.presto.metadata.Signature.internalScalarFunction;
-import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.metadata.FunctionRegistry.mangleOperatorName;
+import static io.prestosql.metadata.Signature.internalOperator;
+import static io.prestosql.metadata.Signature.internalScalarFunction;
+import static io.prestosql.spi.function.OperatorType.SUBSCRIPT;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
 
 public final class Signatures
 {

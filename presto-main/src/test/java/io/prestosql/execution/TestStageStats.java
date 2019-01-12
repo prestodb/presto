@@ -13,7 +13,6 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
@@ -21,6 +20,7 @@ import io.airlift.stats.Distribution;
 import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.spi.eventlistener.StageGcStatistics;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 

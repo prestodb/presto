@@ -13,16 +13,16 @@
  */
 package io.prestosql.plugin.thrift;
 
-import com.facebook.presto.connector.thrift.api.PrestoThriftColumnMetadata;
-import com.facebook.presto.connector.thrift.api.PrestoThriftTableMetadata;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.plugin.thrift.api.PrestoThriftColumnMetadata;
+import io.prestosql.plugin.thrift.api.PrestoThriftTableMetadata;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ColumnMetadata;
+import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.type.TypeManager;
 
 import java.util.List;
 import java.util.Objects;

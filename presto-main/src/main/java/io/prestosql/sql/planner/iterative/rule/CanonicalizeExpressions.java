@@ -13,7 +13,7 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import static com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
+import static io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 
 public class CanonicalizeExpressions
         extends ExpressionRewriteRuleSet

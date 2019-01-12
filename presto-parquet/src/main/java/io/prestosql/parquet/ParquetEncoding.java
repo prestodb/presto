@@ -13,13 +13,13 @@
  */
 package io.prestosql.parquet;
 
-import com.facebook.presto.parquet.dictionary.BinaryDictionary;
-import com.facebook.presto.parquet.dictionary.Dictionary;
-import com.facebook.presto.parquet.dictionary.DictionaryReader;
-import com.facebook.presto.parquet.dictionary.DoubleDictionary;
-import com.facebook.presto.parquet.dictionary.FloatDictionary;
-import com.facebook.presto.parquet.dictionary.IntegerDictionary;
-import com.facebook.presto.parquet.dictionary.LongDictionary;
+import io.prestosql.parquet.dictionary.BinaryDictionary;
+import io.prestosql.parquet.dictionary.Dictionary;
+import io.prestosql.parquet.dictionary.DictionaryReader;
+import io.prestosql.parquet.dictionary.DoubleDictionary;
+import io.prestosql.parquet.dictionary.FloatDictionary;
+import io.prestosql.parquet.dictionary.IntegerDictionary;
+import io.prestosql.parquet.dictionary.LongDictionary;
 import parquet.bytes.BytesUtils;
 import parquet.column.ColumnDescriptor;
 import parquet.column.values.ValuesReader;

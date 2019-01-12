@@ -13,20 +13,20 @@
  */
 package io.prestosql.plugin.sqlserver;
 
-import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
-import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
-import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
-import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
-import com.facebook.presto.plugin.jdbc.JdbcOutputTableHandle;
-import com.facebook.presto.spi.PrestoException;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
+import io.prestosql.plugin.jdbc.BaseJdbcClient;
+import io.prestosql.plugin.jdbc.BaseJdbcConfig;
+import io.prestosql.plugin.jdbc.DriverConnectionFactory;
+import io.prestosql.plugin.jdbc.JdbcConnectorId;
+import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
+import io.prestosql.spi.PrestoException;
 
 import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.SQLException;
 
-import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 
 public class SqlServerClient
         extends BaseJdbcClient

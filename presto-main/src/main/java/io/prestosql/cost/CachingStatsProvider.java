@@ -13,22 +13,22 @@
  */
 package io.prestosql.cost;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.iterative.GroupReference;
-import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.iterative.Memo;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import io.airlift.log.Logger;
+import io.prestosql.Session;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.planner.iterative.GroupReference;
+import io.prestosql.sql.planner.iterative.Lookup;
+import io.prestosql.sql.planner.iterative.Memo;
+import io.prestosql.sql.planner.plan.PlanNode;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.isEnableStatsCalculator;
-import static com.facebook.presto.SystemSessionProperties.isIgnoreStatsCalculatorFailures;
-import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.SystemSessionProperties.isEnableStatsCalculator;
+import static io.prestosql.SystemSessionProperties.isIgnoreStatsCalculatorFailures;
+import static io.prestosql.sql.planner.iterative.Lookup.noLookup;
 import static java.util.Objects.requireNonNull;
 
 public final class CachingStatsProvider

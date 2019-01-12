@@ -13,9 +13,9 @@
  */
 package io.prestosql.decoder;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.Block;
 
 /**
  * Base class for all providers that return values for a selected column.

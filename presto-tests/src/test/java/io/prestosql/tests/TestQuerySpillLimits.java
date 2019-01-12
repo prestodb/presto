@@ -13,24 +13,24 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.spiller.NodeSpillConfig;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import io.airlift.units.DataSize;
+import io.prestosql.Session;
+import io.prestosql.plugin.tpch.TpchConnectorFactory;
+import io.prestosql.spiller.NodeSpillConfig;
+import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.testing.LocalQueryRunner;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 @Test(singleThreaded = true)
 public class TestQuerySpillLimits

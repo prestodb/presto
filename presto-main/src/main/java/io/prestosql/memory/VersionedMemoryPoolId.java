@@ -13,7 +13,7 @@
  */
 package io.prestosql.memory;
 
-import com.facebook.presto.spi.memory.MemoryPoolId;
+import io.prestosql.spi.memory.MemoryPoolId;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;

@@ -13,16 +13,16 @@
  */
 package io.prestosql.plugin.raptor.legacy.metadata;
 
-import com.facebook.presto.raptor.RaptorColumnHandle;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.Range;
-import com.facebook.presto.spi.predicate.Ranges;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.prestosql.plugin.raptor.legacy.RaptorColumnHandle;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.Range;
+import io.prestosql.spi.predicate.Ranges;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.Type;
 
 import java.sql.JDBCType;
 import java.sql.PreparedStatement;
@@ -31,14 +31,14 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.StringJoiner;
 
-import static com.facebook.presto.raptor.metadata.DatabaseShardManager.maxColumn;
-import static com.facebook.presto.raptor.metadata.DatabaseShardManager.minColumn;
-import static com.facebook.presto.raptor.storage.ColumnIndexStatsUtils.jdbcType;
-import static com.facebook.presto.raptor.storage.ShardStats.truncateIndexValue;
-import static com.facebook.presto.raptor.util.UuidUtil.uuidStringToBytes;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.plugin.raptor.legacy.metadata.DatabaseShardManager.maxColumn;
+import static io.prestosql.plugin.raptor.legacy.metadata.DatabaseShardManager.minColumn;
+import static io.prestosql.plugin.raptor.legacy.storage.ColumnIndexStatsUtils.jdbcType;
+import static io.prestosql.plugin.raptor.legacy.storage.ShardStats.truncateIndexValue;
+import static io.prestosql.plugin.raptor.legacy.util.UuidUtil.uuidStringToBytes;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

@@ -13,8 +13,8 @@
  */
 package io.prestosql.util;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.StandardErrorCode;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -22,7 +22,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
 public final class Reflection
 {

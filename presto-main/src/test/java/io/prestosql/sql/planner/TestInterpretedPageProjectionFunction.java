@@ -13,19 +13,19 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.operator.DriverYieldSignal;
-import com.facebook.presto.operator.Work;
-import com.facebook.presto.operator.project.InterpretedPageProjection;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.block.BlockAssertions;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.operator.DriverYieldSignal;
+import io.prestosql.operator.Work;
+import io.prestosql.operator.project.InterpretedPageProjection;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nullable;
@@ -34,15 +34,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.operator.project.SelectedPositions.positionsList;
-import static com.facebook.presto.operator.scalar.FunctionAssertions.createExpression;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.operator.project.SelectedPositions.positionsList;
+import static io.prestosql.operator.scalar.FunctionAssertions.createExpression;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

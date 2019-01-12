@@ -13,13 +13,13 @@
  */
 package io.prestosql.execution.executor;
 
-import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.execution.executor.SimulationTask.IntermediateTask;
-import com.facebook.presto.execution.executor.SimulationTask.LeafTask;
-import com.facebook.presto.execution.executor.SplitGenerators.SplitGenerator;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
+import io.prestosql.execution.TaskId;
+import io.prestosql.execution.executor.SimulationTask.IntermediateTask;
+import io.prestosql.execution.executor.SimulationTask.LeafTask;
+import io.prestosql.execution.executor.SplitGenerators.SplitGenerator;
 
 import java.util.Map;
 import java.util.OptionalInt;
@@ -28,7 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 
-import static com.facebook.presto.execution.executor.SimulationController.TaskSpecification.Type.LEAF;
+import static io.prestosql.execution.executor.SimulationController.TaskSpecification.Type.LEAF;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 

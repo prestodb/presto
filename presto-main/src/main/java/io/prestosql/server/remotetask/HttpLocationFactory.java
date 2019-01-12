@@ -13,14 +13,14 @@
  */
 package io.prestosql.server.remotetask;
 
-import com.facebook.presto.execution.LocationFactory;
-import com.facebook.presto.execution.StageId;
-import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.server.InternalCommunicationConfig;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.QueryId;
 import io.airlift.http.server.HttpServerInfo;
+import io.prestosql.execution.LocationFactory;
+import io.prestosql.execution.StageId;
+import io.prestosql.execution.TaskId;
+import io.prestosql.metadata.InternalNodeManager;
+import io.prestosql.server.InternalCommunicationConfig;
+import io.prestosql.spi.Node;
+import io.prestosql.spi.QueryId;
 
 import javax.inject.Inject;
 

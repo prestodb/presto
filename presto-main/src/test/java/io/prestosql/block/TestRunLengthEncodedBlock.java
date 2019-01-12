@@ -13,16 +13,16 @@
  */
 package io.prestosql.block;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.ByteArrayBlockBuilder;
-import com.facebook.presto.spi.block.IntArrayBlockBuilder;
-import com.facebook.presto.spi.block.LongArrayBlockBuilder;
-import com.facebook.presto.spi.block.RunLengthBlockEncoding;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.block.ShortArrayBlockBuilder;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.ByteArrayBlockBuilder;
+import io.prestosql.spi.block.IntArrayBlockBuilder;
+import io.prestosql.spi.block.LongArrayBlockBuilder;
+import io.prestosql.spi.block.RunLengthBlockEncoding;
+import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.block.ShortArrayBlockBuilder;
+import io.prestosql.spi.block.VariableWidthBlockBuilder;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;

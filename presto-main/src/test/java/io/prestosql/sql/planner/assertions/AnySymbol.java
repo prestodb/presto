@@ -13,8 +13,8 @@
  */
 package io.prestosql.sql.planner.assertions;
 
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.SymbolReference;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.tree.SymbolReference;
 
 class AnySymbol
         extends Symbol

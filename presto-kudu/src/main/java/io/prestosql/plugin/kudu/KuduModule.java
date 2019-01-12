@@ -13,23 +13,23 @@
  */
 package io.prestosql.plugin.kudu;
 
-import com.facebook.presto.kudu.procedures.RangePartitionProcedures;
-import com.facebook.presto.kudu.properties.KuduTableProperties;
-import com.facebook.presto.kudu.schema.NoSchemaEmulation;
-import com.facebook.presto.kudu.schema.SchemaEmulation;
-import com.facebook.presto.kudu.schema.SchemaEmulationByTableNameConvention;
-import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
-import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.connector.ConnectorSplitManager;
-import com.facebook.presto.spi.procedure.Procedure;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import com.google.inject.multibindings.MultibindingsScanner;
 import com.google.inject.multibindings.ProvidesIntoSet;
+import io.prestosql.plugin.kudu.procedures.RangePartitionProcedures;
+import io.prestosql.plugin.kudu.properties.KuduTableProperties;
+import io.prestosql.plugin.kudu.schema.NoSchemaEmulation;
+import io.prestosql.plugin.kudu.schema.SchemaEmulation;
+import io.prestosql.plugin.kudu.schema.SchemaEmulationByTableNameConvention;
+import io.prestosql.spi.connector.ConnectorPageSinkProvider;
+import io.prestosql.spi.connector.ConnectorPageSourceProvider;
+import io.prestosql.spi.connector.ConnectorRecordSetProvider;
+import io.prestosql.spi.connector.ConnectorSplitManager;
+import io.prestosql.spi.procedure.Procedure;
+import io.prestosql.spi.type.TypeManager;
 import org.apache.kudu.client.KuduClient;
 
 import javax.inject.Singleton;

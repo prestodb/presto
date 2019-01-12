@@ -13,23 +13,23 @@
  */
 package io.prestosql.cost;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.statistics.ColumnStatistics;
-import com.facebook.presto.spi.statistics.TableStatistics;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
+import io.prestosql.Session;
+import io.prestosql.matching.Pattern;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.statistics.ColumnStatistics;
+import io.prestosql.spi.statistics.TableStatistics;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.planner.iterative.Lookup;
+import io.prestosql.sql.planner.plan.TableScanNode;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
+import static io.prestosql.sql.planner.plan.Patterns.tableScan;
 import static java.util.Objects.requireNonNull;
 
 public class TableScanStatsRule

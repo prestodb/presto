@@ -13,18 +13,18 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.predicate.NullableValue;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.NullableValue;
+import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.VarcharType;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.hive.HiveMetadata.createPredicate;
+import static io.prestosql.plugin.hive.HiveMetadata.createPredicate;
 
 public class TestHiveMetadata
 {

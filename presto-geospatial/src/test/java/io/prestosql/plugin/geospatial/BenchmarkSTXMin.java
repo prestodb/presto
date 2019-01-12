@@ -32,10 +32,10 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.io.IOException;
 
-import static com.facebook.presto.plugin.geospatial.GeoFunctions.stGeometryFromText;
-import static com.facebook.presto.plugin.geospatial.GeoFunctions.stXMin;
-import static com.facebook.presto.plugin.geospatial.GeometryBenchmarkUtils.loadPolygon;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.plugin.geospatial.GeoFunctions.stGeometryFromText;
+import static io.prestosql.plugin.geospatial.GeoFunctions.stXMin;
+import static io.prestosql.plugin.geospatial.GeometryBenchmarkUtils.loadPolygon;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 

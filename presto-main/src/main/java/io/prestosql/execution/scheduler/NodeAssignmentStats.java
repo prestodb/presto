@@ -13,9 +13,9 @@
  */
 package io.prestosql.execution.scheduler;
 
-import com.facebook.presto.execution.NodeTaskMap;
-import com.facebook.presto.execution.RemoteTask;
-import com.facebook.presto.spi.Node;
+import io.prestosql.execution.NodeTaskMap;
+import io.prestosql.execution.RemoteTask;
+import io.prestosql.spi.Node;
 
 import java.util.HashMap;
 import java.util.List;

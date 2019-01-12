@@ -13,15 +13,15 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.TestingAccessControlManager;
-import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.metadata.SessionPropertyManager;
+import io.prestosql.plugin.tpch.TpchConnectorFactory;
+import io.prestosql.spi.type.Type;
+import io.prestosql.testing.LocalQueryRunner;
+import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.TestingAccessControlManager;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -29,9 +29,9 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.testing.TestingSession.TESTING_CATALOG;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public class TestQueryPlanDeterminism
         extends AbstractTestQueries

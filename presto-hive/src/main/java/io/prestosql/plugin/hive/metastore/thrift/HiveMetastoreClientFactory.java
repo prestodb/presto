@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.hive.metastore.thrift;
 
-import com.facebook.presto.hive.HiveClientConfig;
-import com.facebook.presto.hive.authentication.HiveMetastoreAuthentication;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.hive.HiveClientConfig;
+import io.prestosql.plugin.hive.authentication.HiveMetastoreAuthentication;
 import org.apache.thrift.transport.TTransportException;
 
 import javax.inject.Inject;

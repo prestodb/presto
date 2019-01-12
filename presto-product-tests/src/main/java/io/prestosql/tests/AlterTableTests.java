@@ -21,11 +21,11 @@ import io.prestodb.tempto.Requires;
 import io.prestodb.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tests.TestGroups.ALTER_TABLE;
-import static com.facebook.presto.tests.TestGroups.SMOKE;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestosql.tests.TestGroups.ALTER_TABLE;
+import static io.prestosql.tests.TestGroups.SMOKE;
 import static java.lang.String.format;
 
 @Requires(ImmutableNationTable.class)

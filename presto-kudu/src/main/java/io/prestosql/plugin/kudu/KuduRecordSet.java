@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.kudu;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.spi.type.Type;
 import org.apache.kudu.client.KuduScanner;
 import org.apache.kudu.client.KuduTable;
 

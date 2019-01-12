@@ -13,18 +13,18 @@
  */
 package io.prestosql.sql;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.sql.parser.ParsingException;
-import com.facebook.presto.sql.parser.ParsingOptions;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Statement;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.sql.parser.ParsingException;
+import io.prestosql.sql.parser.ParsingOptions;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Statement;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.REJECT;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.REJECT;
 
 public final class SqlFormatterUtil
 {

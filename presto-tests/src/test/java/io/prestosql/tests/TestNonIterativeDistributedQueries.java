@@ -13,7 +13,7 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
+import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 
 /**
  * Test that Presto works with {@link com.facebook.presto.sql.planner.iterative.IterativeOptimizer} disabled.

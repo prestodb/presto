@@ -13,15 +13,15 @@
  */
 package io.prestosql.spi;
 
-import com.facebook.presto.spi.block.BlockEncoding;
-import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.eventlistener.EventListenerFactory;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
-import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
-import com.facebook.presto.spi.security.SystemAccessControlFactory;
-import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
-import com.facebook.presto.spi.type.ParametricType;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.block.BlockEncoding;
+import io.prestosql.spi.connector.ConnectorFactory;
+import io.prestosql.spi.eventlistener.EventListenerFactory;
+import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
+import io.prestosql.spi.security.PasswordAuthenticatorFactory;
+import io.prestosql.spi.security.SystemAccessControlFactory;
+import io.prestosql.spi.session.SessionPropertyConfigurationManagerFactory;
+import io.prestosql.spi.type.ParametricType;
+import io.prestosql.spi.type.Type;
 
 import java.util.Set;
 

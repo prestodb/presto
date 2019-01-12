@@ -13,6 +13,8 @@
  */
 package io.prestosql.spi.connector;
 
+import io.prestosql.spi.Page;
+
 public interface BucketFunction
 {
     /**

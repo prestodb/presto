@@ -13,7 +13,7 @@
  */
 package io.prestosql.spi.resourcegroups;
 
-import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
+import io.prestosql.spi.memory.ClusterMemoryPoolManager;
 
 public interface ResourceGroupConfigurationManagerContext
 {

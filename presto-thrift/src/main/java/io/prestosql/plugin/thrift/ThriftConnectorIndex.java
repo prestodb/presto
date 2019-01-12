@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.thrift;
 
-import com.facebook.presto.connector.thrift.api.PrestoThriftService;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorIndex;
-import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.RecordSet;
 import io.airlift.drift.client.DriftClient;
+import io.prestosql.plugin.thrift.api.PrestoThriftService;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorIndex;
+import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.RecordSet;
 
 import java.util.List;
 import java.util.Map;

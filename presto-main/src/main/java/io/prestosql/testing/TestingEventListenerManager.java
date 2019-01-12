@@ -13,13 +13,13 @@
  */
 package io.prestosql.testing;
 
-import com.facebook.presto.eventlistener.EventListenerManager;
-import com.facebook.presto.spi.eventlistener.EventListener;
-import com.facebook.presto.spi.eventlistener.EventListenerFactory;
-import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
-import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
-import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.eventlistener.EventListenerManager;
+import io.prestosql.spi.eventlistener.EventListener;
+import io.prestosql.spi.eventlistener.EventListenerFactory;
+import io.prestosql.spi.eventlistener.QueryCompletedEvent;
+import io.prestosql.spi.eventlistener.QueryCreatedEvent;
+import io.prestosql.spi.eventlistener.SplitCompletedEvent;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;

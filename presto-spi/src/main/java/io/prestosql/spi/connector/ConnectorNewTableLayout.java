@@ -13,8 +13,6 @@
  */
 package io.prestosql.spi.connector;
 
-import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
-
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;

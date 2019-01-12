@@ -13,8 +13,8 @@
  */
 package io.prestosql.spi.function;
 
-import com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention;
-import com.facebook.presto.spi.function.InvocationConvention.InvocationReturnConvention;
+import io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention;
+import io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention;
 
 public @interface Convention
 {

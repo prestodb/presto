@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.orc.OrcWriterOptions;
 import io.airlift.configuration.Config;
 import io.airlift.units.DataSize;
+import io.prestosql.orc.OrcWriterOptions;
 
 @SuppressWarnings("unused")
 public class OrcFileWriterConfig

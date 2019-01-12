@@ -13,16 +13,16 @@
  */
 package io.prestosql.block;
 
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockEncodingSerde;
+import io.prestosql.spi.block.DictionaryBlock;
+import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.type.TypeRegistry;
 
 import java.lang.reflect.Array;
 import java.util.Arrays;

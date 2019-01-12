@@ -14,15 +14,15 @@
 package io.prestosql.operator;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
-import com.facebook.presto.geospatial.KdbTreeUtils;
-import com.facebook.presto.geospatial.Rectangle;
-import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.geospatial.KdbTreeUtils;
+import io.prestosql.geospatial.Rectangle;
+import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.HashMap;
 import java.util.List;

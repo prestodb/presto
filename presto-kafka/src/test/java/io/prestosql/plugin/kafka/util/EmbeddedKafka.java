@@ -31,11 +31,11 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.kafka.util.TestUtils.findUnusedPort;
-import static com.facebook.presto.kafka.util.TestUtils.toProperties;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.prestosql.plugin.kafka.util.TestUtils.findUnusedPort;
+import static io.prestosql.plugin.kafka.util.TestUtils.toProperties;
 import static java.util.Objects.requireNonNull;
 
 public class EmbeddedKafka

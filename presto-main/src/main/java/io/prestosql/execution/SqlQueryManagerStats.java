@@ -21,8 +21,8 @@ import org.weakref.jmx.Nested;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
-import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
+import static io.prestosql.spi.StandardErrorCode.ABANDONED_QUERY;
+import static io.prestosql.spi.StandardErrorCode.USER_CANCELED;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 

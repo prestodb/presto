@@ -15,7 +15,7 @@ package io.prestosql.spi.connector;
 
 import java.util.Objects;
 
-import static com.facebook.presto.spi.SchemaUtil.checkNotEmpty;
+import static io.prestosql.spi.connector.SchemaUtil.checkNotEmpty;
 
 public class SchemaTablePrefix
 {

@@ -13,19 +13,19 @@
  */
 package io.prestosql.sql.gen;
 
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.MethodGenerationContext;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.InvokeInstruction;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.type.Type;
 
 import java.lang.reflect.Method;
 import java.util.List;
 
-import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static io.airlift.bytecode.ParameterizedType.type;
+import static io.prestosql.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static java.util.Objects.requireNonNull;
 
 public class SqlTypeBytecodeExpression

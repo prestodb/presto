@@ -13,10 +13,10 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.operator.WorkProcessor.ProcessState;
-import com.facebook.presto.operator.WorkProcessor.TransformationState;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.SettableFuture;
+import io.prestosql.operator.WorkProcessor.ProcessState;
+import io.prestosql.operator.WorkProcessor.TransformationState;
 import org.testng.annotations.Test;
 
 import java.util.Comparator;
@@ -25,11 +25,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.operator.WorkProcessorAssertion.assertBlocks;
-import static com.facebook.presto.operator.WorkProcessorAssertion.assertFinishes;
-import static com.facebook.presto.operator.WorkProcessorAssertion.assertResult;
-import static com.facebook.presto.operator.WorkProcessorAssertion.assertUnblocks;
-import static com.facebook.presto.operator.WorkProcessorAssertion.assertYields;
+import static io.prestosql.operator.WorkProcessorAssertion.assertBlocks;
+import static io.prestosql.operator.WorkProcessorAssertion.assertFinishes;
+import static io.prestosql.operator.WorkProcessorAssertion.assertResult;
+import static io.prestosql.operator.WorkProcessorAssertion.assertUnblocks;
+import static io.prestosql.operator.WorkProcessorAssertion.assertYields;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

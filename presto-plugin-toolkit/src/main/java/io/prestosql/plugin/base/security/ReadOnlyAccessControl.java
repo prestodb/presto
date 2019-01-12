@@ -13,26 +13,26 @@
  */
 package io.prestosql.plugin.base.security;
 
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.connector.ConnectorAccessControl;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.security.Privilege;
+import io.prestosql.spi.connector.ConnectorAccessControl;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.security.Privilege;
 
 import java.util.Set;
 
-import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyGrantTablePrivilege;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyInsertTable;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
+import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyCreateTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyCreateView;
+import static io.prestosql.spi.security.AccessDeniedException.denyDeleteTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyDropColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
+import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
+import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 
 public class ReadOnlyAccessControl
         implements ConnectorAccessControl

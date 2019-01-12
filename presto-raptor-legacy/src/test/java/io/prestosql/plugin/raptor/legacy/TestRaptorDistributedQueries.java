@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.raptor.legacy;
 
-import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.tests.AbstractTestDistributedQueries;
 
-import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
+import static io.prestosql.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
 
 public class TestRaptorDistributedQueries
         extends AbstractTestDistributedQueries

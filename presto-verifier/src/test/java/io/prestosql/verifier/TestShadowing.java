@@ -13,22 +13,22 @@
  */
 package io.prestosql.verifier;
 
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.tree.CreateTable;
-import com.facebook.presto.sql.tree.CreateTableAsSelect;
-import com.facebook.presto.sql.tree.DropTable;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.Identifier;
-import com.facebook.presto.sql.tree.Insert;
-import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QuerySpecification;
-import com.facebook.presto.sql.tree.Select;
-import com.facebook.presto.sql.tree.SingleColumn;
-import com.facebook.presto.sql.tree.Table;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.tree.CreateTable;
+import io.prestosql.sql.tree.CreateTableAsSelect;
+import io.prestosql.sql.tree.DropTable;
+import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.Identifier;
+import io.prestosql.sql.tree.Insert;
+import io.prestosql.sql.tree.LongLiteral;
+import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.QuerySpecification;
+import io.prestosql.sql.tree.Select;
+import io.prestosql.sql.tree.SingleColumn;
+import io.prestosql.sql.tree.Table;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.testng.annotations.AfterClass;
@@ -36,9 +36,9 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.sql.QueryUtil.identifier;
-import static com.facebook.presto.verifier.QueryType.READ;
-import static com.facebook.presto.verifier.VerifyCommand.statementToQueryType;
+import static io.prestosql.sql.QueryUtil.identifier;
+import static io.prestosql.verifier.QueryType.READ;
+import static io.prestosql.verifier.VerifyCommand.statementToQueryType;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

@@ -13,7 +13,7 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.spi.PageBuilder;
+import io.prestosql.spi.PageBuilder;
 
 public interface OuterPositionIterator
 {

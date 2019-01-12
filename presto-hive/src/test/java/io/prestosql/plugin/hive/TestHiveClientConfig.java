@@ -13,10 +13,6 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.HiveClientConfig.HdfsAuthenticationType;
-import com.facebook.presto.hive.HiveClientConfig.HiveMetastoreAuthenticationType;
-import com.facebook.presto.hive.s3.S3FileSystemType;
-import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
@@ -24,13 +20,17 @@ import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
+import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
+import io.prestosql.plugin.hive.HiveClientConfig.HdfsAuthenticationType;
+import io.prestosql.plugin.hive.HiveClientConfig.HiveMetastoreAuthenticationType;
+import io.prestosql.plugin.hive.s3.S3FileSystemType;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.hive.TestHiveUtil.nonDefaultTimeZone;
+import static io.prestosql.plugin.hive.TestHiveUtil.nonDefaultTimeZone;
 
 public class TestHiveClientConfig
 {

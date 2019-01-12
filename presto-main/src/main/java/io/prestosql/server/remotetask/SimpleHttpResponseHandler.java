@@ -13,14 +13,14 @@
  */
 package io.prestosql.server.remotetask;
 
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.util.concurrent.FutureCallback;
 import io.airlift.http.client.FullJsonResponseHandler;
 import io.airlift.http.client.HttpStatus;
+import io.prestosql.spi.PrestoException;
 
 import java.net.URI;
 
-import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
+import static io.prestosql.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

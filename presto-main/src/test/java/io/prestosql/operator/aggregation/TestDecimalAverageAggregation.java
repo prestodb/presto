@@ -13,20 +13,20 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.LongDecimalWithOverflowAndLongState;
-import com.facebook.presto.operator.aggregation.state.LongDecimalWithOverflowAndLongStateFactory;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic;
+import io.prestosql.operator.aggregation.state.LongDecimalWithOverflowAndLongState;
+import io.prestosql.operator.aggregation.state.LongDecimalWithOverflowAndLongStateFactory;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.UnscaledDecimal128Arithmetic;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
-import static com.facebook.presto.operator.aggregation.DecimalAverageAggregation.average;
-import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
-import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
+import static io.prestosql.operator.aggregation.DecimalAverageAggregation.average;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)

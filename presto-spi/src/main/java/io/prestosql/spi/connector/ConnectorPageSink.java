@@ -14,6 +14,7 @@
 package io.prestosql.spi.connector;
 
 import io.airlift.slice.Slice;
+import io.prestosql.spi.Page;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;

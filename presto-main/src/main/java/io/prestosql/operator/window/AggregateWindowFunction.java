@@ -13,14 +13,14 @@
  */
 package io.prestosql.operator.window;
 
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.aggregation.Accumulator;
-import com.facebook.presto.operator.aggregation.AccumulatorFactory;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.WindowFunction;
-import com.facebook.presto.spi.function.WindowIndex;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.Signature;
+import io.prestosql.operator.aggregation.Accumulator;
+import io.prestosql.operator.aggregation.AccumulatorFactory;
+import io.prestosql.operator.aggregation.InternalAggregationFunction;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.WindowFunction;
+import io.prestosql.spi.function.WindowIndex;
 
 import java.util.List;
 import java.util.Optional;

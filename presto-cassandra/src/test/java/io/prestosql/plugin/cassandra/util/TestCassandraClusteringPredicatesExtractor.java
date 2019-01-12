@@ -14,20 +14,20 @@
 package io.prestosql.plugin.cassandra.util;
 
 import com.datastax.driver.core.VersionNumber;
-import com.facebook.presto.cassandra.CassandraClusteringPredicatesExtractor;
-import com.facebook.presto.cassandra.CassandraColumnHandle;
-import com.facebook.presto.cassandra.CassandraTable;
-import com.facebook.presto.cassandra.CassandraTableHandle;
-import com.facebook.presto.cassandra.CassandraType;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.cassandra.CassandraClusteringPredicatesExtractor;
+import io.prestosql.plugin.cassandra.CassandraColumnHandle;
+import io.prestosql.plugin.cassandra.CassandraTable;
+import io.prestosql.plugin.cassandra.CassandraTableHandle;
+import io.prestosql.plugin.cassandra.CassandraType;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.TupleDomain;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 
 public class TestCassandraClusteringPredicatesExtractor

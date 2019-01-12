@@ -13,9 +13,9 @@
  */
 package io.prestosql.orc.metadata;
 
-import com.facebook.presto.orc.OrcOutputBuffer;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.prestosql.orc.OrcOutputBuffer;
 
 import java.io.IOException;
 import java.util.List;

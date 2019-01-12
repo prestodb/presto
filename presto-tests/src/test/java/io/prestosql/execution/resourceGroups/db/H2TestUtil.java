@@ -13,33 +13,33 @@
  */
 package io.prestosql.execution.resourceGroups.db;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryManager;
-import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.resourceGroups.ResourceGroupSelector;
-import com.facebook.presto.resourceGroups.db.DbResourceGroupConfig;
-import com.facebook.presto.resourceGroups.db.DbResourceGroupConfigurationManager;
-import com.facebook.presto.resourceGroups.db.H2DaoProvider;
-import com.facebook.presto.resourceGroups.db.H2ResourceGroupsDao;
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
+import io.prestosql.Session;
+import io.prestosql.execution.QueryManager;
+import io.prestosql.execution.QueryState;
+import io.prestosql.plugin.resourcegroups.ResourceGroupSelector;
+import io.prestosql.plugin.resourcegroups.db.DbResourceGroupConfig;
+import io.prestosql.plugin.resourcegroups.db.DbResourceGroupConfigurationManager;
+import io.prestosql.plugin.resourcegroups.db.H2DaoProvider;
+import io.prestosql.plugin.resourcegroups.db.H2ResourceGroupsDao;
+import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.spi.Plugin;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.tests.DistributedQueryRunner;
 
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
-import static com.facebook.presto.execution.QueryState.RUNNING;
-import static com.facebook.presto.execution.QueryState.TERMINAL_QUERY_STATES;
-import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
-import static com.facebook.presto.spi.resourceGroups.QueryType.EXPLAIN;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.json.JsonCodec.listJsonCodec;
+import static io.prestosql.execution.QueryState.RUNNING;
+import static io.prestosql.execution.QueryState.TERMINAL_QUERY_STATES;
+import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_INVALID;
+import static io.prestosql.spi.resourcegroups.QueryType.EXPLAIN;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class H2TestUtil

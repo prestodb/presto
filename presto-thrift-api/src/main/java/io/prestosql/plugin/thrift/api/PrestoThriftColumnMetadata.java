@@ -13,20 +13,20 @@
  */
 package io.prestosql.plugin.thrift.api;
 
-import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.drift.annotations.ThriftConstructor;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
+import io.prestosql.spi.connector.ColumnMetadata;
+import io.prestosql.spi.type.TypeManager;
 
 import javax.annotation.Nullable;
 
 import java.util.Objects;
 
-import static com.facebook.presto.connector.thrift.api.NameValidationUtils.checkValidName;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
+import static io.prestosql.plugin.thrift.api.NameValidationUtils.checkValidName;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Objects.requireNonNull;
 
 @ThriftStruct

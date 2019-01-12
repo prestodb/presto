@@ -13,17 +13,17 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInput;
-import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInputBuilder;
-import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestOutput;
-import com.facebook.presto.operator.aggregation.groupByAggregations.GroupByAggregationTestUtils;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.SqlDate;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Signature;
+import io.prestosql.operator.aggregation.groupByAggregations.AggregationTestInput;
+import io.prestosql.operator.aggregation.groupByAggregations.AggregationTestInputBuilder;
+import io.prestosql.operator.aggregation.groupByAggregations.AggregationTestOutput;
+import io.prestosql.operator.aggregation.groupByAggregations.GroupByAggregationTestUtils;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.SqlDate;
+import io.prestosql.spi.type.StandardTypes;
 import org.testng.annotations.Test;
 import org.testng.internal.collections.Ints;
 
@@ -33,15 +33,15 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
-import static com.facebook.presto.block.BlockAssertions.createArrayBigintBlock;
-import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
-import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
-import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
-import static com.facebook.presto.block.BlockAssertions.createTypedLongsBlock;
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
-import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.block.BlockAssertions.createArrayBigintBlock;
+import static io.prestosql.block.BlockAssertions.createBooleansBlock;
+import static io.prestosql.block.BlockAssertions.createLongsBlock;
+import static io.prestosql.block.BlockAssertions.createStringsBlock;
+import static io.prestosql.block.BlockAssertions.createTypedLongsBlock;
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static org.testng.Assert.assertTrue;
 
 public class TestArrayAggregation

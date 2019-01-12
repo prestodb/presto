@@ -13,18 +13,18 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
-import com.facebook.presto.execution.QueryTracker.TrackedQuery;
-import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.memory.VersionedMemoryPoolId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.Plan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.Session;
+import io.prestosql.execution.QueryPreparer.PreparedQuery;
+import io.prestosql.execution.QueryTracker.TrackedQuery;
+import io.prestosql.execution.StateMachine.StateChangeListener;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.memory.VersionedMemoryPoolId;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.planner.Plan;
 
 import java.net.URI;
 import java.util.List;

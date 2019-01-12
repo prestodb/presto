@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.atop;
 
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.predicate.Domain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.prestosql.spi.predicate.Domain;
 
 import javax.annotation.concurrent.Immutable;
 

@@ -13,7 +13,7 @@
  */
 package io.prestosql.sql.tree;
 
-import com.facebook.presto.sql.parser.ParsingException;
+import io.prestosql.sql.parser.ParsingException;
 
 import java.util.Optional;
 

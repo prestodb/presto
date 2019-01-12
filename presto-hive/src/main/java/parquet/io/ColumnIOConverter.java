@@ -13,26 +13,26 @@
  */
 package parquet.io;
 
-import com.facebook.presto.parquet.Field;
-import com.facebook.presto.parquet.GroupField;
-import com.facebook.presto.parquet.PrimitiveField;
-import com.facebook.presto.parquet.RichColumnDescriptor;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.NamedTypeSignature;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.parquet.Field;
+import io.prestosql.parquet.GroupField;
+import io.prestosql.parquet.PrimitiveField;
+import io.prestosql.parquet.RichColumnDescriptor;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.NamedTypeSignature;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
-import static com.facebook.presto.parquet.ParquetTypeUtils.getArrayElementColumn;
-import static com.facebook.presto.parquet.ParquetTypeUtils.getMapKeyValueColumn;
-import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
-import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
-import static com.facebook.presto.spi.type.StandardTypes.MAP;
-import static com.facebook.presto.spi.type.StandardTypes.ROW;
+import static io.prestosql.parquet.ParquetTypeUtils.getArrayElementColumn;
+import static io.prestosql.parquet.ParquetTypeUtils.getMapKeyValueColumn;
+import static io.prestosql.parquet.ParquetTypeUtils.lookupColumnByName;
+import static io.prestosql.spi.type.StandardTypes.ARRAY;
+import static io.prestosql.spi.type.StandardTypes.MAP;
+import static io.prestosql.spi.type.StandardTypes.ROW;
 import static parquet.schema.Type.Repetition.OPTIONAL;
 
 /**

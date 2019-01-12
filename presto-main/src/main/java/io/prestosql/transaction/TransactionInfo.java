@@ -13,10 +13,10 @@
  */
 package io.prestosql.transaction;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.spi.transaction.IsolationLevel;
 import org.joda.time.DateTime;
 
 import java.util.List;

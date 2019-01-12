@@ -13,15 +13,15 @@
  */
 package io.prestosql.plugin.tpcds;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.prestosql.Session;
+import io.prestosql.tests.DistributedQueryRunner;
 
 import java.util.Map;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public final class TpcdsQueryRunner
 {

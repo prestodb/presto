@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.accumulo.model;
 
-import com.facebook.presto.accumulo.serializers.LexicoderRowSerializer;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
+import io.prestosql.plugin.accumulo.serializers.LexicoderRowSerializer;
 import org.apache.accumulo.core.data.Range;
 import org.testng.annotations.Test;
 

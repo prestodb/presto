@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.hive.benchmark;
 
-import com.facebook.presto.hive.HiveCompressionCodec;
-import com.facebook.presto.hive.benchmark.HiveFileFormatBenchmark.CompressionCounter;
-import com.facebook.presto.hive.benchmark.HiveFileFormatBenchmark.DataSet;
+import io.prestosql.plugin.hive.HiveCompressionCodec;
+import io.prestosql.plugin.hive.benchmark.HiveFileFormatBenchmark.CompressionCounter;
+import io.prestosql.plugin.hive.benchmark.HiveFileFormatBenchmark.DataSet;
 import org.testng.annotations.Test;
 
 import java.io.IOException;

@@ -13,13 +13,13 @@
  */
 package io.prestosql.operator.index;
 
-import com.facebook.presto.operator.DriverContext;
-import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.operator.DriverContext;
+import io.prestosql.operator.Operator;
+import io.prestosql.operator.OperatorContext;
+import io.prestosql.operator.OperatorFactory;
+import io.prestosql.spi.Page;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;

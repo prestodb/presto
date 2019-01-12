@@ -13,19 +13,19 @@
  */
 package io.prestosql.plugin.thrift.util;
 
-import com.facebook.presto.connector.thrift.api.PrestoThriftServiceException;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.drift.TApplicationException;
 import io.airlift.drift.TException;
 import io.airlift.drift.protocol.TTransportException;
+import io.prestosql.plugin.thrift.api.PrestoThriftServiceException;
+import io.prestosql.spi.PrestoException;
 
-import static com.facebook.presto.connector.thrift.ThriftErrorCode.THRIFT_SERVICE_CONNECTION_ERROR;
-import static com.facebook.presto.connector.thrift.ThriftErrorCode.THRIFT_SERVICE_GENERIC_REMOTE_ERROR;
-import static com.facebook.presto.connector.thrift.ThriftErrorCode.THRIFT_SERVICE_NO_AVAILABLE_HOSTS;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.util.concurrent.Futures.catchingAsync;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static io.prestosql.plugin.thrift.ThriftErrorCode.THRIFT_SERVICE_CONNECTION_ERROR;
+import static io.prestosql.plugin.thrift.ThriftErrorCode.THRIFT_SERVICE_GENERIC_REMOTE_ERROR;
+import static io.prestosql.plugin.thrift.ThriftErrorCode.THRIFT_SERVICE_NO_AVAILABLE_HOSTS;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
 public final class ThriftExceptions
 {

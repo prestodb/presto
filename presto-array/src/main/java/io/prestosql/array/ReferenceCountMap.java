@@ -13,9 +13,9 @@
  */
 package io.prestosql.array;
 
-import com.facebook.presto.spi.block.Block;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.block.Block;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 import org.openjdk.jol.info.ClassLayout;
 

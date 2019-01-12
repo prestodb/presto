@@ -13,17 +13,17 @@
  */
 package io.prestosql.execution.resourceGroups.db;
 
-import com.facebook.presto.resourceGroups.VariableMap;
-import com.facebook.presto.resourceGroups.db.DbResourceGroupConfigurationManager;
-import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
-import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerContext;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.airlift.node.NodeModule;
+import io.prestosql.plugin.resourcegroups.VariableMap;
+import io.prestosql.plugin.resourcegroups.db.DbResourceGroupConfigurationManager;
+import io.prestosql.spi.classloader.ThreadContextClassLoader;
+import io.prestosql.spi.memory.ClusterMemoryPoolManager;
+import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManager;
+import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerContext;
+import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 
 import java.util.Map;
 

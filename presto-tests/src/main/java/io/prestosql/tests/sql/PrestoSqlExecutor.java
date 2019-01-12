@@ -13,7 +13,7 @@
  */
 package io.prestosql.tests.sql;
 
-import com.facebook.presto.testing.QueryRunner;
+import io.prestosql.testing.QueryRunner;
 
 public class PrestoSqlExecutor
         implements SqlExecutor

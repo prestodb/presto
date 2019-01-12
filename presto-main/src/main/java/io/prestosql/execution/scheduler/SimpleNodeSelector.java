@@ -13,12 +13,6 @@
  */
 package io.prestosql.execution.scheduler;
 
-import com.facebook.presto.execution.NodeTaskMap;
-import com.facebook.presto.execution.RemoteTask;
-import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.HashMultimap;
@@ -27,19 +21,25 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
+import io.prestosql.execution.NodeTaskMap;
+import io.prestosql.execution.RemoteTask;
+import io.prestosql.metadata.InternalNodeManager;
+import io.prestosql.metadata.Split;
+import io.prestosql.spi.Node;
+import io.prestosql.spi.PrestoException;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.execution.scheduler.NodeScheduler.calculateLowWatermark;
-import static com.facebook.presto.execution.scheduler.NodeScheduler.randomizedNodes;
-import static com.facebook.presto.execution.scheduler.NodeScheduler.selectDistributionNodes;
-import static com.facebook.presto.execution.scheduler.NodeScheduler.selectExactNodes;
-import static com.facebook.presto.execution.scheduler.NodeScheduler.selectNodes;
-import static com.facebook.presto.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpaceFuture;
-import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static io.prestosql.execution.scheduler.NodeScheduler.calculateLowWatermark;
+import static io.prestosql.execution.scheduler.NodeScheduler.randomizedNodes;
+import static io.prestosql.execution.scheduler.NodeScheduler.selectDistributionNodes;
+import static io.prestosql.execution.scheduler.NodeScheduler.selectExactNodes;
+import static io.prestosql.execution.scheduler.NodeScheduler.selectNodes;
+import static io.prestosql.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpaceFuture;
+import static io.prestosql.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static java.util.Objects.requireNonNull;
 
 public class SimpleNodeSelector

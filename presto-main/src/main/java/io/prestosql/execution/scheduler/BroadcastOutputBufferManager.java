@@ -13,8 +13,8 @@
  */
 package io.prestosql.execution.scheduler;
 
-import com.facebook.presto.OutputBuffers;
-import com.facebook.presto.OutputBuffers.OutputBufferId;
+import io.prestosql.OutputBuffers;
+import io.prestosql.OutputBuffers.OutputBufferId;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -22,9 +22,9 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.List;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
-import static com.facebook.presto.OutputBuffers.BufferType.BROADCAST;
-import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.prestosql.OutputBuffers.BROADCAST_PARTITION_ID;
+import static io.prestosql.OutputBuffers.BufferType.BROADCAST;
+import static io.prestosql.OutputBuffers.createInitialEmptyOutputBuffers;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe

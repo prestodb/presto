@@ -13,11 +13,11 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.execution.scheduler.BucketNodeMap;
-import com.facebook.presto.execution.scheduler.FixedBucketNodeMap;
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.Node;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.execution.scheduler.BucketNodeMap;
+import io.prestosql.execution.scheduler.FixedBucketNodeMap;
+import io.prestosql.metadata.Split;
+import io.prestosql.spi.Node;
 
 import java.util.List;
 import java.util.function.ToIntFunction;

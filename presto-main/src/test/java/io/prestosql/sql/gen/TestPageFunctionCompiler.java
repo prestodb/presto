@@ -13,30 +13,30 @@
  */
 package io.prestosql.sql.gen;
 
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.DriverYieldSignal;
-import com.facebook.presto.operator.Work;
-import com.facebook.presto.operator.project.PageProjection;
-import com.facebook.presto.operator.project.SelectedPositions;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.sql.relational.CallExpression;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.Signature;
+import io.prestosql.operator.DriverYieldSignal;
+import io.prestosql.operator.Work;
+import io.prestosql.operator.project.PageProjection;
+import io.prestosql.operator.project.SelectedPositions;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.sql.relational.CallExpression;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
-import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
-import static com.facebook.presto.spi.function.OperatorType.ADD;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.relational.Expressions.call;
-import static com.facebook.presto.sql.relational.Expressions.constant;
-import static com.facebook.presto.sql.relational.Expressions.field;
-import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.prestosql.spi.function.OperatorType.ADD;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.sql.relational.Expressions.call;
+import static io.prestosql.sql.relational.Expressions.constant;
+import static io.prestosql.sql.relational.Expressions.field;
+import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertSame;

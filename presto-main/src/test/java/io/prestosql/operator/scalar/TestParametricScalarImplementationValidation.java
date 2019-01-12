@@ -13,16 +13,16 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.connector.ConnectorSession;
 import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static com.facebook.presto.util.Reflection.methodHandle;
+import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.util.Reflection.methodHandle;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 

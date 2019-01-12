@@ -13,9 +13,9 @@
  */
 package io.prestosql.transaction;
 
-import com.facebook.presto.spi.connector.Connector;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.transaction.IsolationLevel;
+import io.prestosql.spi.connector.Connector;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.transaction.IsolationLevel;
 
 public interface InternalConnector
         extends Connector

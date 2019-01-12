@@ -13,10 +13,10 @@
  */
 package io.prestosql.operator.aggregation.state;
 
-import com.facebook.presto.operator.aggregation.KeyValuePairs;
-import com.facebook.presto.spi.function.AccumulatorState;
-import com.facebook.presto.spi.function.AccumulatorStateMetadata;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.operator.aggregation.KeyValuePairs;
+import io.prestosql.spi.function.AccumulatorState;
+import io.prestosql.spi.function.AccumulatorStateMetadata;
+import io.prestosql.spi.type.Type;
 
 @AccumulatorStateMetadata(stateFactoryClass = KeyValuePairsStateFactory.class, stateSerializerClass = KeyValuePairStateSerializer.class)
 public interface KeyValuePairsState

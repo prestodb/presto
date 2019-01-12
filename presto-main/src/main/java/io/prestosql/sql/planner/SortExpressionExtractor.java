@@ -13,13 +13,13 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.sql.ExpressionUtils;
-import com.facebook.presto.sql.tree.AstVisitor;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.sql.ExpressionUtils;
+import io.prestosql.sql.tree.AstVisitor;
+import io.prestosql.sql.tree.ComparisonExpression;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Node;
+import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Optional;

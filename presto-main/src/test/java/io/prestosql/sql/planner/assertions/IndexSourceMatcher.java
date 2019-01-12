@@ -13,23 +13,23 @@
  */
 package io.prestosql.sql.planner.assertions;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.cost.StatsProvider;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.sql.planner.plan.IndexSourceNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.cost.StatsProvider;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.TableMetadata;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.sql.planner.plan.IndexSourceNode;
+import io.prestosql.sql.planner.plan.PlanNode;
 
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
-import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
-import static com.facebook.presto.sql.planner.assertions.Util.domainsMatch;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.sql.planner.assertions.MatchResult.NO_MATCH;
+import static io.prestosql.sql.planner.assertions.MatchResult.match;
+import static io.prestosql.sql.planner.assertions.Util.domainsMatch;
 import static java.util.Objects.requireNonNull;
 
 final class IndexSourceMatcher

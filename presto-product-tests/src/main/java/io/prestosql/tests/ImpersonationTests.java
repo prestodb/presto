@@ -23,10 +23,10 @@ import io.prestodb.tempto.hadoop.hdfs.HdfsClient;
 import io.prestodb.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tests.TestGroups.HDFS_IMPERSONATION;
-import static com.facebook.presto.tests.TestGroups.HDFS_NO_IMPERSONATION;
-import static com.facebook.presto.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static com.facebook.presto.tests.utils.QueryExecutors.connectToPresto;
+import static io.prestosql.tests.TestGroups.HDFS_IMPERSONATION;
+import static io.prestosql.tests.TestGroups.HDFS_NO_IMPERSONATION;
+import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.prestosql.tests.utils.QueryExecutors.connectToPresto;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 

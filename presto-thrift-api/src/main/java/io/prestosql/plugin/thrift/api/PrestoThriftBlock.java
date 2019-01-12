@@ -13,47 +13,47 @@
  */
 package io.prestosql.plugin.thrift.api;
 
-import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftBigint;
-import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftBigintArray;
-import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftBoolean;
-import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftColumnData;
-import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftDate;
-import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftDouble;
-import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftHyperLogLog;
-import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftInteger;
-import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftJson;
-import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTimestamp;
-import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftVarchar;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.drift.annotations.ThriftConstructor;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
 import io.airlift.slice.Slice;
+import io.prestosql.plugin.thrift.api.datatypes.PrestoThriftBigint;
+import io.prestosql.plugin.thrift.api.datatypes.PrestoThriftBigintArray;
+import io.prestosql.plugin.thrift.api.datatypes.PrestoThriftBoolean;
+import io.prestosql.plugin.thrift.api.datatypes.PrestoThriftColumnData;
+import io.prestosql.plugin.thrift.api.datatypes.PrestoThriftDate;
+import io.prestosql.plugin.thrift.api.datatypes.PrestoThriftDouble;
+import io.prestosql.plugin.thrift.api.datatypes.PrestoThriftHyperLogLog;
+import io.prestosql.plugin.thrift.api.datatypes.PrestoThriftInteger;
+import io.prestosql.plugin.thrift.api.datatypes.PrestoThriftJson;
+import io.prestosql.plugin.thrift.api.datatypes.PrestoThriftTimestamp;
+import io.prestosql.plugin.thrift.api.datatypes.PrestoThriftVarchar;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.Type;
 
 import javax.annotation.Nullable;
 
 import java.util.Objects;
 
-import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
-import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
-import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
-import static com.facebook.presto.spi.type.StandardTypes.DATE;
-import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
-import static com.facebook.presto.spi.type.StandardTypes.HYPER_LOG_LOG;
-import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
-import static com.facebook.presto.spi.type.StandardTypes.JSON;
-import static com.facebook.presto.spi.type.StandardTypes.TIMESTAMP;
-import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
+import static io.prestosql.spi.type.StandardTypes.ARRAY;
+import static io.prestosql.spi.type.StandardTypes.BIGINT;
+import static io.prestosql.spi.type.StandardTypes.BOOLEAN;
+import static io.prestosql.spi.type.StandardTypes.DATE;
+import static io.prestosql.spi.type.StandardTypes.DOUBLE;
+import static io.prestosql.spi.type.StandardTypes.HYPER_LOG_LOG;
+import static io.prestosql.spi.type.StandardTypes.INTEGER;
+import static io.prestosql.spi.type.StandardTypes.JSON;
+import static io.prestosql.spi.type.StandardTypes.TIMESTAMP;
+import static io.prestosql.spi.type.StandardTypes.VARCHAR;
 
 @ThriftStruct
 public final class PrestoThriftBlock

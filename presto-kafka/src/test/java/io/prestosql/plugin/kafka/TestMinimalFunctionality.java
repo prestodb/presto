@@ -13,17 +13,17 @@
  */
 package io.prestosql.plugin.kafka;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.kafka.util.EmbeddedKafka;
-import com.facebook.presto.kafka.util.TestUtils;
-import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.security.AllowAllAccessControl;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.tests.StandaloneQueryRunner;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.metadata.TableHandle;
+import io.prestosql.plugin.kafka.util.EmbeddedKafka;
+import io.prestosql.plugin.kafka.util.TestUtils;
+import io.prestosql.security.AllowAllAccessControl;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.testing.MaterializedResult;
+import io.prestosql.tests.StandaloneQueryRunner;
 import kafka.producer.KeyedMessage;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
@@ -35,11 +35,11 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.UUID;
 
-import static com.facebook.presto.kafka.util.EmbeddedKafka.CloseableProducer;
-import static com.facebook.presto.kafka.util.TestUtils.createEmptyTopicDescription;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static io.prestosql.plugin.kafka.util.EmbeddedKafka.CloseableProducer;
+import static io.prestosql.plugin.kafka.util.TestUtils.createEmptyTopicDescription;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)

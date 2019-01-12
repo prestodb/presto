@@ -13,10 +13,10 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
+import io.prestosql.spi.Node;
+import io.prestosql.util.FinalizerService;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;

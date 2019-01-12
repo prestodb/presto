@@ -13,13 +13,13 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.google.common.primitives.Ints;
+import io.prestosql.block.BlockAssertions;
+import io.prestosql.operator.GroupByIdBlock;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.RunLengthEncodedBlock;
 import org.apache.commons.math3.util.Precision;
 
 import java.util.Collections;
@@ -28,8 +28,8 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 

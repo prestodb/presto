@@ -13,37 +13,37 @@
  */
 package io.prestosql.benchmark;
 
-import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.operator.Driver;
-import com.facebook.presto.operator.DriverContext;
-import com.facebook.presto.operator.DriverFactory;
-import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
-import com.facebook.presto.operator.JoinBridgeManager;
-import com.facebook.presto.operator.LookupJoinOperators;
-import com.facebook.presto.operator.LookupSourceProvider;
-import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.operator.PartitionedLookupSourceFactory;
-import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spiller.SingleStreamSpillerFactory;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.testing.NullOutputOperator.NullOutputOperatorFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
+import io.prestosql.execution.Lifespan;
+import io.prestosql.operator.Driver;
+import io.prestosql.operator.DriverContext;
+import io.prestosql.operator.DriverFactory;
+import io.prestosql.operator.HashBuilderOperator.HashBuilderOperatorFactory;
+import io.prestosql.operator.JoinBridgeManager;
+import io.prestosql.operator.LookupJoinOperators;
+import io.prestosql.operator.LookupSourceProvider;
+import io.prestosql.operator.OperatorFactory;
+import io.prestosql.operator.PagesIndex;
+import io.prestosql.operator.PartitionedLookupSourceFactory;
+import io.prestosql.operator.TaskContext;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spiller.SingleStreamSpillerFactory;
+import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.testing.LocalQueryRunner;
+import io.prestosql.testing.NullOutputOperator.NullOutputOperatorFactory;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.Future;
 
-import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
-import static com.facebook.presto.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static io.prestosql.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
+import static io.prestosql.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
 import static java.util.Objects.requireNonNull;
 
 public class HashJoinBenchmark

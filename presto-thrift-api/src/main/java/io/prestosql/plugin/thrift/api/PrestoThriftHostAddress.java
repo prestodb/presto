@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.thrift.api;
 
-import com.facebook.presto.spi.HostAddress;
 import io.airlift.drift.annotations.ThriftConstructor;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
+import io.prestosql.spi.HostAddress;
 
 import java.util.Objects;
 

@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.metastore.Column;
-import com.facebook.presto.hive.metastore.Partition;
-import com.facebook.presto.hive.metastore.Table;
-import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
+import io.prestosql.plugin.hive.metastore.Column;
+import io.prestosql.plugin.hive.metastore.Partition;
+import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.spi.connector.ConnectorSession;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
@@ -32,11 +32,11 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 
-import static com.facebook.presto.hive.HiveSessionProperties.isS3SelectPushdownEnabled;
-import static com.facebook.presto.hive.HiveUtil.getCompressionCodec;
-import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
-import static com.facebook.presto.hive.HiveUtil.getInputFormatName;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
+import static io.prestosql.plugin.hive.HiveSessionProperties.isS3SelectPushdownEnabled;
+import static io.prestosql.plugin.hive.HiveUtil.getCompressionCodec;
+import static io.prestosql.plugin.hive.HiveUtil.getDeserializerClassName;
+import static io.prestosql.plugin.hive.HiveUtil.getInputFormatName;
+import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static org.apache.hadoop.hive.serde.serdeConstants.BIGINT_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.BOOLEAN_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.DATE_TYPE_NAME;

@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.s3.HiveS3Config;
-import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
-import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
+import io.prestosql.plugin.hive.s3.HiveS3Config;
+import io.prestosql.plugin.hive.s3.PrestoS3ConfigurationUpdater;
+import io.prestosql.plugin.hive.s3.S3ConfigurationUpdater;
 import org.apache.hadoop.fs.Path;
 
 import static com.google.common.base.Preconditions.checkArgument;

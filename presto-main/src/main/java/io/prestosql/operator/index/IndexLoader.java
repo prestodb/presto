@@ -13,27 +13,27 @@
  */
 package io.prestosql.operator.index;
 
-import com.facebook.presto.ScheduledSplit;
-import com.facebook.presto.TaskSource;
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.operator.Driver;
-import com.facebook.presto.operator.DriverFactory;
-import com.facebook.presto.operator.LookupSource;
-import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.operator.PipelineContext;
-import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.JoinCompiler;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
+import io.prestosql.ScheduledSplit;
+import io.prestosql.TaskSource;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.metadata.Split;
+import io.prestosql.operator.Driver;
+import io.prestosql.operator.DriverFactory;
+import io.prestosql.operator.LookupSource;
+import io.prestosql.operator.PagesIndex;
+import io.prestosql.operator.PipelineContext;
+import io.prestosql.operator.TaskContext;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.gen.JoinCompiler;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;

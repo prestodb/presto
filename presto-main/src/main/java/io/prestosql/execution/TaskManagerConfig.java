@@ -13,7 +13,6 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.util.PowerOfTwo;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
@@ -23,6 +22,7 @@ import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
+import io.prestosql.util.PowerOfTwo;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;

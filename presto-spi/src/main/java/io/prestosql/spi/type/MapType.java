@@ -13,13 +13,13 @@
  */
 package io.prestosql.spi.type;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.MapBlock;
-import com.facebook.presto.spi.block.MapBlockBuilder;
-import com.facebook.presto.spi.block.SingleMapBlock;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.BlockBuilderStatus;
+import io.prestosql.spi.block.MapBlock;
+import io.prestosql.spi.block.MapBlockBuilder;
+import io.prestosql.spi.block.SingleMapBlock;
+import io.prestosql.spi.connector.ConnectorSession;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collections;
@@ -28,9 +28,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.TypeUtils.checkElementNotNull;
-import static com.facebook.presto.spi.type.TypeUtils.hashPosition;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.TypeUtils.checkElementNotNull;
+import static io.prestosql.spi.type.TypeUtils.hashPosition;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;

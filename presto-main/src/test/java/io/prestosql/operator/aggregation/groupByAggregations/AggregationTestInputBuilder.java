@@ -14,9 +14,9 @@
 
 package io.prestosql.operator.aggregation.groupByAggregations;
 
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
+import io.prestosql.operator.aggregation.InternalAggregationFunction;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
 
 public class AggregationTestInputBuilder
 {

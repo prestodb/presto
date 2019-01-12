@@ -13,13 +13,6 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.connector.system.GlobalSystemConnector;
-import com.facebook.presto.failureDetector.FailureDetector;
-import com.facebook.presto.server.InternalCommunicationConfig;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.NodeState;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -33,6 +26,13 @@ import io.airlift.discovery.client.ServiceType;
 import io.airlift.http.client.HttpClient;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
+import io.prestosql.client.NodeVersion;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.system.GlobalSystemConnector;
+import io.prestosql.failureDetector.FailureDetector;
+import io.prestosql.server.InternalCommunicationConfig;
+import io.prestosql.spi.Node;
+import io.prestosql.spi.NodeState;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.PostConstruct;
@@ -53,14 +53,14 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.spi.NodeState.ACTIVE;
-import static com.facebook.presto.spi.NodeState.INACTIVE;
-import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.prestosql.spi.NodeState.ACTIVE;
+import static io.prestosql.spi.NodeState.INACTIVE;
+import static io.prestosql.spi.NodeState.SHUTTING_DOWN;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;

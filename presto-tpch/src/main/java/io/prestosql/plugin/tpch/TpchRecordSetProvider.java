@@ -13,23 +13,23 @@
  */
 package io.prestosql.plugin.tpch;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import io.airlift.tpch.TpchColumn;
 import io.airlift.tpch.TpchColumnType;
 import io.airlift.tpch.TpchEntity;
 import io.airlift.tpch.TpchTable;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorRecordSetProvider;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.List;
 
-import static com.facebook.presto.tpch.TpchRecordSet.createTpchRecordSet;
 import static io.airlift.tpch.TpchColumnTypes.IDENTIFIER;
+import static io.prestosql.plugin.tpch.TpchRecordSet.createTpchRecordSet;
 
 public class TpchRecordSetProvider
         implements ConnectorRecordSetProvider

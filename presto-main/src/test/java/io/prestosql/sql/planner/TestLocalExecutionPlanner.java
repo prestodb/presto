@@ -13,18 +13,18 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.base.Joiner;
+import io.prestosql.spi.ErrorCodeSupplier;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.testing.LocalQueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.spi.StandardErrorCode.COMPILER_ERROR;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;

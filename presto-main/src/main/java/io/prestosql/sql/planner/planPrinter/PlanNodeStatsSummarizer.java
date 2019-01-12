@@ -13,16 +13,16 @@
  */
 package io.prestosql.sql.planner.planPrinter;
 
-import com.facebook.presto.execution.StageInfo;
-import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.operator.HashCollisionsInfo;
-import com.facebook.presto.operator.OperatorStats;
-import com.facebook.presto.operator.PipelineStats;
-import com.facebook.presto.operator.TaskStats;
-import com.facebook.presto.operator.WindowInfo;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
+import io.prestosql.execution.StageInfo;
+import io.prestosql.execution.TaskInfo;
+import io.prestosql.operator.HashCollisionsInfo;
+import io.prestosql.operator.OperatorStats;
+import io.prestosql.operator.PipelineStats;
+import io.prestosql.operator.TaskStats;
+import io.prestosql.operator.WindowInfo;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -32,11 +32,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.util.MoreMaps.mergeMaps;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Lists.reverse;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctDataSize;
+import static io.prestosql.util.MoreMaps.mergeMaps;
 import static java.util.Collections.emptyMap;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;

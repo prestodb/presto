@@ -13,28 +13,28 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.type.Type;
+import io.prestosql.testing.MaterializedResult;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.SequencePageBuilder.createSequencePage;
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.execution.buffer.PageSplitterUtil.splitPage;
-import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertLessThanOrEqual;
+import static io.prestosql.SequencePageBuilder.createSequencePage;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.execution.buffer.PageSplitterUtil.splitPage;
+import static io.prestosql.operator.OperatorAssertion.toMaterializedResult;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.assertions.Assert.assertEquals;
 
 public class TestPageSplitterUtil
 {

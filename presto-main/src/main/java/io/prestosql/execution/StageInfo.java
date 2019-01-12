@@ -13,11 +13,11 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.PlanFragment;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.planner.PlanFragment;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;

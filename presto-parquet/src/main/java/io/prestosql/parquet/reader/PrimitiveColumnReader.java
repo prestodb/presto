@@ -13,20 +13,20 @@
  */
 package io.prestosql.parquet.reader;
 
-import com.facebook.presto.parquet.DataPage;
-import com.facebook.presto.parquet.DataPageV1;
-import com.facebook.presto.parquet.DataPageV2;
-import com.facebook.presto.parquet.DictionaryPage;
-import com.facebook.presto.parquet.Field;
-import com.facebook.presto.parquet.ParquetEncoding;
-import com.facebook.presto.parquet.ParquetTypeUtils;
-import com.facebook.presto.parquet.RichColumnDescriptor;
-import com.facebook.presto.parquet.dictionary.Dictionary;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import io.prestosql.parquet.DataPage;
+import io.prestosql.parquet.DataPageV1;
+import io.prestosql.parquet.DataPageV2;
+import io.prestosql.parquet.DictionaryPage;
+import io.prestosql.parquet.Field;
+import io.prestosql.parquet.ParquetEncoding;
+import io.prestosql.parquet.ParquetTypeUtils;
+import io.prestosql.parquet.RichColumnDescriptor;
+import io.prestosql.parquet.dictionary.Dictionary;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import parquet.bytes.BytesUtils;
@@ -40,13 +40,13 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.parquet.ParquetTypeUtils.createDecimalType;
-import static com.facebook.presto.parquet.ValuesType.DEFINITION_LEVEL;
-import static com.facebook.presto.parquet.ValuesType.REPETITION_LEVEL;
-import static com.facebook.presto.parquet.ValuesType.VALUES;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.parquet.ParquetTypeUtils.createDecimalType;
+import static io.prestosql.parquet.ValuesType.DEFINITION_LEVEL;
+import static io.prestosql.parquet.ValuesType.REPETITION_LEVEL;
+import static io.prestosql.parquet.ValuesType.VALUES;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 
 public abstract class PrimitiveColumnReader

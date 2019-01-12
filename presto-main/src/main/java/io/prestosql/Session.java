@@ -13,25 +13,25 @@
  */
 package io.prestosql;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.session.ResourceEstimates;
-import com.facebook.presto.spi.type.TimeZoneKey;
-import com.facebook.presto.sql.SqlPath;
-import com.facebook.presto.sql.tree.Execute;
-import com.facebook.presto.transaction.TransactionId;
-import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.metadata.SessionPropertyManager;
+import io.prestosql.security.AccessControl;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.session.ResourceEstimates;
+import io.prestosql.spi.type.TimeZoneKey;
+import io.prestosql.sql.SqlPath;
+import io.prestosql.sql.tree.Execute;
+import io.prestosql.transaction.TransactionId;
+import io.prestosql.transaction.TransactionManager;
 
 import java.security.Principal;
 import java.util.HashMap;
@@ -43,11 +43,11 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
-import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
+import static io.prestosql.util.Failures.checkCondition;
 import static java.util.Objects.requireNonNull;
 
 public final class Session

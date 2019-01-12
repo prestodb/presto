@@ -13,13 +13,13 @@
  */
 package io.prestosql.plugin.cassandra;
 
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import io.prestosql.testing.MaterializedResult;
+import io.prestosql.tests.AbstractTestDistributedQueries;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.MaterializedResult.resultBuilder;
+import static io.prestosql.testing.assertions.Assert.assertEquals;
 
 //Integrations tests fail when parallel, due to a bug or configuration error in the embedded
 //cassandra instance. This problem results in either a hang in Thrift calls or broken sockets.

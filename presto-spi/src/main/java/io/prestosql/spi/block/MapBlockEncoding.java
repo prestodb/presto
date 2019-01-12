@@ -14,17 +14,17 @@
 
 package io.prestosql.spi.block;
 
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSerde;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSerde;
 
 import java.util.Optional;
 
-import static com.facebook.presto.spi.block.AbstractMapBlock.HASH_MULTIPLIER;
 import static io.airlift.slice.Slices.wrappedIntArray;
+import static io.prestosql.spi.block.AbstractMapBlock.HASH_MULTIPLIER;
 import static java.lang.String.format;
 
 public class MapBlockEncoding

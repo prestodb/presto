@@ -13,10 +13,10 @@
  */
 package io.prestosql;
 
-import com.facebook.presto.spi.PrestoException;
 import io.airlift.units.Duration;
+import io.prestosql.spi.PrestoException;
 
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_CPU_LIMIT;
+import static io.prestosql.spi.StandardErrorCode.EXCEEDED_CPU_LIMIT;
 
 public class ExceededCpuLimitException
         extends PrestoException

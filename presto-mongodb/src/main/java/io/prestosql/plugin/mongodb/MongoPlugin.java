@@ -13,15 +13,15 @@
  */
 package io.prestosql.plugin.mongodb;
 
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.Plugin;
+import io.prestosql.spi.connector.ConnectorFactory;
+import io.prestosql.spi.type.Type;
 
 import java.util.Set;
 
-import static com.facebook.presto.mongodb.ObjectIdType.OBJECT_ID;
+import static io.prestosql.plugin.mongodb.ObjectIdType.OBJECT_ID;
 
 public class MongoPlugin
         implements Plugin

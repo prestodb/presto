@@ -13,16 +13,16 @@
  */
 package io.prestosql.matching;
 
-import com.facebook.presto.matching.pattern.CapturePattern;
-import com.facebook.presto.matching.pattern.FilterPattern;
-import com.facebook.presto.matching.pattern.TypeOfPattern;
-import com.facebook.presto.matching.pattern.WithPattern;
 import com.google.common.collect.Iterables;
+import io.prestosql.matching.pattern.CapturePattern;
+import io.prestosql.matching.pattern.FilterPattern;
+import io.prestosql.matching.pattern.TypeOfPattern;
+import io.prestosql.matching.pattern.WithPattern;
 
 import java.util.function.Predicate;
 
-import static com.facebook.presto.matching.DefaultMatcher.DEFAULT_MATCHER;
 import static com.google.common.base.Predicates.not;
+import static io.prestosql.matching.DefaultMatcher.DEFAULT_MATCHER;
 
 public abstract class Pattern<T>
 {

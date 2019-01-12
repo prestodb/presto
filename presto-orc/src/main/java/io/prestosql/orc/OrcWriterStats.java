@@ -18,11 +18,11 @@ import org.weakref.jmx.Nested;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.presto.orc.OrcWriterStats.FlushReason.CLOSED;
-import static com.facebook.presto.orc.OrcWriterStats.FlushReason.DICTIONARY_FULL;
-import static com.facebook.presto.orc.OrcWriterStats.FlushReason.MAX_BYTES;
-import static com.facebook.presto.orc.OrcWriterStats.FlushReason.MAX_ROWS;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.orc.OrcWriterStats.FlushReason.CLOSED;
+import static io.prestosql.orc.OrcWriterStats.FlushReason.DICTIONARY_FULL;
+import static io.prestosql.orc.OrcWriterStats.FlushReason.MAX_BYTES;
+import static io.prestosql.orc.OrcWriterStats.FlushReason.MAX_ROWS;
 
 public class OrcWriterStats
 {

@@ -13,19 +13,19 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.execution.buffer.PagesSerde;
-import com.facebook.presto.execution.buffer.PagesSerdeFactory;
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.UpdatablePageSource;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.split.RemoteSplit;
-import com.facebook.presto.sql.gen.OrderingCompiler;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.prestosql.execution.buffer.PagesSerde;
+import io.prestosql.execution.buffer.PagesSerdeFactory;
+import io.prestosql.metadata.Split;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.UpdatablePageSource;
+import io.prestosql.spi.type.Type;
+import io.prestosql.split.RemoteSplit;
+import io.prestosql.sql.gen.OrderingCompiler;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -36,10 +36,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.util.MergeSortedPages.mergeSortedPages;
-import static com.facebook.presto.util.MoreLists.mappedCopy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.util.MergeSortedPages.mergeSortedPages;
+import static io.prestosql.util.MoreLists.mappedCopy;
 import static java.util.Objects.requireNonNull;
 
 public class MergeOperator

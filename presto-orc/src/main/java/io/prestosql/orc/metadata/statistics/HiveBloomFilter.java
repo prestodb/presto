@@ -13,8 +13,8 @@
  */
 package io.prestosql.orc.metadata.statistics;
 
-import com.facebook.presto.orc.metadata.statistics.StatisticsHasher.Hashable;
 import com.google.common.primitives.Longs;
+import io.prestosql.orc.metadata.statistics.StatisticsHasher.Hashable;
 import org.apache.hive.common.util.BloomFilter;
 import org.openjdk.jol.info.ClassLayout;
 

@@ -13,13 +13,13 @@
  */
 package io.prestosql.execution.warnings;
 
-import com.facebook.presto.spi.PrestoWarning;
-import com.facebook.presto.testing.TestingWarningCollector;
-import com.facebook.presto.testing.TestingWarningCollectorConfig;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.PrestoWarning;
+import io.prestosql.testing.TestingWarningCollector;
+import io.prestosql.testing.TestingWarningCollectorConfig;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.testing.TestingWarningCollector.createTestWarning;
+import static io.prestosql.testing.TestingWarningCollector.createTestWarning;
 import static org.testng.Assert.assertEquals;
 
 public class TestTestingWarningCollector

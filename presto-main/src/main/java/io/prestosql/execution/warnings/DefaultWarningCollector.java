@@ -13,9 +13,9 @@
  */
 package io.prestosql.execution.warnings;
 
-import com.facebook.presto.spi.PrestoWarning;
-import com.facebook.presto.spi.WarningCode;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.PrestoWarning;
+import io.prestosql.spi.WarningCode;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;

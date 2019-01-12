@@ -22,7 +22,7 @@ import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.facebook.presto.tests.sqlserver.TestConstants.CONNECTOR_NAME;
+import static io.prestosql.tests.sqlserver.TestConstants.CONNECTOR_NAME;
 
 public class SqlServerDataTypesTableDefinition
 {

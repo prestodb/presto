@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.raptor.legacy.metadata;
 
-import com.facebook.presto.raptor.RaptorColumnHandle;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
+import io.prestosql.plugin.raptor.legacy.RaptorColumnHandle;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.predicate.TupleDomain;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.ResultIterator;
 
@@ -36,13 +36,13 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 
-import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
-import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
-import static com.facebook.presto.raptor.util.ArrayUtil.intArrayFromBytes;
-import static com.facebook.presto.raptor.util.DatabaseUtil.enableStreamingResults;
-import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
-import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
-import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
+import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
+import static io.prestosql.plugin.raptor.legacy.metadata.DatabaseShardManager.shardIndexTable;
+import static io.prestosql.plugin.raptor.legacy.util.ArrayUtil.intArrayFromBytes;
+import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.enableStreamingResults;
+import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.metadataError;
+import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.onDemandDao;
+import static io.prestosql.plugin.raptor.legacy.util.UuidUtil.uuidFromBytes;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toSet;
 

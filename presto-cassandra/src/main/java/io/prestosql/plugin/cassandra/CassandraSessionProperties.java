@@ -13,16 +13,16 @@
  */
 package io.prestosql.plugin.cassandra;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.session.PropertyMetadata;
 
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.session.PropertyMetadata.longProperty;
+import static io.prestosql.spi.session.PropertyMetadata.longProperty;
 
 public final class CassandraSessionProperties
 {

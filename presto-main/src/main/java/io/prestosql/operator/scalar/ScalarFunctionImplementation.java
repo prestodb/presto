@@ -13,18 +13,18 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.connector.ConnectorSession;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentType.FUNCTION_TYPE;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentType.FUNCTION_TYPE;
+import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

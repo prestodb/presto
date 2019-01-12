@@ -13,8 +13,8 @@
  */
 package io.prestosql.spi.connector;
 
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.type.Type;
 
 import java.io.Closeable;
 

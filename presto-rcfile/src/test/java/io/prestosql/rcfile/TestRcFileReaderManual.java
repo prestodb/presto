@@ -13,23 +13,23 @@
  */
 package io.prestosql.rcfile;
 
-import com.facebook.presto.rcfile.binary.BinaryRcFileEncoding;
-import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.units.DataSize;
+import io.prestosql.rcfile.binary.BinaryRcFileEncoding;
+import io.prestosql.spi.block.Block;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static java.lang.Math.toIntExact;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;

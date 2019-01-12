@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.mongodb;
 
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.MaterializedRow;
-import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.MaterializedRow;
+import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
 import org.bson.Document;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -27,8 +27,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 
-import static com.facebook.presto.mongodb.MongoQueryRunner.createMongoQueryRunner;
 import static io.airlift.tpch.TpchTable.ORDERS;
+import static io.prestosql.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

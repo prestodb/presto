@@ -13,8 +13,8 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.block.Block;
 
 public interface Unnester
 {

@@ -13,7 +13,6 @@
  */
 package io.prestosql.server.security;
 
-import com.facebook.presto.server.security.SecurityConfig.AuthenticationType;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
@@ -21,18 +20,19 @@ import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.server.TheServlet;
+import io.prestosql.server.security.SecurityConfig.AuthenticationType;
 
 import javax.servlet.Filter;
 
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.CERTIFICATE;
-import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.JWT;
-import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.KERBEROS;
-import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.PASSWORD;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.prestosql.server.security.SecurityConfig.AuthenticationType.CERTIFICATE;
+import static io.prestosql.server.security.SecurityConfig.AuthenticationType.JWT;
+import static io.prestosql.server.security.SecurityConfig.AuthenticationType.KERBEROS;
+import static io.prestosql.server.security.SecurityConfig.AuthenticationType.PASSWORD;
 
 public class ServerSecurityModule
         extends AbstractConfigurationAwareModule

@@ -14,7 +14,7 @@
 
 package io.prestosql.spi.statistics;
 
-import com.facebook.presto.spi.ColumnHandle;
+import io.prestosql.spi.connector.ColumnHandle;
 
 import java.util.HashMap;
 import java.util.Map;

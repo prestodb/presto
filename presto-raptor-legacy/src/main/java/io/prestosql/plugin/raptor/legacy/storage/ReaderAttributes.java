@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage;
 
-import com.facebook.presto.raptor.RaptorSessionProperties;
-import com.facebook.presto.spi.ConnectorSession;
 import io.airlift.units.DataSize;
+import io.prestosql.plugin.raptor.legacy.RaptorSessionProperties;
+import io.prestosql.spi.connector.ConnectorSession;
 
 import javax.inject.Inject;
 

@@ -16,7 +16,7 @@ package io.prestosql.orc.metadata.statistics;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.orc.metadata.statistics.DateStatistics.DATE_VALUE_BYTES;
+import static io.prestosql.orc.metadata.statistics.DateStatistics.DATE_VALUE_BYTES;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

@@ -13,9 +13,9 @@
  */
 package io.prestosql.failureDetector;
 
-import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.discovery.client.ServiceDescriptor;
+import io.prestosql.spi.HostAddress;
 
 import java.util.Set;
 

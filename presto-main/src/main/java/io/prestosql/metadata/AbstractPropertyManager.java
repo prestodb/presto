@@ -13,29 +13,29 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.session.PropertyMetadata;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.planner.ParameterRewriter;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import io.prestosql.Session;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.spi.ErrorCodeSupplier;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.session.PropertyMetadata;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.analyzer.SemanticException;
+import io.prestosql.sql.planner.ParameterRewriter;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.ExpressionTreeRewriter;
 
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
-import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
-import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
+import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
+import static io.prestosql.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;

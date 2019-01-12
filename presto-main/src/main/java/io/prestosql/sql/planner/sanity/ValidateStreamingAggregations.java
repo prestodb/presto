@@ -13,29 +13,29 @@
  */
 package io.prestosql.sql.planner.sanity;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.GroupingProperty;
-import com.facebook.presto.spi.LocalProperty;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.optimizations.LocalProperties;
-import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
-import com.facebook.presto.sql.planner.sanity.PlanSanityChecker.Checker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
+import io.prestosql.Session;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.connector.GroupingProperty;
+import io.prestosql.spi.connector.LocalProperty;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.planner.optimizations.LocalProperties;
+import io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
+import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.PlanVisitor;
+import io.prestosql.sql.planner.sanity.PlanSanityChecker.Checker;
 
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.derivePropertiesRecursively;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.derivePropertiesRecursively;
 
 /**
  * Verifies that input of streaming aggregations is grouped on the grouping keys

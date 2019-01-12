@@ -16,7 +16,7 @@ package io.prestosql.plugin.ml;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.ml.TestUtils.getDataset;
+import static io.prestosql.plugin.ml.TestUtils.getDataset;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;

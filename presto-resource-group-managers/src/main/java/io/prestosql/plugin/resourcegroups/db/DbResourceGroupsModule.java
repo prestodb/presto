@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.resourcegroups.db;
 
-import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManager;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;

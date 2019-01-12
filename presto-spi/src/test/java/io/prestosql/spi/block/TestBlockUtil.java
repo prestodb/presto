@@ -15,7 +15,7 @@ package io.prestosql.spi.block;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.block.BlockUtil.MAX_ARRAY_SIZE;
+import static io.prestosql.spi.block.BlockUtil.MAX_ARRAY_SIZE;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 

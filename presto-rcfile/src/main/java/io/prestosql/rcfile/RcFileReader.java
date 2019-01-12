@@ -13,12 +13,6 @@
  */
 package io.prestosql.rcfile;
 
-import com.facebook.presto.rcfile.RcFileWriteValidation.WriteChecksum;
-import com.facebook.presto.rcfile.RcFileWriteValidation.WriteChecksumBuilder;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.ChunkedSliceInput;
@@ -29,6 +23,12 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+import io.prestosql.rcfile.RcFileWriteValidation.WriteChecksum;
+import io.prestosql.rcfile.RcFileWriteValidation.WriteChecksumBuilder;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.type.Type;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -39,14 +39,14 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.rcfile.RcFileDecoderUtils.findFirstSyncPosition;
-import static com.facebook.presto.rcfile.RcFileDecoderUtils.readVInt;
-import static com.facebook.presto.rcfile.RcFileWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.ByteStreams.skipFully;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.prestosql.rcfile.RcFileDecoderUtils.findFirstSyncPosition;
+import static io.prestosql.rcfile.RcFileDecoderUtils.readVInt;
+import static io.prestosql.rcfile.RcFileWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;

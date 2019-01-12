@@ -26,15 +26,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import static com.facebook.presto.tests.TestGroups.STORAGE_FORMATS;
-import static com.facebook.presto.tests.utils.JdbcDriverUtils.setSessionProperty;
-import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
+import static io.prestosql.tests.utils.JdbcDriverUtils.setSessionProperty;
+import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

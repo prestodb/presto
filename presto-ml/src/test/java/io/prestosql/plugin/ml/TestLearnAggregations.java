@@ -13,39 +13,39 @@
  */
 package io.prestosql.plugin.ml;
 
-import com.facebook.presto.RowPageBuilder;
-import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.ml.type.ClassifierParametricType;
-import com.facebook.presto.ml.type.ClassifierType;
-import com.facebook.presto.ml.type.ModelType;
-import com.facebook.presto.ml.type.RegressorType;
-import com.facebook.presto.operator.aggregation.Accumulator;
-import com.facebook.presto.operator.aggregation.AggregationFromAnnotationsParser;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
-import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.prestosql.RowPageBuilder;
+import io.prestosql.block.BlockEncodingManager;
+import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.operator.aggregation.Accumulator;
+import io.prestosql.operator.aggregation.AggregationFromAnnotationsParser;
+import io.prestosql.operator.aggregation.InternalAggregationFunction;
+import io.prestosql.plugin.ml.type.ClassifierParametricType;
+import io.prestosql.plugin.ml.type.ClassifierType;
+import io.prestosql.plugin.ml.type.ModelType;
+import io.prestosql.plugin.ml.type.RegressorType;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.spi.type.VarcharType;
+import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 import java.util.Random;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.testing.AggregationTestUtils.generateInternalAggregationFunction;
-import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.testing.AggregationTestUtils.generateInternalAggregationFunction;
+import static io.prestosql.tests.StructuralTestUtil.mapBlockOf;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 

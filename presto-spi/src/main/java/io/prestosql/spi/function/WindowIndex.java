@@ -13,9 +13,9 @@
  */
 package io.prestosql.spi.function;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
 
 /**
  * A window index contains the sorted values for a window partition.

@@ -13,9 +13,9 @@
  */
 package io.prestosql.spi.transaction;
 
-import com.facebook.presto.spi.PrestoException;
+import io.prestosql.spi.PrestoException;
 
-import static com.facebook.presto.spi.StandardErrorCode.UNSUPPORTED_ISOLATION_LEVEL;
+import static io.prestosql.spi.StandardErrorCode.UNSUPPORTED_ISOLATION_LEVEL;
 import static java.lang.String.format;
 
 public enum IsolationLevel

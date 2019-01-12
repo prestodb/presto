@@ -13,19 +13,19 @@
  */
 package io.prestosql;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.type.TypeUtils;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.RowPageBuilder.rowPageBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.RowPageBuilder.rowPageBuilder;
 import static java.util.Objects.requireNonNull;
 
 public class RowPagesBuilder

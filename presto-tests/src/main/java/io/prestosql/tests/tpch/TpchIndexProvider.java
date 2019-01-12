@@ -13,20 +13,20 @@
  */
 package io.prestosql.tests.tpch;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorIndex;
-import com.facebook.presto.spi.ConnectorIndexHandle;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.connector.ConnectorIndexProvider;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.NullableValue;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.split.MappedRecordSet;
-import com.facebook.presto.tpch.TpchColumnHandle;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.tpch.TpchColumnHandle;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorIndex;
+import io.prestosql.spi.connector.ConnectorIndexHandle;
+import io.prestosql.spi.connector.ConnectorIndexProvider;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.spi.predicate.NullableValue;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.Type;
+import io.prestosql.split.MappedRecordSet;
 
 import java.util.ArrayList;
 import java.util.List;

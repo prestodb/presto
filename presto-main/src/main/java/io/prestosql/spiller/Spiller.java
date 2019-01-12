@@ -13,8 +13,8 @@
  */
 package io.prestosql.spiller;
 
-import com.facebook.presto.spi.Page;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.spi.Page;
 
 import java.io.Closeable;
 import java.util.Iterator;

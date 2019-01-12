@@ -13,10 +13,10 @@
  */
 package io.prestosql.sql.planner.assertions;
 
-import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FrameBound;
-import com.facebook.presto.sql.tree.WindowFrame;
+import io.prestosql.sql.planner.plan.WindowNode;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FrameBound;
+import io.prestosql.sql.tree.WindowFrame;
 
 import java.util.Optional;
 

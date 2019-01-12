@@ -13,14 +13,14 @@
  */
 package io.prestosql.parquet;
 
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
+import io.prestosql.spi.PrestoException;
 import parquet.io.api.Binary;
 
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 
 /**
  * Utility class for decoding INT96 encoded parquet timestamp to timestamp millis in GMT.

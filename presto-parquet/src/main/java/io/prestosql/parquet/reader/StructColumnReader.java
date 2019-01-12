@@ -13,11 +13,11 @@
  */
 package io.prestosql.parquet.reader;
 
-import com.facebook.presto.parquet.Field;
+import io.prestosql.parquet.Field;
 import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
 import it.unimi.dsi.fastutil.booleans.BooleanList;
 
-import static com.facebook.presto.parquet.ParquetTypeUtils.isValueNull;
+import static io.prestosql.parquet.ParquetTypeUtils.isValueNull;
 
 public class StructColumnReader
 {

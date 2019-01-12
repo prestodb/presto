@@ -13,15 +13,15 @@
  */
 package io.prestosql.sql.gen;
 
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.expression.BytecodeExpression;
+import io.prestosql.operator.scalar.ScalarFunctionImplementation;
+import io.prestosql.spi.type.Type;
 
 import java.util.function.Function;
 
-import static com.facebook.presto.sql.gen.InvokeFunctionBytecodeExpression.invokeFunction;
+import static io.prestosql.sql.gen.InvokeFunctionBytecodeExpression.invokeFunction;
 
 public final class ArrayGeneratorUtils
 {

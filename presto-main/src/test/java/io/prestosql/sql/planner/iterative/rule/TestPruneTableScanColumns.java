@@ -13,25 +13,25 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
-import com.facebook.presto.tpch.TpchColumnHandle;
-import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.metadata.TableHandle;
+import io.prestosql.plugin.tpch.TpchColumnHandle;
+import io.prestosql.plugin.tpch.TpchTableHandle;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.assertions.PlanMatchPattern;
+import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.testing.TestingMetadata.TestingColumnHandle;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictTableScan;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static com.facebook.presto.tpch.TpchMetadata.TINY_SCALE_FACTOR;
+import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
+import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictProject;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictTableScan;
+import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
 public class TestPruneTableScanColumns
         extends BaseRuleTest

@@ -13,11 +13,11 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
-import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multiset;
+import io.prestosql.sql.planner.plan.PlanFragmentId;
+import io.prestosql.sql.planner.plan.RemoteSourceNode;
 
 import javax.annotation.concurrent.Immutable;
 

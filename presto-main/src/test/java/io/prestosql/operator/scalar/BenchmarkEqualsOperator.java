@@ -13,19 +13,19 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.operator.DriverYieldSignal;
-import com.facebook.presto.operator.project.PageProcessor;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.ExpressionCompiler;
-import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.operator.DriverYieldSignal;
+import io.prestosql.operator.project.PageProcessor;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.gen.ExpressionCompiler;
+import io.prestosql.sql.gen.PageFunctionCompiler;
+import io.prestosql.sql.relational.RowExpression;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -49,17 +49,17 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.metadata.Signature.internalOperator;
-import static com.facebook.presto.metadata.Signature.internalScalarFunction;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.sql.relational.Expressions.call;
-import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.metadata.Signature.internalOperator;
+import static io.prestosql.metadata.Signature.internalScalarFunction;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.sql.relational.Expressions.call;
+import static io.prestosql.sql.relational.Expressions.field;
 
 @State(Scope.Thread)
 @Fork(3)

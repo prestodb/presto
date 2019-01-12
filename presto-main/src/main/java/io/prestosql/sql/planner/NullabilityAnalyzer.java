@@ -13,18 +13,18 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.sql.tree.Cast;
-import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
-import com.facebook.presto.sql.tree.DereferenceExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.IfExpression;
-import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.NullIfExpression;
-import com.facebook.presto.sql.tree.SearchedCaseExpression;
-import com.facebook.presto.sql.tree.SimpleCaseExpression;
-import com.facebook.presto.sql.tree.SubscriptExpression;
-import com.facebook.presto.sql.tree.TryExpression;
+import io.prestosql.sql.tree.Cast;
+import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
+import io.prestosql.sql.tree.DereferenceExpression;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.IfExpression;
+import io.prestosql.sql.tree.InPredicate;
+import io.prestosql.sql.tree.NullIfExpression;
+import io.prestosql.sql.tree.SearchedCaseExpression;
+import io.prestosql.sql.tree.SimpleCaseExpression;
+import io.prestosql.sql.tree.SubscriptExpression;
+import io.prestosql.sql.tree.TryExpression;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 

@@ -13,10 +13,10 @@
  */
 package io.prestosql.orc.stream;
 
-import com.facebook.presto.orc.OrcCorruptionException;
-import com.facebook.presto.orc.checkpoint.ByteStreamCheckpoint;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.orc.OrcCorruptionException;
+import io.prestosql.orc.checkpoint.ByteStreamCheckpoint;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.Type;
 
 import java.io.IOException;
 import java.util.Arrays;

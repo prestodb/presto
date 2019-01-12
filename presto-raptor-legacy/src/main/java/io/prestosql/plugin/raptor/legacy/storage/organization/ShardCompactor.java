@@ -13,21 +13,21 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage.organization;
 
-import com.facebook.presto.raptor.metadata.ColumnInfo;
-import com.facebook.presto.raptor.metadata.ShardInfo;
-import com.facebook.presto.raptor.storage.ReaderAttributes;
-import com.facebook.presto.raptor.storage.Row;
-import com.facebook.presto.raptor.storage.StorageManager;
-import com.facebook.presto.raptor.storage.StoragePageSink;
-import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.DistributionStat;
+import io.prestosql.plugin.raptor.legacy.metadata.ColumnInfo;
+import io.prestosql.plugin.raptor.legacy.metadata.ShardInfo;
+import io.prestosql.plugin.raptor.legacy.storage.ReaderAttributes;
+import io.prestosql.plugin.raptor.legacy.storage.Row;
+import io.prestosql.plugin.raptor.legacy.storage.StorageManager;
+import io.prestosql.plugin.raptor.legacy.storage.StoragePageSink;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.Type;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -44,10 +44,10 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.facebook.presto.raptor.storage.Row.extractRow;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.plugin.raptor.legacy.storage.Row.extractRow;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 

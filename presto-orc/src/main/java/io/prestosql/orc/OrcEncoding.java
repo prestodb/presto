@@ -13,12 +13,12 @@
  */
 package io.prestosql.orc;
 
-import com.facebook.presto.orc.metadata.DwrfMetadataReader;
-import com.facebook.presto.orc.metadata.DwrfMetadataWriter;
-import com.facebook.presto.orc.metadata.MetadataReader;
-import com.facebook.presto.orc.metadata.MetadataWriter;
-import com.facebook.presto.orc.metadata.OrcMetadataReader;
-import com.facebook.presto.orc.metadata.OrcMetadataWriter;
+import io.prestosql.orc.metadata.DwrfMetadataReader;
+import io.prestosql.orc.metadata.DwrfMetadataWriter;
+import io.prestosql.orc.metadata.MetadataReader;
+import io.prestosql.orc.metadata.MetadataWriter;
+import io.prestosql.orc.metadata.OrcMetadataReader;
+import io.prestosql.orc.metadata.OrcMetadataWriter;
 
 public enum OrcEncoding
 {

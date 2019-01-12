@@ -26,8 +26,8 @@ import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Builder;
 import com.amazonaws.services.s3.AmazonS3Client;
-import com.facebook.presto.hive.HiveClientConfig;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.hive.HiveClientConfig;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -37,10 +37,10 @@ import java.util.Optional;
 
 import static com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import static com.amazonaws.regions.Regions.US_EAST_1;
-import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ENDPOINT;
-import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_PIN_CLIENT_TO_CURRENT_REGION;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_ENDPOINT;
+import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_PIN_CLIENT_TO_CURRENT_REGION;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 

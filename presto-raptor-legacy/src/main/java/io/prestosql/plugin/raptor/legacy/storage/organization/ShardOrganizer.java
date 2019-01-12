@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage.organization;
 
-import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
+import io.prestosql.plugin.raptor.legacy.storage.StorageManagerConfig;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 

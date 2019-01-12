@@ -14,7 +14,7 @@
 
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import io.prestosql.sql.planner.plan.TableWriterNode;
 
 public class TestingWriterTarget
         extends TableWriterNode.WriterTarget

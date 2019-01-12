@@ -13,11 +13,6 @@
  */
 package io.prestosql.benchmark.driver;
 
-import com.facebook.presto.client.ClientSession;
-import com.facebook.presto.client.QueryData;
-import com.facebook.presto.client.QueryError;
-import com.facebook.presto.client.StatementClient;
-import com.facebook.presto.client.StatementStats;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import io.airlift.discovery.client.ServiceDescriptor;
@@ -28,6 +23,11 @@ import io.airlift.http.client.JsonResponseHandler;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.units.Duration;
+import io.prestosql.client.ClientSession;
+import io.prestosql.client.QueryData;
+import io.prestosql.client.QueryError;
+import io.prestosql.client.StatementClient;
+import io.prestosql.client.StatementStats;
 import okhttp3.OkHttpClient;
 
 import java.io.Closeable;
@@ -38,11 +38,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.benchmark.driver.BenchmarkQueryResult.failResult;
-import static com.facebook.presto.benchmark.driver.BenchmarkQueryResult.passResult;
-import static com.facebook.presto.client.OkHttpUtil.setupCookieJar;
-import static com.facebook.presto.client.OkHttpUtil.setupSocksProxy;
-import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -50,6 +45,11 @@ import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandl
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.prestosql.benchmark.driver.BenchmarkQueryResult.failResult;
+import static io.prestosql.benchmark.driver.BenchmarkQueryResult.passResult;
+import static io.prestosql.client.OkHttpUtil.setupCookieJar;
+import static io.prestosql.client.OkHttpUtil.setupSocksProxy;
+import static io.prestosql.client.StatementClientFactory.newStatementClient;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;

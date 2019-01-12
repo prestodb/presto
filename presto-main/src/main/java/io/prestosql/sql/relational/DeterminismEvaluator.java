@@ -13,8 +13,8 @@
  */
 package io.prestosql.sql.relational;
 
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Signature;
 
 import static java.util.Objects.requireNonNull;
 

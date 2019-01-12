@@ -13,12 +13,12 @@
  */
 package io.prestosql.sql.planner.optimizations;
 
-import com.facebook.presto.spi.ConstantProperty;
-import com.facebook.presto.spi.GroupingProperty;
-import com.facebook.presto.spi.LocalProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.PeekingIterator;
+import io.prestosql.spi.connector.ConstantProperty;
+import io.prestosql.spi.connector.GroupingProperty;
+import io.prestosql.spi.connector.LocalProperty;
 
 import java.util.ArrayList;
 import java.util.Collection;

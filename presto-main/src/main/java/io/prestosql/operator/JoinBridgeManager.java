@@ -14,11 +14,11 @@
 
 package io.prestosql.operator;
 
-import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.execution.Lifespan;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
 import java.util.Map;
@@ -26,11 +26,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
-import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.prestosql.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static java.util.Objects.requireNonNull;
 
 public class JoinBridgeManager<T extends JoinBridge>

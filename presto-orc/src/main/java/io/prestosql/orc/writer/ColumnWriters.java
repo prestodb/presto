@@ -13,21 +13,21 @@
  */
 package io.prestosql.orc.writer;
 
-import com.facebook.presto.orc.OrcEncoding;
-import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.orc.metadata.OrcType;
-import com.facebook.presto.orc.metadata.statistics.BinaryStatisticsBuilder;
-import com.facebook.presto.orc.metadata.statistics.DateStatisticsBuilder;
-import com.facebook.presto.orc.metadata.statistics.IntegerStatisticsBuilder;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.prestosql.orc.OrcEncoding;
+import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.OrcType;
+import io.prestosql.orc.metadata.statistics.BinaryStatisticsBuilder;
+import io.prestosql.orc.metadata.statistics.DateStatisticsBuilder;
+import io.prestosql.orc.metadata.statistics.IntegerStatisticsBuilder;
+import io.prestosql.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;
 
-import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.orc.OrcEncoding.DWRF;
 import static java.util.Objects.requireNonNull;
 
 public final class ColumnWriters

@@ -13,12 +13,12 @@
  */
 package io.prestosql.sql.analyzer;
 
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.Node;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.Node;
 
 import java.util.List;
 import java.util.function.Predicate;

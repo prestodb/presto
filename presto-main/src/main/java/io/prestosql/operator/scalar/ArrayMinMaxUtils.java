@@ -13,14 +13,14 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.facebook.presto.annotation.UsedByGeneratedCode;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
+import io.prestosql.annotation.UsedByGeneratedCode;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.util.Failures.internalError;
+import static io.prestosql.util.Failures.internalError;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
 

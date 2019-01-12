@@ -13,24 +13,24 @@
  */
 package io.prestosql.operator.index;
 
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.type.BooleanType;
+import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static io.prestosql.metadata.Signature.internalOperator;
 import static java.lang.Boolean.TRUE;
 import static java.util.Objects.requireNonNull;
 

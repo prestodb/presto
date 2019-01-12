@@ -13,25 +13,25 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.execution.scheduler.BucketNodeMap;
-import com.facebook.presto.execution.scheduler.FixedBucketNodeMap;
-import com.facebook.presto.execution.scheduler.NodeScheduler;
-import com.facebook.presto.execution.scheduler.group.DynamicBucketNodeMap;
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.operator.BucketPartitionFunction;
-import com.facebook.presto.operator.PartitionFunction;
-import com.facebook.presto.spi.BucketFunction;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.connector.ConnectorBucketNodeMap;
-import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
-import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.split.EmptySplit;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
+import io.prestosql.Session;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.execution.scheduler.BucketNodeMap;
+import io.prestosql.execution.scheduler.FixedBucketNodeMap;
+import io.prestosql.execution.scheduler.NodeScheduler;
+import io.prestosql.execution.scheduler.group.DynamicBucketNodeMap;
+import io.prestosql.metadata.Split;
+import io.prestosql.operator.BucketPartitionFunction;
+import io.prestosql.operator.PartitionFunction;
+import io.prestosql.spi.Node;
+import io.prestosql.spi.connector.BucketFunction;
+import io.prestosql.spi.connector.ConnectorBucketNodeMap;
+import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
+import io.prestosql.spi.connector.ConnectorPartitionHandle;
+import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.type.Type;
+import io.prestosql.split.EmptySplit;
 
 import javax.inject.Inject;
 

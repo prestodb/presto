@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.atop;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.util.Arrays;
 import java.util.List;
@@ -26,18 +26,18 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.atop.AtopTable.AtopColumn.END_TIME;
-import static com.facebook.presto.atop.AtopTable.AtopColumn.HOST_IP;
-import static com.facebook.presto.atop.AtopTable.AtopColumn.START_TIME;
-import static com.facebook.presto.atop.AtopTable.AtopColumnParser.bigintParser;
-import static com.facebook.presto.atop.AtopTable.AtopColumnParser.varcharParser;
-import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
-import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
-import static com.facebook.presto.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
-import static com.facebook.presto.spi.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
-import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.plugin.atop.AtopTable.AtopColumn.END_TIME;
+import static io.prestosql.plugin.atop.AtopTable.AtopColumn.HOST_IP;
+import static io.prestosql.plugin.atop.AtopTable.AtopColumn.START_TIME;
+import static io.prestosql.plugin.atop.AtopTable.AtopColumnParser.bigintParser;
+import static io.prestosql.plugin.atop.AtopTable.AtopColumnParser.varcharParser;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.StandardTypes.BIGINT;
+import static io.prestosql.spi.type.StandardTypes.DOUBLE;
+import static io.prestosql.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
+import static io.prestosql.spi.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.StandardTypes.VARCHAR;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Objects.requireNonNull;
 
 public enum AtopTable

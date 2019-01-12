@@ -13,11 +13,11 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.operator.scalar.ColorFunctions;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.AbstractIntType;
-import com.facebook.presto.spi.type.TypeSignature;
+import io.prestosql.operator.scalar.ColorFunctions;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.AbstractIntType;
+import io.prestosql.spi.type.TypeSignature;
 
 public class ColorType
         extends AbstractIntType

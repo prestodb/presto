@@ -13,12 +13,12 @@
  */
 package io.prestosql.connector.system.jdbc;
 
-import com.facebook.presto.metadata.QualifiedTablePrefix;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
+import io.prestosql.metadata.QualifiedTablePrefix;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Optional;
 

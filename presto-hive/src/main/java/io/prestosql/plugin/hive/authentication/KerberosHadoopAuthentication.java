@@ -13,13 +13,13 @@
  */
 package io.prestosql.plugin.hive.authentication;
 
-import com.facebook.presto.hive.HdfsConfigurationUpdater;
+import io.prestosql.plugin.hive.HdfsConfigurationUpdater;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import javax.security.auth.Subject;
 
-import static com.facebook.presto.hive.util.ConfigurationUtils.getInitialConfiguration;
+import static io.prestosql.plugin.hive.util.ConfigurationUtils.getInitialConfiguration;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.security.UserGroupInformationShim.createUserGroupInformationForSubject;
 

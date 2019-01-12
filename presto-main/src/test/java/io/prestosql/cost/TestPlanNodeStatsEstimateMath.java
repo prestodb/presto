@@ -13,14 +13,14 @@
  */
 package io.prestosql.cost;
 
-import com.facebook.presto.sql.planner.Symbol;
+import io.prestosql.sql.planner.Symbol;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndMaxDistinctValues;
-import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndSumDistinctValues;
-import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.capStats;
-import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.subtractSubsetStats;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static io.prestosql.cost.PlanNodeStatsEstimateMath.addStatsAndMaxDistinctValues;
+import static io.prestosql.cost.PlanNodeStatsEstimateMath.addStatsAndSumDistinctValues;
+import static io.prestosql.cost.PlanNodeStatsEstimateMath.capStats;
+import static io.prestosql.cost.PlanNodeStatsEstimateMath.subtractSubsetStats;
+import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;

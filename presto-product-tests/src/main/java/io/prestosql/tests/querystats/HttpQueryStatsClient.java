@@ -13,7 +13,6 @@
  */
 package io.prestosql.tests.querystats;
 
-import com.facebook.presto.execution.QueryStats;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.http.client.HttpClient;
@@ -21,6 +20,7 @@ import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
+import io.prestosql.execution.QueryStats;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

@@ -13,11 +13,11 @@
  */
 package io.prestosql.operator.scalar.annotations;
 
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.type.UnknownType;
 import com.google.common.base.Joiner;
+import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.type.UnknownType;
 
 import java.util.List;
 

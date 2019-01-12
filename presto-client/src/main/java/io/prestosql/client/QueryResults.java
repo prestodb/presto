@@ -13,10 +13,10 @@
  */
 package io.prestosql.client;
 
-import com.facebook.presto.spi.PrestoWarning;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.PrestoWarning;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -24,11 +24,11 @@ import javax.annotation.concurrent.Immutable;
 import java.net.URI;
 import java.util.List;
 
-import static com.facebook.presto.client.FixJsonDataUtils.fixData;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.unmodifiableIterable;
+import static io.prestosql.client.FixJsonDataUtils.fixData;
 import static java.util.Objects.requireNonNull;
 
 @Immutable

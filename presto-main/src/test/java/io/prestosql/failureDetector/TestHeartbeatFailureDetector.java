@@ -13,9 +13,6 @@
  */
 package io.prestosql.failureDetector;
 
-import com.facebook.presto.execution.QueryManagerConfig;
-import com.facebook.presto.failureDetector.HeartbeatFailureDetector.Stats;
-import com.facebook.presto.server.InternalCommunicationConfig;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Binder;
@@ -32,6 +29,9 @@ import io.airlift.json.JsonModule;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
+import io.prestosql.execution.QueryManagerConfig;
+import io.prestosql.failureDetector.HeartbeatFailureDetector.Stats;
+import io.prestosql.server.InternalCommunicationConfig;
 import org.testng.annotations.Test;
 
 import javax.ws.rs.GET;

@@ -13,20 +13,20 @@
  */
 package io.prestosql.cost;
 
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.sql.planner.LogicalPlanner;
-import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.planner.assertions.PlanAssert;
-import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.plugin.tpch.TpchConnectorFactory;
+import io.prestosql.sql.planner.LogicalPlanner;
+import io.prestosql.sql.planner.Plan;
+import io.prestosql.sql.planner.assertions.PlanAssert;
+import io.prestosql.sql.planner.assertions.PlanMatchPattern;
+import io.prestosql.sql.planner.plan.TableScanNode;
+import io.prestosql.testing.LocalQueryRunner;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public class TestStatsCalculator
 {

@@ -13,14 +13,14 @@
  */
 package io.prestosql.operator.annotations;
 
-import com.facebook.presto.spi.function.InvocationConvention;
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.TypeSignature;
+import io.prestosql.spi.function.InvocationConvention;
+import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.Signature.internalOperator;
+import static io.prestosql.metadata.Signature.internalOperator;
 import static java.util.Objects.requireNonNull;
 
 public final class OperatorImplementationDependency

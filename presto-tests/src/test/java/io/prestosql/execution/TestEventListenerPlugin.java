@@ -13,14 +13,14 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.execution.TestEventListener.EventsBuilder;
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.eventlistener.EventListener;
-import com.facebook.presto.spi.eventlistener.EventListenerFactory;
-import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
-import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
-import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.execution.TestEventListener.EventsBuilder;
+import io.prestosql.spi.Plugin;
+import io.prestosql.spi.eventlistener.EventListener;
+import io.prestosql.spi.eventlistener.EventListenerFactory;
+import io.prestosql.spi.eventlistener.QueryCompletedEvent;
+import io.prestosql.spi.eventlistener.QueryCreatedEvent;
+import io.prestosql.spi.eventlistener.SplitCompletedEvent;
 
 import java.util.Map;
 

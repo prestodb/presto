@@ -13,16 +13,16 @@
  */
 package io.prestosql.spi.predicate;
 
-import com.facebook.presto.spi.type.TestingTypeDeserializer;
-import com.facebook.presto.spi.type.TestingTypeManager;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slices;
+import io.prestosql.spi.type.TestingTypeDeserializer;
+import io.prestosql.spi.type.TestingTypeManager;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
+import static io.prestosql.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

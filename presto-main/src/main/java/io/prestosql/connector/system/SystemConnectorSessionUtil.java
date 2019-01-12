@@ -13,14 +13,14 @@
  */
 package io.prestosql.connector.system;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.sql.SqlPath;
-import com.facebook.presto.transaction.TransactionId;
+import io.prestosql.Session;
+import io.prestosql.SystemSessionProperties;
+import io.prestosql.metadata.SessionPropertyManager;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.sql.SqlPath;
+import io.prestosql.transaction.TransactionId;
 
 import java.util.Optional;
 

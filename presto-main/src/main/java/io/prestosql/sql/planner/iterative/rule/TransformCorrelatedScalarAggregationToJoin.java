@@ -13,26 +13,26 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.matching.Captures;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.sql.planner.iterative.Lookup;
-import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.optimizations.ScalarAggregationToJoinRewriter;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
-import com.facebook.presto.sql.planner.plan.LateralJoinNode;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
+import io.prestosql.matching.Captures;
+import io.prestosql.matching.Pattern;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.sql.planner.iterative.Lookup;
+import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.optimizations.ScalarAggregationToJoinRewriter;
+import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
+import io.prestosql.sql.planner.plan.LateralJoinNode;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.ProjectNode;
 
 import java.util.Optional;
 
-import static com.facebook.presto.matching.Pattern.nonEmpty;
-import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
-import static com.facebook.presto.sql.planner.plan.Patterns.LateralJoin.correlation;
-import static com.facebook.presto.sql.planner.plan.Patterns.lateralJoin;
-import static com.facebook.presto.util.MorePredicates.isInstanceOfAny;
+import static io.prestosql.matching.Pattern.nonEmpty;
+import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static io.prestosql.sql.planner.plan.Patterns.LateralJoin.correlation;
+import static io.prestosql.sql.planner.plan.Patterns.lateralJoin;
+import static io.prestosql.util.MorePredicates.isInstanceOfAny;
 import static java.util.Objects.requireNonNull;
 
 /**

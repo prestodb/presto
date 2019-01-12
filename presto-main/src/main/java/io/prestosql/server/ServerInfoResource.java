@@ -13,11 +13,11 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.client.ServerInfo;
-import com.facebook.presto.metadata.StaticCatalogStore;
-import com.facebook.presto.spi.NodeState;
 import io.airlift.node.NodeInfo;
+import io.prestosql.client.NodeVersion;
+import io.prestosql.client.ServerInfo;
+import io.prestosql.metadata.StaticCatalogStore;
+import io.prestosql.spi.NodeState;
 
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
@@ -31,9 +31,9 @@ import javax.ws.rs.core.Response;
 
 import java.util.Optional;
 
-import static com.facebook.presto.spi.NodeState.ACTIVE;
-import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
 import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.spi.NodeState.ACTIVE;
+import static io.prestosql.spi.NodeState.SHUTTING_DOWN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;

@@ -13,15 +13,15 @@
  */
 package io.prestosql.block;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockEncodingSerde;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.util.Reflection.methodHandle;
+import static io.prestosql.util.Reflection.methodHandle;
 
 public final class BlockSerdeUtil
 {

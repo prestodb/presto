@@ -13,9 +13,6 @@
  */
 package io.prestosql.server.remotetask;
 
-import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.PrestoTransportException;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -23,6 +20,9 @@ import com.google.common.util.concurrent.ListenableFutureTask;
 import io.airlift.event.client.ServiceUnavailableException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.prestosql.execution.TaskId;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.PrestoTransportException;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -37,10 +37,10 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 
-import static com.facebook.presto.spi.HostAddress.fromUri;
-import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
-import static com.facebook.presto.util.Failures.WORKER_NODE_ERROR;
+import static io.prestosql.spi.HostAddress.fromUri;
+import static io.prestosql.spi.StandardErrorCode.REMOTE_TASK_ERROR;
+import static io.prestosql.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
+import static io.prestosql.util.Failures.WORKER_NODE_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;

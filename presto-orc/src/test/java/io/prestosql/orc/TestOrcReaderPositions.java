@@ -13,14 +13,14 @@
  */
 package io.prestosql.orc;
 
-import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.orc.metadata.Footer;
-import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
-import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
+import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.orc.metadata.Footer;
+import io.prestosql.orc.metadata.statistics.IntegerStatistics;
+import io.prestosql.spi.block.Block;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
@@ -43,18 +43,18 @@ import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.util.Map;
 
-import static com.facebook.presto.orc.OrcEncoding.ORC;
-import static com.facebook.presto.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
-import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
-import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
-import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
-import static com.facebook.presto.orc.OrcTester.MAX_BLOCK_SIZE;
-import static com.facebook.presto.orc.OrcTester.createCustomOrcRecordReader;
-import static com.facebook.presto.orc.OrcTester.createOrcRecordWriter;
-import static com.facebook.presto.orc.OrcTester.createSettableStructObjectInspector;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.orc.OrcEncoding.ORC;
+import static io.prestosql.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
+import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
+import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
+import static io.prestosql.orc.OrcTester.Format.ORC_12;
+import static io.prestosql.orc.OrcTester.MAX_BLOCK_SIZE;
+import static io.prestosql.orc.OrcTester.createCustomOrcRecordReader;
+import static io.prestosql.orc.OrcTester.createOrcRecordWriter;
+import static io.prestosql.orc.OrcTester.createSettableStructObjectInspector;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.SNAPPY;

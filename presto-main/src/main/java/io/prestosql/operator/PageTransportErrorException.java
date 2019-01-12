@@ -13,9 +13,9 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.spi.PrestoException;
+import io.prestosql.spi.PrestoException;
 
-import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
+import static io.prestosql.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
 
 public class PageTransportErrorException
         extends PrestoException

@@ -13,21 +13,21 @@
  */
 package io.prestosql.sql;
 
-import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.spi.PrestoException;
 import io.airlift.joni.Regex;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.operator.scalar.AbstractTestFunctions;
+import io.prestosql.spi.PrestoException;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.type.LikeFunctions.castCharToLikePattern;
-import static com.facebook.presto.type.LikeFunctions.isLikePattern;
-import static com.facebook.presto.type.LikeFunctions.likeChar;
-import static com.facebook.presto.type.LikeFunctions.likePattern;
-import static com.facebook.presto.type.LikeFunctions.likeVarchar;
-import static com.facebook.presto.type.LikeFunctions.unescapeLiteralLikePattern;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.type.LikeFunctions.castCharToLikePattern;
+import static io.prestosql.type.LikeFunctions.isLikePattern;
+import static io.prestosql.type.LikeFunctions.likeChar;
+import static io.prestosql.type.LikeFunctions.likePattern;
+import static io.prestosql.type.LikeFunctions.likeVarchar;
+import static io.prestosql.type.LikeFunctions.unescapeLiteralLikePattern;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertThrows;

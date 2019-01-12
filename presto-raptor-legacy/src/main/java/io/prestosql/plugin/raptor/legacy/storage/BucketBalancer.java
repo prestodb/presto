@@ -13,14 +13,6 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage;
 
-import com.facebook.presto.raptor.NodeSupplier;
-import com.facebook.presto.raptor.RaptorConnectorId;
-import com.facebook.presto.raptor.backup.BackupService;
-import com.facebook.presto.raptor.metadata.BucketNode;
-import com.facebook.presto.raptor.metadata.Distribution;
-import com.facebook.presto.raptor.metadata.ShardManager;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.NodeManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.HashMultimap;
@@ -33,6 +25,14 @@ import com.google.common.collect.Multiset;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.raptor.legacy.NodeSupplier;
+import io.prestosql.plugin.raptor.legacy.RaptorConnectorId;
+import io.prestosql.plugin.raptor.legacy.backup.BackupService;
+import io.prestosql.plugin.raptor.legacy.metadata.BucketNode;
+import io.prestosql.plugin.raptor.legacy.metadata.Distribution;
+import io.prestosql.plugin.raptor.legacy.metadata.ShardManager;
+import io.prestosql.spi.Node;
+import io.prestosql.spi.NodeManager;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 

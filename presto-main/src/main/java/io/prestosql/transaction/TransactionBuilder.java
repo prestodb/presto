@@ -13,9 +13,9 @@
  */
 package io.prestosql.transaction;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.transaction.IsolationLevel;
+import io.prestosql.Session;
+import io.prestosql.security.AccessControl;
+import io.prestosql.spi.transaction.IsolationLevel;
 
 import java.util.function.Consumer;
 import java.util.function.Function;

@@ -13,16 +13,16 @@
  */
 package io.prestosql.metadata;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.security.GrantInfo;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
+import io.prestosql.Session;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.security.AccessControl;
+import io.prestosql.spi.connector.ColumnMetadata;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.security.GrantInfo;
 
 import java.util.List;
 import java.util.Map;

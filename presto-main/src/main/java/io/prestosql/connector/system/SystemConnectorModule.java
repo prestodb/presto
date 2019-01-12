@@ -13,22 +13,6 @@
  */
 package io.prestosql.connector.system;
 
-import com.facebook.presto.connector.ConnectorManager;
-import com.facebook.presto.connector.system.jdbc.AttributeJdbcTable;
-import com.facebook.presto.connector.system.jdbc.CatalogJdbcTable;
-import com.facebook.presto.connector.system.jdbc.ColumnJdbcTable;
-import com.facebook.presto.connector.system.jdbc.ProcedureColumnJdbcTable;
-import com.facebook.presto.connector.system.jdbc.ProcedureJdbcTable;
-import com.facebook.presto.connector.system.jdbc.PseudoColumnJdbcTable;
-import com.facebook.presto.connector.system.jdbc.SchemaJdbcTable;
-import com.facebook.presto.connector.system.jdbc.SuperTableJdbcTable;
-import com.facebook.presto.connector.system.jdbc.SuperTypeJdbcTable;
-import com.facebook.presto.connector.system.jdbc.TableJdbcTable;
-import com.facebook.presto.connector.system.jdbc.TableTypeJdbcTable;
-import com.facebook.presto.connector.system.jdbc.TypesJdbcTable;
-import com.facebook.presto.connector.system.jdbc.UdtJdbcTable;
-import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.procedure.Procedure;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -36,6 +20,22 @@ import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import com.google.inject.multibindings.MultibindingsScanner;
 import com.google.inject.multibindings.ProvidesIntoSet;
+import io.prestosql.connector.ConnectorManager;
+import io.prestosql.connector.system.jdbc.AttributeJdbcTable;
+import io.prestosql.connector.system.jdbc.CatalogJdbcTable;
+import io.prestosql.connector.system.jdbc.ColumnJdbcTable;
+import io.prestosql.connector.system.jdbc.ProcedureColumnJdbcTable;
+import io.prestosql.connector.system.jdbc.ProcedureJdbcTable;
+import io.prestosql.connector.system.jdbc.PseudoColumnJdbcTable;
+import io.prestosql.connector.system.jdbc.SchemaJdbcTable;
+import io.prestosql.connector.system.jdbc.SuperTableJdbcTable;
+import io.prestosql.connector.system.jdbc.SuperTypeJdbcTable;
+import io.prestosql.connector.system.jdbc.TableJdbcTable;
+import io.prestosql.connector.system.jdbc.TableTypeJdbcTable;
+import io.prestosql.connector.system.jdbc.TypesJdbcTable;
+import io.prestosql.connector.system.jdbc.UdtJdbcTable;
+import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.procedure.Procedure;
 
 import javax.inject.Inject;
 

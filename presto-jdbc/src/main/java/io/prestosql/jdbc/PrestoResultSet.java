@@ -13,16 +13,16 @@
  */
 package io.prestosql.jdbc;
 
-import com.facebook.presto.client.Column;
-import com.facebook.presto.client.IntervalDayTime;
-import com.facebook.presto.client.IntervalYearMonth;
-import com.facebook.presto.client.QueryError;
-import com.facebook.presto.client.QueryStatusInfo;
-import com.facebook.presto.client.StatementClient;
-import com.facebook.presto.jdbc.ColumnInfo.Nullable;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.client.Column;
+import io.prestosql.client.IntervalDayTime;
+import io.prestosql.client.IntervalYearMonth;
+import io.prestosql.client.QueryError;
+import io.prestosql.client.QueryStatusInfo;
+import io.prestosql.client.StatementClient;
+import io.prestosql.jdbc.ColumnInfo.Nullable;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -60,12 +60,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.jdbc.ColumnInfo.setTypeInfo;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.concat;
 import static com.google.common.collect.Iterators.transform;
+import static io.prestosql.jdbc.ColumnInfo.setTypeInfo;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ROUND_HALF_UP;
 import static java.util.Locale.ENGLISH;

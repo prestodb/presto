@@ -13,31 +13,31 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.connector.ConnectorManager;
-import com.facebook.presto.eventlistener.EventListenerManager;
-import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControlManager;
-import com.facebook.presto.server.security.PasswordAuthenticatorManager;
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.block.BlockEncoding;
-import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
-import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.eventlistener.EventListenerFactory;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
-import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
-import com.facebook.presto.spi.security.SystemAccessControlFactory;
-import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
-import com.facebook.presto.spi.type.ParametricType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.airlift.resolver.ArtifactResolver;
 import io.airlift.resolver.DefaultArtifact;
+import io.prestosql.block.BlockEncodingManager;
+import io.prestosql.connector.ConnectorManager;
+import io.prestosql.eventlistener.EventListenerManager;
+import io.prestosql.execution.resourceGroups.ResourceGroupManager;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AccessControlManager;
+import io.prestosql.server.security.PasswordAuthenticatorManager;
+import io.prestosql.spi.Plugin;
+import io.prestosql.spi.block.BlockEncoding;
+import io.prestosql.spi.classloader.ThreadContextClassLoader;
+import io.prestosql.spi.connector.ConnectorFactory;
+import io.prestosql.spi.eventlistener.EventListenerFactory;
+import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
+import io.prestosql.spi.security.PasswordAuthenticatorFactory;
+import io.prestosql.spi.security.SystemAccessControlFactory;
+import io.prestosql.spi.session.SessionPropertyConfigurationManagerFactory;
+import io.prestosql.spi.type.ParametricType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.type.TypeRegistry;
 import org.sonatype.aether.artifact.Artifact;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -55,9 +55,9 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
-import static com.facebook.presto.server.PluginDiscovery.discoverPlugins;
-import static com.facebook.presto.server.PluginDiscovery.writePluginServices;
+import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
+import static io.prestosql.server.PluginDiscovery.discoverPlugins;
+import static io.prestosql.server.PluginDiscovery.writePluginServices;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe

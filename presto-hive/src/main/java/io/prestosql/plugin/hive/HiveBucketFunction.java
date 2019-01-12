@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.spi.BucketFunction;
-import com.facebook.presto.spi.Page;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.connector.BucketFunction;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import java.util.List;

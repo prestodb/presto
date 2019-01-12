@@ -13,7 +13,7 @@
  */
 package io.prestosql.orc;
 
-import com.facebook.presto.orc.stream.OrcDataOutput;
+import io.prestosql.orc.stream.OrcDataOutput;
 
 import java.io.IOException;
 import java.util.List;

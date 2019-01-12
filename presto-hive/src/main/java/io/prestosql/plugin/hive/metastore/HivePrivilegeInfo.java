@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.hive.metastore;
 
-import com.facebook.presto.spi.security.Privilege;
-import com.facebook.presto.spi.security.PrivilegeInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.security.Privilege;
+import io.prestosql.spi.security.PrivilegeInfo;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 
 import javax.annotation.concurrent.Immutable;
@@ -27,12 +27,12 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
-import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
-import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
-import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
-import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
+import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
+import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
+import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
 import static java.util.Locale.ENGLISH;
 
 @Immutable

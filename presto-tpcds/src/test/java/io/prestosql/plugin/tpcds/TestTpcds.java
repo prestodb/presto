@@ -13,14 +13,14 @@
  */
 package io.prestosql.plugin.tpcds;
 
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.tests.AbstractTestQueryFramework;
+import io.prestosql.testing.MaterializedResult;
+import io.prestosql.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 
-import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static io.prestosql.testing.MaterializedResult.resultBuilder;
+import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 

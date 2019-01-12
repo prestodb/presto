@@ -13,10 +13,10 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.failureDetector.FailureDetectorConfig;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.Duration;
+import io.prestosql.failureDetector.FailureDetectorConfig;
 import org.testng.annotations.Test;
 
 import java.util.Map;

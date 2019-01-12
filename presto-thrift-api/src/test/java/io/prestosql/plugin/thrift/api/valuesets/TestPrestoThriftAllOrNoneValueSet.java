@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.thrift.api.valuesets;
 
-import com.facebook.presto.spi.predicate.ValueSet;
+import io.prestosql.spi.predicate.ValueSet;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.connector.thrift.api.valuesets.PrestoThriftValueSet.fromValueSet;
-import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
+import static io.prestosql.plugin.thrift.api.valuesets.PrestoThriftValueSet.fromValueSet;
+import static io.prestosql.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;

@@ -13,24 +13,24 @@
  */
 package io.prestosql.benchmark;
 
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.operator.Driver;
-import com.facebook.presto.operator.DriverContext;
-import com.facebook.presto.operator.DriverFactory;
-import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.gen.JoinCompiler;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.testing.NullOutputOperator.NullOutputOperatorFactory;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.operator.Driver;
+import io.prestosql.operator.DriverContext;
+import io.prestosql.operator.DriverFactory;
+import io.prestosql.operator.OperatorFactory;
+import io.prestosql.operator.TaskContext;
+import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.sql.gen.JoinCompiler;
+import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.testing.LocalQueryRunner;
+import io.prestosql.testing.NullOutputOperator.NullOutputOperatorFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.OptionalInt;
 
-import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
+import static io.prestosql.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 
 public abstract class AbstractSimpleOperatorBenchmark
         extends AbstractOperatorBenchmark

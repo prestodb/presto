@@ -13,19 +13,19 @@
  */
 package io.prestosql.operator.index;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.operator.GroupByHash;
-import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.operator.Work;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
+import io.prestosql.Session;
+import io.prestosql.operator.GroupByHash;
+import io.prestosql.operator.GroupByIdBlock;
+import io.prestosql.operator.Work;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.gen.JoinCompiler;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntListIterator;
@@ -36,11 +36,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
-import static com.facebook.presto.operator.index.IndexSnapshot.UNLOADED_INDEX_KEY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.operator.GroupByHash.createGroupByHash;
+import static io.prestosql.operator.index.IndexSnapshot.UNLOADED_INDEX_KEY;
 import static java.util.Objects.requireNonNull;
 
 public class UnloadedIndexKeyRecordSet

@@ -13,10 +13,10 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
 
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
 
 public class TestIntegerType
         extends AbstractTestType

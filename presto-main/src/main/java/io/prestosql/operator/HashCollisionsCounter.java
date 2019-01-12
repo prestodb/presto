@@ -15,7 +15,7 @@ package io.prestosql.operator;
 
 import java.util.function.Supplier;
 
-import static com.facebook.presto.operator.HashCollisionsInfo.createHashCollisionsInfo;
+import static io.prestosql.operator.HashCollisionsInfo.createHashCollisionsInfo;
 
 public class HashCollisionsCounter
         implements Supplier<OperatorInfo>

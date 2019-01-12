@@ -13,14 +13,14 @@
  */
 package io.prestosql.sql.query;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.sql.SqlPath;
+import io.prestosql.Session;
+import io.prestosql.spi.security.Identity;
+import io.prestosql.sql.SqlPath;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public class TestSessionFunctions
 {

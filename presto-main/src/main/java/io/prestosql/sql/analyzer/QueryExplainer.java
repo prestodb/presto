@@ -13,28 +13,28 @@
  */
 package io.prestosql.sql.analyzer;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.cost.CostCalculator;
-import com.facebook.presto.cost.StatsCalculator;
-import com.facebook.presto.execution.DataDefinitionTask;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.LogicalPlanner;
-import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.planner.PlanFragmenter;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.PlanOptimizers;
-import com.facebook.presto.sql.planner.SubPlan;
-import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
-import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter;
-import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
-import com.facebook.presto.sql.tree.ExplainType.Type;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.cost.CostCalculator;
+import io.prestosql.cost.StatsCalculator;
+import io.prestosql.execution.DataDefinitionTask;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AccessControl;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.LogicalPlanner;
+import io.prestosql.sql.planner.Plan;
+import io.prestosql.sql.planner.PlanFragmenter;
+import io.prestosql.sql.planner.PlanNodeIdAllocator;
+import io.prestosql.sql.planner.PlanOptimizers;
+import io.prestosql.sql.planner.SubPlan;
+import io.prestosql.sql.planner.optimizations.PlanOptimizer;
+import io.prestosql.sql.planner.planPrinter.IOPlanPrinter;
+import io.prestosql.sql.planner.planPrinter.PlanPrinter;
+import io.prestosql.sql.tree.ExplainType.Type;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Statement;
 
 import javax.inject.Inject;
 
@@ -42,8 +42,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.textIOPlan;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.sql.planner.planPrinter.IOPlanPrinter.textIOPlan;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

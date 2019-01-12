@@ -13,17 +13,17 @@
  */
 package io.prestosql.connector.system.jdbc;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.InMemoryRecordSet;
-import com.facebook.presto.spi.InMemoryRecordSet.Builder;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.ParametricType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.InMemoryRecordSet;
+import io.prestosql.spi.connector.InMemoryRecordSet.Builder;
+import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.ParametricType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
@@ -31,13 +31,13 @@ import java.sql.DatabaseMetaData;
 import java.sql.Types;
 import java.util.Collection;
 
-import static com.facebook.presto.connector.system.jdbc.ColumnJdbcTable.columnSize;
-import static com.facebook.presto.connector.system.jdbc.ColumnJdbcTable.jdbcDataType;
-import static com.facebook.presto.connector.system.jdbc.ColumnJdbcTable.numPrecRadix;
-import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.prestosql.connector.system.jdbc.ColumnJdbcTable.columnSize;
+import static io.prestosql.connector.system.jdbc.ColumnJdbcTable.jdbcDataType;
+import static io.prestosql.connector.system.jdbc.ColumnJdbcTable.numPrecRadix;
+import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
 public class TypesJdbcTable

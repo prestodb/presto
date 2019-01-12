@@ -13,27 +13,27 @@
  */
 package io.prestosql.sql.analyzer;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.rewrite.StatementRewrite;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.GroupingOperation;
-import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import io.prestosql.Session;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AccessControl;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.rewrite.StatementRewrite;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.GroupingOperation;
+import io.prestosql.sql.tree.Statement;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExpressions;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING;
+import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
+import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractExpressions;
+import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING;
 import static java.util.Objects.requireNonNull;
 
 public class Analyzer

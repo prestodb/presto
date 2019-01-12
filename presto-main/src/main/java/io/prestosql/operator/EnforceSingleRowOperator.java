@@ -13,17 +13,17 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.FixedWidthBlock;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import io.airlift.slice.Slices;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.FixedWidthBlock;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static io.prestosql.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static java.util.Objects.requireNonNull;
 
 public class EnforceSingleRowOperator

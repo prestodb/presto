@@ -13,37 +13,37 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.metadata.SqlAggregationFunction;
-import com.facebook.presto.operator.ParametricImplementationsGroup;
-import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType;
-import com.facebook.presto.operator.aggregation.state.StateCompiler;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.AccumulatorStateFactory;
-import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
+import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.SqlAggregationFunction;
+import io.prestosql.operator.ParametricImplementationsGroup;
+import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
+import io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata;
+import io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType;
+import io.prestosql.operator.aggregation.state.StateCompiler;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.function.AccumulatorStateFactory;
+import io.prestosql.spi.function.AccumulatorStateSerializer;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
-import static com.facebook.presto.operator.ParametricFunctionHelpers.bindDependencies;
-import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
-import static com.facebook.presto.operator.aggregation.state.StateCompiler.generateStateSerializer;
-import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
-import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
+import static io.prestosql.operator.ParametricFunctionHelpers.bindDependencies;
+import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
+import static io.prestosql.operator.aggregation.state.StateCompiler.generateStateSerializer;
+import static io.prestosql.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
+import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

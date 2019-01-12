@@ -13,23 +13,23 @@
  */
 package io.prestosql.sql;
 
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Identifier;
-import com.facebook.presto.sql.tree.IsNullPredicate;
-import com.facebook.presto.sql.tree.LikePredicate;
-import com.facebook.presto.sql.tree.LogicalBinaryExpression;
-import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.NotExpression;
-import com.facebook.presto.sql.tree.StringLiteral;
+import io.prestosql.sql.tree.ComparisonExpression;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Identifier;
+import io.prestosql.sql.tree.IsNullPredicate;
+import io.prestosql.sql.tree.LikePredicate;
+import io.prestosql.sql.tree.LogicalBinaryExpression;
+import io.prestosql.sql.tree.LongLiteral;
+import io.prestosql.sql.tree.NotExpression;
+import io.prestosql.sql.tree.StringLiteral;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.sql.ExpressionUtils.normalize;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
+import static io.prestosql.sql.ExpressionUtils.normalize;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
 import static org.testng.Assert.assertEquals;
 
 public class TestExpressionUtils

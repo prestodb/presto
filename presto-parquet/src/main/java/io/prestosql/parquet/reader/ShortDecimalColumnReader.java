@@ -13,11 +13,11 @@
  */
 package io.prestosql.parquet.reader;
 
-import com.facebook.presto.parquet.RichColumnDescriptor;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.parquet.RichColumnDescriptor;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.Type;
 
-import static com.facebook.presto.parquet.ParquetTypeUtils.getShortDecimalValue;
+import static io.prestosql.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 

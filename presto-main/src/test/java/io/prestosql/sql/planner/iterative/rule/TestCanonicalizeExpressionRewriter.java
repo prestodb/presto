@@ -13,10 +13,10 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
+import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
+import static io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static org.testng.Assert.assertEquals;
 
 public class TestCanonicalizeExpressionRewriter

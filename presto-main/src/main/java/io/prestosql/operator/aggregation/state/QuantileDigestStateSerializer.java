@@ -13,12 +13,12 @@
  */
 package io.prestosql.operator.aggregation.state;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import com.facebook.presto.spi.type.QuantileDigestType;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.stats.QuantileDigest;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.AccumulatorStateSerializer;
+import io.prestosql.spi.type.QuantileDigestType;
+import io.prestosql.spi.type.Type;
 
 public class QuantileDigestStateSerializer
         implements AccumulatorStateSerializer<QuantileDigestState>

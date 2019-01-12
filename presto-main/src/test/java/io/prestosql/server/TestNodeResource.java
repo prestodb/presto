@@ -13,20 +13,20 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.server.testing.TestingPrestoServer;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.jetty.JettyHttpClient;
+import io.prestosql.server.testing.TestingPrestoServer;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.failureDetector.HeartbeatFailureDetector.Stats;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.testing.Closeables.closeQuietly;
+import static io.prestosql.failureDetector.HeartbeatFailureDetector.Stats;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)

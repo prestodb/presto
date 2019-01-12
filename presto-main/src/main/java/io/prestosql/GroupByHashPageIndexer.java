@@ -13,20 +13,20 @@
  */
 package io.prestosql;
 
-import com.facebook.presto.operator.GroupByHash;
-import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.operator.Work;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageIndexer;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.JoinCompiler;
+import io.prestosql.operator.GroupByHash;
+import io.prestosql.operator.GroupByIdBlock;
+import io.prestosql.operator.Work;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageIndexer;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.gen.JoinCompiler;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.operator.UpdateMemory.NOOP;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.operator.UpdateMemory.NOOP;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

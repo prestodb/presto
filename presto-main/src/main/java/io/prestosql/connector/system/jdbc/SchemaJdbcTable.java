@@ -13,28 +13,28 @@
  */
 package io.prestosql.connector.system.jdbc;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.InMemoryRecordSet;
-import com.facebook.presto.spi.InMemoryRecordSet.Builder;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
+import io.prestosql.Session;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AccessControl;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.InMemoryRecordSet;
+import io.prestosql.spi.connector.InMemoryRecordSet.Builder;
+import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
 import java.util.Optional;
 
-import static com.facebook.presto.connector.system.SystemConnectorSessionUtil.toSession;
-import static com.facebook.presto.connector.system.jdbc.FilterUtil.filter;
-import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
-import static com.facebook.presto.metadata.MetadataListing.listSchemas;
-import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.prestosql.connector.system.SystemConnectorSessionUtil.toSession;
+import static io.prestosql.connector.system.jdbc.FilterUtil.filter;
+import static io.prestosql.metadata.MetadataListing.listCatalogs;
+import static io.prestosql.metadata.MetadataListing.listSchemas;
+import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
 public class SchemaJdbcTable

@@ -13,8 +13,8 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.spi.type.BigintType;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.type.BigintType;
 import org.testng.annotations.Test;
 
 import java.util.Set;

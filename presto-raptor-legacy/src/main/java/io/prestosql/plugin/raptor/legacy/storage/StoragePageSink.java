@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.raptor.legacy.storage;
 
-import com.facebook.presto.raptor.metadata.ShardInfo;
-import com.facebook.presto.spi.Page;
+import io.prestosql.plugin.raptor.legacy.metadata.ShardInfo;
+import io.prestosql.spi.Page;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;

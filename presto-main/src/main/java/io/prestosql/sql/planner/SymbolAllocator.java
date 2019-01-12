@@ -13,15 +13,15 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.analyzer.Field;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.GroupingOperation;
-import com.facebook.presto.sql.tree.Identifier;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.primitives.Ints;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.analyzer.Field;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.GroupingOperation;
+import io.prestosql.sql.tree.Identifier;
+import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.HashMap;
 import java.util.Map;

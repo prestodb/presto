@@ -13,8 +13,8 @@
  */
 package io.prestosql.sql.gen;
 
-import com.facebook.presto.sql.relational.RowExpression;
 import io.airlift.bytecode.ClassDefinition;
+import io.prestosql.sql.relational.RowExpression;
 
 import java.util.List;
 

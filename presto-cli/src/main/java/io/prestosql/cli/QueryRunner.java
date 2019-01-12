@@ -13,10 +13,10 @@
  */
 package io.prestosql.cli;
 
-import com.facebook.presto.client.ClientSession;
-import com.facebook.presto.client.SocketChannelSocketFactory;
-import com.facebook.presto.client.StatementClient;
 import com.google.common.net.HostAndPort;
+import io.prestosql.client.ClientSession;
+import io.prestosql.client.SocketChannelSocketFactory;
+import io.prestosql.client.StatementClient;
 import okhttp3.OkHttpClient;
 
 import java.io.Closeable;
@@ -25,17 +25,17 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.client.ClientSession.stripTransactionId;
-import static com.facebook.presto.client.OkHttpUtil.basicAuth;
-import static com.facebook.presto.client.OkHttpUtil.setupCookieJar;
-import static com.facebook.presto.client.OkHttpUtil.setupHttpProxy;
-import static com.facebook.presto.client.OkHttpUtil.setupKerberos;
-import static com.facebook.presto.client.OkHttpUtil.setupSocksProxy;
-import static com.facebook.presto.client.OkHttpUtil.setupSsl;
-import static com.facebook.presto.client.OkHttpUtil.setupTimeouts;
-import static com.facebook.presto.client.OkHttpUtil.tokenAuth;
-import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.client.ClientSession.stripTransactionId;
+import static io.prestosql.client.OkHttpUtil.basicAuth;
+import static io.prestosql.client.OkHttpUtil.setupCookieJar;
+import static io.prestosql.client.OkHttpUtil.setupHttpProxy;
+import static io.prestosql.client.OkHttpUtil.setupKerberos;
+import static io.prestosql.client.OkHttpUtil.setupSocksProxy;
+import static io.prestosql.client.OkHttpUtil.setupSsl;
+import static io.prestosql.client.OkHttpUtil.setupTimeouts;
+import static io.prestosql.client.OkHttpUtil.tokenAuth;
+import static io.prestosql.client.StatementClientFactory.newStatementClient;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 

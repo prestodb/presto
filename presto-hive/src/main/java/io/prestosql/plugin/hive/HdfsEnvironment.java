@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.authentication.GenericExceptionAction;
-import com.facebook.presto.hive.authentication.HdfsAuthentication;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.security.Identity;
 import io.prestosql.hadoop.HadoopFileSystemCache;
 import io.prestosql.hadoop.HadoopNative;
+import io.prestosql.plugin.hive.authentication.GenericExceptionAction;
+import io.prestosql.plugin.hive.authentication.HdfsAuthentication;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.security.Identity;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;

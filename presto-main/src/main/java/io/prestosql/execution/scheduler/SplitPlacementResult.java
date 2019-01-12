@@ -13,10 +13,10 @@
  */
 package io.prestosql.execution.scheduler;
 
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.Node;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.metadata.Split;
+import io.prestosql.spi.Node;
 
 import static java.util.Objects.requireNonNull;
 

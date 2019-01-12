@@ -13,7 +13,7 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.spi.ErrorCode;
+import io.prestosql.spi.ErrorCode;
 
 import javax.annotation.Nullable;
 

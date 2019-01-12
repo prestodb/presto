@@ -13,15 +13,15 @@
  */
 package io.prestosql.plugin.jmx;
 
-import com.facebook.presto.connector.jmx.util.RebindSafeMBeanServer;
-import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.connector.Connector;
-import com.facebook.presto.spi.connector.ConnectorContext;
-import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.inject.Injector;
 import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
+import io.prestosql.plugin.jmx.util.RebindSafeMBeanServer;
+import io.prestosql.spi.NodeManager;
+import io.prestosql.spi.connector.Connector;
+import io.prestosql.spi.connector.ConnectorContext;
+import io.prestosql.spi.connector.ConnectorFactory;
+import io.prestosql.spi.connector.ConnectorHandleResolver;
 
 import javax.management.MBeanServer;
 

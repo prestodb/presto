@@ -15,7 +15,7 @@ package io.prestosql.plugin.thrift.api;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.connector.thrift.api.NameValidationUtils.checkValidName;
+import static io.prestosql.plugin.thrift.api.NameValidationUtils.checkValidName;
 import static org.testng.Assert.assertThrows;
 
 public class TestNameValidationUtils

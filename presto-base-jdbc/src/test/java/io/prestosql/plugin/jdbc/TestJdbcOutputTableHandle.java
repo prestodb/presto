@@ -16,9 +16,9 @@ package io.prestosql.plugin.jdbc;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.plugin.jdbc.MetadataUtil.OUTPUT_TABLE_CODEC;
-import static com.facebook.presto.plugin.jdbc.MetadataUtil.assertJsonRoundTrip;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.plugin.jdbc.MetadataUtil.OUTPUT_TABLE_CODEC;
+import static io.prestosql.plugin.jdbc.MetadataUtil.assertJsonRoundTrip;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 
 public class TestJdbcOutputTableHandle
 {

@@ -13,10 +13,10 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -24,9 +24,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
-import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
+import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static org.testng.Assert.assertEquals;
 
 public class TestSortExpressionExtractor

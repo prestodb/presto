@@ -13,20 +13,20 @@
  */
 package io.prestosql.sql.planner.plan;
 
-import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
-import com.facebook.presto.spi.statistics.ColumnStatisticType;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
 import io.airlift.json.JsonCodec;
+import io.prestosql.spi.statistics.ColumnStatisticMetadata;
+import io.prestosql.spi.statistics.ColumnStatisticType;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.SymbolAllocator;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor.ColumnStatisticMetadataKeyDeserializer.deserialize;
-import static com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor.ColumnStatisticMetadataKeySerializer.serialize;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static io.prestosql.spi.statistics.TableStatisticType.ROW_COUNT;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.sql.planner.plan.StatisticAggregationsDescriptor.ColumnStatisticMetadataKeyDeserializer.deserialize;
+import static io.prestosql.sql.planner.plan.StatisticAggregationsDescriptor.ColumnStatisticMetadataKeySerializer.serialize;
+import static io.prestosql.testing.assertions.Assert.assertEquals;
 
 public class TestStatisticAggregationsDescriptor
 {

@@ -13,16 +13,16 @@
  */
 package io.prestosql.plugin.kafka.util;
 
-import com.facebook.presto.kafka.KafkaPlugin;
-import com.facebook.presto.kafka.KafkaTopicDescription;
-import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.TestingPrestoClient;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import io.airlift.json.JsonCodec;
+import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.plugin.kafka.KafkaPlugin;
+import io.prestosql.plugin.kafka.KafkaTopicDescription;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.tests.TestingPrestoClient;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -31,7 +31,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
-import static com.facebook.presto.kafka.util.EmbeddedKafka.CloseableProducer;
+import static io.prestosql.plugin.kafka.util.EmbeddedKafka.CloseableProducer;
 import static java.lang.String.format;
 
 public final class TestUtils

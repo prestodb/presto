@@ -13,19 +13,19 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.TestEventListenerPlugin.TestingEventListenerPlugin;
-import com.facebook.presto.resourceGroups.ResourceGroupManagerPlugin;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
-import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
-import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.Session;
+import io.prestosql.execution.TestEventListenerPlugin.TestingEventListenerPlugin;
+import io.prestosql.plugin.resourcegroups.ResourceGroupManagerPlugin;
+import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.eventlistener.QueryCompletedEvent;
+import io.prestosql.spi.eventlistener.QueryCreatedEvent;
+import io.prestosql.spi.eventlistener.SplitCompletedEvent;
+import io.prestosql.testing.MaterializedResult;
+import io.prestosql.tests.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -37,9 +37,9 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.execution.TestQueues.createResourceGroupId;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.execution.TestQueues.createResourceGroupId;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

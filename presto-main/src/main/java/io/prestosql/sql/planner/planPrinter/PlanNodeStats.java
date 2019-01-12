@@ -13,18 +13,18 @@
  */
 package io.prestosql.sql.planner.planPrinter;
 
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.util.Mergeable;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.util.Mergeable;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.util.MoreMaps.mergeMaps;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.prestosql.util.MoreMaps.mergeMaps;
 import static java.lang.Double.max;
 import static java.lang.Math.sqrt;
 import static java.util.Objects.requireNonNull;

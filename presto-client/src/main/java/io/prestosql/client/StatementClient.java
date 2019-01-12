@@ -13,7 +13,7 @@
  */
 package io.prestosql.client;
 
-import com.facebook.presto.spi.type.TimeZoneKey;
+import io.prestosql.spi.type.TimeZoneKey;
 
 import javax.annotation.Nullable;
 

@@ -13,11 +13,11 @@
  */
 package io.prestosql.sql.analyzer;
 
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import io.prestosql.sql.tree.QualifiedName;
 
 import javax.annotation.concurrent.Immutable;
 

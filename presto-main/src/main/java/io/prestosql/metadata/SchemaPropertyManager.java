@@ -13,7 +13,7 @@
  */
 package io.prestosql.metadata;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
+import static io.prestosql.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 
 public class SchemaPropertyManager
         extends AbstractPropertyManager

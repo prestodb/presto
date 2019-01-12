@@ -22,10 +22,10 @@ import java.lang.reflect.Field;
 import java.math.BigInteger;
 import java.nio.ByteOrder;
 
-import static com.facebook.presto.spi.type.Decimals.MAX_PRECISION;
-import static com.facebook.presto.spi.type.Decimals.longTenToNth;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.prestosql.spi.type.Decimals.MAX_PRECISION;
+import static io.prestosql.spi.type.Decimals.longTenToNth;
 import static java.lang.String.format;
 import static java.lang.System.arraycopy;
 import static java.util.Arrays.fill;

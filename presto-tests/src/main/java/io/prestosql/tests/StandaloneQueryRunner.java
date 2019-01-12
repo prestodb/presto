@@ -13,27 +13,27 @@
  */
 package io.prestosql.tests;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.cost.StatsCalculator;
-import com.facebook.presto.metadata.AllNodes;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.split.PageSourceManager;
-import com.facebook.presto.split.SplitManager;
-import com.facebook.presto.sql.parser.SqlParserOptions;
-import com.facebook.presto.sql.planner.NodePartitioningManager;
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.testing.TestingAccessControlManager;
-import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.Closeables;
+import io.prestosql.Session;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.cost.StatsCalculator;
+import io.prestosql.metadata.AllNodes;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.metadata.SessionPropertyManager;
+import io.prestosql.server.testing.TestingPrestoServer;
+import io.prestosql.spi.Node;
+import io.prestosql.spi.Plugin;
+import io.prestosql.split.PageSourceManager;
+import io.prestosql.split.SplitManager;
+import io.prestosql.sql.parser.SqlParserOptions;
+import io.prestosql.sql.planner.NodePartitioningManager;
+import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.TestingAccessControlManager;
+import io.prestosql.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
 
 import java.util.List;
@@ -43,8 +43,8 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
-import static com.facebook.presto.tests.AbstractTestQueries.TEST_SYSTEM_PROPERTIES;
+import static io.prestosql.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
+import static io.prestosql.tests.AbstractTestQueries.TEST_SYSTEM_PROPERTIES;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 

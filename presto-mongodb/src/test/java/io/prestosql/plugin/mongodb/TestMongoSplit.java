@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.mongodb;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;

@@ -13,9 +13,9 @@
  */
 package io.prestosql.sql.analyzer;
 
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.util.List;
 import java.util.function.Function;

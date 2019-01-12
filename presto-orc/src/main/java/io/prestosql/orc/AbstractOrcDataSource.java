@@ -30,10 +30,10 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.orc.OrcDataSourceUtils.getDiskRangeSlice;
-import static com.facebook.presto.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.orc.OrcDataSourceUtils.getDiskRangeSlice;
+import static io.prestosql.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

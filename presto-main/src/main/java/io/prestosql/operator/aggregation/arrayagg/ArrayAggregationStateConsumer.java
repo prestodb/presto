@@ -13,7 +13,7 @@
  */
 package io.prestosql.operator.aggregation.arrayagg;
 
-import com.facebook.presto.spi.block.Block;
+import io.prestosql.spi.block.Block;
 
 public interface ArrayAggregationStateConsumer
 {

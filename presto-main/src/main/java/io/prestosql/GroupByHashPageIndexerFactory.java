@@ -13,11 +13,11 @@
  */
 package io.prestosql;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageIndexer;
-import com.facebook.presto.spi.PageIndexerFactory;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.JoinCompiler;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageIndexer;
+import io.prestosql.spi.PageIndexerFactory;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.gen.JoinCompiler;
 
 import javax.inject.Inject;
 

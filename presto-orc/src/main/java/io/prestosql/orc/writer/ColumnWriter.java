@@ -13,12 +13,12 @@
  */
 package io.prestosql.orc.writer;
 
-import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
-import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
-import com.facebook.presto.orc.stream.StreamDataOutput;
-import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.orc.metadata.ColumnEncoding;
+import io.prestosql.orc.metadata.CompressedMetadataWriter;
+import io.prestosql.orc.metadata.statistics.ColumnStatistics;
+import io.prestosql.orc.stream.StreamDataOutput;
+import io.prestosql.spi.block.Block;
 
 import java.io.IOException;
 import java.util.List;

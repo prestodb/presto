@@ -13,25 +13,25 @@
  */
 package io.prestosql.rcfile.binary;
 
-import com.facebook.presto.rcfile.ColumnData;
-import com.facebook.presto.rcfile.EncodeOutput;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.Decimals;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import io.prestosql.rcfile.ColumnData;
+import io.prestosql.rcfile.EncodeOutput;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.Type;
 
 import java.math.BigInteger;
 
-import static com.facebook.presto.rcfile.RcFileDecoderUtils.decodeVIntSize;
-import static com.facebook.presto.rcfile.RcFileDecoderUtils.readVInt;
-import static com.facebook.presto.rcfile.RcFileDecoderUtils.writeVInt;
-import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
-import static com.facebook.presto.spi.type.Decimals.rescale;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.rcfile.RcFileDecoderUtils.decodeVIntSize;
+import static io.prestosql.rcfile.RcFileDecoderUtils.readVInt;
+import static io.prestosql.rcfile.RcFileDecoderUtils.writeVInt;
+import static io.prestosql.spi.type.Decimals.isShortDecimal;
+import static io.prestosql.spi.type.Decimals.rescale;
 import static java.lang.Math.toIntExact;
 
 public class DecimalEncoding

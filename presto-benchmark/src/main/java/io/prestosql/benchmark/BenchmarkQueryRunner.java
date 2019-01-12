@@ -13,16 +13,16 @@
  */
 package io.prestosql.benchmark;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.plugin.tpch.TpchConnectorFactory;
+import io.prestosql.testing.LocalQueryRunner;
 
 import java.util.Map;
 
-import static com.facebook.presto.Session.SessionBuilder;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.Session.SessionBuilder;
+import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public final class BenchmarkQueryRunner
 {

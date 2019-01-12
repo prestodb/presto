@@ -13,19 +13,19 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.execution.QueryState;
+import io.prestosql.spi.QueryId;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import org.joda.time.DateTime;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.execution.QueryState.QUEUED;
-import static com.facebook.presto.server.QueryProgressStats.createQueryProgressStats;
+import static io.prestosql.execution.QueryState.QUEUED;
+import static io.prestosql.server.QueryProgressStats.createQueryProgressStats;
 import static java.util.Objects.requireNonNull;
 
 public class QueryStateInfo

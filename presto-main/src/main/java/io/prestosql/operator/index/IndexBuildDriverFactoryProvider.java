@@ -13,21 +13,21 @@
  */
 package io.prestosql.operator.index;
 
-import com.facebook.presto.operator.DriverFactory;
-import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.operator.DriverFactory;
+import io.prestosql.operator.OperatorFactory;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
-import static com.facebook.presto.operator.index.PageBufferOperator.PageBufferOperatorFactory;
-import static com.facebook.presto.operator.index.PagesIndexBuilderOperator.PagesIndexBuilderOperatorFactory;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
+import static io.prestosql.operator.index.PageBufferOperator.PageBufferOperatorFactory;
+import static io.prestosql.operator.index.PagesIndexBuilderOperator.PagesIndexBuilderOperatorFactory;
 import static java.util.Objects.requireNonNull;
 
 public class IndexBuildDriverFactoryProvider

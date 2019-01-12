@@ -13,8 +13,8 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.sql.tree.Expression;
 
 import java.util.List;
 import java.util.Objects;

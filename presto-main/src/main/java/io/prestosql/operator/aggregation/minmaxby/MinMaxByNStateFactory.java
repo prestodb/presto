@@ -13,10 +13,10 @@
  */
 package io.prestosql.operator.aggregation.minmaxby;
 
-import com.facebook.presto.array.ObjectBigArray;
-import com.facebook.presto.operator.aggregation.TypedKeyValueHeap;
-import com.facebook.presto.operator.aggregation.state.AbstractGroupedAccumulatorState;
-import com.facebook.presto.spi.function.AccumulatorStateFactory;
+import io.prestosql.array.ObjectBigArray;
+import io.prestosql.operator.aggregation.TypedKeyValueHeap;
+import io.prestosql.operator.aggregation.state.AbstractGroupedAccumulatorState;
+import io.prestosql.spi.function.AccumulatorStateFactory;
 import org.openjdk.jol.info.ClassLayout;
 
 public class MinMaxByNStateFactory

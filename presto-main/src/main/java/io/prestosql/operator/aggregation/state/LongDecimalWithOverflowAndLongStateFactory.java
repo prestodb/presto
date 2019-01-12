@@ -13,13 +13,13 @@
  */
 package io.prestosql.operator.aggregation.state;
 
-import com.facebook.presto.array.LongBigArray;
-import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import io.airlift.slice.Slice;
+import io.prestosql.array.LongBigArray;
+import io.prestosql.spi.function.AccumulatorStateFactory;
 import org.openjdk.jol.info.ClassLayout;
 
-import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
 
 public class LongDecimalWithOverflowAndLongStateFactory
         implements AccumulatorStateFactory<LongDecimalWithOverflowAndLongState>

@@ -13,22 +13,22 @@
  */
 package io.prestosql.plugin.thrift;
 
-import com.facebook.presto.connector.thrift.api.PrestoThriftId;
-import com.facebook.presto.connector.thrift.api.PrestoThriftNullableToken;
-import com.facebook.presto.connector.thrift.api.PrestoThriftPageResult;
-import com.facebook.presto.connector.thrift.api.PrestoThriftSchemaTableName;
-import com.facebook.presto.connector.thrift.api.PrestoThriftService;
-import com.facebook.presto.connector.thrift.api.PrestoThriftSplit;
-import com.facebook.presto.connector.thrift.api.PrestoThriftSplitBatch;
-import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.drift.client.DriftClient;
+import io.prestosql.plugin.thrift.api.PrestoThriftId;
+import io.prestosql.plugin.thrift.api.PrestoThriftNullableToken;
+import io.prestosql.plugin.thrift.api.PrestoThriftPageResult;
+import io.prestosql.plugin.thrift.api.PrestoThriftSchemaTableName;
+import io.prestosql.plugin.thrift.api.PrestoThriftService;
+import io.prestosql.plugin.thrift.api.PrestoThriftSplit;
+import io.prestosql.plugin.thrift.api.PrestoThriftSplitBatch;
+import io.prestosql.plugin.thrift.api.PrestoThriftTupleDomain;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.spi.type.Type;
 
 import javax.annotation.Nullable;
 
@@ -44,9 +44,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.presto.connector.thrift.api.PrestoThriftPageResult.fromRecordSet;
-import static com.facebook.presto.connector.thrift.util.ThriftExceptions.catchingThriftException;
-import static com.facebook.presto.connector.thrift.util.TupleDomainConversion.tupleDomainToThriftTupleDomain;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -55,6 +52,9 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
+import static io.prestosql.plugin.thrift.api.PrestoThriftPageResult.fromRecordSet;
+import static io.prestosql.plugin.thrift.util.ThriftExceptions.catchingThriftException;
+import static io.prestosql.plugin.thrift.util.TupleDomainConversion.tupleDomainToThriftTupleDomain;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;

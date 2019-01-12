@@ -13,8 +13,8 @@
  */
 package io.prestosql.operator.window;
 
-import com.facebook.presto.sql.tree.FrameBound;
-import com.facebook.presto.sql.tree.WindowFrame;
+import io.prestosql.sql.tree.FrameBound;
+import io.prestosql.sql.tree.WindowFrame;
 
 import java.util.Objects;
 import java.util.Optional;

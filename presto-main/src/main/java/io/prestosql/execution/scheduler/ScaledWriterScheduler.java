@@ -13,13 +13,13 @@
  */
 package io.prestosql.execution.scheduler;
 
-import com.facebook.presto.execution.RemoteTask;
-import com.facebook.presto.execution.SqlStageExecution;
-import com.facebook.presto.execution.TaskStatus;
-import com.facebook.presto.spi.Node;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
+import io.prestosql.execution.RemoteTask;
+import io.prestosql.execution.SqlStageExecution;
+import io.prestosql.execution.TaskStatus;
+import io.prestosql.spi.Node;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -31,9 +31,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.WRITER_SCALING;
-import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
-import static com.facebook.presto.util.Failures.checkCondition;
+import static io.prestosql.execution.scheduler.ScheduleResult.BlockedReason.WRITER_SCALING;
+import static io.prestosql.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static io.prestosql.util.Failures.checkCondition;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 

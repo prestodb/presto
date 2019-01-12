@@ -13,11 +13,11 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.spi.connector.ConnectorPartitioningHandle;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 import java.util.Objects;
 import java.util.Optional;

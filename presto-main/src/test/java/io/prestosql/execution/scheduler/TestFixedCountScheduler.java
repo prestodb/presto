@@ -13,14 +13,14 @@
  */
 package io.prestosql.execution.scheduler;
 
-import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.execution.MockRemoteTaskFactory;
-import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
-import com.facebook.presto.execution.RemoteTask;
-import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.metadata.PrestoNode;
-import com.facebook.presto.spi.Node;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.client.NodeVersion;
+import io.prestosql.execution.MockRemoteTaskFactory;
+import io.prestosql.execution.NodeTaskMap.PartitionedSplitCountTracker;
+import io.prestosql.execution.RemoteTask;
+import io.prestosql.execution.TaskId;
+import io.prestosql.metadata.PrestoNode;
+import io.prestosql.spi.Node;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 

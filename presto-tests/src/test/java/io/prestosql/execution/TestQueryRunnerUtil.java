@@ -13,18 +13,18 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.server.BasicQueryInfo;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.Session;
+import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.spi.QueryId;
+import io.prestosql.tests.DistributedQueryRunner;
 
 import java.util.Set;
 
-import static com.facebook.presto.execution.QueryState.RUNNING;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.prestosql.execution.QueryState.RUNNING;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class TestQueryRunnerUtil

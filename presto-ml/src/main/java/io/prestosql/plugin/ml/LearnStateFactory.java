@@ -13,13 +13,13 @@
  */
 package io.prestosql.plugin.ml;
 
-import com.facebook.presto.array.ObjectBigArray;
-import com.facebook.presto.array.SliceBigArray;
-import com.facebook.presto.spi.function.AccumulatorStateFactory;
-import com.facebook.presto.spi.function.GroupedAccumulatorState;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import io.airlift.slice.Slice;
+import io.prestosql.array.ObjectBigArray;
+import io.prestosql.array.SliceBigArray;
+import io.prestosql.spi.function.AccumulatorStateFactory;
+import io.prestosql.spi.function.GroupedAccumulatorState;
 import libsvm.svm_parameter;
 import org.openjdk.jol.info.ClassLayout;
 

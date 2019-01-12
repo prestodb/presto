@@ -13,15 +13,15 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.SqlIntervalYearMonth;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.type.SqlIntervalYearMonth;
 
 import java.util.List;
 
-import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static io.prestosql.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 
 public class TestIntervalYearToMonthSumAggregation
         extends AbstractTestAggregationFunction

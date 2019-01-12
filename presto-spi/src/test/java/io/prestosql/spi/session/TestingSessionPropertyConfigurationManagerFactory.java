@@ -13,7 +13,7 @@
  */
 package io.prestosql.spi.session;
 
-import com.facebook.presto.spi.resourceGroups.SessionPropertyConfigurationManagerContext;
+import io.prestosql.spi.resourcegroups.SessionPropertyConfigurationManagerContext;
 
 import java.util.Map;
 

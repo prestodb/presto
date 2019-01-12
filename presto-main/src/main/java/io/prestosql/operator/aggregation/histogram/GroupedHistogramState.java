@@ -14,9 +14,9 @@
 
 package io.prestosql.operator.aggregation.histogram;
 
-import com.facebook.presto.operator.aggregation.state.AbstractGroupedAccumulatorState;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.operator.aggregation.state.AbstractGroupedAccumulatorState;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 /**

@@ -13,14 +13,14 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.matching.Captures;
-import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.matching.Captures;
+import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.plan.OutputNode;
 
-import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictChildOutputs;
-import static com.facebook.presto.sql.planner.plan.Patterns.output;
+import static io.prestosql.sql.planner.iterative.rule.Util.restrictChildOutputs;
+import static io.prestosql.sql.planner.plan.Patterns.output;
 
 public class PruneOutputColumns
         implements Rule<OutputNode>

@@ -13,20 +13,20 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.facebook.presto.sql.tree.CurrentTime;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionRewriter;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.Extract;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.IfExpression;
-import com.facebook.presto.sql.tree.IsNotNullPredicate;
-import com.facebook.presto.sql.tree.IsNullPredicate;
-import com.facebook.presto.sql.tree.NotExpression;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.SearchedCaseExpression;
-import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.sql.tree.CurrentTime;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.ExpressionRewriter;
+import io.prestosql.sql.tree.ExpressionTreeRewriter;
+import io.prestosql.sql.tree.Extract;
+import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.IfExpression;
+import io.prestosql.sql.tree.IsNotNullPredicate;
+import io.prestosql.sql.tree.IsNullPredicate;
+import io.prestosql.sql.tree.NotExpression;
+import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.SearchedCaseExpression;
+import io.prestosql.sql.tree.WhenClause;
 
 import java.util.Optional;
 

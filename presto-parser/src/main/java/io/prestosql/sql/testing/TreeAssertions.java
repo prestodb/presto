@@ -13,22 +13,22 @@
  */
 package io.prestosql.sql.testing;
 
-import com.facebook.presto.sql.parser.ParsingException;
-import com.facebook.presto.sql.parser.ParsingOptions;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
-import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.sql.parser.ParsingException;
+import io.prestosql.sql.parser.ParsingOptions;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.tree.DefaultTraversalVisitor;
+import io.prestosql.sql.tree.Node;
+import io.prestosql.sql.tree.Statement;
 
 import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.SqlFormatter.formatSql;
-import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
+import static io.prestosql.sql.SqlFormatter.formatSql;
+import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static java.lang.String.format;
 
 public final class TreeAssertions

@@ -14,8 +14,8 @@
 
 package io.prestosql.spi.block;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -25,10 +25,10 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.block.BlockUtil.calculateBlockResetSize;
-import static com.facebook.presto.spi.block.MapBlock.createMapBlockInternal;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.block.BlockUtil.calculateBlockResetSize;
+import static io.prestosql.spi.block.MapBlock.createMapBlockInternal;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

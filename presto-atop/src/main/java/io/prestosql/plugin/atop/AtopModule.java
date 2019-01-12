@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.atop;
 
-import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.prestosql.spi.NodeManager;
+import io.prestosql.spi.type.TypeManager;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;

@@ -13,13 +13,13 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.spi.ErrorType;
+import io.prestosql.spi.ErrorCode;
+import io.prestosql.spi.ErrorCodeSupplier;
+import io.prestosql.spi.ErrorType;
 
-import static com.facebook.presto.spi.ErrorType.EXTERNAL;
-import static com.facebook.presto.spi.ErrorType.INTERNAL_ERROR;
-import static com.facebook.presto.spi.ErrorType.USER_ERROR;
+import static io.prestosql.spi.ErrorType.EXTERNAL;
+import static io.prestosql.spi.ErrorType.INTERNAL_ERROR;
+import static io.prestosql.spi.ErrorType.USER_ERROR;
 
 public enum HiveErrorCode
         implements ErrorCodeSupplier

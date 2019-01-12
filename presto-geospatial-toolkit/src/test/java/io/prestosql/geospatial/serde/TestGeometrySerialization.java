@@ -22,18 +22,18 @@ import org.locationtech.jts.io.WKTReader;
 import org.testng.annotations.Test;
 
 import static com.esri.core.geometry.ogc.OGCGeometry.createFromEsriGeometry;
-import static com.facebook.presto.geospatial.serde.GeometrySerde.deserialize;
-import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeEnvelope;
-import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeType;
-import static com.facebook.presto.geospatial.serde.GeometrySerde.serialize;
-import static com.facebook.presto.geospatial.serde.GeometrySerializationType.ENVELOPE;
-import static com.facebook.presto.geospatial.serde.GeometrySerializationType.GEOMETRY_COLLECTION;
-import static com.facebook.presto.geospatial.serde.GeometrySerializationType.LINE_STRING;
-import static com.facebook.presto.geospatial.serde.GeometrySerializationType.MULTI_LINE_STRING;
-import static com.facebook.presto.geospatial.serde.GeometrySerializationType.MULTI_POINT;
-import static com.facebook.presto.geospatial.serde.GeometrySerializationType.MULTI_POLYGON;
-import static com.facebook.presto.geospatial.serde.GeometrySerializationType.POINT;
-import static com.facebook.presto.geospatial.serde.GeometrySerializationType.POLYGON;
+import static io.prestosql.geospatial.serde.GeometrySerde.deserialize;
+import static io.prestosql.geospatial.serde.GeometrySerde.deserializeEnvelope;
+import static io.prestosql.geospatial.serde.GeometrySerde.deserializeType;
+import static io.prestosql.geospatial.serde.GeometrySerde.serialize;
+import static io.prestosql.geospatial.serde.GeometrySerializationType.ENVELOPE;
+import static io.prestosql.geospatial.serde.GeometrySerializationType.GEOMETRY_COLLECTION;
+import static io.prestosql.geospatial.serde.GeometrySerializationType.LINE_STRING;
+import static io.prestosql.geospatial.serde.GeometrySerializationType.MULTI_LINE_STRING;
+import static io.prestosql.geospatial.serde.GeometrySerializationType.MULTI_POINT;
+import static io.prestosql.geospatial.serde.GeometrySerializationType.MULTI_POLYGON;
+import static io.prestosql.geospatial.serde.GeometrySerializationType.POINT;
+import static io.prestosql.geospatial.serde.GeometrySerializationType.POLYGON;
 import static org.testng.Assert.assertEquals;
 
 public class TestGeometrySerialization

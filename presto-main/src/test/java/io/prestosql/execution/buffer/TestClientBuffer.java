@@ -13,14 +13,14 @@
  */
 package io.prestosql.execution.buffer;
 
-import com.facebook.presto.OutputBuffers.OutputBufferId;
-import com.facebook.presto.execution.buffer.ClientBuffer.PagesSupplier;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.BigintType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.OutputBuffers.OutputBufferId;
+import io.prestosql.execution.buffer.ClientBuffer.PagesSupplier;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.type.BigintType;
 import org.testng.annotations.Test;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -33,16 +33,16 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
-import static com.facebook.presto.execution.buffer.BufferTestUtils.NO_WAIT;
-import static com.facebook.presto.execution.buffer.BufferTestUtils.PAGES_SERDE;
-import static com.facebook.presto.execution.buffer.BufferTestUtils.assertBufferResultEquals;
-import static com.facebook.presto.execution.buffer.BufferTestUtils.createBufferResult;
-import static com.facebook.presto.execution.buffer.BufferTestUtils.createPage;
-import static com.facebook.presto.execution.buffer.BufferTestUtils.getFuture;
-import static com.facebook.presto.execution.buffer.BufferTestUtils.sizeOfPages;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.execution.buffer.BufferResult.emptyResults;
+import static io.prestosql.execution.buffer.BufferTestUtils.NO_WAIT;
+import static io.prestosql.execution.buffer.BufferTestUtils.PAGES_SERDE;
+import static io.prestosql.execution.buffer.BufferTestUtils.assertBufferResultEquals;
+import static io.prestosql.execution.buffer.BufferTestUtils.createBufferResult;
+import static io.prestosql.execution.buffer.BufferTestUtils.createPage;
+import static io.prestosql.execution.buffer.BufferTestUtils.getFuture;
+import static io.prestosql.execution.buffer.BufferTestUtils.sizeOfPages;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

@@ -13,11 +13,11 @@
  */
 package io.prestosql.rcfile.binary;
 
-import com.facebook.presto.rcfile.ColumnEncoding;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.prestosql.rcfile.ColumnEncoding;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
 
 public interface BinaryColumnEncoding
         extends ColumnEncoding

@@ -13,7 +13,7 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.spiller.LocalSpillContext;
+import io.prestosql.spiller.LocalSpillContext;
 
 import java.io.Closeable;
 

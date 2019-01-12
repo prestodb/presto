@@ -13,10 +13,10 @@
  */
 package io.prestosql.orc.checkpoint;
 
-import com.facebook.presto.orc.checkpoint.Checkpoints.ColumnPositionsList;
+import io.prestosql.orc.checkpoint.Checkpoints.ColumnPositionsList;
 
-import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.inputStreamCheckpointToString;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.orc.checkpoint.InputStreamCheckpoint.inputStreamCheckpointToString;
 
 public final class RowGroupDictionaryLengthStreamCheckpoint
         extends LongStreamV1Checkpoint

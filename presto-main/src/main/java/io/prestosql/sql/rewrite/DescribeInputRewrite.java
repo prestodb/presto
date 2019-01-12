@@ -13,42 +13,42 @@
  */
 package io.prestosql.sql.rewrite;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.analyzer.Analysis;
-import com.facebook.presto.sql.analyzer.Analyzer;
-import com.facebook.presto.sql.analyzer.QueryExplainer;
-import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.tree.AstVisitor;
-import com.facebook.presto.sql.tree.DescribeInput;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.Parameter;
-import com.facebook.presto.sql.tree.Row;
-import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.sql.tree.StringLiteral;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.Session;
+import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.security.AccessControl;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.analyzer.Analysis;
+import io.prestosql.sql.analyzer.Analyzer;
+import io.prestosql.sql.analyzer.QueryExplainer;
+import io.prestosql.sql.analyzer.SemanticException;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.tree.AstVisitor;
+import io.prestosql.sql.tree.DescribeInput;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.LongLiteral;
+import io.prestosql.sql.tree.Node;
+import io.prestosql.sql.tree.NullLiteral;
+import io.prestosql.sql.tree.Parameter;
+import io.prestosql.sql.tree.Row;
+import io.prestosql.sql.tree.Statement;
+import io.prestosql.sql.tree.StringLiteral;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.execution.ParameterExtractor.getParameters;
-import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
-import static com.facebook.presto.sql.QueryUtil.aliased;
-import static com.facebook.presto.sql.QueryUtil.ascending;
-import static com.facebook.presto.sql.QueryUtil.identifier;
-import static com.facebook.presto.sql.QueryUtil.ordering;
-import static com.facebook.presto.sql.QueryUtil.row;
-import static com.facebook.presto.sql.QueryUtil.selectList;
-import static com.facebook.presto.sql.QueryUtil.simpleQuery;
-import static com.facebook.presto.sql.QueryUtil.values;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static io.prestosql.execution.ParameterExtractor.getParameters;
+import static io.prestosql.sql.ParsingUtil.createParsingOptions;
+import static io.prestosql.sql.QueryUtil.aliased;
+import static io.prestosql.sql.QueryUtil.ascending;
+import static io.prestosql.sql.QueryUtil.identifier;
+import static io.prestosql.sql.QueryUtil.ordering;
+import static io.prestosql.sql.QueryUtil.row;
+import static io.prestosql.sql.QueryUtil.selectList;
+import static io.prestosql.sql.QueryUtil.simpleQuery;
+import static io.prestosql.sql.QueryUtil.values;
+import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
 
 final class DescribeInputRewrite

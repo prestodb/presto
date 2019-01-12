@@ -13,13 +13,13 @@
  */
 package io.prestosql.verifier;
 
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.event.client.EventClient;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.prestosql.spi.ErrorCode;
+import io.prestosql.spi.PrestoException;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -32,11 +32,11 @@ import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.regex.Pattern;
 
-import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
-import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
-import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
-import static com.facebook.presto.verifier.QueryResult.State.SUCCESS;
 import static com.google.common.base.Throwables.getStackTraceAsString;
+import static io.prestosql.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
+import static io.prestosql.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
+import static io.prestosql.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
+import static io.prestosql.verifier.QueryResult.State.SUCCESS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;

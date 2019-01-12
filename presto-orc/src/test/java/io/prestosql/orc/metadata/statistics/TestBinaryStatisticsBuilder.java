@@ -20,11 +20,11 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.NONE;
-import static com.facebook.presto.orc.metadata.statistics.BinaryStatistics.BINARY_VALUE_BYTES_OVERHEAD;
-import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.NONE;
+import static io.prestosql.orc.metadata.statistics.BinaryStatistics.BINARY_VALUE_BYTES_OVERHEAD;
+import static io.prestosql.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 

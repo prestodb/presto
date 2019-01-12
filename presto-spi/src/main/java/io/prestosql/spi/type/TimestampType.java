@@ -13,10 +13,10 @@
  */
 package io.prestosql.spi.type;
 
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.block.Block;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.connector.ConnectorSession;
 
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 
 //
 // A timestamp is stored as milliseconds from 1970-01-01T00:00:00 UTC.  When performing calculations

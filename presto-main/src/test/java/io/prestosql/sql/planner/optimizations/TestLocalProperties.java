@@ -13,13 +13,6 @@
  */
 package io.prestosql.sql.planner.optimizations;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConstantProperty;
-import com.facebook.presto.spi.GroupingProperty;
-import com.facebook.presto.spi.LocalProperty;
-import com.facebook.presto.spi.SortingProperty;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationContext;
@@ -30,6 +23,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
+import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConstantProperty;
+import io.prestosql.spi.connector.GroupingProperty;
+import io.prestosql.spi.connector.LocalProperty;
+import io.prestosql.spi.connector.SortingProperty;
+import io.prestosql.testing.TestingMetadata.TestingColumnHandle;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -40,8 +40,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static com.facebook.presto.sql.planner.optimizations.LocalProperties.extractLeadingConstants;
-import static com.facebook.presto.sql.planner.optimizations.LocalProperties.stripLeadingConstants;
+import static io.prestosql.sql.planner.optimizations.LocalProperties.extractLeadingConstants;
+import static io.prestosql.sql.planner.optimizations.LocalProperties.stripLeadingConstants;
 import static org.testng.Assert.assertEquals;
 
 public class TestLocalProperties

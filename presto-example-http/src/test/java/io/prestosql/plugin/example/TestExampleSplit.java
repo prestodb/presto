@@ -13,9 +13,9 @@
  */
 package io.prestosql.plugin.example;
 
-import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
+import io.prestosql.spi.HostAddress;
 import org.testng.annotations.Test;
 
 import java.net.URI;

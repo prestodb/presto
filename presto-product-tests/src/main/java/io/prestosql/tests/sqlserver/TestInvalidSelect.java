@@ -19,14 +19,14 @@ import io.prestodb.tempto.RequirementsProvider;
 import io.prestodb.tempto.configuration.Configuration;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static com.facebook.presto.tests.TestGroups.SQL_SERVER;
-import static com.facebook.presto.tests.sqlserver.SqlServerTpchTableDefinitions.NATION;
-import static com.facebook.presto.tests.sqlserver.TestConstants.CONNECTOR_NAME;
-import static com.facebook.presto.tests.sqlserver.TestConstants.KEY_SPACE;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.prestosql.tests.TestGroups.SQL_SERVER;
+import static io.prestosql.tests.sqlserver.SqlServerTpchTableDefinitions.NATION;
+import static io.prestosql.tests.sqlserver.TestConstants.CONNECTOR_NAME;
+import static io.prestosql.tests.sqlserver.TestConstants.KEY_SPACE;
 import static java.lang.String.format;
 
 public class TestInvalidSelect

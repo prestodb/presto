@@ -13,9 +13,9 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.util.JsonUtil.HashTable;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.util.JsonUtil.HashTable;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -24,9 +24,9 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 

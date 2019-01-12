@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.facebook.presto.hive.RecordFileWriter.ExtendedRecordWriter;
-import com.facebook.presto.spi.ConnectorSession;
+import io.prestosql.plugin.hive.RecordFileWriter.ExtendedRecordWriter;
+import io.prestosql.spi.connector.ConnectorSession;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
@@ -31,8 +31,8 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveSessionProperties.getParquetWriterBlockSize;
-import static com.facebook.presto.hive.HiveSessionProperties.getParquetWriterPageSize;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getParquetWriterBlockSize;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getParquetWriterPageSize;
 
 public final class ParquetRecordWriterUtil
 {

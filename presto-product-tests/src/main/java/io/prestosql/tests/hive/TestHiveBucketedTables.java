@@ -23,8 +23,6 @@ import io.prestodb.tempto.fulfillment.table.TableDefinitionsRepository;
 import io.prestodb.tempto.fulfillment.table.hive.HiveTableDefinition;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tests.TestGroups.BIG_QUERY;
-import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
@@ -32,6 +30,8 @@ import static io.prestodb.tempto.fulfillment.table.MutableTablesState.mutableTab
 import static io.prestodb.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.prestodb.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestosql.tests.TestGroups.BIG_QUERY;
+import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
 
 public class TestHiveBucketedTables

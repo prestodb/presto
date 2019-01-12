@@ -13,13 +13,13 @@
  */
 package io.prestosql.plugin.raptor.legacy.security;
 
-import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
+import static io.prestosql.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
 
 public class TestRaptorReadOnlySecurity
 {

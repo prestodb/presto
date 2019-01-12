@@ -13,14 +13,14 @@
  */
 package io.prestosql.plugin.redis;
 
-import com.facebook.presto.decoder.DecoderColumnHandle;
-import com.facebook.presto.decoder.FieldValueProvider;
-import com.facebook.presto.decoder.RowDecoder;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.prestosql.decoder.DecoderColumnHandle;
+import io.prestosql.decoder.FieldValueProvider;
+import io.prestosql.decoder.RowDecoder;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.type.Type;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.ScanParams;
@@ -35,10 +35,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.decoder.FieldValueProviders.booleanValueProvider;
-import static com.facebook.presto.decoder.FieldValueProviders.bytesValueProvider;
-import static com.facebook.presto.decoder.FieldValueProviders.longValueProvider;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.decoder.FieldValueProviders.booleanValueProvider;
+import static io.prestosql.decoder.FieldValueProviders.bytesValueProvider;
+import static io.prestosql.decoder.FieldValueProviders.longValueProvider;
 import static java.lang.String.format;
 import static redis.clients.jedis.ScanParams.SCAN_POINTER_START;
 

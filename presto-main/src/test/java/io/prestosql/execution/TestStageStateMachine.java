@@ -13,19 +13,19 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.cost.StatsAndCosts;
-import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
-import com.facebook.presto.operator.StageExecutionStrategy;
-import com.facebook.presto.sql.planner.Partitioning;
-import com.facebook.presto.sql.planner.PartitioningScheme;
-import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
-import com.facebook.presto.sql.tree.StringLiteral;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.cost.StatsAndCosts;
+import io.prestosql.execution.scheduler.SplitSchedulerStats;
+import io.prestosql.operator.StageExecutionStrategy;
+import io.prestosql.sql.planner.Partitioning;
+import io.prestosql.sql.planner.PartitioningScheme;
+import io.prestosql.sql.planner.PlanFragment;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.plan.PlanFragmentId;
+import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.sql.planner.plan.ValuesNode;
+import io.prestosql.sql.tree.StringLiteral;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -34,10 +34,10 @@ import java.net.URI;
 import java.sql.SQLException;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

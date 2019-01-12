@@ -13,17 +13,17 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.memory.context.MemoryTrackingContext;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.testing.TestingSession;
-import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.util.concurrent.MoreExecutors;
+import io.prestosql.execution.Lifespan;
+import io.prestosql.memory.context.MemoryTrackingContext;
+import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.testing.TestingSession;
+import io.prestosql.testing.TestingTaskContext;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 
 public class TestingOperatorContext
 {

@@ -13,16 +13,16 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.execution.buffer.PagesSerde;
-import com.facebook.presto.execution.buffer.PagesSerdeFactory;
-import com.facebook.presto.execution.buffer.SerializedPage;
-import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.UpdatablePageSource;
-import com.facebook.presto.split.RemoteSplit;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.connector.ConnectorId;
+import io.prestosql.execution.buffer.PagesSerde;
+import io.prestosql.execution.buffer.PagesSerdeFactory;
+import io.prestosql.execution.buffer.SerializedPage;
+import io.prestosql.metadata.Split;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.connector.UpdatablePageSource;
+import io.prestosql.split.RemoteSplit;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.io.Closeable;
 import java.net.URI;

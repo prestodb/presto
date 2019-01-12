@@ -13,22 +13,22 @@
  */
 package io.prestosql.sql.planner.assertions;
 
-import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.OrderBy;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.SortItem;
-import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.OrderBy;
+import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.SortItem;
+import io.prestosql.sql.tree.WindowFrame;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.toSymbolReferences;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.toSymbolReferences;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

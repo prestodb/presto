@@ -15,30 +15,30 @@ package io.prestosql.plugin.hive.metastore.glue.converter;
 
 import com.amazonaws.services.glue.model.SerDeInfo;
 import com.amazonaws.services.glue.model.StorageDescriptor;
-import com.facebook.presto.hive.HiveBucketProperty;
-import com.facebook.presto.hive.HiveType;
-import com.facebook.presto.hive.metastore.Column;
-import com.facebook.presto.hive.metastore.Database;
-import com.facebook.presto.hive.metastore.Partition;
-import com.facebook.presto.hive.metastore.PrincipalType;
-import com.facebook.presto.hive.metastore.SortingColumn;
-import com.facebook.presto.hive.metastore.SortingColumn.Order;
-import com.facebook.presto.hive.metastore.Storage;
-import com.facebook.presto.hive.metastore.StorageFormat;
-import com.facebook.presto.hive.metastore.Table;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.hive.HiveBucketProperty;
+import io.prestosql.plugin.hive.HiveType;
+import io.prestosql.plugin.hive.metastore.Column;
+import io.prestosql.plugin.hive.metastore.Database;
+import io.prestosql.plugin.hive.metastore.Partition;
+import io.prestosql.plugin.hive.metastore.PrincipalType;
+import io.prestosql.plugin.hive.metastore.SortingColumn;
+import io.prestosql.plugin.hive.metastore.SortingColumn.Order;
+import io.prestosql.plugin.hive.metastore.Storage;
+import io.prestosql.plugin.hive.metastore.StorageFormat;
+import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.spi.PrestoException;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 

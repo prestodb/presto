@@ -13,7 +13,6 @@
  */
 package io.prestosql.verifier;
 
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -22,6 +21,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.Duration;
+import io.prestosql.sql.tree.QualifiedName;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
@@ -32,9 +32,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.verifier.QueryType.CREATE;
-import static com.facebook.presto.verifier.QueryType.MODIFY;
-import static com.facebook.presto.verifier.QueryType.READ;
+import static io.prestosql.verifier.QueryType.CREATE;
+import static io.prestosql.verifier.QueryType.MODIFY;
+import static io.prestosql.verifier.QueryType.READ;
 import static java.util.Objects.requireNonNull;
 
 public class VerifierConfig

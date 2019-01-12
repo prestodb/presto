@@ -13,16 +13,16 @@
  */
 package io.prestosql.execution;
 
-import com.facebook.presto.operator.BlockedReason;
-import com.facebook.presto.operator.OperatorStats;
-import com.facebook.presto.operator.TableWriterOperator;
-import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.operator.BlockedReason;
+import io.prestosql.operator.OperatorStats;
+import io.prestosql.operator.TableWriterOperator;
+import io.prestosql.spi.eventlistener.StageGcStatistics;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;

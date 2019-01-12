@@ -22,12 +22,12 @@ import io.prestodb.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequire
 import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tests.TestGroups.JDBC;
-import static com.facebook.presto.tests.TestGroups.MYSQL;
-import static com.facebook.presto.tests.utils.QueryExecutors.onMySql;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestosql.tests.TestGroups.JDBC;
+import static io.prestosql.tests.TestGroups.MYSQL;
+import static io.prestosql.tests.utils.QueryExecutors.onMySql;
 import static java.lang.String.format;
 
 public class CreateTableAsSelect

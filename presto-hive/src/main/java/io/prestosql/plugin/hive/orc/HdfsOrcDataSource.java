@@ -13,18 +13,18 @@
  */
 package io.prestosql.plugin.hive.orc;
 
-import com.facebook.presto.hive.FileFormatDataSourceStats;
-import com.facebook.presto.orc.AbstractOrcDataSource;
-import com.facebook.presto.orc.OrcDataSourceId;
-import com.facebook.presto.spi.PrestoException;
 import io.airlift.units.DataSize;
+import io.prestosql.orc.AbstractOrcDataSource;
+import io.prestosql.orc.OrcDataSourceId;
+import io.prestosql.plugin.hive.FileFormatDataSourceStats;
+import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.fs.FSDataInputStream;
 
 import java.io.IOException;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

@@ -13,13 +13,13 @@
  */
 package io.prestosql.operator.annotations;
 
-import com.facebook.presto.spi.function.InvocationConvention;
-import com.facebook.presto.spi.type.TypeSignature;
+import io.prestosql.spi.function.InvocationConvention;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.Signature.internalScalarFunction;
+import static io.prestosql.metadata.Signature.internalScalarFunction;
 
 public final class FunctionImplementationDependency
         extends ScalarImplementationDependency

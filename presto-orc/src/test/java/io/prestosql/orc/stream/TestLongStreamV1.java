@@ -13,10 +13,10 @@
  */
 package io.prestosql.orc.stream;
 
-import com.facebook.presto.orc.OrcCorruptionException;
-import com.facebook.presto.orc.OrcDecompressor;
-import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import io.airlift.slice.Slice;
+import io.prestosql.orc.OrcCorruptionException;
+import io.prestosql.orc.OrcDecompressor;
+import io.prestosql.orc.checkpoint.LongStreamCheckpoint;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -25,10 +25,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
-import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
+import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.orc.OrcDecompressor.createOrcDecompressor;
+import static io.prestosql.orc.metadata.CompressionKind.SNAPPY;
+import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
 
 public class TestLongStreamV1
         extends AbstractTestValueStream<Long, LongStreamCheckpoint, LongOutputStreamV1, LongInputStreamV1>

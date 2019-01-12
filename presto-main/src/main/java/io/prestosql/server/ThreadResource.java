@@ -29,7 +29,7 @@ import java.lang.management.ThreadMXBean;
 import java.util.Comparator;
 import java.util.List;
 
-import static com.facebook.presto.server.ThreadResource.Info.byName;
+import static io.prestosql.server.ThreadResource.Info.byName;
 
 @Path("/")
 public class ThreadResource

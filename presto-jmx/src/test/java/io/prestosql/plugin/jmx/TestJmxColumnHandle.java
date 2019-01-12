@@ -16,9 +16,9 @@ package io.prestosql.plugin.jmx;
 import io.airlift.testing.EquivalenceTester;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.connector.jmx.MetadataUtil.COLUMN_CODEC;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.prestosql.plugin.jmx.MetadataUtil.COLUMN_CODEC;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static org.testng.Assert.assertEquals;
 
 public class TestJmxColumnHandle

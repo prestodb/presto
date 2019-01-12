@@ -13,12 +13,12 @@
  */
 package io.prestosql.plugin.postgresql;
 
-import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
-import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
-import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
-import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
-import com.facebook.presto.plugin.jdbc.JdbcOutputTableHandle;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.plugin.jdbc.BaseJdbcClient;
+import io.prestosql.plugin.jdbc.BaseJdbcConfig;
+import io.prestosql.plugin.jdbc.DriverConnectionFactory;
+import io.prestosql.plugin.jdbc.JdbcConnectorId;
+import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
+import io.prestosql.spi.type.Type;
 import org.postgresql.Driver;
 
 import javax.inject.Inject;
@@ -29,7 +29,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 
 public class PostgreSqlClient
         extends BaseJdbcClient

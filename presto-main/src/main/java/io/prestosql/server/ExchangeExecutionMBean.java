@@ -13,8 +13,8 @@
  */
 package io.prestosql.server;
 
-import com.facebook.presto.operator.ForExchange;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
+import io.prestosql.operator.ForExchange;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 

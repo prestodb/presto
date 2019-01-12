@@ -13,7 +13,7 @@
  */
 package io.prestosql.parquet;
 
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.spi.type.Type;
 
 import static java.util.Objects.requireNonNull;
 

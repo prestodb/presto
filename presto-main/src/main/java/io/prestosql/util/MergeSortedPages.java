@@ -13,25 +13,25 @@
  */
 package io.prestosql.util;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
-import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.operator.DriverYieldSignal;
-import com.facebook.presto.operator.PageWithPositionComparator;
-import com.facebook.presto.operator.WorkProcessor;
-import com.facebook.presto.operator.WorkProcessor.ProcessState;
-import com.facebook.presto.operator.WorkProcessor.TransformationState;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
+import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.operator.DriverYieldSignal;
+import io.prestosql.operator.PageWithPositionComparator;
+import io.prestosql.operator.WorkProcessor;
+import io.prestosql.operator.WorkProcessor.ProcessState;
+import io.prestosql.operator.WorkProcessor.TransformationState;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.Type;
 
 import java.util.Comparator;
 import java.util.List;
 import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.operator.WorkProcessor.mergeSorted;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.operator.WorkProcessor.mergeSorted;
 import static java.util.Objects.requireNonNull;
 
 public final class MergeSortedPages

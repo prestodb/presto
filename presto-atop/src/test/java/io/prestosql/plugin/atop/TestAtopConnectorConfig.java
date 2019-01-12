@@ -20,11 +20,11 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.TimeZone;
 
-import static com.facebook.presto.atop.AtopConnectorConfig.SECURITY_FILE;
-import static com.facebook.presto.atop.AtopConnectorConfig.SECURITY_NONE;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.prestosql.plugin.atop.AtopConnectorConfig.SECURITY_FILE;
+import static io.prestosql.plugin.atop.AtopConnectorConfig.SECURITY_NONE;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestAtopConnectorConfig

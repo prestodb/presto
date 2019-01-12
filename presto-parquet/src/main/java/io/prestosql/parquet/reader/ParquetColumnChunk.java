@@ -13,12 +13,12 @@
  */
 package io.prestosql.parquet.reader;
 
-import com.facebook.presto.parquet.DataPage;
-import com.facebook.presto.parquet.DataPageV1;
-import com.facebook.presto.parquet.DataPageV2;
-import com.facebook.presto.parquet.DictionaryPage;
-import com.facebook.presto.parquet.ParquetCorruptionException;
 import io.airlift.slice.Slice;
+import io.prestosql.parquet.DataPage;
+import io.prestosql.parquet.DataPageV1;
+import io.prestosql.parquet.DataPageV2;
+import io.prestosql.parquet.DictionaryPage;
+import io.prestosql.parquet.ParquetCorruptionException;
 import parquet.column.Encoding;
 import parquet.format.DataPageHeader;
 import parquet.format.DataPageHeaderV2;
@@ -31,8 +31,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetEncoding;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.prestosql.parquet.ParquetTypeUtils.getParquetEncoding;
 
 public class ParquetColumnChunk
         extends ByteArrayInputStream

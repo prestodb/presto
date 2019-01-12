@@ -13,11 +13,11 @@
  */
 package io.prestosql.util;
 
-import com.facebook.presto.client.IntervalDayTime;
-import com.facebook.presto.client.IntervalYearMonth;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.TimeZoneKey;
-import com.facebook.presto.sql.tree.IntervalLiteral.IntervalField;
+import io.prestosql.client.IntervalDayTime;
+import io.prestosql.client.IntervalYearMonth;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.TimeZoneKey;
+import io.prestosql.sql.tree.IntervalLiteral.IntervalField;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.DurationFieldType;
@@ -46,14 +46,14 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
-import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
-import static com.facebook.presto.util.DateTimeZoneIndex.packDateTimeWithZone;
-import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
-import static com.facebook.presto.util.DateTimeZoneIndex.unpackDateTimeZone;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.prestosql.util.DateTimeZoneIndex.getChronology;
+import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
+import static io.prestosql.util.DateTimeZoneIndex.packDateTimeWithZone;
+import static io.prestosql.util.DateTimeZoneIndex.unpackChronology;
+import static io.prestosql.util.DateTimeZoneIndex.unpackDateTimeZone;
 import static java.lang.String.format;
 
 public final class DateTimeUtils

@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.raptor.legacy.metadata;
 
-import com.facebook.presto.raptor.util.DaoSupplier;
 import com.google.common.reflect.TypeParameter;
 import com.google.common.reflect.TypeToken;
 import com.google.inject.Binder;
@@ -29,6 +28,7 @@ import io.airlift.dbpool.MySqlDataSource;
 import io.airlift.dbpool.MySqlDataSourceConfig;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.testing.StaticServiceSelector;
+import io.prestosql.plugin.raptor.legacy.util.DaoSupplier;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.tweak.ConnectionFactory;
 

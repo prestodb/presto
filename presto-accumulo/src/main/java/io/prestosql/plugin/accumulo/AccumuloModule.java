@@ -13,18 +13,6 @@
  */
 package io.prestosql.plugin.accumulo;
 
-import com.facebook.presto.accumulo.conf.AccumuloConfig;
-import com.facebook.presto.accumulo.conf.AccumuloSessionProperties;
-import com.facebook.presto.accumulo.conf.AccumuloTableProperties;
-import com.facebook.presto.accumulo.index.ColumnCardinalityCache;
-import com.facebook.presto.accumulo.index.IndexLookup;
-import com.facebook.presto.accumulo.io.AccumuloPageSinkProvider;
-import com.facebook.presto.accumulo.io.AccumuloRecordSetProvider;
-import com.facebook.presto.accumulo.metadata.AccumuloTable;
-import com.facebook.presto.accumulo.metadata.ZooKeeperMetadataManager;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
@@ -32,6 +20,18 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
+import io.prestosql.plugin.accumulo.conf.AccumuloConfig;
+import io.prestosql.plugin.accumulo.conf.AccumuloSessionProperties;
+import io.prestosql.plugin.accumulo.conf.AccumuloTableProperties;
+import io.prestosql.plugin.accumulo.index.ColumnCardinalityCache;
+import io.prestosql.plugin.accumulo.index.IndexLookup;
+import io.prestosql.plugin.accumulo.io.AccumuloPageSinkProvider;
+import io.prestosql.plugin.accumulo.io.AccumuloRecordSetProvider;
+import io.prestosql.plugin.accumulo.metadata.AccumuloTable;
+import io.prestosql.plugin.accumulo.metadata.ZooKeeperMetadataManager;
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.Connector;
@@ -45,11 +45,11 @@ import org.apache.log4j.PatternLayout;
 import javax.inject.Inject;
 import javax.inject.Provider;
 
-import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static io.prestosql.plugin.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 

@@ -13,11 +13,11 @@
  */
 package io.prestosql.type;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
 
-import static com.facebook.presto.operator.scalar.ColorFunctions.rgb;
-import static com.facebook.presto.type.ColorType.COLOR;
+import static io.prestosql.operator.scalar.ColorFunctions.rgb;
+import static io.prestosql.type.ColorType.COLOR;
 
 public class TestColorType
         extends AbstractTestType

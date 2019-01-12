@@ -13,7 +13,7 @@
  */
 package io.prestosql.sql.planner;
 
-import com.facebook.presto.spi.ConnectorIndexHandle;
+import io.prestosql.spi.connector.ConnectorIndexHandle;
 
 public enum TestingConnectorIndexHandle
         implements ConnectorIndexHandle

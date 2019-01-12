@@ -13,7 +13,6 @@
  */
 package io.prestosql.cli;
 
-import com.facebook.presto.client.ClientSession;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
@@ -22,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.airline.Option;
 import io.airlift.units.Duration;
+import io.prestosql.client.ClientSession;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -34,9 +34,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
 
-import static com.facebook.presto.client.KerberosUtil.defaultCredentialCachePath;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
+import static io.prestosql.client.KerberosUtil.defaultCredentialCachePath;
 import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;

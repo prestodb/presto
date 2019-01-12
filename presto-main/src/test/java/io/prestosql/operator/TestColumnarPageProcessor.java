@@ -13,29 +13,29 @@
  */
 package io.prestosql.operator;
 
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.operator.project.PageProcessor;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.ExpressionCompiler;
-import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.operator.project.PageProcessor;
+import io.prestosql.spi.Page;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.gen.ExpressionCompiler;
+import io.prestosql.sql.gen.PageFunctionCompiler;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.SequencePageBuilder.createSequencePage;
-import static com.facebook.presto.SequencePageBuilder.createSequencePageWithDictionaryBlocks;
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
-import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
-import static com.facebook.presto.operator.project.PageProcessor.MAX_BATCH_SIZE;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.relational.Expressions.field;
-import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.collect.Iterators.getOnlyElement;
+import static io.prestosql.SequencePageBuilder.createSequencePage;
+import static io.prestosql.SequencePageBuilder.createSequencePageWithDictionaryBlocks;
+import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.operator.PageAssertions.assertPageEquals;
+import static io.prestosql.operator.project.PageProcessor.MAX_BATCH_SIZE;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.relational.Expressions.field;
+import static io.prestosql.testing.TestingConnectorSession.SESSION;
 
 public class TestColumnarPageProcessor
 {

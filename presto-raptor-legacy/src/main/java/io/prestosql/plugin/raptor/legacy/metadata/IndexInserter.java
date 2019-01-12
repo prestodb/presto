@@ -29,16 +29,16 @@ import java.util.Set;
 import java.util.StringJoiner;
 import java.util.UUID;
 
-import static com.facebook.presto.raptor.RaptorColumnHandle.isHiddenColumn;
-import static com.facebook.presto.raptor.metadata.DatabaseShardManager.maxColumn;
-import static com.facebook.presto.raptor.metadata.DatabaseShardManager.minColumn;
-import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
-import static com.facebook.presto.raptor.metadata.ShardPredicate.bindValue;
-import static com.facebook.presto.raptor.storage.ColumnIndexStatsUtils.jdbcType;
-import static com.facebook.presto.raptor.util.ArrayUtil.intArrayToBytes;
-import static com.facebook.presto.raptor.util.UuidUtil.uuidToBytes;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.plugin.raptor.legacy.RaptorColumnHandle.isHiddenColumn;
+import static io.prestosql.plugin.raptor.legacy.metadata.DatabaseShardManager.maxColumn;
+import static io.prestosql.plugin.raptor.legacy.metadata.DatabaseShardManager.minColumn;
+import static io.prestosql.plugin.raptor.legacy.metadata.DatabaseShardManager.shardIndexTable;
+import static io.prestosql.plugin.raptor.legacy.metadata.ShardPredicate.bindValue;
+import static io.prestosql.plugin.raptor.legacy.storage.ColumnIndexStatsUtils.jdbcType;
+import static io.prestosql.plugin.raptor.legacy.util.ArrayUtil.intArrayToBytes;
+import static io.prestosql.plugin.raptor.legacy.util.UuidUtil.uuidToBytes;
 
 class IndexInserter
         implements AutoCloseable

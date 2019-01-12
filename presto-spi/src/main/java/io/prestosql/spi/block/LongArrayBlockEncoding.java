@@ -16,8 +16,8 @@ package io.prestosql.spi.block;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
-import static com.facebook.presto.spi.block.EncoderUtil.decodeNullBits;
-import static com.facebook.presto.spi.block.EncoderUtil.encodeNullsAsBits;
+import static io.prestosql.spi.block.EncoderUtil.decodeNullBits;
+import static io.prestosql.spi.block.EncoderUtil.encodeNullsAsBits;
 
 public class LongArrayBlockEncoding
         implements BlockEncoding

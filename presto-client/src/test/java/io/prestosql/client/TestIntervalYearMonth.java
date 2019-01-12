@@ -15,9 +15,9 @@ package io.prestosql.client;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.client.IntervalYearMonth.formatMonths;
-import static com.facebook.presto.client.IntervalYearMonth.parseMonths;
-import static com.facebook.presto.client.IntervalYearMonth.toMonths;
+import static io.prestosql.client.IntervalYearMonth.formatMonths;
+import static io.prestosql.client.IntervalYearMonth.parseMonths;
+import static io.prestosql.client.IntervalYearMonth.toMonths;
 import static org.testng.Assert.assertEquals;
 
 public class TestIntervalYearMonth

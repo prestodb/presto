@@ -13,9 +13,9 @@
  */
 package io.prestosql.array;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.IntArrayBlockBuilder;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.IntArrayBlockBuilder;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
