@@ -201,7 +201,8 @@ public class KdbTree
         SplitResult<Rectangle> split(Rectangle rectangle, double value);
     }
 
-    private static final SplitDimension BY_X = new SplitDimension() {
+    private static final SplitDimension BY_X = new SplitDimension()
+    {
         private final Comparator<Rectangle> comparator = (first, second) -> ComparisonChain.start()
                 .compare(first.getXMin(), second.getXMin())
                 .compare(first.getYMin(), second.getYMin())
@@ -229,7 +230,8 @@ public class KdbTree
         }
     };
 
-    private static final SplitDimension BY_Y = new SplitDimension() {
+    private static final SplitDimension BY_Y = new SplitDimension()
+    {
         private final Comparator<Rectangle> comparator = (first, second) -> ComparisonChain.start()
                 .compare(first.getYMin(), second.getYMin())
                 .compare(first.getXMin(), second.getXMin())

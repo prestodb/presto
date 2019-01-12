@@ -32,7 +32,7 @@ public class TestParquetTypeUtils
     public void testMapInt32ToPrestoInteger()
     {
         PrimitiveType intType = new PrimitiveType(OPTIONAL, PrimitiveTypeName.INT32, "int_col", OriginalType.INT_32);
-        ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[]{"int_col"}, PrimitiveTypeName.INT32, 0, 1);
+        ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {"int_col"}, PrimitiveTypeName.INT32, 0, 1);
         RichColumnDescriptor intColumn = new RichColumnDescriptor(columnDescriptor, intType);
         assertEquals(getPrestoType(TupleDomain.all(), intColumn), INTEGER);
     }
@@ -42,7 +42,7 @@ public class TestParquetTypeUtils
     {
         // int32 primitive should default to Presto integer if original type metadata isn't available
         PrimitiveType intType = new PrimitiveType(OPTIONAL, PrimitiveTypeName.INT32, "int_col");
-        ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[]{"int_col"}, PrimitiveTypeName.INT32, 0, 1);
+        ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {"int_col"}, PrimitiveTypeName.INT32, 0, 1);
         RichColumnDescriptor intColumn = new RichColumnDescriptor(columnDescriptor, intType);
         assertEquals(getPrestoType(TupleDomain.all(), intColumn), INTEGER);
     }
@@ -52,7 +52,7 @@ public class TestParquetTypeUtils
     {
         // int32 primitive with original type of date should map to a Presto date
         PrimitiveType dateType = new PrimitiveType(OPTIONAL, PrimitiveTypeName.INT32, "date_col", OriginalType.DATE);
-        ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[]{"date_col"}, PrimitiveTypeName.INT32, 0, 1);
+        ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {"date_col"}, PrimitiveTypeName.INT32, 0, 1);
         RichColumnDescriptor dateColumn = new RichColumnDescriptor(columnDescriptor, dateType);
         assertEquals(getPrestoType(TupleDomain.all(), dateColumn), DATE);
     }

@@ -96,9 +96,9 @@ public final class MergeQuantileDigestFunction
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION.bindTo(stateSerializer),
                 ImmutableList.of(new AccumulatorStateDescriptor(
-                    QuantileDigestState.class,
-                    stateSerializer,
-                    new QuantileDigestStateFactory())),
+                        QuantileDigestState.class,
+                        stateSerializer,
+                        new QuantileDigestStateFactory())),
                 type);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);

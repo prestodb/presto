@@ -179,12 +179,12 @@ public final class DecimalOperators
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
-                    .implementation(methodsGroup -> methodsGroup
-                            .methods("subtractShortShortShort")
-                            .withExtraParameters(DecimalOperators::calculateShortRescaleParameters))
-                    .implementation(methodsGroup -> methodsGroup
-                            .methods("subtractShortShortLong", "subtractLongLongLong", "subtractShortLongLong", "subtractLongShortLong")
-                            .withExtraParameters(DecimalOperators::calculateLongRescaleParameters)))
+                        .implementation(methodsGroup -> methodsGroup
+                                .methods("subtractShortShortShort")
+                                .withExtraParameters(DecimalOperators::calculateShortRescaleParameters))
+                        .implementation(methodsGroup -> methodsGroup
+                                .methods("subtractShortShortLong", "subtractLongLongLong", "subtractShortLongLong", "subtractLongShortLong")
+                                .withExtraParameters(DecimalOperators::calculateLongRescaleParameters)))
                 .build();
     }
 
@@ -257,8 +257,8 @@ public final class DecimalOperators
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
-                    .implementation(methodsGroup -> methodsGroup
-                            .methods("multiplyShortShortShort", "multiplyShortShortLong", "multiplyLongLongLong", "multiplyShortLongLong", "multiplyLongShortLong")))
+                        .implementation(methodsGroup -> methodsGroup
+                                .methods("multiplyShortShortShort", "multiplyShortShortLong", "multiplyLongLongLong", "multiplyShortLongLong", "multiplyLongShortLong")))
                 .build();
     }
 
@@ -322,9 +322,9 @@ public final class DecimalOperators
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
-                    .implementation(methodsGroup -> methodsGroup
-                            .methods("divideShortShortShort", "divideShortLongShort", "divideLongShortShort", "divideShortShortLong", "divideLongLongLong", "divideShortLongLong", "divideLongShortLong")
-                            .withExtraParameters(DecimalOperators::divideRescaleFactor)))
+                        .implementation(methodsGroup -> methodsGroup
+                                .methods("divideShortShortShort", "divideShortLongShort", "divideLongShortShort", "divideShortShortLong", "divideLongLongLong", "divideShortLongLong", "divideLongShortLong")
+                                .withExtraParameters(DecimalOperators::divideRescaleFactor)))
                 .build();
     }
 
@@ -463,9 +463,9 @@ public final class DecimalOperators
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
-                    .implementation(methodsGroup -> methodsGroup
-                            .methods("modulusShortShortShort", "modulusLongLongLong", "modulusShortLongLong", "modulusShortLongShort", "modulusLongShortShort", "modulusLongShortLong")
-                            .withExtraParameters(DecimalOperators::modulusRescaleParameters)))
+                        .implementation(methodsGroup -> methodsGroup
+                                .methods("modulusShortShortShort", "modulusLongLongLong", "modulusShortLongLong", "modulusShortLongShort", "modulusLongShortShort", "modulusLongShortLong")
+                                .withExtraParameters(DecimalOperators::modulusRescaleParameters)))
                 .build();
     }
 

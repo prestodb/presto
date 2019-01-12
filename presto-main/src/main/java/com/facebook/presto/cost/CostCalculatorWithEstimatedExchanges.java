@@ -37,14 +37,14 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * HACK!
- *
+ * <p>
  * This is a wrapper class around CostCalculator that estimates ExchangeNodes cost.
- *
+ * <p>
  * The ReorderJoins and DetermineJoinDistributionType rules are run before exchanges
  * are introduced. This cost calculator adds the implied costs for the exchanges that
  * will be added later. It is needed to account for the differences in exchange costs
  * for different types of joins.
- *
+ * <p>
  * Ideally the optimizer would produce different variations of a plan with all the
  * exchanges already introduced, so that the cost could be computed on the whole plan
  * and this class would not be needed.

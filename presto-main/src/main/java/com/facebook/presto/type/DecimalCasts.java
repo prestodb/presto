@@ -135,20 +135,20 @@ public final class DecimalCasts
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
-                    .implementation(methodsGroup -> methodsGroup
-                            .methods(methodNames)
-                            .withExtraParameters((context) -> {
-                                long precision = context.getLiteral("precision");
-                                long scale = context.getLiteral("scale");
-                                Number tenToScale;
-                                if (isShortDecimal(context.getParameterTypes().get(0))) {
-                                    tenToScale = longTenToNth(intScale(scale));
-                                }
-                                else {
-                                    tenToScale = bigIntegerTenToNth(intScale(scale));
-                                }
-                                return ImmutableList.of(precision, scale, tenToScale);
-                            })))
+                        .implementation(methodsGroup -> methodsGroup
+                                .methods(methodNames)
+                                .withExtraParameters((context) -> {
+                                    long precision = context.getLiteral("precision");
+                                    long scale = context.getLiteral("scale");
+                                    Number tenToScale;
+                                    if (isShortDecimal(context.getParameterTypes().get(0))) {
+                                        tenToScale = longTenToNth(intScale(scale));
+                                    }
+                                    else {
+                                        tenToScale = bigIntegerTenToNth(intScale(scale));
+                                    }
+                                    return ImmutableList.of(precision, scale, tenToScale);
+                                })))
                 .build();
     }
 
@@ -171,18 +171,18 @@ public final class DecimalCasts
                 .choice(choice -> choice
                         .nullableResult(nullableResult)
                         .implementation(methodsGroup -> methodsGroup
-                            .methods(methodNames)
-                            .withExtraParameters((context) -> {
-                                DecimalType resultType = (DecimalType) context.getReturnType();
-                                Number tenToScale;
-                                if (isShortDecimal(resultType)) {
-                                    tenToScale = longTenToNth(resultType.getScale());
-                                }
-                                else {
-                                    tenToScale = bigIntegerTenToNth(resultType.getScale());
-                                }
-                                return ImmutableList.of(resultType.getPrecision(), resultType.getScale(), tenToScale);
-                            }))).build();
+                                .methods(methodNames)
+                                .withExtraParameters((context) -> {
+                                    DecimalType resultType = (DecimalType) context.getReturnType();
+                                    Number tenToScale;
+                                    if (isShortDecimal(resultType)) {
+                                        tenToScale = longTenToNth(resultType.getScale());
+                                    }
+                                    else {
+                                        tenToScale = bigIntegerTenToNth(resultType.getScale());
+                                    }
+                                    return ImmutableList.of(resultType.getPrecision(), resultType.getScale(), tenToScale);
+                                }))).build();
     }
 
     private DecimalCasts() {}

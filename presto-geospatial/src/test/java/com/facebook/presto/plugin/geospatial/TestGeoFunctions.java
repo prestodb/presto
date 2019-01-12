@@ -1059,8 +1059,8 @@ public class TestGeoFunctions
                 format(
                         "ST_MultiPoint(array[%s])",
                         Arrays.stream(pointWkts)
-                            .map(wkt -> wkt == null ? "null" : format("ST_GeometryFromText('%s')", wkt))
-                            .collect(Collectors.joining(","))),
+                                .map(wkt -> wkt == null ? "null" : format("ST_GeometryFromText('%s')", wkt))
+                                .collect(Collectors.joining(","))),
                 GEOMETRY,
                 expectedWkt);
     }
@@ -1071,8 +1071,8 @@ public class TestGeoFunctions
                 format(
                         "ST_MultiPoint(array[%s])",
                         Arrays.stream(pointWkts)
-                            .map(wkt -> wkt == null ? "null" : format("ST_GeometryFromText('%s')", wkt))
-                            .collect(Collectors.joining(","))),
+                                .map(wkt -> wkt == null ? "null" : format("ST_GeometryFromText('%s')", wkt))
+                                .collect(Collectors.joining(","))),
                 INVALID_FUNCTION_ARGUMENT,
                 format("Invalid input to ST_MultiPoint: %s", errorMessage));
     }

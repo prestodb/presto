@@ -102,8 +102,8 @@ public class TestSpatialJoins
     public void testDistributedSpatialJoinContains()
     {
         assertUpdate(format("CREATE TABLE contains_partitioning AS " +
-                        "SELECT spatial_partitioning(ST_GeometryFromText(wkt)) as v " +
-                        "FROM (%s) as a (wkt, name, id)", POLYGONS_SQL), 1);
+                "SELECT spatial_partitioning(ST_GeometryFromText(wkt)) as v " +
+                "FROM (%s) as a (wkt, name, id)", POLYGONS_SQL), 1);
 
         Session session = Session.builder(getSession())
                 .setSystemProperty(SPATIAL_PARTITIONING_TABLE_NAME, "contains_partitioning")

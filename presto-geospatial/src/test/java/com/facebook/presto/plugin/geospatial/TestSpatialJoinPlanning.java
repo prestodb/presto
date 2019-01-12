@@ -164,8 +164,8 @@ public class TestSpatialJoinPlanning
         assertInvalidSpatialPartitioning(
                 withSpatialPartitioning("non_existent_table"),
                 "SELECT b.name, a.name " +
-                "FROM " + POINTS_SQL + ", " + POLYGONS_SQL + " " +
-                "WHERE ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))",
+                        "FROM " + POINTS_SQL + ", " + POLYGONS_SQL + " " +
+                        "WHERE ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))",
                 "Table not found: memory.default.non_existent_table");
 
         // empty table
@@ -283,14 +283,14 @@ public class TestSpatialJoinPlanning
                         spatialJoin("st_distance(st_point_a, st_point_b) <= radius", Optional.of(KDB_TREE_JSON),
                                 anyTree(
                                         unnest(
-                                            project(ImmutableMap.of("partitions", expression(format("spatial_partitions(cast('%s' as kdbtree), st_point_a)", KDB_TREE_JSON))),
-                                                project(ImmutableMap.of("st_point_a", expression("ST_Point(cast(a_lng as double), cast(a_lat as double))")),
-                                                        anyTree(values(ImmutableMap.of("a_lng", 0, "a_lat", 1))))))),
+                                                project(ImmutableMap.of("partitions", expression(format("spatial_partitions(cast('%s' as kdbtree), st_point_a)", KDB_TREE_JSON))),
+                                                        project(ImmutableMap.of("st_point_a", expression("ST_Point(cast(a_lng as double), cast(a_lat as double))")),
+                                                                anyTree(values(ImmutableMap.of("a_lng", 0, "a_lat", 1))))))),
                                 anyTree(
                                         unnest(
                                                 project(ImmutableMap.of("partitions", expression(format("spatial_partitions(cast('%s' as kdbtree), st_point_b, 3.1e0)", KDB_TREE_JSON)), "radius", expression("3.1e0")),
-                                                    project(ImmutableMap.of("st_point_b", expression("ST_Point(cast(b_lng as double), cast(b_lat as double))")),
-                                                        anyTree(values(ImmutableMap.of("b_lng", 0, "b_lat", 1))))))))));
+                                                        project(ImmutableMap.of("st_point_b", expression("ST_Point(cast(b_lng as double), cast(b_lat as double))")),
+                                                                anyTree(values(ImmutableMap.of("b_lng", 0, "b_lat", 1))))))))));
     }
 
     @Test

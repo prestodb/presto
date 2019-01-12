@@ -180,6 +180,7 @@ final class BlockUtil
         }
         return Arrays.copyOfRange(array, index, index + length);
     }
+
     static int countUsedPositions(boolean[] positions)
     {
         int used = 0;

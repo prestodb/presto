@@ -23,6 +23,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static java.util.Arrays.asList;
+
 public class TestArrayNgramsFunction
 
         extends AbstractTestFunctions
@@ -76,8 +77,8 @@ public class TestArrayNgramsFunction
     public void testTypeCombinations()
     {
         assertFunction("ngrams(ARRAY[1, 2, 3], 2)", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(
-                        ImmutableList.of(1, 2),
-                        ImmutableList.of(2, 3)));
+                ImmutableList.of(1, 2),
+                ImmutableList.of(2, 3)));
         assertFunction("ngrams(ARRAY[1.1E0, 2.1E0, 3.1E0], 2)", new ArrayType(new ArrayType(DOUBLE)), ImmutableList.of(
                 ImmutableList.of(1.1, 2.1),
                 ImmutableList.of(2.1, 3.1)));
