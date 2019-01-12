@@ -1152,7 +1152,7 @@ public class ExpressionAnalyzer
             for (int i = 0; i < lambdaArguments.size(); i++) {
                 LambdaArgumentDeclaration lambdaArgument = lambdaArguments.get(i);
                 Type type = types.get(i);
-                fields.add(com.facebook.presto.sql.analyzer.Field.newUnqualified(lambdaArgument.getName().getValue(), type));
+                fields.add(io.prestosql.sql.analyzer.Field.newUnqualified(lambdaArgument.getName().getValue(), type));
                 setExpressionType(lambdaArgument, type);
             }
 
@@ -1520,7 +1520,7 @@ public class ExpressionAnalyzer
     {
         Field[] fields = new Field[types.size()];
         for (Entry<Integer, Type> entry : types.entrySet()) {
-            fields[entry.getKey()] = com.facebook.presto.sql.analyzer.Field.newUnqualified(Optional.empty(), entry.getValue());
+            fields[entry.getKey()] = io.prestosql.sql.analyzer.Field.newUnqualified(Optional.empty(), entry.getValue());
         }
         RelationType tupleDescriptor = new RelationType(fields);
 

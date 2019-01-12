@@ -336,7 +336,7 @@ Task Properties
 
     Number of threads used to handle timeouts when generating HTTP responses. This value
     should be increased if all the threads are frequently in use. This can be monitored
-    via the ``com.facebook.presto.server:name=AsyncHttpExecutionMBean:TimeoutExecutor``
+    via the ``io.prestosql.server:name=AsyncHttpExecutionMBean:TimeoutExecutor``
     JMX object. If ``ActiveCount`` is always the same as ``PoolSize``, increase the
     number of threads.
 
@@ -372,7 +372,7 @@ Task Properties
     but will cause increased heap space usage. Setting the value too high may cause a drop
     in performance due to a context switching. The number of active threads is available
     via the ``RunningSplits`` property of the
-    ``com.facebook.presto.execution.executor:name=TaskExecutor.RunningSplits`` JXM object.
+    ``io.prestosql.execution.executor:name=TaskExecutor.RunningSplits`` JXM object.
 
 ``task.min-drivers``
 ^^^^^^^^^^^^^^^^^^^^

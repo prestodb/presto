@@ -43,7 +43,7 @@ data-sources:
     url: jdbc:presto://localhost:8080
     username: na
     password: na
-    driver-class-name: com.facebook.presto.jdbc.PrestoDriver
+    driver-class-name: io.prestosql.jdbc.PrestoDriver
 
 environment:
   name: PRESTO-DEVENV

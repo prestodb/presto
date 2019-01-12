@@ -19,7 +19,7 @@ java \
   "-Djava.util.logging.config.file=${DOCKER_TEMPTO_CONF_DIR}/logging.properties" \
   -Duser.timezone=Asia/Kathmandu \
   -cp "/docker/volumes/jdbc/driver.jar:/docker/volumes/presto-product-tests/presto-product-tests-executable.jar" \
-  com.facebook.presto.tests.TemptoProductTestRunner \
+  io.prestosql.tests.TemptoProductTestRunner \
   --report-dir "/docker/volumes/test-reports" \
   --config "${TEMPTO_CONFIG_FILES}" \
   "$@"

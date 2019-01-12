@@ -1,5 +1,5 @@
 {
-  "namespace": "com.facebook.test",
+  "namespace": "io.prestosql.test",
   "name": "product_tests_avro_table",
   "type": "record",
   "fields": [

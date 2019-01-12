@@ -100,7 +100,7 @@ public class FilterStatsCalculator
 
     private Expression simplifyExpression(Session session, Expression predicate, TypeProvider types)
     {
-        // TODO reuse com.facebook.presto.sql.planner.iterative.rule.SimplifyExpressions.rewrite
+        // TODO reuse io.prestosql.sql.planner.iterative.rule.SimplifyExpressions.rewrite
 
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, predicate, types);
         ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(predicate, metadata, session, expressionTypes);

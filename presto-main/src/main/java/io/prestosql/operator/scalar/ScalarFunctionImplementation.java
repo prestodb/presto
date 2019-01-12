@@ -176,7 +176,7 @@ public final class ScalarFunctionImplementation
 
     public static class ArgumentProperty
     {
-        // TODO: Alternatively, we can store com.facebook.presto.spi.type.Type
+        // TODO: Alternatively, we can store io.prestosql.spi.type.Type
         private final ArgumentType argumentType;
         private final Optional<NullConvention> nullConvention;
         private final Optional<Class> lambdaInterface;

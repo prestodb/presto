@@ -45,7 +45,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to create the specified schema in this catalog.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
     {
@@ -55,7 +55,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to drop the specified schema in this catalog.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanDropSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
     {
@@ -65,7 +65,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to rename the specified schema in this catalog.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName, String newSchemaName)
     {
@@ -79,7 +79,7 @@ public interface ConnectorAccessControl
      * The {@link #filterSchemas} method must handle filter all results for unauthorized users,
      * since there are multiple way to list schemas.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanShowSchemas(ConnectorTransactionHandle transactionHandle, Identity identity)
     {
@@ -97,7 +97,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to create the specified table in this catalog.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanCreateTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
     {
@@ -107,7 +107,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to drop the specified table in this catalog.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanDropTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
     {
@@ -117,7 +117,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to rename the specified table in this catalog.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanRenameTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, SchemaTableName newTableName)
     {
@@ -131,7 +131,7 @@ public interface ConnectorAccessControl
      * The {@link #filterTables} method must filter all results for unauthorized users,
      * since there are multiple ways to list tables.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanShowTablesMetadata(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
     {
@@ -149,7 +149,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to add columns to the specified table in this catalog.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanAddColumn(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
     {
@@ -159,7 +159,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to drop columns from the specified table in this catalog.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanDropColumn(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
     {
@@ -169,7 +169,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to rename a column in the specified table in this catalog.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanRenameColumn(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
     {
@@ -179,7 +179,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to select from the specified columns in a relation.  The column set can be empty.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
     {
@@ -189,7 +189,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to insert into the specified table in this catalog.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanInsertIntoTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
     {
@@ -199,7 +199,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to delete from the specified table in this catalog.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanDeleteFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
     {
@@ -209,7 +209,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to create the specified view in this catalog.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanCreateView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
     {
@@ -219,7 +219,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to drop the specified view in this catalog.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanDropView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
     {
@@ -229,7 +229,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to create a view that selects from the specified columns in a relation.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
     {
@@ -239,7 +239,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to set the specified property in this catalog.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transactionHandle, Identity identity, String propertyName)
     {
@@ -249,7 +249,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to grant to any other user the specified privilege on the specified table.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName, String grantee, boolean withGrantOption)
     {
@@ -259,7 +259,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to revoke the specified privilege on the specified table from any user.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName, String revokee, boolean grantOptionFor)
     {

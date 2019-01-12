@@ -1,1 +1,1 @@
-com.facebook.presto.jdbc.PrestoDriver
+io.prestosql.jdbc.PrestoDriver

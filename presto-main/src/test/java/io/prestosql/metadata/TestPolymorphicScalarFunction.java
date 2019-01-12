@@ -224,7 +224,7 @@ public class TestPolymorphicScalarFunction
     }
 
     @Test(expectedExceptions = {IllegalStateException.class},
-            expectedExceptionsMessageRegExp = "method foo was not found in class com.facebook.presto.metadata.TestPolymorphicScalarFunction\\$TestMethods")
+            expectedExceptionsMessageRegExp = "method foo was not found in class io.prestosql.metadata.TestPolymorphicScalarFunction\\$TestMethods")
     public void testFailIfNotAllMethodsPresent()
     {
         SqlScalarFunction.builder(TestMethods.class)

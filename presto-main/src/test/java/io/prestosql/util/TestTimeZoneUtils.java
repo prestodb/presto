@@ -39,7 +39,7 @@ public class TestTimeZoneUtils
             JdkBasedZoneInfoProvider.registerAsJodaZoneInfoProvider();
         }
         catch (RuntimeException e) {
-            throw new RuntimeException("Set the following system property to JVM running the test: -Dorg.joda.time.DateTimeZone.Provider=com.facebook.presto.tz.JdkBasedZoneInfoProvider");
+            throw new RuntimeException("Set the following system property to JVM running the test: -Dorg.joda.time.DateTimeZone.Provider=io.airlift.jodabridge.JdkBasedZoneInfoProvider");
         }
     }
 

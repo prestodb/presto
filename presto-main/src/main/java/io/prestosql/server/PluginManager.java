@@ -64,7 +64,7 @@ import static java.util.Objects.requireNonNull;
 public class PluginManager
 {
     private static final ImmutableList<String> SPI_PACKAGES = ImmutableList.<String>builder()
-            .add("com.facebook.presto.spi.")
+            .add("io.prestosql.spi.")
             .add("com.fasterxml.jackson.annotation.")
             .add("io.airlift.slice.")
             .add("io.airlift.units.")

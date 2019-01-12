@@ -49,7 +49,7 @@ public class InternalCommunicationModule
     {
         return binder -> {
             InternalCommunicationConfig clientKerberosConfig = buildConfigObject(InternalCommunicationConfig.class);
-            com.facebook.presto.server.security.KerberosConfig serverKerberosConfig = buildConfigObject(com.facebook.presto.server.security.KerberosConfig.class);
+            io.prestosql.server.security.KerberosConfig serverKerberosConfig = buildConfigObject(io.prestosql.server.security.KerberosConfig.class);
             verify(serverKerberosConfig.getKeytab() != null, "%s must be set when %s is true", HTTP_SERVER_AUTHENTICATION_KRB5_KEYTAB, INTERNAL_COMMUNICATION_KERBEROS_ENABLED);
 
             configBinder(binder).bindConfigGlobalDefaults(KerberosConfig.class, kerberosConfig -> {

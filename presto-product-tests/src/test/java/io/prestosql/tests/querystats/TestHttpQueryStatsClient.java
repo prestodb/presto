@@ -40,7 +40,7 @@ public class TestHttpQueryStatsClient
     private Response httpResponse;
     private HttpQueryStatsClient queryStatsClient;
 
-    private static final String SINGLE_QUERY_INFO = resourceAsString("com/facebook/presto/tests/querystats/single_query_info_response.json");
+    private static final String SINGLE_QUERY_INFO = resourceAsString("io/prestosql/tests/querystats/single_query_info_response.json");
 
     private static String resourceAsString(String resourcePath)
     {

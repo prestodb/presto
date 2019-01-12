@@ -219,7 +219,7 @@ public class JoinGraph
     private static class Builder
             extends PlanVisitor<JoinGraph, Context>
     {
-        // TODO When com.facebook.presto.sql.planner.optimizations.EliminateCrossJoins is removed, remove 'shallow' flag
+        // TODO When io.prestosql.sql.planner.optimizations.EliminateCrossJoins is removed, remove 'shallow' flag
         private final boolean shallow;
         private final Lookup lookup;
 
@@ -346,7 +346,7 @@ public class JoinGraph
     {
         private final Map<Symbol, PlanNode> symbolSources = new HashMap<>();
 
-        // TODO When com.facebook.presto.sql.planner.optimizations.EliminateCrossJoins is removed, remove 'joinGraphs'
+        // TODO When io.prestosql.sql.planner.optimizations.EliminateCrossJoins is removed, remove 'joinGraphs'
         private final List<JoinGraph> joinGraphs = new ArrayList<>();
 
         public void setSymbolSource(Symbol symbol, PlanNode node)

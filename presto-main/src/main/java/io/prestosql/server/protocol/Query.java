@@ -597,7 +597,7 @@ class Query
             return null;
         }
 
-        com.facebook.presto.execution.StageStats stageStats = stageInfo.getStageStats();
+        io.prestosql.execution.StageStats stageStats = stageInfo.getStageStats();
 
         ImmutableList.Builder<StageStats> subStages = ImmutableList.builder();
         for (StageInfo subStage : stageInfo.getSubStages()) {

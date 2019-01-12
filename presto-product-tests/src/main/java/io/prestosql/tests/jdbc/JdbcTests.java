@@ -207,13 +207,13 @@ public class JdbcTests
 
         QueryResult result = QueryResult.forResultSet(metaData().getColumns("hive", "default", "nation", null));
         if (usingPrestoJdbcDriver(connection())) {
-            assertThat(result).matches(sqlResultDescriptorForResource("com/facebook/presto/tests/jdbc/get_nation_columns.result"));
+            assertThat(result).matches(sqlResultDescriptorForResource("io/prestosql/tests/jdbc/get_nation_columns.result"));
         }
         else if (usingTeradataJdbc4Driver(connection())) {
-            assertThat(result).matches(sqlResultDescriptorForResource("com/facebook/presto/tests/jdbc/get_nation_columns_simba4.result"));
+            assertThat(result).matches(sqlResultDescriptorForResource("io/prestosql/tests/jdbc/get_nation_columns_simba4.result"));
         }
         else if (usingTeradataJdbcDriver(connection())) {
-            assertThat(result).matches(sqlResultDescriptorForResource("com/facebook/presto/tests/jdbc/get_nation_columns_simba.result"));
+            assertThat(result).matches(sqlResultDescriptorForResource("io/prestosql/tests/jdbc/get_nation_columns_simba.result"));
         }
         else {
             throw new IllegalStateException();
@@ -284,7 +284,7 @@ public class JdbcTests
     }
 
     /**
-     * Same as {@code com.facebook.presto.jdbc.TestJdbcPreparedStatement#testDeallocate()}. This one is run for TeradataJdbcDriver as well.
+     * Same as {@code io.prestosql.jdbc.TestJdbcPreparedStatement#testDeallocate()}. This one is run for TeradataJdbcDriver as well.
      */
     @Test(groups = JDBC)
     public void testDeallocate()

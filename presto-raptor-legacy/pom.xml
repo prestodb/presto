@@ -8,8 +8,8 @@
         <version>0.216-SNAPSHOT</version>
     </parent>
 
-    <artifactId>presto-raptor</artifactId>
-    <description>Presto - Raptor Connector</description>
+    <artifactId>presto-raptor-legacy</artifactId>
+    <description>Presto - Raptor Legacy Connector</description>
     <packaging>presto-plugin</packaging>
 
     <properties>

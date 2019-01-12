@@ -150,7 +150,7 @@ and each type can be run individually with the following commands:
 
 ```
 # Run single Java based test
-presto-product-tests/bin/run_on_docker.sh <profile> -t com.facebook.presto.tests.functions.operators.Comparison.testLessThanOrEqualOperatorExists
+presto-product-tests/bin/run_on_docker.sh <profile> -t io.prestosql.tests.functions.operators.Comparison.testLessThanOrEqualOperatorExists
 # Run single convention based test
 presto-product-tests/bin/run_on_docker.sh <profile> -t sql_tests.testcases.system.selectInformationSchemaTables
 ```
@@ -337,7 +337,7 @@ The format of `/etc/hosts` entries is `<ip> <host>`:
 with the following parameters:
     
     - Use classpath of module: `presto-main`
-    - Main class: `com.facebook.presto.server.PrestoServer`
+    - Main class: `io.prestosql.server.PrestoServer`
     - Working directory: `presto-product-tests/conf/presto`
     - VM options: `-ea -Xmx2G -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties -DHADOOP_USER_NAME=hive -Duser.timezone=Asia/Kathmandu`
 

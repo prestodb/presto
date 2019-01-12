@@ -13,7 +13,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <main-class>com.facebook.presto.proxy.PrestoProxy</main-class>
+        <main-class>io.prestosql.proxy.PrestoProxy</main-class>
     </properties>
 
     <dependencies>

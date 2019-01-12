@@ -35,7 +35,7 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
 /**
- * Extracts sort expression to be used for creating {@link com.facebook.presto.operator.SortedPositionLinks} from join filter expression.
+ * Extracts sort expression to be used for creating {@link io.prestosql.operator.SortedPositionLinks} from join filter expression.
  * Currently this class can extract sort and search expressions from filter function conjuncts of shape:
  * <p>
  * {@code A.a < f(B.x, B.y, B.z)} or {@code f(B.x, B.y, B.z) < A.a}

@@ -44,7 +44,7 @@ public final class CompilerUtils
         String className = baseName
                 + "_" + suffix.orElseGet(() -> Instant.now().atZone(UTC).format(TIMESTAMP_FORMAT))
                 + "_" + CLASS_ID.incrementAndGet();
-        return typeFromJavaClassName("com.facebook.presto.$gen." + toJavaIdentifierString(className));
+        return typeFromJavaClassName("io.prestosql.$gen." + toJavaIdentifierString(className));
     }
 
     public static ParameterizedType makeClassName(String baseName)

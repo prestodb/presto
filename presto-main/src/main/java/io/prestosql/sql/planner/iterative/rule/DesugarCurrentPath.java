@@ -32,7 +32,7 @@ public class DesugarCurrentPath
 
     private static ExpressionRewriter createRewrite()
     {
-        return (expression, context) -> rewriteWith(new com.facebook.presto.sql.tree.ExpressionRewriter<Void>()
+        return (expression, context) -> rewriteWith(new io.prestosql.sql.tree.ExpressionRewriter<Void>()
         {
             @Override
             public Expression rewriteCurrentPath(CurrentPath node, Void context, ExpressionTreeRewriter<Void> treeRewriter)

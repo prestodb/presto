@@ -127,12 +127,12 @@ public class TestFileResourceGroupConfigurationManager
     {
         ResourceGroupConfigurationManager<VariableMap> manager = parse("resource_groups_config_extract_variable.json");
 
-        VariableMap variableMap = new VariableMap(ImmutableMap.of("USER", "user", "domain", "prestodb", "region", "us_east", "cluster", "12"));
+        VariableMap variableMap = new VariableMap(ImmutableMap.of("USER", "user", "domain", "presto", "region", "us_east", "cluster", "12"));
 
         ResourceGroupId globalId = new ResourceGroupId("global");
         manager.configure(new TestingResourceGroup(globalId), new SelectionContext<>(globalId, variableMap));
 
-        ResourceGroupId childId = new ResourceGroupId(new ResourceGroupId("global"), "prestodb:us_east:12");
+        ResourceGroupId childId = new ResourceGroupId(new ResourceGroupId("global"), "presto:us_east:12");
         TestingResourceGroup child = new TestingResourceGroup(childId);
         manager.configure(child, new SelectionContext<>(childId, variableMap));
 

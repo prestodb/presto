@@ -407,7 +407,7 @@ public class ThriftHiveMetastore
         modifiedTable.setParameters(updateStatisticsParameters(modifiedTable.getParameters(), basicStatistics));
         alterTable(databaseName, tableName, modifiedTable);
 
-        com.facebook.presto.hive.metastore.Table table = fromMetastoreApiTable(modifiedTable);
+        io.prestosql.plugin.hive.metastore.Table table = fromMetastoreApiTable(modifiedTable);
         OptionalLong rowCount = basicStatistics.getRowCount();
         List<ColumnStatisticsObj> metastoreColumnStatistics = updatedStatistics.getColumnStatistics().entrySet().stream()
                 .map(entry -> createMetastoreColumnStatistics(entry.getKey(), table.getColumn(entry.getKey()).get().getType(), entry.getValue(), rowCount))

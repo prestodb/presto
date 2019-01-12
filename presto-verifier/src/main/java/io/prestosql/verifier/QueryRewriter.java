@@ -189,11 +189,11 @@ public class QueryRewriter
     private List<Column> getColumns(Connection connection, CreateTableAsSelect createTableAsSelect)
             throws SQLException
     {
-        com.facebook.presto.sql.tree.Query createSelectClause = createTableAsSelect.getQuery();
+        io.prestosql.sql.tree.Query createSelectClause = createTableAsSelect.getQuery();
 
         // Rewrite the query to select zero rows, so that we can get the column names and types
         QueryBody innerQuery = createSelectClause.getQueryBody();
-        com.facebook.presto.sql.tree.Query zeroRowsQuery;
+        io.prestosql.sql.tree.Query zeroRowsQuery;
         if (innerQuery instanceof QuerySpecification) {
             QuerySpecification querySpecification = (QuerySpecification) innerQuery;
             innerQuery = new QuerySpecification(
@@ -205,10 +205,10 @@ public class QueryRewriter
                     querySpecification.getOrderBy(),
                     Optional.of("0"));
 
-            zeroRowsQuery = new com.facebook.presto.sql.tree.Query(createSelectClause.getWith(), innerQuery, Optional.empty(), Optional.empty());
+            zeroRowsQuery = new io.prestosql.sql.tree.Query(createSelectClause.getWith(), innerQuery, Optional.empty(), Optional.empty());
         }
         else {
-            zeroRowsQuery = new com.facebook.presto.sql.tree.Query(createSelectClause.getWith(), innerQuery, Optional.empty(), Optional.of("0"));
+            zeroRowsQuery = new io.prestosql.sql.tree.Query(createSelectClause.getWith(), innerQuery, Optional.empty(), Optional.of("0"));
         }
 
         ImmutableList.Builder<Column> columns = ImmutableList.builder();

@@ -388,7 +388,7 @@ public class VerifyCommand
         if (statement instanceof Insert) {
             return MODIFY;
         }
-        if (statement instanceof com.facebook.presto.sql.tree.Query) {
+        if (statement instanceof io.prestosql.sql.tree.Query) {
             return READ;
         }
         if (statement instanceof RenameColumn) {

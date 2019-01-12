@@ -81,7 +81,7 @@ public class DateFormatParser
 
     public static List<? extends Token> tokenize(String format)
     {
-        DateFormat lexer = new com.facebook.presto.teradata.functions.DateFormat(new ANTLRInputStream(format));
+        DateFormat lexer = new io.prestosql.teradata.functions.DateFormat(new ANTLRInputStream(format));
         return lexer.getAllTokens();
     }
 }

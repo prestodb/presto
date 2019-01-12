@@ -94,7 +94,7 @@
         <module>presto-local-file</module>
         <module>presto-tpch</module>
         <module>presto-tpcds</module>
-        <module>presto-raptor</module>
+        <module>presto-raptor-legacy</module>
         <module>presto-base-jdbc</module>
         <module>presto-mysql</module>
         <module>presto-postgresql</module>
@@ -123,9 +123,9 @@
         <module>presto-password-authenticators</module>
         <module>presto-session-property-managers</module>
         <module>presto-benchto-benchmarks</module>
-        <module>presto-thrift-connector-api</module>
+        <module>presto-thrift-api</module>
         <module>presto-thrift-testing-server</module>
-        <module>presto-thrift-connector</module>
+        <module>presto-thrift</module>
         <module>presto-matching</module>
         <module>presto-memory-context</module>
         <module>presto-proxy</module>
@@ -296,7 +296,7 @@
 
             <dependency>
                 <groupId>io.prestosql</groupId>
-                <artifactId>presto-raptor</artifactId>
+                <artifactId>presto-raptor-legacy</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -418,13 +418,13 @@
 
             <dependency>
                 <groupId>io.prestosql</groupId>
-                <artifactId>presto-thrift-connector-api</artifactId>
+                <artifactId>presto-thrift-api</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.prestosql</groupId>
-                <artifactId>presto-thrift-connector-api</artifactId>
+                <artifactId>presto-thrift-api</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
             </dependency>
@@ -437,7 +437,7 @@
 
             <dependency>
                 <groupId>io.prestosql</groupId>
-                <artifactId>presto-thrift-connector</artifactId>
+                <artifactId>presto-thrift</artifactId>
                 <version>${project.version}</version>
                 <type>zip</type>
             </dependency>
@@ -1194,6 +1194,7 @@
                 <extensions>true</extensions>
                 <configuration>
                     <spiGroupId>io.prestosql</spiGroupId>
+                    <pluginClassName>io.prestosql.spi.Plugin</pluginClassName>
                 </configuration>
             </plugin>
 
@@ -1248,7 +1249,7 @@
 
                 java \
                   -cp ./presto-geospatial/target/presto-geospatial-*-tests-with-dependencies.jar \
-                  com.facebook.presto.plugin.geospatial.BenchmarkSTIntersects
+                  io.prestosql.plugin.geospatial.BenchmarkSTIntersects
             -->
             <build>
                 <plugins>

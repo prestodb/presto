@@ -54,7 +54,7 @@ public class TestTablePartitioningSelect
     private static HiveTableDefinition singleIntColumnPartitionedTableDefinition(String fileFormat, Optional<String> serde)
     {
         String tableName = fileFormat.toLowerCase(Locale.ENGLISH) + "_single_int_column_partitioned";
-        HiveDataSource dataSource = createResourceDataSource(tableName, "com/facebook/presto/tests/hive/data/single_int_column/data." + fileFormat.toLowerCase(Locale.ENGLISH));
+        HiveDataSource dataSource = createResourceDataSource(tableName, "io/prestosql/tests/hive/data/single_int_column/data." + fileFormat.toLowerCase(Locale.ENGLISH));
         HiveDataSource invalidData = createStringDataSource(tableName, "INVALID DATA");
         return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate(buildSingleIntColumnPartitionedTableDDL(fileFormat, serde))

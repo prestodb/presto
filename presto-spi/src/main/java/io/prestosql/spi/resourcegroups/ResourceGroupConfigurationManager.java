@@ -17,8 +17,8 @@ import java.util.Optional;
 
 /**
  * The engine calls the {@link #match(SelectionCriteria)} method whenever a query is submitted,
- * and receives a {@link com.facebook.presto.spi.resourceGroups.SelectionContext} in return which
- * contains a fully-qualified {@link com.facebook.presto.spi.resourceGroups.ResourceGroupId},
+ * and receives a {@link io.prestosql.spi.resourcegroups.SelectionContext} in return which
+ * contains a fully-qualified {@link io.prestosql.spi.resourcegroups.ResourceGroupId},
  * and a manager-specific data structure of type {@code C}.
  * <p>
  * At a later time, the engine may decide to construct a resource group with that ID. To do so,

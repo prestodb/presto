@@ -99,7 +99,7 @@
                 <configuration>
                     <!-- To allow usage of java.util.Hashtable -->
                     <ignorePackages>
-                        <ignorePackage>com.facebook.presto.password.jndi</ignorePackage>
+                        <ignorePackage>io.prestosql.plugin.password.jndi</ignorePackage>
                     </ignorePackages>
                 </configuration>
             </plugin>

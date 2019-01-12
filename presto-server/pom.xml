@@ -21,7 +21,7 @@
         <air.check.skip-dependency>true</air.check.skip-dependency>
 
         <!-- Launcher properties -->
-        <main-class>com.facebook.presto.server.PrestoServer</main-class>
+        <main-class>io.prestosql.server.PrestoServer</main-class>
         <process-name>${project.artifactId}</process-name>
     </properties>
 </project>

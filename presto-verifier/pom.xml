@@ -13,7 +13,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <main-class>com.facebook.presto.verifier.PrestoVerifier</main-class>
+        <main-class>io.prestosql.verifier.PrestoVerifier</main-class>
     </properties>
 
     <dependencies>

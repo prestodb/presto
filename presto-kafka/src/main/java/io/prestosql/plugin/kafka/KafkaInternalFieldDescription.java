@@ -32,7 +32,7 @@ import static java.util.function.Function.identity;
  * Describes an internal (managed by the connector) field which is added to each table row. The definition itself makes the row
  * show up in the tables (the columns are hidden by default, so they must be explicitly selected) but unless the field is hooked in using the
  * forBooleanValue/forLongValue/forBytesValue methods and the resulting FieldValueProvider is then passed into the appropriate row decoder, the fields
- * will be null. Most values are assigned in the {@link com.facebook.presto.kafka.KafkaRecordSet}.
+ * will be null. Most values are assigned in the {@link io.prestosql.plugin.kafka.KafkaRecordSet}.
  */
 public enum KafkaInternalFieldDescription
 {

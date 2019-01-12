@@ -13,7 +13,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <shadeBase>com.facebook.presto.jdbc.internal</shadeBase>
+        <shadeBase>io.prestosql.jdbc.\$internal</shadeBase>
     </properties>
 
     <dependencies>
@@ -188,11 +188,11 @@
                             <dependencyReducedPomLocation>${project.build.directory}/pom.xml</dependencyReducedPomLocation>
                             <relocations>
                                 <relocation>
-                                    <pattern>com.facebook.presto.client</pattern>
+                                    <pattern>io.prestosql.client</pattern>
                                     <shadedPattern>${shadeBase}.client</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>com.facebook.presto.spi</pattern>
+                                    <pattern>io.prestosql.spi</pattern>
                                     <shadedPattern>${shadeBase}.spi</shadedPattern>
                                 </relocation>
                                 <relocation>

@@ -150,7 +150,7 @@ public class PrestoBenchmarkDriver
             if (debug) {
                 Logging logging = Logging.initialize();
                 logging.configure(new LoggingConfiguration());
-                logging.setLevel("com.facebook.presto", Level.DEBUG);
+                logging.setLevel("io.prestosql", Level.DEBUG);
             }
             else {
                 System.setOut(new PrintStream(nullOutputStream()));

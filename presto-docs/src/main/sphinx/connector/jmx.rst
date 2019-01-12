@@ -26,7 +26,7 @@ To enable periodical dumps, define the following properties:
 .. code-block:: none
 
     connector.name=jmx
-    jmx.dump-tables=java.lang:type=Runtime,com.facebook.presto.execution.scheduler:name=NodeScheduler
+    jmx.dump-tables=java.lang:type=Runtime,io.prestosql.execution.scheduler:name=NodeScheduler
     jmx.dump-period=10s
     jmx.max-entries=86400
 
@@ -40,9 +40,9 @@ Commas in MBean names should be escaped in the following manner:
 .. code-block:: none
 
     connector.name=jmx
-    jmx.dump-tables=com.facebook.presto.memory:type=memorypool\\,name=general,\
-       com.facebook.presto.memory:type=memorypool\\,name=system,\
-       com.facebook.presto.memory:type=memorypool\\,name=reserved
+    jmx.dump-tables=io.prestosql.memory:type=memorypool\\,name=general,\
+       io.prestosql.memory:type=memorypool\\,name=system,\
+       io.prestosql.memory:type=memorypool\\,name=reserved
 
 Querying JMX
 ------------
@@ -86,15 +86,15 @@ This allows matching several MBean objects within a single query. The following 
 returns information from the different Presto memory pools on each node::
 
     SELECT freebytes, node, object_name
-    FROM jmx.current."com.facebook.presto.memory:*type=memorypool*";
+    FROM jmx.current."io.prestosql.memory:*type=memorypool*";
 
 .. code-block:: none
 
      freebytes  |  node   |                       object_name
     ------------+---------+----------------------------------------------------------
-      214748364 | example | com.facebook.presto.memory:type=MemoryPool,name=reserved
-     1073741825 | example | com.facebook.presto.memory:type=MemoryPool,name=general
-      858993459 | example | com.facebook.presto.memory:type=MemoryPool,name=system
+      214748364 | example | io.prestosql.memory:type=MemoryPool,name=reserved
+     1073741825 | example | io.prestosql.memory:type=MemoryPool,name=general
+      858993459 | example | io.prestosql.memory:type=MemoryPool,name=system
     (3 rows)
 
 The ``history`` schema contains the list of tables configured in the connector properties file.

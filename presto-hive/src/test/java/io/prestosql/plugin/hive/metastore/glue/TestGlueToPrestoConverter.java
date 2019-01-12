@@ -58,7 +58,7 @@ public class TestGlueToPrestoConverter
     @Test
     public void testConvertDatabase()
     {
-        com.facebook.presto.hive.metastore.Database prestoDb = GlueToPrestoConverter.convertDatabase(testDb);
+        io.prestosql.plugin.hive.metastore.Database prestoDb = GlueToPrestoConverter.convertDatabase(testDb);
         assertEquals(prestoDb.getDatabaseName(), testDb.getName());
         assertEquals(prestoDb.getLocation().get(), testDb.getLocationUri());
         assertEquals(prestoDb.getComment().get(), testDb.getDescription());
@@ -70,7 +70,7 @@ public class TestGlueToPrestoConverter
     @Test
     public void testConvertTable()
     {
-        com.facebook.presto.hive.metastore.Table prestoTbl = GlueToPrestoConverter.convertTable(testTbl, testDb.getName());
+        io.prestosql.plugin.hive.metastore.Table prestoTbl = GlueToPrestoConverter.convertTable(testTbl, testDb.getName());
         assertEquals(prestoTbl.getTableName(), testTbl.getName());
         assertEquals(prestoTbl.getDatabaseName(), testDb.getName());
         assertEquals(prestoTbl.getTableType(), testTbl.getTableType());
@@ -87,7 +87,7 @@ public class TestGlueToPrestoConverter
     public void testConvertTableNullPartitions()
     {
         testTbl.setPartitionKeys(null);
-        com.facebook.presto.hive.metastore.Table prestoTbl = GlueToPrestoConverter.convertTable(testTbl, testDb.getName());
+        io.prestosql.plugin.hive.metastore.Table prestoTbl = GlueToPrestoConverter.convertTable(testTbl, testDb.getName());
         assertTrue(prestoTbl.getPartitionColumns().isEmpty());
     }
 
@@ -102,7 +102,7 @@ public class TestGlueToPrestoConverter
     @Test
     public void testConvertPartition()
     {
-        com.facebook.presto.hive.metastore.Partition prestoPartition = GlueToPrestoConverter.convertPartition(testPartition);
+        io.prestosql.plugin.hive.metastore.Partition prestoPartition = GlueToPrestoConverter.convertPartition(testPartition);
         assertEquals(prestoPartition.getDatabaseName(), testPartition.getDatabaseName());
         assertEquals(prestoPartition.getTableName(), testPartition.getTableName());
         assertColumnList(prestoPartition.getColumns(), testPartition.getStorageDescriptor().getColumns());
@@ -123,7 +123,7 @@ public class TestGlueToPrestoConverter
     {
         testTbl.setParameters(null);
         testTbl.getStorageDescriptor().getSerdeInfo().setParameters(null);
-        com.facebook.presto.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(testTbl, testDb.getName());
+        io.prestosql.plugin.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(testTbl, testDb.getName());
         assertNotNull(prestoTable.getParameters());
         assertNotNull(prestoTable.getStorage().getSerdeParameters());
     }

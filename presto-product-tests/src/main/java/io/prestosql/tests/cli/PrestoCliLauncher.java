@@ -51,8 +51,8 @@ public class PrestoCliLauncher
     protected PrestoCliLauncher()
             throws IOException
     {
-        nationTableInteractiveLines = readLines(getResource("com/facebook/presto/tests/cli/interactive_query.results"), UTF_8);
-        nationTableBatchLines = readLines(getResource("com/facebook/presto/tests/cli/batch_query.results"), UTF_8);
+        nationTableInteractiveLines = readLines(getResource("io/prestosql/tests/cli/interactive_query.results"), UTF_8);
+        nationTableBatchLines = readLines(getResource("io/prestosql/tests/cli/batch_query.results"), UTF_8);
     }
 
     protected void stopPresto()

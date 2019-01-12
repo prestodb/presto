@@ -21,7 +21,7 @@ public class TemptoProductTestRunner
     public static void main(String[] args)
     {
         TemptoRunnerCommandLineParser parser = TemptoRunnerCommandLineParser.builder("Presto product tests")
-                .setTestsPackage("com.facebook.presto.tests.*", false)
+                .setTestsPackage("io.prestosql.tests.*", false)
                 .setExcludedGroups("quarantine", true)
                 .build();
         TemptoRunner.runTempto(parser, args);

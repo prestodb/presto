@@ -56,7 +56,7 @@
                         <configuration>
                             <outputFile>${project.build.directory}/PrestoThriftService.thrift</outputFile>
                             <classes>
-                                <class>com.facebook.presto.connector.thrift.api.PrestoThriftService</class>
+                                <class>io.prestosql.plugin.thrift.api.PrestoThriftService</class>
                             </classes>
                             <recursive>true</recursive>
                         </configuration>
@@ -65,7 +65,7 @@
                 <dependencies>
                     <dependency>
                         <groupId>io.prestosql</groupId>
-                        <artifactId>presto-thrift-connector-api</artifactId>
+                        <artifactId>presto-thrift-api</artifactId>
                         <version>${project.version}</version>
                     </dependency>
                 </dependencies>
@@ -82,7 +82,7 @@
                             <goal>java</goal>
                         </goals>
                         <configuration>
-                            <mainClass>com.facebook.presto.sql.ReservedIdentifiers</mainClass>
+                            <mainClass>io.prestosql.sql.ReservedIdentifiers</mainClass>
                             <arguments>
                                 <argument>validateDocs</argument>
                                 <argument>${project.basedir}/src/main/sphinx/language/reserved.rst</argument>

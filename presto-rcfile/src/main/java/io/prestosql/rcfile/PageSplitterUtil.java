@@ -21,7 +21,7 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 
 /**
- * Copy of com.facebook.presto.execution.buffer.PageSplitterUtil
+ * Copy of io.prestosql.execution.buffer.PageSplitterUtil
  */
 public final class PageSplitterUtil
 {

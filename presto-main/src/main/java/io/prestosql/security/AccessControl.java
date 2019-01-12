@@ -29,7 +29,7 @@ public interface AccessControl
     /**
      * Check if the principal is allowed to be the specified user.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanSetUser(Optional<Principal> principal, String userName);
 
@@ -46,21 +46,21 @@ public interface AccessControl
     /**
      * Check if identity is allowed to create the specified schema.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanCreateSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName);
 
     /**
      * Check if identity is allowed to drop the specified schema.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanDropSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName);
 
     /**
      * Check if identity is allowed to rename the specified schema.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanRenameSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName, String newSchemaName);
 
@@ -71,7 +71,7 @@ public interface AccessControl
      * The {@link #filterSchemas} method must filter all results for unauthorized users,
      * since there are multiple ways to list schemas.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanShowSchemas(TransactionId transactionId, Identity identity, String catalogName);
 
@@ -83,21 +83,21 @@ public interface AccessControl
     /**
      * Check if identity is allowed to create the specified table.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanCreateTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName);
 
     /**
      * Check if identity is allowed to drop the specified table.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanDropTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName);
 
     /**
      * Check if identity is allowed to rename the specified table.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanRenameTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, QualifiedObjectName newTableName);
 
@@ -108,7 +108,7 @@ public interface AccessControl
      * The {@link #filterTables} method must filter all results for unauthorized users,
      * since there are multiple ways to list tables.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanShowTablesMetadata(TransactionId transactionId, Identity identity, CatalogSchemaName schema);
 
@@ -120,91 +120,91 @@ public interface AccessControl
     /**
      * Check if identity is allowed to add columns to the specified table.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanAddColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName);
 
     /**
      * Check if identity is allowed to drop columns from the specified table.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanDropColumn(TransactionId transactionId, Identity identity, QualifiedObjectName tableName);
 
     /**
      * Check if identity is allowed to rename a column in the specified table.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanRenameColumn(TransactionId transactionId, Identity identity, QualifiedObjectName tableName);
 
     /**
      * Check if identity is allowed to insert into the specified table.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanInsertIntoTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName);
 
     /**
      * Check if identity is allowed to delete from the specified table.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanDeleteFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName);
 
     /**
      * Check if identity is allowed to create the specified view.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanCreateView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName);
 
     /**
      * Check if identity is allowed to drop the specified view.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanDropView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName);
 
     /**
      * Check if identity is allowed to create a view that selects from the specified columns.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanCreateViewWithSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames);
 
     /**
      * Check if identity is allowed to grant a privilege to the grantee on the specified table.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanGrantTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName, String grantee, boolean withGrantOption);
 
     /**
      * Check if identity is allowed to revoke a privilege from the revokee on the specified table.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanRevokeTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName, String revokee, boolean grantOptionFor);
 
     /**
      * Check if identity is allowed to set the specified system property.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanSetSystemSessionProperty(Identity identity, String propertyName);
 
     /**
      * Check if identity is allowed to set the specified catalog property.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, String catalogName, String propertyName);
 
     /**
      * Check if identity is allowed to select from the specified columns.  The column set can be empty.
      *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames);
 }

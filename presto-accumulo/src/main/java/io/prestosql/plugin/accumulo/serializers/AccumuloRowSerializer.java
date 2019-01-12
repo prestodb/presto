@@ -354,7 +354,7 @@ public interface AccumuloRowSerializer
      * </tr>
      * <tr>
      * <td>ARRAY</td>
-     * <td>com.facebook.presto.spi.block.Block</td>
+     * <td>io.prestosql.spi.block.Block</td>
      * </tr>
      * <tr>
      * <td>BIGINT</td>
@@ -378,7 +378,7 @@ public interface AccumuloRowSerializer
      * </tr>
      * <tr>
      * <td>Map</td>
-     * <td>com.facebook.presto.spi.block.Block</td>
+     * <td>io.prestosql.spi.block.Block</td>
      * </tr>
      * <tr>
      * <td>REAL</td>
@@ -410,7 +410,7 @@ public interface AccumuloRowSerializer
      * </tr>
      * </table>
      *
-     * @param type The presto {@link com.facebook.presto.spi.type.Type}
+     * @param type The presto {@link io.prestosql.spi.type.Type}
      * @param value The Java object per the table in the method description
      * @return Encoded bytes
      */
@@ -482,7 +482,7 @@ public interface AccumuloRowSerializer
      * </tr>
      * </table>
      *
-     * @param type The presto {@link com.facebook.presto.spi.type.Type}
+     * @param type The presto {@link io.prestosql.spi.type.Type}
      * @param value Encoded bytes to decode
      * @param <T> The Java type of the object that has been encoded to the given byte array
      * @return The Java object per the table in the method description

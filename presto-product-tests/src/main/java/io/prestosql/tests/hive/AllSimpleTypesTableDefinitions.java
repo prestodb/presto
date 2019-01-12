@@ -130,7 +130,7 @@ public final class AllSimpleTypesTableDefinitions
 
     private static HiveDataSource getTextFileDataSource()
     {
-        return createResourceDataSource(format(tableNameFormat, "textfile"), "com/facebook/presto/tests/hive/data/all_types/data.textfile");
+        return createResourceDataSource(format(tableNameFormat, "textfile"), "io/prestosql/tests/hive/data/all_types/data.textfile");
     }
 
     public static void populateDataToHiveTable(String tableName)

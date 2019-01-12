@@ -1,7 +1,7 @@
 {
   "type" : "record",
   "name" : "all_datatypes_avro",
-  "namespace" : "com.facebook.presto.tests.kafka",
+  "namespace" : "io.prestosql.tests.kafka",
   "fields" :
   [
               {

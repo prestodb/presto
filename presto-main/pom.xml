@@ -394,7 +394,7 @@
                 <artifactId>modernizer-maven-plugin</artifactId>
                 <configuration>
                     <ignorePackages>
-                        <ignorePackage>com.facebook.presto.testing.assertions</ignorePackage>
+                        <ignorePackage>io.prestosql.testing.assertions</ignorePackage>
                     </ignorePackages>
                 </configuration>
             </plugin>
@@ -437,7 +437,7 @@
                                 <argument>-Dmyproperty=myvalue</argument>
                                 <argument>-classpath</argument>
                                 <classpath />
-                                <argument>com.facebook.presto.benchmark.BenchmarkSuite</argument>
+                                <argument>io.prestosql.benchmark.BenchmarkSuite</argument>
                             </arguments>
                             <classpathScope>test</classpathScope>
                         </configuration>

@@ -12,7 +12,7 @@
     <name>presto-testing-server-launcher</name>
 
     <properties>
-        <main-class>com.facebook.presto.server.testing.TestingPrestoServerLauncher</main-class>
+        <main-class>io.prestosql.server.testing.TestingPrestoServerLauncher</main-class>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
     </properties>
 

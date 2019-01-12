@@ -3109,7 +3109,7 @@ public class TestHiveIntegrationSmokeTest
     {
         File schemaFile = File.createTempFile("avro_single_column-", ".avsc");
         String schema = "{\n" +
-                "  \"namespace\": \"com.facebook.test\",\n" +
+                "  \"namespace\": \"io.prestosql.test\",\n" +
                 "  \"name\": \"single_column\",\n" +
                 "  \"type\": \"record\",\n" +
                 "  \"fields\": [\n" +

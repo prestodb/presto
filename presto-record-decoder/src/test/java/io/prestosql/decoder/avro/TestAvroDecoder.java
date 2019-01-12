@@ -92,7 +92,7 @@ public class TestAvroDecoder
 
         return "{\"type\" : \"record\"," +
                 "  \"name\" : \"test_schema\"," +
-                "  \"namespace\" : \"com.facebook.presto.decoder.avro\"," +
+                "  \"namespace\" : \"io.prestosql.decoder.avro\"," +
                 "  \"fields\" :" +
                 "  [" +
                 fieldSchema +
@@ -355,7 +355,7 @@ public class TestAvroDecoder
     {
         String schema = "{\"type\" : \"record\", " +
                 "  \"name\" : \"nested_schema\"," +
-                "  \"namespace\" : \"com.facebook.presto.decoder.avro\"," +
+                "  \"namespace\" : \"io.prestosql.decoder.avro\"," +
                 "  \"fields\" :" +
                 "  [{" +
                 "            \"name\":\"nested\"," +

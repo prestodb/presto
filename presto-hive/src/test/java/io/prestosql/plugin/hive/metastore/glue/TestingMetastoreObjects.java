@@ -96,9 +96,9 @@ public final class TestingMetastoreObjects
 
     // --------------- Presto Objects ---------------
 
-    public static com.facebook.presto.hive.metastore.Database getPrestoTestDatabase()
+    public static io.prestosql.plugin.hive.metastore.Database getPrestoTestDatabase()
     {
-        return com.facebook.presto.hive.metastore.Database.builder()
+        return io.prestosql.plugin.hive.metastore.Database.builder()
                 .setDatabaseName("test-db" + generateRandom())
                 .setComment(Optional.of("database desc"))
                 .setLocation(Optional.of("/db"))
@@ -107,9 +107,9 @@ public final class TestingMetastoreObjects
                 .setOwnerType(PrincipalType.ROLE).build();
     }
 
-    public static com.facebook.presto.hive.metastore.Table getPrestoTestTable(String dbName)
+    public static io.prestosql.plugin.hive.metastore.Table getPrestoTestTable(String dbName)
     {
-        return com.facebook.presto.hive.metastore.Table.builder()
+        return io.prestosql.plugin.hive.metastore.Table.builder()
                 .setDatabaseName(dbName)
                 .setTableName("test-tbl" + generateRandom())
                 .setOwner("owner")
@@ -122,9 +122,9 @@ public final class TestingMetastoreObjects
                 .withStorage(STORAGE_CONSUMER).build();
     }
 
-    public static com.facebook.presto.hive.metastore.Partition getPrestoTestPartition(String dbName, String tblName, List<String> values)
+    public static io.prestosql.plugin.hive.metastore.Partition getPrestoTestPartition(String dbName, String tblName, List<String> values)
     {
-        return com.facebook.presto.hive.metastore.Partition.builder()
+        return io.prestosql.plugin.hive.metastore.Partition.builder()
                 .setDatabaseName(dbName)
                 .setTableName(tblName)
                 .setValues(values)
@@ -133,9 +133,9 @@ public final class TestingMetastoreObjects
                 .withStorage(STORAGE_CONSUMER).build();
     }
 
-    public static com.facebook.presto.hive.metastore.Column getPrestoTestColumn()
+    public static io.prestosql.plugin.hive.metastore.Column getPrestoTestColumn()
     {
-        return new com.facebook.presto.hive.metastore.Column("test-col" + generateRandom(), HiveType.HIVE_STRING, Optional.of("column comment"));
+        return new io.prestosql.plugin.hive.metastore.Column("test-col" + generateRandom(), HiveType.HIVE_STRING, Optional.of("column comment"));
     }
 
     private static final Consumer<Storage.Builder> STORAGE_CONSUMER = storage ->

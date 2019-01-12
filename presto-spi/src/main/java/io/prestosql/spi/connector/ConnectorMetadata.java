@@ -337,7 +337,7 @@ public interface ConnectorMetadata
     /**
      * Get the column handle that will generate row IDs for the delete operation.
      * These IDs will be passed to the {@code deleteRows()} method of the
-     * {@link com.facebook.presto.spi.UpdatablePageSource} that created them.
+     * {@link io.prestosql.spi.connector.UpdatablePageSource} that created them.
      */
     default ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
@@ -355,7 +355,7 @@ public interface ConnectorMetadata
     /**
      * Finish delete query
      *
-     * @param fragments all fragments returned by {@link com.facebook.presto.spi.UpdatablePageSource#finish()}
+     * @param fragments all fragments returned by {@link io.prestosql.spi.connector.UpdatablePageSource#finish()}
      */
     default void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
     {

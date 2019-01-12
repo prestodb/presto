@@ -135,7 +135,7 @@
     </artifactSet>
 
     <artifactSet to="plugin/raptor">
-        <artifact id="${project.groupId}:presto-raptor:zip:${project.version}">
+        <artifact id="${project.groupId}:presto-raptor-legacy:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
@@ -183,7 +183,7 @@
     </artifactSet>
 
     <artifactSet to="plugin/presto-thrift">
-        <artifact id="${project.groupId}:presto-thrift-connector:zip:${project.version}">
+        <artifact id="${project.groupId}:presto-thrift:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

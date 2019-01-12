@@ -16,7 +16,7 @@ package io.prestosql.tests;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 
 /**
- * Test that Presto works with {@link com.facebook.presto.sql.planner.iterative.IterativeOptimizer} disabled.
+ * Test that Presto works with {@link io.prestosql.sql.planner.iterative.IterativeOptimizer} disabled.
  */
 public class TestNonIterativeDistributedQueries
         extends AbstractTestQueries

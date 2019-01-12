@@ -37,7 +37,7 @@ public class PlanNodeSearcher
     }
 
     /**
-     * Use it in optimizer {@link com.facebook.presto.sql.planner.iterative.Rule} only if you truly do not have a better option
+     * Use it in optimizer {@link io.prestosql.sql.planner.iterative.Rule} only if you truly do not have a better option
      * <p>
      * TODO: replace it with a support for plan (physical) properties in rules pattern matching
      */

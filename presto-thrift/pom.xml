@@ -8,7 +8,7 @@
         <version>0.216-SNAPSHOT</version>
     </parent>
 
-    <artifactId>presto-thrift-connector</artifactId>
+    <artifactId>presto-thrift</artifactId>
     <description>Presto - Thrift Connector</description>
     <packaging>presto-plugin</packaging>
 
@@ -19,7 +19,7 @@
     <dependencies>
         <dependency>
             <groupId>io.prestosql</groupId>
-            <artifactId>presto-thrift-connector-api</artifactId>
+            <artifactId>presto-thrift-api</artifactId>
         </dependency>
 
         <dependency>

@@ -17,7 +17,7 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.type.Type;
 
 // Connectors that have rows that can be decoded into
-// columns using com.facebook.presto.decoder
+// columns using io.prestosql.decoder
 // can choose to implement this interface
 public interface DecoderColumnHandle
         extends ColumnHandle

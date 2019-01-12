@@ -76,7 +76,7 @@ public class TestHivePartitionsTable
                 "PARTITIONED BY (part_col INT) " +
                 "STORED AS ORC";
 
-        HiveDataSource dataSource = createResourceDataSource(PARTITIONED_TABLE, "com/facebook/presto/tests/hive/data/single_int_column/data.orc");
+        HiveDataSource dataSource = createResourceDataSource(PARTITIONED_TABLE, "io/prestosql/tests/hive/data/single_int_column/data.orc");
         HiveDataSource invalidData = createStringDataSource(PARTITIONED_TABLE, "INVALID DATA");
         return HiveTableDefinition.builder(PARTITIONED_TABLE)
                 .setCreateTableDDLTemplate(createTableDdl)

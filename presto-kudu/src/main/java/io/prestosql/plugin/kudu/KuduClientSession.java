@@ -515,7 +515,7 @@ public class KuduClientSession
 
     private KuduPredicate createInListPredicate(ColumnSchema columnSchema, DiscreteValues discreteValues)
     {
-        com.facebook.presto.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
+        io.prestosql.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
         List<Object> javaValues = discreteValues.getValues().stream().map(value -> TypeHelper.getJavaValue(type, value)).collect(toImmutableList());
         return KuduPredicate.newInListPredicate(columnSchema, javaValues);
     }
@@ -529,7 +529,7 @@ public class KuduClientSession
             KuduPredicate.ComparisonOp op,
             Object value)
     {
-        com.facebook.presto.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
+        io.prestosql.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
         Object javaValue = TypeHelper.getJavaValue(type, value);
         if (javaValue instanceof Long) {
             return KuduPredicate.newComparisonPredicate(columnSchema, op, (Long) javaValue);

@@ -22,13 +22,13 @@ Plugin Metadata
 Each plugin identifies an entry point: an implementation of the
 ``Plugin`` interface. This class name is provided to Presto via
 the standard Java ``ServiceLoader`` interface: the classpath contains
-a resource file named ``com.facebook.presto.spi.Plugin`` in the
+a resource file named ``io.prestosql.spi.Plugin`` in the
 ``META-INF/services`` directory. The content of this file is a
 single line listing the name of the plugin class:
 
 .. code-block:: none
 
-    com.facebook.presto.example.ExamplePlugin
+    com.example.plugin.ExamplePlugin
 
 For a built-in plugin that is included in the Presto source code,
 this resource file is created whenever the ``pom.xml`` file of a plugin
