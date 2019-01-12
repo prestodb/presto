@@ -186,7 +186,8 @@ Property Name                                      Description                  
                                                    S3SelectPushdown.
 
 ``hive.recursive-directories``                     Enable reading data from subdirectories of a specific path   ``false``
-                                                   on HDFS. This porperty behaves like ``hive.mapred.supports.subdirectories`` of hive.
+                                                   on HDFS. It behaves like hive.mapred.supports.subdirectories
+                                                   of hive.
 ================================================== ============================================================ ============
 
 Amazon S3 Configuration
