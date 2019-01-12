@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.facebook.presto</groupId>
+        <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
         <version>0.216-SNAPSHOT</version>
     </parent>
@@ -25,7 +25,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.facebook.presto</groupId>
+            <groupId>io.prestosql</groupId>
             <artifactId>presto-server</artifactId>
             <version>${project.version}</version>
             <type>tar.gz</type>
@@ -49,7 +49,7 @@
                             <skip>false</skip>
                             <artifactItems>
                                 <artifactItem>
-                                    <groupId>com.facebook.presto</groupId>
+                                    <groupId>io.prestosql</groupId>
                                     <artifactId>presto-server</artifactId>
                                     <version>${project.version}</version>
                                     <type>tar.gz</type>

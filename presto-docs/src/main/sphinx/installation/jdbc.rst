@@ -10,7 +10,7 @@ The driver is also available from Maven Central:
 .. parsed-literal::
 
     <dependency>
-        <groupId>com.facebook.presto</groupId>
+        <groupId>io.prestosql</groupId>
         <artifactId>presto-jdbc</artifactId>
         <version>\ |version|\ </version>
     </dependency>

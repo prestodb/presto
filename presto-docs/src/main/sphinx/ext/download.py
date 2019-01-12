@@ -17,7 +17,7 @@ from docutils import nodes, utils
 # noinspection PyUnresolvedReferences
 from sphinx.errors import SphinxError
 
-GROUP_ID = 'com.facebook.presto'
+GROUP_ID = 'io.prestosql'
 ARTIFACTS = {
     'server': ('presto-server', 'tar.gz', None),
     'cli': ('presto-cli', 'jar', 'executable'),

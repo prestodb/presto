@@ -57,7 +57,7 @@ Plugins depend on the SPI from Presto:
 .. code-block:: xml
 
     <dependency>
-        <groupId>com.facebook.presto</groupId>
+        <groupId>io.prestosql</groupId>
         <artifactId>presto-spi</artifactId>
         <scope>provided</scope>
     </dependency>
