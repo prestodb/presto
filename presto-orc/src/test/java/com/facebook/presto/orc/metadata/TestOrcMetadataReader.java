@@ -15,12 +15,12 @@ package com.facebook.presto.orc.metadata;
 
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.statistics.StringStatistics;
-import com.facebook.presto.orc.proto.OrcProto;
-import com.facebook.presto.orc.protobuf.ByteString;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import io.prestosql.orc.proto.OrcProto;
+import io.prestosql.orc.protobuf.ByteString;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;

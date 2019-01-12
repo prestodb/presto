@@ -32,7 +32,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto.orc</groupId>
+            <groupId>io.prestosql.orc</groupId>
             <artifactId>orc-protobuf</artifactId>
         </dependency>
 

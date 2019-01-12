@@ -18,17 +18,17 @@ import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
-import com.facebook.presto.orc.proto.OrcProto;
-import com.facebook.presto.orc.proto.OrcProto.RowIndexEntry;
-import com.facebook.presto.orc.proto.OrcProto.Type;
-import com.facebook.presto.orc.proto.OrcProto.Type.Builder;
-import com.facebook.presto.orc.proto.OrcProto.UserMetadataItem;
-import com.facebook.presto.orc.protobuf.ByteString;
-import com.facebook.presto.orc.protobuf.MessageLite;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CountingOutputStream;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.prestosql.orc.proto.OrcProto;
+import io.prestosql.orc.proto.OrcProto.RowIndexEntry;
+import io.prestosql.orc.proto.OrcProto.Type;
+import io.prestosql.orc.proto.OrcProto.Type.Builder;
+import io.prestosql.orc.proto.OrcProto.UserMetadataItem;
+import io.prestosql.orc.protobuf.ByteString;
+import io.prestosql.orc.protobuf.MessageLite;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -42,7 +42,7 @@ import static java.util.stream.Collectors.toList;
 public class OrcMetadataWriter
         implements MetadataWriter
 {
-    // see https://github.com/prestodb/orc-protobuf/blob/master/src/main/protobuf/orc_proto.proto
+    // see https://github.com/prestosql/orc-protobuf/blob/master/src/main/protobuf/orc_proto.proto
     private static final int PRESTO_WRITER_ID = 2;
     // in order to change this value, the master Apache ORC proto file must be updated
     private static final int ORC_WRITER_VERSION = 6;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc.metadata;
 
-import com.facebook.presto.orc.proto.DwrfProto;
+import io.prestosql.orc.proto.DwrfProto;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;

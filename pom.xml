@@ -411,9 +411,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.presto.orc</groupId>
+                <groupId>io.prestosql.orc</groupId>
                 <artifactId>orc-protobuf</artifactId>
-                <version>7</version>
+                <version>8</version>
             </dependency>
 
             <dependency>

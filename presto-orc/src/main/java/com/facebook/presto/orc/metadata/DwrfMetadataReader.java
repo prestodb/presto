@@ -24,13 +24,13 @@ import com.facebook.presto.orc.metadata.statistics.DoubleStatistics;
 import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
 import com.facebook.presto.orc.metadata.statistics.StringStatistics;
-import com.facebook.presto.orc.proto.DwrfProto;
-import com.facebook.presto.orc.protobuf.CodedInputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
+import io.prestosql.orc.proto.DwrfProto;
+import io.prestosql.orc.protobuf.CodedInputStream;
 
 import java.io.IOException;
 import java.io.InputStream;
