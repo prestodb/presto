@@ -133,7 +133,7 @@
             <scope>runtime</scope>
         </dependency>
         <dependency>
-            <groupId>com.facebook.presto.cassandra</groupId>
+            <groupId>io.prestosql.cassandra</groupId>
             <artifactId>cassandra-driver</artifactId>
         </dependency>
     </dependencies>

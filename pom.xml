@@ -1067,9 +1067,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.presto.cassandra</groupId>
+                <groupId>io.prestosql.cassandra</groupId>
                 <artifactId>cassandra-server</artifactId>
-                <version>2.1.16-1</version>
+                <version>2.1.16-2</version>
                 <exclusions>
                     <exclusion>
                         <groupId>io.netty</groupId>
@@ -1079,9 +1079,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.presto.cassandra</groupId>
+                <groupId>io.prestosql.cassandra</groupId>
                 <artifactId>cassandra-driver</artifactId>
-                <version>3.1.4-1</version>
+                <version>3.1.4-2</version>
             </dependency>
 
             <!-- force newer version to be used for dependencies -->
