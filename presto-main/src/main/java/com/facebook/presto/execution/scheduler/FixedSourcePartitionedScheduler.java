@@ -106,14 +106,16 @@ public class FixedSourcePartitionedScheduler
         Optional<LifespanScheduler> groupedLifespanScheduler = Optional.empty();
         for (PlanNodeId planNodeId : schedulingOrder) {
             SplitSource splitSource = splitSources.get(planNodeId);
+            boolean groupedExecutionForScanNode = stageExecutionStrategy.isGroupedExecution(planNodeId);
             SourceScheduler sourceScheduler = newSourcePartitionedSchedulerAsSourceScheduler(
                     stage,
                     planNodeId,
                     splitSource,
                     splitPlacementPolicy,
-                    Math.max(splitBatchSize / concurrentLifespans, 1));
+                    Math.max(splitBatchSize / concurrentLifespans, 1),
+                    groupedExecutionForScanNode);
 
-            if (stageExecutionStrategy.isAnyScanGroupedExecution() && !stageExecutionStrategy.isGroupedExecution(planNodeId)) {
+            if (stageExecutionStrategy.isAnyScanGroupedExecution() && !groupedExecutionForScanNode) {
                 sourceScheduler = new AsGroupedSourceScheduler(sourceScheduler);
             }
             sourceSchedulers.add(sourceScheduler);
