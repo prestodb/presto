@@ -129,6 +129,13 @@ Property Name                                      Description                  
                                                    absolutely necessary to access HDFS.
                                                    Example: ``/etc/hdfs-site.xml``
 
+
+``hive.recursive-directories``                     Enable reading data from subdirectories of table or          ``false``
+                                                   partition locations. If disabled, subdirectories are
+                                                   ignored. This is equivalent to the
+                                                   ``hive.mapred.supports.subdirectories`` property in
+                                                   Hive.
+                                                   
 ``hive.storage-format``                            The default file format used when creating new tables.       ``ORC``
 
 ``hive.compression-codec``                         The compression codec to use when writing files.             ``GZIP``
@@ -184,10 +191,6 @@ Property Name                                      Description                  
 
 ``hive.s3select-pushdown.max-connections``         Maximum number of simultaneously open connections to S3 for  500
                                                    S3SelectPushdown.
-
-``hive.recursive-directories``                     Enable reading data from subdirectories of a specific path   ``false``
-                                                   on HDFS. It behaves like hive.mapred.supports.subdirectories
-                                                   of hive.
 ================================================== ============================================================ ============
 
 Amazon S3 Configuration
