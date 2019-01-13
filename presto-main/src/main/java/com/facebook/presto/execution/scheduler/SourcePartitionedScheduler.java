@@ -258,6 +258,7 @@ public class SourcePartitionedScheduler
             Multimap<Node, Split> splitAssignment = ImmutableMultimap.of();
             if (!pendingSplits.isEmpty()) {
                 if (!scheduleGroup.placementFuture.isDone()) {
+                    anyBlockedOnPlacements = true;
                     continue;
                 }
 
