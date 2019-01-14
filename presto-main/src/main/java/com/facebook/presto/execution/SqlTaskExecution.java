@@ -874,7 +874,7 @@ public class SqlTaskExecution
                 // i.e. One of the following bullet points is true:
                 // * The execution strategy of the plan node is grouped. And lifespan represents a driver group.
                 // * The execution strategy of the plan node is ungrouped. And lifespan is task wide.
-                if (manager.stageExecutionDescriptor.isGroupedExecution(manager.sourceStartOrder.get(schedulingPlanNodeOrdinal)) != lifespan.isTaskWide()) {
+                if (manager.stageExecutionDescriptor.isScanGroupedExecution(manager.sourceStartOrder.get(schedulingPlanNodeOrdinal)) != lifespan.isTaskWide()) {
                     return Optional.of(manager.sourceStartOrder.get(schedulingPlanNodeOrdinal));
                 }
                 // This lifespan is incompatible with the plan node. As a result, this method should either
