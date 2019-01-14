@@ -24,7 +24,7 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.operator.StageExecutionStrategy;
+import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.predicate.Domain;
@@ -145,7 +145,7 @@ public class PlanPrinter
     private PlanPrinter(
             PlanNode plan,
             TypeProvider types,
-            Optional<StageExecutionStrategy> stageExecutionStrategy,
+            Optional<StageExecutionDescriptor> stageExecutionStrategy,
             FunctionRegistry functionRegistry,
             StatsAndCosts estimatedStatsAndCosts,
             Session session,
@@ -182,7 +182,7 @@ public class PlanPrinter
         return textLogicalPlan(plan, types, Optional.empty(), functionRegistry, estimatedStatsAndCosts, session, Optional.empty(), indent, verbose);
     }
 
-    public static String textLogicalPlan(PlanNode plan, TypeProvider types, Optional<StageExecutionStrategy> stageExecutionStrategy, FunctionRegistry functionRegistry, StatsAndCosts estimatedStatsAndCosts, Session session, Optional<Map<PlanNodeId, PlanNodeStats>> stats, int indent, boolean verbose)
+    public static String textLogicalPlan(PlanNode plan, TypeProvider types, Optional<StageExecutionDescriptor> stageExecutionStrategy, FunctionRegistry functionRegistry, StatsAndCosts estimatedStatsAndCosts, Session session, Optional<Map<PlanNodeId, PlanNodeStats>> stats, int indent, boolean verbose)
     {
         return new PlanPrinter(plan, types, stageExecutionStrategy, functionRegistry, estimatedStatsAndCosts, session, stats, indent, verbose).toString();
     }
@@ -267,13 +267,13 @@ public class PlanPrinter
                     Joiner.on(", ").join(arguments),
                     formatHash(partitioningScheme.getHashColumn())));
         }
-        builder.append(indentString(1)).append(format("Grouped Execution: %s\n", fragment.getStageExecutionStrategy().isAnyScanGroupedExecution()));
+        builder.append(indentString(1)).append(format("Grouped Execution: %s\n", fragment.getStageExecutionDescriptor().isAnyScanGroupedExecution()));
 
         TypeProvider typeProvider = TypeProvider.copyOf(allFragments.stream()
                 .flatMap(f -> f.getSymbols().entrySet().stream())
                 .distinct()
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
-        builder.append(textLogicalPlan(fragment.getRoot(), typeProvider, Optional.of(fragment.getStageExecutionStrategy()), functionRegistry, fragment.getStatsAndCosts(), session, planNodeStats, 1, verbose))
+        builder.append(textLogicalPlan(fragment.getRoot(), typeProvider, Optional.of(fragment.getStageExecutionDescriptor()), functionRegistry, fragment.getStatsAndCosts(), session, planNodeStats, 1, verbose))
                 .append("\n");
 
         return builder.toString();
@@ -288,7 +288,7 @@ public class PlanPrinter
                 SINGLE_DISTRIBUTION,
                 ImmutableList.of(plan.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputSymbols()),
-                StageExecutionStrategy.ungroupedExecution(),
+                StageExecutionDescriptor.ungroupedExecution(),
                 StatsAndCosts.empty());
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
     }
@@ -511,12 +511,12 @@ public class PlanPrinter
     private class Visitor
             extends PlanVisitor<Void, Integer>
     {
-        private final Optional<StageExecutionStrategy> stageExecutionStrategy;
+        private final Optional<StageExecutionDescriptor> stageExecutionStrategy;
         private final TypeProvider types;
         private final StatsAndCosts estimatedStatsAndCosts;
         private final Session session;
 
-        public Visitor(Optional<StageExecutionStrategy> stageExecutionStrategy, TypeProvider types, StatsAndCosts estimatedStatsAndCosts, Session session)
+        public Visitor(Optional<StageExecutionDescriptor> stageExecutionStrategy, TypeProvider types, StatsAndCosts estimatedStatsAndCosts, Session session)
         {
             this.stageExecutionStrategy = stageExecutionStrategy;
             this.types = types;

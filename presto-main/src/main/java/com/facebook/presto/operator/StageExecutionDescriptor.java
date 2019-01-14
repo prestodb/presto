@@ -24,25 +24,25 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class StageExecutionStrategy
+public class StageExecutionDescriptor
 {
     private final Set<PlanNodeId> groupedExecutionScanNodes;
 
-    private StageExecutionStrategy(Set<PlanNodeId> groupedExecutionScanNodes)
+    private StageExecutionDescriptor(Set<PlanNodeId> groupedExecutionScanNodes)
     {
         this.groupedExecutionScanNodes = groupedExecutionScanNodes;
     }
 
-    public static StageExecutionStrategy ungroupedExecution()
+    public static StageExecutionDescriptor ungroupedExecution()
     {
-        return new StageExecutionStrategy(ImmutableSet.of());
+        return new StageExecutionDescriptor(ImmutableSet.of());
     }
 
-    public static StageExecutionStrategy groupedExecution(List<PlanNodeId> capableScanNodes)
+    public static StageExecutionDescriptor groupedExecution(List<PlanNodeId> capableScanNodes)
     {
         requireNonNull(capableScanNodes, "capableScanNodes is null");
         checkArgument(!capableScanNodes.isEmpty());
-        return new StageExecutionStrategy(ImmutableSet.copyOf(capableScanNodes));
+        return new StageExecutionDescriptor(ImmutableSet.copyOf(capableScanNodes));
     }
 
     public boolean isAnyScanGroupedExecution()
@@ -56,10 +56,10 @@ public class StageExecutionStrategy
     }
 
     @JsonCreator
-    public static StageExecutionStrategy jsonCreator(
+    public static StageExecutionDescriptor jsonCreator(
             @JsonProperty("groupedExecutionScanNodes") Set<PlanNodeId> groupedExecutionCapableScanNodes)
     {
-        return new StageExecutionStrategy(ImmutableSet.copyOf(requireNonNull(groupedExecutionCapableScanNodes, "groupedExecutionScanNodes is null")));
+        return new StageExecutionDescriptor(ImmutableSet.copyOf(requireNonNull(groupedExecutionCapableScanNodes, "groupedExecutionScanNodes is null")));
     }
 
     @JsonProperty("groupedExecutionScanNodes")
