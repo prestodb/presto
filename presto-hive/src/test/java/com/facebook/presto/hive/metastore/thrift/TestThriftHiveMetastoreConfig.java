@@ -13,14 +13,16 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static org.testng.Assert.assertEquals;
 
 public class TestThriftHiveMetastoreConfig
 {
@@ -36,18 +38,23 @@ public class TestThriftHiveMetastoreConfig
     }
 
     @Test
-    public void testExplicitParameterSetup()
+    public void testExplicitPropertyMappings()
     {
-        ThriftHiveMetastoreConfig config = new ThriftHiveMetastoreConfig()
+        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("hive.metastore.thrift.client.backoff-scale-factor", "3.0")
+                .put("hive.metastore.thrift.client.max-backoff-delay", "4")
+                .put("hive.metastore.thrift.client.min-backoff-delay", "2")
+                .put("hive.metastore.thrift.client.max-retries", "15")
+                .put("hive.metastore.thrift.client.max-retry-time", "60")
+                .build();
+
+        ThriftHiveMetastoreConfig expected = new ThriftHiveMetastoreConfig()
                 .setBackoffScaleFactor(3.0)
                 .setMaxBackoffDelay(new Duration(4, TimeUnit.SECONDS))
                 .setMinBackoffDelay(new Duration(2, TimeUnit.SECONDS))
                 .setMaxRetries(15)
                 .setMaxRetryTime(new Duration(60, TimeUnit.SECONDS));
-        assertEquals(3.0, config.getBackoffScaleFactor());
-        assertEquals(new Duration(4, TimeUnit.SECONDS), config.getMaxBackoffDelay());
-        assertEquals(new Duration(2, TimeUnit.SECONDS), config.getMinBackoffDelay());
-        assertEquals(15, config.getMaxRetries());
-        assertEquals(new Duration(60, TimeUnit.SECONDS), config.getMaxRetryTime());
+
+        assertFullMapping(properties, expected);
     }
 }
