@@ -21,33 +21,67 @@ import com.google.common.collect.ImmutableSet;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.operator.StageExecutionDescriptor.StageExecutionStrategy.DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION;
+import static com.facebook.presto.operator.StageExecutionDescriptor.StageExecutionStrategy.FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION;
+import static com.facebook.presto.operator.StageExecutionDescriptor.StageExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class StageExecutionDescriptor
 {
+    private final StageExecutionStrategy stageExecutionStrategy;
     private final Set<PlanNodeId> groupedExecutionScanNodes;
 
-    private StageExecutionDescriptor(Set<PlanNodeId> groupedExecutionScanNodes)
+    private StageExecutionDescriptor(StageExecutionStrategy stageExecutionStrategy, Set<PlanNodeId> groupedExecutionScanNodes)
     {
-        this.groupedExecutionScanNodes = groupedExecutionScanNodes;
+        switch (stageExecutionStrategy) {
+            case UNGROUPED_EXECUTION:
+                checkArgument(groupedExecutionScanNodes.isEmpty(), "groupedExecutionScanNodes must be empty if stage execution strategy is ungrouped execution");
+                break;
+            case FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION:
+            case DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION:
+                checkArgument(!groupedExecutionScanNodes.isEmpty(), "groupedExecutionScanNodes cannot be empty if stage execution strategy is grouped execution");
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported stage execution strategy: " + stageExecutionStrategy);
+        }
+
+        this.stageExecutionStrategy = requireNonNull(stageExecutionStrategy, "stageExecutionStrategy is null");
+        this.groupedExecutionScanNodes = requireNonNull(groupedExecutionScanNodes, "groupedExecutionScanNodes is null");
     }
 
     public static StageExecutionDescriptor ungroupedExecution()
     {
-        return new StageExecutionDescriptor(ImmutableSet.of());
+        return new StageExecutionDescriptor(UNGROUPED_EXECUTION, ImmutableSet.of());
     }
 
-    public static StageExecutionDescriptor groupedExecution(List<PlanNodeId> capableScanNodes)
+    public static StageExecutionDescriptor fixedLifespanScheduleGroupedExecution(List<PlanNodeId> capableScanNodes)
     {
         requireNonNull(capableScanNodes, "capableScanNodes is null");
-        checkArgument(!capableScanNodes.isEmpty());
-        return new StageExecutionDescriptor(ImmutableSet.copyOf(capableScanNodes));
+        checkArgument(!capableScanNodes.isEmpty(), "capableScanNodes cannot be empty if stage execution strategy is grouped execution");
+        return new StageExecutionDescriptor(FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION, ImmutableSet.copyOf(capableScanNodes));
+    }
+
+    public static StageExecutionDescriptor dynamicLifespanScheduleGroupedExecution(List<PlanNodeId> capableScanNodes)
+    {
+        requireNonNull(capableScanNodes, "capableScanNodes is null");
+        checkArgument(!capableScanNodes.isEmpty(), "capableScanNodes cannot be empty if stage execution strategy is grouped execution");
+        return new StageExecutionDescriptor(DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION, ImmutableSet.copyOf(capableScanNodes));
+    }
+
+    public StageExecutionStrategy getStageExecutionStrategy()
+    {
+        return stageExecutionStrategy;
     }
 
     public boolean isStageGroupedExecution()
     {
-        return !groupedExecutionScanNodes.isEmpty();
+        return stageExecutionStrategy != UNGROUPED_EXECUTION;
+    }
+
+    public boolean isDynamicLifespanSchedule()
+    {
+        return stageExecutionStrategy == DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION;
     }
 
     public boolean isScanGroupedExecution(PlanNodeId scanNodeId)
@@ -57,14 +91,30 @@ public class StageExecutionDescriptor
 
     @JsonCreator
     public static StageExecutionDescriptor jsonCreator(
+            @JsonProperty("stageExecutionStrategy") StageExecutionStrategy stageExecutionStrategy,
             @JsonProperty("groupedExecutionScanNodes") Set<PlanNodeId> groupedExecutionCapableScanNodes)
     {
-        return new StageExecutionDescriptor(ImmutableSet.copyOf(requireNonNull(groupedExecutionCapableScanNodes, "groupedExecutionScanNodes is null")));
+        return new StageExecutionDescriptor(
+                requireNonNull(stageExecutionStrategy, "stageExecutionStrategy is null"),
+                ImmutableSet.copyOf(requireNonNull(groupedExecutionCapableScanNodes, "groupedExecutionScanNodes is null")));
+    }
+
+    @JsonProperty("stageExecutionStrategy")
+    public StageExecutionStrategy getJsonSerializableStageExecutionStrategy()
+    {
+        return stageExecutionStrategy;
     }
 
     @JsonProperty("groupedExecutionScanNodes")
     public Set<PlanNodeId> getJsonSerializableGroupedExecutionScanNodes()
     {
         return groupedExecutionScanNodes;
+    }
+
+    public enum StageExecutionStrategy
+    {
+        UNGROUPED_EXECUTION,
+        FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION,
+        DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION
     }
 }
