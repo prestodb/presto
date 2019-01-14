@@ -119,7 +119,6 @@ import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunction
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
@@ -391,8 +390,12 @@ public class LocalExecutionPlanner
         }
         else {
             partitionChannels = partitioningScheme.getPartitioning().getArguments().stream()
-                    .map(ArgumentBinding::getColumn)
-                    .map(outputLayout::indexOf)
+                    .map(argument -> {
+                        if (argument.isConstant()) {
+                            return -1;
+                        }
+                        return outputLayout.indexOf(argument.getColumn());
+                    })
                     .collect(toImmutableList());
             partitionConstants = partitioningScheme.getPartitioning().getArguments().stream()
                     .map(argument -> {
