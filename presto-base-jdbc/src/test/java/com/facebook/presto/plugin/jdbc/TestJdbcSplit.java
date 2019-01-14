@@ -18,12 +18,14 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 
 public class TestJdbcSplit
 {
-    private final JdbcSplit split = new JdbcSplit("connectorId", "catalog", "schemaName", "tableName", TupleDomain.all());
+    private final JdbcSplit split = new JdbcSplit("connectorId", "catalog", "schemaName", "tableName", TupleDomain.all(), Optional.empty());
 
     @Test
     public void testAddresses()
@@ -32,7 +34,7 @@ public class TestJdbcSplit
         assertEquals(split.getAddresses(), ImmutableList.of());
         assertEquals(split.isRemotelyAccessible(), true);
 
-        JdbcSplit jdbcSplit = new JdbcSplit("connectorId", "catalog", "schemaName", "tableName", TupleDomain.all());
+        JdbcSplit jdbcSplit = new JdbcSplit("connectorId", "catalog", "schemaName", "tableName", TupleDomain.all(), Optional.empty());
         assertEquals(jdbcSplit.getAddresses(), ImmutableList.of());
     }
 

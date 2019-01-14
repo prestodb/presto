@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -35,6 +36,7 @@ public class JdbcSplit
     private final String schemaName;
     private final String tableName;
     private final TupleDomain<ColumnHandle> tupleDomain;
+    private final Optional<String> additionalPredicate;
 
     @JsonCreator
     public JdbcSplit(
@@ -42,13 +44,15 @@ public class JdbcSplit
             @JsonProperty("catalogName") @Nullable String catalogName,
             @JsonProperty("schemaName") @Nullable String schemaName,
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain)
+            @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain,
+            @JsonProperty("additionalProperty") Optional<String> additionalPredicate)
     {
         this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.catalogName = catalogName;
         this.schemaName = schemaName;
         this.tableName = requireNonNull(tableName, "table name is null");
         this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
+        this.additionalPredicate = requireNonNull(additionalPredicate, "additionalPredicate is null");
     }
 
     @JsonProperty
@@ -81,6 +85,12 @@ public class JdbcSplit
     public TupleDomain<ColumnHandle> getTupleDomain()
     {
         return tupleDomain;
+    }
+
+    @JsonProperty
+    public Optional<String> getAdditionalPredicate()
+    {
+        return additionalPredicate;
     }
 
     @Override
