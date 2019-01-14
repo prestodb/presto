@@ -144,6 +144,8 @@ import static org.apache.http.HttpStatus.SC_REQUESTED_RANGE_NOT_SATISFIABLE;
 public class PrestoS3FileSystem
         extends FileSystem
 {
+    static final String S3_DIRECTORY_OBJECT_CONTENT_TYPE = "application/x-directory";
+
     private static final Logger log = Logger.get(PrestoS3FileSystem.class);
     private static final PrestoS3FileSystemStats STATS = new PrestoS3FileSystemStats();
     private static final PrestoS3FileSystemMetricCollector METRIC_COLLECTOR = new PrestoS3FileSystemMetricCollector(STATS);
@@ -322,7 +324,7 @@ public class PrestoS3FileSystem
 
         return new FileStatus(
                 getObjectSize(path, metadata),
-                false,
+                S3_DIRECTORY_OBJECT_CONTENT_TYPE.equals(metadata.getContentType()),
                 1,
                 BLOCK_SIZE.toBytes(),
                 lastModifiedTime(metadata),
@@ -551,6 +553,18 @@ public class PrestoS3FileSystem
     ObjectMetadata getS3ObjectMetadata(Path path)
             throws IOException
     {
+        String bucketName = getBucketName(uri);
+        String key = keyFromPath(path);
+        ObjectMetadata s3ObjectMetadata = getS3ObjectMetadata(path, bucketName, key);
+        if (s3ObjectMetadata == null && !key.isEmpty()) {
+            return getS3ObjectMetadata(path, bucketName, key + PATH_SEPARATOR);
+        }
+        return s3ObjectMetadata;
+    }
+
+    private ObjectMetadata getS3ObjectMetadata(Path path, String bucketName, String key)
+            throws IOException
+    {
         try {
             return retry()
                     .maxAttempts(maxAttempts)
@@ -560,7 +574,7 @@ public class PrestoS3FileSystem
                     .run("getS3ObjectMetadata", () -> {
                         try {
                             STATS.newMetadataCall();
-                            return s3.getObjectMetadata(getBucketName(uri), keyFromPath(path));
+                            return s3.getObjectMetadata(bucketName, key);
                         }
                         catch (RuntimeException e) {
                             STATS.newGetMetadataError();
