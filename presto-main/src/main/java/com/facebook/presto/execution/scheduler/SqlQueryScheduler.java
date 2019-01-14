@@ -327,7 +327,7 @@ public class SqlQueryScheduler
             NodeSelector nodeSelector = nodeScheduler.createNodeSelector(connectorId);
             SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stage::getAllTasks);
 
-            checkArgument(!plan.getFragment().getStageExecutionStrategy().isAnyScanGroupedExecution());
+            checkArgument(!plan.getFragment().getStageExecutionDescriptor().isAnyScanGroupedExecution());
             stageSchedulers.put(stageId, newSourcePartitionedSchedulerAsStageScheduler(stage, planNodeId, splitSource, placementPolicy, splitBatchSize));
             bucketToPartition = Optional.of(new int[1]);
         }
@@ -341,7 +341,7 @@ public class SqlQueryScheduler
                 List<PlanNodeId> schedulingOrder = plan.getFragment().getPartitionedSources();
                 ConnectorId connectorId = partitioningHandle.getConnectorId().orElseThrow(IllegalStateException::new);
                 List<ConnectorPartitionHandle> connectorPartitionHandles;
-                boolean groupedExecutionForStage = plan.getFragment().getStageExecutionStrategy().isAnyScanGroupedExecution();
+                boolean groupedExecutionForStage = plan.getFragment().getStageExecutionDescriptor().isAnyScanGroupedExecution();
                 if (groupedExecutionForStage) {
                     connectorPartitionHandles = nodePartitioningManager.listPartitionHandles(session, partitioningHandle);
                     checkState(!ImmutableList.of(NOT_PARTITIONED).equals(connectorPartitionHandles));
@@ -378,7 +378,7 @@ public class SqlQueryScheduler
                 stageSchedulers.put(stageId, new FixedSourcePartitionedScheduler(
                         stage,
                         splitSources,
-                        plan.getFragment().getStageExecutionStrategy(),
+                        plan.getFragment().getStageExecutionDescriptor(),
                         schedulingOrder,
                         stageNodeList,
                         bucketNodeMap,

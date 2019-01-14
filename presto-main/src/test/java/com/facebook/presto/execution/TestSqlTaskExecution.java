@@ -37,7 +37,7 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.PipelineExecutionStrategy;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
-import com.facebook.presto.operator.StageExecutionStrategy;
+import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskOutputOperator.TaskOutputOperatorFactory;
 import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
@@ -168,7 +168,7 @@ public class TestSqlTaskExecution
                             OptionalInt.empty(),
                             executionStrategy)),
                     ImmutableList.of(TABLE_SCAN_NODE_ID),
-                    executionStrategy == GROUPED_EXECUTION ? StageExecutionStrategy.groupedExecution(ImmutableList.of(TABLE_SCAN_NODE_ID)) : StageExecutionStrategy.ungroupedExecution());
+                    executionStrategy == GROUPED_EXECUTION ? StageExecutionDescriptor.groupedExecution(ImmutableList.of(TABLE_SCAN_NODE_ID)) : StageExecutionDescriptor.ungroupedExecution());
             TaskContext taskContext = newTestingTaskContext(taskNotificationExecutor, driverYieldExecutor, taskStateMachine);
             SqlTaskExecution sqlTaskExecution = SqlTaskExecution.createSqlTaskExecution(
                     taskStateMachine,
@@ -419,7 +419,7 @@ public class TestSqlTaskExecution
                                     OptionalInt.empty(),
                                     UNGROUPED_EXECUTION)),
                     ImmutableList.of(scan2NodeId, scan0NodeId),
-                    executionStrategy == GROUPED_EXECUTION ? StageExecutionStrategy.groupedExecution(ImmutableList.of(scan0NodeId, scan2NodeId)) : StageExecutionStrategy.ungroupedExecution());
+                    executionStrategy == GROUPED_EXECUTION ? StageExecutionDescriptor.groupedExecution(ImmutableList.of(scan0NodeId, scan2NodeId)) : StageExecutionDescriptor.ungroupedExecution());
             TaskContext taskContext = newTestingTaskContext(taskNotificationExecutor, driverYieldExecutor, taskStateMachine);
             SqlTaskExecution sqlTaskExecution = SqlTaskExecution.createSqlTaskExecution(
                     taskStateMachine,

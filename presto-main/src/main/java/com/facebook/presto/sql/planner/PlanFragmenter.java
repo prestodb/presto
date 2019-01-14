@@ -21,7 +21,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayout.TablePartitioning;
 import com.facebook.presto.metadata.TableLayoutHandle;
-import com.facebook.presto.operator.StageExecutionStrategy;
+import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
@@ -166,7 +166,7 @@ public class PlanFragmenter
                         outputPartitioningScheme.getHashColumn(),
                         outputPartitioningScheme.isReplicateNullsAndAny(),
                         outputPartitioningScheme.getBucketToPartition()),
-                fragment.getStageExecutionStrategy(),
+                fragment.getStageExecutionDescriptor(),
                 fragment.getStatsAndCosts());
 
         ImmutableList.Builder<SubPlan> childrenBuilder = ImmutableList.builder();
@@ -220,7 +220,7 @@ public class PlanFragmenter
                     properties.getPartitioningHandle(),
                     schedulingOrder,
                     properties.getPartitioningScheme(),
-                    StageExecutionStrategy.ungroupedExecution(),
+                    StageExecutionDescriptor.ungroupedExecution(),
                     statsAndCosts.getForSubplan(root));
 
             return new SubPlan(fragment, properties.getChildren());

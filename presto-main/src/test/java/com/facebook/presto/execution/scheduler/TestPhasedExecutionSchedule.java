@@ -16,7 +16,7 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.operator.StageExecutionStrategy;
+import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -251,7 +251,7 @@ public class TestPhasedExecutionSchedule
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(planNode.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()),
-                StageExecutionStrategy.ungroupedExecution(),
+                StageExecutionDescriptor.ungroupedExecution(),
                 StatsAndCosts.empty());
     }
 }
