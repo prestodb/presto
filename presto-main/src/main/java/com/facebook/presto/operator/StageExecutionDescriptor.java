@@ -45,12 +45,12 @@ public class StageExecutionDescriptor
         return new StageExecutionDescriptor(ImmutableSet.copyOf(capableScanNodes));
     }
 
-    public boolean isAnyScanGroupedExecution()
+    public boolean isStageGroupedExecution()
     {
         return !groupedExecutionScanNodes.isEmpty();
     }
 
-    public boolean isGroupedExecution(PlanNodeId scanNodeId)
+    public boolean isScanGroupedExecution(PlanNodeId scanNodeId)
     {
         return groupedExecutionScanNodes.contains(scanNodeId);
     }
