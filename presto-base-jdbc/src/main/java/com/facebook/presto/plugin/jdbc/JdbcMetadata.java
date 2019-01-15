@@ -32,6 +32,7 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -211,5 +212,12 @@ public class JdbcMetadata
         JdbcOutputTableHandle jdbcInsertHandle = (JdbcOutputTableHandle) tableHandle;
         jdbcClient.finishInsertTable(jdbcInsertHandle);
         return Optional.empty();
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    {
+        JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
+        return jdbcClient.getTableStatistics(session, handle, constraint.getSummary());
     }
 }
