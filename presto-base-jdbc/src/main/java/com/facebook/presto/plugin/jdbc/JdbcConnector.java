@@ -20,13 +20,16 @@ import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -46,6 +49,7 @@ public class JdbcConnector
     private final JdbcRecordSetProvider jdbcRecordSetProvider;
     private final JdbcPageSinkProvider jdbcPageSinkProvider;
     private final Optional<ConnectorAccessControl> accessControl;
+    private final Set<Procedure> procedures;
 
     private final ConcurrentMap<ConnectorTransactionHandle, JdbcMetadata> transactions = new ConcurrentHashMap<>();
 
@@ -56,7 +60,8 @@ public class JdbcConnector
             JdbcSplitManager jdbcSplitManager,
             JdbcRecordSetProvider jdbcRecordSetProvider,
             JdbcPageSinkProvider jdbcPageSinkProvider,
-            Optional<ConnectorAccessControl> accessControl)
+            Optional<ConnectorAccessControl> accessControl,
+            Set<Procedure> procedures)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.jdbcMetadataFactory = requireNonNull(jdbcMetadataFactory, "jdbcMetadataFactory is null");
@@ -64,6 +69,7 @@ public class JdbcConnector
         this.jdbcRecordSetProvider = requireNonNull(jdbcRecordSetProvider, "jdbcRecordSetProvider is null");
         this.jdbcPageSinkProvider = requireNonNull(jdbcPageSinkProvider, "jdbcPageSinkProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
     }
 
     @Override
@@ -125,6 +131,12 @@ public class JdbcConnector
     public ConnectorAccessControl getAccessControl()
     {
         return accessControl.orElseThrow(UnsupportedOperationException::new);
+    }
+
+    @Override
+    public Set<Procedure> getProcedures()
+    {
+        return procedures;
     }
 
     @Override
