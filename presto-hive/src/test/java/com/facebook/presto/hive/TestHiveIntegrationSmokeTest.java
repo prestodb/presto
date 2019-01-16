@@ -83,6 +83,7 @@ import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.spi.predicate.Marker.Bound.EXACTLY;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -166,9 +167,9 @@ public class TestHiveIntegrationSmokeTest
     public void testIOExplain()
     {
         // Test IO explain with small number of discrete components.
-        computeActual("CREATE TABLE test_orders WITH (partitioned_by = ARRAY['orderkey']) AS select custkey, orderkey FROM orders where orderkey < 3");
+        computeActual("CREATE TABLE test_orders WITH (partitioned_by = ARRAY['orderkey', 'processing']) AS SELECT custkey, orderkey, orderstatus = 'P' processing FROM orders WHERE orderkey < 3");
 
-        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey FROM test_orders where custkey <= 10");
+        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey, processing FROM test_orders where custkey <= 10");
         assertEquals(
                 jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IOPlan(
@@ -186,7 +187,16 @@ public class TestHiveIntegrationSmokeTest
                                                                         new FormattedMarker(Optional.of("1"), EXACTLY)),
                                                                 new FormattedRange(
                                                                         new FormattedMarker(Optional.of("2"), EXACTLY),
-                                                                        new FormattedMarker(Optional.of("2"), EXACTLY)))))))),
+                                                                        new FormattedMarker(Optional.of("2"), EXACTLY))))),
+                                        new ColumnConstraint(
+                                                "processing",
+                                                BOOLEAN.getTypeSignature(),
+                                                new FormattedDomain(
+                                                        false,
+                                                        ImmutableSet.of(
+                                                                new FormattedRange(
+                                                                        new FormattedMarker(Optional.of("false"), EXACTLY),
+                                                                        new FormattedMarker(Optional.of("false"), EXACTLY)))))))),
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders"))));
 
         assertUpdate("DROP TABLE test_orders");

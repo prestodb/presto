@@ -26,6 +26,7 @@ import com.facebook.presto.spi.predicate.Marker;
 import com.facebook.presto.spi.predicate.Marker.Bound;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.TinyintType;
@@ -568,6 +569,9 @@ public class IOPlanPrinter
             }
             if (type instanceof TinyintType || type instanceof SmallintType || type instanceof IntegerType || type instanceof BigintType) {
                 return ((Long) value).toString();
+            }
+            if (type instanceof BooleanType) {
+                return ((Boolean) value).toString();
             }
             throw new PrestoException(NOT_SUPPORTED, format("Unsupported data type in EXPLAIN (TYPE IO): %s", type.getDisplayName()));
         }
