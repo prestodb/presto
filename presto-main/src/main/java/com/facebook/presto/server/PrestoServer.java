@@ -41,7 +41,6 @@ import io.airlift.http.server.HttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.jmx.JmxHttpModule;
 import io.airlift.jmx.JmxModule;
-import io.airlift.jodabridge.JdkBasedZoneInfoProvider;
 import io.airlift.json.JsonModule;
 import io.airlift.log.LogJmxModule;
 import io.airlift.log.Logger;
@@ -85,7 +84,6 @@ public class PrestoServer
     public void run()
     {
         verifyJvmRequirements();
-        JdkBasedZoneInfoProvider.registerAsJodaZoneInfoProvider();
         verifySystemTimeIsReasonable();
 
         Logger log = Logger.get(PrestoServer.class);
