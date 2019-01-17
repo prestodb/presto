@@ -34,12 +34,10 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
-import io.airlift.jodabridge.JdkBasedZoneInfoProvider;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.airlift.resolver.ArtifactResolver;
 import io.airlift.resolver.DefaultArtifact;
-import org.joda.time.DateTime;
 import org.sonatype.aether.artifact.Artifact;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -154,7 +152,6 @@ public class PluginManager
     {
         log.info("-- Loading plugin %s --", plugin);
         URLClassLoader pluginClassLoader = buildClassLoader(plugin);
-        validateClassLoader(pluginClassLoader);
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(pluginClassLoader)) {
             loadPlugin(pluginClassLoader);
         }
@@ -316,23 +313,5 @@ public class PluginManager
         List<Artifact> list = new ArrayList<>(artifacts);
         Collections.sort(list, Ordering.natural().nullsLast().onResultOf(Artifact::getFile));
         return list;
-    }
-
-    private static void validateClassLoader(ClassLoader loader)
-    {
-        if (classExists(loader, DateTime.class) && !classExists(loader, JdkBasedZoneInfoProvider.class)) {
-            throw new RuntimeException("Plugin classpath contains Joda-Time without joda-to-java-time-bridge");
-        }
-    }
-
-    private static boolean classExists(ClassLoader classLoader, Class<?> clazz)
-    {
-        try {
-            classLoader.loadClass(clazz.getName());
-            return true;
-        }
-        catch (ClassNotFoundException e) {
-            return false;
-        }
     }
 }
