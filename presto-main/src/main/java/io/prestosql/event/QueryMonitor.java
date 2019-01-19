@@ -234,6 +234,7 @@ public class QueryMonitor
         return new QueryContext(
                 session.getUser(),
                 session.getPrincipal(),
+                session.getTraceToken(),
                 session.getRemoteUserAddress(),
                 session.getUserAgent(),
                 session.getClientInfo(),

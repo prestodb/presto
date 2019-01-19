@@ -27,6 +27,7 @@ public class QueryContext
 {
     private final String user;
     private final Optional<String> principal;
+    private final Optional<String> traceToken;
     private final Optional<String> remoteClientAddress;
     private final Optional<String> userAgent;
     private final Optional<String> clientInfo;
@@ -49,6 +50,7 @@ public class QueryContext
     public QueryContext(
             String user,
             Optional<String> principal,
+            Optional<String> traceToken,
             Optional<String> remoteClientAddress,
             Optional<String> userAgent,
             Optional<String> clientInfo,
@@ -66,6 +68,7 @@ public class QueryContext
     {
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
+        this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.remoteClientAddress = requireNonNull(remoteClientAddress, "remoteClientAddress is null");
         this.userAgent = requireNonNull(userAgent, "userAgent is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
@@ -92,6 +95,12 @@ public class QueryContext
     public Optional<String> getPrincipal()
     {
         return principal;
+    }
+
+    @JsonProperty
+    public Optional<String> getTraceToken()
+    {
+        return traceToken;
     }
 
     @JsonProperty
