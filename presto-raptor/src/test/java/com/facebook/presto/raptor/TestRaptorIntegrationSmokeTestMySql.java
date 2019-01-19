@@ -69,7 +69,7 @@ public class TestRaptorIntegrationSmokeTestMySql
                 .put("backup.directory", new File(baseDir, "backup").getAbsolutePath())
                 .build();
 
-        queryRunner.createCatalog("raptor", "raptor", raptorProperties);
+        queryRunner.createCatalog("raptor", "raptor-legacy", raptorProperties);
 
         copyTables(queryRunner, "tpch", createSession(), false);
 

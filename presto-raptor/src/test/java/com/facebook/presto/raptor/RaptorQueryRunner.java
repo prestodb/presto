@@ -74,7 +74,7 @@ public final class RaptorQueryRunner
                 .put("backup.directory", new File(baseDir, "backup").getAbsolutePath())
                 .build();
 
-        queryRunner.createCatalog("raptor", "raptor", raptorProperties);
+        queryRunner.createCatalog("raptor", "raptor-legacy", raptorProperties);
 
         if (loadTpch) {
             copyTables(queryRunner, "tpch", createSession(), bucketed);

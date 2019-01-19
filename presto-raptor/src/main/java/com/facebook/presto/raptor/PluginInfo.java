@@ -23,7 +23,7 @@ public class PluginInfo
 {
     public String getName()
     {
-        return "raptor";
+        return "raptor-legacy";
     }
 
     public Module getMetadataModule()
