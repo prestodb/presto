@@ -1,6 +1,6 @@
 # Presto Benchto benchmarks
 
-The Benchto benchmarks utilize [Benchto](https://github.com/prestodb/benchto) benchmarking
+The Benchto benchmarks utilize [Benchto](https://github.com/prestosql/benchto) benchmarking
 utility to do macro benchmarking of Presto. As opposed to micro benchmarking which exercises
 a class or a small, coherent set of classes, macro benchmarks done with Benchto use Presto
 end-to-end, by accessing it through its API (usually with `presto-jdbc`), executing queries,
@@ -19,9 +19,9 @@ features. Therefore benchmarks are organized in suites, like:
 ### Requirements
 
 * Presto already installed on the target environment
-* Basic understanding of Benchto [components and architecture](https://github.com/prestodb/benchto)
-* Benchto service [configured and running](https://github.com/prestodb/benchto/tree/master/benchto-service)
-* An environment [defined in Benchto service](https://github.com/prestodb/benchto/tree/master/benchto-service#creating-environment)
+* Basic understanding of Benchto [components and architecture](https://github.com/prestosql/benchto)
+* Benchto service [configured and running](https://github.com/prestosql/benchto/tree/master/benchto-service)
+* An environment [defined in Benchto service](https://github.com/prestosql/benchto/tree/master/benchto-service#creating-environment)
 
 ### Configuring benchmarks
 

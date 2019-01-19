@@ -23,9 +23,9 @@
         </dependency>
 
         <dependency>
-            <groupId>com.teradata.benchto</groupId>
+            <groupId>io.prestosql.benchto</groupId>
             <artifactId>benchto-driver</artifactId>
-            <version>0.4</version>
+            <version>0.7</version>
         </dependency>
 
         <dependency>
@@ -96,7 +96,7 @@
                 <version>1.2.5.RELEASE</version>
                 <configuration>
                     <classifier>executable</classifier>
-                    <mainClass>com.teradata.benchto.driver.DriverApp</mainClass>
+                    <mainClass>io.prestosql.benchto.driver.DriverApp</mainClass>
                     <layout>ZIP</layout>
                 </configuration>
                 <executions>
