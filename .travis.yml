@@ -26,16 +26,13 @@ env:
     - HIVE_TESTS=true
     - KUDU_TESTS=true
 
-sudo: required
-dist: trusty
+dist: xenial
+jdk: openjdk8
 
 cache:
   yarn: true
   directories:
     - $HOME/.m2/repository
-
-services:
-  - docker
 
 install:
   - ./mvnw -v
