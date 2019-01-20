@@ -96,10 +96,11 @@ public class HiveConnectorFactory
             Bootstrap app = new Bootstrap(
                     new EventModule(),
                     new MBeanModule(),
+                    new ConnectorObjectNameGeneratorModule(catalogName),
                     new JsonModule(),
                     new HiveClientModule(catalogName),
-                    new HiveS3Module(catalogName),
-                    new HiveMetastoreModule(catalogName, metastore),
+                    new HiveS3Module(),
+                    new HiveMetastoreModule(metastore),
                     new HiveSecurityModule(),
                     new HiveAuthenticationModule(),
                     new HiveProcedureModule(),

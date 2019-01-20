@@ -19,26 +19,17 @@ import com.google.inject.Scopes;
 import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static java.util.Objects.requireNonNull;
-import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class GlueMetastoreModule
         implements Module
 {
-    private final String connectorId;
-
-    public GlueMetastoreModule(String connectorId)
-    {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
-    }
-
     @Override
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(GlueHiveMetastoreConfig.class);
         binder.bind(ExtendedHiveMetastore.class).to(GlueHiveMetastore.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ExtendedHiveMetastore.class)
-                .as(generatedNameOf(GlueHiveMetastore.class, connectorId));
+                .as(generator -> generator.generatedNameOf(GlueHiveMetastore.class));
     }
 }

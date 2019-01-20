@@ -21,21 +21,12 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.common.JavaUtils;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static java.util.Objects.requireNonNull;
-import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class HiveS3Module
         extends AbstractConfigurationAwareModule
 {
     private static final String EMR_FS_CLASS_NAME = "com.amazon.ws.emr.hadoop.fs.EmrFileSystem";
-
-    private final String connectorId;
-
-    public HiveS3Module(String connectorId)
-    {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
-    }
 
     @Override
     protected void setup(Binder binder)
@@ -46,7 +37,8 @@ public class HiveS3Module
             configBinder(binder).bindConfig(HiveS3Config.class);
 
             binder.bind(PrestoS3FileSystemStats.class).toInstance(PrestoS3FileSystem.getFileSystemStats());
-            newExporter(binder).export(PrestoS3FileSystemStats.class).as(generatedNameOf(PrestoS3FileSystem.class, connectorId));
+            newExporter(binder).export(PrestoS3FileSystemStats.class)
+                    .as(generator -> generator.generatedNameOf(PrestoS3FileSystem.class));
         }
         else if (type == S3FileSystemType.EMRFS) {
             validateEmrFsClass();

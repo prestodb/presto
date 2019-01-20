@@ -44,8 +44,7 @@ public final class LocalMemoryManagerExporter
     private synchronized void addPool(MemoryPool pool)
     {
         try {
-            String objectName = ObjectNames.builder(MemoryPool.class, pool.getId().toString()).build();
-            exporter.export(objectName, pool);
+            exporter.exportWithGeneratedName(pool, MemoryPool.class, pool.getId().toString());
             pools.add(pool);
         }
         catch (JmxException e) {

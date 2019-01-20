@@ -24,20 +24,11 @@ import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
 import io.prestosql.plugin.hive.metastore.RecordingHiveMetastore;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static java.util.Objects.requireNonNull;
-import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class ThriftMetastoreModule
         extends AbstractConfigurationAwareModule
 {
-    private final String connectorId;
-
-    public ThriftMetastoreModule(String connectorId)
-    {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
-    }
-
     @Override
     protected void setup(Binder binder)
     {
@@ -57,8 +48,7 @@ public class ThriftMetastoreModule
                     .to(RecordingHiveMetastore.class)
                     .in(Scopes.SINGLETON);
             binder.bind(RecordingHiveMetastore.class).in(Scopes.SINGLETON);
-            newExporter(binder).export(RecordingHiveMetastore.class)
-                    .as(generatedNameOf(RecordingHiveMetastore.class, connectorId));
+            newExporter(binder).export(RecordingHiveMetastore.class);
         }
         else {
             binder.bind(ExtendedHiveMetastore.class)
@@ -69,8 +59,8 @@ public class ThriftMetastoreModule
 
         binder.bind(ExtendedHiveMetastore.class).to(CachingHiveMetastore.class).in(Scopes.SINGLETON);
         newExporter(binder).export(HiveMetastore.class)
-                .as(generatedNameOf(ThriftHiveMetastore.class, connectorId));
+                .as(generator -> generator.generatedNameOf(ThriftHiveMetastore.class));
         newExporter(binder).export(ExtendedHiveMetastore.class)
-                .as(generatedNameOf(CachingHiveMetastore.class, connectorId));
+                .as(generator -> generator.generatedNameOf(CachingHiveMetastore.class));
     }
 }

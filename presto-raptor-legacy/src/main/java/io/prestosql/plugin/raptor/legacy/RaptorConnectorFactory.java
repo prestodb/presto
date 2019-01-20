@@ -76,6 +76,7 @@ public class RaptorConnectorFactory
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
                     new MBeanModule(),
+                    new ConnectorObjectNameGeneratorModule(catalogName),
                     binder -> {
                         MBeanServer mbeanServer = new RebindSafeMBeanServer(getPlatformMBeanServer());
                         binder.bind(MBeanServer.class).toInstance(mbeanServer);
@@ -85,7 +86,7 @@ public class RaptorConnectorFactory
                     },
                     metadataModule,
                     new BackupModule(backupProviders),
-                    new StorageModule(catalogName),
+                    new StorageModule(),
                     new RaptorModule(catalogName),
                     new RaptorSecurityModule());
 

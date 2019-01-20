@@ -43,7 +43,6 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newFixedThreadPool;
-import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class HiveClientModule
@@ -73,7 +72,7 @@ public class HiveClientModule
         binder.bind(HiveTableProperties.class).in(Scopes.SINGLETON);
 
         binder.bind(NamenodeStats.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(NamenodeStats.class).as(generatedNameOf(NamenodeStats.class, connectorId));
+        newExporter(binder).export(NamenodeStats.class).withGeneratedName();
 
         binder.bind(PrestoS3ClientFactory.class).in(Scopes.SINGLETON);
 
@@ -82,7 +81,7 @@ public class HiveClientModule
         recordCursorProviderBinder.addBinding().to(GenericHiveRecordCursorProvider.class).in(Scopes.SINGLETON);
 
         binder.bind(HiveWriterStats.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(HiveWriterStats.class).as(generatedNameOf(HiveWriterStats.class, connectorId));
+        newExporter(binder).export(HiveWriterStats.class).withGeneratedName();
 
         newSetBinder(binder, EventClient.class).addBinding().to(HiveEventClient.class).in(Scopes.SINGLETON);
         binder.bind(HivePartitionManager.class).in(Scopes.SINGLETON);
@@ -92,7 +91,7 @@ public class HiveClientModule
         binder.bind(new TypeLiteral<Supplier<TransactionalMetadata>>() {}).to(HiveMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(HiveSplitManager.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(ConnectorSplitManager.class).as(generatedNameOf(HiveSplitManager.class, connectorId));
+        newExporter(binder).export(ConnectorSplitManager.class).as(generator -> generator.generatedNameOf(HiveSplitManager.class));
         binder.bind(ConnectorPageSourceProvider.class).to(HivePageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(HivePageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorNodePartitioningProvider.class).to(HiveNodePartitioningProvider.class).in(Scopes.SINGLETON);
@@ -100,7 +99,7 @@ public class HiveClientModule
         jsonCodecBinder(binder).bindJsonCodec(PartitionUpdate.class);
 
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(FileFormatDataSourceStats.class).as(generatedNameOf(FileFormatDataSourceStats.class, connectorId));
+        newExporter(binder).export(FileFormatDataSourceStats.class).withGeneratedName();
 
         Multibinder<HivePageSourceFactory> pageSourceFactoryBinder = newSetBinder(binder, HivePageSourceFactory.class);
         pageSourceFactoryBinder.addBinding().to(OrcPageSourceFactory.class).in(Scopes.SINGLETON);
@@ -110,7 +109,7 @@ public class HiveClientModule
 
         Multibinder<HiveFileWriterFactory> fileWriterFactoryBinder = newSetBinder(binder, HiveFileWriterFactory.class);
         binder.bind(OrcFileWriterFactory.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(OrcFileWriterFactory.class).as(generatedNameOf(OrcFileWriterFactory.class, connectorId));
+        newExporter(binder).export(OrcFileWriterFactory.class).withGeneratedName();
         configBinder(binder).bindConfig(OrcFileWriterConfig.class);
         fileWriterFactoryBinder.addBinding().to(OrcFileWriterFactory.class).in(Scopes.SINGLETON);
         fileWriterFactoryBinder.addBinding().to(RcFileFileWriterFactory.class).in(Scopes.SINGLETON);

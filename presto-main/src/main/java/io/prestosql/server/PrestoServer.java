@@ -96,6 +96,7 @@ public class PrestoServer
                 new JsonModule(),
                 new JaxrsModule(true),
                 new MBeanModule(),
+                new PrefixObjectNameGeneratorModule("io.prestosql"),
                 new JmxModule(),
                 new JmxHttpModule(),
                 new LogJmxModule(),

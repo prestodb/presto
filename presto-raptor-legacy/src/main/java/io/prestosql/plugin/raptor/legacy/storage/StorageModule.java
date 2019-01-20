@@ -35,20 +35,11 @@ import io.prestosql.plugin.raptor.legacy.storage.organization.ShardOrganizer;
 import io.prestosql.plugin.raptor.legacy.storage.organization.TemporalFunction;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static java.util.Objects.requireNonNull;
-import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class StorageModule
         implements Module
 {
-    private final String connectorId;
-
-    public StorageModule(String connectorId)
-    {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
-    }
-
     @Override
     public void configure(Binder binder)
     {
@@ -79,15 +70,15 @@ public class StorageModule
         binder.bind(AssignmentLimiter.class).in(Scopes.SINGLETON);
         binder.bind(TemporalFunction.class).in(Scopes.SINGLETON);
 
-        newExporter(binder).export(ShardRecoveryManager.class).as(generatedNameOf(ShardRecoveryManager.class, connectorId));
-        newExporter(binder).export(BackupManager.class).as(generatedNameOf(BackupManager.class, connectorId));
-        newExporter(binder).export(StorageManager.class).as(generatedNameOf(OrcStorageManager.class, connectorId));
-        newExporter(binder).export(ShardCompactionManager.class).as(generatedNameOf(ShardCompactionManager.class, connectorId));
-        newExporter(binder).export(ShardOrganizer.class).as(generatedNameOf(ShardOrganizer.class, connectorId));
-        newExporter(binder).export(ShardCompactor.class).as(generatedNameOf(ShardCompactor.class, connectorId));
-        newExporter(binder).export(ShardEjector.class).as(generatedNameOf(ShardEjector.class, connectorId));
-        newExporter(binder).export(ShardCleaner.class).as(generatedNameOf(ShardCleaner.class, connectorId));
-        newExporter(binder).export(BucketBalancer.class).as(generatedNameOf(BucketBalancer.class, connectorId));
+        newExporter(binder).export(ShardRecoveryManager.class).withGeneratedName();
+        newExporter(binder).export(BackupManager.class).withGeneratedName();
+        newExporter(binder).export(StorageManager.class).as(generator -> generator.generatedNameOf(OrcStorageManager.class));
+        newExporter(binder).export(ShardCompactionManager.class).withGeneratedName();
+        newExporter(binder).export(ShardOrganizer.class).withGeneratedName();
+        newExporter(binder).export(ShardCompactor.class).withGeneratedName();
+        newExporter(binder).export(ShardEjector.class).withGeneratedName();
+        newExporter(binder).export(ShardCleaner.class).withGeneratedName();
+        newExporter(binder).export(BucketBalancer.class).withGeneratedName();
         newExporter(binder).export(JobFactory.class).withGeneratedName();
     }
 }

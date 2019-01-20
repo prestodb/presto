@@ -152,7 +152,6 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class CoordinatorModule
@@ -268,7 +267,8 @@ public class CoordinatorModule
         binder.bind(ExecutorService.class).annotatedWith(ForQueryExecution.class)
                 .toInstance(newCachedThreadPool(threadsNamed("query-execution-%s")));
         binder.bind(QueryExecutionMBean.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(QueryExecutionMBean.class).as(generatedNameOf(QueryExecution.class));
+        newExporter(binder).export(QueryExecutionMBean.class)
+                .as(generator -> generator.generatedNameOf(QueryExecution.class));
 
         MapBinder<Class<? extends Statement>, QueryExecutionFactory<?>> executionBinder = newMapBinder(binder,
                 new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<QueryExecutionFactory<?>>() {});

@@ -63,13 +63,14 @@ public class ThriftConnectorFactory
         try {
             Bootstrap app = new Bootstrap(
                     new MBeanModule(),
+                    new ConnectorObjectNameGeneratorModule(catalogName),
                     new DriftNettyClientModule(),
                     binder -> {
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(getPlatformMBeanServer()));
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                     },
                     locationModule,
-                    new ThriftModule(catalogName));
+                    new ThriftModule());
 
             Injector injector = app
                     .strictConfig()

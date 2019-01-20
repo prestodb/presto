@@ -32,7 +32,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static org.weakref.jmx.ObjectNames.generatedNameOf;
 
 public class BackupModule
         extends AbstractConfigurationAwareModule
@@ -95,7 +94,7 @@ public class BackupModule
         lifeCycleManager.addInstance(proxy);
 
         BackupStore managed = new ManagedBackupStore(proxy);
-        exporter.export(generatedNameOf(BackupStore.class, connectorId.toString()), managed);
+        exporter.exportWithGeneratedName(managed, BackupStore.class, connectorId.toString());
 
         return Optional.of(managed);
     }

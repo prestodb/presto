@@ -27,12 +27,10 @@ import static io.airlift.configuration.ConditionalModule.installModuleIf;
 public class HiveMetastoreModule
         extends AbstractConfigurationAwareModule
 {
-    private final String connectorId;
     private final Optional<ExtendedHiveMetastore> metastore;
 
-    public HiveMetastoreModule(String connectorId, Optional<ExtendedHiveMetastore> metastore)
+    public HiveMetastoreModule(Optional<ExtendedHiveMetastore> metastore)
     {
-        this.connectorId = connectorId;
         this.metastore = metastore;
     }
 
@@ -43,9 +41,9 @@ public class HiveMetastoreModule
             binder.bind(ExtendedHiveMetastore.class).toInstance(metastore.get());
         }
         else {
-            bindMetastoreModule("thrift", new ThriftMetastoreModule(connectorId));
-            bindMetastoreModule("file", new FileMetastoreModule(connectorId));
-            bindMetastoreModule("glue", new GlueMetastoreModule(connectorId));
+            bindMetastoreModule("thrift", new ThriftMetastoreModule());
+            bindMetastoreModule("file", new FileMetastoreModule());
+            bindMetastoreModule("glue", new GlueMetastoreModule());
         }
     }
 

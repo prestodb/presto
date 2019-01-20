@@ -186,7 +186,7 @@ public class ClusterMemoryManager
             ClusterMemoryPool pool = new ClusterMemoryPool(poolId);
             builder.put(poolId, pool);
             try {
-                exporter.export(generatedNameOf(ClusterMemoryPool.class, poolId.toString()), pool);
+                exporter.exportWithGeneratedName(pool, ClusterMemoryPool.class, poolId.toString());
             }
             catch (JmxException e) {
                 log.error(e, "Error exporting memory pool %s", poolId);

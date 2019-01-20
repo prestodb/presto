@@ -32,7 +32,6 @@ import io.prestosql.sql.tree.Statement;
 import org.weakref.jmx.JmxException;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.Managed;
-import org.weakref.jmx.ObjectNames;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -237,13 +236,12 @@ public final class InternalResourceGroupManager<C>
 
     private void exportGroup(InternalResourceGroup group, Boolean export)
     {
-        String objectName = ObjectNames.builder(InternalResourceGroup.class, group.getId().toString()).build();
         try {
             if (export) {
-                exporter.export(objectName, group);
+                exporter.exportWithGeneratedName(group, InternalResourceGroup.class, group.getId().toString());
             }
             else {
-                exporter.unexport(objectName);
+                exporter.unexportWithGeneratedName(InternalResourceGroup.class, group.getId().toString());
             }
         }
         catch (JmxException e) {

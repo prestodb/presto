@@ -13,15 +13,22 @@
  */
 package io.prestosql.sql.planner;
 
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.sql.planner.optimizations.OptimizerStats;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
+import org.weakref.jmx.MBeanExport;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.ObjectNames;
 
+import javax.annotation.concurrent.GuardedBy;
+
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -29,6 +36,9 @@ import static java.util.Objects.requireNonNull;
 public class OptimizerStatsRecorder
 {
     private final Map<Class<?>, OptimizerStats> stats = new HashMap<>();
+
+    @GuardedBy("this")
+    private final List<MBeanExport> mbeanExports = new ArrayList<>();
 
     public void register(PlanOptimizer optimizer)
     {
@@ -51,12 +61,16 @@ public class OptimizerStatsRecorder
         optimizerStats.recordFailure();
     }
 
-    void export(MBeanExporter exporter)
+    synchronized void export(MBeanExporter exporter)
     {
+        checkState(mbeanExports.isEmpty(), "MBeans already exported");
         for (Map.Entry<Class<?>, OptimizerStats> entry : stats.entrySet()) {
             verify(!entry.getKey().getSimpleName().isEmpty());
             try {
-                exporter.export(getName(entry.getKey()), entry.getValue());
+                mbeanExports.add(exporter.exportWithGeneratedName(entry.getValue(), PlanOptimizer.class, ImmutableMap.<String, String>builder()
+                        .put("name", PlanOptimizer.class.getSimpleName())
+                        .put("optimizer", entry.getKey().getSimpleName())
+                        .build()));
             }
             catch (RuntimeException e) {
                 throw new RuntimeException(format("Failed to export MBean with name '%s'", getName(entry.getKey())), e);
@@ -64,11 +78,12 @@ public class OptimizerStatsRecorder
         }
     }
 
-    void unexport(MBeanExporter exporter)
+    synchronized void unexport(MBeanExporter exporter)
     {
-        for (Class<?> rule : stats.keySet()) {
-            exporter.unexport(getName(rule));
+        for (MBeanExport mbeanExport : mbeanExports) {
+            mbeanExport.unexport();
         }
+        mbeanExports.clear();
     }
 
     private String getName(Class<?> key)

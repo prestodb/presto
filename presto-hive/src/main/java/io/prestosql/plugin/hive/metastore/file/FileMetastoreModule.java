@@ -21,20 +21,11 @@ import io.prestosql.plugin.hive.metastore.CachingHiveMetastore;
 import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static java.util.Objects.requireNonNull;
-import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class FileMetastoreModule
         implements Module
 {
-    private final String connectorId;
-
-    public FileMetastoreModule(String connectorId)
-    {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
-    }
-
     @Override
     public void configure(Binder binder)
     {
@@ -42,6 +33,6 @@ public class FileMetastoreModule
         binder.bind(ExtendedHiveMetastore.class).annotatedWith(ForCachingHiveMetastore.class).to(FileHiveMetastore.class).in(Scopes.SINGLETON);
         binder.bind(ExtendedHiveMetastore.class).to(CachingHiveMetastore.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ExtendedHiveMetastore.class)
-                .as(generatedNameOf(CachingHiveMetastore.class, connectorId));
+                .as(generator -> generator.generatedNameOf(CachingHiveMetastore.class));
     }
 }

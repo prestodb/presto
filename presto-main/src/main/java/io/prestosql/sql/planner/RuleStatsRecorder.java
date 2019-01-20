@@ -13,23 +13,32 @@
  */
 package io.prestosql.sql.planner;
 
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.sql.planner.iterative.IterativeOptimizer;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.iterative.RuleStats;
+import org.weakref.jmx.MBeanExport;
 import org.weakref.jmx.MBeanExporter;
-import org.weakref.jmx.ObjectNames;
 
+import javax.annotation.concurrent.GuardedBy;
+
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
 
 public class RuleStatsRecorder
 {
     private final Map<Class<?>, RuleStats> stats = new HashMap<>();
+
+    @GuardedBy("this")
+    private final List<MBeanExport> mbeanExports = new ArrayList<>();
 
     public void registerAll(Collection<Rule<?>> rules)
     {
@@ -49,31 +58,28 @@ public class RuleStatsRecorder
         stats.get(rule.getClass()).recordFailure();
     }
 
-    void export(MBeanExporter exporter)
+    synchronized void export(MBeanExporter exporter)
     {
+        checkState(mbeanExports.isEmpty(), "MBeans already exported");
         for (Map.Entry<Class<?>, RuleStats> entry : stats.entrySet()) {
             verify(!entry.getKey().getSimpleName().isEmpty());
-            String name = ObjectNames.builder(IterativeOptimizer.class)
-                    .withProperty("rule", entry.getKey().getSimpleName())
-                    .build();
-
             try {
-                exporter.export(name, entry.getValue());
+                mbeanExports.add(exporter.exportWithGeneratedName(entry.getValue(), IterativeOptimizer.class, ImmutableMap.<String, String>builder()
+                        .put("name", IterativeOptimizer.class.getSimpleName())
+                        .put("rule", entry.getKey().getSimpleName())
+                        .build()));
             }
             catch (RuntimeException e) {
-                throw new RuntimeException(format("Failed to export MBean with name '%s'", name), e);
+                throw new RuntimeException(format("Failed to export MBean with for rule '%s'", entry.getKey().getSimpleName()), e);
             }
         }
     }
 
-    void unexport(MBeanExporter exporter)
+    synchronized void unexport(MBeanExporter exporter)
     {
-        for (Class<?> rule : stats.keySet()) {
-            String name = ObjectNames.builder(IterativeOptimizer.class)
-                    .withProperty("rule", rule.getSimpleName())
-                    .build();
-
-            exporter.unexport(name);
+        for (MBeanExport mbeanExport : mbeanExports) {
+            mbeanExport.unexport();
         }
+        mbeanExports.clear();
     }
 }

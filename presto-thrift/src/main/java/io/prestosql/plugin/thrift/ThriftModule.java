@@ -32,21 +32,12 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.drift.client.ExceptionClassification.NORMAL_EXCEPTION;
 import static io.airlift.drift.client.guice.DriftClientBinder.driftClientBinder;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
-import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class ThriftModule
         implements Module
 {
-    private final String connectorId;
-
-    public ThriftModule(String connectorId)
-    {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
-    }
-
     @Override
     public void configure(Binder binder)
     {
@@ -68,8 +59,7 @@ public class ThriftModule
         binder.bind(ThriftSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(ThriftIndexProvider.class).in(Scopes.SINGLETON);
         binder.bind(ThriftConnectorStats.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(ThriftConnectorStats.class)
-                .as(generatedNameOf(ThriftConnectorStats.class, connectorId));
+        newExporter(binder).export(ThriftConnectorStats.class).withGeneratedName();
     }
 
     @Provides

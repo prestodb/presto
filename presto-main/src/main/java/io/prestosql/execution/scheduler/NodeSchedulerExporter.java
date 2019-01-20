@@ -13,10 +13,11 @@
  */
 package io.prestosql.execution.scheduler;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.stats.CounterStat;
 import org.weakref.jmx.JmxException;
+import org.weakref.jmx.MBeanExport;
 import org.weakref.jmx.MBeanExporter;
-import org.weakref.jmx.ObjectNames;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
@@ -30,20 +31,18 @@ import static java.util.Objects.requireNonNull;
 
 public final class NodeSchedulerExporter
 {
-    private final MBeanExporter exporter;
     @GuardedBy("this")
-    private final List<String> objectNames = new ArrayList<>();
+    private final List<MBeanExport> mbeanExports = new ArrayList<>();
 
     @Inject
     public NodeSchedulerExporter(NodeScheduler nodeScheduler, MBeanExporter exporter)
     {
-        this.exporter = requireNonNull(exporter, "exporter is null");
+        requireNonNull(nodeScheduler, "nodeScheduler is null");
+        requireNonNull(exporter, "exporter is null");
         Map<String, CounterStat> topologicalSplitCounters = nodeScheduler.getTopologicalSplitCounters();
         for (Map.Entry<String, CounterStat> entry : topologicalSplitCounters.entrySet()) {
             try {
-                String objectName = ObjectNames.builder(NodeScheduler.class).withProperty("segment", entry.getKey()).build();
-                this.exporter.export(objectName, entry.getValue());
-                objectNames.add(objectName);
+                mbeanExports.add(exporter.exportWithGeneratedName(entry.getValue(), NodeScheduler.class, ImmutableMap.of("segment", entry.getKey())));
             }
             catch (JmxException e) {
                 // ignored
@@ -54,14 +53,14 @@ public final class NodeSchedulerExporter
     @PreDestroy
     public synchronized void destroy()
     {
-        for (String objectName : objectNames) {
+        for (MBeanExport mbeanExport : mbeanExports) {
             try {
-                exporter.unexport(objectName);
+                mbeanExport.unexport();
             }
             catch (JmxException e) {
                 // ignored
             }
         }
-        objectNames.clear();
+        mbeanExports.clear();
     }
 }
