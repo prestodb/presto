@@ -7,7 +7,7 @@ General Changes
 
 * Fix spurious duplicate key errors from :func:`map`.
 * Fix planning failure when a correlated subquery containing a ``LIMIT``
-  clause is used within ``EXISTS`` (:issue:`10696`).
+  clause is used within ``EXISTS`` (:issue:`x10696`).
 * Fix out of memory error caused by missing pushback checks in data exchanges.
 * Fix execution failure for queries containing a cross join when using bucketed execution.
 * Fix execution failure for queries containing an aggregation function
@@ -54,4 +54,4 @@ Thrift Connector Changes
 Local File Connector Changes
 ----------------------------
 
-* Fix parsing of timestamps when the JVM time zone is UTC (:issue:`9601`).
+* Fix parsing of timestamps when the JVM time zone is UTC (:issue:`x9601`).

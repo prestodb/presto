@@ -9,7 +9,7 @@ General Changes
   using map types.
 * Fix reporting of the processed input data for source stages in ``EXPLAIN ANALYZE``.
 * Fail queries that use non-leaf resource groups. Previously, they would remain queued forever.
-* Improve CPU usage for specific queries (:issue:`11757`).
+* Improve CPU usage for specific queries (:issue:`x11757`).
 * Extend stats and cost model to support :func:`row_number` window function estimates.
 * Improve the join type selection and the reordering of join sides for cases where
   the join output size cannot be estimated.

@@ -18,7 +18,7 @@ General Changes
 * Remove the ``verbose_stats`` session property, and rename the ``task.verbose-stats``
   configuration property to ``task.per-operator-cpu-timer-enabled``.
 * Improve query planning performance for queries containing multiple joins
-  and a large number of columns (:issue:`11196`).
+  and a large number of columns (:issue:`x11196`).
 * Add built-in :doc:`file based property manager </admin/session-property-managers>`
   to automate the setting of session properties based on query characteristics.
 * Allow running on a JVM from any vendor that meets the functional requirements.
@@ -30,7 +30,7 @@ Hive Connector Changes
   that occurs for specific patterns of input data. When the writer attempts to give up
   using dictionary encoding for a column that is highly compressed, the process of
   transitioning to use direct encoding instead can fail.
-* Fix coordinator OOM when a query scans many partitions of a Hive table (:issue:`11322`).
+* Fix coordinator OOM when a query scans many partitions of a Hive table (:issue:`x11322`).
 * Improve readability of columns, partitioning, and transactions in explain plains.
 
 Thrift Connector Changes

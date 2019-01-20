@@ -6,9 +6,9 @@ General Changes
 ---------------
 
 * Fix planning failure when aliasing columns of tables containing hidden
-  columns (:issue:`11385`).
+  columns (:issue:`x11385`).
 * Fix correctness issue when ``GROUP BY DISTINCT`` terms contain references to
-  the same column using different syntactic forms (:issue:`11120`).
+  the same column using different syntactic forms (:issue:`x11120`).
 * Fix failures when querying ``information_schema`` tables using capitalized names.
 * Improve performance when converting between ``ROW`` types.
 * Remove user CPU time tracking as introduces non-trivial overhead.

@@ -13,7 +13,7 @@ General Changes
 * Fix an issue with memory accounting that would lead to garbage collection pauses
   and out of memory exceptions.
 * Fix an issue that produces incorrect results when ``push_aggregation_through_join``
-  is enabled (:issue:`10724`).
+  is enabled (:issue:`x10724`).
 * Preserve field names when unnesting columns of type ``ROW``.
 * Make the cluster out of memory killer more resilient to memory accounting leaks.
   Previously, memory accounting leaks on the workers could effectively disable

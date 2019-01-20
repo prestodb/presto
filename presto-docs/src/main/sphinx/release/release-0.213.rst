@@ -35,7 +35,7 @@ General Changes
   query to run slower and consume less resources.
 * Add ``join-max-broadcast-table-size`` configuration property and
   ``join_max_broadcast_table_size`` session property to control the maximum estimated size
-  of a table that can be broadcast when using ``AUTOMATIC`` join distribution type (:issue:`11667`).
+  of a table that can be broadcast when using ``AUTOMATIC`` join distribution type (:issue:`x11667`).
 * Add experimental config option ``experimental.reserved-pool-enabled`` to disable the reserved memory pool.
 * Add ``targetResultSize`` query parameter to ``/v1/statement`` endpoint to control response data size.
 
@@ -46,7 +46,7 @@ Geospatial Changes
   empty geometry as required by the SQL/MM specification.
 * Add :func:`ST_MultiPoint` function to construct multi-point geometry from an array of points.
 * Add :func:`geometry_union` function to efficiently union arrays of geometries.
-* Add support for distributed spatial joins (:issue:`11072`).
+* Add support for distributed spatial joins (:issue:`x11072`).
 
 Server RPM Changes
 ------------------
