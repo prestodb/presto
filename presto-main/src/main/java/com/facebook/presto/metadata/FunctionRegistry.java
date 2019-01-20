@@ -96,6 +96,7 @@ import com.facebook.presto.operator.scalar.EmptyMapConstructor;
 import com.facebook.presto.operator.scalar.FailureFunction;
 import com.facebook.presto.operator.scalar.HmacFunctions;
 import com.facebook.presto.operator.scalar.HyperLogLogFunctions;
+import com.facebook.presto.operator.scalar.IpAddressFunctions;
 import com.facebook.presto.operator.scalar.JoniRegexpCasts;
 import com.facebook.presto.operator.scalar.JoniRegexpFunctions;
 import com.facebook.presto.operator.scalar.JoniRegexpReplaceLambdaFunction;
@@ -532,6 +533,7 @@ public class FunctionRegistry
                 .scalars(HyperLogLogOperators.class)
                 .scalars(QuantileDigestOperators.class)
                 .scalars(IpAddressOperators.class)
+                .scalars(IpAddressFunctions.class)
                 .scalar(IpAddressOperators.IpAddressDistinctFromOperator.class)
                 .scalars(LikeFunctions.class)
                 .scalars(ArrayFunctions.class)

@@ -23,6 +23,7 @@ Functions and Operators
     functions/array
     functions/map
     functions/url
+    functions/ipaddress
     functions/geospatial
     functions/hyperloglog
     functions/qdigest
