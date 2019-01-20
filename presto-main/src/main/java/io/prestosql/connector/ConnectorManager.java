@@ -169,7 +169,7 @@ public class ConnectorManager
     {
         requireNonNull(connectorName, "connectorName is null");
         ConnectorFactory connectorFactory = connectorFactories.get(connectorName);
-        checkArgument(connectorFactory != null, "No factory for connector %s", connectorName);
+        checkArgument(connectorFactory != null, "No factory for connector [%s].  Available factories: %s", connectorName, connectorFactories.keySet());
         return createConnection(catalogName, connectorFactory, properties);
     }
 
