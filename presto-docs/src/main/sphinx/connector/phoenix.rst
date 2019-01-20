@@ -110,14 +110,14 @@ Table property usage example:
       age BIGINT
     )
     WITH (
-      rowkeys = ARRAY['recordkey', 'birthday row_timestamp'],
+      rowkeys = 'recordkey,birthday row_timestamp',
       salt_buckets=10
     );
 
 =========================== ================ ======================================================================================================
 Property Name               Default Value    Description
 =========================== ================ ======================================================================================================
-``rowkeys``                 (first column)   Presto column name that maps to the Phoenix primary key. ``row_timestamp`` is `Row timestamp <https://phoenix.apache.org/rowtimestamp.html>`
+``rowkeys``                 (ROWKEY column)   Comma-delimited list of columns to be the primary key in the Phoenix table.  If not specified, a 'ROWKEY' column is generated.
 ``salt_buckets``            (none)           ``salt_buckets`` numeric property causes an extra byte to be transparently prepended to every row key to ensure an evenly distributed read and write load across all region servers.
 ``split_on``                (none)           Per-split table Salting does automatic table splitting but in case you want to exactly control where table split occurs with out adding extra byte or change row key order then you can pre-split a table.
 ``disable_wal``             false            ``disable_wal`` boolean option when true causes HBase not to write data to the write-ahead-log, thus making updates faster at the expense of potentially losing data in the event of a region server failure.

@@ -13,32 +13,32 @@
  */
 package com.facebook.presto.plugin.phoenix;
 
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
+import org.apache.hadoop.util.StringUtils;
 
 import javax.inject.Inject;
 
-import java.util.Collection;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 /**
  * Class contains all table properties for the Phoenix connector. Used when creating a table:
  * <p>
- * CREATE TABLE foo (a VARCHAR, b INT) WITH (rowkeys = ARRAYS['a', 'b'], SALT_BUCKETS=10, VERSIONS=5, COMPRESSION='lz');
+ * CREATE TABLE foo (a VARCHAR with (primary_key = true), b INT) WITH (SALT_BUCKETS=10, VERSIONS=5, COMPRESSION='lz');
  */
 public final class PhoenixTableProperties
 {
+    private final List<PropertyMetadata<?>> tableProperties;
     public static final String ROWKEYS = "rowkeys";
     public static final String SALT_BUCKETS = "salt_buckets";
     public static final String SPLIT_ON = "split_on";
@@ -51,23 +51,17 @@ public final class PhoenixTableProperties
     public static final String COMPRESSION = "compression";
     public static final String TTL = "ttl";
 
-    private final List<PropertyMetadata<?>> tableProperties;
+    private final List<PropertyMetadata<?>> columnProperties;
+    public static final String PRIMARY_KEY = "primary_key";
 
     @Inject
     public PhoenixTableProperties(TypeManager typeManager)
     {
         tableProperties = ImmutableList.of(
-                new PropertyMetadata<>(
-                        ROWKEYS,
-                        "The list of columns to be the primary key in a Phoenix table.",
-                        typeManager.getType(parseTypeSignature("array(varchar)")),
-                        List.class,
-                        ImmutableList.of(),
-                        false,
-                        value -> ImmutableList.copyOf(((Collection<?>) value).stream()
-                                .map(name -> ((String) name).toLowerCase(ENGLISH))
-                                .collect(Collectors.toList())),
-                        value -> value),
+                stringProperty(ROWKEYS,
+                        "Comma-delimited list of columns to be the primary key in the Phoenix table.",
+                        null,
+                        false),
                 integerProperty(
                         SALT_BUCKETS,
                         "numeric property causes an extra byte to be transparently prepended to every row key to ensure an evenly distributed read and write load across all region servers.",
@@ -118,6 +112,12 @@ public final class PhoenixTableProperties
                         "ColumnFamilies can set a TTL length in seconds, and HBase will automatically delete rows once the expiration time is reached.",
                         null,
                         false));
+        columnProperties = ImmutableList.of(
+                booleanProperty(
+                        PRIMARY_KEY,
+                        "If column belongs to primary key",
+                        false,
+                        false));
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
@@ -125,12 +125,9 @@ public final class PhoenixTableProperties
         return tableProperties;
     }
 
-    @SuppressWarnings("unchecked")
-    public static List<String> getRowkeys(Map<String, Object> tableProperties)
+    public List<PropertyMetadata<?>> getColumnProperties()
     {
-        requireNonNull(tableProperties);
-
-        return (List<String>) tableProperties.get(ROWKEYS);
+        return columnProperties;
     }
 
     public static Optional<Integer> getSaltBuckets(Map<String, Object> tableProperties)
@@ -157,6 +154,17 @@ public final class PhoenixTableProperties
         return Optional.of(value);
     }
 
+    public static Optional<List<String>> getRowkeys(Map<String, Object> tableProperties)
+    {
+        requireNonNull(tableProperties);
+
+        String rowkeysCsv = (String) tableProperties.get(ROWKEYS);
+        if (rowkeysCsv == null) {
+            return Optional.empty();
+        }
+        return Optional.of(Arrays.asList(StringUtils.split(rowkeysCsv, ',')));
+    }
+
     public static Optional<Boolean> getDisableWal(Map<String, Object> tableProperties)
     {
         requireNonNull(tableProperties);
@@ -165,7 +173,6 @@ public final class PhoenixTableProperties
         if (value == null) {
             return Optional.empty();
         }
-
         return Optional.of(value);
     }
 
@@ -177,7 +184,6 @@ public final class PhoenixTableProperties
         if (value == null) {
             return Optional.empty();
         }
-
         return Optional.of(value);
     }
 
@@ -189,7 +195,6 @@ public final class PhoenixTableProperties
         if (value == null) {
             return Optional.empty();
         }
-
         return Optional.of(value);
     }
 
@@ -201,7 +206,6 @@ public final class PhoenixTableProperties
         if (value == null) {
             return Optional.empty();
         }
-
         return Optional.of(value);
     }
 
@@ -213,7 +217,6 @@ public final class PhoenixTableProperties
         if (value == null) {
             return Optional.empty();
         }
-
         return Optional.of(value);
     }
 
@@ -225,7 +228,6 @@ public final class PhoenixTableProperties
         if (value == null) {
             return Optional.empty();
         }
-
         return Optional.of(value);
     }
 
@@ -237,7 +239,6 @@ public final class PhoenixTableProperties
         if (value == null) {
             return Optional.empty();
         }
-
         return Optional.of(value);
     }
 
@@ -249,7 +250,16 @@ public final class PhoenixTableProperties
         if (value == null) {
             return Optional.empty();
         }
-
         return Optional.of(value);
+    }
+
+    public static boolean isPrimaryKey(ColumnMetadata col, Map<String, Object> tableProperties)
+    {
+        Optional<List<String>> rowkeysTableProp = getRowkeys(tableProperties);
+        if (rowkeysTableProp.isPresent()) {
+            return rowkeysTableProp.get().stream().anyMatch(col.getName()::equalsIgnoreCase);
+        }
+        Boolean isPk = (Boolean) col.getProperties().get(PRIMARY_KEY);
+        return isPk != null && isPk;
     }
 }

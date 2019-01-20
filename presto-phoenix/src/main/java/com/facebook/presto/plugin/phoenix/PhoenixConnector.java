@@ -134,6 +134,12 @@ public class PhoenixConnector
     }
 
     @Override
+    public List<PropertyMetadata<?>> getColumnProperties()
+    {
+        return tableProperties.getColumnProperties();
+    }
+
+    @Override
     public final void shutdown()
     {
         try {

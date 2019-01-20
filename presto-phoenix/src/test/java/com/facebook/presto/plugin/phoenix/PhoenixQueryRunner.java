@@ -74,7 +74,8 @@ public final class PhoenixQueryRunner
         return queryRunner;
     }
 
-    public static void createSchema(TestingPhoenixServer phoenixServer, String schema) throws SQLException
+    public static void createSchema(TestingPhoenixServer phoenixServer, String schema)
+            throws SQLException
     {
         try (Connection connection = DriverManager.getConnection(phoenixServer.getJdbcUrl());
                 Statement statement = connection.createStatement()) {
@@ -117,7 +118,7 @@ public final class PhoenixQueryRunner
                 sql = format("CREATE TABLE %s AS SELECT * FROM %s", target, source);
                 break;
             case "lineitem":
-                sql = format("CREATE TABLE %s WITH (ROWKEYS = ARRAY['ORDERKEY', 'LINENUMBER'], SALT_BUCKETS=10) AS SELECT * FROM %s", target, source);
+                sql = format("CREATE TABLE %s WITH (ROWKEYS = 'ORDERKEY,LINENUMBER', SALT_BUCKETS=10) AS SELECT * FROM %s", target, source);
                 break;
             case "orders":
                 sql = format("CREATE TABLE %s WITH (SALT_BUCKETS=10) AS SELECT * FROM %s", target, source);
@@ -126,7 +127,7 @@ public final class PhoenixQueryRunner
                 sql = format("CREATE TABLE %s AS SELECT * FROM %s", target, source);
                 break;
             case "partsupp":
-                sql = format("CREATE TABLE %s WITH (ROWKEYS = ARRAY['PARTKEY', 'SUPPKEY']) AS SELECT * FROM %s", target, source);
+                sql = format("CREATE TABLE %s WITH (ROWKEYS = 'PARTKEY,SUPPKEY') AS SELECT * FROM %s", target, source);
                 break;
             case "supplier":
                 sql = format("CREATE TABLE %s AS SELECT * FROM %s", target, source);

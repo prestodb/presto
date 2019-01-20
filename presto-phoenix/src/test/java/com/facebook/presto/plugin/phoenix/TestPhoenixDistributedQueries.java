@@ -59,7 +59,7 @@ public class TestPhoenixDistributedQueries
         @Language("SQL")
         String query = "SELECT orderdate, orderkey, totalprice FROM orders";
 
-        assertUpdate("CREATE TABLE test_insert AS " + query + " WITH NO DATA", 0);
+        assertUpdate("CREATE TABLE test_insert WITH (ROWKEYS='orderkey')AS " + query + " WITH NO DATA", 0);
         assertQuery("SELECT count(*) FROM test_insert", "SELECT 0");
 
         assertUpdate("INSERT INTO test_insert " + query, "SELECT count(*) FROM orders");
@@ -67,19 +67,19 @@ public class TestPhoenixDistributedQueries
         assertQuery("SELECT * FROM test_insert", query);
 
         assertUpdate("INSERT INTO test_insert (orderkey) VALUES (-1)", 1);
-        assertUpdate("INSERT INTO test_insert (orderkey) VALUES (null)", 1);
-        assertUpdate("INSERT INTO test_insert (orderdate) VALUES (DATE '2001-01-01')", 1);
-        assertUpdate("INSERT INTO test_insert (orderkey, orderdate) VALUES (-2, DATE '2001-01-02')", 1);
-        assertUpdate("INSERT INTO test_insert (orderdate, orderkey) VALUES (DATE '2001-01-03', -3)", 1);
-        assertUpdate("INSERT INTO test_insert (totalprice) VALUES (1234)", 1);
+        assertUpdate("INSERT INTO test_insert (orderkey) VALUES (-2)", 1);
+        assertUpdate("INSERT INTO test_insert (orderkey, orderdate) VALUES (-3, DATE '2001-01-01')", 1);
+        assertUpdate("INSERT INTO test_insert (orderkey, orderdate) VALUES (-4, DATE '2001-01-02')", 1);
+        assertUpdate("INSERT INTO test_insert (orderdate, orderkey) VALUES (DATE '2001-01-03', -5)", 1);
+        assertUpdate("INSERT INTO test_insert (orderkey, totalprice) VALUES (-6, 1234)", 1);
 
         assertQuery("SELECT * FROM test_insert", query
                 + " UNION ALL SELECT null, -1, null"
-                + " UNION ALL SELECT null, null, null"
-                + " UNION ALL SELECT DATE '2001-01-01', null, null"
-                + " UNION ALL SELECT DATE '2001-01-02', -2, null"
-                + " UNION ALL SELECT DATE '2001-01-03', -3, null"
-                + " UNION ALL SELECT null, null, 1234");
+                + " UNION ALL SELECT null, -2, null"
+                + " UNION ALL SELECT DATE '2001-01-01', -3, null"
+                + " UNION ALL SELECT DATE '2001-01-02', -4, null"
+                + " UNION ALL SELECT DATE '2001-01-03', -5, null"
+                + " UNION ALL SELECT null, -6, 1234");
 
         // UNION query produces columns in the opposite order
         // of how they are declared in the table schema
@@ -92,14 +92,14 @@ public class TestPhoenixDistributedQueries
 
         assertUpdate("DROP TABLE test_insert");
 
-        assertUpdate("CREATE TABLE test_insert (a ARRAY<DOUBLE>, b ARRAY<BIGINT>)");
+        assertUpdate("CREATE TABLE test_insert (pk BIGINT WITH (primary_key=true), a ARRAY<DOUBLE>,  b ARRAY<BIGINT>)");
 
-        assertUpdate("INSERT INTO test_insert (a) VALUES (ARRAY[null])", 1);
-        assertUpdate("INSERT INTO test_insert (a) VALUES (ARRAY[1234])", 1);
+        assertUpdate("INSERT INTO test_insert (pk, a) VALUES (1, ARRAY[null])", 1);
+        assertUpdate("INSERT INTO test_insert (pk, a) VALUES (2, ARRAY[1234])", 1);
         // An array of numeric primitive types returns 0 when the value is null.
         assertQuery("SELECT a[1] FROM test_insert", "VALUES (0), (1234)");
 
-        assertQueryFails("INSERT INTO test_insert (b) VALUES (ARRAY[1.23E1])", "Insert query has mismatched column types: .*");
+        assertQueryFails("INSERT INTO test_insert (pk, b) VALUES (3, ARRAY[1.23E1])", "Insert query has mismatched column types: .*");
 
         assertUpdate("DROP TABLE test_insert");
     }
@@ -110,7 +110,7 @@ public class TestPhoenixDistributedQueries
         // Insert a row without specifying the comment column. That column will be null.
         // https://prestodb.io/docs/current/sql/insert.html
         try {
-            assertUpdate("CREATE TABLE test_insert_duplicate WITH (ROWKEYS = ARRAY['a']) AS SELECT 1 a, 2 b, '3' c", 1);
+            assertUpdate("CREATE TABLE test_insert_duplicate WITH (ROWKEYS = 'a') AS SELECT 1 a, 2 b, '3' c", 1);
             assertQuery("SELECT a, b, c FROM test_insert_duplicate", "SELECT 1, 2, '3'");
             assertUpdate("INSERT INTO test_insert_duplicate (a, c) VALUES (1, '4')", 1);
             assertQuery("SELECT a, b, c FROM test_insert_duplicate", "SELECT 1, null, '4'");

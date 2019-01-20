@@ -68,7 +68,7 @@ public class TestPhoenixIntegrationSmokeTest
     @Test
     public void testCreateTableWithProperties()
     {
-        assertUpdate("CREATE TABLE test_create_table_as_if_not_exists (created_date timestamp, a bigint, b double, c varchar(10), d varchar(10)) with(rowkeys = ARRAY['created_date row_timestamp','a', 'b', 'c'], SALT_BUCKETS=10)");
+        assertUpdate("CREATE TABLE test_create_table_as_if_not_exists (created_date timestamp, a bigint, b double, c varchar(10), d varchar(10)) with(rowkeys = 'created_date row_timestamp,a,b,c', SALT_BUCKETS=10)");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
         assertTableColumnNames("test_create_table_as_if_not_exists", "created_date", "a", "b", "c", "d");
     }
@@ -76,7 +76,7 @@ public class TestPhoenixIntegrationSmokeTest
     @Test
     public void testCreateTableWithPresplits()
     {
-        assertUpdate("CREATE TABLE test_create_presplits_table_as_if_not_exists (rid varchar(10), val1 varchar(10)) with(rowkeys = ARRAY['rid'], SPLIT_ON='\"1\",\"2\",\"3\"')");
+        assertUpdate("CREATE TABLE test_create_presplits_table_as_if_not_exists (rid varchar(10), val1 varchar(10)) with(rowkeys = 'rid', SPLIT_ON='\"1\",\"2\",\"3\"')");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_create_presplits_table_as_if_not_exists"));
         assertTableColumnNames("test_create_presplits_table_as_if_not_exists", "rid", "val1");
     }
@@ -84,7 +84,7 @@ public class TestPhoenixIntegrationSmokeTest
     @Test
     public void tesdtDuplicateKeyUpdateColumns()
     {
-        assertUpdate("CREATE TABLE test_dup_columns WITH (ROWKEYS = ARRAY['RID']) AS SELECT 'key' as RID, 100 AS COL1, 200 AS COL2, 300 AS COL3 ", 1);
+        assertUpdate("CREATE TABLE test_dup_columns WITH (ROWKEYS = 'RID') AS SELECT 'key' as RID, 100 AS COL1, 200 AS COL2, 300 AS COL3 ", 1);
         assertQuery("SELECT col1 FROM test_dup_columns where rid = 'key'", "SELECT 100");
         assertQuery("SELECT col2 FROM test_dup_columns where rid = 'key'", "SELECT 200");
         assertQuery("SELECT col3 FROM test_dup_columns where rid = 'key'", "SELECT 300");

@@ -40,12 +40,12 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.plugin.phoenix.PhoenixClient.ROWKEY;
-import static com.facebook.presto.plugin.phoenix.PhoenixClient.getFullTableName;
-import static com.facebook.presto.plugin.phoenix.PhoenixClient.toSqlType;
 import static com.facebook.presto.plugin.phoenix.PhoenixErrorCode.PHOENIX_ERROR;
 import static com.facebook.presto.plugin.phoenix.PhoenixErrorCode.PHOENIX_NON_TRANSIENT_ERROR;
+import static com.facebook.presto.plugin.phoenix.PhoenixMetadata.ROWKEY;
+import static com.facebook.presto.plugin.phoenix.PhoenixMetadata.getFullTableName;
 import static com.facebook.presto.plugin.phoenix.TypeUtils.isArrayType;
+import static com.facebook.presto.plugin.phoenix.TypeUtils.toSqlType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -181,7 +181,8 @@ public class PhoenixPageSink
         return NOT_BLOCKED;
     }
 
-    private Object getObjectValue(Type type, Block block, int position) throws SQLException
+    private Object getObjectValue(Type type, Block block, int position)
+            throws SQLException
     {
         if (block.isNull(position)) {
             return null;

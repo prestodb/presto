@@ -25,6 +25,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
+import java.util.logging.Level;
 
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static java.lang.String.format;
@@ -40,6 +41,8 @@ public final class TestingPhoenixServer
 
     public TestingPhoenixServer()
     {
+        java.util.logging.Logger.getLogger("org.apache").setLevel(Level.SEVERE);
+
         this.conf.setInt(HConstants.MASTER_INFO_PORT, -1);
         this.conf.setInt(HConstants.REGIONSERVER_INFO_PORT, -1);
         this.conf.setInt(HConstants.HBASE_CLIENT_RETRIES_NUMBER, 1);
