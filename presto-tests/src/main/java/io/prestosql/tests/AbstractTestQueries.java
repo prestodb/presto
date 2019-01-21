@@ -1705,14 +1705,14 @@ public abstract class AbstractTestQueries
     @Test
     public void testJoinWithConstantTrueExpressionWithCoercion()
     {
-        // Covers #7520
+        // Covers https://github.com/prestodb/presto/issues/7520
         assertQuery("SELECT count(*) > 0 FROM nation JOIN region ON (cast(1.2 AS real) = CAST(1.2 AS decimal(2,1)))");
     }
 
     @Test
     public void testJoinWithCanonicalizedConstantTrueExpressionWithCoercion()
     {
-        // Covers #7520
+        // Covers https://github.com/prestodb/presto/issues/7520
         assertQuery("SELECT count(*) > 0 FROM nation JOIN region ON CAST((CASE WHEN (TRUE IS NOT NULL) THEN '1.2' ELSE '1.2' END) AS real) = CAST(1.2 AS decimal(2,1))");
     }
 
@@ -6122,7 +6122,7 @@ public abstract class AbstractTestQueries
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
 
         // aggregation with having
-//        TODO: uncomment below test once #8456 is fixed
+//        TODO: https://github.com/prestodb/presto/issues/8456
 //        assertQuery("SELECT (SELECT avg(totalprice) FROM orders GROUP BY custkey, orderdate HAVING avg(totalprice) < a) FROM (VALUES 900) t(a)");
 
         // correlation in predicate

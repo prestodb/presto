@@ -237,7 +237,7 @@ public class TestPartitionedOutputBuffer
         assertFinished(buffer);
     }
 
-    // TODO: remove this after PR #7987 is landed
+    // TODO: remove this after PR is landed: https://github.com/prestodb/presto/pull/7987
     @Test
     public void testAcknowledge()
     {

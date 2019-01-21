@@ -97,7 +97,7 @@ public final class BufferTestUtils
         return getFuture(future, maxWait);
     }
 
-    // TODO: remove this after PR #7987 is landed
+    // TODO: remove this after PR is landed: https://github.com/prestodb/presto/pull/7987
     static void acknowledgeBufferResult(OutputBuffer buffer, OutputBuffers.OutputBufferId bufferId, long sequenceId)
     {
         buffer.acknowledge(bufferId, sequenceId);

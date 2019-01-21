@@ -381,7 +381,7 @@ public final class Statistics
 
     private static OptionalLong getTimestampValue(DateTimeZone timeZone, Block block)
     {
-        // TODO #7122
+        // TODO https://github.com/prestodb/presto/issues/7122
         return block.isNull(0) ? OptionalLong.empty() : OptionalLong.of(MILLISECONDS.toSeconds(timeZone.convertUTCToLocal(block.getLong(0, 0))));
     }
 

@@ -233,7 +233,7 @@ public class TestArbitraryOutputBuffer
         assertBufferResultEquals(TYPES, getBufferResult(buffer, SECOND, 11, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 11, true));
     }
 
-    // TODO: remove this after PR #7987 is landed
+    // TODO: remove this after PR is landed: https://github.com/prestodb/presto/pull/7987
     @Test
     public void testAcknowledge()
     {

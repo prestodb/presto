@@ -720,7 +720,7 @@ public final class ThriftMetastoreUtil
             return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, NUMBER_OF_TRUE_VALUES);
         }
         if (isNumericType(type) || type.equals(DATE) || type.equals(TIMESTAMP)) {
-            // TODO #7122 support non-legacy TIMESTAMP
+            // TODO https://github.com/prestodb/presto/issues/7122 support non-legacy TIMESTAMP
             return ImmutableSet.of(MIN_VALUE, MAX_VALUE, NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES);
         }
         if (isVarcharType(type) || isCharType(type)) {

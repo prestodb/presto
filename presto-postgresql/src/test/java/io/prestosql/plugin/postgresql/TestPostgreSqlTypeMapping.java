@@ -264,7 +264,8 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testTimestamp()
     {
-        // TODO timestamp is not correctly read (see comment in StandardReadMappings.timestampReadMapping), but testing this is hard because of #7122
+        // TODO timestamp is not correctly read (see comment in StandardReadMappings.timestampReadMapping)
+        // testing this is hard because of https://github.com/prestodb/presto/issues/7122
     }
 
     private void testUnsupportedDataType(String databaseDataType)

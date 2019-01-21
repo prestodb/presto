@@ -241,7 +241,7 @@ public class TestBigintOperators
     @Test
     public void testUnderflowSubtract()
     {
-        long minValue = Long.MIN_VALUE + 1; // due to https://github.com/facebook/presto/issues/4571 MIN_VALUE solely cannot be used
+        long minValue = Long.MIN_VALUE + 1; // due to https://github.com/prestodb/presto/issues/4571 MIN_VALUE solely cannot be used
         assertNumericOverflow(format("%s - 2", minValue), "bigint subtraction overflow: -9223372036854775807 - 2");
     }
 
@@ -249,11 +249,11 @@ public class TestBigintOperators
     public void testOverflowMultiply()
     {
         assertNumericOverflow(format("%s * 2", Long.MAX_VALUE), "bigint multiplication overflow: 9223372036854775807 * 2");
-        // TODO: uncomment when https://github.com/facebook/presto/issues/4571 is fixed
+        // TODO: uncomment when https://github.com/prestodb/presto/issues/4571 is fixed
         //assertNumericOverflow(format("%s * -1", Long.MAX_VALUE), "bigint multiplication overflow: 9223372036854775807 * -1");
     }
 
-    @Test(enabled = false) // TODO: enable when https://github.com/facebook/presto/issues/4571 is fixed
+    @Test(enabled = false) // TODO: enable when https://github.com/prestodb/presto/issues/4571 is fixed
     public void testOverflowDivide()
     {
         assertNumericOverflow(format("%s / -1", Long.MIN_VALUE), "bigint division overflow: -9223372036854775808 / -1");
@@ -268,7 +268,7 @@ public class TestBigintOperators
         assertOperator(INDETERMINATE, "4499999999", BOOLEAN, false);
     }
 
-    @Test(enabled = false) // TODO: enable when https://github.com/facebook/presto/issues/4571 is fixed
+    @Test(enabled = false) // TODO: enable when https://github.com/prestodb/presto/issues/4571 is fixed
     public void testNegateOverflow()
     {
         assertNumericOverflow(format("-(%s)", Long.MIN_VALUE), "bigint negation overflow: -9223372036854775808");

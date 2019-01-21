@@ -179,7 +179,7 @@ public class MarkDistinctOperator
      *
      * @return true to if the reservation is within the limit
      */
-    // TODO: update in the interface after the new memory tracking framework is landed (#9049)
+    // TODO: update in the interface now that the new memory tracking framework is landed
     // Essentially we would love to have clean interfaces to support both pushing and pulling memory usage
     // The following implementation is a hybrid model, where the push model is going to call the pull model causing reentrancy
     private boolean updateMemoryReservation()

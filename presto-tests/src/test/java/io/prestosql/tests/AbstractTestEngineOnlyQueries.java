@@ -54,8 +54,9 @@ public abstract class AbstractTestEngineOnlyQueries
         assertEquals(computeScalar("SELECT TIME '3:04:05.123'"), LocalTime.of(3, 4, 5, 123_000_000));
         assertQuery("SELECT TIME '3:04:05'");
         assertQuery("SELECT TIME '0:04:05'");
-        // TODO #7122 assertQuery(chicago, "SELECT TIME '3:04:05'");
-        // TODO #7122 assertQuery(kathmandu, "SELECT TIME '3:04:05'");
+        // TODO https://github.com/prestodb/presto/issues/7122
+        // TODO assertQuery(chicago, "SELECT TIME '3:04:05'");
+        // TODO assertQuery(kathmandu, "SELECT TIME '3:04:05'");
 
         assertEquals(computeScalar("SELECT TIME '01:02:03.400 Z'"), OffsetTime.of(1, 2, 3, 400_000_000, ZoneOffset.UTC));
         assertEquals(computeScalar("SELECT TIME '01:02:03.400 UTC'"), OffsetTime.of(1, 2, 3, 400_000_000, ZoneOffset.UTC));
@@ -67,8 +68,9 @@ public abstract class AbstractTestEngineOnlyQueries
         assertEquals(computeScalar("SELECT TIMESTAMP '1960-01-22 3:04:05.123'"), LocalDateTime.of(1960, 1, 22, 3, 4, 5, 123_000_000));
         assertQuery("SELECT TIMESTAMP '1960-01-22 3:04:05'");
         assertQuery("SELECT TIMESTAMP '1960-01-22 3:04:05.123'");
-        // TODO #7122 assertQuery(chicago, "SELECT TIMESTAMP '1960-01-22 3:04:05.123'");
-        // TODO #7122 assertQuery(kathmandu, "SELECT TIMESTAMP '1960-01-22 3:04:05.123'");
+        // TODO https://github.com/prestodb/presto/issues/7122
+        // TODO assertQuery(chicago, "SELECT TIMESTAMP '1960-01-22 3:04:05.123'");
+        // TODO assertQuery(kathmandu, "SELECT TIMESTAMP '1960-01-22 3:04:05.123'");
 
         assertEquals(computeScalar("SELECT TIMESTAMP '1960-01-22 3:04:05 +06:00'"), ZonedDateTime.of(1960, 1, 22, 3, 4, 5, 0, ZoneOffset.ofHoursMinutes(6, 0)));
     }

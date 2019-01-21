@@ -37,7 +37,7 @@ public class TestGrouping
     @Test
     public void testImplicitCoercions()
     {
-        // GROUPING + implicit coercions (issue #8738)
+        // GROUPING + implicit coercions (see https://github.com/prestodb/presto/issues/8738)
         assertions.assertQuery(
                 "SELECT GROUPING(k), SUM(v) + 1e0 FROM (VALUES (1, 1)) AS t(k,v) GROUP BY k",
                 "VALUES (0, 2e0)");

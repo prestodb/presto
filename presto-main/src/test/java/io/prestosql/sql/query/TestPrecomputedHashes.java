@@ -45,7 +45,7 @@ public class TestPrecomputedHashes
     @Test
     public void testDistinctLimit()
     {
-        // issue #11593
+        // see https://github.com/prestodb/presto/issues/11593
         assertions.assertQuery(
                 "SELECT a " +
                         "FROM (" +
