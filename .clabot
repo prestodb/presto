@@ -1,0 +1,5 @@
+{
+  "contributors": "https://api.github.com/repos/prestosql/cla/contents/contributors",
+  "message": "Thank you for your pull request and welcome to our community. We require contributors to sign our [Contributor License Agreement](https://github.com/prestosql/cla/raw/master/Presto%20Foundation%20Individual%20CLA.pdf), and we don't seem to have you on file. In order for us to review and merge your code, please submit the signed CLA to cla@prestosql.io. If you are contributing on behalf of someone else (e.g., your employer), the individual CLA may not be sufficient and your employer may need the [Corporate CLA](https://raw.githubusercontent.com/prestosql/cla/master/Presto%20Foundation%20Corporate%20CLA.txt) signed.",
+  "label": "cla-signed"
+}
