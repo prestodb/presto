@@ -40,7 +40,7 @@ import static java.util.Objects.requireNonNull;
  * It always returns single row.
  * <p>
  * This optimizer rewrites correlated scalar aggregation subquery to left outer join in a way described here:
- * https://github.com/prestodb/presto/wiki/Correlated-subqueries
+ * https://github.com/prestosql/presto/wiki/Correlated-subqueries
  * <p>
  * From:
  * <pre>

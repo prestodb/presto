@@ -102,7 +102,7 @@ public enum StandardErrorCode
     /**/;
 
     // Connectors can use error codes starting at the range 0x0100_0000
-    // See https://github.com/prestodb/presto/wiki/Error-Codes
+    // See https://github.com/prestosql/presto/wiki/Error-Codes
 
     private final ErrorCode errorCode;
 

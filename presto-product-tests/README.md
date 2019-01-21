@@ -11,7 +11,7 @@ mode and Presto runs either in Docker container(s) (both pseudo-distributed
 and distributed setups are possible) or manually from IntelliJ (for
 debugging Presto). The tests run in a separate JVM and they can be started
 using the scripts found in `presto-product-tests/bin`. The product
-tests are run using the [Tempto](https://github.com/prestodb/tempto) harness. 
+tests are run using the [Tempto](https://github.com/prestosql/tempto) harness.
 
 Developers should consider writing product tests in addition to any unit tests
 when making changes to user visible features. The product tests should also
@@ -139,13 +139,13 @@ Please keep in mind that if you run tests on Hive of version not greater than 1.
 First version of Hive capable of running tests from `post_hive_1_0_1` group is Hive 1.1.0.
 
 For more information on the various ways in which Presto can be configured to
-interact with Kerberized Hive and Hadoop, please refer to the [Hive connector documentation](https://prestodb.io/docs/current/connector/hive.html).
+interact with Kerberized Hive and Hadoop, please refer to the [Hive connector documentation](https://prestosql.io/docs/current/connector/hive.html).
 
 ### Running a single test
 
 The `run_on_docker.sh` script can also run individual product tests. Presto
-product tests are either [Java based](https://github.com/prestodb/tempto#java-based-tests)
-or [convention based](https://github.com/prestodb/tempto#convention-based-sql-query-tests)
+product tests are either [Java based](https://github.com/prestosql/tempto#java-based-tests)
+or [convention based](https://github.com/prestosql/tempto#convention-based-sql-query-tests)
 and each type can be run individually with the following commands:
 
 ```
@@ -269,7 +269,7 @@ containers in an inconsistent state.
 
 ### Debugging Java based tests
 
-[Java based tests](https://github.com/prestodb/tempto#java-based-tests)
+[Java based tests](https://github.com/prestosql/tempto#java-based-tests)
 can be run and debugged from IntelliJ like regular TestNG tests with the
 setup outlined below:
 
@@ -365,7 +365,7 @@ following command:
 ### Debugging convention based tests
 
 Some of the product tests are implemented in a
-[convention based](https://github.com/prestodb/tempto#convention-based-sql-query-tests)
+[convention based](https://github.com/prestosql/tempto#convention-based-sql-query-tests)
 manner. Such tests can not be run directly from IntelliJ and the following
 steps explain how to debug convention based tests:
 
