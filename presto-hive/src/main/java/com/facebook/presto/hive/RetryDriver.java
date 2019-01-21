@@ -162,7 +162,7 @@ public class RetryDriver
                 catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                     Exception exception = new RuntimeException(ie);
-                    addSuppressed(new RuntimeException(ie), suppressedExceptions);
+                    addSuppressed(exception, suppressedExceptions);
                     throw exception;
                 }
             }
