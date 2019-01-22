@@ -28,6 +28,7 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.prestosql.client.OkHttpUtil.userAgent;
 import static java.lang.Integer.parseInt;
@@ -49,7 +50,7 @@ public class PrestoDriver
 
     static {
         String version = nullToEmpty(PrestoDriver.class.getPackage().getImplementationVersion());
-        Matcher matcher = Pattern.compile("^(\\d+)\\.(\\d+)($|[.-])").matcher(version);
+        Matcher matcher = Pattern.compile("^(\\d+)(\\.(\\d+))?($|[.-])").matcher(version);
         if (!matcher.find()) {
             DRIVER_VERSION = "unknown";
             DRIVER_VERSION_MAJOR = 0;
@@ -58,7 +59,7 @@ public class PrestoDriver
         else {
             DRIVER_VERSION = version;
             DRIVER_VERSION_MAJOR = parseInt(matcher.group(1));
-            DRIVER_VERSION_MINOR = parseInt(matcher.group(2));
+            DRIVER_VERSION_MINOR = parseInt(firstNonNull(matcher.group(3), "0"));
         }
 
         try {
