@@ -316,3 +316,42 @@ Statistical Aggregate Functions
 .. function:: var_samp(x) -> double
 
     Returns the sample variance of all input values.
+
+Lambda Aggregate Functions
+--------------------------
+
+.. function:: reduce_agg(inputValue T, initialState S, inputFunction(S, T, S), combineFunction(S, S, S)) -> S
+
+    Reduces all input values into a single value. ``inputFunction`` will be invoked
+    for each non-null input value. In addition to taking the input value, ``inputFunction``
+    takes the current state, initially ``initialState``, and returns the new state.
+    ``combineFunction`` will be invoked to combine two states into a new state.
+    The final state is returned::
+
+        SELECT id, reduce_agg(value, 0, (a, b) -> a + b, (a, b) -> a + b)
+        FROM (
+            VALUES
+                (1, 3),
+                (1, 4),
+                (1, 5),
+                (2, 6),
+                (2, 7)
+        ) AS t(id, value)
+        GROUP BY id;
+        -- (1, 12)
+        -- (2, 13)
+
+        SELECT id, reduce_agg(value, 1, (a, b) -> a * b, (a, b) -> a * b)
+        FROM (
+            VALUES
+                (1, 3),
+                (1, 4),
+                (1, 5),
+                (2, 6),
+                (2, 7)
+        ) AS t(id, value)
+        GROUP BY id;
+        -- (1, 60)
+        -- (2, 42)
+
+    The state type must be a boolean, integer, floating-point, or date/time/interval.
