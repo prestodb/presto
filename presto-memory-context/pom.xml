@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>300-SNAPSHOT</version>
+        <version>300</version>
     </parent>
 
     <artifactId>presto-memory-context</artifactId>
