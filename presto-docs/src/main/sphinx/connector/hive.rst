@@ -183,7 +183,7 @@ Property Name                                      Description                  
 ``hive.s3select-pushdown.enabled``                 Enable query pushdown to AWS S3 Select service.              ``false``
 
 ``hive.s3select-pushdown.max-connections``         Maximum number of simultaneously open connections to S3 for  500
-                                                   S3SelectPushdown.
+                                                   :ref:`s3selectpushdown`.
 ================================================== ============================================================ ============
 
 Amazon S3 Configuration
@@ -346,23 +346,25 @@ the ``org.apache.hadoop.conf.Configurable`` interface from the Hadoop Java API, 
 will be passed in after the object instance is created and before it is asked to provision or retrieve any
 encryption keys.
 
-S3SelectPushdown
-^^^^^^^^^^^^^^^^
+.. _s3selectpushdown:
 
-S3SelectPushdown enables pushing down projection (SELECT) and predicate (WHERE)
+S3 Select Pushdown
+^^^^^^^^^^^^^^^^^^
+
+S3 Select Pushdown enables pushing down projection (SELECT) and predicate (WHERE)
 processing to `S3 Select <https://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectSELECTContent.html>`_.
-With S3SelectPushdown Presto only retrieves the required data from S3 instead of
-entire S3 objects reducing both latency and network usage.
+With S3 Select Pushdown, Presto only retrieves the required data from S3 instead
+of entire S3 objects, reducing both latency and network usage.
 
 Is S3 Select a good fit for my workload?
 ########################################
 
-Performance of S3SelectPushdown depends on the amount of data filtered by the
+Performance of S3 Select Pushdown depends on the amount of data filtered by the
 query. Filtering a large number of rows should result in better performance. If
 the query doesn't filter any data then pushdown may not add any additional value
 and user will be charged for S3 Select requests. Thus, we recommend that you
 benchmark your workloads with and without S3 Select to see if using it may be
-suitable for your workload. By default, S3SelectPushdown is disabled and you
+suitable for your workload. By default, S3 Select Pushdown is disabled and you
 should enable it in production after proper benchmarking and cost analysis. For
 more information on S3 Select request cost, please see
 `Amazon S3 Cloud Storage Pricing <https://aws.amazon.com/s3/pricing/>`_.
