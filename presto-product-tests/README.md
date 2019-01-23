@@ -139,7 +139,7 @@ Please keep in mind that if you run tests on Hive of version not greater than 1.
 First version of Hive capable of running tests from `post_hive_1_0_1` group is Hive 1.1.0.
 
 For more information on the various ways in which Presto can be configured to
-interact with Kerberized Hive and Hadoop, please refer to the [Hive connector documentation](https://prestodb.io/docs/current/connector/hive.html).
+interact with Kerberized Hive and Hadoop, please refer to the [Hive connector documentation](https://prestodb.github.io/docs/current/connector/hive.html).
 
 ### Running a single test
 
