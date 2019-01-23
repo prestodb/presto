@@ -15,7 +15,9 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.client.QueryData;
 import com.facebook.presto.client.QueryStatusInfo;
+import com.facebook.presto.spi.PrestoWarning;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -27,6 +29,11 @@ public interface ResultsSession<T>
     }
 
     default void setUpdateCount(long count)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void setWarnings(List<PrestoWarning> warnings)
     {
         throw new UnsupportedOperationException();
     }

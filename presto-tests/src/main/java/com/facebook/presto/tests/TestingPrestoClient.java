@@ -19,6 +19,7 @@ import com.facebook.presto.client.IntervalYearMonth;
 import com.facebook.presto.client.QueryData;
 import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.MapType;
@@ -106,6 +107,7 @@ public class TestingPrestoClient
 
         private final AtomicReference<Optional<String>> updateType = new AtomicReference<>(Optional.empty());
         private final AtomicReference<OptionalLong> updateCount = new AtomicReference<>(OptionalLong.empty());
+        private final AtomicReference<List<PrestoWarning>> warnings = new AtomicReference<>(ImmutableList.of());
 
         @Override
         public void setUpdateType(String type)
@@ -117,6 +119,12 @@ public class TestingPrestoClient
         public void setUpdateCount(long count)
         {
             updateCount.set(OptionalLong.of(count));
+        }
+
+        @Override
+        public void setWarnings(List<PrestoWarning> warnings)
+        {
+            this.warnings.set(warnings);
         }
 
         @Override
@@ -146,7 +154,8 @@ public class TestingPrestoClient
                     setSessionProperties,
                     resetSessionProperties,
                     updateType.get(),
-                    updateCount.get());
+                    updateCount.get(),
+                    warnings.get());
         }
     }
 

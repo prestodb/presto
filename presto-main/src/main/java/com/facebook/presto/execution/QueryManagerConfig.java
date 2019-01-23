@@ -45,6 +45,8 @@ public class QueryManagerConfig
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
     private int maxStageCount = 100;
+    private int stageCountWarningThreshold = 50;
+
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
 
     private int queryManagerExecutorPoolSize = 5;
@@ -183,6 +185,20 @@ public class QueryManagerConfig
     public QueryManagerConfig setMaxStageCount(int maxStageCount)
     {
         this.maxStageCount = maxStageCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getStageCountWarningThreshold()
+    {
+        return stageCountWarningThreshold;
+    }
+
+    @Config("query.stage-count-warning-threshold")
+    @ConfigDescription("Emit a warning when stage count exceeds this threshold")
+    public QueryManagerConfig setStageCountWarningThreshold(int stageCountWarningThreshold)
+    {
+        this.stageCountWarningThreshold = stageCountWarningThreshold;
         return this;
     }
 
