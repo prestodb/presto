@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.spi.memory.CacheAdapter;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
@@ -33,6 +35,11 @@ public interface OrcDataSource
 
     void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
             throws IOException;
+
+
+    default void setCache(CacheAdapter cache)
+    {
+    }
 
     <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges)
             throws IOException;

@@ -16,11 +16,14 @@ package com.facebook.presto.operator;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.server.remotetask.Backoff;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.ConcatenatedByteArrayInputStream;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.MediaType;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import io.airlift.http.client.ByteArrayAllocator;
+import io.airlift.http.client.GatheringByteArrayInputStream;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpClient.HttpResponseFuture;
 import io.airlift.http.client.HttpStatus;
@@ -42,9 +45,11 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.BufferedReader;
 import java.io.Closeable;
+import java.io.InputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
@@ -144,6 +149,8 @@ public final class HttpPageBufferClient
 
     private final Executor pageBufferClientCallbackExecutor;
 
+    private final ExchangeClientByteArrayAllocator allocator;
+
     public HttpPageBufferClient(
             HttpClient httpClient,
             DataSize maxResponseSize,
@@ -152,9 +159,11 @@ public final class HttpPageBufferClient
             URI location,
             ClientCallback clientCallback,
             ScheduledExecutorService scheduler,
-            Executor pageBufferClientCallbackExecutor)
+            Executor pageBufferClientCallbackExecutor,
+            ExchangeClientByteArrayAllocator allocator)
     {
-        this(httpClient, maxResponseSize, maxErrorDuration, acknowledgePages, location, clientCallback, scheduler, Ticker.systemTicker(), pageBufferClientCallbackExecutor);
+        this(httpClient, maxResponseSize, maxErrorDuration, acknowledgePages, location, clientCallback, scheduler, Ticker.systemTicker(), pageBufferClientCallbackExecutor,
+             allocator);
     }
 
     public HttpPageBufferClient(
@@ -166,7 +175,8 @@ public final class HttpPageBufferClient
             ClientCallback clientCallback,
             ScheduledExecutorService scheduler,
             Ticker ticker,
-            Executor pageBufferClientCallbackExecutor)
+            Executor pageBufferClientCallbackExecutor,
+            ExchangeClientByteArrayAllocator allocator)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.maxResponseSize = requireNonNull(maxResponseSize, "maxResponseSize is null");
@@ -178,6 +188,7 @@ public final class HttpPageBufferClient
         requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         requireNonNull(ticker, "ticker is null");
         this.backoff = new Backoff(maxErrorDuration, ticker);
+        this.allocator = allocator;
     }
 
     public synchronized PageBufferClientStatus getStatus()
@@ -301,7 +312,7 @@ public final class HttpPageBufferClient
                 prepareGet()
                         .setHeader(PRESTO_MAX_SIZE, maxResponseSize.toString())
                         .setUri(uri).build(),
-                new PageResponseHandler());
+                new PageResponseHandler(allocator), allocator);
 
         future = resultFuture;
         Futures.addCallback(resultFuture, new FutureCallback<PagesResponse>()
@@ -539,6 +550,13 @@ public final class HttpPageBufferClient
     public static class PageResponseHandler
             implements ResponseHandler<PagesResponse, RuntimeException>
     {
+        private final ExchangeClientByteArrayAllocator allocator;
+
+        PageResponseHandler(ExchangeClientByteArrayAllocator allocator)
+        {
+            this.allocator = allocator;
+        }
+
         @Override
         public PagesResponse handleException(Request request, Exception exception)
         {
@@ -588,9 +606,20 @@ public final class HttpPageBufferClient
                 long token = getToken(response);
                 long nextToken = getNextToken(response);
                 boolean complete = getComplete(response);
-
-                try (SliceInput input = new InputStreamSliceInput(response.getInputStream())) {
+                try {
+                    InputStream responseStream = response.getInputStream();
+                    SliceInput input;
+                    if (allocator != null && response.supportsGetBuffers()) {
+                        input = makeConcatenatedInputStream(response.getBuffers(), response.getTotalBytes(), allocator);
+                    }
+                    else {
+                        input = new InputStreamSliceInput(responseStream);
+                    }
                     List<SerializedPage> pages = ImmutableList.copyOf(readSerializedPages(input));
+                    if (input instanceof ConcatenatedByteArrayInputStream) {
+                        ConcatenatedByteArrayInputStream stream = (ConcatenatedByteArrayInputStream) input;
+                        stream.setFreeAfterSubstreamsFinish();
+                    }
                     return createPagesResponse(taskInstanceId, token, nextToken, pages, complete);
                 }
                 catch (IOException e) {
@@ -600,6 +629,15 @@ public final class HttpPageBufferClient
             catch (PageTransportErrorException e) {
                 throw new PageTransportErrorException(format("Error fetching %s: %s", request.getUri().toASCIIString(), e.getMessage()), e);
             }
+        }
+
+        ConcatenatedByteArrayInputStream makeConcatenatedInputStream(List<byte[]> buffers, long totalBytes, ExchangeClientByteArrayAllocator allocator)
+        {
+            ArrayList<byte[]> pieces = new ArrayList();
+            for (byte[] piece : buffers) {
+                pieces.add(piece);
+            }
+            return new ConcatenatedByteArrayInputStream(pieces, totalBytes, allocator.toPrestoAllocator());
         }
 
         private static String getTaskInstanceId(Response response)
@@ -647,7 +685,7 @@ public final class HttpPageBufferClient
                 return false;
             }
         }
-    }
+        }
 
     public static class PagesResponse
     {

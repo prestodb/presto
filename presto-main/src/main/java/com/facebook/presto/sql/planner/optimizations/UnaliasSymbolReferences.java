@@ -392,8 +392,8 @@ public class UnaliasSymbolReferences
         public PlanNode visitFilter(FilterNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-
-            return new FilterNode(node.getId(), source, canonicalize(node.getPredicate()));
+            Expression predicate2 = node.getPredicateWithoutTupleDomain();
+            return new FilterNode(node.getId(), source, canonicalize(node.getPredicate()), predicate2 != null ? canonicalize(predicate2) : null);
         }
 
         @Override

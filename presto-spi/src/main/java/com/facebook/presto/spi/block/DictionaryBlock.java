@@ -195,10 +195,19 @@ public class DictionaryBlock
     }
 
     @Override
+
     public long getSizeInBytes()
     {
+        /* We return the size this takes passing through a partitioned output.*/
+
         if (sizeInBytes < 0) {
-            calculateCompactSize();
+            sizeInBytes = 0;
+            for (int i = 0; i < positionCount; i++) {
+                int position = getId(i);
+                if (!dictionary.isNull(position)) {
+                    sizeInBytes += dictionary.getRegionSizeInBytes(position, 1);
+                }
+            }
         }
         return sizeInBytes;
     }
@@ -392,6 +401,16 @@ public class DictionaryBlock
     Slice getIds()
     {
         return Slices.wrappedIntArray(ids, idsOffset, positionCount);
+    }
+
+    int[] getIdsArray()
+    {
+	return ids;
+    }
+
+    int getIdsOffset()
+    {
+	return idsOffset;
     }
 
     public int getId(int position)

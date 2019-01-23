@@ -15,6 +15,7 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.ArrayBlockEncoding;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockDecoder;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.block.ByteArrayBlockEncoding;
@@ -104,6 +105,26 @@ public final class BlockEncodingManager
     }
 
     @Override
+    public Block readBlockReusing(SliceInput input, BlockDecoder toReuse)
+    {
+        // read the encoding name
+        String encodingName = readLengthPrefixedString(input);
+
+        // look up the encoding factory
+        BlockEncoding blockEncoding = blockEncodings.get(encodingName);
+        checkArgument(blockEncoding != null, "Unknown block encoding %s", encodingName);
+
+        // load read the encoding factory from the output stream
+        if (blockEncoding.supportsReadBlockReusing()) {
+        return blockEncoding.readBlockReusing(this, input, toReuse);
+        }
+        else {
+            return blockEncoding.readBlock(this, input);
+        }
+        }
+
+
+    @Override
     public void writeBlock(SliceOutput output, Block block)
     {
         while (true) {
@@ -128,6 +149,11 @@ public final class BlockEncodingManager
 
             break;
         }
+    }
+
+    public BlockEncoding getEncoding(Block block)
+    {
+        return blockEncodings.get(block.getEncodingName());
     }
 
     private static String readLengthPrefixedString(SliceInput input)

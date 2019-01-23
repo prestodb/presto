@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.ScheduledSplit;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Page;
@@ -126,6 +127,7 @@ public class Driver
 
         Optional<SourceOperator> sourceOperator = Optional.empty();
         Optional<DeleteOperator> deleteOperator = Optional.empty();
+        boolean recyclePages = SystemSessionProperties.enableAriaReusePages(driverContext.getSession());
         for (Operator operator : operators) {
             if (operator instanceof SourceOperator) {
                 checkArgument(!sourceOperator.isPresent(), "There must be at most one SourceOperator");
@@ -134,6 +136,14 @@ public class Driver
             else if (operator instanceof DeleteOperator) {
                 checkArgument(!deleteOperator.isPresent(), "There must be at most one DeleteOperator");
                 deleteOperator = Optional.of((DeleteOperator) operator);
+            }
+            if (operator.retainsInputPages()) {
+                recyclePages = false;
+            }
+        }
+        if (recyclePages) {
+            for (Operator operator : operators) {
+                operator.enableOutputPageReuse();
             }
         }
         this.sourceOperator = sourceOperator;
@@ -276,7 +286,7 @@ public class Driver
         Optional<ListenableFuture<?>> result = tryWithLock(100, TimeUnit.MILLISECONDS, () -> {
             OperationTimer operationTimer = createTimer();
             driverContext.startProcessTimer();
-            driverContext.getYieldSignal().setWithDelay(maxRuntime, driverContext.getYieldExecutor());
+            driverContext.getYieldSignal().setWithDelay(maxRuntime * 1000, driverContext.getYieldExecutor());
             try {
                 long start = System.nanoTime();
                 do {

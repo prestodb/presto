@@ -43,8 +43,6 @@ public final class TestingBlockEncodingSerde
     {
         // This function should be called from Guice and tests only
 
-        requireNonNull(typeManager, "typeManager is null");
-
         // always add the built-in BlockEncodings
         addBlockEncoding(new VariableWidthBlockEncoding());
         addBlockEncoding(new FixedWidthBlockEncoding());
@@ -88,13 +86,33 @@ public final class TestingBlockEncodingSerde
     }
 
     @Override
+    public Block readBlockReusing(SliceInput input, BlockDecoder toReuse)
+    {
+        // read the encoding name
+        String encodingName = readLengthPrefixedString(input);
+
+        // look up the encoding factory
+        BlockEncoding blockEncoding = blockEncodings.get(encodingName);
+        checkArgument(blockEncoding != null, "Unknown block encoding %s", encodingName);
+
+        // load read the encoding factory from the output stream
+        if (blockEncoding.supportsReadBlockReusing()) {
+        return blockEncoding.readBlockReusing(this, input, toReuse);
+        }
+        else {
+            return blockEncoding.readBlock(this, input);
+        }
+        }
+
+
+    @Override
     public void writeBlock(SliceOutput output, Block block)
     {
         while (true) {
             // get the encoding name
             String encodingName = block.getEncodingName();
 
-            // look up the encoding factory
+            // look up the BlockEncoding
             BlockEncoding blockEncoding = blockEncodings.get(encodingName);
 
             // see if a replacement block should be written instead
@@ -112,6 +130,11 @@ public final class TestingBlockEncodingSerde
 
             break;
         }
+    }
+
+    public BlockEncoding getEncoding(Block block)
+    {
+        return blockEncodings.get(block.getEncodingName());
     }
 
     private static String readLengthPrefixedString(SliceInput input)

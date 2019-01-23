@@ -18,6 +18,7 @@ import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.stream.InputStreamSources;
+import com.facebook.presto.spi.SubfieldPath;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.io.Closer;
@@ -26,6 +27,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
@@ -52,6 +54,13 @@ public class MapStreamReader
         flatReader = new MapFlatStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
     }
 
+    @Override
+    public void setReferencedSubfields(List<SubfieldPath> subfields, int depth)
+    {
+        flatReader.setReferencedSubfields(subfields, depth);
+        directReader.setReferencedSubfields(subfields, depth);
+    }
+    
     @Override
     public void prepareNextRead(int batchSize)
     {

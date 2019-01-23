@@ -14,6 +14,7 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockDecoder;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
@@ -33,11 +34,14 @@ public final class BlockSerdeUtil
 
     public static Block readBlock(BlockEncodingSerde blockEncodingSerde, Slice slice)
     {
-        return readBlock(blockEncodingSerde, slice.getInput());
+        return readBlock(blockEncodingSerde, slice.getInput(), null);
     }
 
-    public static Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput input)
+    public static Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput input, BlockDecoder toReuse)
     {
+        if (toReuse != null) {
+            return blockEncodingSerde.readBlockReusing(input, toReuse);
+        }
         return blockEncodingSerde.readBlock(input);
     }
 
