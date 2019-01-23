@@ -108,7 +108,8 @@ public class TestHttpPageBufferClient
                 location,
                 callback,
                 scheduler,
-                pageBufferClientCallbackExecutor);
+                                                               pageBufferClientCallbackExecutor,
+                                                               null);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -193,7 +194,8 @@ public class TestHttpPageBufferClient
                 location,
                 callback,
                 scheduler,
-                pageBufferClientCallbackExecutor);
+                                                               pageBufferClientCallbackExecutor,
+                                                               null);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -233,7 +235,8 @@ public class TestHttpPageBufferClient
                 location,
                 callback,
                 scheduler,
-                pageBufferClientCallbackExecutor);
+                                                               pageBufferClientCallbackExecutor,
+                                                               null);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -301,7 +304,8 @@ public class TestHttpPageBufferClient
                 location,
                 callback,
                 scheduler,
-                pageBufferClientCallbackExecutor);
+                                                               pageBufferClientCallbackExecutor,
+                                                               null);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -356,7 +360,8 @@ public class TestHttpPageBufferClient
                 callback,
                 scheduler,
                 ticker,
-                pageBufferClientCallbackExecutor);
+                                                               pageBufferClientCallbackExecutor,
+                                                               null);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 

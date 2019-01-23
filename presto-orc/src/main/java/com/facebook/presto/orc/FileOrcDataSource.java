@@ -36,6 +36,7 @@ public class FileOrcDataSource
     public void close()
             throws IOException
     {
+        super.close();
         input.close();
     }
 

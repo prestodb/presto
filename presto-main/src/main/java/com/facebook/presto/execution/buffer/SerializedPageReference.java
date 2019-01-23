@@ -65,6 +65,7 @@ class SerializedPageReference
 
         if (remainingReferences == 0) {
             onDereference.run();
+            serializedPage.dereferenced();
         }
     }
 

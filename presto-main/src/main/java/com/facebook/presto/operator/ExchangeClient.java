@@ -17,10 +17,12 @@ import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
 import com.facebook.presto.operator.WorkProcessor.ProcessState;
+import com.facebook.presto.spi.memory.Caches;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.http.client.GatheringByteArrayInputStream;
 import io.airlift.http.client.HttpClient;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -93,6 +95,8 @@ public class ExchangeClient
 
     private final LocalMemoryContext systemMemoryContext;
     private final Executor pageBufferClientCallbackExecutor;
+    private boolean reuseBuffers;
+    private ExchangeClientByteArrayAllocator allocator;
 
     // ExchangeClientStatus.mergeWith assumes all clients have the same bufferCapacity.
     // Please change that method accordingly when this assumption becomes not true.
@@ -163,7 +167,8 @@ public class ExchangeClient
                 location,
                 new ExchangeClientCallback(),
                 scheduler,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                allocator);
         allClients.put(location, client);
         queuedClients.add(client);
 
@@ -444,5 +449,11 @@ public class ExchangeClient
         catch (RuntimeException e) {
             // ignored
         }
+    }
+
+    public void enableBufferReuse()
+    {
+        reuseBuffers = true;
+        allocator = new ExchangeClientByteArrayAllocator(Caches.getByteArrayPool());
     }
 }

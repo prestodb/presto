@@ -509,7 +509,6 @@ public final class HttpRemoteTask
         }
 
         List<TaskSource> sources = getSources();
-
         Optional<PlanFragment> fragment = sendPlan.get() ? Optional.of(planFragment) : Optional.empty();
         TaskUpdateRequest updateRequest = new TaskUpdateRequest(
                 session.toSessionRepresentation(),

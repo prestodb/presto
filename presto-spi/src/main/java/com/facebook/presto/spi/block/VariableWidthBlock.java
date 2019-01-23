@@ -36,7 +36,7 @@ public class VariableWidthBlock
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(VariableWidthBlock.class).instanceSize();
 
     private final int arrayOffset;
-    private final int positionCount;
+    private int positionCount;
     private final Slice slice;
     private final int[] offsets;
     @Nullable
@@ -109,6 +109,12 @@ public class VariableWidthBlock
     public int getPositionCount()
     {
         return positionCount;
+    }
+
+        @Override
+    public void setPositionCount(int positionCount)
+    {
+        this.positionCount = positionCount;
     }
 
     @Override
@@ -211,6 +217,14 @@ public class VariableWidthBlock
             return this;
         }
         return new VariableWidthBlock(0, length, newSlice, newOffsets, newValueIsNull);
+    }
+
+        @Override
+    public void getContents(BlockDecoder contents) {
+	contents.slice = slice;
+        contents.offsets = offsets;
+	contents.valueIsNull = valueIsNull;
+        contents.arrayOffset = arrayOffset;
     }
 
     @Override

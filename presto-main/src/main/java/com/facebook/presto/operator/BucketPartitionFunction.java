@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.block.BlockDecoder;
 
 import java.util.stream.IntStream;
 
@@ -46,5 +47,10 @@ public class BucketPartitionFunction
     {
         int bucket = bucketFunction.getBucket(functionArguments, position);
         return bucketToPartition[bucket];
+    }
+
+    public void getPartitions(int partitionCount, Page page, BlockDecoder decoder, int[] partitionsOut)
+    {
+        bucketFunction.getBuckets(partitionCount, page, decoder, partitionsOut);
     }
 }

@@ -34,11 +34,11 @@ final class LazySliceInput
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(LazySliceInput.class).instanceSize();
 
     private final int globalLength;
-    private final Supplier<FixedLengthSliceInput> loader;
+    private final AbstractOrcDataSource.Loader loader;
     private int initialPosition;
     private FixedLengthSliceInput delegate;
 
-    public LazySliceInput(long globalLength, Supplier<FixedLengthSliceInput> loader)
+    public LazySliceInput(long globalLength, AbstractOrcDataSource.Loader loader)
     {
         checkArgument(globalLength > 0, "globalLength must be at least 1");
         checkArgument(globalLength <= Integer.MAX_VALUE, "globalLength must be less than 2GB");
@@ -203,6 +203,13 @@ final class LazySliceInput
     public int skipBytes(int length)
     {
         return getDelegate().skipBytes(length);
+    }
+
+    @Override
+    public void close()
+    {
+        loader.close();
+        delegate = null;
     }
 
     @Override

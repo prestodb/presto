@@ -32,14 +32,14 @@ public class LongArrayBlock
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongArrayBlock.class).instanceSize();
 
-    private final int arrayOffset;
-    private final int positionCount;
+    private int arrayOffset;
+    private  int positionCount;
     @Nullable
-    private final boolean[] valueIsNull;
-    private final long[] values;
+    private  boolean[] valueIsNull;
+    private  long[] values;
 
-    private final long sizeInBytes;
-    private final long retainedSizeInBytes;
+    private  long sizeInBytes;
+    private  long retainedSizeInBytes;
 
     public LongArrayBlock(int positionCount, Optional<boolean[]> valueIsNull, long[] values)
     {
@@ -70,6 +70,31 @@ public class LongArrayBlock
         sizeInBytes = (Long.BYTES + Byte.BYTES) * (long) positionCount;
         retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
     }
+  public void Reset(int arrayOffset, int positionCount, boolean[] valueIsNull, long[] values)
+    {
+        if (arrayOffset < 0) {
+            throw new IllegalArgumentException("arrayOffset is negative");
+        }
+        this.arrayOffset = arrayOffset;
+        if (positionCount < 0) {
+            throw new IllegalArgumentException("positionCount is negative");
+        }
+        this.positionCount = positionCount;
+
+        if (values.length - arrayOffset < positionCount) {
+            throw new IllegalArgumentException("values length is less than positionCount");
+        }
+        this.values = values;
+
+        if (valueIsNull != null && valueIsNull.length - arrayOffset < positionCount) {
+            throw new IllegalArgumentException("isNull length is less than positionCount");
+        }
+        this.valueIsNull = valueIsNull;
+
+        sizeInBytes = (Long.BYTES + Byte.BYTES) * (long) positionCount;
+        retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
+    }
+
 
     @Override
     public long getSizeInBytes()
@@ -115,6 +140,12 @@ public class LongArrayBlock
     public int getPositionCount()
     {
         return positionCount;
+    }
+
+    @Override
+    public void setPositionCount(int positionCount)
+    {
+        this.positionCount = positionCount;
     }
 
     @Override
@@ -269,5 +300,18 @@ public class LongArrayBlock
         if (position < 0 || position >= getPositionCount()) {
             throw new IllegalArgumentException("position is not valid");
         }
+    }
+
+    @Override
+    public void getContents(BlockDecoder contents) {
+	contents.longs = values;
+	contents.valueIsNull = valueIsNull;
+        contents.arrayOffset = arrayOffset;
+    }
+
+    @Override
+    public boolean isReusable()
+    {
+        return true;
     }
 }

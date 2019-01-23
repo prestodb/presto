@@ -14,12 +14,17 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageFilter;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.operator.project.PageProjection;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.sql.relational.CallExpression;
+import com.facebook.presto.sql.relational.InputReferenceExpression;
+import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
+import com.facebook.presto.sql.tree.Expression;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -32,7 +37,11 @@ import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -92,26 +101,33 @@ public class ExpressionCompiler
 
     public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections, Optional<String> classNameSuffix)
     {
-        return compilePageProcessor(filter, projections, classNameSuffix, OptionalInt.empty());
+        return compilePageProcessor(filter, Optional.empty(), projections, classNameSuffix, OptionalInt.empty());
     }
 
-    private Supplier<PageProcessor> compilePageProcessor(
+    public Supplier<PageProcessor> compilePageProcessor(
             Optional<RowExpression> filter,
+            Optional<RowExpression> filterWithoutTupleDomain,
             List<? extends RowExpression> projections,
             Optional<String> classNameSuffix,
             OptionalInt initialBatchSize)
     {
         Optional<Supplier<PageFilter>> filterFunctionSupplier = filter.map(expression -> pageFunctionCompiler.compileFilter(expression, classNameSuffix));
+        List<Supplier<PageFilter>> filterFunctionWithoutTupleDomainSuppliers = makeReorderableFilters(filterWithoutTupleDomain, classNameSuffix);
         List<Supplier<PageProjection>> pageProjectionSuppliers = projections.stream()
                 .map(projection -> pageFunctionCompiler.compileProjection(projection, classNameSuffix))
                 .collect(toImmutableList());
 
         return () -> {
             Optional<PageFilter> filterFunction = filterFunctionSupplier.map(Supplier::get);
+
+            List<PageFilter> filterFunctionWithoutTupleDomain = filterFunctionWithoutTupleDomainSuppliers.stream()
+                    .map(Supplier::get)
+                    .collect(toImmutableList());
+
             List<PageProjection> pageProjections = pageProjectionSuppliers.stream()
                     .map(Supplier::get)
                     .collect(toImmutableList());
-            return new PageProcessor(filterFunction, pageProjections, initialBatchSize);
+            return new PageProcessor(filterFunction, filterFunctionWithoutTupleDomain, pageProjections, initialBatchSize);
         };
     }
 
@@ -123,7 +139,7 @@ public class ExpressionCompiler
     @VisibleForTesting
     public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections, int initialBatchSize)
     {
-        return compilePageProcessor(filter, projections, Optional.empty(), OptionalInt.of(initialBatchSize));
+        return compilePageProcessor(filter, Optional.empty(), projections, Optional.empty(), OptionalInt.of(initialBatchSize));
     }
 
     private <T> Class<? extends T> compile(Optional<RowExpression> filter, List<RowExpression> projections, BodyCompiler bodyCompiler, Class<? extends T> superType)
@@ -228,5 +244,78 @@ public class ExpressionCompiler
                     .add("uniqueKey", uniqueKey)
                     .toString();
         }
+    }
+
+    private void collectConjuncts(RowExpression expression, ArrayList<RowExpression> conjuncts)
+    {
+        if (expression instanceof CallExpression && ((CallExpression) expression).getSignature().getName().equals("AND")) {
+            for (RowExpression argument : ((CallExpression) expression).getArguments()) {
+                collectConjuncts(argument, conjuncts);
+            }
+        }
+        else {
+            conjuncts.add(expression);
+        }
+    }
+
+    private void collectInputs(RowExpression expression, HashSet<InputReferenceExpression> inputs)
+    {
+        if (expression instanceof InputReferenceExpression) {
+            inputs.add((InputReferenceExpression) expression);
+        }
+        else if (expression instanceof CallExpression) {
+            for (RowExpression argument : ((CallExpression) expression).getArguments()) {
+                collectInputs(argument, inputs);
+            }
+        }
+        else if (expression instanceof LambdaDefinitionExpression) {
+            collectInputs(((LambdaDefinitionExpression) expression).getBody(), inputs);
+        }
+    }
+
+    // Splits filter into top level conjuncts and groups the conjuncts
+    // that depend on the same set of inputs into their own
+    // PageFilter. Within each PageFilter, the conjuncts are ordered
+    // left to right.
+    List<Supplier<PageFilter>> makeReorderableFilters(Optional<RowExpression> filter, Optional<String> classNameSuffix)
+    {
+        ArrayList<Supplier<PageFilter>> result = new ArrayList();
+        if (!filter.isPresent()) {
+            return result;
+        }
+        ArrayList<RowExpression> conjuncts = new ArrayList();
+        collectConjuncts(filter.get(), conjuncts);
+        if (conjuncts.size() == 1) {
+            result.add(pageFunctionCompiler.compileFilter(filter.get(), classNameSuffix));
+        }
+        else {
+            CallExpression topAnd = (CallExpression) filter.get();
+            HashMap<HashSet<InputReferenceExpression>, ArrayList<RowExpression>> inputsToConjuncts = new HashMap();
+            for (RowExpression conjunct : conjuncts) {
+                HashSet<InputReferenceExpression> inputs = new HashSet();
+                collectInputs(conjunct, inputs);
+                ArrayList<RowExpression> list = inputsToConjuncts.get(inputs);
+                if (list == null) {
+                    list = new ArrayList();
+                    list.add(conjunct);
+                    inputsToConjuncts.put(inputs, list);
+                }
+                else {
+                    list.add(conjunct);
+                }
+            }
+            for (Map.Entry<HashSet<InputReferenceExpression>, ArrayList<RowExpression>> entry : inputsToConjuncts.entrySet()) {
+                ArrayList<RowExpression> list = entry.getValue();
+                RowExpression conjunct = list.get(0);
+                for (int i = 1; i < list.size(); i++) {
+                    ArrayList<RowExpression> arguments = new ArrayList();
+                    arguments.add(conjunct);
+                    arguments.add(conjuncts.get(i));
+                    conjunct = new CallExpression(topAnd.getSignature(), topAnd.getType(), arguments);
+                }
+                result.add(pageFunctionCompiler.compileFilter(conjunct, classNameSuffix));
+            }
+        }
+            return result;
     }
 }

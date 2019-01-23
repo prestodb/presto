@@ -1,0 +1,810 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.operator;
+
+import com.facebook.presto.operator.exchange.LocalPartitionGenerator;
+import com.facebook.presto.RowPagesBuilder;
+import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
+import java.util.Random;
+
+import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.execution.Lifespan;
+import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spiller.SingleStreamSpillerFactory;
+import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.testing.TestingTaskContext;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
+
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.ExprContext;
+import com.facebook.presto.spi.block.BlockDecoder;
+import com.facebook.presto.spi.block.DictionaryBlock;
+import com.facebook.presto.spi.block.DictionaryId;
+import com.facebook.presto.spi.block.LongArrayBlockBuilder;
+import com.facebook.presto.spi.block.LongArrayBlock;
+
+//import static org.testng.Assert.assertEquals;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+import java.util.Optional;
+import java.util.Arrays;
+import static java.lang.Double.doubleToLongBits;
+import static java.lang.Double.longBitsToDouble;
+import static java.lang.System.arraycopy;
+import java.lang.reflect.Field;
+import static java.lang.Integer.numberOfTrailingZeros;
+import static java.lang.Long.numberOfTrailingZeros;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import sun.misc.Unsafe;
+
+import java.util.Iterator;
+import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
+
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
+
+import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
+import static io.airlift.slice.UnsafeSlice.getLongUnchecked;
+
+
+
+#include "hash.h"
+
+public class AriaHash {
+
+      static Unsafe unsafe;
+
+      static {
+	  try {
+	      // fetch theUnsafe object
+	      Field field = Unsafe.class.getDeclaredField("theUnsafe");
+	      field.setAccessible(true);
+	      unsafe = (Unsafe) field.get(null);
+	      if (unsafe == null) {
+		  throw new RuntimeException("Unsafe access not available");
+	      }
+	  }
+	  catch (Exception e) {
+	      throw new RuntimeException(e);
+	  }
+      }
+
+    static boolean silent = false;
+    static boolean useBloomFilter = false;
+
+
+    static boolean recycleTable = false;
+    #ifdef SLICES
+    static List<Slice> sliceReserve = new ArrayList();
+
+    static void clearAllocCache()
+    {
+        sliceReserve.clear();
+    }
+    
+    static  Slice getSlice()
+    {
+        if (recycleTable) {
+            synchronized (sliceReserve) {
+                if (!sliceReserve.isEmpty()) {
+                    return sliceReserve.remove(sliceReserve.size() - 1);
+                }
+            }
+        }
+        return                 Slices.allocate(SLABSIZE);
+    }
+
+    static void releaseSlice(Slice slice)
+    {
+        if (recycleTable) {
+            synchronized (sliceReserve) {
+                sliceReserve.add(slice);
+            }
+        }
+    }
+#else
+
+    static List<Long> slabReserve = new ArrayList();
+
+    static void clearAllocCache()
+    {
+        for (Long slab : slabReserve) {
+            unsafe.freeMemory(slab.longValue());
+        }
+        slabReserve.clear();
+    }
+    
+    static long getSlab()
+    {
+        if (recycleTable) {
+            synchronized (slabReserve) {
+                if (!slabReserve.isEmpty()) {
+                    return slabReserve.remove(slabReserve.size() - 1).longValue();
+                }
+            }
+        }
+        return unsafe.allocateMemory(SLABSIZE);
+    }
+    static void releaseSlab(long slab)
+    {
+        if (!recycleTable) {
+            unsafe.freeMemory(slab);
+        }
+        else {
+            synchronized (slabReserve) {
+                slabReserve.add(new Long(slab));
+            }
+        }
+    }
+    #endif
+
+        static     boolean supportsLayout(List<Type> types, List<Integer> hashChannels, List<Integer> outputChannels)
+    {
+        return hashChannels.size() == 2 && outputChannels.size() == 1 &&
+            types.get(hashChannels.get(0).intValue()) == BIGINT &&
+            types.get(hashChannels.get(1).intValue()) == BIGINT &&
+            types.get(outputChannels.get(0).intValue()) == DOUBLE;
+    }
+
+    // Generic hash table 
+        public static class AriaLookupSource
+        implements LookupSource
+{
+	int statusMask;
+	LONG_ARRAY status;
+	LONG_ARRAY table;
+	Slice[] slices = new Slice[16];
+	long[] slabs = new long[16];
+	int[] fill = new int[16];
+        int currentSlab = -1;
+        LONG_ARRAY bloomFilter;
+        int bloomFilterSize = 0;
+        boolean closed = false;
+
+	long nextResult(long entry, int offset)
+	{
+	    DECLGET(a);
+	    PREGET(a, entry);
+	    return GETL(a, offset);
+	}
+
+	// Allocates 'bytes' of contiguous space for hash table payload.
+	// Returns a slice index, offset pair or a raw long.
+        public long allocBytes(int bytes)
+	{
+	    if (currentSlab == -1 || fill[currentSlab] + bytes > SLABSIZE) {
+		long w = newSlab();
+		fill[currentSlab] = bytes;
+		return w;
+	    }
+	    int off = fill[currentSlab];
+	    fill[currentSlab] += bytes;
+	    return SLICEREF(currentSlab, off);
+	}
+
+        long newSlab() {
+	    #ifdef SLICES
+		++currentSlab;
+		if (slices.length <= currentSlab) {
+		    int newSize = slices.length * 2;
+		    slices = Arrays.copyOf(slices, newSize);
+		    fill = Arrays.copyOf(fill, newSize);
+		}
+		Slice s = getSlice();
+                slices[currentSlab] = s;
+                return SLICEREF(currentSlab, 0);
+#else
+		++currentSlab;
+		if (slabs.length <= currentSlab) {
+		    int newSize = slabs.length * 2;
+		    slabs = Arrays.copyOf(slabs, newSize);
+		    fill = Arrays.copyOf(fill, newSize);
+		}
+		long s = getSlab();
+                slabs[currentSlab] = s;
+                return s;
+
+    #endif
+	}
+
+        void release()
+        {
+#ifdef SLICES
+            for (Slice slice : slices) {
+                if (slice != null) {
+                    releaseSlice(slice);
+                }
+            }
+#else
+    for (long slab : slabs) {
+        if (slab != 0) {
+            releaseSlab(slab);
+        }
+    }
+    #endif
+        FREE_LONG_ARRAY(status);
+        FREE_LONG_ARRAY(table);
+        if (bloomFilterSize > 0) {
+            FREE_LONG_ARRAY(bloomFilter);
+        }
+        }
+                    
+	void setSize(int count)
+        {
+            int size = 8;
+            count *= 1.3;
+            while (size < count) {
+                size *= 2;
+            }
+            table = ALLOC_LONG_ARRAY(size);
+	    status = ALLOC_LONG_ARRAY(size / 8);
+	    statusMask = (size >> 3) - 1;
+	    for (int i = 0; i <= statusMask; ++i) {
+                ARRAY_PREGET(st, status, i);
+		ARRAY_SET(st, status, i, 0x8080808080808080L);
+	    }
+	    for (int i = 0; i < size; ++i) {
+                ARRAY_PREGET(st, table, i);
+#ifdef SLICES
+		ARRAY_SET(st, table, i, -1);
+#else
+		ARRAY_SET(st, table, i, 0);
+    #endif
+	    }
+
+	}
+
+    @Override
+    public long getJoinPositionCount()
+{
+            return statusMask + 1;
+        }
+
+        @Override
+        public long getInMemorySizeInBytes()
+        {
+            return 8 * (statusMask + 1) + SLABSIZE * (currentSlab + 1);
+        }
+
+@Override
+        public int getChannelCount()
+        {
+            return 1;
+        }
+
+    @Override
+        public long joinPositionWithinPartition(long joinPosition)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage, long rawHash)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage)
+                {
+                    throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getNextJoinPosition(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean isJoinPositionEligible(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean isEmpty()
+                {
+                    return statusMask == 0;
+                }
+
+        @Override
+        public void close()
+        {
+        release();
+closed = true;
+        }
+}
+	
+    // Generated class for a key/dependent layout 
+    public static class HashBuild extends ExprContext
+    {
+	AriaLookupSource table = new AriaLookupSource();
+	BlockDecoder k1 = new BlockDecoder();
+	BlockDecoder k2 = new BlockDecoder();
+	BlockDecoder d1 = new BlockDecoder();
+        int[] hashChannels;
+        int[] outputChannels;
+        int entryCount = 0;
+	        boolean makeBloomFilter = false;
+
+        public HashBuild(List<Integer> hashChannels, List<Integer> outputChannels) 
+        {
+            this.hashChannels = hashChannels.stream().mapToInt(Integer::intValue).toArray();
+            this.outputChannels = outputChannels.stream().mapToInt(Integer::intValue).toArray();
+        }
+
+	long hashRow(long row)
+	{
+	    DECLTABLE(this.table);
+	    DECLGET(k);
+	    PREGET(k, row);
+	    long h;
+	    MHASH_STEP_1(h, GETL(k, 0));
+	    MHASH_STEP(h, GETL(k, 8));
+	    return h;
+	}
+	
+	public void addInput(Page page)
+	{
+	    k1.decodeBlock(page.getBlock(hashChannels[0]), intArrayAllocator);
+	    k2.decodeBlock(page.getBlock(hashChannels[1]), intArrayAllocator);
+	    d1.decodeBlock(page.getBlock(outputChannels[0]), intArrayAllocator);
+	    int positionCount = page.getPositionCount();
+	    nullsInBatch = null;
+	    int[] k1Map = k1.rowNumberMap;
+	    int[] k2Map = k2.rowNumberMap;
+	    int[]d1Map = d1.rowNumberMap;
+	    addNullFlags(k1.valueIsNull, k1.isIdentityMap ? null : k1Map, positionCount);
+	    addNullFlags(k2.valueIsNull, k2.isIdentityMap ? null : k2Map, positionCount);
+
+
+	    DECLTABLE(this.table);
+
+	    for (int i = 0; i < positionCount; ++i) {
+		if (nullsInBatch == null ||  !nullsInBatch[i]) {
+		    ++entryCount;
+		    long row = table.allocBytes(32);
+#ifdef SLICES
+                    slices = table.slices;
+#endif
+DECLGET(k);
+		    PREGET(k, row);
+		    SETL(k,0, k1.longs[k1Map[i]]);
+		    SETL(k, 8, k2.longs[k1Map[i]]);
+		    SETL(k, 16, d1.longs[d1Map[i]]);
+		    SETL(k, 24, -1);
+		}
+	    }
+	    k1.release(intArrayAllocator);
+	    k2.release(intArrayAllocator);
+	    d1.release(intArrayAllocator);
+	}
+
+
+        public static class AriaLookupSourceSupplier
+            implements LookupSourceSupplier
+        {
+            AriaLookupSource lookupSource;
+            
+            public             AriaLookupSourceSupplier(AriaLookupSource lookupSource)
+            {
+                this.lookupSource = lookupSource;
+            }
+            
+            @Override
+            public             LookupSource get()
+            {
+                return lookupSource;
+            }
+            public     long getHashCollisions()
+            {
+                return 0;
+            }
+
+            public     double getExpectedHashCollisions()
+            {
+                return 0;
+            }
+
+                        public     long checksum()
+            {
+                return 1234;
+            }
+
+        }
+
+        public LookupSourceSupplier createLookupSourceSupplier(
+            Session session,
+            List<Integer> joinChannels,
+            OptionalInt hashChannel,
+            Optional<JoinFilterFunctionFactory> filterFunctionFactory,
+            Optional<Integer> sortChannel,
+            List<JoinFilterFunctionFactory> searchFunctionFactories,
+            Optional<List<Integer>> outputChannels)
+        {
+            build();
+            boolean reuse = SystemSessionProperties.enableAriaReusePages(session);
+            return new AriaLookupSourceSupplier(table);
+        }
+
+        public void build()
+	{
+	    DECLTABLE(this.table);
+	    table.setSize(entryCount);
+	    int batch = 1024;
+	    long[] hashes = new long[batch];
+	    long[] entries = new long[batch];
+	    int fill = 0;
+	    for (int slab = 0; slab <= table.currentSlab; ++slab) {
+		int slabFill = table.fill[slab];
+		for (int offset = 0; offset < slabFill; offset += 32) {
+		    long entry = SLICEREF(slab, offset);
+		    entries[fill] = entry;
+		    hashes[fill++] = hashRow(entry);
+		    if (fill == batch) {
+			insertHashes(hashes, entries, fill);
+			    fill = 0;
+		    }
+		}
+	    }
+	    insertHashes(hashes, entries, fill);
+	}
+
+	void insertHashes(long[] hashes, long[] entries, int fill)
+	{
+	    DECLTABLE(this.table);
+            DECL_ARRAY(st);
+            DECL_ARRAY(ent);
+	    for (int i = 0; i < fill; ++i) {
+		int h = (int)hashes[i] & statusMask;
+	    long field = (hashes[i] >> 56) & 0x7f;
+	    byte statusByte = (byte)field;
+	    field |= field << 8;
+	    field |= field << 16;
+	    field |= field << 32;
+                nextKey:
+	    do {
+		long st = ARRAY_GET(st, table.status, h);
+		long hits = st ^ field;
+                hits = st - 0x0101010101010101L;
+		hits &= 0x8080808080808080L;
+		DECLGET(a);
+		DECLGET(b);
+		while (hits != 0) {
+                    PREGET(b, entries[i]);
+                    int pos = Long.numberOfTrailingZeros(hits) >> 3;
+                    ARRAY_PREGET(ent, table.table, h * 8 + pos);
+                    PREGET(a, ARRAY_GET(ent, table.table, h * 8 + pos));
+			       if (GETL(a, 0) == GETL(b, 0) && GETL(a, 8) == GETL(b, 8)) {
+				   SETL(a, 24, entries[i]);
+				   break nextKey;
+			       }
+			       hits &= (hits - 1);
+		    }
+		// No matches in the status group, see if can insert.
+		st &= 0x8080808080808080L;
+		if (st != 0) {
+		    int pos = Long.numberOfTrailingZeros(st) >> 3;
+		    ARRAY_SET(st, table.status, h,ARRAY_GET(st, table.status, h) ^ (long)(statusByte | 0x80) << (pos * 8));
+                    ARRAY_PREGET(ent, table.table, h * 8 + pos);
+		    ARRAY_SET(ent, table.table, h * 8 + pos, entries[i]);
+		    break;
+		}
+                h = (h + 1) & statusMask;
+	    } while (true);
+	    }
+            if (makeBloomFilter) {
+                int size;
+                LONG_ARRAY bloomArray;
+                DECL_ARRAY(bf);
+                if (table.bloomFilterSize == 0) {
+                    size = (entryCount / 8) + 1;
+                    table.bloomFilter = ALLOC_LONG_ARRAY(size);
+                    bloomArray = table.bloomFilter;
+                table.bloomFilterSize = size;
+                for (int i = 0; i < size; ++i) {
+                    ARRAY_PREGET(st, bloomArray, i);
+                    ARRAY_SET(bf, bloomArray, i, 0);
+                }
+}
+                else {
+                    size = table.bloomFilterSize;
+                    bloomArray = table.bloomFilter;
+                }
+                for (int i = 0; i < fill; i++) {
+                    long h = hashes[i];
+                    int w = BF_WORD (h, size);
+                    long mask = BF_MASK (h);
+                    ARRAY_PREGET(bf, bloomArray, w);
+                    ARRAY_SET(bf, bloomArray, w,  ARRAY_GET(bf, bloomArray, w) | mask);
+                }
+            }
+	}
+
+    }
+	
+    public static class AriaProbe extends ExprContext
+    {
+	BlockDecoder k1 = new BlockDecoder();
+	BlockDecoder k2 = new BlockDecoder();
+        BlockDecoder hashDecoder;
+	long hashes[];
+        AriaLookupSource[] tables;
+	int currentInput;
+	long nextRow;
+	long[] k1d;
+	long[] k2d;
+	int[] k1Map;
+	int[] k2Map;
+	int maxResults = 1024;
+	int[] candidates;
+        int[] partitions;
+int candidateFill;
+	int positionCount;
+	int[] resultMap;
+	int resultFill;
+	long[] result1;
+	long currentResult;
+	int currentProbe;
+        JoinProbe probe;
+	Page resultPage;
+	Page returnPage;
+	boolean reuseResult;
+        boolean unroll = true;
+        boolean finishing = false;
+        DictionaryId dictionaryId;
+        LocalPartitionGenerator partitionGenerator;
+        
+	AriaProbe(AriaLookupSource[] tables, LocalPartitionGenerator partitionGenerator, boolean reuseResult) {
+	    this.tables = tables;
+            this.partitionGenerator = partitionGenerator;
+	    this.reuseResult = reuseResult;
+            dictionaryId = DictionaryId.randomDictionaryId();
+	}
+        
+	public void addInput(JoinProbe probe)
+        {
+            this.probe = probe;
+            Block[] probes = probe.getProbeBlocks();
+	    k1.decodeBlock(probes[0], intArrayAllocator);
+	    k2.decodeBlock(probes[1], intArrayAllocator);
+	    positionCount = probe.getPage().getPositionCount();
+            if (partitions == null || partitions.length < positionCount) {
+                partitions = new int[(int)(positionCount * 1.2)];
+            }
+            
+            Block hashBlock = probe.getProbeHashBlock();
+            if (hashBlock != null && tables.length > 1) {
+                if (hashDecoder == null) {
+                    hashDecoder = new BlockDecoder(intArrayAllocator);
+                }
+                hashDecoder.decodeBlock(hashBlock);
+                long[] longs = hashDecoder.longs;
+                int[] map = hashDecoder.rowNumberMap;
+                int numPartitions = tables.length;
+                for (int i = 0; i < positionCount; i++) {
+                    partitions[i] = partitionGenerator.getPartition(longs[map[i]]);
+                }
+                hashDecoder.release();
+            }
+            else {
+                Arrays.fill(partitions, 0);
+            }
+
+            if (hashes == null || hashes.length < positionCount) {
+                hashes = new long[positionCount + 10];
+            }
+            nullsInBatch = null;
+            k1d = k1.longs;
+            k2d = k2.longs;
+	    k1Map = k1.rowNumberMap;
+	    k2Map = k2.rowNumberMap;
+	    addNullFlags(k1.valueIsNull, k1.isIdentityMap ? null : k1Map, positionCount);
+	    addNullFlags(k2.valueIsNull, k2.isIdentityMap ? null : k2Map, positionCount);
+            candidateFill = 0;
+            if (candidates == null || candidates.length < positionCount) {
+                candidates = intArrayAllocator.getIntArray(positionCount);
+            }
+            if (nullsInBatch != null) {
+                for (int i = 0; i < positionCount; ++i) {
+                    if (nullsInBatch[i]) {
+                        candidates[candidateFill++] = i;
+                    }
+                }
+                }
+            else {
+                for (int i = 0; i < positionCount; ++i) {
+                    candidates[i] = i;
+                }
+                candidateFill = positionCount;
+            }
+            boolean hashPrecomputed = false;
+            if (!hashPrecomputed) {
+                for (int i = 0; i <candidateFill; ++i) {
+                    int row = candidates[i];
+                    long h;
+                    MHASH_STEP_1(h, k1d[k1Map[row]]);
+                    MHASH_STEP(h, k2d[k2Map[row]]);
+                    hashes[row] = h;
+                }
+            }
+            if (result1 == null) {
+		result1 = new long[maxResults];
+		resultMap = new int[maxResults];
+	    }
+            boolean useBloomFilter = false;
+            if (useBloomFilter) {
+                int newFill = 0;
+                for (int i = 0; i < candidateFill; ++i) {
+                    int candidate = candidates[i];
+                    AriaLookupSource table = tables[partitions[candidate]];
+                    LONG_ARRAY bloomArray = table.bloomFilter;
+                    int size = table.bloomFilterSize;
+                    long h = hashes[candidate];
+                    int w = BF_WORD(h, size);
+                    long mask = BF_MASK(h);
+                    ARRAY_PREGET(bf, bloomArray, w);
+                    if (mask == (ARRAY_GET(bf, bloomArray, w) & mask)) {
+                        candidates[newFill++] = candidate;
+                    }
+                }
+                candidateFill = newFill;
+            }
+	    currentProbe = 0;
+	    currentResult = -1;
+	}
+
+
+	public boolean addResult(long entry, int candidate)
+	{
+	    int probeRow = candidates[candidate];
+	    DECLTABLE(tables[partitions[candidate]]);
+	    do {
+		resultMap[resultFill] = probeRow;
+		DECLGET(a);
+		PREGET(a, entry);
+		result1[resultFill] = GETL(a, 16);
+		entry = GETL(a, 24);
+		++resultFill;
+		if (resultFill >= maxResults) {
+		    currentResult = entry;
+		    currentProbe = candidate;
+		    finishResult();
+		    return true;
+		}
+	    } while (entry != -1);
+	    currentResult = -1;
+	    return false;
+	}
+
+	void finishResult()
+	{
+            if (currentResult == -1 && currentProbe < candidateFill) {
+                ++currentProbe;
+            }
+            if (currentProbe == candidateFill) {
+                k1.release(intArrayAllocator);
+                k2.release(intArrayAllocator);
+            }
+            if (resultFill == 0) {
+		returnPage = null;
+		return;
+	    }
+            Page page = probe.getPage();
+            int[] probeOutputChannels = probe.getOutputChannels(); 
+            Block[] blocks = new Block[probeOutputChannels.length + 1]; 
+            for (int i = 0; i < probeOutputChannels.length; i++) {
+                blocks[i] = new DictionaryBlock(0, resultFill, page.getBlock(probeOutputChannels[i]), resultMap, false, dictionaryId);
+            }
+            blocks[probeOutputChannels.length] = new LongArrayBlock(resultFill, Optional.empty(), result1);
+            resultPage = new Page(resultFill, blocks);
+		if (!reuseResult) {
+		    result1 = new long[maxResults];
+                    resultMap = new int[maxResults];
+		}
+	    resultFill = 0;
+	    returnPage = resultPage;
+	}
+
+        public boolean needsInput()
+        {
+            return currentResult == -1 && currentProbe == candidateFill;
+        }
+
+        public void finish()
+        {
+            finishing = true;
+        }
+
+        public boolean isFinished()
+        {
+            return finishing && currentResult == -1 && currentProbe == candidateFill;
+        }
+
+	public Page getOutput()
+	{
+	    if (currentResult != -1) {
+		if (addResult(currentResult, currentProbe)) {
+		    return returnPage;
+		}
+	    }
+            long tempHash;
+            int unrollFill = unroll ? candidateFill : 0;
+	    for (;currentProbe + 3 < unrollFill; currentProbe += 4) {
+		DECLPROBE(0);
+		DECLPROBE(1);
+		DECLPROBE(2);
+		DECLPROBE(3);
+		PREPROBE(0);
+		PREPROBE(1);
+		PREPROBE(2);
+		PREPROBE(3);
+		FIRSTPROBE(0);
+		FIRSTPROBE(1);
+		FIRSTPROBE(2);
+		FIRSTPROBE(3);
+		FULLPROBE(0);
+		FULLPROBE(1);
+		FULLPROBE(2);
+		FULLPROBE(3);
+	    }
+	    for (;currentProbe < candidateFill; ++currentProbe) {
+		DECLPROBE(0);
+		PREPROBE(0);
+		FIRSTPROBE(0);
+		FULLPROBE(0);
+	    }
+	    finishResult();
+	    return returnPage;
+	}
+
+
+    }
+}
+
