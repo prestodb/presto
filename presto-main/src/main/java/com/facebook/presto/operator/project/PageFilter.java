@@ -24,6 +24,11 @@ public interface PageFilter
 
     SelectedPositions filter(ConnectorSession session, Page page);
 
+    default boolean filter(ConnectorSession session, Page page, int position)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     static SelectedPositions positionsArrayToSelectedPositions(boolean[] selectedPositions, int size)
     {
         int selectedCount = 0;

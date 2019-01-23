@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.operator.exchange.LocalPartitionGenerator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -340,5 +341,20 @@ public class PartitionedLookupSource
                 referenceCount.decrementAndGet();
             }
         }
+    }
+
+    @Override
+    public boolean isJoinPushedDown()
+    {
+        return lookupSources[0] instanceof AriaHash.AriaLookupSource;
+    }
+
+    public AriaHash.AriaProbe createAriaProbe(Session session, boolean reusePages)
+    {
+        AriaHash.AriaLookupSource[] castLookupSources = new AriaHash.AriaLookupSource[lookupSources.length];
+        for (int i = 0; i < lookupSources.length; i++) {
+            castLookupSources[i] = (AriaHash.AriaLookupSource) lookupSources[i];
+        }
+        return new AriaHash.AriaProbe(castLookupSources, partitionGenerator, reusePages);
     }
 }

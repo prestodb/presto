@@ -46,4 +46,10 @@ public interface LookupSource
 
     @Override
     void close();
+
+    // If true, the LookupJoinOperator should forward addInput and getOutput to this.
+    default boolean isJoinPushedDown()
+    {
+        return false;
+    }
 }

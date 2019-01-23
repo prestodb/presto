@@ -18,8 +18,11 @@ import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.AriaFlags;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.block.BlockDecoder;
 import com.facebook.presto.spi.UpdatablePageSource;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -93,6 +96,10 @@ public class ExchangeOperator
     private final PlanNodeId sourceId;
     private final ExchangeClient exchangeClient;
     private final PagesSerde serde;
+    private final int ariaFlags;
+    private boolean enablePageReuse;
+    private Page pageForReuse;
+    private BlockDecoder blockDecoder = new BlockDecoder();
 
     public ExchangeOperator(
             OperatorContext operatorContext,
@@ -104,8 +111,11 @@ public class ExchangeOperator
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
         this.exchangeClient = requireNonNull(exchangeClient, "exchangeClient is null");
         this.serde = requireNonNull(serde, "serde is null");
-
-        operatorContext.setInfoSupplier(exchangeClient::getStatus);
+        ariaFlags = SystemSessionProperties.ariaFlags(operatorContext.getSession());
+        if ((ariaFlags & AriaFlags.exchangeReuse) != 0) {
+            exchangeClient.enableBufferReuse();
+        }
+            operatorContext.setInfoSupplier(exchangeClient::getStatus);
     }
 
     @Override
@@ -182,7 +192,10 @@ public class ExchangeOperator
 
         operatorContext.recordRawInput(page.getSizeInBytes());
 
-        Page deserializedPage = serde.deserialize(page);
+        Page deserializedPage = serde.deserialize(page, pageForReuse, blockDecoder);
+        if (enablePageReuse && (ariaFlags & AriaFlags.exchangeReusePages) != 0) {
+            pageForReuse = deserializedPage;
+        }
         operatorContext.recordProcessedInput(deserializedPage.getSizeInBytes(), page.getPositionCount());
 
         return deserializedPage;
@@ -192,5 +205,17 @@ public class ExchangeOperator
     public void close()
     {
         exchangeClient.close();
+    }
+
+    @Override
+    public boolean retainsInputPages()
+    {
+        return false;
+    }
+
+    @Override
+    public void enableOutputPageReuse()
+    {
+        enablePageReuse = true;
     }
 }

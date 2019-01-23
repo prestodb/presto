@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.presto.spi.block.BlockDecoder;
+import com.facebook.presto.spi.block.ConcatenatedByteArrayInputStream;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
@@ -44,12 +46,20 @@ public class PagesSerdeUtil
         }
     }
 
-    static Page readRawPage(int positionCount, SliceInput input, BlockEncodingSerde blockEncodingSerde)
+    static Page readRawPage(int positionCount, SliceInput input, BlockEncodingSerde blockEncodingSerde, Page pageForReuse, BlockDecoder blockDecoder)
     {
         int numberOfBlocks = input.readInt();
         Block[] blocks = new Block[numberOfBlocks];
         for (int i = 0; i < blocks.length; i++) {
-            blocks[i] = readBlock(blockEncodingSerde, input);
+            if (pageForReuse != null) {
+                Block block = pageForReuse.getBlock(i);
+                if (block != null && block.isReusable()) {
+                    block.getContents(blockDecoder);
+                                    blocks[i] = readBlock(blockEncodingSerde, input, blockDecoder);
+                                    continue;
+                }
+            }
+                blocks[i] = readBlock(blockEncodingSerde, input, null);
         }
 
         return new Page(positionCount, blocks);
@@ -70,9 +80,19 @@ public class PagesSerdeUtil
         byte codecMarker = sliceInput.readByte();
         int uncompressedSizeInBytes = sliceInput.readInt();
         int sizeInBytes = sliceInput.readInt();
-        Slice slice = sliceInput.readSlice(toIntExact((sizeInBytes)));
-        return new SerializedPage(slice, lookupCodecFromMarker(codecMarker), positionCount, uncompressedSizeInBytes);
-    }
+        if (sliceInput instanceof ConcatenatedByteArrayInputStream) {
+            ConcatenatedByteArrayInputStream castInput = (ConcatenatedByteArrayInputStream) sliceInput;
+            ConcatenatedByteArrayInputStream substream = castInput.getSubstream(castInput.position() + uncompressedSizeInBytes);
+            substream.setFreeAfterRead();
+            SerializedPage result = new SerializedPage(substream, castInput.position(), lookupCodecFromMarker(codecMarker), positionCount, uncompressedSizeInBytes);
+            castInput.skip(toIntExact((sizeInBytes)));
+            return result;
+        }
+        else {
+            Slice slice = sliceInput.readSlice(toIntExact((sizeInBytes)));
+            return new SerializedPage(slice, lookupCodecFromMarker(codecMarker), positionCount, uncompressedSizeInBytes);
+        }
+        }
 
     public static long writeSerializedPages(SliceOutput sliceOutput, Iterable<SerializedPage> pages)
     {

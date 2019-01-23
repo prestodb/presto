@@ -23,8 +23,12 @@ public interface BlockEncodingSerde
      */
     Block readBlock(SliceInput input);
 
+    Block readBlockReusing(SliceInput input, BlockDecoder toReuse);
+
     /**
      * Write a blockEncoding to the output.
      */
     void writeBlock(SliceOutput output, Block block);
+
+    BlockEncoding getEncoding(Block block);
 }

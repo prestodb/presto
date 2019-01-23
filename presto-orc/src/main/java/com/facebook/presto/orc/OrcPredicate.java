@@ -37,4 +37,10 @@ public interface OrcPredicate
      * in the file; this will match the field order from the hive metastore
      */
     boolean matches(long numberOfRows, Map<Integer, ColumnStatistics> statisticsByColumnIndex);
+
+    // Returns a map from column index to Filter. Returns null if some predicate could not be translated to a Filter.
+    default Map<Integer, Filter> getFilters(Map<Integer, ?> columnIndices)
+    {
+        throw new UnsupportedOperationException();
+    }
 }

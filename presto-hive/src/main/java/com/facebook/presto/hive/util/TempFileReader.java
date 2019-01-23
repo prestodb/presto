@@ -65,6 +65,7 @@ public class TempFileReader
 
             reader = orcReader.createRecordReader(
                     includedColumns,
+                    null,
                     OrcPredicate.TRUE,
                     UTC,
                     newSimpleAggregatedMemoryContext(),

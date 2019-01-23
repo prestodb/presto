@@ -62,17 +62,24 @@ final class EncoderUtil
         }
     }
 
+    public static Optional<boolean[]> decodeNullBits(SliceInput sliceInput, int positionCount)
+    {
+        return decodeNullBits(sliceInput, positionCount, null);
+    }
+
     /**
      * Decode the bit stream created by encodeNullsAsBits.
      */
-    public static Optional<boolean[]> decodeNullBits(SliceInput sliceInput, int positionCount)
+    public static Optional<boolean[]> decodeNullBits(SliceInput sliceInput, int positionCount, boolean[] valueIsNull)
     {
         if (!sliceInput.readBoolean()) {
             return Optional.empty();
         }
 
         // read null bits 8 at a time
-        boolean[] valueIsNull = new boolean[positionCount];
+        if (valueIsNull == null || valueIsNull.length < positionCount) {
+            valueIsNull = new boolean[positionCount];
+        }
         for (int position = 0; position < (positionCount & ~0b111); position += 8) {
             byte value = sliceInput.readByte();
             valueIsNull[position] = ((value & 0b1000_0000) != 0);

@@ -13,6 +13,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <air.check.skip-checkstyle>true</air.check.skip-checkstyle>
     </properties>
 
     <!-- the SPI should have only minimal dependencies -->

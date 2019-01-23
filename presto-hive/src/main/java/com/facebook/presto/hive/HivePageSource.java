@@ -17,6 +17,7 @@ import com.facebook.presto.hive.HivePageSourceProvider.BucketAdaptation;
 import com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageSourceOptions;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
@@ -109,6 +110,7 @@ public class HivePageSource
     private final Function<Block, Block>[] coercers;
 
     private final ConnectorPageSource delegate;
+    private boolean filterAndProjectPushedDown;
 
     public HivePageSource(
             List<ColumnMapping> columnMappings,
@@ -225,7 +227,9 @@ public class HivePageSource
             if (dataPage == null) {
                 return null;
             }
-
+            if (filterAndProjectPushedDown) {
+                return dataPage;
+            }
             if (bucketAdapter.isPresent()) {
                 IntArrayList rowsToKeep = bucketAdapter.get().computeEligibleRowIds(dataPage);
                 Block[] adaptedBlocks = new Block[dataPage.getChannelCount()];
@@ -702,5 +706,15 @@ public class HivePageSource
             }
             return ids;
         }
+    }
+
+    @Override
+    public boolean pushdownFilterAndProjection(PageSourceOptions options)
+    {
+        if (delegate != null) {
+            filterAndProjectPushedDown = delegate.pushdownFilterAndProjection(options);
+            return filterAndProjectPushedDown;
+        }
+        return false;
     }
 }
