@@ -1122,9 +1122,10 @@ public class LocalExecutionPlanner
             PlanNode sourceNode = node.getSource();
 
             Expression filterExpression = node.getPredicate();
+            Expression filterExpressionWithoutTupleDomain = node.getPredicateWithoutTupleDomain();
             List<Symbol> outputSymbols = node.getOutputSymbols();
 
-            return visitScanFilterAndProject(context, node.getId(), sourceNode, Optional.of(filterExpression), Assignments.identity(outputSymbols), outputSymbols);
+            return visitScanFilterAndProject(context, node.getId(), sourceNode, Optional.of(filterExpression), filterExpressionWithoutTupleDomain.equals(TRUE_LITERAL) ? Optional.empty() : Optional.of(filterExpressionWithoutTupleDomain), Assignments.identity(outputSymbols), outputSymbols);
         }
 
         @Override
@@ -1132,10 +1133,15 @@ public class LocalExecutionPlanner
         {
             PlanNode sourceNode;
             Optional<Expression> filterExpression = Optional.empty();
+            Optional<Expression> filterExpressionWithoutTupleDomain = Optional.empty();
             if (node.getSource() instanceof FilterNode) {
                 FilterNode filterNode = (FilterNode) node.getSource();
                 sourceNode = filterNode.getSource();
                 filterExpression = Optional.of(filterNode.getPredicate());
+                Expression temp = filterNode.getPredicateWithoutTupleDomain();
+                if (!temp.equals(TRUE_LITERAL)) {
+                    filterExpressionWithoutTupleDomain = Optional.of(temp);
+                }
             }
             else {
                 sourceNode = node.getSource();
@@ -1143,7 +1149,7 @@ public class LocalExecutionPlanner
 
             List<Symbol> outputSymbols = node.getOutputSymbols();
 
-            return visitScanFilterAndProject(context, node.getId(), sourceNode, filterExpression, node.getAssignments(), outputSymbols);
+            return visitScanFilterAndProject(context, node.getId(), sourceNode, filterExpression, filterExpressionWithoutTupleDomain, node.getAssignments(), outputSymbols);
         }
 
         // TODO: This should be refactored, so that there's an optimizer that merges scan-filter-project into a single PlanNode
@@ -1152,6 +1158,7 @@ public class LocalExecutionPlanner
                 PlanNodeId planNodeId,
                 PlanNode sourceNode,
                 Optional<Expression> filterExpression,
+                Optional<Expression> filterExpressionWithoutTupleDomain,
                 Assignments assignments,
                 List<Symbol> outputSymbols)
         {
@@ -1199,6 +1206,7 @@ public class LocalExecutionPlanner
             // compiler uses inputs instead of symbols, so rewrite the expressions first
             SymbolToInputRewriter symbolToInputRewriter = new SymbolToInputRewriter(sourceLayout);
             Optional<Expression> rewrittenFilter = filterExpression.map(symbolToInputRewriter::rewrite);
+            Optional<Expression> rewrittenFilterWithoutTupleDomain = filterExpressionWithoutTupleDomain.map(symbolToInputRewriter::rewrite);
 
             List<Expression> rewrittenProjections = new ArrayList<>();
             for (Symbol symbol : outputSymbols) {
@@ -1210,11 +1218,15 @@ public class LocalExecutionPlanner
                     metadata,
                     sqlParser,
                     sourceTypes,
-                    concat(rewrittenFilter.map(ImmutableList::of).orElse(ImmutableList.of()), rewrittenProjections),
+                    concat(rewrittenFilter.map(ImmutableList::of).orElse(ImmutableList.of()),
+                           rewrittenFilterWithoutTupleDomain.map(ImmutableList::of).orElse(ImmutableList.of()),
+                           rewrittenProjections),
                     emptyList(),
                     NOOP);
 
             Optional<RowExpression> translatedFilter = rewrittenFilter.map(filter -> toRowExpression(filter, expressionTypes));
+            Optional<RowExpression> translatedFilterWithoutTupleDomain = rewrittenFilterWithoutTupleDomain.map(filter -> toRowExpression(filter, expressionTypes));
+
             List<RowExpression> translatedProjections = rewrittenProjections.stream()
                     .map(expression -> toRowExpression(expression, expressionTypes))
                     .collect(toImmutableList());
@@ -1222,8 +1234,7 @@ public class LocalExecutionPlanner
             try {
                 if (columns != null) {
                     Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(translatedFilter, translatedProjections, sourceNode.getId());
-                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(translatedFilter, translatedProjections, Optional.of(context.getStageId() + "_" + planNodeId));
-
+                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(translatedFilter, translatedFilterWithoutTupleDomain, translatedProjections, Optional.of(context.getStageId() + "_" + planNodeId), OptionalInt.empty());
                     SourceOperatorFactory operatorFactory = new ScanFilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
                             planNodeId,

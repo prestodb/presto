@@ -17,8 +17,12 @@ import com.facebook.presto.orc.metadata.statistics.BooleanStatistics;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
 import com.facebook.presto.orc.metadata.statistics.RangeStatistics;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.SubfieldPath;
 import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.Marker;
 import com.facebook.presto.spi.predicate.Range;
+import com.facebook.presto.spi.predicate.SortedRangeSet;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.DecimalType;
@@ -32,10 +36,13 @@ import io.airlift.slice.Slice;
 import org.apache.hive.common.util.BloomFilter;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -53,8 +60,10 @@ import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class TupleDomainOrcPredicate<C>
         implements OrcPredicate
@@ -297,5 +306,157 @@ public class TupleDomainOrcPredicate<C>
                     .add("type", type)
                     .toString();
         }
+    }
+
+    public Map<Integer, Filter> getFilters(Map<Integer, ?> columnIndices)
+    {
+        Optional<Map<C, Domain>> optionalEffectivePredicateDomains = effectivePredicate.getDomains();
+        HashMap<Integer, Filter> filters = new HashMap();
+        if (!optionalEffectivePredicateDomains.isPresent()) {
+            // No filters
+            return filters;
+        }
+        Map<C, Domain> effectivePredicateDomains = optionalEffectivePredicateDomains.get();
+
+        for (Map.Entry<C, Domain> entry : effectivePredicateDomains.entrySet()) {
+            Domain predicateDomain = entry.getValue();
+            C column = entry.getKey();
+            if (!(column instanceof ColumnHandle)) {
+                return null;
+            }
+            ColumnHandle columnHandle = (ColumnHandle) column;
+            SubfieldPath subfield = columnHandle.getSubfieldPath();
+            ColumnHandle topLevelColumn = subfield == null ? columnHandle : columnHandle.createSubfieldColumnHandle(null);
+            ColumnReference<C> columnReference = null;
+            for (ColumnReference<C> c : columnReferences) {
+                if (c.getColumn().equals(topLevelColumn)) {
+                        columnReference = c;
+                        break;
+                    }
+            }
+            if (columnReference == null) {
+                // Predicate on non-existent column.
+                return null;
+            }
+            ValueSet values = predicateDomain.getValues();
+            if (values instanceof SortedRangeSet) {
+                List<Range> ranges = ((SortedRangeSet) values).getOrderedRanges();
+                Type type = predicateDomain.getType();
+
+                Filter filter = null;
+                if (ranges.isEmpty() && predicateDomain.isNullAllowed()) {
+                    filter = new Filters.IsNull();
+                }
+                else if (ranges.size() == 1) {
+                    filter = createRangeFilter(type, ranges.get(0));
+                }
+                else {
+                    List<Filter> rangeFilters = ranges.stream().map(r -> createRangeFilter(type, r)).collect(toList());
+                    filter = Filters.createMultiRange(rangeFilters);
+                }
+                if (filter == null) {
+                    // The domain cannot be converted to a filter. Pushdown fails.
+                    return null;
+                }
+                addFilter(columnReference.getOrdinal(), subfield, filter, filters);
+            }
+            else {
+                return null;
+            }
+        }
+        return filters;
+    }
+
+    private static Filter createRangeFilter(Type type, Range range)
+    {
+        if (isVarcharType(type)) {
+            return VarcharRangeToFilter(range);
+                }
+                else if (type == BIGINT) {
+                    return BigintRangeToFilter(range);
+                }
+                else if (type == DOUBLE) {
+                    return doubleRangeToFilter(range);
+                }
+        return null;
+    }
+    
+    private static void addFilter(Integer ordinal, SubfieldPath subfield, Filter filter, Map<Integer, Filter> filters)
+    {
+        if (subfield == null) {
+            filters.put(ordinal, filter);
+        }
+        else {
+            Filter topFilter = filters.get(ordinal);
+            verify(topFilter == null || topFilter instanceof Filters.StructFilter);
+            Filters.StructFilter structFilter = (Filters.StructFilter) topFilter;
+            if (structFilter == null) {
+                structFilter = new Filters.StructFilter();
+                filters.put(ordinal, structFilter);
+            }
+            int depth = subfield.getPath().size();
+            for (int i = 1; i < depth; i++) {
+                    Filter memberFilter = structFilter.getMember(subfield.getPath().get(i));
+                    if (i == depth - 1) {
+                        verify(memberFilter == null);
+                        structFilter.addMember(subfield.getPath().get(i), filter);
+                        return;
+                    }
+                    if (memberFilter == null) {
+                        memberFilter = new Filters.StructFilter();
+                        structFilter.addMember(subfield.getPath().get(i), memberFilter);
+                        structFilter = (Filters.StructFilter) memberFilter;
+                    }
+                    else {
+                        verify(memberFilter instanceof Filters.StructFilter);
+                        structFilter = (Filters.StructFilter) memberFilter;
+                    }
+            }
+        }
+    }
+
+    private static Filter BigintRangeToFilter(Range range)
+    {
+        Marker low = range.getLow();
+        Marker high = range.getHigh();
+        long lowerLong = low.isLowerUnbounded() ? Long.MIN_VALUE : ((Long) low.getValue()).longValue();
+        long upperLong = high.isUpperUnbounded() ? Long.MAX_VALUE : ((Long) high.getValue()).longValue();
+        if (high.getBound() == Marker.Bound.BELOW) {
+            --upperLong;
+        }
+        if (low.getBound() == Marker.Bound.ABOVE) {
+            ++lowerLong;
+        }
+        return new Filters.BigintRange(lowerLong, upperLong);
+    }
+
+    private static Filter doubleRangeToFilter(Range range)
+    {
+        Marker low = range.getLow();
+        Marker high = range.getHigh();
+        double lowerDouble = low.isLowerUnbounded() ? Double.MIN_VALUE
+                : ((Double) low.getValue()).doubleValue();
+        double upperDouble = high.isUpperUnbounded() ? Double.MAX_VALUE
+                : ((Double) high.getValue()).doubleValue();
+        return new Filters.DoubleRange(lowerDouble,
+                low.isLowerUnbounded(),
+                low.getBound() == Marker.Bound.ABOVE,
+                upperDouble,
+                high.isUpperUnbounded(),
+                high.getBound() == Marker.Bound.BELOW);
+    }
+
+    private static Filter VarcharRangeToFilter(Range range)
+    {
+        Marker low = range.getLow();
+        Marker high = range.getHigh();
+        Marker.Bound lowerBound = low.getBound();
+        Marker.Bound upperBound = high.getBound();
+        Slice lowerValue = low.isLowerUnbounded() ? null : (Slice) low.getValue();
+        Slice upperValue = high.isUpperUnbounded() ? null : (Slice) high.getValue();
+        return new Filters.BytesRange(lowerValue == null ? null : lowerValue.getBytes(),
+                lowerBound == Marker.Bound.EXACTLY,
+                upperValue == null ? null : upperValue.getBytes(),
+                upperBound == Marker.Bound.EXACTLY);
     }
 }

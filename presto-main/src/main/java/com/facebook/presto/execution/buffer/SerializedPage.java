@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.presto.spi.block.ConcatenatedByteArrayInputStream;
+import com.facebook.presto.spi.memory.ByteArrayPool;
+
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -27,10 +30,13 @@ public class SerializedPage
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SerializedPage.class).instanceSize();
     private static final int PAGE_COMPRESSION_SIZE = ClassLayout.parseClass(PageCompression.class).instanceSize();
 
-    private final Slice slice;
+    private Slice slice;
     private final PageCompression compression;
     private final int positionCount;
     private final int uncompressedSizeInBytes;
+    private ByteArrayPool pool;
+    private final ConcatenatedByteArrayInputStream stream;
+    private final long position;
 
     public SerializedPage(Slice slice, PageCompression compression, int positionCount, int uncompressedSizeInBytes)
     {
@@ -41,11 +47,30 @@ public class SerializedPage
         checkArgument(compression == UNCOMPRESSED || uncompressedSizeInBytes > slice.length(), "compressed size must be smaller than uncompressed size when compressed");
         checkArgument(compression == COMPRESSED || uncompressedSizeInBytes == slice.length(), "uncompressed size must be equal to slice length when uncompressed");
         this.uncompressedSizeInBytes = uncompressedSizeInBytes;
+        stream = null;
+        position = 0;
+    }
+
+    public SerializedPage(ConcatenatedByteArrayInputStream stream, long position, PageCompression compression, int positionCount, int uncompressedSizeInBytes)
+    {
+        this.stream = stream;
+        this.position = position;
+        this.slice = null;
+        this.compression = requireNonNull(compression, "compression is null");
+        this.positionCount = positionCount;
+        checkArgument(uncompressedSizeInBytes >= 0, "uncompressedSizeInBytes is negative");
+        this.uncompressedSizeInBytes = uncompressedSizeInBytes;
+    }
+
+
+    public void setByteArrayPool(ByteArrayPool pool)
+    {
+        this.pool = pool;
     }
 
     public int getSizeInBytes()
     {
-        return slice.length();
+        return slice != null ? slice.length() : uncompressedSizeInBytes;
     }
 
     public int getUncompressedSizeInBytes()
@@ -55,7 +80,7 @@ public class SerializedPage
 
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + slice.getRetainedSize() + PAGE_COMPRESSION_SIZE;
+        return INSTANCE_SIZE + (slice != null ? slice.getRetainedSize() : uncompressedSizeInBytes) + PAGE_COMPRESSION_SIZE;
     }
 
     public int getPositionCount()
@@ -71,6 +96,24 @@ public class SerializedPage
     public PageCompression getCompression()
     {
         return compression;
+    }
+
+    void dereferenced()
+    {
+        if (pool != null) {
+            pool.release((byte[]) slice.getBase());
+            slice = null;
+        }
+    }
+
+    ConcatenatedByteArrayInputStream getStream()
+    {
+        return stream;
+    }
+
+    long getPosition()
+    {
+        return position;
     }
 
     @Override

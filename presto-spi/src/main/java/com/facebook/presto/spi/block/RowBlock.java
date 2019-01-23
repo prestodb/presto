@@ -98,7 +98,7 @@ public class RowBlock
      * Use createRowBlockInternal or fromFieldBlocks instead of this method.  The caller of this method is assumed to have
      * validated the arguments with validateConstructorArguments.
      */
-    private RowBlock(int startOffset, int positionCount, @Nullable boolean[] rowIsNull, int[] fieldBlockOffsets, Block[] fieldBlocks)
+    public RowBlock(int startOffset, int positionCount, @Nullable boolean[] rowIsNull, int[] fieldBlockOffsets, Block[] fieldBlocks)
     {
         super(fieldBlocks.length);
 

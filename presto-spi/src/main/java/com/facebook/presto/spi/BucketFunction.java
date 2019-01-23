@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.block.BlockDecoder;
+
 public interface BucketFunction
 {
     /**
@@ -20,4 +22,9 @@ public interface BucketFunction
      * Note the tuple values may be null.
      */
     int getBucket(Page page, int position);
+
+    default void getBuckets(int partitionCount, Page page, BlockDecoder decoder, int[] partitionsOut)
+    {
+        throw new UnsupportedOperationException();
+    }
 }

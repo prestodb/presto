@@ -1,0 +1,1178 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.operator;
+
+
+import com.facebook.presto.RowPagesBuilder;
+import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
+import java.util.Random;
+
+import com.facebook.presto.execution.Lifespan;
+import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spiller.SingleStreamSpillerFactory;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.testing.TestingTaskContext;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
+
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.block.ExprContext;
+import com.facebook.presto.spi.block.BlockDecoder;
+import com.facebook.presto.spi.block.LongArrayBlockBuilder;
+import com.facebook.presto.spi.block.LongArrayBlock;
+
+//import static org.testng.Assert.assertEquals;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+import java.util.Optional;
+import java.util.Arrays;
+import static java.lang.Double.doubleToLongBits;
+import static java.lang.Double.longBitsToDouble;
+import static java.lang.System.arraycopy;
+import java.lang.reflect.Field;
+import static java.lang.Integer.numberOfTrailingZeros;
+import static java.lang.Long.numberOfTrailingZeros;
+import java.util.ArrayList;
+import java.util.List;
+
+import sun.misc.Unsafe;
+
+import java.util.Iterator;
+import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
+
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
+
+
+#include "hash.h"
+
+public class TestHash {
+
+
+      static Unsafe unsafe;
+
+      static {
+	  try {
+	      // fetch theUnsafe object
+	      Field field = Unsafe.class.getDeclaredField("theUnsafe");
+	      field.setAccessible(true);
+	      unsafe = (Unsafe) field.get(null);
+	      if (unsafe == null) {
+		  throw new RuntimeException("Unsafe access not available");
+	      }
+	  }
+	  catch (Exception e) {
+	      throw new RuntimeException(e);
+	  }
+      }
+
+    static boolean silent = false;
+    static boolean usePrestoOps = false;
+    static boolean useBloomFilter = false;
+
+    private static final int HASH_BUILD_OPERATOR_ID = 1;
+    private static final int HASH_JOIN_OPERATOR_ID = 2;
+    private static final PlanNodeId TEST_PLAN_NODE_ID = new PlanNodeId("test");
+    private static final LookupJoinOperators LOOKUP_JOIN_OPERATORS = new LookupJoinOperators();
+
+
+
+    static long and(long x, long y)
+    {
+        return x & y;
+    }
+
+    static String hex(long l)
+    {
+        return String.format("%x", l);
+    }
+
+    static boolean recycleTable = true;
+    #ifdef SLICES
+    static List<Slice> sliceReserve = new ArrayList();
+
+    static void clearAllocCache()
+    {
+        sliceReserve.clear();
+    }
+    
+    static  Slice getSlice()
+    {
+        if (recycleTable) {
+            synchronized (sliceReserve) {
+                if (!sliceReserve.isEmpty()) {
+                    return sliceReserve.remove(sliceReserve.size() - 1);
+                }
+            }
+        }
+        return                 Slices.allocate(SLABSIZE);
+    }
+
+    static void releaseSlice(Slice slice)
+    {
+        if (recycleTable) {
+            synchronized (sliceReserve) {
+                sliceReserve.add(slice);
+            }
+        }
+    }
+#else
+
+    static List<Long> slabReserve = new ArrayList();
+
+    static void clearAllocCache()
+    {
+        for (Long slab : slabReserve) {
+            unsafe.freeMemory(slab.longValue());
+        }
+        slabReserve.clear();
+    }
+    
+    static long getSlab()
+    {
+        if (recycleTable) {
+            synchronized (slabReserve) {
+                if (!slabReserve.isEmpty()) {
+                    return slabReserve.remove(slabReserve.size() - 1).longValue();
+                }
+            }
+        }
+        return unsafe.allocateMemory(SLABSIZE);
+    }
+    static void releaseSlab(long slab)
+    {
+        if (!recycleTable) {
+            unsafe.freeMemory(slab);
+        }
+        else {
+            synchronized (slabReserve) {
+                slabReserve.add(new Long(slab));
+            }
+        }
+    }
+    #endif
+
+
+    // Generic hash table 
+        public static class HashTable
+    {
+	int statusMask;
+	LONG_ARRAY status;
+	LONG_ARRAY table;
+	Slice[] slices = new Slice[16];
+	long[] slabs = new long[16];
+	int[] fill = new int[16];
+        int currentSlab = -1;
+        LONG_ARRAY bloomFilter;
+        int bloomFilterSize = 0;
+        
+	long nextResult(long entry, int offset)
+	{
+	    DECLGET(a);
+	    PREGET(a, entry);
+	    return GETL(a, offset);
+	}
+
+	// Allocates 'bytes' of contiguous space for hash table payload.
+	// Returns a slice index, offset pair or a raw long.
+        public long allocBytes(int bytes)
+	{
+	    if (currentSlab == -1 || fill[currentSlab] + bytes > SLABSIZE) {
+		long w = newSlab();
+		fill[currentSlab] = bytes;
+		return w;
+	    }
+	    int off = fill[currentSlab];
+	    fill[currentSlab] += bytes;
+	    return SLICEREF(currentSlab, off);
+	}
+
+        long newSlab() {
+	    #ifdef SLICES
+		++currentSlab;
+		if (slices.length <= currentSlab) {
+		    int newSize = slices.length * 2;
+		    slices = Arrays.copyOf(slices, newSize);
+		    fill = Arrays.copyOf(fill, newSize);
+		}
+		Slice s = getSlice();
+                slices[currentSlab] = s;
+                return SLICEREF(currentSlab, 0);
+#else
+		++currentSlab;
+		if (slabs.length <= currentSlab) {
+		    int newSize = slabs.length * 2;
+		    slabs = Arrays.copyOf(slabs, newSize);
+		    fill = Arrays.copyOf(fill, newSize);
+		}
+		long s = getSlab();
+                slabs[currentSlab] = s;
+                return s;
+
+    #endif
+	}
+
+        void release()
+        {
+#ifdef SLICES
+            for (Slice slice : slices) {
+                if (slice != null) {
+                    releaseSlice(slice);
+                }
+            }
+#else
+    for (long slab : slabs) {
+        if (slab != 0) {
+            releaseSlab(slab);
+        }
+    }
+    #endif
+        FREE_LONG_ARRAY(status);
+        FREE_LONG_ARRAY(table);
+        if (bloomFilterSize > 0) {
+            FREE_LONG_ARRAY(bloomFilter);
+        }
+        }
+                    
+	void setSize(int count) {
+            if (count == 0) {
+                statusMask = 0;
+                return;
+}
+	    count *= 1.3;
+	    int size = 1024;
+	    while (size < count) {
+		size *= 2;
+	    }
+	    table = ALLOC_LONG_ARRAY(size);
+	    status = ALLOC_LONG_ARRAY(size / 8);
+	    statusMask = (size >> 3) - 1;
+	    for (int i = 0; i <= statusMask; ++i) {
+                ARRAY_PREGET(st, status, i);
+		ARRAY_SET(st, status, i, 0x8080808080808080L);
+	    }
+	}
+    }
+	
+    // Generated class for a key/dependent layout 
+    public static class HashBuild extends ExprContext
+    {
+	HashTable table = new HashTable();
+	BlockDecoder k1 = new BlockDecoder();
+	BlockDecoder k2 = new BlockDecoder();
+	BlockDecoder d1 = new BlockDecoder();
+		int entryCount = 0;
+	        boolean makeBloomFilter = false;
+        
+	long hashRow(long row)
+	{
+	    DECLTABLE(table);
+	    DECLGET(k);
+	    PREGET(k, row);
+	    long h;
+	    MHASH_STEP_1(h, GETL(k, 0));
+	    MHASH_STEP(h, GETL(k, 8));
+	    return h;
+	}
+	
+	public void addInput(Page page)
+	{
+	    k1.decodeBlock(page.getBlock(0), intArrayAllocator);
+	    k2.decodeBlock(page.getBlock(1), intArrayAllocator);
+	    d1.decodeBlock(page.getBlock(2), intArrayAllocator);
+	    int positionCount = page.getPositionCount();
+	    nullsInBatch = null;
+	    int[] k1Map = k1.rowNumberMap;
+	    int[] k2Map = k2.rowNumberMap;
+	    int[]d1Map = d1.rowNumberMap;
+	    addNullFlags(k1.valueIsNull, k1.isIdentityMap ? null : k1Map, positionCount);
+	    addNullFlags(k2.valueIsNull, k2.isIdentityMap ? null : k2Map, positionCount);
+
+
+	    DECLTABLE(table);
+
+	    for (int i = 0; i < positionCount; ++i) {
+		if (nullsInBatch == null ||  !nullsInBatch[i]) {
+		    ++entryCount;
+		    long row = table.allocBytes(32);
+#ifdef SLICES
+                    slices = table.slices;
+#endif
+DECLGET(k);
+		    PREGET(k, row);
+		    SETL(k,0, k1.longs[k1Map[i]]);
+		    SETL(k, 8, k2.longs[k1Map[i]]);
+		    SETL(k, 16, d1.longs[d1Map[i]]);
+		    SETL(k, 24, -1);
+		}
+	    }
+	    k1.release(intArrayAllocator);
+	    k2.release(intArrayAllocator);
+	    d1.release(intArrayAllocator);
+	}
+	public void build()
+	{
+	    DECLTABLE(table);
+	    table.setSize(entryCount);
+	    int batch = 1024;
+	    long[] hashes = new long[batch];
+	    long[] entries = new long[batch];
+	    int fill = 0;
+	    for (int slab = 0; slab <= table.currentSlab; ++slab) {
+		int slabFill = table.fill[slab];
+		for (int offset = 0; offset < slabFill; offset += 32) {
+		    long entry = SLICEREF(slab, offset);
+		    entries[fill] = entry;
+		    hashes[fill++] = hashRow(entry);
+		    if (fill == batch) {
+			insertHashes(hashes, entries, fill);
+			    fill = 0;
+		    }
+		}
+	    }
+	    insertHashes(hashes, entries, fill);
+	}
+
+	void insertHashes(long[] hashes, long[] entries, int fill)
+	{
+	    DECLTABLE(table);
+            DECL_ARRAY(st);
+            DECL_ARRAY(ent);
+	    for (int i = 0; i < fill; ++i) {
+		int h = (int)hashes[i] & statusMask;
+	    long field = (hashes[i] >> 56) & 0x7f;
+	    byte statusByte = (byte)field;
+	    field |= field << 8;
+	    field |= field << 16;
+	    field |= field << 32;
+                nextKey:
+	    do {
+		long st = ARRAY_GET(st, table.status, h);
+		long hits = st ^ field;
+                hits = st - 0x0101010101010101L;
+		hits &= 0x8080808080808080L;
+		DECLGET(a);
+		DECLGET(b);
+		while (hits != 0) {
+                    PREGET(b, entries[i]);                    int pos = Long.numberOfTrailingZeros(hits) >> 3;
+                    ARRAY_PREGET(ent, table.table, h * 8 + pos);
+                    PREGET(a, ARRAY_GET(ent, table.table, h * 8 + pos));
+			       if (GETL(a, 0) == GETL(b, 0) && GETL(a, 8) == GETL(b, 8)) {
+				   SETL(a, 24, entries[i]);
+				   break nextKey;
+			       }
+			       hits &= (hits - 1);
+		    }
+		// No matches in the status group, see if can insert.
+		st &= 0x8080808080808080L;
+		if (st != 0) {
+		    int pos = Long.numberOfTrailingZeros(st) >> 3;
+		    ARRAY_SET(st, table.status, h,ARRAY_GET(st, table.status, h) ^ (long)(statusByte | 0x80) << (pos * 8));
+                    ARRAY_PREGET(ent, table.table, h * 8 + pos);
+		    ARRAY_SET(ent, table.table, h * 8 + pos, entries[i]);
+		    break;
+		}
+                h = (h + 1) & statusMask;
+	    } while (true);
+	    }
+            if (makeBloomFilter) {
+                int size;
+                LONG_ARRAY bloomArray;
+                DECL_ARRAY(bf);
+                if (table.bloomFilterSize == 0) {
+                    size = (entryCount / 8) + 1;
+                    table.bloomFilter = ALLOC_LONG_ARRAY(size);
+                    bloomArray = table.bloomFilter;
+                table.bloomFilterSize = size;
+                for (int i = 0; i < size; ++i) {
+                    ARRAY_PREGET(st, bloomArray, i);
+                    ARRAY_SET(bf, bloomArray, i, 0);
+                }
+}
+                else {
+                    size = table.bloomFilterSize;
+                    bloomArray = table.bloomFilter;
+                }
+                for (int i = 0; i < fill; i++) {
+                    long h = hashes[i];
+                    int w = BF_WORD (h, size);
+                    long mask = BF_MASK (h);
+                    ARRAY_PREGET(bf, bloomArray, w);
+                    ARRAY_SET(bf, bloomArray, w,  ARRAY_GET(bf, bloomArray, w) | mask);
+                }
+            }
+	}
+    }
+	
+    public static class HashProbe extends ExprContext {
+	BlockDecoder k1 = new BlockDecoder();
+	BlockDecoder k2 = new BlockDecoder();
+	long hashes[];
+	HashTable table;
+	int currentInput;
+	long nextRow;
+	long[] k1d;
+	long[] k2d;
+	int[] k1Map;
+	int[] k2Map;
+	int maxResults = 1024;
+	int[] candidates;
+	int candidateFill;
+	int positionCount;
+	int[] resultMap;
+	int resultFill;
+	long[] result1;
+	long currentResult;
+	int currentProbe;
+	Page resultPage;
+	Page returnPage;
+	boolean reuseResult;
+        boolean unroll = true;
+
+	HashProbe(HashTable table, boolean reuseResult) {
+	    this.table = table;
+	    this.reuseResult = reuseResult;
+	}
+	
+	public void addInput(Page page)
+        {
+	    k1.decodeBlock(page.getBlock(0), intArrayAllocator);
+	    k2.decodeBlock(page.getBlock(1), intArrayAllocator);
+	    positionCount = page.getPositionCount();
+            if (hashes == null || hashes.length < positionCount) {
+                hashes = new long[positionCount + 10];
+            }
+	    nullsInBatch = null;
+            k1d = k1.longs;
+            k2d = k2.longs;
+	    k1Map = k1.rowNumberMap;
+	    k2Map = k2.rowNumberMap;
+	    addNullFlags(k1.valueIsNull, k1.isIdentityMap ? null : k1Map, positionCount);
+	    addNullFlags(k2.valueIsNull, k2.isIdentityMap ? null : k2Map, positionCount);
+	    DECLTABLE(table);
+	    if (candidates == null || candidates.length < positionCount) {
+		candidates = intArrayAllocator.getIntArray(positionCount);
+	    }
+	    if (nullsInBatch != null) {
+		for (int i = 0; i < positionCount; ++i) {
+		    if (nullsInBatch[i]) {
+			candidates[candidateFill++] = i;
+		    }
+		}
+	    } else {
+		for (int i = 0; i < positionCount; ++i) {
+		    candidates[i] = i;
+		}
+                candidateFill = positionCount;
+	    }
+	    for (int i = 0; i <candidateFill; ++i) {
+		int row = candidates[i];
+		long h;
+		MHASH_STEP_1(h, k1d[k1Map[row]]);
+		MHASH_STEP(h, k2d[k2Map[row]]);
+		hashes[row] = h;
+	    }
+	    if (result1 == null) {
+		result1 = new long[maxResults];
+		resultMap = new int[maxResults];
+	    }
+            if (table.bloomFilterSize != 0) {
+                int newFill = 0;
+                int size = table.bloomFilterSize;
+                LONG_ARRAY bloomArray = table.bloomFilter;
+                for (int i = 0; i < candidateFill; ++i) {
+                    int candidate = candidates[i];
+                    long h = hashes[candidate];
+                    int w = BF_WORD(h, size);
+                    long mask = BF_MASK(h);
+                    ARRAY_PREGET(bf, bloomArray, w);
+                    if (mask == (ARRAY_GET(bf, bloomArray, w) & mask)) {
+                        candidates[newFill++] = candidate;
+                    }
+                }
+                candidateFill = newFill;
+            }
+	    currentProbe = 0;
+	    currentResult = -1;
+	}
+
+
+	public boolean addResult(long entry, int candidate)
+	{
+	    int probeRow = candidates[candidate];
+	    DECLTABLE(table);
+	    do {
+		resultMap[resultFill] = probeRow;
+		DECLGET(a);
+		PREGET(a, entry);
+		result1[resultFill] = GETL(a, 16);
+		entry = GETL(a, 24);
+		++resultFill;
+		if (resultFill >= maxResults) {
+		    currentResult = entry;
+		    currentProbe = candidate;
+		    finishResult();
+		    return true;
+		}
+	    } while (entry != -1);
+	    currentResult = -1;
+	    return false;
+	}
+
+	void finishResult()
+	{
+            if (currentResult == -1 && currentProbe < candidateFill) {
+                ++currentProbe;
+            }
+            if (currentProbe == candidateFill) {
+                k1.release(intArrayAllocator);
+                k2.release(intArrayAllocator);
+            }
+            if (resultFill == 0) {
+		returnPage = null;
+		return;
+	    }
+	    if (!reuseResult || resultPage == null) {
+		resultPage = new Page(
+				      new LongArrayBlock(resultFill, Optional.empty(), result1));
+		if (!reuseResult) {
+		    result1 = new long[maxResults];
+                    resultMap = new int[maxResults];
+		}
+	    } else {
+		resultPage.setPositionCount(resultFill);
+	    }
+	    resultFill = 0;
+	    returnPage = resultPage;
+	}
+
+		#define DECLPROBE(sub)		\
+		    long entry##sub = -1; \
+		    long field##sub;		\
+    long empty##sub; \
+	    long hits##sub; \
+	    int hash##sub; \
+	    int row##sub; \
+	    boolean match##sub = false; \
+	DECLGET(g##sub); \
+        DECL_ARRAY(st##sub); \
+        DECL_ARRAY(ent##sub); 
+
+
+	    #define PREPROBE(sub) \
+		row##sub = candidates[currentProbe + sub]; \
+        tempHash = hashes[row##sub]; \
+	hash##sub = (int)tempHash & statusMask;	   \
+	    field##sub = (tempHash >> 56) & 0x7f; \
+        ARRAY_PREGET(st##sub, table.status, h); \
+        hits##sub = ARRAY_GET(st##sub, table.status, hash##sub); \
+	    field##sub |= field##sub << 8; \
+	    field##sub |= field##sub << 16; \
+	    field##sub |= field##sub << 32; 
+	
+
+	#define FIRSTPROBE(sub)	      \
+            empty##sub = hits##sub & 0x8080808080808080L; \
+	    hits##sub ^= field##sub;  \
+	hits##sub -= 0x0101010101010101L; \
+	hits##sub &= 0x8080808080808080L ^ empty##sub; \
+	if (hits##sub != 0) { \
+	    int pos = Long.numberOfTrailingZeros(hits##sub) >> 3; \
+	    hits##sub &= hits##sub - 1; \
+            ARRAY_PREGET(ent##sub, table.table, hash##sub * 8 + pos); \
+	    entry##sub = ARRAY_GET(ent##sub, table.table, hash##sub * 8 + pos); \
+	    PREGET(g##sub, entry##sub); \
+	    match##sub =GETL(g##sub, 0) == k1d[k1Map[row##sub]] \
+		& GETL(g##sub, 8) == k2d[k2Map[row##sub]]; \
+	}
+	
+	    	    #define FULLPROBE(sub) \
+    if (match##sub) { \
+	if (addResult(entry##sub, currentProbe + sub)) return returnPage; \
+    } \
+    else { \
+	bucketLoop##sub: \
+	for (;;) {		 \
+	while (hits##sub != 0) { \
+	    int pos = Long.numberOfTrailingZeros(hits##sub) >> 3; \
+            ARRAY_PREGET(st##sub, table.table, hash##sub * 8 + pos); \
+	    entry##sub = ARRAY_GET(ent##sub, table.table, hash##sub * 8 + pos); \
+	    PREGET(g##sub, entry##sub); \
+	    if (GETL(g##sub, 0) == k1d[k1Map[row##sub]] && GETL(g##sub, 8) == k2d[k2Map[row##sub]]) { \
+		if (addResult(entry##sub, currentProbe + sub)) { \
+		    return returnPage; \
+		} \
+		break bucketLoop##sub;		\
+	    } \
+	    hits##sub &= hits##sub - 1; \
+	} \
+	if (empty##sub != 0) break; \
+	hash##sub = (hash##sub + 1) & statusMask;	\
+        ARRAY_PREGET(st##sub, table.status, hash##sub); \
+	hits##sub = ARRAY_GET(st##sub, table.status, hash##sub);        \
+        empty##sub = hits##sub & 0x8080808080808080L; \
+	hits##sub ^= field##sub;          \
+	hits##sub -= 0x0101010101010101L; \
+	hits##sub &= 0x8080808080808080L ^ empty##sub; \
+    }			  \
+}      
+
+	
+	public Page getOutput()
+	{
+            if (table.statusMask == 0) {
+                return null;
+}
+	    DECLTABLE(table);
+	    if (currentResult != -1) {
+		if (addResult(currentResult, currentProbe)) {
+		    return returnPage;
+		}
+	    }
+            long tempHash;
+            int unrollFill = unroll ? candidateFill : 0;
+	    for (;currentProbe + 3 < unrollFill; currentProbe += 4) {
+		DECLPROBE(0);
+		DECLPROBE(1);
+		DECLPROBE(2);
+		DECLPROBE(3);
+		PREPROBE(0);
+		PREPROBE(1);
+		PREPROBE(2);
+		PREPROBE(3);
+		FIRSTPROBE(0);
+		FIRSTPROBE(1);
+		FIRSTPROBE(2);
+		FIRSTPROBE(3);
+		FULLPROBE(0);
+		FULLPROBE(1);
+		FULLPROBE(2);
+		FULLPROBE(3);
+	    }
+	    for (;currentProbe < candidateFill; ++currentProbe) {
+		DECLPROBE(0);
+		PREPROBE(0);
+		FIRSTPROBE(0);
+		FULLPROBE(0);
+	    }
+	    finishResult();
+	    return returnPage;
+	}
+
+
+    }
+
+    // Like partsupp, first is row / 4, next is (row * 1239) % 1000000 
+    long key1(long row) {
+	return row / 4;
+    }
+
+    long key2(long row) {
+	return ((row * 12349) & 0x7fffffffffffffffL) % 1000000;
+    }
+
+    public Page nextBuild(int numberOfRows, int start, int step, Page usePage, BlockDecoder tempContents) {
+	if (usePage != null) {
+	    tempContents.decodeBlock(usePage.getBlock(0), null);
+	    long[] k1 = tempContents.longs;
+	    tempContents.decodeBlock(usePage.getBlock(1), null);
+	    long[] k2 = tempContents.longs;
+	    tempContents.decodeBlock(usePage.getBlock(2), null);
+	    long[] d1 = tempContents.longs;
+	    for (int i  = 0; i  < numberOfRows; ++i) {
+		k1[i] = key1(i + start);
+		k2[i] = key2(i + start);
+		d1[i] = 1 + (i % 10);
+	    }
+	    return usePage;
+	}	    
+	LongArrayBlockBuilder k1 = new LongArrayBlockBuilder(null, numberOfRows);
+	LongArrayBlockBuilder k2 = new LongArrayBlockBuilder(null, numberOfRows);
+	LongArrayBlockBuilder d1 = new LongArrayBlockBuilder(null, numberOfRows);
+	    for (int i  = 0; i  < numberOfRows; ++i) {
+		k1.writeLong(key1(i + start));
+		k2.writeLong(key2(i + start));
+		d1.writeLong(1 + (i % 10));
+	    }
+
+	    return new Page(numberOfRows, k1.build(), k2.build(), d1.build());
+    }
+
+    static class ProbeState {
+	long pos = 0;
+	int step = 1;
+	long mod;
+
+	ProbeState(int mod)
+	{
+	    this.mod = mod;
+	}
+	public long next() {
+	    long value = pos;
+	    pos += step;
+	    ++step;
+	    if (step == mod) {
+		pos = 0;
+		step = 1;
+	    }
+	    return value & (mod - 1);
+	}
+    }
+    
+    
+    public Page nextProbe(int numberOfRows, int scale, int start, Page usePage, BlockDecoder tempContents, ProbeState state)
+    {
+	if (usePage != null) {
+	    tempContents.decodeBlock(usePage.getBlock(0), null);
+	    long[] k1 = tempContents.longs;
+	    tempContents.decodeBlock(usePage.getBlock(1), null);
+	    long[] k2 = tempContents.longs;
+	    tempContents.decodeBlock(usePage.getBlock(2), null);
+	    long[] d1 = tempContents.longs;
+	    for (int i  = 0; i  < numberOfRows; ++i) {
+		long r = state.next();
+		k1[i] = key1(r);
+		k2[i] = key2(r);
+		d1[i] = 1 + (r % 10);
+	    }
+	    return usePage;
+	}	    
+	LongArrayBlockBuilder k1 = new LongArrayBlockBuilder(null, numberOfRows);
+	LongArrayBlockBuilder k2 = new LongArrayBlockBuilder(null, numberOfRows);
+	LongArrayBlockBuilder d1 = new LongArrayBlockBuilder(null, numberOfRows);
+	    for (int i  = 0; i  < numberOfRows; ++i) {
+		long r = state.next();
+		k1.writeLong(key1(r));
+		k2.writeLong(key2(r));
+		d1.writeLong(1 + (r % 10));
+	    }
+
+
+        return new Page(numberOfRows, k1.build(), k2.build(), d1.build());
+    }
+
+
+    
+    int testRun(int buildSize, int probeSize, int pageSize, boolean reusePages)
+        {
+	int rows = 0;
+	Page buildPage = null;
+	Page probePage = null;
+	BlockDecoder contents = new BlockDecoder();
+	HashBuild build = new HashBuild();
+        if (useBloomFilter && buildSize < probeSize) {
+            build.makeBloomFilter = true;
+}
+        long start = System.currentTimeMillis();
+	for(int i = 0; i < buildSize; i += pageSize) { 
+	    buildPage = nextBuild(pageSize, i, 1, buildPage, contents);
+	    build.addInput(buildPage);
+	    if (!reusePages) {
+		buildPage = null;
+	    }
+	}
+	build.build();
+        long buildTime = System.currentTimeMillis() - start;
+	HashProbe probe = new HashProbe(build.table, reusePages);
+	ProbeState state = new ProbeState(probeSize);
+        start = System.currentTimeMillis();
+	for (int i = 0; i < probeSize; i += pageSize) {
+	    probePage = nextProbe(pageSize, buildSize, i, probePage, contents, state);
+	    probe.addInput(probePage);
+	    Page result;
+	    while ((result = probe.getOutput()) != null) {
+		rows += result.getPositionCount();
+	    }
+	    if (!reusePages) {
+		probePage = null;
+	    }
+	}
+        long probeTime = System.currentTimeMillis() - start;
+        probe.table.release();
+        if (!silent) {
+            System.out.println(reusePages ? "Page reuse" : "new Pages");
+            System.out.println("Build " + buildSize + ": " + buildTime + " ms");
+            System.out.println("Probe " + probeSize + ": " + probeTime + " ms " + rows + " hits" + (probe.table.bloomFilterSize != 0 ? " Bloom" : ""));
+}
+	return rows;
+    }
+
+    public static class BuildContext
+    {
+        protected static final int ROWS_PER_PAGE = 1024;
+        protected static final int BUILD_ROWS_NUMBER = 8_000_000;
+
+        protected String hashColumns = "bigint";
+
+        protected boolean buildHashEnabled = false;
+
+        protected int buildRowsRepetition = 1;
+
+        protected ExecutorService executor;
+        protected ScheduledExecutorService scheduledExecutor;
+        protected List<Page> buildPages;
+        protected OptionalInt hashChannel;
+        protected List<Type> types;
+        protected List<Integer> hashChannels;
+
+        public void setup(int buildSize)
+        {
+            switch (hashColumns) {
+                case "varchar":
+                    hashChannels = Ints.asList(0);
+                    break;
+                case "bigint":
+                    hashChannels = Ints.asList(0, 1);
+                    break;
+                case "all":
+                    hashChannels = Ints.asList(0, 1, 2);
+                    break;
+                default:
+                    throw new UnsupportedOperationException(format("Unknown hashColumns value [%s]", hashColumns));
+            }
+            executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
+            scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+
+            initializeBuildPages();
+        }
+
+        public TaskContext createTaskContext()
+        {
+            return TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(2, GIGABYTE));
+        }
+
+        public OptionalInt getHashChannel()
+        {
+            return hashChannel;
+        }
+
+        public List<Integer> getHashChannels()
+        {
+            return hashChannels;
+        }
+
+        public List<Type> getTypes()
+        {
+            return types;
+        }
+
+        public List<Page> getBuildPages()
+        {
+            return buildPages;
+        }
+
+        protected void initializeBuildPages()
+        {
+            types = Arrays.asList(BIGINT, BIGINT, BIGINT);
+            hashChannel = OptionalInt.empty();
+        }
+    }
+
+    public static class JoinContext
+            extends BuildContext
+    {
+        protected static final int PROBE_ROWS_NUMBER = 1_400_000;
+
+        protected double matchRate = 1;
+
+        protected String outputColumns = "bigint";
+
+        protected List<Page> probePages;
+        protected List<Integer> outputChannels;
+
+        protected JoinBridgeManager<LookupSourceFactory> lookupSourceFactory;
+
+        @Override
+        public void setup(int buildSize)
+        {
+            super.setup(buildSize);
+
+            switch (outputColumns) {
+                case "varchar":
+                    outputChannels = Ints.asList(0);
+                    break;
+                case "bigint":
+                    outputChannels = Ints.asList(2);
+                    break;
+                case "all":
+                    outputChannels = Ints.asList(0, 1, 2);
+                    break;
+                default:
+                    throw new UnsupportedOperationException(format("Unknown outputColumns value [%s]", hashColumns));
+            }
+
+            lookupSourceFactory = new TestHash().benchmarkBuildHash(this, outputChannels, buildSize);
+        }
+
+        public JoinBridgeManager<LookupSourceFactory> getLookupSourceFactory()
+        {
+            return lookupSourceFactory;
+        }
+
+        public List<Integer> getOutputChannels()
+        {
+            return outputChannels;
+        }
+
+    }
+
+    public JoinBridgeManager<LookupSourceFactory> benchmarkBuildHash(BuildContext buildContext, int buildSize)
+    {
+        return benchmarkBuildHash(buildContext, ImmutableList.of(0, 1, 2), buildSize);
+    }
+
+    private JoinBridgeManager<LookupSourceFactory> benchmarkBuildHash(BuildContext buildContext, List<Integer> outputChannels, int buildSize)
+    {
+        DriverContext driverContext = buildContext.createTaskContext().addPipelineContext(0, true, true, false).addDriverContext();
+
+        JoinBridgeManager<LookupSourceFactory> lookupSourceFactoryManager = JoinBridgeManager.lookupAllAtOnce(new PartitionedLookupSourceFactory(
+                buildContext.getTypes(),
+                outputChannels.stream()
+                        .map(buildContext.getTypes()::get)
+                        .collect(toImmutableList()),
+                buildContext.getHashChannels().stream()
+                        .map(buildContext.getTypes()::get)
+                        .collect(toImmutableList()),
+                1,
+                requireNonNull(ImmutableMap.of(), "layout is null"),
+                false));
+        HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
+                HASH_BUILD_OPERATOR_ID,
+                TEST_PLAN_NODE_ID,
+                lookupSourceFactoryManager,
+                outputChannels,
+                buildContext.getHashChannels(),
+                buildContext.getHashChannel(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(),
+                10_000,
+                new PagesIndex.TestingFactory(false),
+                false,
+                SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory());
+
+        Operator operator = hashBuilderOperatorFactory.createOperator(driverContext);
+        for (int i = 0; i < buildSize; i += 1024) {
+	    Page buildPage = nextBuild(1024, i, 1, null, null);
+            operator.addInput(buildPage);
+        }
+        operator.finish();
+
+        LookupSourceFactory lookupSourceFactory = lookupSourceFactoryManager.getJoinBridge(Lifespan.taskWide());
+        ListenableFuture<LookupSourceProvider> lookupSourceProvider = lookupSourceFactory.createLookupSourceProvider();
+        if (!lookupSourceProvider.isDone()) {
+            throw new AssertionError("Expected lookup source provider to be ready");
+        }
+        getFutureValue(lookupSourceProvider).close();
+
+        return lookupSourceFactoryManager;
+    }
+
+    public int benchmarkJoinHash(JoinContext joinContext, int buildSize, int probeSize)
+    {
+        int numResults = 0;
+        int numProbe = 0;
+        ProbeState state = new ProbeState(probeSize);
+        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.innerJoin(
+                HASH_JOIN_OPERATOR_ID,
+                TEST_PLAN_NODE_ID,
+                joinContext.getLookupSourceFactory(),
+                joinContext.getTypes(),
+                joinContext.getHashChannels(),
+                joinContext.getHashChannel(),
+                Optional.of(joinContext.getOutputChannels()),
+                OptionalInt.empty(),
+                unsupportedPartitioningSpillerFactory());
+
+        DriverContext driverContext = joinContext.createTaskContext().addPipelineContext(0, true, true, false).addDriverContext();
+        Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
+
+
+        boolean finishing = false;
+        for (int loops = 0; !joinOperator.isFinished() ; loops++) {
+            if (joinOperator.needsInput()) {
+                if (numProbe < probeSize) {
+                    Page inputPage = nextProbe(1024, buildSize, numProbe, null, null, state);
+                        numProbe += inputPage.getPositionCount();
+                    joinOperator.addInput(inputPage);
+                }
+                else if (!finishing) {
+                    joinOperator.finish();
+                    finishing = true;
+                }
+            }
+
+            Page outputPage = joinOperator.getOutput();
+            if (outputPage != null) {
+                numResults += outputPage.getPositionCount();
+            }
+        }
+
+        return numResults;
+    }
+    
+    int testRunPresto(int buildSize, int probeSize, int pageSize, boolean reusePages)
+    {
+        JoinContext joinContext = new JoinContext();
+        long start = System.currentTimeMillis();
+        joinContext.setup(buildSize);
+       long buildTime = System.currentTimeMillis() - start;
+       start = System.currentTimeMillis();
+       int rows = benchmarkJoinHash(joinContext, buildSize, probeSize);
+        long probeTime = System.currentTimeMillis() - start;
+        if (!silent) {
+            System.out.println("Presto " + (reusePages ? "Page reuse" : "new Pages"));
+            System.out.println("Build " + buildSize + ": " + buildTime + " ms");
+            System.out.println("Probe " + probeSize + ": " + probeTime + " ms " + rows + " hits");
+        }
+	return rows;
+        }
+
+    
+    public static class TestThread extends Thread {
+        int probeSize;
+        int buildSize;
+	int repeats;
+        boolean reusePages;
+        
+	TestThread(int buildSize, int probeSize, int repeats, boolean reusePages) {
+            this.buildSize = buildSize;
+            this.probeSize = probeSize;
+            this.repeats = repeats;
+            this.reusePages = reusePages;
+	}
+
+	public void run() {
+            for (int i = 0; i < repeats; ++i) {
+                TestHash self = new TestHash();
+                if (usePrestoOps) {
+                    self.testRunPresto(buildSize, probeSize, 1024, reusePages);
+                }
+                else {
+                        self.testRun(buildSize, probeSize, 1024, reusePages);
+                }
+            }
+	}
+    }
+
+    
+static void runThreads (String title, int  buildSize, int  probeSize, int numThreads, int repeats, boolean reusePages)
+        throws InterruptedException
+    {
+        Thread[] threads = new Thread[numThreads];
+        long start = System.currentTimeMillis();
+        for (int ctr = 0; ctr < numThreads; ++ctr) {
+            threads[ctr] = new TestThread(buildSize, probeSize, repeats, reusePages);
+            threads[ctr].start();
+        }
+        for (int ctr = 0; ctr < numThreads; ++ctr) {
+            threads[ctr].join();
+        }
+        if (usePrestoOps) {
+            title = "Presto " + title;
+        }
+        long end = System.currentTimeMillis();
+        System.out.println("=== " + title + numThreads + " threads " + (reusePages ? " page reuse " : " new pages ") + " build " + buildSize + " probe " + probeSize + " threads " + (end - start) + " ms");
+    }
+    
+    public static void main(String args[])
+        throws InterruptedException
+  {
+      TestHash self = new TestHash();
+      self.testRunPresto(16 * 1024, 16 * 1024, 1024, false); 
+      self.testRunPresto(16 * 1024, 16 * 1024, 1024, false); 
+      self.testRun(16 * 1024, 16 * 1024, 1024, false); 
+      self.testRun(16 * 1024, 16 * 1024, 1024, false); 
+      self.testRunPresto(8 * 1024 * 1024, 8 * 1024 * 1024, 1024, false);
+      self.testRun(8 * 1024 * 1024, 8 * 1024 * 1024, 1024, false);
+      self.testRunPresto(32 * 1024 * 1024, 32 * 1024 * 1024, 1024, false);
+      usePrestoOps = true;
+      runThreads("Large table ", 32 * 1024 * 1024,  32 * 1024 * 1024, 16, 10, false);
+
+
+
+
+      #if 0
+          silent = true;
+      runThreads("Small table warmup", 16 * 1024,  16 * 1024, 1, 11000, true);
+      usePrestoOps = false;
+      runThreads("Small table warmup", 16 * 1024,  16 * 1024, 1, 11000, true);
+      silent = false;
+      System.out.println("Hash test " + LABEL + (recycleTable ? " recycling hash table " : "no recycle"));
+      self.testRun(8 * 1024 * 1024, 1024 * 1024, 1024, true);
+      self.testRun(1024 * 1024, 1024 * 1024, 1024, true);
+      self.testRun(1024 * 1024, 1024 * 1024, 1024, false);
+      //System.out.println("Press enter");
+      //System.console().readLine();
+
+      System.out.println("Selective hash join");
+      useBloomFilter = false;
+      self.testRun(16 * 1024, 16 * 1024 * 1024, 1024, true);
+      self.testRun(8 * 1024 * 1024, 64 * 1024 * 1024, 1024, true);
+      useBloomFilter = true;
+      self.testRun(16 * 1024, 16 * 1024 * 1024, 1024, true);
+      self.testRun(8 * 1024 * 1024, 64 * 1024 * 1024, 1024, true);
+
+      System.out.println("1:1 hash joins");
+      self.testRun(8 * 1024 * 1024, 8 * 1024 * 1024, 1024, true);
+      self.testRun(8 * 1024 * 1024, 8 * 1024 * 1024, 1024, false);
+      recycleTable = false;
+      boolean reusePages = false;
+      clearAllocCache();
+      System.out.println("Hash test " + LABEL + (recycleTable ? " recycling hash table " : "no recycle"));
+      silent = true;
+      runThreads("Small table", 16 * 1024,  16 * 1024, 1, 2048 * 10, reusePages);
+      runThreads("Small table", 16 * 1024,  16 * 1024, 16, 2048 * 10, reusePages);
+      silent = false;
+      System.out.println("Single thread, large table");
+      self.testRun(32 * 1024 * 1024,  32 * 1024 * 1024, 1024, reusePages);
+      runThreads("Large table ", 32 * 1024 * 1024,  32 * 1024 * 1024, 16, 10, reusePages);
+      recycleTable = true;
+      System.out.println("Recycle table, new pages");
+      runThreads("Large table ", 32 * 1024 * 1024,  32 * 1024 * 1024, 16, 10, reusePages);
+      reusePages = true;
+      System.out.println("Hash test " + LABEL + (recycleTable ? " recycling hash table " : "no recycle"));
+      silent = true;
+      runThreads("Small table", 16 * 1024,  16 * 1024, 1, 2048 * 10, reusePages);
+      runThreads("Small table", 16 * 1024,  16 * 1024, 16, 2048 * 10, reusePages);
+      silent = false;
+      System.out.println("Single thread, large table");
+      self.testRun(32 * 1024 * 1024,  32 * 1024 * 1024, 1024, reusePages);
+      runThreads("Large table ", 32 * 1024 * 1024,  32 * 1024 * 1024, 16, 10, reusePages);
+#endif
+  }    
+    
+}
+
+
+    

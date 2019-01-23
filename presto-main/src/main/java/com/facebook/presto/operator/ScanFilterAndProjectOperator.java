@@ -13,16 +13,22 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.CursorProcessorOutput;
+import com.facebook.presto.operator.project.DictionaryAwarePageFilter;
 import com.facebook.presto.operator.project.MergingPageOutput;
+import com.facebook.presto.operator.project.PageFilter;
 import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.operator.project.SelectedPositions;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.PageSourceOptions;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.UpdatablePageSource;
@@ -41,6 +47,7 @@ import io.airlift.units.DataSize;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -77,6 +84,9 @@ public class ScanFilterAndProjectOperator
 
     private long completedBytes;
     private long readTimeNanos;
+
+    private boolean filterAndProjectPushedDown;
+    private boolean reusePages;
 
     protected ScanFilterAndProjectOperator(
             OperatorContext operatorContext,
@@ -210,6 +220,68 @@ public class ScanFilterAndProjectOperator
         throw new UnsupportedOperationException();
     }
 
+    private static class FilterExpression
+            extends PageSourceOptions.FilterFunction
+    {
+        final ConnectorSession session;
+        final PageFilter filter;
+
+        FilterExpression(ConnectorSession session, PageFilter filter)
+        {
+            super(filter.getInputChannels().getInputChannels().stream().mapToInt(Integer::intValue).toArray(), 1);
+            this.session = session;
+            this.filter = filter;
+        }
+
+        @Override
+        public int filter(Page page, int[] outputRows, PageSourceOptions.ErrorSet errorSet)
+        {
+            int positionCount = page.getPositionCount();
+            if (outputRows.length < positionCount) {
+                throw new IllegalArgumentException("outputRows too small");
+            }
+            try {
+                SelectedPositions positions = filter.filter(session, page);
+                int offset = positions.getOffset();
+                int size = positions.size();
+                if (!positions.isList()) {
+                    for (int i = 0; i < size; i++) {
+                        outputRows[i] = i + offset;
+                    }
+                }
+                else {
+                    int[] positionsArray = positions.getPositions();
+                    for (int i = 0; i < size; i++) {
+                        outputRows[i] = positionsArray[i] + offset;
+                    }
+                }
+                return size;
+            }
+            catch (Exception e) {
+                /* Ignore the errirm try next row by row and track errors */
+            }
+
+            PageFilter rowFilter = filter;
+            if (filter instanceof DictionaryAwarePageFilter) {
+                DictionaryAwarePageFilter dictionaryFilter = (DictionaryAwarePageFilter) filter;
+                rowFilter = dictionaryFilter.getFilter();
+            }
+            int numTrue = 0;
+            for (int i = 0; i < positionCount; i++) {
+                try {
+                    if (rowFilter.filter(session, page, i)) {
+                        outputRows[numTrue++] = i;
+                    }
+                }
+                catch (Exception e) {
+                    outputRows[numTrue++] = i;
+                    errorSet.addError(i, positionCount, e);
+                }
+            }
+            return numTrue;
+        }
+    }
+
     @Override
     public Page getOutput()
     {
@@ -224,9 +296,9 @@ public class ScanFilterAndProjectOperator
             }
             else {
                 pageSource = source;
+                setupAria();
             }
         }
-
         if (pageSource != null) {
             return processPageSource();
         }
@@ -235,7 +307,81 @@ public class ScanFilterAndProjectOperator
         }
     }
 
-    private Page processColumnSource()
+    private void setupAria()
+    {
+        boolean enableAria = SystemSessionProperties.enableAria(operatorContext.getSession());
+        if (enableAria) {
+            int[] projectionPushdownChannels = pageProcessor.getIdentityInputToOutputChannel();
+            boolean projectionPushedDown = projectionPushdownChannels != null;
+            int[] projectionInputChannels = pageProcessor.getOutputChannels();
+            int maxChannel = -1;
+            for (int channel : projectionInputChannels) {
+                maxChannel = Math.max(maxChannel, channel);
+            }
+            int[] channels = new int[maxChannel + 1];
+            Arrays.fill(channels, -1);
+            for (int channel : projectionInputChannels) {
+                channels[channel] = channel;
+            }
+            FilterExpression[] filters = null;
+            List<PageFilter> pageFilters = pageProcessor.getFilterWithoutTupleDomain();
+            if (pageFilters != null && !pageFilters.isEmpty()) {
+                filters = new FilterExpression[pageFilters.size()];
+                for (int i = 0; i < pageFilters.size(); i++) {
+                    filters[i] = new FilterExpression(operatorContext.getSession().toConnectorSession(), pageFilters.get(i));
+                    channels = addFilterChannels(filters[i], channels);
+                }
+            }
+            boolean reorderFilters = SystemSessionProperties.ariaReorderFilters(operatorContext.getSession());
+            int ariaFlags = SystemSessionProperties.ariaFlags(operatorContext.getSession());
+            PageSourceOptions options = new PageSourceOptions(channels,
+                                                              projectionPushdownChannels,
+                                                              reusePages,
+                                                              filters,
+                                                              reorderFilters,
+                                                              mergingOutput.getMinPageSizeInBytes(),
+                                                              ariaFlags);
+            boolean filterPushedDown = pageSource.pushdownFilterAndProjection(options);
+            if (filterPushedDown && projectionPushedDown) {
+                filterAndProjectPushedDown = true;
+            }
+            else if (filterPushedDown && !projectionPushedDown) {
+                pageProcessor.setFilterIsPushedDown();
+            }
+        }
+    }
+
+    int[] addFilterChannels(FilterExpression filter, int[] channels)
+    {
+        int[] filterInputs = filter.getInputChannels();
+        for (int i = 0; i < filterInputs.length; i++) {
+            int channel = filterInputs[i];
+            if (channels.length <= channel) {
+                // The channel is to the right of the last projected one. Resize channels and pad with -1.
+                int prevLength = channels.length;
+                channels = Arrays.copyOf(channels, channel + 1);
+                for (int newIdx = prevLength; newIdx < channels.length; newIdx++) {
+                    channels[newIdx] = -1;
+                }
+            }
+            if (channels[channel] == -1) {
+                channels[channel] = channel;
+            }
+        }
+        return channels;
+    }
+
+    private static int indexOf(int[] array, int element)
+    {
+        for (int i = 0; i < array.length; i++) {
+            if (array[i] == element) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+        private Page processColumnSource()
     {
         DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
         if (!finishing && !yieldSignal.isSet()) {
@@ -283,6 +429,9 @@ public class ScanFilterAndProjectOperator
                 operatorContext.recordRawInputWithTiming(endCompletedBytes - completedBytes, endReadTimeNanos - readTimeNanos);
                 completedBytes = endCompletedBytes;
                 readTimeNanos = endReadTimeNanos;
+                if (filterAndProjectPushedDown) {
+                    return page;
+                }
 
                 Iterator<Optional<Page>> output = pageProcessor.process(operatorContext.getSession().toConnectorSession(), yieldSignal, pageProcessorMemoryContext, page);
                 mergingOutput.addInput(output);
@@ -387,5 +536,17 @@ public class ScanFilterAndProjectOperator
         {
             closed = true;
         }
+    }
+
+    @Override
+    public boolean retainsInputPages()
+    {
+        return false;
+    }
+
+    @Override
+    public void enableOutputPageReuse()
+    {
+        reusePages = true;
     }
 }

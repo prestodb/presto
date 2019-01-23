@@ -152,4 +152,9 @@ public class FilterAndProjectOperator
             return new FilterAndProjectOperatorFactory(operatorId, planNodeId, processor, types, minOutputPageSize, minOutputPageRowCount);
         }
     }
+
+    public boolean retainsInputPages()
+    {
+        return false;
+    }
 }

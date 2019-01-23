@@ -162,6 +162,10 @@ public interface Block
      */
     int getPositionCount();
 
+        default void setPositionCount(int newPositionCount) {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
+
     /**
      * Returns the size of this block as if it was compacted, ignoring any over-allocations.
      * For example, in dictionary blocks, this only counts each dictionary entry once,
@@ -295,4 +299,31 @@ public interface Block
     {
         return this;
     }
+
+    /* Initializes @code contents to reference the values of the block.
+     * @code contents will point to null indicators, and value arrays or
+     * Slice/offsets, depending on the block.
+     * This is defined only for blocks that directly hold data, e.g. are not
+     * Dictionaries or RunLengthEncodedBlocks. This is used when flattening
+     * dictionaries and run length encodings. */
+    default void getContents(BlockDecoder contents)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
+    default boolean isReusable()
+    {
+        return false;
+    }
+
+    /* Adds the combined size of elements offsets[i] ... offsets[i +
+     * 1] to sizes[i]. offsets can be null, in which case the function
+     * works as if offsets were {0, 1, ... positionCount}. This adds
+     * the pairwise corresponding element's size to each element in
+     * sizes[].*/
+    default void addElementSizes(int offsets[], int[] sizes, IntArrayAllocator intArrayAllocator)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
 }
+
+

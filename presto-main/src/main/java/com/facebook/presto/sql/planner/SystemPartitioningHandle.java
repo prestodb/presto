@@ -24,6 +24,7 @@ import com.facebook.presto.operator.PrecomputedHashGenerator;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.block.BlockDecoder;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -274,6 +275,12 @@ public final class SystemPartitioningHandle
             public int getBucket(Page page, int position)
             {
                 return generator.getPartition(bucketCount, position, page);
+            }
+
+            @Override
+            public void getBuckets(int partitionCount, Page page, BlockDecoder decoder, int[] partitionsOut)
+            {
+                generator.getPartitions(partitionCount, page, decoder, partitionsOut);
             }
 
             @Override
