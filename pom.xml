@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.216-SNAPSHOT</version>
+    <version>0.216</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -30,7 +30,7 @@
     <scm>
         <connection>scm:git:git://github.com/facebook/presto.git</connection>
         <url>https://github.com/facebook/presto</url>
-        <tag>HEAD</tag>
+        <tag>0.216</tag>
     </scm>
 
     <properties>
