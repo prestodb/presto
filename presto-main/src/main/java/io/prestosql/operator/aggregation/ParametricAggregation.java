@@ -50,8 +50,8 @@ import static java.util.Objects.requireNonNull;
 public class ParametricAggregation
         extends SqlAggregationFunction
 {
-    final AggregationHeader details;
-    final ParametricImplementationsGroup<AggregationImplementation> implementations;
+    private final AggregationHeader details;
+    private final ParametricImplementationsGroup<AggregationImplementation> implementations;
 
     public ParametricAggregation(
             Signature signature,
