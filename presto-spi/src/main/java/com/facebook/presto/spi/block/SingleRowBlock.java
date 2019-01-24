@@ -16,7 +16,7 @@ package com.facebook.presto.spi.block;
 
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.function.BiConsumer;
+import java.util.function.ObjLongConsumer;
 
 import static java.lang.String.format;
 
@@ -71,7 +71,7 @@ public class SingleRowBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         for (Block fieldBlock : fieldBlocks) {
             consumer.accept(fieldBlock, fieldBlock.getRetainedSizeInBytes());

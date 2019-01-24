@@ -18,7 +18,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.function.BiConsumer;
+import java.util.function.ObjLongConsumer;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -194,7 +194,7 @@ public class GroupByIdBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(block, block.getRetainedSizeInBytes());
         consumer.accept(this, (long) INSTANCE_SIZE);
