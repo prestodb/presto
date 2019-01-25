@@ -98,7 +98,7 @@ public class PhoenixClient
             List<PhoenixColumnHandle> columnHandles)
             throws SQLException, IOException, InterruptedException
     {
-        return new QueryBuilder().buildSql(
+        return QueryBuilder.buildSql(
                 connection,
                 catalogName,
                 schemaName,

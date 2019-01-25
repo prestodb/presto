@@ -47,10 +47,20 @@ public class TestPhoenixDistributedQueries
         // Phoenix does not support renaming columns
     }
 
-    @Override
-    public void testDelete()
+    @Test
+    public void testDeleteCompoundPk()
     {
-        // Deletes are not supported by the connector
+        assertUpdate("CREATE TABLE test_delete_compound_pk  (pk1 bigint, pk2 varchar, val1 varchar) WITH (ROWKEYS='pk1,pk2')");
+
+        assertUpdate("INSERT INTO test_delete_compound_pk VALUES (1, 'pkVal1', 'val1')", 1);
+        assertUpdate("INSERT INTO test_delete_compound_pk VALUES (2, 'pkVal2', 'val2')", 1);
+        assertUpdate("INSERT INTO test_delete_compound_pk VALUES (3, 'pkVal3', 'val3')", 1);
+
+        assertUpdate("DELETE FROM test_delete_compound_pk where val1 = 'val2'", 1);
+        assertQuery("SELECT count(*) FROM test_delete_compound_pk where val1 = 'val2'", "SELECT 0");
+
+        assertUpdate("DELETE FROM test_delete_compound_pk where pk1 = 3 AND pk2 = 'pkVal3'", 1);
+        assertQuery("SELECT pk1 from test_delete_compound_pk", "SELECT 1");
     }
 
     @Test

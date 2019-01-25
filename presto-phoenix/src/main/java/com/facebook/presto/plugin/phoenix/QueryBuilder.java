@@ -52,7 +52,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.plugin.phoenix.PhoenixMetadata.decomposePkColumn;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
@@ -69,46 +71,22 @@ import static org.joda.time.DateTimeZone.UTC;
 
 public class QueryBuilder
 {
-    private static class TypeAndValue
-    {
-        private final Type type;
-        private final Object value;
-
-        public TypeAndValue(Type type, Object value)
-        {
-            this.type = requireNonNull(type, "type is null");
-            this.value = requireNonNull(value, "value is null");
-        }
-
-        public Type getType()
-        {
-            return type;
-        }
-
-        public Object getValue()
-        {
-            return value;
-        }
-    }
-
-    public QueryBuilder()
+    private QueryBuilder()
     {
     }
-
-    public String buildSql(PhoenixConnection connection, String catalog, String schema, String table, Optional<Set<ColumnHandle>> desiredColumns, List<PhoenixColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain)
+    public static String buildSql(PhoenixConnection connection, String catalog, String schema, String table, Optional<Set<ColumnHandle>> desiredColumns,
+            List<PhoenixColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain)
             throws SQLException
     {
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT ");
+        StringBuilder sql = new StringBuilder().append("SELECT ");
         if (desiredColumns.isPresent() && !desiredColumns.get().isEmpty()) {
-            String columnNames = desiredColumns.get().stream().map(ch -> ((PhoenixColumnHandle) ch).getColumnName()).collect(joining(", "));
+            List<PhoenixColumnHandle> desiredPCols = desiredColumns.get().stream().map(ch -> (PhoenixColumnHandle) ch).collect(Collectors.toList());
+            String columnNames = decomposePkColumn(desiredPCols).stream().map(PhoenixColumnHandle::getColumnName).collect(joining(", "));
             sql.append(columnNames);
         }
         else {
-            String columnNames = columns.stream()
-                    .map(PhoenixColumnHandle::getColumnName)
-                    .collect(joining(", "));
-
+            String columnNames =
+                    decomposePkColumn(columns).stream().map(PhoenixColumnHandle::getColumnName).collect(joining(", "));
             sql.append(columnNames);
             if (columns.isEmpty()) {
                 sql.append("null");
@@ -213,7 +191,7 @@ public class QueryBuilder
                 validType instanceof DecimalType;
     }
 
-    private List<String> toConjuncts(List<PhoenixColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain, List<TypeAndValue> accumulator)
+    private static List<String> toConjuncts(List<PhoenixColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain, List<TypeAndValue> accumulator)
     {
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (PhoenixColumnHandle column : columns) {
@@ -228,7 +206,7 @@ public class QueryBuilder
         return builder.build();
     }
 
-    private String toPredicate(String columnName, Domain domain, Type type, List<TypeAndValue> accumulator)
+    private static String toPredicate(String columnName, Domain domain, Type type, List<TypeAndValue> accumulator)
     {
         checkArgument(domain.getType().isOrderable(), "Domain type must be orderable");
 
@@ -304,7 +282,7 @@ public class QueryBuilder
         return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
     }
 
-    private String toPredicate(String columnName, String operator, Object value, Type type, List<TypeAndValue> accumulator)
+    private static String toPredicate(String columnName, String operator, Object value, Type type, List<TypeAndValue> accumulator)
     {
         bindValue(value, type, accumulator);
         return columnName + " " + operator + " ?";
@@ -354,6 +332,28 @@ public class QueryBuilder
             else {
                 return parameter.toString();
             }
+        }
+    }
+
+    private static class TypeAndValue
+    {
+        private final Type type;
+        private final Object value;
+
+        public TypeAndValue(Type type, Object value)
+        {
+            this.type = requireNonNull(type, "type is null");
+            this.value = requireNonNull(value, "value is null");
+        }
+
+        public Type getType()
+        {
+            return type;
+        }
+
+        public Object getValue()
+        {
+            return value;
         }
     }
 }

@@ -41,8 +41,14 @@ public class PhoenixPageSourceProvider
     @Override
     public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
+        List<PhoenixColumnHandle> phoenixCols = columns.stream().map(column -> (PhoenixColumnHandle) column).collect(Collectors.toList());
+        if (PhoenixMetadata.getPkHandle(phoenixCols).isPresent()) {
+            return new PhoenixUpdatablePageSource(phoenixClient,
+                    (PhoenixSplit) split,
+                    phoenixCols);
+        }
         return new PhoenixPageSource(phoenixClient,
                 (PhoenixSplit) split,
-                columns.stream().map(column -> (PhoenixColumnHandle) column).collect(Collectors.toList()));
+                phoenixCols);
     }
 }

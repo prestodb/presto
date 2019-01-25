@@ -17,9 +17,14 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.RowBlockBuilder;
+import com.facebook.presto.spi.block.SingleRowBlockWriter;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.RealType;
+import com.facebook.presto.spi.type.RowType;
+import com.facebook.presto.spi.type.RowType.Field;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
@@ -75,7 +80,6 @@ public class PhoenixPageSource
 {
     private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstanceUTC();
     private static final int ROWS_PER_REQUEST = 4096;
-
     private final List<String> columnNames;
     private final List<Type> columnTypes;
     private final PageBuilder pageBuilder;
@@ -125,33 +129,6 @@ public class PhoenixPageSource
         return reader;
     }
 
-    private static class PhoenixDBWritable
-            implements DBWritable
-    {
-        private PhoenixResultSet resultSet;
-
-        @Override
-        public void readFields(ResultSet rs)
-                throws SQLException
-        {
-            if (this.resultSet == null) {
-                this.resultSet = (PhoenixResultSet) rs;
-            }
-        }
-
-        @Override
-        public void write(PreparedStatement arg0)
-                throws SQLException
-        {
-            throw new SQLException("Not implemented");
-        }
-
-        public PhoenixResultSet getPhoenixResultSet()
-        {
-            return resultSet;
-        }
-    }
-
     @Override
     public long getCompletedBytes()
     {
@@ -196,11 +173,15 @@ public class PhoenixPageSource
                     for (int column = 0; column < columnTypes.size(); column++) {
                         BlockBuilder output = pageBuilder.getBlockBuilder(column);
                         Type columnType = columnTypes.get(column);
+                        String columnName = columnNames.get(column);
                         if (isArrayType(columnType)) {
-                            writeArrayBlock(output, columnType, resultSet.getArray(columnNames.get(column)));
+                            writeArrayBlock(output, columnType, resultSet.getArray(columnName));
+                        }
+                        else if (PhoenixMetadata.isPkHandle(columnName, columnType)) {
+                            writePkColumns(output, (RowType) columnType);
                         }
                         else {
-                            appendTo(columnType, resultSet.getObject(columnNames.get(column)), output);
+                            appendTo(columnType, resultSet.getObject(columnName), output);
                         }
                     }
                 }
@@ -219,6 +200,21 @@ public class PhoenixPageSource
         pageBuilder.reset();
 
         return page;
+    }
+
+    private void writePkColumns(BlockBuilder output, RowType rowType) throws SQLException
+    {
+        RowBlockBuilder rowBuilder = (RowBlockBuilder) output;
+        List<Field> fields = rowType.getFields();
+        Block[] fieldBlocks = new Block[fields.size()];
+        SingleRowBlockWriter singleRowBlockWriter = rowBuilder.beginBlockEntry();
+        for (int i = 0; i < fieldBlocks.length; i++) {
+            Field field = fields.get(i);
+            Type fieldType = field.getType();
+            Object value = resultSet.getObject(field.getName().get());
+            appendTo(fieldType, value, singleRowBlockWriter);
+        }
+        rowBuilder.closeEntry();
     }
 
     private boolean hasNext()
@@ -379,5 +375,32 @@ public class PhoenixPageSource
             }
         }
         return new RuntimeException(e);
+    }
+
+    private static class PhoenixDBWritable
+            implements DBWritable
+    {
+        private PhoenixResultSet resultSet;
+
+        @Override
+        public void readFields(ResultSet rs)
+                throws SQLException
+        {
+            if (this.resultSet == null) {
+                this.resultSet = (PhoenixResultSet) rs;
+            }
+        }
+
+        @Override
+        public void write(PreparedStatement arg0)
+                throws SQLException
+        {
+            throw new SQLException("Not implemented");
+        }
+
+        public PhoenixResultSet getPhoenixResultSet()
+        {
+            return resultSet;
+        }
     }
 }
