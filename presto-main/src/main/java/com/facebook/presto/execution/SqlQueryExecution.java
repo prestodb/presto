@@ -204,7 +204,14 @@ public class SqlQueryExecution
                     Optional.of(queryExplainer),
                     preparedQuery.getParameters(),
                     warningCollector);
-            this.analysis = analyzer.analyze(preparedQuery.getStatement());
+
+            try {
+                this.analysis = analyzer.analyze(preparedQuery.getStatement());
+            }
+            catch (RuntimeException e) {
+                stateMachine.transitionToFailed(e);
+                throw e;
+            }
 
             stateMachine.setUpdateType(analysis.getUpdateType());
 
