@@ -52,7 +52,7 @@ public class ThriftMetastoreModule
                     .to(RecordingHiveMetastore.class)
                     .in(Scopes.SINGLETON);
             binder.bind(RecordingHiveMetastore.class).in(Scopes.SINGLETON);
-            newExporter(binder).export(RecordingHiveMetastore.class);
+            newExporter(binder).export(RecordingHiveMetastore.class).withGeneratedName();
 
             Multibinder<Procedure> procedures = newSetBinder(binder, Procedure.class);
             procedures.addBinding().toProvider(WriteHiveMetastoreRecordingProcedure.class).in(Scopes.SINGLETON);
