@@ -364,13 +364,6 @@ public class SqlQueryManager
                     preparedQuery,
                     selectionContext.getResourceGroupId(),
                     warningCollectorFactory.create());
-
-            // mark existing transaction as inactive
-            queryExecution.addStateChangeListener(newState -> {
-                if (newState.isDone()) {
-                    queryExecution.getSession().getTransactionId().ifPresent(transactionManager::trySetInactive);
-                }
-            });
         }
         catch (RuntimeException e) {
             // This is intentionally not a method, since after the state change listener is registered
