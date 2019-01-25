@@ -1,0 +1,71 @@
+{
+  "testSuites": [
+    {
+      "name": "tpch-nations",
+      "testSessionPropertyGroups": [
+        {
+          "hash_partition_count": "100",
+          "max_reordered_joins": "5"
+        },
+        {
+          "hash_partition_count": "50",
+          "max_reordered_joins": "5",
+          "task_writer_count": "2"
+        }
+      ],
+      "testSessionPropertyMatrix": {
+        "exchange_compression": [
+          "true",
+          "false"
+        ],
+        "initial_splits_per_node": [
+          "65",
+          "73",
+          "97"
+        ]
+      },
+      "controlSessionProperties": {
+        "query_priority": "3",
+        "distributed_sort": "true",
+        "initial_splits_per_node": "64"
+      },
+      "backupDirectory": "/tmp/backup-tests",
+      "directory": "/tmp/test-driver",
+      "catalog": "tpch",
+      "schema": "tiny",
+      "sql": "SELECT regionkey, histogram(name) FROM nation GROUP BY 1 ORDER BY 1"
+    },
+    {
+      "name": "tpch-lineitem",
+      "testSessionPropertyGroups": [
+        {
+          "hash_partition_count": "100",
+          "max_reordered_joins": "5"
+        },
+        {
+          "hash_partition_count": "50",
+          "max_reordered_joins": "5",
+          "task_writer_count": "2"
+        }
+      ],
+      "testSessionPropertyMatrix": {
+        "exchange_compression": [
+          "true",
+          "false"
+        ],
+        "initial_splits_per_node": [
+          "64",
+          "72",
+          "96"
+        ]
+      },
+      "controlSessionProperties": {
+        "query_priority": "3",
+        "distributed_sort": "true",
+        "initial_splits_per_node": "64"
+      },
+      "directory": "/tmp/test-driver/",
+      "sql": "SELECT orderkey, array_agg(partkey) FROM tpch.tiny.lineitem GROUP BY orderkey ORDER BY 1"
+    }
+  ]
+}

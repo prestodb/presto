@@ -1,0 +1,8 @@
+{
+  "id": 3,
+  "sessionProperties": {
+    "hash_partition_count": "50",
+    "max_reordered_joins": "5",
+    "task_writer_count": "3"
+  }
+}
