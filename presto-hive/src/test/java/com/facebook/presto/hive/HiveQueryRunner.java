@@ -85,7 +85,7 @@ public final class HiveQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            File baseDir = new File("/home/oerling/hmd");
+            File baseDir = new File("/Users/yingsu/hive_data");
 
             HiveClientConfig hiveClientConfig = new HiveClientConfig();
             HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig));

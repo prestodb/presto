@@ -1139,8 +1139,8 @@ public class LocalExecutionPlanner
                 sourceNode = filterNode.getSource();
                 filterExpression = Optional.of(filterNode.getPredicate());
                 Expression temp = filterNode.getPredicateWithoutTupleDomain();
-                if (temp != null && !temp.equals(TRUE_LITERAL)) {
-                    filterExpressionWithoutTupleDomain = Optional.of(temp);
+                if (!TRUE_LITERAL.equals(temp)) {
+                    filterExpressionWithoutTupleDomain = Optional.ofNullable(temp);
                 }
             }
             else {
