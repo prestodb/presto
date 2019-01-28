@@ -25,9 +25,9 @@ import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.OrcInputStream;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.ByteArrayUtils;
 import com.facebook.presto.spi.block.LongArrayBlock;
 import com.facebook.presto.spi.type.Type;
-import io.airlift.slice.ByteArrays;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -261,7 +261,7 @@ public class DoubleStreamReader
                     }
                     double value;
                     if (available >= SIZE_OF_DOUBLE) {
-                        value = ByteArrays.getDouble(inputBuffer, inputOffset);
+                        value = ByteArrayUtils.getDouble(inputBuffer, inputOffset);
                         available -= SIZE_OF_DOUBLE;
                         inputOffset += SIZE_OF_DOUBLE;
                     }

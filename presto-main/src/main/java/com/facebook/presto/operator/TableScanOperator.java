@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageSourceOptions;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.split.EmptySplit;
 import com.facebook.presto.split.EmptySplitPageSource;
@@ -103,6 +105,8 @@ public class TableScanOperator
     private long completedBytes;
     private long readTimeNanos;
 
+    private boolean reusePages;
+    
     public TableScanOperator(
             OperatorContext operatorContext,
             PlanNodeId planNodeId,
@@ -237,8 +241,8 @@ public class TableScanOperator
         }
         if (source == null) {
             source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, columns);
+            setupAria();
         }
-
         Page page = source.getNextPage();
         if (page != null) {
             // assure the page is in memory before handing to another operator
@@ -257,5 +261,38 @@ public class TableScanOperator
         systemMemoryContext.setBytes(source.getSystemMemoryUsage());
 
         return page;
+    }
+
+    private void setupAria()
+    {
+        boolean enableAria = SystemSessionProperties.enableAria(operatorContext.getSession());
+        if (enableAria && !columns.isEmpty()) {
+            int[] channels = new int[columns.size()];
+            for (int i = 0; i < channels.length; i++) {
+                channels[i] = i;
+            }
+            int ariaFlags = SystemSessionProperties.ariaFlags(operatorContext.getSession());
+            PageSourceOptions options = new PageSourceOptions(channels,
+                                                              channels,
+                                                              reusePages,
+                                                              null,
+                                                              false,
+                                                              512 * 1024,
+                                                              ariaFlags);
+            source.pushdownFilterAndProjection(options);
+        }
+    }
+
+
+    @Override
+    public boolean retainsInputPages()
+    {
+        return false;
+    }
+
+    @Override
+    public void enableOutputPageReuse()
+    {
+        reusePages = true;
     }
 }
