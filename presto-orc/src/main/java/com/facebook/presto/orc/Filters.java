@@ -66,6 +66,11 @@ public class Filters
             return lower;
         }
 
+                public long getUpper()
+        {
+            return upper;
+        }
+
         @Override
         public boolean isEquality()
         {
@@ -218,9 +223,12 @@ public class Filters
             if (this.filters[0] instanceof BigintRange) {
                 longLowerBounds = new long[this.filters.length];
                 for (int i = 0; i < this.filters.length; i++) {
-                    longLowerBounds[i] = ((BigintRange) this.filters[i]).getLower();
+                    BigintRange range = (BigintRange) this.filters[i];
+                    longLowerBounds[i] = range.getLower();
+                    if (i > 0 && longLowerBounds[i] < ((BigintRange)this.filters[i - 1]).getUpper()) {
+                        throw new IllegalArgumentException("Bigint filter range set must be in ascending order of lower bound and ranges must be disjoint");
+                    }
                 }
-                Arrays.sort(longLowerBounds);
             }
         }
 

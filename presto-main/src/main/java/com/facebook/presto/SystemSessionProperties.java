@@ -542,7 +542,7 @@ public final class SystemSessionProperties
                         taskManagerConfig.getMaxTasksPerStage(),
                         false),
                 booleanProperty(ARIA,
-                                "Enable Aria Presto! optimizations",
+                                "Enable Aria Presto! scan operator",
                                 true,
                                 false),
                 booleanProperty(ARIA_REUSE_PAGES,
