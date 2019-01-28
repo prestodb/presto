@@ -360,6 +360,10 @@ public class PruneUnreferencedOutputs
 
                 if (context.get().contains(symbol)) {
                     Aggregation aggregation = entry.getValue();
+                    collectSubfieldPaths(aggregation.getCall());
+                    if (pruneSubfields && aggregation.getMask().isPresent()) {
+                        fullColumnUses.add(aggregation.getMask().get());
+                    }
                     expectedInputs.addAll(SymbolsExtractor.extractUnique(aggregation.getCall()));
                     aggregation.getMask().ifPresent(expectedInputs::add);
                     aggregations.put(symbol, aggregation);
@@ -965,6 +969,9 @@ public class PruneUnreferencedOutputs
             // If a result is referenced or is a start of a path, add
             // the unnest source + any subscript as the head of the
             // path.
+            if (!pruneSubfields) {
+                return;
+            }
             ArrayList<SubfieldPath> newPaths = new ArrayList();
             for (Map.Entry<Symbol, List<Symbol>> entry : unnestSymbols.entrySet()) {
                 String source = entry.getKey().getName();
