@@ -15,11 +15,9 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.ConcatenatedByteArrayInputStream;
 import com.facebook.presto.spi.memory.ByteArrayPool;
-import io.airlift.http.client.ByteArrayAllocator;
-
 
 public class ExchangeClientByteArrayAllocator
-    implements io.airlift.http.client.ByteArrayAllocator
+        implements io.airlift.http.client.ByteArrayAllocator
 {
     private ByteArrayPool pool;
 
@@ -46,7 +44,7 @@ public class ExchangeClientByteArrayAllocator
     }
 
     public class PrestoByteArrayAllocator
-        implements  ConcatenatedByteArrayInputStream.Allocator
+            implements ConcatenatedByteArrayInputStream.Allocator
     {
         @Override
         public void free(byte[] bytes)
@@ -54,5 +52,4 @@ public class ExchangeClientByteArrayAllocator
             pool.release(bytes);
         }
     }
-
 }

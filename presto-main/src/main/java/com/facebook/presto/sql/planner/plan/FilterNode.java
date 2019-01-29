@@ -24,6 +24,8 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
+import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+
 @Immutable
 public class FilterNode
         extends PlanNode
@@ -53,7 +55,7 @@ public class FilterNode
 
         this.source = source;
         this.predicate = predicate;
-        this.predicateWithoutTupleDomain = null;
+        this.predicateWithoutTupleDomain = TRUE_LITERAL;
     }
 
     @JsonProperty("predicate")

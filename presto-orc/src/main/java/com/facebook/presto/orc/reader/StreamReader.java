@@ -26,15 +26,13 @@ import java.util.List;
 
 public interface StreamReader
 {
-
     /* Specifies that only fields in subfields will be accessed by the
     enclosing query. Fields not mentioned should be returned as null
     RLEs so as to preserve record layout without materializing the
     data. 'depth' is the position corresponding to this StreamReader
     in subfields.get(n).getPath(). If subfields is {"a.b.c", "a.b.d"} and this is the StrucStreamReader of b then depth is 1.
     */
-    default void setReferencedSubfields(List<SubfieldPath> subfields, int depth) {
-    }
+    default void setReferencedSubfields(List<SubfieldPath> subfields, int depth) {}
 
     default void setInputQualifyingSet(QualifyingSet qualifyingSet)
     {

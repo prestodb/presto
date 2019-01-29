@@ -14,22 +14,25 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.spi.SubfieldPath;
+
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
-import static com.facebook.presto.spi.block.ByteArrayUtils.memcmp;;
+import static com.facebook.presto.spi.block.ByteArrayUtils.memcmp;
 
 public class Filters
 {
+    private Filters() {}
+
     public static class IsNull
-        extends Filter
+            extends Filter
     {
         @Override
         public boolean testNull()
         {
-                return true;
-            }
+            return true;
+        }
     }
 
     public static class BigintRange
@@ -50,7 +53,6 @@ public class Filters
             return value >= lower && value <= upper;
         }
 
-        
         @Override
         int staticScore()
         {
@@ -64,6 +66,11 @@ public class Filters
         public long getLower()
         {
             return lower;
+        }
+
+        public long getUpper()
+        {
+            return upper;
         }
 
         @Override
@@ -204,11 +211,11 @@ public class Filters
     }
 
     public static class MultiRange
-        extends Filter
+            extends Filter
     {
         Filter[] filters;
         long[] longLowerBounds;
-        
+
         MultiRange(List<Filter> filters)
         {
             this.filters = new Filter[filters.size()];
@@ -218,9 +225,12 @@ public class Filters
             if (this.filters[0] instanceof BigintRange) {
                 longLowerBounds = new long[this.filters.length];
                 for (int i = 0; i < this.filters.length; i++) {
-                    longLowerBounds[i] = ((BigintRange) this.filters[i]).getLower();
+                    BigintRange range = (BigintRange) this.filters[i];
+                    longLowerBounds[i] = range.getLower();
+                    if (i > 0 && longLowerBounds[i] < ((BigintRange) this.filters[i - 1]).getUpper()) {
+                        throw new IllegalArgumentException("Bigint filter range set must be in ascending order of lower bound and ranges must be disjoint");
+                    }
                 }
-                Arrays.sort(longLowerBounds);
             }
         }
 
@@ -264,7 +274,7 @@ public class Filters
     }
 
     public static class InTest
-        extends Filter
+            extends Filter
     {
         static final long emptyMarker = 0xdeadbeefbadefeedL;
         static final long M = 0xc6a4a7935bd1e995L;
@@ -283,7 +293,7 @@ public class Filters
                     containsEmptyMarker = true;
                 }
                 else {
-                    int pos = (int)((value * M) & (size - 1));
+                    int pos = (int) ((value * M) & (size - 1));
                     for (int i = pos; i < pos + size; i++) {
                         int idx = i & (size - 1);
                         if (longs[idx] == emptyMarker) {
@@ -325,6 +335,4 @@ public class Filters
             return new MultiRange(filters);
         }
     }
-    
 }
-

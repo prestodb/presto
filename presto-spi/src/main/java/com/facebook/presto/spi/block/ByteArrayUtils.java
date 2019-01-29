@@ -49,27 +49,27 @@ public class ByteArrayUtils
 
     public static long getLong(byte[] array, int offset)
     {
-        return unsafe.getLong(array, ARRAY_BYTE_BASE_OFFSET + offset);
+        return unsafe.getLong(array, (long) (ARRAY_BYTE_BASE_OFFSET + offset));
     }
 
         public static double getDouble(byte[] array, int offset)
     {
-        return unsafe.getDouble(array, ARRAY_BYTE_BASE_OFFSET + offset);
+        return unsafe.getDouble(array, (long) (ARRAY_BYTE_BASE_OFFSET + offset));
     }
 
         public static int getInt(byte[] array, int offset)
     {
-        return unsafe.getInt(array, ARRAY_BYTE_BASE_OFFSET + offset);
+        return unsafe.getInt(array, (long) (ARRAY_BYTE_BASE_OFFSET + offset));
     }
 
     public static float getFloat(byte[] array, int offset)
     {
-        return unsafe.getFloat(array, ARRAY_BYTE_BASE_OFFSET + offset);
+        return unsafe.getFloat(array, (long) (ARRAY_BYTE_BASE_OFFSET + offset));
     }
 
     public static short getShort(byte[] array, int offset)
     {
-        return unsafe.getShort(array, ARRAY_BYTE_BASE_OFFSET + offset);
+        return unsafe.getShort(array, (long) (ARRAY_BYTE_BASE_OFFSET + offset));
     }
 
     public static void gather( long[] source, int[] positions, int[] rowNumberMap, int sourceOffset, byte[] target, int targetOffset, int numWords)
@@ -81,13 +81,13 @@ public class ByteArrayUtils
         targetOffset += ARRAY_BYTE_BASE_OFFSET;
         if (rowNumberMap == null) {
             for (int i = sourceOffset; i < end; i++) {
-                unsafe.putLong(target,  targetOffset, source[positions[i]]);
+                unsafe.putLong(target, (long) targetOffset, source[positions[i]]);
                 targetOffset += ARRAY_LONG_INDEX_SCALE;
             }
         }
         else {
             for (int i = sourceOffset; i < end; i++) {
-                unsafe.putLong(target, targetOffset, source[rowNumberMap[positions[i]]]);
+                unsafe.putLong(target, (long)targetOffset, source[rowNumberMap[positions[i]]]);
                 targetOffset += ARRAY_LONG_INDEX_SCALE;
             }
         }

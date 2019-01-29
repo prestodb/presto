@@ -13,67 +13,20 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
-import com.facebook.presto.orc.OrcWriteValidation.StatisticsValidation;
-import com.facebook.presto.orc.OrcWriteValidation.WriteChecksum;
-import com.facebook.presto.orc.OrcWriteValidation.WriteChecksumBuilder;
-import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.metadata.MetadataReader;
-import com.facebook.presto.orc.metadata.OrcType;
-import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
-import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
-import com.facebook.presto.orc.metadata.StripeInformation;
-import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
-import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
 import com.facebook.presto.orc.reader.StreamReader;
-import com.facebook.presto.orc.reader.StreamReaders;
-import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.AriaFlags;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageSourceOptions;
 import com.facebook.presto.spi.PageSourceOptions.FilterFunction;
-import com.facebook.presto.spi.PageSourceOptions.ErrorSet;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.memory.Caches;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
-import com.google.common.io.Closer;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
-import org.joda.time.DateTimeZone;
-import org.openjdk.jol.info.ClassLayout;
 
-import java.io.Closeable;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
-
-import static com.facebook.presto.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
-import static com.facebook.presto.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
-import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
-import static com.facebook.presto.orc.OrcWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.Math.max;
-import static java.lang.Math.min;
-import static java.lang.Math.toIntExact;
-import static java.util.Comparator.comparingLong;
-import static java.util.Objects.requireNonNull;
-
 
 public class ColumnGroupReader
 {
@@ -151,7 +104,6 @@ public class ColumnGroupReader
         setupStreamOrder(streamReaders);
     }
 
-
     // Sets the rows active in the row group. Fully processed rows are
     // removed from this by advance().
     public void setQualifyingSets(QualifyingSet input, QualifyingSet output)
@@ -162,7 +114,7 @@ public class ColumnGroupReader
 
     public void setResultSizeBudget(long bytes)
     {
-        targetResultBytes = (int)bytes;
+        targetResultBytes = (int) bytes;
     }
 
     static int compareReaders(StreamReader a, StreamReader b)
@@ -227,7 +179,7 @@ public class ColumnGroupReader
             FilterFunction[] list = filterFunctionOrder[idx];
             filterFunctionOrder[idx] = Arrays.copyOf(list, list.length + 1);
         }
-                    filterFunctionOrder[idx][filterFunctionOrder[idx].length - 1] = function;
+        filterFunctionOrder[idx][filterFunctionOrder[idx].length - 1] = function;
     }
 
     private static int compareFunctions(FilterFunction f1, FilterFunction f2)
@@ -274,7 +226,7 @@ public class ColumnGroupReader
 
     private int findChannelIdx(int channel)
     {
-        for (int i = 0; i  < streamOrder.length; i++) {
+        for (int i = 0; i < streamOrder.length; i++) {
             if (streamOrder[i].getChannel() == channel) {
                 return i;
             }
@@ -395,7 +347,7 @@ public class ColumnGroupReader
                 blocks = new Block[maxOutputChannel + 1];
                 reusedPageBlocks = blocks;
             }
-            for (int i = 0; i< targetChannels.length; i++) {
+            for (int i = 0; i < targetChannels.length; i++) {
                 int channel = targetChannels[i];
                 if (channel == -1) {
                     continue;
@@ -407,7 +359,7 @@ public class ColumnGroupReader
         }
         else {
             Block[] blocks = new Block[maxOutputChannel + 1];
-                        for (int i = 0; i< targetChannels.length; i++) {
+            for (int i = 0; i < targetChannels.length; i++) {
                 int channel = targetChannels[i];
                 if (channel == -1) {
                     continue;
@@ -415,7 +367,7 @@ public class ColumnGroupReader
                 StreamReader reader = channelToStreamReader.get(i);
                 blocks[channel] = reader.getBlock(numFirstRows, false);
             }
-                        return blocks;
+            return blocks;
         }
     }
 
@@ -460,7 +412,7 @@ public class ColumnGroupReader
             qualifyingSet = reader.getInputQualifyingSet();
             setNewTruncation(firstStreamIdx, qualifyingSet);
             makeResultBudget(firstStreamIdx, qualifyingSet.getPositionCount(), false);
-            }
+        }
         int numStreams = streamOrder.length;
         for (int streamIdx = firstStreamIdx; streamIdx < numStreams; ++streamIdx) {
             long startTime = 0;
@@ -491,7 +443,7 @@ public class ColumnGroupReader
         int lastTruncatedStreamIdx = findLastTruncatedStreamIdx();
         // Numbor of rows surviving all truncations/filters.
         int numAdded = qualifyingSet.getPositionCount();
-    alignResultsAndRemoveFromQualifyingSet(numAdded, streamOrder.length - 1);
+        alignResultsAndRemoveFromQualifyingSet(numAdded, streamOrder.length - 1);
         numRowsInResult += numAdded;
     }
 
@@ -499,41 +451,41 @@ public class ColumnGroupReader
     {
         boolean isFirstFunction = true;
         for (FilterFunction function : filterFunctionOrder[streamIdx]) {
-        int[] channels = function.getInputChannels();
-        Block[] blocks = new Block[channels.length];
-        int numRows = qualifyingSet.getPositionCount();
-        for (int channelIdx = 0; channelIdx < channels.length; channelIdx++) {
-            blocks[channelIdx] = makeFilterFunctionInputBlock(            channelIdx, streamIdx, numRows, function);
-        }
-        if (filterResults == null || filterResults.length < numRows) {
-            filterResults = new int[numRows + 100];
-        }
-        StreamReader reader = streamOrder[streamIdx];
-        qualifyingSet = reader.getOrCreateOutputQualifyingSet();
-        long start = System.nanoTime();
-        int numHits = function.filter(new Page(numRows, blocks), filterResults, qualifyingSet.getOrCreateErrorSet());
-        function.updateStats(numRows, numHits, System.nanoTime() - start);
-        if (reader.getFilter() == null && isFirstFunction) {
-            qualifyingSet.copyFrom(reader.getInputQualifyingSet());
-            int end = qualifyingSet.getEnd();
-            // If the reader stopped because of space budget, the
-            // truncation is recorded in the reader, the output qset
-            // just has the output that was produced and ends at the
-            // truncation row of the end of the input qset.
-            qualifyingSet.clearTruncationPosition();
-            qualifyingSet.setEnd(end);
-            // inputNumbers[i] is the offset of the qualifying row within the input qualifying set.
-            int[] inputNumbers= qualifyingSet.getMutableInputNumbers(numHits);
-            System.arraycopy(filterResults, 0, inputNumbers, 0, numHits);
-        }
-        else {
-            qualifyingSet.compactInputNumbers(filterResults, numHits);
-        }
+            int[] channels = function.getInputChannels();
+            Block[] blocks = new Block[channels.length];
+            int numRows = qualifyingSet.getPositionCount();
+            for (int channelIdx = 0; channelIdx < channels.length; channelIdx++) {
+                blocks[channelIdx] = makeFilterFunctionInputBlock(channelIdx, streamIdx, numRows, function);
+            }
+            if (filterResults == null || filterResults.length < numRows) {
+                filterResults = new int[numRows + 100];
+            }
+            StreamReader reader = streamOrder[streamIdx];
+            qualifyingSet = reader.getOrCreateOutputQualifyingSet();
+            long start = System.nanoTime();
+            int numHits = function.filter(new Page(numRows, blocks), filterResults, qualifyingSet.getOrCreateErrorSet());
+            function.updateStats(numRows, numHits, System.nanoTime() - start);
+            if (reader.getFilter() == null && isFirstFunction) {
+                qualifyingSet.copyFrom(reader.getInputQualifyingSet());
+                int end = qualifyingSet.getEnd();
+                // If the reader stopped because of space budget, the
+                // truncation is recorded in the reader, the output qset
+                // just has the output that was produced and ends at the
+                // truncation row of the end of the input qset.
+                qualifyingSet.clearTruncationPosition();
+                qualifyingSet.setEnd(end);
+                // inputNumbers[i] is the offset of the qualifying row within the input qualifying set.
+                int[] inputNumbers = qualifyingSet.getMutableInputNumbers(numHits);
+                System.arraycopy(filterResults, 0, inputNumbers, 0, numHits);
+            }
+            else {
+                qualifyingSet.compactInputNumbers(filterResults, numHits);
+            }
             reader.compactValues(filterResults, numRowsInResult, numHits);
-        if (numHits == 0) {
-            return qualifyingSet;
-        }
-        isFirstFunction = false;
+            if (numHits == 0) {
+                return qualifyingSet;
+            }
+            isFirstFunction = false;
         }
         return qualifyingSet;
     }
@@ -602,7 +554,7 @@ public class ColumnGroupReader
         // number mapping but any non-first filter will use the
         // mapping produced by the previous one.
         if (filterFunctionOrder[operandIdx] != null &&
-            filterFunctionOrder[operandIdx][0] == filterFunction) {
+                    filterFunctionOrder[operandIdx][0] == filterFunction) {
             return false;
         }
         return true;
@@ -626,7 +578,8 @@ public class ColumnGroupReader
     {
         int[] map = maps[mapIdx];
         if (map == null || map.length < size) {
-            map = maps[mapIdx] = new int[size + 100];
+            maps[mapIdx] = new int[size + 100];
+            return maps[mapIdx];
         }
         return map;
     }
@@ -675,7 +628,7 @@ public class ColumnGroupReader
             QualifyingSet input = reader.getInputQualifyingSet();
             int truncationRow = reader.getTruncationRow();
             if (truncationRow == -1 &&
-                (output == null || output.getPositionCount() == input.getPositionCount() && !output.hasErrors())) {
+                    (output == null || output.getPositionCount() == input.getPositionCount() && !output.hasErrors())) {
                 continue;
             }
             if (streamIdx == 0 && outputQualifyingSet == null) {
@@ -737,32 +690,32 @@ public class ColumnGroupReader
         int row = reader.getTruncationRow();
         if (row != -1) {
             return row;
-            }
+        }
         return reader.getPosition();
     }
 
     private int addUnusedInputToSurviving(StreamReader reader, int numSurviving)
-        {
-            int truncationRow = reader.getTruncationRow();
-            QualifyingSet input = reader.getInputQualifyingSet();
-            int numIn = input.getTotalPositionCount();
-            int[] rows = input.getPositions();
-            // Find the place of the truncation row in the input and add
-            // this and all above this to surviving.
-            for (int i = 0; i < numIn; i++) {
-                if (rows[i] == truncationRow) {
-                    int numAdded = numIn - i;
-                    if (survivingRows.length < numSurviving + numAdded) {
-                        survivingRows = Arrays.copyOf(survivingRows, numSurviving + numAdded + 100);
-                    }
-                    for (int counter = 0; counter < numAdded; counter++) {
-                        survivingRows[numSurviving + counter] = i + counter;
-                    }
-                    return numSurviving + numAdded;
+    {
+        int truncationRow = reader.getTruncationRow();
+        QualifyingSet input = reader.getInputQualifyingSet();
+        int numIn = input.getTotalPositionCount();
+        int[] rows = input.getPositions();
+        // Find the place of the truncation row in the input and add
+        // this and all above this to surviving.
+        for (int i = 0; i < numIn; i++) {
+            if (rows[i] == truncationRow) {
+                int numAdded = numIn - i;
+                if (survivingRows.length < numSurviving + numAdded) {
+                    survivingRows = Arrays.copyOf(survivingRows, numSurviving + numAdded + 100);
                 }
+                for (int counter = 0; counter < numAdded; counter++) {
+                    survivingRows[numSurviving + counter] = i + counter;
+                }
+                return numSurviving + numAdded;
             }
-            throw new IllegalArgumentException("Truncation row was not in the input QualifyingSet");
         }
+        throw new IllegalArgumentException("Truncation row was not in the input QualifyingSet");
+    }
 
     int findLastTruncatedStreamIdx()
     {
@@ -808,8 +761,10 @@ public class ColumnGroupReader
 
     public String toString()
     {
-        StringBuilder builder = new StringBuilder("CGR: rows:").append(numRowsInResult).append(" bytes: ")
-            .append(getResultSizeInBytes());
+        StringBuilder builder = new StringBuilder("CGR: rows:")
+                .append(numRowsInResult)
+                .append(" bytes: ")
+                .append(getResultSizeInBytes());
         for (StreamReader reader : streamOrder) {
             builder.append("C ").append(reader.getColumnIndex());
             int row = reader.getTruncationRow();
@@ -819,4 +774,4 @@ public class ColumnGroupReader
         }
         return builder.toString();
     }
-    }
+}
