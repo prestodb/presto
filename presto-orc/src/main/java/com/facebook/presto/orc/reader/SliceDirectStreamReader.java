@@ -338,10 +338,10 @@ public class SliceDirectStreamReader
     public void scan()
             throws IOException
     {
-                if (!rowGroupOpen) {
+        if (!rowGroupOpen) {
             openRowGroup();
         }
-                beginScan(presentStream, lengthStream);
+        beginScan(presentStream, lengthStream);
         if (resultOffsets == null && outputChannel != -1) {
             resultOffsets = new int[10001];
             bytes = new byte[100000];
@@ -520,21 +520,22 @@ public class SliceDirectStreamReader
     public Block getBlock(int numFirstRows, boolean mayReuse)
     {
         if (mayReuse) {
-return             new VariableWidthBlock(numFirstRows, Slices.wrappedBuffer(bytes), resultOffsets, valueIsNull == null ? Optional.empty() : Optional.of(valueIsNull));
+            return new VariableWidthBlock(numFirstRows, Slices.wrappedBuffer(bytes), resultOffsets, valueIsNull == null ? Optional.empty() : Optional.of(valueIsNull));
         }
         if (numFirstRows < numValues || bytes.length > (int) (resultOffsets[numFirstRows] * 1.2)) {
             int numBytes = resultOffsets[numFirstRows];
-            return             new VariableWidthBlock(numFirstRows,
-                                                      Slices.wrappedBuffer(Arrays.copyOf(bytes, numBytes)),
-                                                      Arrays.copyOf(resultOffsets, numFirstRows + 1),
-                                                      valueIsNull == null ? Optional.empty() : Optional.of(Arrays.copyOf(valueIsNull, numFirstRows)));
+            return new VariableWidthBlock(
+                    numFirstRows,
+                    Slices.wrappedBuffer(Arrays.copyOf(bytes, numBytes)),
+                    Arrays.copyOf(resultOffsets, numFirstRows + 1),
+                    valueIsNull == null ? Optional.empty() : Optional.of(Arrays.copyOf(valueIsNull, numFirstRows)));
         }
         Block block = new VariableWidthBlock(numFirstRows, Slices.wrappedBuffer(bytes), resultOffsets, valueIsNull == null ? Optional.empty() : Optional.of(valueIsNull));
-            numValues = 0;
-            resultOffsets = null;
-            valueIsNull = null;
-            bytes = null;
-            return block;
+        numValues = 0;
+        resultOffsets = null;
+        valueIsNull = null;
+        bytes = null;
+        return block;
     }
 
     @Override

@@ -36,7 +36,6 @@ public interface OrcDataSource
     void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
             throws IOException;
 
-
     default void setCache(CacheAdapter cache)
     {
     }

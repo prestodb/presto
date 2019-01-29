@@ -15,7 +15,6 @@ package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.spi.block.ConcatenatedByteArrayInputStream;
 import com.facebook.presto.spi.memory.ByteArrayPool;
-
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -61,7 +60,6 @@ public class SerializedPage
         checkArgument(uncompressedSizeInBytes >= 0, "uncompressedSizeInBytes is negative");
         this.uncompressedSizeInBytes = uncompressedSizeInBytes;
     }
-
 
     public void setByteArrayPool(ByteArrayPool pool)
     {

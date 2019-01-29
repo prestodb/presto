@@ -48,13 +48,12 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.StreamReaders.createStreamReader;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.lang.Math.toIntExact;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class MapDirectStreamReader
-    extends ColumnReader
-    implements StreamReader
+        extends ColumnReader implements StreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapDirectStreamReader.class).instanceSize();
 
@@ -78,7 +77,7 @@ public class MapDirectStreamReader
     Type valueType;
     HashSet<Long> longSubscripts;
     HashSet<Slice> sliceSubscripts;
-    
+
     QualifyingSet keySet;
 
     public MapDirectStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
@@ -118,7 +117,7 @@ public class MapDirectStreamReader
                     longSubscripts.add(subscript.getSubscript());
                 }
             }
-                if (pathElements.size() > depth + 1) {
+            if (pathElements.size() > depth + 1) {
                 pathsForElement.add(subfield);
             }
             else {
@@ -128,7 +127,7 @@ public class MapDirectStreamReader
         if (mayPruneElement) {
             valueStreamReader.setReferencedSubfields(pathsForElement, depth + 1);
         }
-        if (!mayPruneKey)  {
+        if (!mayPruneKey) {
             sliceSubscripts = null;
             longSubscripts = null;
         }
@@ -161,7 +160,8 @@ public class MapDirectStreamReader
                 }
                 long entrySkipSize = lengthStream.sum(readOffset);
                 keyStreamReader.prepareNextRead(toIntExact(entrySkipSize));
-                valueStreamReader.prepareNextRead(toIntExact(entrySkipSize));
+                valueStreamReader.prepareNextRead(
+                        toIntExact(entrySkipSize));
             }
         }
 
@@ -231,7 +231,7 @@ public class MapDirectStreamReader
     {
         return longSubscripts != null || sliceSubscripts != null;
     }
-    
+
     private boolean keyIsPruned(Block keys, int position)
     {
         return (longSubscripts != null && !longSubscripts.contains(keyType.getLong(keys, position))) ||

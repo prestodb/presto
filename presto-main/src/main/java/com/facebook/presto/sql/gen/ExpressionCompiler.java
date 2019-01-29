@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageFilter;
 import com.facebook.presto.operator.project.PageProcessor;
@@ -24,7 +23,6 @@ import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.sql.tree.Expression;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -316,6 +314,6 @@ public class ExpressionCompiler
                 result.add(pageFunctionCompiler.compileFilter(conjunct, classNameSuffix));
             }
         }
-            return result;
+        return result;
     }
 }
