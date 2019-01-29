@@ -28,8 +28,11 @@ import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -100,6 +103,8 @@ public class StatementResource
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
     private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("query-purger"));
 
+    private final CounterStat createQueryRequests = new CounterStat();
+
     @Inject
     public StatementResource(
             QueryManager queryManager,
@@ -133,6 +138,8 @@ public class StatementResource
             @Context HttpServletRequest servletRequest,
             @Context UriInfo uriInfo)
     {
+        createQueryRequests.update(1);
+
         if (isNullOrEmpty(statement)) {
             throw new WebApplicationException(Response
                     .status(Status.BAD_REQUEST)
@@ -271,5 +278,12 @@ public class StatementResource
         catch (UnsupportedEncodingException e) {
             throw new AssertionError(e);
         }
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getCreateQueryRequests()
+    {
+        return createQueryRequests;
     }
 }
