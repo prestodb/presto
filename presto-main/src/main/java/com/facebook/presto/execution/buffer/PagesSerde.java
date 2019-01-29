@@ -123,7 +123,6 @@ public class PagesSerde
             if (stream != null) {
                 stream.setPosition(serializedPage.getPosition());
                 return readRawPage(serializedPage.getPositionCount(), stream, blockEncodingSerde, pageForReuse, blockDecoder);
-
             }
             return readRawPage(serializedPage.getPositionCount(), serializedPage.getSlice().getInput(), blockEncodingSerde, pageForReuse, blockDecoder);
         }

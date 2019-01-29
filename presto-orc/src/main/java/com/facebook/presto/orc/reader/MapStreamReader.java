@@ -27,7 +27,6 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
@@ -60,7 +59,7 @@ public class MapStreamReader
         flatReader.setReferencedSubfields(subfields, depth);
         directReader.setReferencedSubfields(subfields, depth);
     }
-    
+
     @Override
     public void prepareNextRead(int batchSize)
     {

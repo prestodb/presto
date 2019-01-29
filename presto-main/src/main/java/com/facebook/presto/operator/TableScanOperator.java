@@ -106,7 +106,7 @@ public class TableScanOperator
     private long readTimeNanos;
 
     private boolean reusePages;
-    
+
     public TableScanOperator(
             OperatorContext operatorContext,
             PlanNodeId planNodeId,
@@ -282,7 +282,6 @@ public class TableScanOperator
             source.pushdownFilterAndProjection(options);
         }
     }
-
 
     @Override
     public boolean retainsInputPages()

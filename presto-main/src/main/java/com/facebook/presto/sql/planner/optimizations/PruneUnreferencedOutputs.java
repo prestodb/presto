@@ -77,8 +77,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Sets;
 
-import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -130,8 +130,8 @@ public class PruneUnreferencedOutputs
         private HashSet<Symbol> fullColumnUses;
         private HashSet<SubfieldPath> subfieldPaths;
 
-
-        public Rewriter(boolean pruneSubfields) {
+        public Rewriter(boolean pruneSubfields)
+        {
             this.pruneSubfields = pruneSubfields;
             if (pruneSubfields) {
                 fullColumnUses = new HashSet();
@@ -867,11 +867,10 @@ public class PruneUnreferencedOutputs
             }
             Map<Symbol, ColumnHandle> newAssignments = new HashMap();
             for (Map.Entry<Symbol, ColumnHandle> entry : assignments.entrySet()) {
-                if (fullColumnUses.contains(entry.getKey()))
-                    {
-                        newAssignments.put(entry.getKey(), entry.getValue());
-                        continue;
-                    }
+                if (fullColumnUses.contains(entry.getKey())) {
+                    newAssignments.put(entry.getKey(), entry.getValue());
+                    continue;
+                }
                 ArrayList<SubfieldPath> subfields = new ArrayList();
                 for (SubfieldPath path : subfieldPaths) {
                     if (path.getPath().get(0).getField().equals(entry.getKey().getName())) {
@@ -948,16 +947,16 @@ public class PruneUnreferencedOutputs
                         }
                         for (SubfieldPath path : subfieldPaths) {
                             if (path.getPath().get(0).getField().equals(key.getName())) {
-                            SubfieldPath basePath = SubfieldUtils.subfieldToSubfieldPath(value);
-                            ArrayList<SubfieldPath.PathElement> elements = basePath.getPath();
-                            for (int i = 1; i < path.getPath().size(); i++) {
-                                elements.add(path.getPath().get(i));
+                                SubfieldPath basePath = SubfieldUtils.subfieldToSubfieldPath(value);
+                                ArrayList<SubfieldPath.PathElement> elements = basePath.getPath();
+                                for (int i = 1; i < path.getPath().size(); i++) {
+                                    elements.add(path.getPath().get(i));
+                                }
+                                newPaths.add(basePath);
                             }
-                            newPaths.add(basePath);
+                        }
                     }
-                                            }
-                    }
-            }
+                }
             }
             for (SubfieldPath newPath : newPaths) {
                 subfieldPaths.add(newPath);
@@ -989,7 +988,7 @@ public class PruneUnreferencedOutputs
                                 }
                                 subfieldPaths.add(new SubfieldPath(newSteps));
                             }
-                }
+                        }
                     }
                 }
             }
@@ -1018,7 +1017,6 @@ public class PruneUnreferencedOutputs
             for (Node child : expression.getChildren()) {
                 collectSubfieldPaths(child);
             }
-
         }
     }
 }
