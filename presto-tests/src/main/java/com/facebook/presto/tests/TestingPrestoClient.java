@@ -33,7 +33,6 @@ import com.facebook.presto.type.SqlIntervalDayTime;
 import com.facebook.presto.type.SqlIntervalYearMonth;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
-import io.airlift.log.Logger;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -50,7 +49,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -79,8 +77,6 @@ import static java.util.stream.Collectors.toList;
 public class TestingPrestoClient
         extends AbstractTestingPrestoClient<MaterializedResult>
 {
-    private static final Logger log = Logger.get("TestQueries");
-
     private static final DateTimeFormatter timeWithUtcZoneFormat = DateTimeFormatter.ofPattern("HH:mm:ss.SSS 'UTC'"); // UTC zone would be printed as "Z" in "XXX" format
     private static final DateTimeFormatter timeWithZoneOffsetFormat = DateTimeFormatter.ofPattern("HH:mm:ss.SSS XXX");
 
@@ -101,7 +97,6 @@ public class TestingPrestoClient
             implements ResultsSession<MaterializedResult>
     {
         private final ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
-        private final AtomicBoolean loggedUri = new AtomicBoolean(false);
 
         private final AtomicReference<List<Type>> types = new AtomicReference<>();
 
@@ -130,10 +125,6 @@ public class TestingPrestoClient
         @Override
         public void addResults(QueryStatusInfo statusInfo, QueryData data)
         {
-            if (!loggedUri.getAndSet(true)) {
-                log.info("Query %s: %s", statusInfo.getId(), statusInfo.getInfoUri());
-            }
-
             if (types.get() == null && statusInfo.getColumns() != null) {
                 types.set(getTypes(statusInfo.getColumns()));
             }
