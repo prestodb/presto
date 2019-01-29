@@ -51,7 +51,6 @@ import org.openjdk.jol.info.ClassLayout;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -123,7 +122,7 @@ public class OrcRecordReader
     // For getNextPage interface.
     private ColumnGroupReader reader;
     private QualifyingSet qualifyingSet;
-    private int numResults = 0;
+    private int numResults;
     private int targetResultBytes;
     private int targetResultRows = 30000;
     private boolean reorderFilters;
@@ -780,7 +779,7 @@ public class OrcRecordReader
     }
 
     public Page getNextPage()
-        throws IOException
+            throws IOException
     {
         reader.newBatch(numResults);
         numResults = 0;
@@ -798,7 +797,7 @@ public class OrcRecordReader
                 if (qualifyingSet == null) {
                     qualifyingSet = new QualifyingSet();
                 }
-                qualifyingSet.setRange(0, (int)currentGroupRowCount);
+                qualifyingSet.setRange(0, (int) currentGroupRowCount);
                 reader.setQualifyingSets(qualifyingSet, null);
                 if (reorderFilters && (currentRowGroup & 0x3) != 0 && currentRowGroup != 0) {
                     // Reconsider filter order Every 4 row groups.
@@ -808,9 +807,9 @@ public class OrcRecordReader
             reader.advance();
             System.out.println("RG " + currentRowGroup + reader.toString());
             numResults = reader.getNumResults();
-                if (numResults > targetResultRows || reader.getResultSizeInBytes() >targetResultBytes * 8 / 10) {
-                    return resultPage();
-                }
+            if (numResults > targetResultRows || reader.getResultSizeInBytes() > targetResultBytes * 8 / 10) {
+                return resultPage();
+            }
         }
     }
 

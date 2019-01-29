@@ -381,7 +381,7 @@ public class ScanFilterAndProjectOperator
         return -1;
     }
 
-        private Page processColumnSource()
+    private Page processColumnSource()
     {
         DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
         if (!finishing && !yieldSignal.isSet()) {

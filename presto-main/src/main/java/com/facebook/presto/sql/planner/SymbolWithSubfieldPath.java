@@ -17,24 +17,20 @@ import com.facebook.presto.spi.SubfieldPath;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.ArrayList;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
-
 
 /**
  * Represents a series of subfield or array/map subscript expressions.
  * This may may occur as a key in a TupleDomain<Symbol> for representing
- *predicates on nested elements in a row */
+ * predicates on nested elements in a row
+ */
 public class SymbolWithSubfieldPath
-    extends Symbol
+        extends Symbol
 {
-
     private final SubfieldPath path;
 
     @JsonCreator
-    public SymbolWithSubfieldPath(
-                         @JsonProperty("path") SubfieldPath path)
+    public SymbolWithSubfieldPath(@JsonProperty("path") SubfieldPath path)
     {
         super("");
         requireNonNull(path, "path is null");
@@ -71,5 +67,4 @@ public class SymbolWithSubfieldPath
     {
         return path.hashCode();
     }
-
 }

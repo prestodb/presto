@@ -1,3 +1,4 @@
+
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +32,6 @@ import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.io.Closer;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -44,10 +44,10 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.StreamReaders.createStreamReader;
@@ -58,8 +58,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class StructStreamReader
-    extends ColumnReader
-    implements StreamReader
+        extends ColumnReader implements StreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(StructStreamReader.class).instanceSize();
 
@@ -130,7 +129,7 @@ public class StructStreamReader
             }
         }
         for (Map.Entry<String, ArrayList<SubfieldPath>> entry : subfieldPaths.entrySet()) {
-            StreamReader fieldReader =  structFields.get(entry.getKey());
+            StreamReader fieldReader = structFields.get(entry.getKey());
             fieldReader.setReferencedSubfields(entry.getValue(), depth + 1);
         }
     }
@@ -309,7 +308,7 @@ public class StructStreamReader
         return retainedSizeInBytes;
     }
 
-    private void setupForScan ()
+    private void setupForScan()
     {
         RowType rowType = (RowType) type;
         int numFields = rowType.getFields().size();
@@ -474,7 +473,7 @@ public class StructStreamReader
 
     @Override
     public void scan()
-        throws IOException
+            throws IOException
     {
         if (reader == null) {
             setupForScan();
@@ -517,7 +516,7 @@ public class StructStreamReader
             int prevRow = posInRowGroup;
             numFieldRows = 0;
             if (innerToOuter == null || innerToOuter.length < numInput) {
-                innerToOuter = new int [numInput + 100];
+                innerToOuter = new int[numInput + 100];
             }
             for (int i = 0; i < numInput; i++) {
                 int activeRow = inputRows[i];
@@ -553,7 +552,7 @@ public class StructStreamReader
                     posInFields = fieldQualifyingSet.getEnd();
                 }
             }
-            }
+        }
         int[] resultRows = null;
         int[] inputNumbers = null;
         int[] inputRows = inputCopy.getPositions();
@@ -651,7 +650,8 @@ public class StructStreamReader
         }
         if (fieldBlockOffset == null) {
             fieldBlockOffset = new int[newSize];
-        } else if (fieldBlockOffset.length < numValues + numAdded + 1) {
+        }
+        else if (fieldBlockOffset.length < numValues + numAdded + 1) {
             fieldBlockOffset = Arrays.copyOf(fieldBlockOffset, newSize);
         }
     }
@@ -664,7 +664,7 @@ public class StructStreamReader
             if (valueIsNull == null || !valueIsNull[i]) {
                 innerFirstRows++;
             }
-            }
+        }
         if (innerFirstRows == 0) {
             return getNullBlock(type, numFirstRows);
         }

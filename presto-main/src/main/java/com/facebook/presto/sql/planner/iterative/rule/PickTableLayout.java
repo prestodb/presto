@@ -264,10 +264,10 @@ public class PickTableLayout
             // extraction would alter predicate order and the non-Aria
             // path can't have that.
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
-                            supportsSubfieldTupleDomain = entry.getValue().supportsSubfieldTupleDomain();
-                            break;
-                        }
-                    }
+                supportsSubfieldTupleDomain = entry.getValue().supportsSubfieldTupleDomain();
+                break;
+            }
+        }
         DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
                 metadata,
                 session,
@@ -275,7 +275,7 @@ public class PickTableLayout
                 types, supportsSubfieldTupleDomain);
 
         TupleDomain<ColumnHandle> newDomain = decomposedPredicate.getTupleDomain()
-            .transform(symbol -> {return toColumnHandle(node.getAssignments(), symbol); })
+                .transform(symbol -> toColumnHandle(node.getAssignments(), symbol))
                 .intersect(node.getEnforcedConstraint());
 
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();

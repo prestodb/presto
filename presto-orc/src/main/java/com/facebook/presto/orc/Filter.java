@@ -16,9 +16,8 @@ package com.facebook.presto.orc;
 import com.facebook.presto.spi.PageSourceOptions;
 
 public class Filter
-    extends PageSourceOptions.FilterStats
+        extends PageSourceOptions.FilterStats
 {
-
     // True if one may call the filter once per distinct value. This
     // is usually true but a counter example is a filter on the data
     // column of a map where different positions have a different

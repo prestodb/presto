@@ -165,7 +165,7 @@ public class SliceStreamReader
         currentReader.compactValues(positions, base, numPositions);
     }
 
-        @Override
+    @Override
     public int getPosition()
     {
         return currentReader.getPosition();
@@ -186,7 +186,7 @@ public class SliceStreamReader
         return currentReader.getResultSizeInBytes();
     }
 
-        @Override
+    @Override
     public int getAverageResultSize()
     {
         if (currentReader == null) {
