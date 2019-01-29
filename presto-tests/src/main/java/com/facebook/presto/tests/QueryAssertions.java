@@ -70,7 +70,10 @@ public final class QueryAssertions
             queryPlan = null;
             results = queryRunner.execute(session, sql);
         }
-        log.info("FINISHED in presto: %s", nanosSince(start));
+        Duration queryTime = nanosSince(start);
+        if (queryTime.compareTo(Duration.succinctDuration(1, SECONDS)) > 0) {
+            log.info("FINISHED in presto: %s", queryTime);
+        }
 
         if (planAssertion.isPresent()) {
             planAssertion.get().accept(queryPlan);
@@ -160,7 +163,10 @@ public final class QueryAssertions
         catch (RuntimeException ex) {
             fail("Execution of 'expected' query failed: " + expected, ex);
         }
-        log.info("FINISHED in presto: %s, h2: %s, total: %s", actualTime, nanosSince(expectedStart), nanosSince(start));
+        Duration totalTime = nanosSince(start);
+        if (totalTime.compareTo(Duration.succinctDuration(1, SECONDS)) > 0) {
+            log.info("FINISHED in presto: %s, h2: %s, total: %s", actualTime, nanosSince(expectedStart), totalTime);
+        }
 
         if (actualResults.getUpdateType().isPresent() || actualResults.getUpdateCount().isPresent()) {
             if (!actualResults.getUpdateType().isPresent()) {
