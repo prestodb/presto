@@ -163,7 +163,7 @@ public class LongStreamReader
         currentReader.compactValues(positions, base, numPositions);
     }
 
-        @Override
+    @Override
     public int getPosition()
     {
         return currentReader.getPosition();

@@ -22,8 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.net.MediaType;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
-import io.airlift.http.client.ByteArrayAllocator;
-import io.airlift.http.client.GatheringByteArrayInputStream;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpClient.HttpResponseFuture;
 import io.airlift.http.client.HttpStatus;
@@ -45,8 +43,8 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.BufferedReader;
 import java.io.Closeable;
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.util.ArrayList;
@@ -685,7 +683,7 @@ public final class HttpPageBufferClient
                 return false;
             }
         }
-        }
+    }
 
     public static class PagesResponse
     {

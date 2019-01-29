@@ -156,7 +156,7 @@ abstract class ColumnReader
         outputQualifyingSet.compactPositionsAndErrors(surviving, numSurviving);
     }
 
-    protected void beginScan(    BooleanInputStream presentStream, LongInputStream lengthStream)
+    protected void beginScan(BooleanInputStream presentStream, LongInputStream lengthStream)
             throws IOException
     {
         if (!rowGroupOpen) {
@@ -188,7 +188,7 @@ abstract class ColumnReader
             if (lengthStream != null) {
                 for (int i = 0; i < rowsInRange; i++) {
                     if (present[i]) {
-                    neededLengths++;
+                        neededLengths++;
                     }
                 }
             }
@@ -235,7 +235,7 @@ abstract class ColumnReader
     }
 
     protected void openRowGroup()
-        throws IOException
+            throws IOException
     {
         posInRowGroup = 0;
         numLengths = 0;
@@ -243,5 +243,4 @@ abstract class ColumnReader
         lengthIdx = 0;
         rowGroupOpen = true;
     }
-
 }

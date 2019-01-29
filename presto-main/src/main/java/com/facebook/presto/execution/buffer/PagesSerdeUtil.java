@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.execution.buffer;
 
-import com.facebook.presto.spi.block.BlockDecoder;
-import com.facebook.presto.spi.block.ConcatenatedByteArrayInputStream;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockDecoder;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.block.ConcatenatedByteArrayInputStream;
 import com.google.common.collect.AbstractIterator;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
@@ -55,11 +55,11 @@ public class PagesSerdeUtil
                 Block block = pageForReuse.getBlock(i);
                 if (block != null && block.isReusable()) {
                     block.getContents(blockDecoder);
-                                    blocks[i] = readBlock(blockEncodingSerde, input, blockDecoder);
-                                    continue;
+                    blocks[i] = readBlock(blockEncodingSerde, input, blockDecoder);
+                    continue;
                 }
             }
-                blocks[i] = readBlock(blockEncodingSerde, input, null);
+            blocks[i] = readBlock(blockEncodingSerde, input, null);
         }
 
         return new Page(positionCount, blocks);
@@ -92,7 +92,7 @@ public class PagesSerdeUtil
             Slice slice = sliceInput.readSlice(toIntExact((sizeInBytes)));
             return new SerializedPage(slice, lookupCodecFromMarker(codecMarker), positionCount, uncompressedSizeInBytes);
         }
-        }
+    }
 
     public static long writeSerializedPages(SliceOutput sliceOutput, Iterable<SerializedPage> pages)
     {

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
@@ -20,9 +21,8 @@ import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.AriaFlags;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.BlockDecoder;
 import com.facebook.presto.spi.UpdatablePageSource;
-import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.spi.block.BlockDecoder;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -115,7 +115,7 @@ public class ExchangeOperator
         if ((ariaFlags & AriaFlags.exchangeReuse) != 0) {
             exchangeClient.enableBufferReuse();
         }
-            operatorContext.setInfoSupplier(exchangeClient::getStatus);
+        operatorContext.setInfoSupplier(exchangeClient::getStatus);
     }
 
     @Override

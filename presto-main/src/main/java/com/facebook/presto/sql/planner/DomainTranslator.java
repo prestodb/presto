@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
+import com.facebook.presto.spi.SubfieldPath;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.predicate.DiscreteValues;
@@ -29,7 +30,6 @@ import com.facebook.presto.spi.predicate.SortedRangeSet;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.Utils;
 import com.facebook.presto.spi.predicate.ValueSet;
-import com.facebook.presto.spi.SubfieldPath;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
@@ -40,6 +40,7 @@ import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.InListExpression;
@@ -50,9 +51,7 @@ import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NotExpression;
-import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -114,11 +113,10 @@ public final class DomainTranslator
                 .collect(collectingAndThen(toImmutableList(), ExpressionUtils::combineConjuncts));
     }
 
-
     private Expression toSymbolExpression(Symbol symbol)
     {
         if (symbol instanceof SymbolWithSubfieldPath) {
-            SymbolWithSubfieldPath subfieldPath = (SymbolWithSubfieldPath)symbol;
+            SymbolWithSubfieldPath subfieldPath = (SymbolWithSubfieldPath) symbol;
             SubfieldPath path = subfieldPath.getPath();
             Expression base = new SymbolReference(path.getPath().get(0).getField());
             for (int i = 1; i < path.getPath().size(); i++) {
