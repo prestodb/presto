@@ -738,6 +738,7 @@ public abstract class AbstractTestHiveClient
                 true,
                 false,
                 false,
+                false,
                 true,
                 1000,
                 getHiveClientConfig().getMaxPartitionsPerScan(),

@@ -37,6 +37,7 @@ public class HiveMetadataFactory
 
     private final boolean allowCorruptWritesForTesting;
     private final boolean skipDeletionForAlter;
+    private final boolean skipTargetCleanupOnRollback;
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
     private final long perTransactionCacheMaximumSize;
@@ -76,6 +77,7 @@ public class HiveMetadataFactory
                 hiveClientConfig.getMaxConcurrentFileRenames(),
                 hiveClientConfig.getAllowCorruptWritesForTesting(),
                 hiveClientConfig.isSkipDeletionForAlter(),
+                hiveClientConfig.isSkipTargetCleanupOnRollback(),
                 hiveClientConfig.getWritesToNonManagedTablesEnabled(),
                 hiveClientConfig.getCreatesOfNonManagedTablesEnabled(),
                 hiveClientConfig.getPerTransactionMetastoreCacheMaximumSize(),
@@ -97,6 +99,7 @@ public class HiveMetadataFactory
             int maxConcurrentFileRenames,
             boolean allowCorruptWritesForTesting,
             boolean skipDeletionForAlter,
+            boolean skipTargetCleanupOnRollback,
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
             long perTransactionCacheMaximumSize,
@@ -111,6 +114,7 @@ public class HiveMetadataFactory
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
         this.skipDeletionForAlter = skipDeletionForAlter;
+        this.skipTargetCleanupOnRollback = skipTargetCleanupOnRollback;
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
         this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
@@ -144,7 +148,8 @@ public class HiveMetadataFactory
                 hdfsEnvironment,
                 CachingHiveMetastore.memoizeMetastore(this.metastore, perTransactionCacheMaximumSize), // per-transaction cache
                 renameExecution,
-                skipDeletionForAlter);
+                skipDeletionForAlter,
+                skipTargetCleanupOnRollback);
 
         return new HiveMetadata(
                 metastore,
