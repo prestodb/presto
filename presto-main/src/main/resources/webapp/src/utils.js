@@ -29,7 +29,7 @@ const STATE_COLOR_MAP = {
     FINISHED: '#1a4629',
     BLOCKED: '#61003b',
     USER_ERROR: '#9a7d66',
-    USER_CANCELED: '#858959',
+    CANCELED: '#858959',
     INSUFFICIENT_RESOURCES: '#7f5b72',
     EXTERNAL_ERROR: '#ca7640',
     UNKNOWN_ERROR: '#943524'
@@ -53,7 +53,7 @@ export function getQueryStateColor(query: any): string
             switch (query.errorType) {
                 case "USER_ERROR":
                     if (query.errorCode.name === 'USER_CANCELED') {
-                        return STATE_COLOR_MAP.USER_CANCELED;
+                        return STATE_COLOR_MAP.CANCELED;
                     }
                     return STATE_COLOR_MAP.USER_ERROR;
                 case "EXTERNAL":
@@ -88,6 +88,7 @@ export function getStageStateColor(stage: any): string
             return STATE_COLOR_MAP.FINISHED;
         case "CANCELED":
         case "ABORTED":
+            return STATE_COLOR_MAP.CANCELED;
         case "FAILED":
             return STATE_COLOR_MAP.UNKNOWN_ERROR;
         default:
