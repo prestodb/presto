@@ -164,7 +164,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
             query: null,
 
             graph: initializeGraph(),
-            svg: initializeSvg("#plan-canvas"),
+            svg: null,
             render: new dagreD3.render(),
         };
     }
@@ -252,12 +252,14 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
         });
     }
 
-    componentDidUpdate() {
-        //$FlowFixMe
-        $('[data-toggle="tooltip"]').tooltip()
-    }
-
     updateD3Graph() {
+        if (!this.state.svg) {
+            this.setState({
+                svg: initializeSvg("#plan-canvas"),
+            });
+            return;
+        }
+
         if (!this.state.query) {
             return;
         }
@@ -292,6 +294,12 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
         svg.attr('width', width);
     }
 
+    componentDidUpdate() {
+        this.updateD3Graph();
+        //$FlowFixMe
+        $('[data-toggle="tooltip"]').tooltip()
+    }
+
     render() {
         const query = this.state.query;
 
@@ -307,9 +315,9 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
             );
         }
 
-        let livePlanGraph = null;
+        let loadingMessage = null;
         if (query && !query.outputStage) {
-            livePlanGraph = (
+            loadingMessage = (
                 <div className="row error-message">
                     <div className="col-xs-12">
                         <h4>Live plan graph will appear automatically when query starts running.</h4>
@@ -318,27 +326,21 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
                 </div>
             )
         }
-        else {
-            this.updateD3Graph();
-        }
 
         // TODO: Refactor components to move refreshLoop to parent rather than using this property
-        if (this.props.isEmbedded) {
-            return (
-                <div className="row">
-                    <div className="col-xs-12">
-                        {livePlanGraph}
-                    </div>
-                </div>
-            )
-        }
-
+        const queryHeader = this.props.isEmbedded ? null : <QueryHeader query={query}/>;
         return (
             <div>
-                <QueryHeader query={query}/>
+                {queryHeader}
                 <div className="row">
                     <div className="col-xs-12">
-                        {livePlanGraph}
+                        <div style={{float: "right", padding: '5px'}}>
+                            Scroll to zoom, click stage to view additional statistics
+                        </div>
+                        {loadingMessage}
+                        <div id="live-plan" className="graph-container">
+                            <svg id="plan-canvas"/>
+                        </div>
                     </div>
                 </div>
             </div>
