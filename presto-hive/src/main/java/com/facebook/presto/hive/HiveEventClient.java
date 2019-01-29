@@ -28,7 +28,7 @@ public class HiveEventClient
             return;
         }
         WriteCompletedEvent writeCompletedEvent = (WriteCompletedEvent) event;
-        log.info("File created: query: %s, schema: %s, table: %s, partition: '%s', format: %s, size: %s, path: %s",
+        log.debug("File created: query: %s, schema: %s, table: %s, partition: '%s', format: %s, size: %s, path: %s",
                 writeCompletedEvent.getQueryId(),
                 writeCompletedEvent.getSchemaName(),
                 writeCompletedEvent.getTableName(),
