@@ -14,7 +14,6 @@
 package com.facebook.presto.spi.block;
 
 import io.airlift.slice.Slice;
-import static java.lang.System.arraycopy;
 
 public class BlockDecoder
 {
@@ -196,6 +195,7 @@ public class BlockDecoder
             }
         }
     }
+
     public void release()
     {
         release(intArrayAllocator);
