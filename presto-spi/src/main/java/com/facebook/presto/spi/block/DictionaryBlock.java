@@ -405,12 +405,12 @@ public class DictionaryBlock
 
     int[] getIdsArray()
     {
-	return ids;
+        return ids;
     }
 
     int getIdsOffset()
     {
-	return idsOffset;
+        return idsOffset;
     }
 
     public int getId(int position)
