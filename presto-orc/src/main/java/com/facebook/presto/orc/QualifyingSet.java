@@ -326,6 +326,7 @@ public class QualifyingSet
             ownedInputNumbers = inputNumbers;
         }
     }
+
     public void compactPositionsAndErrors(int[] surviving, int numSurviving)
     {
         int[] rows = getMutablePositions(0);

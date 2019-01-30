@@ -999,4 +999,13 @@ public abstract class AbstractTestDistributedQueries
                         "SELECT count(DISTINCT a), CAST(max(b) AS VARCHAR) FROM t",
                 "VALUES (1, '0 00:00:01.000')");
     }
+
+    @Test
+    public void testQueenOfTheNight()
+    {
+        assertQuery("SELECT count (*), sum(l.extendedprice * (1 - l.discount) - l.quantity * p.supplycost) " +
+                        "FROM lineitem l, partsupp p " +
+                        "WHERE l.partkey = p.partkey and l.suppkey = p.suppkey and p.availqty < 1000",
+                "VALUES (1, 2)");
+    }
 }

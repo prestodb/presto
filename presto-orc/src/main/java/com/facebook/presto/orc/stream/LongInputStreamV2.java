@@ -67,6 +67,7 @@ public class LongInputStreamV2
     // needed by scan() where performed inside readValues. If false,
     // scan() must look at the literals.
     private boolean scanDone;
+    private int trapOffsetIdx = 100000;
 
     public LongInputStreamV2(OrcInputStream input, boolean signed, boolean skipCorrupt)
     {
@@ -102,7 +103,6 @@ public class LongInputStreamV2
             readDeltaValues(firstByte);
         }
     }
-    int trapOffsetIdx = 100000;
 
     // Applies filter to values at numOffsets first positions in
     // offsets. If the filter is true for the value at offsets[i][,

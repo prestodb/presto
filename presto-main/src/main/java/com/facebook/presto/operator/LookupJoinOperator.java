@@ -53,7 +53,13 @@ import static java.util.Objects.requireNonNull;
 public class LookupJoinOperator
         implements Operator
 {
-    enum JoinPushdown {NO_PUSHDOWN, PUSHDOWN_JOIN, UNKNOWN};
+    enum JoinPushdown
+    {
+        NO_PUSHDOWN,
+        PUSHDOWN_JOIN,
+        UNKNOWN
+    }
+
     private final OperatorContext operatorContext;
     private final List<Type> probeTypes;
     private final JoinProbeFactory joinProbeFactory;
@@ -203,7 +209,7 @@ public class LookupJoinOperator
     public boolean needsInput()
     {
         return !finishing
-            && lookupSourceProviderFuture.isDone()
+                && lookupSourceProviderFuture.isDone()
                 && spillInProgress.isDone()
                 && probe == null
                 && outputPage == null;
@@ -744,6 +750,7 @@ public class LookupJoinOperator
     {
         return false;
     }
+
     @Override
     public void enableOutputPageReuse()
     {
