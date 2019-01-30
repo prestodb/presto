@@ -96,13 +96,15 @@ public final class HiveQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            File baseDir = new File("/home/oerling/hmd");
+            File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
 
             HiveClientConfig hiveClientConfig = new HiveClientConfig();
             HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig));
             HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig, new NoHdfsAuthentication());
 
             FileHiveMetastore metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
+            metastore.createDatabase(createDatabaseMetastoreObject(TPCH_SCHEMA));
+            metastore.createDatabase(createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA));
             queryRunner.installPlugin(new HivePlugin(HIVE_CATALOG, Optional.of(metastore)));
 
             Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
@@ -112,14 +114,12 @@ public final class HiveQueryRunner
                     .put("hive.max-partitions-per-scan", "1000")
                     .put("hive.assume-canonical-partition-keys", "true")
                     .put("hive.collect-column-statistics-on-write", "true")
-                    .put("hive.storage-format", "ORC") // so that there's no minimum split size for the file
-                    .put("hive.orc.optimized-writer.enabled", "true")
-                    .put("hive.orc.writer.validation-percentage", "0.0")
                     .build();
             Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
                     .putAll(hiveProperties)
                     .put("hive.max-initial-split-size", "10kB") // so that each bucket has multiple splits
                     .put("hive.max-split-size", "10kB") // so that each bucket has multiple splits
+                    .put("hive.storage-format", "TEXTFILE") // so that there's no minimum split size for the file
                     .put("hive.compression-codec", "NONE") // so that the file is splittable
                     .build();
             queryRunner.createCatalog(HIVE_CATALOG, HIVE_CATALOG, hiveProperties);
