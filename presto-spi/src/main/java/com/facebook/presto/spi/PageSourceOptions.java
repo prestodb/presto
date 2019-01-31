@@ -231,4 +231,4 @@ public class PageSourceOptions
     {
         return ariaFlags;
     }
-    }
+}

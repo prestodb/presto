@@ -317,24 +317,22 @@ public class ScanFilterAndProjectOperator
 
         int[] projectionPushdownChannels = pageProcessor.getIdentityInputToOutputChannel();
         boolean projectionPushedDown = projectionPushdownChannels != null;
+
         int[] projectionInputChannels = pageProcessor.getOutputChannels();
-        int maxChannel = -1;
-        for (int channel : projectionInputChannels) {
-            maxChannel = Math.max(maxChannel, channel);
+        int maxChannel = maxChannel(projectionInputChannels);
+
+        List<PageFilter> pageFilters = pageProcessor.getFilterWithoutTupleDomain();
+        FilterExpression[] filters = new FilterExpression[pageFilters.size()];
+        for (int i = 0; i < pageFilters.size(); i++) {
+            filters[i] = new FilterExpression(operatorContext.getSession().toConnectorSession(), pageFilters.get(i));
+            maxChannel = Math.max(maxChannel, maxChannel(filters[i].getInputChannels()));
         }
+
         int[] channels = new int[maxChannel + 1];
         Arrays.fill(channels, -1);
-        for (int channel : projectionInputChannels) {
-            channels[channel] = channel;
-        }
-        FilterExpression[] filters = null;
-        List<PageFilter> pageFilters = pageProcessor.getFilterWithoutTupleDomain();
-        if (pageFilters != null && !pageFilters.isEmpty()) {
-            filters = new FilterExpression[pageFilters.size()];
-            for (int i = 0; i < pageFilters.size(); i++) {
-                filters[i] = new FilterExpression(operatorContext.getSession().toConnectorSession(), pageFilters.get(i));
-                channels = addFilterChannels(filters[i], channels);
-            }
+        populateChannels(channels, projectionInputChannels);
+        for (int i = 0; i < filters.length; i++) {
+            populateChannels(channels, filters[i].getInputChannels());
         }
 
         PageSourceOptions options = new PageSourceOptions(
@@ -345,6 +343,7 @@ public class ScanFilterAndProjectOperator
                 ariaReorderFilters(operatorContext.getSession()),
                 mergingOutput.getMinPageSizeInBytes(),
                 ariaFlags(operatorContext.getSession()));
+
         boolean filterPushedDown = pageSource.pushdownFilterAndProjection(options);
         if (filterPushedDown && projectionPushedDown) {
             filterAndProjectPushedDown = true;
@@ -354,34 +353,20 @@ public class ScanFilterAndProjectOperator
         }
     }
 
-    int[] addFilterChannels(FilterExpression filter, int[] channels)
+    private static void populateChannels(int[] allChannels, int[] selectedChannels)
     {
-        int[] filterInputs = filter.getInputChannels();
-        for (int i = 0; i < filterInputs.length; i++) {
-            int channel = filterInputs[i];
-            if (channels.length <= channel) {
-                // The channel is to the right of the last projected one. Resize channels and pad with -1.
-                int prevLength = channels.length;
-                channels = Arrays.copyOf(channels, channel + 1);
-                for (int newIdx = prevLength; newIdx < channels.length; newIdx++) {
-                    channels[newIdx] = -1;
-                }
-            }
-            if (channels[channel] == -1) {
-                channels[channel] = channel;
-            }
+        for (int channel : selectedChannels) {
+            allChannels[channel] = channel;
         }
-        return channels;
     }
 
-    private static int indexOf(int[] array, int element)
+    private static int maxChannel(int[] channels)
     {
-        for (int i = 0; i < array.length; i++) {
-            if (array[i] == element) {
-                return i;
-            }
+        int maxChannel = -1;
+        for (int channel : channels) {
+            maxChannel = Math.max(maxChannel, channel);
         }
-        return -1;
+        return maxChannel;
     }
 
     private Page processColumnSource()
