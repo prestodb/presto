@@ -265,7 +265,7 @@ public class TableScanOperator
 
     private void setupAria()
     {
-        boolean enableAria = SystemSessionProperties.enableAria(operatorContext.getSession());
+        boolean enableAria = SystemSessionProperties.isAriaScanEnabled(operatorContext.getSession());
         if (enableAria && !columns.isEmpty()) {
             int[] channels = new int[columns.size()];
             for (int i = 0; i < channels.length; i++) {

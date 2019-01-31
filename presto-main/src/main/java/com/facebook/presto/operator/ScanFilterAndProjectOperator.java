@@ -309,7 +309,7 @@ public class ScanFilterAndProjectOperator
 
     private void setupAria()
     {
-        boolean enableAria = SystemSessionProperties.enableAria(operatorContext.getSession());
+        boolean enableAria = SystemSessionProperties.isAriaScanEnabled(operatorContext.getSession());
         if (enableAria) {
             int[] projectionPushdownChannels = pageProcessor.getIdentityInputToOutputChannel();
             boolean projectionPushedDown = projectionPushdownChannels != null;
