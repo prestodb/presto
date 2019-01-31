@@ -27,6 +27,7 @@ import com.facebook.presto.spi.block.DictionaryId;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.sql.gen.ExpressionProfiler;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.SizeOf;
 
 import javax.annotation.concurrent.NotThreadSafe;
@@ -64,7 +65,7 @@ public class PageProcessor
     private final List<PageFilter> filterWithoutTupleDomain;
     private final List<PageProjection> projections;
     private final int[] inputToOutputChannel;
-    boolean filterPushedDown;
+    private boolean filterPushedDown;
     private int projectBatchSize;
 
     @VisibleForTesting
@@ -76,7 +77,7 @@ public class PageProcessor
     @VisibleForTesting
     public PageProcessor(Optional<PageFilter> filter, List<? extends PageProjection> projections, OptionalInt initialBatchSize, ExpressionProfiler expressionProfiler)
     {
-        this(filter, null, projections, initialBatchSize, expressionProfiler);
+        this(filter, ImmutableList.of(), projections, initialBatchSize, expressionProfiler);
     }
 
     public PageProcessor(Optional<PageFilter> filter, List<PageFilter> filterWithoutTupleDomain, List<? extends PageProjection> projections, OptionalInt initialBatchSize)
@@ -87,12 +88,12 @@ public class PageProcessor
     public PageProcessor(Optional<PageFilter> filter, List<PageFilter> filterWithoutTupleDomain, List<? extends PageProjection> projections, OptionalInt initialBatchSize, ExpressionProfiler expressionProfiler)
     {
         this.filter = requireNonNull(filter, "filter is null")
-        .map(pageFilter -> {
-            if (pageFilter.getInputChannels().size() == 1 && pageFilter.isDeterministic()) {
-                return new DictionaryAwarePageFilter(pageFilter);
-            }
-            return pageFilter;
-        });
+                .map(pageFilter -> {
+                    if (pageFilter.getInputChannels().size() == 1 && pageFilter.isDeterministic()) {
+                        return new DictionaryAwarePageFilter(pageFilter);
+                    }
+                    return pageFilter;
+                });
         this.filterWithoutTupleDomain = requireNonNull(filterWithoutTupleDomain, "filterWithoutTupleDomain is null");
         this.projections = requireNonNull(projections, "projections is null").stream()
                 .map(projection -> {
