@@ -368,7 +368,9 @@ public class ColumnGroupReader
                 continue;
             }
             StreamReader reader = channelToStreamReader.get(channel);
-            blocks[channel] = reader.getBlock(numFirstRows, false);
+            if (reader != null) {
+                blocks[channel] = reader.getBlock(numFirstRows, false);
+            }
             return blocks;
         }
         return blocks;
