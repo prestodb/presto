@@ -24,34 +24,36 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.lambda.LambdaFunctionInterface;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
-@Description("creates a map using entryDelimiter and keyValueDelimiter")
-@ScalarFunction("split_to_map")
 public class SplitToMapFunction
 {
-    private final PageBuilder pageBuilder;
+    private SplitToMapFunction() {}
 
-    public SplitToMapFunction(@TypeParameter("map<varchar,varchar>") Type mapType)
-    {
-        pageBuilder = new PageBuilder(ImmutableList.of(mapType));
-    }
-
-    @SqlType("map<varchar,varchar>")
-    public Block splitToMap(@TypeParameter("map<varchar,varchar>") Type mapType, @SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice entryDelimiter, @SqlType(StandardTypes.VARCHAR) Slice keyValueDelimiter)
+    private static Block splitToMap(
+            PageBuilder pageBuilder,
+            Type mapType,
+            Slice string,
+            Slice entryDelimiter,
+            Slice keyValueDelimiter,
+            Optional<DuplicateKeyResolutionLambda> function)
     {
         checkCondition(entryDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "entryDelimiter is empty");
         checkCondition(keyValueDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "keyValueDelimiter is empty");
         checkCondition(!entryDelimiter.equals(keyValueDelimiter), INVALID_FUNCTION_ARGUMENT, "entryDelimiter and keyValueDelimiter must not be the same");
+        requireNonNull(pageBuilder, "pageBuilder is null");
 
         Map<Slice, Slice> map = new HashMap<>();
         int entryStart = 0;
@@ -75,16 +77,27 @@ public class SplitToMapFunction
                 Slice value = keyValuePair.slice(valueStart, keyValuePair.length() - valueStart);
 
                 if (value.indexOf(keyValueDelimiter) >= 0) {
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key-value delimiter must appear exactly once in each entry. Bad input: '" + keyValuePair.toStringUtf8() + "'");
+                    throw new PrestoException(
+                            INVALID_FUNCTION_ARGUMENT,
+                            "Key-value delimiter must appear exactly once in each entry. Bad input: '" + keyValuePair.toStringUtf8() + "'");
                 }
+
                 if (map.containsKey(key)) {
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Duplicate keys (%s) are not allowed", key.toStringUtf8()));
+                    if (!function.isPresent()) {
+                        throw new PrestoException(
+                                INVALID_FUNCTION_ARGUMENT,
+                                format("Duplicate keys (%s) are not allowed. Specifying a lambda to resolve conflicts can avoid this error", key.toStringUtf8()));
+                    }
+
+                    value = function.get().apply(key, map.get(key), value);
                 }
 
                 map.put(key, value);
             }
             else {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key-value delimiter must appear exactly once in each entry. Bad input: '" + keyValuePair.toStringUtf8() + "'");
+                throw new PrestoException(
+                        INVALID_FUNCTION_ARGUMENT,
+                        "Key-value delimiter must appear exactly once in each entry. Bad input: '" + keyValuePair.toStringUtf8() + "'");
             }
 
             if (entryEnd < 0) {
@@ -108,5 +121,57 @@ public class SplitToMapFunction
         pageBuilder.declarePosition();
 
         return (Block) mapType.getObject(blockBuilder, blockBuilder.getPositionCount() - 1);
+    }
+
+    @Description("creates a map using entryDelimiter and keyValueDelimiter")
+    @ScalarFunction("split_to_map")
+    public static class FailOnDuplicateKeys
+    {
+        private final PageBuilder pageBuilder;
+
+        public FailOnDuplicateKeys(@TypeParameter("map<varchar,varchar>") Type mapType)
+        {
+            pageBuilder = new PageBuilder(ImmutableList.of(mapType));
+        }
+
+        @SqlType("map<varchar,varchar>")
+        public Block split(
+                @TypeParameter("map<varchar,varchar>") Type mapType,
+                @SqlType(StandardTypes.VARCHAR) Slice string,
+                @SqlType(StandardTypes.VARCHAR) Slice entryDelimiter,
+                @SqlType(StandardTypes.VARCHAR) Slice keyValueDelimiter)
+        {
+            return splitToMap(pageBuilder, mapType, string, entryDelimiter, keyValueDelimiter, Optional.empty());
+        }
+    }
+
+    @Description("creates a map using entryDelimiter and keyValueDelimiter along with a lambda to handle duplicate keys")
+    @ScalarFunction("split_to_map")
+    public static class ResolveDuplicateKeys
+    {
+        private final PageBuilder pageBuilder;
+
+        public ResolveDuplicateKeys(@TypeParameter("map<varchar,varchar>") Type mapType)
+        {
+            pageBuilder = new PageBuilder(ImmutableList.of(mapType));
+        }
+
+        @SqlType("map<varchar,varchar>")
+        public Block split(
+                @TypeParameter("map<varchar,varchar>") Type mapType,
+                @SqlType(StandardTypes.VARCHAR) Slice string,
+                @SqlType(StandardTypes.VARCHAR) Slice entryDelimiter,
+                @SqlType(StandardTypes.VARCHAR) Slice keyValueDelimiter,
+                @SqlType("function(varchar, varchar, varchar, varchar)") DuplicateKeyResolutionLambda function)
+        {
+            return splitToMap(pageBuilder, mapType, string, entryDelimiter, keyValueDelimiter, Optional.of(function));
+        }
+    }
+
+    @FunctionalInterface
+    public interface DuplicateKeyResolutionLambda
+            extends LambdaFunctionInterface
+    {
+        Slice apply(Slice key, Slice value1, Slice value2);
     }
 }

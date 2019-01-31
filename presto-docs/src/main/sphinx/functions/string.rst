@@ -118,6 +118,16 @@ String Functions
     ``entryDelimiter`` splits ``string`` into key-value pairs. ``keyValueDelimiter`` splits
     each pair into key and value.
 
+.. function:: split_to_map(string, entryDelimiter, keyValueDelimiter, function(k, v1, v2, res)) -> map<varchar, varchar>
+
+    Splits ``string`` by ``entryDelimiter`` and ``keyValueDelimiter`` and returns a map.
+    ``entryDelimiter`` splits ``string`` into key-value pairs. ``keyValueDelimiter`` splits
+    each pair into key and value. ``function(k, v1, v2, res)`` is invoked in cases of duplicate
+    keys to resolve the value that should be in the map.
+
+        SELECT(split_to_map('a:1;b:2;a:3', ';', ':', (k, v1, v2) -> v1)); -- {"a": "1", "b": "2"}
+        SELECT(split_to_map('a:1;b:2;a:3', ';', ':', (k, v1, v2) -> CONCAT(v1, v2))); -- {"a": "13", "b": "2"}
+
 .. function:: split_to_multimap(string, entryDelimiter, keyValueDelimiter) -> map(varchar, array(varchar))
 
     Splits ``string`` by ``entryDelimiter`` and ``keyValueDelimiter`` and returns a map
