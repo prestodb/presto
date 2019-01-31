@@ -102,6 +102,7 @@ abstract class ColumnReader
     {
         return outputChannel;
     }
+
     @Override
     public Filter getFilter()
     {
