@@ -228,7 +228,29 @@ public class HivePageSource
                 return null;
             }
             if (filterAndProjectPushedDown) {
-                return dataPage;
+                int batchSize = dataPage.getPositionCount();
+                List<Block> blocks = new ArrayList<>();
+                for (int fieldId = 0; fieldId < columnMappings.size(); fieldId++) {
+                    ColumnMapping columnMapping = columnMappings.get(fieldId);
+                    switch (columnMapping.getKind()) {
+                        case PREFILLED:
+                            blocks.add(RunLengthEncodedBlock.create(types[fieldId], prefilledValues[fieldId], batchSize));
+                            break;
+                        case REGULAR:
+                            Block block = dataPage.getBlock(columnMapping.getIndex());
+                            if (coercers[fieldId] != null) {
+                                throw new UnsupportedOperationException();
+                            }
+                            blocks.add(block);
+                            break;
+                        case INTERIM:
+                            // interim columns don't show up in output
+                            break;
+                        default:
+                            throw new UnsupportedOperationException();
+                    }
+                }
+                return new Page(batchSize, blocks.toArray(new Block[0]));
             }
             if (bucketAdapter.isPresent()) {
                 IntArrayList rowsToKeep = bucketAdapter.get().computeEligibleRowIds(dataPage);
