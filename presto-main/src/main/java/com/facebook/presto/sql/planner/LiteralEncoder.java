@@ -15,10 +15,10 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.block.BlockSerdeUtil;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;

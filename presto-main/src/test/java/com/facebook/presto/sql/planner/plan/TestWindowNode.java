@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.metadata.FunctionKind;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.server.SliceDeserializer;
 import com.facebook.presto.server.SliceSerializer;
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.sql.Serialization;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.OrderingScheme;

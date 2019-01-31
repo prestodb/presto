@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.metadata.FunctionKind;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.WindowNode;

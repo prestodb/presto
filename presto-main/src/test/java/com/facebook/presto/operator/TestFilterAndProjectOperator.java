@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.metadata.InternalFunction;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
@@ -87,7 +87,7 @@ public class TestFilterAndProjectOperator
                 .build();
 
         RowExpression filter = call(
-                Signature.internalOperator(BETWEEN, BOOLEAN.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature())),
+                InternalFunction.internalOperator(BETWEEN, BOOLEAN.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature())),
                 BOOLEAN,
                 field(1, BIGINT),
                 constant(10L, BIGINT),
@@ -95,7 +95,7 @@ public class TestFilterAndProjectOperator
 
         RowExpression field0 = field(0, VARCHAR);
         RowExpression add5 = call(
-                Signature.internalOperator(ADD, BIGINT.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature())),
+                InternalFunction.internalOperator(ADD, BIGINT.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature())),
                 BIGINT,
                 field(1, BIGINT),
                 constant(5L, BIGINT));
@@ -139,7 +139,7 @@ public class TestFilterAndProjectOperator
                 .build();
 
         RowExpression filter = call(
-                Signature.internalOperator(EQUAL, BOOLEAN.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature())),
+                InternalFunction.internalOperator(EQUAL, BOOLEAN.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature())),
                 BOOLEAN,
                 field(1, BIGINT),
                 constant(10L, BIGINT));

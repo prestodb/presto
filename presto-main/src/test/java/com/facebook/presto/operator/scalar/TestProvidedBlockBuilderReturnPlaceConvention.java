@@ -14,14 +14,14 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ReturnPlaceConvention;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -35,13 +35,13 @@ import java.lang.invoke.MethodHandles;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ReturnPlaceConvention.PROVIDED_BLOCKBUILDER;
 import static com.facebook.presto.operator.scalar.TestProvidedBlockBuilderReturnPlaceConvention.FunctionWithProvidedBlockReturnPlaceConvention1.PROVIDED_BLOCKBUILDER_CONVENTION1;
 import static com.facebook.presto.operator.scalar.TestProvidedBlockBuilderReturnPlaceConvention.FunctionWithProvidedBlockReturnPlaceConvention2.PROVIDED_BLOCKBUILDER_CONVENTION2;
+import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;

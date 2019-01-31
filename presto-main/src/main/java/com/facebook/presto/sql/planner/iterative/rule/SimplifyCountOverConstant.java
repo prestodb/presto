@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -36,7 +36,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
+import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;

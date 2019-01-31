@@ -28,7 +28,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.metadata.Signature.internalOperator;
+import static com.facebook.presto.metadata.InternalFunction.internalOperator;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.lang.Boolean.TRUE;

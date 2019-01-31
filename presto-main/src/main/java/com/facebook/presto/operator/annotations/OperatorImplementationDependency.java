@@ -20,7 +20,7 @@ import com.facebook.presto.spi.type.TypeSignature;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.Signature.internalOperator;
+import static com.facebook.presto.metadata.InternalFunction.internalOperator;
 import static java.util.Objects.requireNonNull;
 
 public final class OperatorImplementationDependency

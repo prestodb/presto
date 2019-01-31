@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.Type;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
+import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;

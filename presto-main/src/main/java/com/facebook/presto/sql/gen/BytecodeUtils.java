@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.InputReferenceCompiler.InputReferenceNode;
 import com.google.common.base.Joiner;

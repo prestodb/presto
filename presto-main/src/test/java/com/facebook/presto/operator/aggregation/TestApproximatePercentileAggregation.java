@@ -14,9 +14,9 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -28,8 +28,8 @@ import static com.facebook.presto.block.BlockAssertions.createLongRepeatBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createSequenceBlockOfReal;
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.RealType.REAL;

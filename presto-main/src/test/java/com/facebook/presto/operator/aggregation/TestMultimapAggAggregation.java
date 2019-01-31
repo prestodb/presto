@@ -15,7 +15,6 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.RowPageBuilder;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInput;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInputBuilder;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestOutput;
@@ -23,6 +22,7 @@ import com.facebook.presto.operator.aggregation.groupByAggregations.GroupByAggre
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
@@ -40,10 +40,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.operator.aggregation.multimapagg.MultimapAggregationFunction.NAME;
+import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;

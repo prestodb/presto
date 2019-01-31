@@ -19,7 +19,7 @@ import com.facebook.presto.spi.type.TypeSignature;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.Signature.internalScalarFunction;
+import static com.facebook.presto.metadata.InternalFunction.internalScalarFunction;
 
 public final class FunctionImplementationDependency
         extends ScalarImplementationDependency

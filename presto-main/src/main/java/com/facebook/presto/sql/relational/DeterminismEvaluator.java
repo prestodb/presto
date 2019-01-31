@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.function.Signature;
 
 import static java.util.Objects.requireNonNull;
 

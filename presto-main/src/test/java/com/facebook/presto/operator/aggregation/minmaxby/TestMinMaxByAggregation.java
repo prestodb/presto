@@ -14,9 +14,9 @@
 package com.facebook.presto.operator.aggregation.minmaxby;
 
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlDecimal;
@@ -37,8 +37,8 @@ import static com.facebook.presto.block.BlockAssertions.createLongDecimalsBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createShortDecimalsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;

@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.PolymorphicScalarFunction.PolymorphicScalarF
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ReturnPlaceConvention;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;

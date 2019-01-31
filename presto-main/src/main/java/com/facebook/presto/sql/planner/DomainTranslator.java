@@ -16,8 +16,8 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.predicate.DiscreteValues;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Marker;
@@ -59,7 +59,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.Signature.internalOperator;
+import static com.facebook.presto.metadata.InternalFunction.internalOperator;
 import static com.facebook.presto.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;

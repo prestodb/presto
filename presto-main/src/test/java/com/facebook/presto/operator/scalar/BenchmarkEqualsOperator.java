@@ -51,8 +51,8 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.metadata.Signature.internalOperator;
-import static com.facebook.presto.metadata.Signature.internalScalarFunction;
+import static com.facebook.presto.metadata.InternalFunction.internalOperator;
+import static com.facebook.presto.metadata.InternalFunction.internalScalarFunction;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.relational.Expressions.call;

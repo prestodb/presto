@@ -21,6 +21,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.InvocationConvention;
 import com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention;
 import com.facebook.presto.spi.function.InvocationConvention.InvocationReturnConvention;
+import com.facebook.presto.spi.function.Signature;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.util.List;

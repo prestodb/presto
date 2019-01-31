@@ -14,8 +14,8 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.fasterxml.jackson.annotation.JsonCreator;

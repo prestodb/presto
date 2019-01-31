@@ -11,23 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.metadata;
+package com.facebook.presto.spi.function;
 
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.metadata.FunctionKind.SCALAR;
-import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Stream.concat;
 
@@ -57,56 +54,21 @@ public final class Signature
 
         this.name = name;
         this.kind = requireNonNull(kind, "type is null");
-        this.typeVariableConstraints = ImmutableList.copyOf(typeVariableConstraints);
-        this.longVariableConstraints = ImmutableList.copyOf(longVariableConstraints);
+        this.typeVariableConstraints = unmodifiableList(new ArrayList<>(typeVariableConstraints));
+        this.longVariableConstraints = unmodifiableList(new ArrayList<>(longVariableConstraints));
         this.returnType = requireNonNull(returnType, "returnType is null");
-        this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
+        this.argumentTypes = unmodifiableList(new ArrayList<>(requireNonNull(argumentTypes, "argumentTypes is null")));
         this.variableArity = variableArity;
     }
 
     public Signature(String name, FunctionKind kind, TypeSignature returnType, TypeSignature... argumentTypes)
     {
-        this(name, kind, returnType, ImmutableList.copyOf(argumentTypes));
+        this(name, kind, returnType, unmodifiableList(new ArrayList<>(Arrays.asList(argumentTypes))));
     }
 
     public Signature(String name, FunctionKind kind, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
-        this(name, kind, ImmutableList.of(), ImmutableList.of(), returnType, argumentTypes, false);
-    }
-
-    public static Signature internalOperator(OperatorType operator, Type returnType, List<? extends Type> argumentTypes)
-    {
-        return internalScalarFunction(mangleOperatorName(operator.name()), returnType.getTypeSignature(), argumentTypes.stream().map(Type::getTypeSignature).collect(toImmutableList()));
-    }
-
-    public static Signature internalOperator(OperatorType operator, TypeSignature returnType, TypeSignature... argumentTypes)
-    {
-        return internalOperator(operator, returnType, ImmutableList.copyOf(argumentTypes));
-    }
-
-    public static Signature internalOperator(OperatorType operator, TypeSignature returnType, List<TypeSignature> argumentTypes)
-    {
-        return internalScalarFunction(mangleOperatorName(operator.name()), returnType, argumentTypes);
-    }
-
-    public static Signature internalOperator(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
-    {
-        return internalScalarFunction(mangleOperatorName(name), returnType, argumentTypes);
-    }
-
-    public static Signature internalOperator(String name, TypeSignature returnType, TypeSignature... argumentTypes)
-    {
-        return internalScalarFunction(mangleOperatorName(name), returnType, ImmutableList.copyOf(argumentTypes));
-    }
-
-    public static Signature internalScalarFunction(String name, TypeSignature returnType, TypeSignature... argumentTypes)
-    {
-        return internalScalarFunction(name, returnType, ImmutableList.copyOf(argumentTypes));
-    }
-
-    public static Signature internalScalarFunction(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
-    {
-        return new Signature(name, SCALAR, ImmutableList.of(), ImmutableList.of(), returnType, argumentTypes, false);
+        this(name, kind, emptyList(), emptyList(), returnType, argumentTypes, false);
     }
 
     public Signature withAlias(String name)
@@ -189,7 +151,25 @@ public final class Signature
                 longVariableConstraints.stream().map(LongVariableConstraint::toString))
                 .collect(Collectors.toList());
 
-        return name + (allConstraints.isEmpty() ? "" : "<" + Joiner.on(",").join(allConstraints) + ">") + "(" + Joiner.on(",").join(argumentTypes) + "):" + returnType;
+        StringBuilder stringBuilder = new StringBuilder(name);
+        if (!allConstraints.isEmpty()) {
+            stringBuilder.append("<").append(allConstraints.get(0));
+            for (int i = 1; i < allConstraints.size(); i++) {
+                stringBuilder.append(",").append(allConstraints.get(i));
+            }
+            stringBuilder.append(">");
+        }
+        stringBuilder.append("(");
+        if (!argumentTypes.isEmpty()) {
+            stringBuilder.append(argumentTypes.get(0));
+        }
+        for (int i = 1; i < argumentTypes.size(); i++) {
+            stringBuilder.append(",").append(argumentTypes.get(i));
+        }
+        stringBuilder.append(")")
+                .append(":")
+                .append(returnType);
+        return stringBuilder.toString();
     }
 
     /*
@@ -228,10 +208,5 @@ public final class Signature
     public static LongVariableConstraint longVariableExpression(String variable, String expression)
     {
         return new LongVariableConstraint(variable, expression);
-    }
-
-    public static SignatureBuilder builder()
-    {
-        return new SignatureBuilder();
     }
 }
