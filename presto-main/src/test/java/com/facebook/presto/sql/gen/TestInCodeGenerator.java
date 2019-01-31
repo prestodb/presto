@@ -14,8 +14,8 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.RowExpression;
+import com.facebook.presto.spi.relation.column.CallExpression;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
@@ -42,7 +42,7 @@ public class TestInCodeGenerator
     @Test
     public void testInteger()
     {
-        List<RowExpression> values = new ArrayList<>();
+        List<ColumnExpression> values = new ArrayList<>();
         values.add(constant(Integer.MIN_VALUE, INTEGER));
         values.add(constant(Integer.MAX_VALUE, INTEGER));
         values.add(constant(3, INTEGER));
@@ -72,7 +72,7 @@ public class TestInCodeGenerator
     @Test
     public void testBigint()
     {
-        List<RowExpression> values = new ArrayList<>();
+        List<ColumnExpression> values = new ArrayList<>();
         values.add(constant(Integer.MAX_VALUE + 1L, BIGINT));
         values.add(constant(Integer.MIN_VALUE - 1L, BIGINT));
         values.add(constant(3L, BIGINT));
@@ -102,7 +102,7 @@ public class TestInCodeGenerator
     @Test
     public void testDate()
     {
-        List<RowExpression> values = new ArrayList<>();
+        List<ColumnExpression> values = new ArrayList<>();
         values.add(constant(1L, DATE));
         values.add(constant(2L, DATE));
         values.add(constant(3L, DATE));
@@ -120,7 +120,7 @@ public class TestInCodeGenerator
     @Test
     public void testDouble()
     {
-        List<RowExpression> values = new ArrayList<>();
+        List<ColumnExpression> values = new ArrayList<>();
         values.add(constant(1.5, DOUBLE));
         values.add(constant(2.5, DOUBLE));
         values.add(constant(3.5, DOUBLE));
@@ -141,7 +141,7 @@ public class TestInCodeGenerator
     @Test
     public void testVarchar()
     {
-        List<RowExpression> values = new ArrayList<>();
+        List<ColumnExpression> values = new ArrayList<>();
         values.add(constant(Slices.utf8Slice("1"), DOUBLE));
         values.add(constant(Slices.utf8Slice("2"), DOUBLE));
         values.add(constant(Slices.utf8Slice("3"), DOUBLE));

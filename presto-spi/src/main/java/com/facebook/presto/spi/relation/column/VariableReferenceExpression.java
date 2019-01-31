@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.relational;
+package com.facebook.presto.spi.relation.column;
 
 import com.facebook.presto.spi.type.Type;
 
@@ -20,7 +20,7 @@ import java.util.Objects;
 import static java.util.Objects.requireNonNull;
 
 public final class VariableReferenceExpression
-        extends RowExpression
+        extends ColumnExpression
 {
     private final String name;
     private final Type type;
@@ -55,7 +55,7 @@ public final class VariableReferenceExpression
     }
 
     @Override
-    public <R, C> R accept(RowExpressionVisitor<R, C> visitor, C context)
+    public <R, C> R accept(ColumnExpressionVisitor<R, C> visitor, C context)
     {
         return visitor.visitVariableReference(this, context);
     }

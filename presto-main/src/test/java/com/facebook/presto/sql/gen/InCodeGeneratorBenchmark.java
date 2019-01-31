@@ -19,9 +19,9 @@ import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -82,7 +82,7 @@ public class InCodeGeneratorBenchmark
     public void setup()
     {
         Random random = new Random();
-        RowExpression[] arguments = new RowExpression[1 + inListCount];
+        ColumnExpression[] arguments = new ColumnExpression[1 + inListCount];
         switch (type) {
             case StandardTypes.BIGINT:
                 prestoType = BIGINT;
@@ -107,7 +107,7 @@ public class InCodeGeneratorBenchmark
         }
 
         arguments[0] = field(0, prestoType);
-        RowExpression project = field(0, prestoType);
+        ColumnExpression project = field(0, prestoType);
 
         PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(prestoType));
         for (int i = 0; i < 10_000; i++) {
@@ -127,7 +127,7 @@ public class InCodeGeneratorBenchmark
         }
         inputPage = pageBuilder.build();
 
-        RowExpression filter = call(
+        ColumnExpression filter = call(
                 new Signature(IN, SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
                 BOOLEAN,
                 arguments);

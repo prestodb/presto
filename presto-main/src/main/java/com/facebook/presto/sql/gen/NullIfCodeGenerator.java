@@ -16,9 +16,9 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
@@ -38,12 +38,12 @@ public class NullIfCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<ColumnExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         Scope scope = generatorContext.getScope();
 
-        RowExpression first = arguments.get(0);
-        RowExpression second = arguments.get(1);
+        ColumnExpression first = arguments.get(0);
+        ColumnExpression second = arguments.get(1);
 
         LabelNode notMatch = new LabelNode("notMatch");
 

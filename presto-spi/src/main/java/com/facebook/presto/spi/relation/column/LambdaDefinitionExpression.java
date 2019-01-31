@@ -11,30 +11,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.relational;
+package com.facebook.presto.spi.relation.column;
 
+import com.facebook.presto.spi.type.FunctionType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.FunctionType;
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 public final class LambdaDefinitionExpression
-        extends RowExpression
+        extends ColumnExpression
 {
     private final List<Type> argumentTypes;
     private final List<String> arguments;
-    private final RowExpression body;
+    private final ColumnExpression body;
 
-    public LambdaDefinitionExpression(List<Type> argumentTypes, List<String> arguments, RowExpression body)
+    public LambdaDefinitionExpression(List<Type> argumentTypes, List<String> arguments, ColumnExpression body)
     {
-        this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
-        this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
+        this.argumentTypes = unmodifiableList(new ArrayList<>(requireNonNull(argumentTypes, "argumentTypes is null")));
+        this.arguments = unmodifiableList(new ArrayList<>(requireNonNull(arguments, "arguments is null")));
         checkArgument(argumentTypes.size() == arguments.size(), "Number of argument types does not match number of arguments");
         this.body = requireNonNull(body, "body is null");
     }
@@ -49,7 +49,7 @@ public final class LambdaDefinitionExpression
         return arguments;
     }
 
-    public RowExpression getBody()
+    public ColumnExpression getBody()
     {
         return body;
     }
@@ -63,7 +63,14 @@ public final class LambdaDefinitionExpression
     @Override
     public String toString()
     {
-        return "(" + Joiner.on(",").join(arguments) + ") -> " + body;
+        StringBuilder lambdaDefinition = new StringBuilder();
+        lambdaDefinition.append("(").append(arguments.get(0));
+        for (int i = 1; i < arguments.size(); i++) {
+            lambdaDefinition.append(",").append(arguments.get(i));
+        }
+        lambdaDefinition.append(") -> ");
+        lambdaDefinition.append(body);
+        return lambdaDefinition.toString();
     }
 
     @Override
@@ -88,8 +95,15 @@ public final class LambdaDefinitionExpression
     }
 
     @Override
-    public <R, C> R accept(RowExpressionVisitor<R, C> visitor, C context)
+    public <R, C> R accept(ColumnExpressionVisitor<R, C> visitor, C context)
     {
         return visitor.visitLambda(this, context);
+    }
+
+    private static void checkArgument(boolean argument, String format, Object... args)
+    {
+        if (!argument) {
+            throw new IllegalArgumentException(format(format, args));
+        }
     }
 }

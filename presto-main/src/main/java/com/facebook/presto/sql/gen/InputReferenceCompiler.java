@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.spi.relation.column.CallExpression;
+import com.facebook.presto.spi.relation.column.ColumnExpressionVisitor;
+import com.facebook.presto.spi.relation.column.ConstantExpression;
+import com.facebook.presto.spi.relation.column.InputReferenceExpression;
+import com.facebook.presto.spi.relation.column.LambdaDefinitionExpression;
+import com.facebook.presto.spi.relation.column.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
-import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
-import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.bytecode.BytecodeBlock;
@@ -40,7 +40,7 @@ import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType
 import static java.util.Objects.requireNonNull;
 
 class InputReferenceCompiler
-        implements RowExpressionVisitor<BytecodeNode, Scope>
+        implements ColumnExpressionVisitor<BytecodeNode, Scope>
 {
     private final BiFunction<Scope, Integer, BytecodeExpression> blockResolver;
     private final BiFunction<Scope, Integer, BytecodeExpression> positionResolver;

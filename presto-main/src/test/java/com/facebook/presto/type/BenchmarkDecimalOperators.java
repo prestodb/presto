@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.DoubleType;
@@ -31,8 +32,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
+import com.facebook.presto.sql.relational.SqlToColumnExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.google.common.collect.ImmutableList;
@@ -603,7 +603,7 @@ public class BenchmarkDecimalOperators
 
         protected void generateProcessor(String expression)
         {
-            processor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0)).compilePageProcessor(Optional.empty(), ImmutableList.of(rowExpression(expression))).get();
+            processor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0)).compilePageProcessor(Optional.empty(), ImmutableList.of(columnExpression(expression))).get();
         }
 
         protected void setDoubleMaxValue(double doubleMaxValue)
@@ -611,7 +611,7 @@ public class BenchmarkDecimalOperators
             this.doubleMaxValue = doubleMaxValue;
         }
 
-        private RowExpression rowExpression(String expression)
+        private ColumnExpression columnExpression(String expression)
         {
             Expression inputReferenceExpression = new SymbolToInputRewriter(sourceLayout).rewrite(createExpression(expression, metadata, TypeProvider.copyOf(symbolTypes)));
 
@@ -619,7 +619,7 @@ public class BenchmarkDecimalOperators
                     .collect(toMap(Map.Entry::getValue, entry -> symbolTypes.get(entry.getKey())));
 
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, metadata, SQL_PARSER, types, inputReferenceExpression, emptyList(), WarningCollector.NOOP);
-            return SqlToRowExpressionTranslator.translate(inputReferenceExpression, SCALAR, expressionTypes, metadata.getFunctionRegistry(), metadata.getTypeManager(), TEST_SESSION, true);
+            return SqlToColumnExpressionTranslator.translate(inputReferenceExpression, SCALAR, expressionTypes, metadata.getFunctionRegistry(), metadata.getTypeManager(), TEST_SESSION, true);
         }
 
         private Object generateRandomValue(Type type)

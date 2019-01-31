@@ -14,6 +14,13 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.column.CallExpression;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
+import com.facebook.presto.spi.relation.column.ColumnExpressionVisitor;
+import com.facebook.presto.spi.relation.column.ConstantExpression;
+import com.facebook.presto.spi.relation.column.InputReferenceExpression;
+import com.facebook.presto.spi.relation.column.LambdaDefinitionExpression;
+import com.facebook.presto.spi.relation.column.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
@@ -36,12 +43,12 @@ public final class Expressions
         return new ConstantExpression(null, type);
     }
 
-    public static CallExpression call(Signature signature, Type returnType, RowExpression... arguments)
+    public static CallExpression call(Signature signature, Type returnType, ColumnExpression... arguments)
     {
         return new CallExpression(signature, returnType, Arrays.asList(arguments));
     }
 
-    public static CallExpression call(Signature signature, Type returnType, List<RowExpression> arguments)
+    public static CallExpression call(Signature signature, Type returnType, List<ColumnExpression> arguments)
     {
         return new CallExpression(signature, returnType, arguments);
     }
@@ -51,18 +58,18 @@ public final class Expressions
         return new InputReferenceExpression(field, type);
     }
 
-    public static List<RowExpression> subExpressions(Iterable<RowExpression> expressions)
+    public static List<ColumnExpression> subExpressions(Iterable<ColumnExpression> expressions)
     {
-        final ImmutableList.Builder<RowExpression> builder = ImmutableList.builder();
+        final ImmutableList.Builder<ColumnExpression> builder = ImmutableList.builder();
 
-        for (RowExpression expression : expressions) {
-            expression.accept(new RowExpressionVisitor<Void, Void>()
+        for (ColumnExpression expression : expressions) {
+            expression.accept(new ColumnExpressionVisitor<Void, Void>()
             {
                 @Override
                 public Void visitCall(CallExpression call, Void context)
                 {
                     builder.add(call);
-                    for (RowExpression argument : call.getArguments()) {
+                    for (ColumnExpression argument : call.getArguments()) {
                         argument.accept(this, context);
                     }
                     return null;

@@ -33,10 +33,10 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.LazyBlock;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingSplit;
 import com.facebook.presto.testing.TestingTransactionHandle;
@@ -97,7 +97,7 @@ public class TestScanFilterAndProjectOperator
         final Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(VARCHAR), 10_000, 0);
         DriverContext driverContext = newDriverContext();
 
-        List<RowExpression> projections = ImmutableList.of(field(0, VARCHAR));
+        List<ColumnExpression> projections = ImmutableList.of(field(0, VARCHAR));
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections, "key");
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections);
 
@@ -134,12 +134,12 @@ public class TestScanFilterAndProjectOperator
                 .addSequencePage(100, 0)
                 .build();
 
-        RowExpression filter = call(
+        ColumnExpression filter = call(
                 InternalFunction.internalOperator(EQUAL, BOOLEAN.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature())),
                 BOOLEAN,
                 field(0, BIGINT),
                 constant(10L, BIGINT));
-        List<RowExpression> projections = ImmutableList.of(field(0, BIGINT));
+        List<ColumnExpression> projections = ImmutableList.of(field(0, BIGINT));
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.of(filter), projections, "key");
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.of(filter), projections);
 
@@ -182,7 +182,7 @@ public class TestScanFilterAndProjectOperator
         }));
         DriverContext driverContext = newDriverContext();
 
-        List<RowExpression> projections = ImmutableList.of(field(0, VARCHAR));
+        List<ColumnExpression> projections = ImmutableList.of(field(0, VARCHAR));
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections, "key");
         PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new LazyPagePageProjection()));
 
@@ -215,7 +215,7 @@ public class TestScanFilterAndProjectOperator
         final Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(VARCHAR), 10_000, 0);
         DriverContext driverContext = newDriverContext();
 
-        List<RowExpression> projections = ImmutableList.of(field(0, VARCHAR));
+        List<ColumnExpression> projections = ImmutableList.of(field(0, VARCHAR));
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections, "key");
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections);
 
@@ -263,7 +263,7 @@ public class TestScanFilterAndProjectOperator
 
         // match each column with a projection
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
-        ImmutableList.Builder<RowExpression> projections = ImmutableList.builder();
+        ImmutableList.Builder<ColumnExpression> projections = ImmutableList.builder();
         for (int i = 0; i < totalColumns; i++) {
             projections.add(call(internalScalarFunction("generic_long_page_col" + i, BIGINT.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature())), BIGINT, field(0, BIGINT)));
         }
@@ -327,7 +327,7 @@ public class TestScanFilterAndProjectOperator
         })));
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
 
-        List<RowExpression> projections = ImmutableList.of(call(
+        List<ColumnExpression> projections = ImmutableList.of(call(
                 InternalFunction.internalScalarFunction("generic_long_record_cursor", BIGINT.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature())),
                 BIGINT,
                 field(0, BIGINT)));

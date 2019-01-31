@@ -15,9 +15,9 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.column.CallExpression;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -40,7 +40,7 @@ public class SwitchCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<ColumnExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         // TODO: compile as
         /*
@@ -75,12 +75,12 @@ public class SwitchCodeGenerator
         Scope scope = generatorContext.getScope();
 
         // process value, else, and all when clauses
-        RowExpression value = arguments.get(0);
+        ColumnExpression value = arguments.get(0);
         BytecodeNode valueBytecode = generatorContext.generate(value, Optional.empty());
         BytecodeNode elseValue;
 
-        List<RowExpression> whenClauses;
-        RowExpression last = arguments.get(arguments.size() - 1);
+        List<ColumnExpression> whenClauses;
+        ColumnExpression last = arguments.get(arguments.size() - 1);
         if (last instanceof CallExpression && ((CallExpression) last).getSignature().getName().equals("WHEN")) {
             whenClauses = arguments.subList(1, arguments.size());
             elseValue = new BytecodeBlock()
@@ -108,11 +108,11 @@ public class SwitchCodeGenerator
         // build the statements
         elseValue = new BytecodeBlock().visitLabel(nullValue).append(elseValue);
         // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
-        for (RowExpression clause : Lists.reverse(whenClauses)) {
+        for (ColumnExpression clause : Lists.reverse(whenClauses)) {
             Preconditions.checkArgument(clause instanceof CallExpression && ((CallExpression) clause).getSignature().getName().equals("WHEN"));
 
-            RowExpression operand = ((CallExpression) clause).getArguments().get(0);
-            RowExpression result = ((CallExpression) clause).getArguments().get(1);
+            ColumnExpression operand = ((CallExpression) clause).getArguments().get(0);
+            ColumnExpression result = ((CallExpression) clause).getArguments().get(1);
 
             // call equals(value, operand)
             Signature equalsFunction = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(value.getType(), operand.getType()));

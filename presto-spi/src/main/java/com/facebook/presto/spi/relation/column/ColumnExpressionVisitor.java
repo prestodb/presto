@@ -11,22 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.relational;
+package com.facebook.presto.spi.relation.column;
 
-import com.facebook.presto.spi.type.Type;
-
-public abstract class RowExpression
+public interface ColumnExpressionVisitor<R, C>
 {
-    public abstract Type getType();
+    R visitCall(CallExpression call, C context);
 
-    @Override
-    public abstract boolean equals(Object other);
+    R visitInputReference(InputReferenceExpression reference, C context);
 
-    @Override
-    public abstract int hashCode();
+    R visitConstant(ConstantExpression literal, C context);
 
-    @Override
-    public abstract String toString();
+    R visitLambda(LambdaDefinitionExpression lambda, C context);
 
-    public abstract <R, C> R accept(RowExpressionVisitor<R, C> visitor, C context);
+    R visitVariableReference(VariableReferenceExpression reference, C context);
 }

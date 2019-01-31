@@ -17,8 +17,8 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.relational.RowExpression;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Scope;
@@ -38,7 +38,7 @@ public class RowConstructorCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type rowType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type rowType, List<ColumnExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         BytecodeBlock block = new BytecodeBlock().setDescription("Constructor for " + rowType.toString());
         CallSiteBinder binder = context.getCallSiteBinder();

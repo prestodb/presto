@@ -17,12 +17,12 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
+import com.facebook.presto.spi.relation.column.ConstantExpression;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.util.FastutilSetHelper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -77,7 +77,7 @@ public class InCodeGenerator
     }
 
     @VisibleForTesting
-    static SwitchGenerationCase checkSwitchGenerationCase(Type type, List<RowExpression> values)
+    static SwitchGenerationCase checkSwitchGenerationCase(Type type, List<ColumnExpression> values)
     {
         if (values.size() > 32) {
             // 32 is chosen because
@@ -89,7 +89,7 @@ public class InCodeGenerator
         if (!(type instanceof IntegerType || type instanceof BigintType || type instanceof DateType)) {
             return SwitchGenerationCase.HASH_SWITCH;
         }
-        for (RowExpression expression : values) {
+        for (ColumnExpression expression : values) {
             // For non-constant expressions, they will be added to the default case in the generated switch code. They do not affect any of
             // the cases other than the default one. Therefore, it's okay to skip them when choosing between DIRECT_SWITCH and HASH_SWITCH.
             // Same argument applies for nulls.
@@ -109,9 +109,9 @@ public class InCodeGenerator
     }
 
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<ColumnExpression> arguments, Optional<Variable> outputBlockVariable)
     {
-        List<RowExpression> values = arguments.subList(1, arguments.size());
+        List<ColumnExpression> values = arguments.subList(1, arguments.size());
         // empty IN statements are not allowed by the standard, and not possible here
         // the implementation assumes this condition is always met
         checkArgument(values.size() > 0, "values must not be empty");
@@ -130,7 +130,7 @@ public class InCodeGenerator
         ImmutableList.Builder<BytecodeNode> defaultBucket = ImmutableList.builder();
         ImmutableSet.Builder<Object> constantValuesBuilder = ImmutableSet.builder();
 
-        for (RowExpression testValue : values) {
+        for (ColumnExpression testValue : values) {
             BytecodeNode testBytecode = generatorContext.generate(testValue, Optional.empty());
 
             if (isDeterminateConstant(testValue, isIndeterminateFunction.getMethodHandle())) {
@@ -371,7 +371,7 @@ public class InCodeGenerator
         return caseBlock;
     }
 
-    private static boolean isDeterminateConstant(RowExpression expression, MethodHandle isIndeterminateFunction)
+    private static boolean isDeterminateConstant(ColumnExpression expression, MethodHandle isIndeterminateFunction)
     {
         if (!(expression instanceof ConstantExpression)) {
             return false;

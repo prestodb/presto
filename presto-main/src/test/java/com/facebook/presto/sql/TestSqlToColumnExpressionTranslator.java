@@ -16,6 +16,7 @@ package com.facebook.presto.sql;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
@@ -23,8 +24,7 @@ import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
+import com.facebook.presto.sql.relational.SqlToColumnExpressionTranslator;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -45,7 +45,7 @@ import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.util.Collections.emptyList;
 
-public class TestSqlToRowExpressionTranslator
+public class TestSqlToColumnExpressionTranslator
 {
     private final Metadata metadata = MetadataManager.createTestMetadataManager();
     private final LiteralEncoder literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
@@ -85,14 +85,14 @@ public class TestSqlToRowExpressionTranslator
                 constant(encodeScaledValue(new BigDecimal("123456789012345678901234567890.00")), createDecimalType(35, 2)));
     }
 
-    private RowExpression translateAndOptimize(Expression expression)
+    private ColumnExpression translateAndOptimize(Expression expression)
     {
         return translateAndOptimize(expression, getExpressionTypes(expression));
     }
 
-    private RowExpression translateAndOptimize(Expression expression, Map<NodeRef<Expression>, Type> types)
+    private ColumnExpression translateAndOptimize(Expression expression, Map<NodeRef<Expression>, Type> types)
     {
-        return SqlToRowExpressionTranslator.translate(expression, SCALAR, types, metadata.getFunctionRegistry(), metadata.getTypeManager(), TEST_SESSION, true);
+        return SqlToColumnExpressionTranslator.translate(expression, SCALAR, types, metadata.getFunctionRegistry(), metadata.getTypeManager(), TEST_SESSION, true);
     }
 
     private Expression simplifyExpression(Expression expression)

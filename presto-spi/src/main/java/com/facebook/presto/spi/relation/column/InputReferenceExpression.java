@@ -11,49 +11,58 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.relational;
+package com.facebook.presto.spi.relation.column;
 
 import com.facebook.presto.spi.type.Type;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public final class ConstantExpression
-        extends RowExpression
+public final class InputReferenceExpression
+        extends ColumnExpression
 {
-    private final Object value;
+    private final int field;
     private final Type type;
 
-    public ConstantExpression(Object value, Type type)
+    public InputReferenceExpression(int field, Type type)
     {
         requireNonNull(type, "type is null");
 
-        this.value = value;
+        this.field = field;
         this.type = type;
     }
 
-    public Object getValue()
+    @JsonProperty
+    public int getField()
     {
-        return value;
+        return field;
     }
 
     @Override
+    @JsonProperty
     public Type getType()
     {
         return type;
     }
 
     @Override
-    public String toString()
+    public int hashCode()
     {
-        return String.valueOf(value);
+        return Objects.hash(field, type);
     }
 
     @Override
-    public int hashCode()
+    public String toString()
     {
-        return Objects.hash(value, type);
+        return "#" + field;
+    }
+
+    @Override
+    public <R, C> R accept(ColumnExpressionVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitInputReference(this, context);
     }
 
     @Override
@@ -65,13 +74,7 @@ public final class ConstantExpression
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        ConstantExpression other = (ConstantExpression) obj;
-        return Objects.equals(this.value, other.value) && Objects.equals(this.type, other.type);
-    }
-
-    @Override
-    public <R, C> R accept(RowExpressionVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitConstant(this, context);
+        InputReferenceExpression other = (InputReferenceExpression) obj;
+        return Objects.equals(this.field, other.field) && Objects.equals(this.type, other.type);
     }
 }

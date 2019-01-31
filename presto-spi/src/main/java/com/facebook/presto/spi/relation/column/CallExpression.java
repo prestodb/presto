@@ -11,26 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.relational;
+package com.facebook.presto.spi.relation.column;
 
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 public final class CallExpression
-        extends RowExpression
+        extends ColumnExpression
 {
     private final Signature signature;
     private final Type returnType;
-    private final List<RowExpression> arguments;
+    private final List<ColumnExpression> arguments;
 
-    public CallExpression(Signature signature, Type returnType, List<RowExpression> arguments)
+    public CallExpression(Signature signature, Type returnType, List<ColumnExpression> arguments)
     {
         requireNonNull(signature, "signature is null");
         requireNonNull(arguments, "arguments is null");
@@ -38,7 +38,7 @@ public final class CallExpression
 
         this.signature = signature;
         this.returnType = returnType;
-        this.arguments = ImmutableList.copyOf(arguments);
+        this.arguments = unmodifiableList(new ArrayList(arguments));
     }
 
     public Signature getSignature()
@@ -52,7 +52,7 @@ public final class CallExpression
         return returnType;
     }
 
-    public List<RowExpression> getArguments()
+    public List<ColumnExpression> getArguments()
     {
         return arguments;
     }
@@ -60,7 +60,13 @@ public final class CallExpression
     @Override
     public String toString()
     {
-        return signature.getName() + "(" + Joiner.on(", ").join(arguments) + ")";
+        StringBuilder callExpression = new StringBuilder(signature.getName());
+        callExpression.append("(").append(arguments.get(0));
+        for (int i = 1; i < arguments.size(); i++) {
+            callExpression.append(",").append(arguments.get(i));
+        }
+        callExpression.append(")");
+        return callExpression.toString();
     }
 
     @Override
@@ -83,7 +89,7 @@ public final class CallExpression
     }
 
     @Override
-    public <R, C> R accept(RowExpressionVisitor<R, C> visitor, C context)
+    public <R, C> R accept(ColumnExpressionVisitor<R, C> visitor, C context)
     {
         return visitor.visitCall(this, context);
     }

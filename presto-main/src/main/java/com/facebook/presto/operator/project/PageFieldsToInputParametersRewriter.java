@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.operator.project;
 
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
-import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
-import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.facebook.presto.sql.relational.VariableReferenceExpression;
+import com.facebook.presto.spi.relation.column.CallExpression;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
+import com.facebook.presto.spi.relation.column.ColumnExpressionVisitor;
+import com.facebook.presto.spi.relation.column.ConstantExpression;
+import com.facebook.presto.spi.relation.column.InputReferenceExpression;
+import com.facebook.presto.spi.relation.column.LambdaDefinitionExpression;
+import com.facebook.presto.spi.relation.column.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
@@ -38,16 +38,16 @@ public final class PageFieldsToInputParametersRewriter
 {
     private PageFieldsToInputParametersRewriter() {}
 
-    public static Result rewritePageFieldsToInputParameters(RowExpression expression)
+    public static Result rewritePageFieldsToInputParameters(ColumnExpression expression)
     {
         Visitor visitor = new Visitor();
-        RowExpression rewrittenProjection = expression.accept(visitor, null);
+        ColumnExpression rewrittenProjection = expression.accept(visitor, null);
         InputChannels inputChannels = new InputChannels(visitor.getInputChannels());
         return new Result(rewrittenProjection, inputChannels);
     }
 
     private static class Visitor
-            implements RowExpressionVisitor<RowExpression, Void>
+            implements ColumnExpressionVisitor<ColumnExpression, Void>
     {
         private final Map<Integer, Integer> fieldToParameter = new HashMap<>();
         private final List<Integer> inputChannels = new ArrayList<>();
@@ -59,7 +59,7 @@ public final class PageFieldsToInputParametersRewriter
         }
 
         @Override
-        public RowExpression visitInputReference(InputReferenceExpression reference, Void context)
+        public ColumnExpression visitInputReference(InputReferenceExpression reference, Void context)
         {
             int parameter = getParameterForField(reference);
             return field(parameter, reference.getType());
@@ -74,7 +74,7 @@ public final class PageFieldsToInputParametersRewriter
         }
 
         @Override
-        public RowExpression visitCall(CallExpression call, Void context)
+        public ColumnExpression visitCall(CallExpression call, Void context)
         {
             return new CallExpression(
                     call.getSignature(),
@@ -85,13 +85,13 @@ public final class PageFieldsToInputParametersRewriter
         }
 
         @Override
-        public RowExpression visitConstant(ConstantExpression literal, Void context)
+        public ColumnExpression visitConstant(ConstantExpression literal, Void context)
         {
             return literal;
         }
 
         @Override
-        public RowExpression visitLambda(LambdaDefinitionExpression lambda, Void context)
+        public ColumnExpression visitLambda(LambdaDefinitionExpression lambda, Void context)
         {
             return new LambdaDefinitionExpression(
                     lambda.getArgumentTypes(),
@@ -100,7 +100,7 @@ public final class PageFieldsToInputParametersRewriter
         }
 
         @Override
-        public RowExpression visitVariableReference(VariableReferenceExpression reference, Void context)
+        public ColumnExpression visitVariableReference(VariableReferenceExpression reference, Void context)
         {
             return reference;
         }
@@ -108,16 +108,16 @@ public final class PageFieldsToInputParametersRewriter
 
     public static class Result
     {
-        private final RowExpression rewrittenExpression;
+        private final ColumnExpression rewrittenExpression;
         private final InputChannels inputChannels;
 
-        public Result(RowExpression rewrittenExpression, InputChannels inputChannels)
+        public Result(ColumnExpression rewrittenExpression, InputChannels inputChannels)
         {
             this.rewrittenExpression = rewrittenExpression;
             this.inputChannels = inputChannels;
         }
 
-        public RowExpression getRewrittenExpression()
+        public ColumnExpression getRewrittenExpression()
         {
             return rewrittenExpression;
         }

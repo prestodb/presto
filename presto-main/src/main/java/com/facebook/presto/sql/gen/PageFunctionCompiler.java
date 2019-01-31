@@ -28,15 +28,15 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
+import com.facebook.presto.spi.relation.column.ColumnExpressionVisitor;
+import com.facebook.presto.spi.relation.column.ConstantExpression;
+import com.facebook.presto.spi.relation.column.InputReferenceExpression;
+import com.facebook.presto.spi.relation.column.LambdaDefinitionExpression;
 import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.facebook.presto.sql.planner.CompilerConfig;
-import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.DeterminismEvaluator;
 import com.facebook.presto.sql.relational.Expressions;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
-import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
-import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -99,8 +99,8 @@ public class PageFunctionCompiler
     private final Metadata metadata;
     private final DeterminismEvaluator determinismEvaluator;
 
-    private final LoadingCache<RowExpression, Supplier<PageProjection>> projectionCache;
-    private final LoadingCache<RowExpression, Supplier<PageFilter>> filterCache;
+    private final LoadingCache<ColumnExpression, Supplier<PageProjection>> projectionCache;
+    private final LoadingCache<ColumnExpression, Supplier<PageFilter>> filterCache;
 
     private final CacheStatsMBean projectionCacheStats;
     private final CacheStatsMBean filterCacheStats;
@@ -157,7 +157,7 @@ public class PageFunctionCompiler
         return filterCacheStats;
     }
 
-    public Supplier<PageProjection> compileProjection(RowExpression projection, Optional<String> classNameSuffix)
+    public Supplier<PageProjection> compileProjection(ColumnExpression projection, Optional<String> classNameSuffix)
     {
         if (projectionCache == null) {
             return compileProjectionInternal(projection, classNameSuffix);
@@ -165,7 +165,7 @@ public class PageFunctionCompiler
         return projectionCache.getUnchecked(projection);
     }
 
-    private Supplier<PageProjection> compileProjectionInternal(RowExpression projection, Optional<String> classNameSuffix)
+    private Supplier<PageProjection> compileProjectionInternal(ColumnExpression projection, Optional<String> classNameSuffix)
     {
         requireNonNull(projection, "projection is null");
 
@@ -208,7 +208,7 @@ public class PageFunctionCompiler
         return makeClassName("PageProjectionWork", classNameSuffix);
     }
 
-    private ClassDefinition definePageProjectWorkClass(RowExpression projection, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix)
+    private ClassDefinition definePageProjectWorkClass(ColumnExpression projection, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -316,7 +316,7 @@ public class PageFunctionCompiler
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
-            RowExpression projection,
+            ColumnExpression projection,
             FieldDefinition blockBuilder)
     {
         Parameter session = arg("session", ConnectorSession.class);
@@ -342,7 +342,7 @@ public class PageFunctionCompiler
         declareBlockVariables(projection, page, scope, body);
 
         scope.declareVariable("wasNull", body, constantFalse());
-        RowExpressionCompiler compiler = new RowExpressionCompiler(
+        ColumnExpressionCompiler compiler = new ColumnExpressionCompiler(
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder),
@@ -356,7 +356,7 @@ public class PageFunctionCompiler
         return method;
     }
 
-    public Supplier<PageFilter> compileFilter(RowExpression filter, Optional<String> classNameSuffix)
+    public Supplier<PageFilter> compileFilter(ColumnExpression filter, Optional<String> classNameSuffix)
     {
         if (filterCache == null) {
             return compileFilterInternal(filter, classNameSuffix);
@@ -364,7 +364,7 @@ public class PageFunctionCompiler
         return filterCache.getUnchecked(filter);
     }
 
-    private Supplier<PageFilter> compileFilterInternal(RowExpression filter, Optional<String> classNameSuffix)
+    private Supplier<PageFilter> compileFilterInternal(ColumnExpression filter, Optional<String> classNameSuffix)
     {
         requireNonNull(filter, "filter is null");
 
@@ -396,7 +396,7 @@ public class PageFunctionCompiler
         return makeClassName(PageFilter.class.getSimpleName(), classNameSuffix);
     }
 
-    private ClassDefinition defineFilterClass(RowExpression filter, InputChannels inputChannels, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix)
+    private ClassDefinition defineFilterClass(ColumnExpression filter, InputChannels inputChannels, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -492,7 +492,7 @@ public class PageFunctionCompiler
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
-            RowExpression filter)
+            ColumnExpression filter)
     {
         Parameter session = arg("session", ConnectorSession.class);
         Parameter page = arg("page", Page.class);
@@ -516,7 +516,7 @@ public class PageFunctionCompiler
         declareBlockVariables(filter, page, scope, body);
 
         Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
-        RowExpressionCompiler compiler = new RowExpressionCompiler(
+        ColumnExpressionCompiler compiler = new ColumnExpressionCompiler(
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder),
@@ -535,7 +535,7 @@ public class PageFunctionCompiler
             ClassDefinition containerClassDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            RowExpression expression)
+            ColumnExpression expression)
     {
         Set<LambdaDefinitionExpression> lambdaExpressions = ImmutableSet.copyOf(extractLambdaExpressions(expression));
         ImmutableMap.Builder<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
@@ -578,17 +578,17 @@ public class PageFunctionCompiler
         body.ret();
     }
 
-    private static void declareBlockVariables(RowExpression expression, Parameter page, Scope scope, BytecodeBlock body)
+    private static void declareBlockVariables(ColumnExpression expression, Parameter page, Scope scope, BytecodeBlock body)
     {
         for (int channel : getInputChannels(expression)) {
             scope.declareVariable("block_" + channel, body, page.invoke("getBlock", Block.class, constantInt(channel)));
         }
     }
 
-    private static List<Integer> getInputChannels(Iterable<RowExpression> expressions)
+    private static List<Integer> getInputChannels(Iterable<ColumnExpression> expressions)
     {
         TreeSet<Integer> channels = new TreeSet<>();
-        for (RowExpression expression : Expressions.subExpressions(expressions)) {
+        for (ColumnExpression expression : Expressions.subExpressions(expressions)) {
             if (expression instanceof InputReferenceExpression) {
                 channels.add(((InputReferenceExpression) expression).getField());
             }
@@ -596,7 +596,7 @@ public class PageFunctionCompiler
         return ImmutableList.copyOf(channels);
     }
 
-    private static List<Integer> getInputChannels(RowExpression expression)
+    private static List<Integer> getInputChannels(ColumnExpression expression)
     {
         return getInputChannels(ImmutableList.of(expression));
     }
@@ -610,7 +610,7 @@ public class PageFunctionCompiler
         return parameters.build();
     }
 
-    private static RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler(CallSiteBinder callSiteBinder)
+    private static ColumnExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler(CallSiteBinder callSiteBinder)
     {
         return new InputReferenceCompiler(
                 (scope, field) -> scope.getVariable("block_" + field),

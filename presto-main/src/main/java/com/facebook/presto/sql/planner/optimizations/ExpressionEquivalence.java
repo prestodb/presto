@@ -17,18 +17,18 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.column.CallExpression;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
+import com.facebook.presto.spi.relation.column.ColumnExpressionVisitor;
+import com.facebook.presto.spi.relation.column.ConstantExpression;
+import com.facebook.presto.spi.relation.column.InputReferenceExpression;
+import com.facebook.presto.spi.relation.column.LambdaDefinitionExpression;
+import com.facebook.presto.spi.relation.column.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
-import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
-import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.google.common.collect.ComparisonChain;
@@ -57,7 +57,7 @@ import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
-import static com.facebook.presto.sql.relational.SqlToRowExpressionTranslator.translate;
+import static com.facebook.presto.sql.relational.SqlToColumnExpressionTranslator.translate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Integer.min;
@@ -66,7 +66,7 @@ import static java.util.Objects.requireNonNull;
 
 public class ExpressionEquivalence
 {
-    private static final Ordering<RowExpression> ROW_EXPRESSION_ORDERING = Ordering.from(new RowExpressionComparator());
+    private static final Ordering<ColumnExpression> COLUMN_EXPRESSION_ORDERING = Ordering.from(new ColumnExpressionComparator());
     private static final CanonicalizationVisitor CANONICALIZATION_VISITOR = new CanonicalizationVisitor();
     private final Metadata metadata;
     private final SqlParser sqlParser;
@@ -87,16 +87,16 @@ public class ExpressionEquivalence
             inputTypes.put(inputId, entry.getValue());
             inputId++;
         }
-        RowExpression leftRowExpression = toRowExpression(session, leftExpression, symbolInput, inputTypes);
-        RowExpression rightRowExpression = toRowExpression(session, rightExpression, symbolInput, inputTypes);
+        ColumnExpression leftColumnExpression = toColumnExpression(session, leftExpression, symbolInput, inputTypes);
+        ColumnExpression rightColumnExpression = toColumnExpression(session, rightExpression, symbolInput, inputTypes);
 
-        RowExpression canonicalizedLeft = leftRowExpression.accept(CANONICALIZATION_VISITOR, null);
-        RowExpression canonicalizedRight = rightRowExpression.accept(CANONICALIZATION_VISITOR, null);
+        ColumnExpression canonicalizedLeft = leftColumnExpression.accept(CANONICALIZATION_VISITOR, null);
+        ColumnExpression canonicalizedRight = rightColumnExpression.accept(CANONICALIZATION_VISITOR, null);
 
         return canonicalizedLeft.equals(canonicalizedRight);
     }
 
-    private RowExpression toRowExpression(Session session, Expression expression, Map<Symbol, Integer> symbolInput, Map<Integer, Type> inputTypes)
+    private ColumnExpression toColumnExpression(Session session, Expression expression, Map<Symbol, Integer> symbolInput, Map<Integer, Type> inputTypes)
     {
         // replace qualified names with input references since row expressions do not support these
         Expression expressionWithInputReferences = new SymbolToInputRewriter(symbolInput).rewrite(expression);
@@ -116,10 +116,10 @@ public class ExpressionEquivalence
     }
 
     private static class CanonicalizationVisitor
-            implements RowExpressionVisitor<RowExpression, Void>
+            implements ColumnExpressionVisitor<ColumnExpression, Void>
     {
         @Override
-        public RowExpression visitCall(CallExpression call, Void context)
+        public ColumnExpression visitCall(CallExpression call, Void context)
         {
             call = new CallExpression(
                     call.getSignature(),
@@ -132,23 +132,23 @@ public class ExpressionEquivalence
 
             if (callName.equals("AND") || callName.equals("OR")) {
                 // if we have nested calls (of the same type) flatten them
-                List<RowExpression> flattenedArguments = flattenNestedCallArgs(call);
+                List<ColumnExpression> flattenedArguments = flattenNestedCallArgs(call);
 
                 // only consider distinct arguments
-                Set<RowExpression> distinctArguments = ImmutableSet.copyOf(flattenedArguments);
+                Set<ColumnExpression> distinctArguments = ImmutableSet.copyOf(flattenedArguments);
                 if (distinctArguments.size() == 1) {
                     return Iterables.getOnlyElement(distinctArguments);
                 }
 
                 // canonicalize the argument order (i.e., sort them)
-                List<RowExpression> sortedArguments = ROW_EXPRESSION_ORDERING.sortedCopy(distinctArguments);
+                List<ColumnExpression> sortedArguments = COLUMN_EXPRESSION_ORDERING.sortedCopy(distinctArguments);
 
                 return new CallExpression(
                         internalScalarFunction(
                                 callName,
                                 BOOLEAN.getTypeSignature(),
                                 distinctArguments.stream()
-                                        .map(RowExpression::getType)
+                                        .map(ColumnExpression::getType)
                                         .map(Type::getTypeSignature)
                                         .collect(toImmutableList())),
                         BOOLEAN,
@@ -160,7 +160,7 @@ public class ExpressionEquivalence
                 return new CallExpression(
                         call.getSignature(),
                         call.getType(),
-                        ROW_EXPRESSION_ORDERING.sortedCopy(call.getArguments()));
+                        COLUMN_EXPRESSION_ORDERING.sortedCopy(call.getArguments()));
             }
 
             if (callName.equals(mangleOperatorName(GREATER_THAN)) || callName.equals(mangleOperatorName(GREATER_THAN_OR_EQUAL))) {
@@ -181,11 +181,11 @@ public class ExpressionEquivalence
             return call;
         }
 
-        public static List<RowExpression> flattenNestedCallArgs(CallExpression call)
+        public static List<ColumnExpression> flattenNestedCallArgs(CallExpression call)
         {
             String callName = call.getSignature().getName();
-            ImmutableList.Builder<RowExpression> newArguments = ImmutableList.builder();
-            for (RowExpression argument : call.getArguments()) {
+            ImmutableList.Builder<ColumnExpression> newArguments = ImmutableList.builder();
+            for (ColumnExpression argument : call.getArguments()) {
                 if (argument instanceof CallExpression && callName.equals(((CallExpression) argument).getSignature().getName())) {
                     // same call type, so flatten the args
                     newArguments.addAll(flattenNestedCallArgs((CallExpression) argument));
@@ -198,38 +198,38 @@ public class ExpressionEquivalence
         }
 
         @Override
-        public RowExpression visitConstant(ConstantExpression constant, Void context)
+        public ColumnExpression visitConstant(ConstantExpression constant, Void context)
         {
             return constant;
         }
 
         @Override
-        public RowExpression visitInputReference(InputReferenceExpression node, Void context)
+        public ColumnExpression visitInputReference(InputReferenceExpression node, Void context)
         {
             return node;
         }
 
         @Override
-        public RowExpression visitLambda(LambdaDefinitionExpression lambda, Void context)
+        public ColumnExpression visitLambda(LambdaDefinitionExpression lambda, Void context)
         {
             return new LambdaDefinitionExpression(lambda.getArgumentTypes(), lambda.getArguments(), lambda.getBody().accept(this, context));
         }
 
         @Override
-        public RowExpression visitVariableReference(VariableReferenceExpression reference, Void context)
+        public ColumnExpression visitVariableReference(VariableReferenceExpression reference, Void context)
         {
             return reference;
         }
     }
 
-    private static class RowExpressionComparator
-            implements Comparator<RowExpression>
+    private static class ColumnExpressionComparator
+            implements Comparator<ColumnExpression>
     {
         private final Comparator<Object> classComparator = Ordering.arbitrary();
-        private final ListComparator<RowExpression> argumentComparator = new ListComparator<>(this);
+        private final ListComparator<ColumnExpression> argumentComparator = new ListComparator<>(this);
 
         @Override
-        public int compare(RowExpression left, RowExpression right)
+        public int compare(ColumnExpression left, ColumnExpression right)
         {
             int result = classComparator.compare(left.getClass(), right.getClass());
             if (result != 0) {

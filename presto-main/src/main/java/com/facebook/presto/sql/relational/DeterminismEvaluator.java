@@ -15,6 +15,13 @@ package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.column.CallExpression;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
+import com.facebook.presto.spi.relation.column.ColumnExpressionVisitor;
+import com.facebook.presto.spi.relation.column.ConstantExpression;
+import com.facebook.presto.spi.relation.column.InputReferenceExpression;
+import com.facebook.presto.spi.relation.column.LambdaDefinitionExpression;
+import com.facebook.presto.spi.relation.column.VariableReferenceExpression;
 
 import static java.util.Objects.requireNonNull;
 
@@ -27,13 +34,13 @@ public class DeterminismEvaluator
         this.registry = requireNonNull(registry, "registry is null");
     }
 
-    public boolean isDeterministic(RowExpression expression)
+    public boolean isDeterministic(ColumnExpression expression)
     {
         return expression.accept(new Visitor(registry), null);
     }
 
     private static class Visitor
-            implements RowExpressionVisitor<Boolean, Void>
+            implements ColumnExpressionVisitor<Boolean, Void>
     {
         private final FunctionRegistry registry;
 

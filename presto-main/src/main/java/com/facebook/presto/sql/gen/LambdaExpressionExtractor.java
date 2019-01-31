@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
-import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
-import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.facebook.presto.sql.relational.VariableReferenceExpression;
+import com.facebook.presto.spi.relation.column.CallExpression;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
+import com.facebook.presto.spi.relation.column.ColumnExpressionVisitor;
+import com.facebook.presto.spi.relation.column.ConstantExpression;
+import com.facebook.presto.spi.relation.column.InputReferenceExpression;
+import com.facebook.presto.spi.relation.column.LambdaDefinitionExpression;
+import com.facebook.presto.spi.relation.column.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -30,7 +30,7 @@ public class LambdaExpressionExtractor
     {
     }
 
-    public static List<LambdaDefinitionExpression> extractLambdaExpressions(RowExpression expression)
+    public static List<LambdaDefinitionExpression> extractLambdaExpressions(ColumnExpression expression)
     {
         Visitor visitor = new Visitor();
         expression.accept(visitor, new Context(false));
@@ -38,7 +38,7 @@ public class LambdaExpressionExtractor
     }
 
     private static class Visitor
-            implements RowExpressionVisitor<Void, Context>
+            implements ColumnExpressionVisitor<Void, Context>
     {
         private final ImmutableList.Builder<LambdaDefinitionExpression> lambdaExpressions = ImmutableList.builder();
 
@@ -52,8 +52,8 @@ public class LambdaExpressionExtractor
         @Override
         public Void visitCall(CallExpression call, Context context)
         {
-            for (RowExpression rowExpression : call.getArguments()) {
-                rowExpression.accept(this, context);
+            for (ColumnExpression columnExpression : call.getArguments()) {
+                columnExpression.accept(this, context);
             }
 
             return null;

@@ -19,8 +19,8 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.relational.RowExpression;
 
 import java.lang.invoke.MethodHandle;
 
@@ -30,14 +30,14 @@ import static java.util.Objects.requireNonNull;
 public class GeneratedPageProjection
         implements PageProjection
 {
-    private final RowExpression projection;
+    private final ColumnExpression projection;
     private final boolean isDeterministic;
     private final InputChannels inputChannels;
     private final MethodHandle pageProjectionWorkFactory;
 
     private BlockBuilder blockBuilder;
 
-    public GeneratedPageProjection(RowExpression projection, boolean isDeterministic, InputChannels inputChannels, MethodHandle pageProjectionWorkFactory)
+    public GeneratedPageProjection(ColumnExpression projection, boolean isDeterministic, InputChannels inputChannels, MethodHandle pageProjectionWorkFactory)
     {
         this.projection = requireNonNull(projection, "projection is null");
         this.isDeterministic = isDeterministic;

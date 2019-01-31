@@ -48,6 +48,7 @@ import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSourceProvider;
@@ -61,7 +62,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
@@ -128,7 +128,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeExpress
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
 import static com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static com.facebook.presto.sql.relational.Expressions.constant;
-import static com.facebook.presto.sql.relational.SqlToRowExpressionTranslator.translate;
+import static com.facebook.presto.sql.relational.SqlToColumnExpressionTranslator.translate;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
@@ -464,8 +464,8 @@ public final class FunctionAssertions
         requireNonNull(projection, "projection is null");
 
         Expression projectionExpression = createExpression(session, projection, metadata, SYMBOL_TYPES);
-        RowExpression projectionRowExpression = toRowExpression(session, projectionExpression);
-        PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(projectionRowExpression)).get();
+        ColumnExpression projectionColumnExpression = toColumnExpression(session, projectionExpression);
+        PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(projectionColumnExpression)).get();
 
         // This is a heuristic to detect whether the retained size of cachedInstance is bounded.
         // * The test runs at least 1000 iterations.
@@ -579,7 +579,7 @@ public final class FunctionAssertions
         requireNonNull(projection, "projection is null");
 
         Expression projectionExpression = createExpression(session, projection, metadata, SYMBOL_TYPES);
-        RowExpression projectionRowExpression = toRowExpression(session, projectionExpression);
+        ColumnExpression projectionColumnExpression = toColumnExpression(session, projectionExpression);
 
         List<Object> results = new ArrayList<>();
 
@@ -594,7 +594,7 @@ public final class FunctionAssertions
         }
 
         // execute as standalone operator
-        OperatorFactory operatorFactory = compileFilterProject(Optional.empty(), projectionRowExpression, compiler);
+        OperatorFactory operatorFactory = compileFilterProject(Optional.empty(), projectionColumnExpression, compiler);
         Object directOperatorValue = selectSingleValue(operatorFactory, expectedType, session);
         results.add(directOperatorValue);
 
@@ -604,7 +604,7 @@ public final class FunctionAssertions
         results.add(interpretedValue);
 
         // execute over normal operator
-        SourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(Optional.empty(), projectionRowExpression, compiler);
+        SourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(Optional.empty(), projectionColumnExpression, compiler);
         Object scanOperatorValue = selectSingleValue(scanProjectOperatorFactory, expectedType, createNormalSplit(), session);
         results.add(scanOperatorValue);
 
@@ -624,11 +624,11 @@ public final class FunctionAssertions
         }
 
         // validate type at end since some tests expect failure and for those UNKNOWN is used instead of actual type
-        assertEquals(projectionRowExpression.getType(), expectedType);
+        assertEquals(projectionColumnExpression.getType(), expectedType);
         return results;
     }
 
-    private RowExpression toRowExpression(Session session, Expression projectionExpression)
+    private ColumnExpression toColumnExpression(Session session, Expression projectionExpression)
     {
         Expression translatedProjection = new SymbolToInputRewriter(INPUT_MAPPING).rewrite(projectionExpression);
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(
@@ -639,7 +639,7 @@ public final class FunctionAssertions
                 ImmutableList.of(translatedProjection),
                 ImmutableList.of(),
                 WarningCollector.NOOP);
-        return toRowExpression(translatedProjection, expressionTypes);
+        return toColumnExpression(translatedProjection, expressionTypes);
     }
 
     private Object selectSingleValue(OperatorFactory operatorFactory, Type type, Session session)
@@ -691,17 +691,17 @@ public final class FunctionAssertions
         requireNonNull(filter, "filter is null");
 
         Expression filterExpression = createExpression(session, filter, metadata, SYMBOL_TYPES);
-        RowExpression filterRowExpression = toRowExpression(session, filterExpression);
+        ColumnExpression filterColumnExpression = toColumnExpression(session, filterExpression);
 
         List<Boolean> results = new ArrayList<>();
 
         // execute as standalone operator
-        OperatorFactory operatorFactory = compileFilterProject(Optional.of(filterRowExpression), constant(true, BOOLEAN), compiler);
+        OperatorFactory operatorFactory = compileFilterProject(Optional.of(filterColumnExpression), constant(true, BOOLEAN), compiler);
         results.add(executeFilter(operatorFactory, session));
 
         if (executeWithNoInputColumns) {
             // execute as standalone operator
-            operatorFactory = compileFilterWithNoInputColumns(filterRowExpression, compiler);
+            operatorFactory = compileFilterWithNoInputColumns(filterColumnExpression, compiler);
             results.add(executeFilterWithNoInputColumns(operatorFactory, session));
         }
 
@@ -710,7 +710,7 @@ public final class FunctionAssertions
         results.add(interpretedValue);
 
         // execute over normal operator
-        SourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(Optional.of(filterRowExpression), constant(true, BOOLEAN), compiler);
+        SourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(Optional.of(filterColumnExpression), constant(true, BOOLEAN), compiler);
         boolean scanOperatorValue = executeFilter(scanProjectOperatorFactory, createNormalSplit(), session);
         results.add(scanOperatorValue);
 
@@ -894,7 +894,7 @@ public final class FunctionAssertions
         return operatorFactory.createOperator(createDriverContext(session));
     }
 
-    private static OperatorFactory compileFilterWithNoInputColumns(RowExpression filter, ExpressionCompiler compiler)
+    private static OperatorFactory compileFilterWithNoInputColumns(ColumnExpression filter, ExpressionCompiler compiler)
     {
         try {
             Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of());
@@ -909,7 +909,7 @@ public final class FunctionAssertions
         }
     }
 
-    private static OperatorFactory compileFilterProject(Optional<RowExpression> filter, RowExpression projection, ExpressionCompiler compiler)
+    private static OperatorFactory compileFilterProject(Optional<ColumnExpression> filter, ColumnExpression projection, ExpressionCompiler compiler)
     {
         try {
             Supplier<PageProcessor> processor = compiler.compilePageProcessor(filter, ImmutableList.of(projection));
@@ -923,7 +923,7 @@ public final class FunctionAssertions
         }
     }
 
-    private static SourceOperatorFactory compileScanFilterProject(Optional<RowExpression> filter, RowExpression projection, ExpressionCompiler compiler)
+    private static SourceOperatorFactory compileScanFilterProject(Optional<ColumnExpression> filter, ColumnExpression projection, ExpressionCompiler compiler)
     {
         try {
             Supplier<CursorProcessor> cursorProcessor = compiler.compileCursorProcessor(
@@ -955,7 +955,7 @@ public final class FunctionAssertions
         }
     }
 
-    private RowExpression toRowExpression(Expression projection, Map<NodeRef<Expression>, Type> expressionTypes)
+    private ColumnExpression toColumnExpression(Expression projection, Map<NodeRef<Expression>, Type> expressionTypes)
     {
         return translate(projection, SCALAR, expressionTypes, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, false);
     }

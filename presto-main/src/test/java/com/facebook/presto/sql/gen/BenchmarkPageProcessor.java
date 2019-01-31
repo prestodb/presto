@@ -21,8 +21,8 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.tpch.LineItem;
@@ -183,7 +183,7 @@ public class BenchmarkPageProcessor
     //    and discount >= 0.05
     //    and discount <= 0.07
     //    and quantity < 24;
-    private static final RowExpression FILTER = call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
+    private static final ColumnExpression FILTER = call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
             BOOLEAN,
             call(internalOperator(OperatorType.GREATER_THAN_OR_EQUAL, BOOLEAN.getTypeSignature(), VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()),
                     BOOLEAN,
@@ -212,7 +212,7 @@ public class BenchmarkPageProcessor
                                             field(QUANTITY, DOUBLE),
                                             constant(24.0, DOUBLE))))));
 
-    private static final RowExpression PROJECT = call(
+    private static final ColumnExpression PROJECT = call(
             internalOperator(OperatorType.MULTIPLY, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()),
             DOUBLE,
             field(EXTENDED_PRICE, DOUBLE),

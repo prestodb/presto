@@ -21,11 +21,11 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.column.CallExpression;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -93,7 +93,7 @@ public class BenchmarkMapToMapCast
         {
             Signature signature = new Signature("$operator$CAST", FunctionKind.SCALAR, mapType(BIGINT, DOUBLE).getTypeSignature(), mapType(DOUBLE, BIGINT).getTypeSignature());
 
-            List<RowExpression> projections = ImmutableList.of(
+            List<ColumnExpression> projections = ImmutableList.of(
                     new CallExpression(signature, mapType(BIGINT, DOUBLE), ImmutableList.of(field(0, mapType(DOUBLE, BIGINT)))));
 
             MetadataManager metadata = MetadataManager.createTestMetadataManager();

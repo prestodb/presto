@@ -28,13 +28,13 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
+import com.facebook.presto.spi.relation.column.CallExpression;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -119,7 +119,7 @@ public class BenchmarkArrayHashCodeOperator
             metadata.addFunctions(new FunctionListBuilder().scalar(BenchmarkOldArrayHash.class).getFunctions());
             metadata.addFunctions(new FunctionListBuilder().scalar(BenchmarkAnotherArrayHash.class).getFunctions());
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
-            ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<ColumnExpression> projectionsBuilder = ImmutableList.builder();
             Block[] blocks = new Block[1];
             Type elementType;
             switch (type) {
@@ -143,7 +143,7 @@ public class BenchmarkArrayHashCodeOperator
             projectionsBuilder.add(new CallExpression(signature, BIGINT, ImmutableList.of(field(0, arrayType))));
             blocks[0] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
 
-            ImmutableList<RowExpression> projections = projectionsBuilder.build();
+            ImmutableList<ColumnExpression> projections = projectionsBuilder.build();
             pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
             page = new Page(blocks);
         }

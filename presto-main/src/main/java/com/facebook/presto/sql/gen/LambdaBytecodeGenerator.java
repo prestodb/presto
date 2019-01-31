@@ -17,13 +17,13 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.operator.aggregation.AccumulatorCompiler;
 import com.facebook.presto.operator.aggregation.LambdaProvider;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
-import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
-import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.facebook.presto.sql.relational.VariableReferenceExpression;
+import com.facebook.presto.spi.relation.column.CallExpression;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
+import com.facebook.presto.spi.relation.column.ColumnExpressionVisitor;
+import com.facebook.presto.spi.relation.column.ConstantExpression;
+import com.facebook.presto.spi.relation.column.InputReferenceExpression;
+import com.facebook.presto.spi.relation.column.LambdaDefinitionExpression;
+import com.facebook.presto.spi.relation.column.VariableReferenceExpression;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -82,7 +82,7 @@ public class LambdaBytecodeGenerator
             ClassDefinition containerClassDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            RowExpression expression,
+            ColumnExpression expression,
             FunctionRegistry functionRegistry)
     {
         Set<LambdaDefinitionExpression> lambdaExpressions = ImmutableSet.copyOf(extractLambdaExpressions(expression));
@@ -129,7 +129,7 @@ public class LambdaBytecodeGenerator
             parameterMapBuilder.put(argumentName, new ParameterAndType(arg, type));
         }
 
-        RowExpressionCompiler innerExpressionCompiler = new RowExpressionCompiler(
+        ColumnExpressionCompiler innerExpressionCompiler = new ColumnExpressionCompiler(
                 callSiteBinder,
                 cachedInstanceBinder,
                 variableReferenceCompiler(parameterMapBuilder.build()),
@@ -145,7 +145,7 @@ public class LambdaBytecodeGenerator
     }
 
     private static CompiledLambda defineLambdaMethod(
-            RowExpressionCompiler innerExpressionCompiler,
+            ColumnExpressionCompiler innerExpressionCompiler,
             ClassDefinition classDefinition,
             String methodName,
             List<Parameter> inputParameters,
@@ -179,7 +179,7 @@ public class LambdaBytecodeGenerator
 
     public static BytecodeNode generateLambda(
             BytecodeGeneratorContext context,
-            List<RowExpression> captureExpressions,
+            List<ColumnExpression> captureExpressions,
             CompiledLambda compiledLambda,
             Class lambdaInterface)
     {
@@ -195,7 +195,7 @@ public class LambdaBytecodeGenerator
 
         // generate values to be captured
         ImmutableList.Builder<BytecodeExpression> captureVariableBuilder = ImmutableList.builder();
-        for (RowExpression captureExpression : captureExpressions) {
+        for (ColumnExpression captureExpression : captureExpressions) {
             Class<?> valueType = Primitives.wrap(captureExpression.getType().getJavaType());
             Variable valueVariable = scope.createTempVariable(valueType);
             block.append(context.generate(captureExpression, Optional.empty()));
@@ -261,7 +261,7 @@ public class LambdaBytecodeGenerator
         scope.declareVariable("wasNull", body, constantFalse());
         scope.declareVariable("session", body, method.getThis().getField(sessionField));
 
-        RowExpressionCompiler rowExpressionCompiler = new RowExpressionCompiler(
+        ColumnExpressionCompiler columnExpressionCompiler = new ColumnExpressionCompiler(
                 callSiteBinder,
                 cachedInstanceBinder,
                 variableReferenceCompiler(ImmutableMap.of()),
@@ -269,7 +269,7 @@ public class LambdaBytecodeGenerator
                 compiledLambdaMap);
 
         BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
-                rowExpressionCompiler,
+                columnExpressionCompiler,
                 scope,
                 callSiteBinder,
                 cachedInstanceBinder,
@@ -313,9 +313,9 @@ public class LambdaBytecodeGenerator
         return applyMethods.get(0);
     }
 
-    private static RowExpressionVisitor<BytecodeNode, Scope> variableReferenceCompiler(Map<String, ParameterAndType> parameterMap)
+    private static ColumnExpressionVisitor<BytecodeNode, Scope> variableReferenceCompiler(Map<String, ParameterAndType> parameterMap)
     {
-        return new RowExpressionVisitor<BytecodeNode, Scope>()
+        return new ColumnExpressionVisitor<BytecodeNode, Scope>()
         {
             @Override
             public BytecodeNode visitInputReference(InputReferenceExpression node, Scope scope)

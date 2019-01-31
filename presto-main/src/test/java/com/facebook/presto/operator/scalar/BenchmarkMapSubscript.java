@@ -22,12 +22,12 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.column.CallExpression;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -144,7 +144,7 @@ public class BenchmarkMapSubscript
             Block keyBlock = createKeyBlock(POSITIONS, keys);
             Block block = createMapBlock(mapType, POSITIONS, keyBlock, valueBlock);
 
-            ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<ColumnExpression> projectionsBuilder = ImmutableList.builder();
 
             Signature signature = new Signature(
                     "$operator$" + SUBSCRIPT.name(),
@@ -159,7 +159,7 @@ public class BenchmarkMapSubscript
                         ImmutableList.of(field(0, mapType), constant(utf8Slice(keys.get(i)), createUnboundedVarcharType()))));
             }
 
-            ImmutableList<RowExpression> projections = projectionsBuilder.build();
+            ImmutableList<ColumnExpression> projections = projectionsBuilder.build();
             pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
             page = new Page(block);
         }

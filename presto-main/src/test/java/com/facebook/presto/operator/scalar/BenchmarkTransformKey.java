@@ -22,13 +22,13 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
+import com.facebook.presto.spi.relation.column.LambdaDefinitionExpression;
+import com.facebook.presto.spi.relation.column.VariableReferenceExpression;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
-import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -106,7 +106,7 @@ public class BenchmarkTransformKey
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
-            ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<ColumnExpression> projectionsBuilder = ImmutableList.builder();
             Type elementType;
             Object increment;
             switch (type) {
@@ -139,7 +139,7 @@ public class BenchmarkTransformKey
                                     constant(increment, elementType)))))));
             Block block = createChannel(POSITIONS, mapType, elementType);
 
-            ImmutableList<RowExpression> projections = projectionsBuilder.build();
+            ImmutableList<ColumnExpression> projections = projectionsBuilder.build();
             pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
             page = new Page(block);
         }

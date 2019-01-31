@@ -21,12 +21,12 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.column.CallExpression;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -120,7 +120,7 @@ public class BenchmarkArrayIntersect
 
             ArrayType arrayType = new ArrayType(elementType);
             Signature signature = new Signature(name, FunctionKind.SCALAR, arrayType.getTypeSignature(), arrayType.getTypeSignature(), arrayType.getTypeSignature());
-            ImmutableList<RowExpression> projections = ImmutableList.of(
+            ImmutableList<ColumnExpression> projections = ImmutableList.of(
                     new CallExpression(signature, arrayType, ImmutableList.of(field(0, arrayType), field(1, arrayType))));
 
             MetadataManager metadata = MetadataManager.createTestMetadataManager();

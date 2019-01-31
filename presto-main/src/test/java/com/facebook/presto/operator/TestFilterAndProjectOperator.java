@@ -17,10 +17,10 @@ import com.facebook.presto.metadata.InternalFunction;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -86,15 +86,15 @@ public class TestFilterAndProjectOperator
                 .addSequencePage(100, 0, 0)
                 .build();
 
-        RowExpression filter = call(
+        ColumnExpression filter = call(
                 InternalFunction.internalOperator(BETWEEN, BOOLEAN.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature())),
                 BOOLEAN,
                 field(1, BIGINT),
                 constant(10L, BIGINT),
                 constant(19L, BIGINT));
 
-        RowExpression field0 = field(0, VARCHAR);
-        RowExpression add5 = call(
+        ColumnExpression field0 = field(0, VARCHAR);
+        ColumnExpression add5 = call(
                 InternalFunction.internalOperator(ADD, BIGINT.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature())),
                 BIGINT,
                 field(1, BIGINT),
@@ -138,7 +138,7 @@ public class TestFilterAndProjectOperator
                 .addSequencePage(100, 0, 0)
                 .build();
 
-        RowExpression filter = call(
+        ColumnExpression filter = call(
                 InternalFunction.internalOperator(EQUAL, BOOLEAN.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature())),
                 BOOLEAN,
                 field(1, BIGINT),

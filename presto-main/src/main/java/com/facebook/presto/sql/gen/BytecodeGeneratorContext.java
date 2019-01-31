@@ -15,8 +15,8 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.sql.gen.BytecodeUtils.OutputBlockVariableAndType;
-import com.facebook.presto.sql.relational.RowExpression;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.Scope;
@@ -30,7 +30,7 @@ import static java.util.Objects.requireNonNull;
 
 public class BytecodeGeneratorContext
 {
-    private final RowExpressionCompiler rowExpressionCompiler;
+    private final ColumnExpressionCompiler columnExpressionCompiler;
     private final Scope scope;
     private final CallSiteBinder callSiteBinder;
     private final CachedInstanceBinder cachedInstanceBinder;
@@ -38,19 +38,19 @@ public class BytecodeGeneratorContext
     private final Variable wasNull;
 
     public BytecodeGeneratorContext(
-            RowExpressionCompiler rowExpressionCompiler,
+            ColumnExpressionCompiler columnExpressionCompiler,
             Scope scope,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             FunctionRegistry registry)
     {
-        requireNonNull(rowExpressionCompiler, "bytecodeGenerator is null");
+        requireNonNull(columnExpressionCompiler, "bytecodeGenerator is null");
         requireNonNull(cachedInstanceBinder, "cachedInstanceBinder is null");
         requireNonNull(scope, "scope is null");
         requireNonNull(callSiteBinder, "callSiteBinder is null");
         requireNonNull(registry, "registry is null");
 
-        this.rowExpressionCompiler = rowExpressionCompiler;
+        this.columnExpressionCompiler = columnExpressionCompiler;
         this.scope = scope;
         this.callSiteBinder = callSiteBinder;
         this.cachedInstanceBinder = cachedInstanceBinder;
@@ -68,14 +68,14 @@ public class BytecodeGeneratorContext
         return callSiteBinder;
     }
 
-    public BytecodeNode generate(RowExpression expression, Optional<Variable> outputBlockVariable)
+    public BytecodeNode generate(ColumnExpression expression, Optional<Variable> outputBlockVariable)
     {
         return generate(expression, outputBlockVariable, Optional.empty());
     }
 
-    public BytecodeNode generate(RowExpression expression, Optional<Variable> outputBlockVariable, Optional<Class> lambdaInterface)
+    public BytecodeNode generate(ColumnExpression expression, Optional<Variable> outputBlockVariable, Optional<Class> lambdaInterface)
     {
-        return rowExpressionCompiler.compile(expression, scope, outputBlockVariable, lambdaInterface);
+        return columnExpressionCompiler.compile(expression, scope, outputBlockVariable, lambdaInterface);
     }
 
     public FunctionRegistry getRegistry()

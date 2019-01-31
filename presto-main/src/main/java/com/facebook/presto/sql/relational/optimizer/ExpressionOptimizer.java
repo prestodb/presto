@@ -18,15 +18,15 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.column.CallExpression;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
+import com.facebook.presto.spi.relation.column.ColumnExpressionVisitor;
+import com.facebook.presto.spi.relation.column.ConstantExpression;
+import com.facebook.presto.spi.relation.column.InputReferenceExpression;
+import com.facebook.presto.spi.relation.column.LambdaDefinitionExpression;
+import com.facebook.presto.spi.relation.column.VariableReferenceExpression;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
-import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
-import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -78,28 +78,28 @@ public class ExpressionOptimizer
         this.session = session.toConnectorSession();
     }
 
-    public RowExpression optimize(RowExpression expression)
+    public ColumnExpression optimize(ColumnExpression expression)
     {
         return expression.accept(new Visitor(), null);
     }
 
     private class Visitor
-            implements RowExpressionVisitor<RowExpression, Void>
+            implements ColumnExpressionVisitor<ColumnExpression, Void>
     {
         @Override
-        public RowExpression visitInputReference(InputReferenceExpression reference, Void context)
+        public ColumnExpression visitInputReference(InputReferenceExpression reference, Void context)
         {
             return reference;
         }
 
         @Override
-        public RowExpression visitConstant(ConstantExpression literal, Void context)
+        public ColumnExpression visitConstant(ConstantExpression literal, Void context)
         {
             return literal;
         }
 
         @Override
-        public RowExpression visitCall(CallExpression call, Void context)
+        public ColumnExpression visitCall(CallExpression call, Void context)
         {
             if (call.getSignature().getName().equals(CAST)) {
                 call = rewriteCast(call);
@@ -110,7 +110,7 @@ public class ExpressionOptimizer
                 // TODO: optimize these special forms
                 case IF: {
                     checkState(call.getArguments().size() == 3, "IF function should have 3 arguments. Get " + call.getArguments().size());
-                    RowExpression optimizedOperand = call.getArguments().get(0).accept(this, context);
+                    ColumnExpression optimizedOperand = call.getArguments().get(0).accept(this, context);
                     if (optimizedOperand instanceof ConstantExpression) {
                         ConstantExpression constantOperand = (ConstantExpression) optimizedOperand;
                         checkState(constantOperand.getType().equals(BOOLEAN), "Operand of IF function should be BOOLEAN type. Get type " + constantOperand.getType().getDisplayName());
@@ -122,7 +122,7 @@ public class ExpressionOptimizer
                             return call.getArguments().get(2).accept(this, context);
                         }
                     }
-                    List<RowExpression> arguments = call.getArguments().stream()
+                    List<ColumnExpression> arguments = call.getArguments().stream()
                             .map(argument -> argument.accept(this, null))
                             .collect(toImmutableList());
                     return call(signature, call.getType(), arguments);
@@ -131,9 +131,9 @@ public class ExpressionOptimizer
                     checkState(call.getArguments().size() >= 1, BIND + " function should have at least 1 argument. Got " + call.getArguments().size());
 
                     boolean allConstantExpression = true;
-                    ImmutableList.Builder<RowExpression> optimizedArgumentsBuilder = ImmutableList.builder();
-                    for (RowExpression argument : call.getArguments()) {
-                        RowExpression optimizedArgument = argument.accept(this, context);
+                    ImmutableList.Builder<ColumnExpression> optimizedArgumentsBuilder = ImmutableList.builder();
+                    for (ColumnExpression argument : call.getArguments()) {
+                        ColumnExpression optimizedArgument = argument.accept(this, context);
                         if (!(optimizedArgument instanceof ConstantExpression)) {
                             allConstantExpression = false;
                         }
@@ -157,7 +157,7 @@ public class ExpressionOptimizer
                 case IN:
                 case DEREFERENCE:
                 case ROW_CONSTRUCTOR: {
-                    List<RowExpression> arguments = call.getArguments().stream()
+                    List<ColumnExpression> arguments = call.getArguments().stream()
                             .map(argument -> argument.accept(this, null))
                             .collect(toImmutableList());
                     return call(signature, call.getType(), arguments);
@@ -165,7 +165,7 @@ public class ExpressionOptimizer
             }
 
             ScalarFunctionImplementation function = registry.getScalarFunctionImplementation(signature);
-            List<RowExpression> arguments = call.getArguments().stream()
+            List<ColumnExpression> arguments = call.getArguments().stream()
                     .map(argument -> argument.accept(this, context))
                     .collect(toImmutableList());
 
@@ -179,7 +179,7 @@ public class ExpressionOptimizer
 
                 int index = 0;
                 List<Object> constantArguments = new ArrayList<>();
-                for (RowExpression argument : arguments) {
+                for (ColumnExpression argument : arguments) {
                     Object value = ((ConstantExpression) argument).getValue();
                     // if any argument is null, return null
                     if (value == null && function.getArgumentProperty(index).getNullConvention() == RETURN_NULL_ON_NULL) {
@@ -204,13 +204,13 @@ public class ExpressionOptimizer
         }
 
         @Override
-        public RowExpression visitLambda(LambdaDefinitionExpression lambda, Void context)
+        public ColumnExpression visitLambda(LambdaDefinitionExpression lambda, Void context)
         {
             return new LambdaDefinitionExpression(lambda.getArgumentTypes(), lambda.getArguments(), lambda.getBody().accept(this, context));
         }
 
         @Override
-        public RowExpression visitVariableReference(VariableReferenceExpression reference, Void context)
+        public ColumnExpression visitVariableReference(VariableReferenceExpression reference, Void context)
         {
             return reference;
         }

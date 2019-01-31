@@ -20,14 +20,14 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.column.CallExpression;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
+import com.facebook.presto.spi.relation.column.InputReferenceExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.DeterminismEvaluator;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -81,12 +81,12 @@ public class TestPageProcessorCompiler
     @Test
     public void testNoCaching()
     {
-        ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
+        ImmutableList.Builder<ColumnExpression> projectionsBuilder = ImmutableList.builder();
         ArrayType arrayType = new ArrayType(VARCHAR);
         Signature signature = new Signature("concat", SCALAR, arrayType.getTypeSignature(), arrayType.getTypeSignature(), arrayType.getTypeSignature());
         projectionsBuilder.add(new CallExpression(signature, arrayType, ImmutableList.of(field(0, arrayType), field(1, arrayType))));
 
-        ImmutableList<RowExpression> projections = projectionsBuilder.build();
+        ImmutableList<ColumnExpression> projections = projectionsBuilder.build();
         PageProcessor pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
         PageProcessor pageProcessor2 = compiler.compilePageProcessor(Optional.empty(), projections).get();
         assertTrue(pageProcessor != pageProcessor2);

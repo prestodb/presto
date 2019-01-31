@@ -18,13 +18,13 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.block.IntArrayBlock;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.column.CallExpression;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
+import com.facebook.presto.spi.relation.column.ConstantExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -77,7 +77,7 @@ public class TestExpressionOptimizer
     @Test(timeOut = 10_000)
     public void testPossibleExponentialOptimizationTime()
     {
-        RowExpression expression = constant(1L, BIGINT);
+        ColumnExpression expression = constant(1L, BIGINT);
         for (int i = 0; i < 100; i++) {
             Signature signature = internalOperator(OperatorType.ADD.name(), parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT));
             expression = new CallExpression(signature, BIGINT, ImmutableList.of(expression, constant(1L, BIGINT)));
@@ -93,7 +93,7 @@ public class TestExpressionOptimizer
         assertEquals(optimizer.optimize(ifExpression(constant(null, BOOLEAN), 1L, 2L)), constant(2L, BIGINT));
 
         Signature bigintEquals = internalOperator(OperatorType.EQUAL.name(), BOOLEAN.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature());
-        RowExpression condition = new CallExpression(bigintEquals, BOOLEAN, ImmutableList.of(constant(3L, BIGINT), constant(3L, BIGINT)));
+        ColumnExpression condition = new CallExpression(bigintEquals, BOOLEAN, ImmutableList.of(constant(3L, BIGINT), constant(3L, BIGINT)));
         assertEquals(optimizer.optimize(ifExpression(condition, 1L, 2L)), constant(1L, BIGINT));
     }
 
@@ -104,8 +104,8 @@ public class TestExpressionOptimizer
 
         // constant
         Signature jsonCastSignature = new Signature(CAST, SCALAR, parseTypeSignature("array(integer)"), ImmutableList.of(JSON.getTypeSignature()));
-        RowExpression jsonCastExpression = new CallExpression(jsonCastSignature, new ArrayType(INTEGER), ImmutableList.of(call(jsonParseSignature, JSON, constant(utf8Slice("[1, 2]"), VARCHAR))));
-        RowExpression resultExpression = optimizer.optimize(jsonCastExpression);
+        ColumnExpression jsonCastExpression = new CallExpression(jsonCastSignature, new ArrayType(INTEGER), ImmutableList.of(call(jsonParseSignature, JSON, constant(utf8Slice("[1, 2]"), VARCHAR))));
+        ColumnExpression resultExpression = optimizer.optimize(jsonCastExpression);
         assertInstanceOf(resultExpression, ConstantExpression.class);
         Object resultValue = ((ConstantExpression) resultExpression).getValue();
         assertInstanceOf(resultValue, IntArrayBlock.class);
@@ -136,7 +136,7 @@ public class TestExpressionOptimizer
                 call(internalScalarFunction(JSON_STRING_TO_ROW_NAME, parseTypeSignature("row(varchar,bigint)"), parseTypeSignature(StandardTypes.VARCHAR)), RowType.anonymous(ImmutableList.of(VARCHAR, BIGINT)), field(1, VARCHAR)));
     }
 
-    private static RowExpression ifExpression(RowExpression condition, long trueValue, long falseValue)
+    private static ColumnExpression ifExpression(ColumnExpression condition, long trueValue, long falseValue)
     {
         Signature signature = new Signature("IF", SCALAR, BIGINT.getTypeSignature(), BOOLEAN.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature());
         return new CallExpression(signature, BIGINT, ImmutableList.of(condition, constant(trueValue, BIGINT), constant(falseValue, BIGINT)));

@@ -14,8 +14,8 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.Lists;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
@@ -34,10 +34,10 @@ public class CoalesceCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<ColumnExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         List<BytecodeNode> operands = new ArrayList<>();
-        for (RowExpression expression : arguments) {
+        for (ColumnExpression expression : arguments) {
             operands.add(generatorContext.generate(expression, Optional.empty()));
         }
 

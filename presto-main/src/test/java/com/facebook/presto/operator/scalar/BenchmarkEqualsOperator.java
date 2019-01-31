@@ -21,10 +21,10 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -85,11 +85,11 @@ public class BenchmarkEqualsOperator
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(
                 metadata,
                 new PageFunctionCompiler(metadata, 0));
-        RowExpression projection = generateComplexComparisonProjection(FIELDS_COUNT, COMPARISONS_COUNT);
+        ColumnExpression projection = generateComplexComparisonProjection(FIELDS_COUNT, COMPARISONS_COUNT);
         compiledProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), ImmutableList.of(projection)).get();
     }
 
-    private static RowExpression generateComplexComparisonProjection(int fieldsCount, int comparisonsCount)
+    private static ColumnExpression generateComplexComparisonProjection(int fieldsCount, int comparisonsCount)
     {
         checkArgument(fieldsCount > 0, "fieldsCount must be greater than zero");
         checkArgument(comparisonsCount > 0, "comparisonsCount must be greater than zero");
@@ -103,7 +103,7 @@ public class BenchmarkEqualsOperator
                 generateComplexComparisonProjection(fieldsCount, comparisonsCount - 1));
     }
 
-    private static RowExpression createConjunction(RowExpression left, RowExpression right)
+    private static ColumnExpression createConjunction(ColumnExpression left, ColumnExpression right)
     {
         return call(
                 internalScalarFunction("OR", BOOLEAN.getTypeSignature(), BOOLEAN.getTypeSignature(), BOOLEAN.getTypeSignature()),
@@ -112,7 +112,7 @@ public class BenchmarkEqualsOperator
                 right);
     }
 
-    private static RowExpression createComparison(int leftField, int rightField)
+    private static ColumnExpression createComparison(int leftField, int rightField)
     {
         return call(
                 internalOperator(OperatorType.EQUAL, BOOLEAN.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature()),

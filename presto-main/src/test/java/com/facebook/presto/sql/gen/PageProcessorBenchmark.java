@@ -25,13 +25,13 @@ import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
+import com.facebook.presto.sql.relational.SqlToColumnExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.testing.TestingSession;
@@ -116,8 +116,8 @@ public class PageProcessorBenchmark
             sourceLayout.put(symbol, i);
         }
 
-        List<RowExpression> projections = getProjections(type);
-        types = projections.stream().map(RowExpression::getType).collect(toList());
+        List<ColumnExpression> projections = getProjections(type);
+        types = projections.stream().map(ColumnExpression::getType).collect(toList());
 
         MetadataManager metadata = createTestMetadataManager();
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(metadata, 0);
@@ -148,36 +148,36 @@ public class PageProcessorBenchmark
                         inputPage));
     }
 
-    private RowExpression getFilter(Type type)
+    private ColumnExpression getFilter(Type type)
     {
         if (type == VARCHAR) {
-            return rowExpression("cast(varchar0 as bigint) % 2 = 0", VARCHAR);
+            return columnExpression("cast(varchar0 as bigint) % 2 = 0", VARCHAR);
         }
         if (type == BIGINT) {
-            return rowExpression("bigint0 % 2 = 0", BIGINT);
+            return columnExpression("bigint0 % 2 = 0", BIGINT);
         }
         throw new IllegalArgumentException("filter not supported for type : " + type);
     }
 
-    private List<RowExpression> getProjections(Type type)
+    private List<ColumnExpression> getProjections(Type type)
     {
-        ImmutableList.Builder<RowExpression> builder = ImmutableList.builder();
+        ImmutableList.Builder<ColumnExpression> builder = ImmutableList.builder();
         if (type == BIGINT) {
             for (int i = 0; i < columnCount; i++) {
-                builder.add(rowExpression("bigint" + i + " + 5", type));
+                builder.add(columnExpression("bigint" + i + " + 5", type));
             }
         }
         else if (type == VARCHAR) {
             for (int i = 0; i < columnCount; i++) {
-                // alternatively use identity expression rowExpression("varchar" + i, type) or
-                // rowExpression("substr(varchar" + i + ", 1, 1)", type)
-                builder.add(rowExpression("concat(varchar" + i + ", 'foo')", type));
+                // alternatively use identity expression columnExpression("varchar" + i, type) or
+                // columnExpression("substr(varchar" + i + ", 1, 1)", type)
+                builder.add(columnExpression("concat(varchar" + i + ", 'foo')", type));
             }
         }
         return builder.build();
     }
 
-    private RowExpression rowExpression(String expression, Type type)
+    private ColumnExpression columnExpression(String expression, Type type)
     {
         SymbolToInputRewriter symbolToInputRewriter = new SymbolToInputRewriter(sourceLayout);
         Expression inputReferenceExpression = symbolToInputRewriter.rewrite(createExpression(expression, METADATA, TypeProvider.copyOf(symbolTypes)));
@@ -189,7 +189,7 @@ public class PageProcessorBenchmark
         Map<Integer, Type> types = builder.build();
 
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, METADATA, SQL_PARSER, types, inputReferenceExpression, emptyList(), WarningCollector.NOOP);
-        return SqlToRowExpressionTranslator.translate(inputReferenceExpression, SCALAR, expressionTypes, METADATA.getFunctionRegistry(), METADATA.getTypeManager(), TEST_SESSION, true);
+        return SqlToColumnExpressionTranslator.translate(inputReferenceExpression, SCALAR, expressionTypes, METADATA.getFunctionRegistry(), METADATA.getTypeManager(), TEST_SESSION, true);
     }
 
     private static Page createPage(List<? extends Type> types, boolean dictionary)

@@ -15,9 +15,9 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
+import com.facebook.presto.spi.relation.column.ConstantExpression;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.RowExpression;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Variable;
@@ -37,7 +37,7 @@ public class DereferenceCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generator, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generator, Type returnType, List<ColumnExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         checkArgument(arguments.size() == 2);
         CallSiteBinder callSiteBinder = generator.getCallSiteBinder();

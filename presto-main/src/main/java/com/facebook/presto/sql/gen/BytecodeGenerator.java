@@ -14,8 +14,8 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.relational.RowExpression;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Variable;
 
@@ -24,7 +24,7 @@ import java.util.Optional;
 
 public interface BytecodeGenerator
 {
-    BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable);
+    BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<ColumnExpression> arguments, Optional<Variable> outputBlockVariable);
 
     static BytecodeNode generateWrite(BytecodeGeneratorContext context, Type returnType, Variable outputBlock)
     {

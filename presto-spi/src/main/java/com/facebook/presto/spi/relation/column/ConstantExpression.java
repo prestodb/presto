@@ -11,58 +11,49 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.relational;
+package com.facebook.presto.spi.relation.column;
 
 import com.facebook.presto.spi.type.Type;
-import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public final class InputReferenceExpression
-        extends RowExpression
+public final class ConstantExpression
+        extends ColumnExpression
 {
-    private final int field;
+    private final Object value;
     private final Type type;
 
-    public InputReferenceExpression(int field, Type type)
+    public ConstantExpression(Object value, Type type)
     {
         requireNonNull(type, "type is null");
 
-        this.field = field;
+        this.value = value;
         this.type = type;
     }
 
-    @JsonProperty
-    public int getField()
+    public Object getValue()
     {
-        return field;
+        return value;
     }
 
     @Override
-    @JsonProperty
     public Type getType()
     {
         return type;
     }
 
     @Override
-    public int hashCode()
-    {
-        return Objects.hash(field, type);
-    }
-
-    @Override
     public String toString()
     {
-        return "#" + field;
+        return String.valueOf(value);
     }
 
     @Override
-    public <R, C> R accept(RowExpressionVisitor<R, C> visitor, C context)
+    public int hashCode()
     {
-        return visitor.visitInputReference(this, context);
+        return Objects.hash(value, type);
     }
 
     @Override
@@ -74,7 +65,13 @@ public final class InputReferenceExpression
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        InputReferenceExpression other = (InputReferenceExpression) obj;
-        return Objects.equals(this.field, other.field) && Objects.equals(this.type, other.type);
+        ConstantExpression other = (ConstantExpression) obj;
+        return Objects.equals(this.value, other.value) && Objects.equals(this.type, other.type);
+    }
+
+    @Override
+    public <R, C> R accept(ColumnExpressionVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitConstant(this, context);
     }
 }

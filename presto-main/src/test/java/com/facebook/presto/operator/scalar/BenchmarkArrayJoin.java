@@ -21,11 +21,11 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.column.CallExpression;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
-import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -90,7 +90,7 @@ public class BenchmarkArrayJoin
         {
             Signature signature = new Signature("array_join", FunctionKind.SCALAR, VARCHAR.getTypeSignature(), new ArrayType(BIGINT).getTypeSignature(), VARCHAR.getTypeSignature());
 
-            List<RowExpression> projections = ImmutableList.of(
+            List<ColumnExpression> projections = ImmutableList.of(
                     new CallExpression(signature, VARCHAR, ImmutableList.of(
                             field(0, new ArrayType(BIGINT)),
                             constant(Slices.wrappedBuffer(",".getBytes(UTF_8)), VARCHAR))));

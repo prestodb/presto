@@ -22,7 +22,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-// TODO: When we move RowExpressions to the SPI, we should get rid of this. This is effectively a ConstantExpression.
+// TODO: When we move ColumnExpressions to the SPI, we should get rid of this. This is effectively a ConstantExpression.
 public final class NullableValue
 {
     private final Type type;

@@ -106,6 +106,9 @@ import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.relation.column.ColumnExpression;
+import com.facebook.presto.spi.relation.column.LambdaDefinitionExpression;
+import com.facebook.presto.spi.type.FunctionType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.PartitioningSpillerFactory;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
@@ -163,9 +166,7 @@ import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.plan.WindowNode.Frame;
-import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
-import com.facebook.presto.sql.relational.RowExpression;
-import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
+import com.facebook.presto.sql.relational.SqlToColumnExpressionTranslator;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FieldReference;
@@ -176,7 +177,6 @@ import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
-import com.facebook.presto.type.FunctionType;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.HashMultimap;
@@ -1219,8 +1219,8 @@ public class LocalExecutionPlanner
                     emptyList(),
                     NOOP);
 
-            Optional<RowExpression> translatedFilter = rewrittenFilter.map(filter -> toRowExpression(filter, expressionTypes));
-            List<RowExpression> translatedProjections = rewrittenProjections.stream()
+            Optional<ColumnExpression> translatedFilter = rewrittenFilter.map(filter -> toRowExpression(filter, expressionTypes));
+            List<ColumnExpression> translatedProjections = rewrittenProjections.stream()
                     .map(expression -> toRowExpression(expression, expressionTypes))
                     .collect(toImmutableList());
 
@@ -1262,9 +1262,9 @@ public class LocalExecutionPlanner
             }
         }
 
-        private RowExpression toRowExpression(Expression expression, Map<NodeRef<Expression>, Type> types)
+        private ColumnExpression toRowExpression(Expression expression, Map<NodeRef<Expression>, Type> types)
         {
-            return SqlToRowExpressionTranslator.translate(expression, SCALAR, types, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, true);
+            return SqlToColumnExpressionTranslator.translate(expression, SCALAR, types, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, true);
         }
 
         private Map<Integer, Type> getInputTypes(Map<Symbol, Integer> layout, List<Type> types)
@@ -2051,7 +2051,7 @@ public class LocalExecutionPlanner
                     emptyList(), /* parameters have already been replaced */
                     NOOP);
 
-            RowExpression translatedFilter = toRowExpression(rewrittenFilter, expressionTypes);
+            ColumnExpression translatedFilter = toRowExpression(rewrittenFilter, expressionTypes);
             return joinFilterFunctionCompiler.compileJoinFilterFunction(translatedFilter, buildLayout.size());
         }
 
