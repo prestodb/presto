@@ -676,6 +676,8 @@ pre {
     padding: 15px;
     background-color: #1b1b1b;
     height: 1000px;
+    overflow: scroll;
+    width: 100%;
 }
 
 .graph-container svg {
