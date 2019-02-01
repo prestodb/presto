@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.spi.AriaFlags;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spiller.SingleStreamSpiller;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
@@ -267,7 +268,7 @@ public class HashBuilderOperator
         this.spillEnabled = spillEnabled;
         this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory is null");
 
-        if ((SystemSessionProperties.ariaFlags(operatorContext.getSession()) & 2) != 0) {
+        if ((SystemSessionProperties.ariaFlags(operatorContext.getSession()) & AriaFlags.hashJoin) != 0) {
             if (AriaHash.supportsLayout(index.getTypes(), hashChannels, outputChannels)) {
                 ariaBuild = new AriaHash.HashBuild(hashChannels, outputChannels);
             }
