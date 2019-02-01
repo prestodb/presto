@@ -39,8 +39,8 @@ public class TestRowParametricType
         TypeManager typeManager = new TypeRegistry();
         TypeSignature typeSignature = new TypeSignature(
                 ROW,
-                TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("col1", false)), new TypeSignature(BIGINT))),
-                TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("col2", true)), new TypeSignature(DOUBLE))));
+                TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("col1")), new TypeSignature(BIGINT))),
+                TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("col2")), new TypeSignature(DOUBLE))));
         List<TypeParameter> parameters = typeSignature.getParameters().stream()
                 .map(parameter -> TypeParameter.of(parameter, typeManager))
                 .collect(Collectors.toList());

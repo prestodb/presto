@@ -253,7 +253,7 @@ public class TypeSignature
                         verify(tokenStart >= 0, "Expect tokenStart to be non-negative");
                         verify(delimitedColumnName != null, "Expect delimitedColumnName to be non-null");
                         fields.add(TypeSignatureParameter.of(new NamedTypeSignature(
-                                Optional.of(new RowFieldName(delimitedColumnName, true)),
+                                Optional.of(new RowFieldName(delimitedColumnName)),
                                 parseTypeSignature(signature.substring(tokenStart, i).trim(), literalParameters))));
                         delimitedColumnName = null;
                         tokenStart = -1;
@@ -263,7 +263,7 @@ public class TypeSignature
                         verify(tokenStart >= 0, "Expect tokenStart to be non-negative");
                         verify(delimitedColumnName != null, "Expect delimitedColumnName to be non-null");
                         fields.add(TypeSignatureParameter.of(new NamedTypeSignature(
-                                Optional.of(new RowFieldName(delimitedColumnName, true)),
+                                Optional.of(new RowFieldName(delimitedColumnName)),
                                 parseTypeSignature(signature.substring(tokenStart, i).trim(), literalParameters))));
                         delimitedColumnName = null;
                         tokenStart = -1;
@@ -297,7 +297,7 @@ public class TypeSignature
         String firstPart = typeOrNamedType.substring(0, split);
         if (IDENTIFIER_PATTERN.matcher(firstPart).matches()) {
             return TypeSignatureParameter.of(new NamedTypeSignature(
-                    Optional.of(new RowFieldName(firstPart, false)),
+                    Optional.of(new RowFieldName(firstPart)),
                     parseTypeSignature(typeOrNamedType.substring(split + 1).trim(), literalParameters)));
         }
 

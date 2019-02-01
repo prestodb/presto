@@ -377,8 +377,8 @@ public class TestRowOperators
                         null, asList(1L, 2L, 3L, null)));
 
         // invalid cast
-        assertInvalidCast("CAST(unchecked_to_json('{\"a\":1,\"b\":2,\"a\":3}') AS ROW(a BIGINT, b BIGINT))", "Cannot cast to row(a bigint,b bigint). Duplicate field: a\n{\"a\":1,\"b\":2,\"a\":3}");
-        assertInvalidCast("CAST(unchecked_to_json('[{\"a\":1,\"b\":2,\"a\":3}]') AS ARRAY<ROW(a BIGINT, b BIGINT)>)", "Cannot cast to array(row(a bigint,b bigint)). Duplicate field: a\n[{\"a\":1,\"b\":2,\"a\":3}]");
+        assertInvalidCast("CAST(unchecked_to_json('{\"a\":1,\"b\":2,\"a\":3}') AS ROW(a BIGINT, b BIGINT))", "Cannot cast to row(\"a\" bigint,\"b\" bigint). Duplicate field: a\n{\"a\":1,\"b\":2,\"a\":3}");
+        assertInvalidCast("CAST(unchecked_to_json('[{\"a\":1,\"b\":2,\"a\":3}]') AS ARRAY<ROW(a BIGINT, b BIGINT)>)", "Cannot cast to array(row(\"a\" bigint,\"b\" bigint)). Duplicate field: a\n[{\"a\":1,\"b\":2,\"a\":3}]");
     }
 
     @Test
@@ -499,14 +499,14 @@ public class TestRowOperators
         assertComparisonCombination("row(1, 2.0E0, TRUE, 'kittens', from_unixtime(1))", "row(1, 3.0E0, TRUE, 'kittens', from_unixtime(1))");
 
         assertInvalidFunction("cast(row(cast(cast ('' as varbinary) as hyperloglog)) as row(col0 hyperloglog)) = cast(row(cast(cast ('' as varbinary) as hyperloglog)) as row(col0 hyperloglog))",
-                SemanticErrorCode.TYPE_MISMATCH, "line 1:81: '=' cannot be applied to row(col0 HyperLogLog), row(col0 HyperLogLog)");
+                SemanticErrorCode.TYPE_MISMATCH, "line 1:81: '=' cannot be applied to row(\"col0\" HyperLogLog), row(\"col0\" HyperLogLog)");
         assertInvalidFunction("cast(row(cast(cast ('' as varbinary) as hyperloglog)) as row(col0 hyperloglog)) > cast(row(cast(cast ('' as varbinary) as hyperloglog)) as row(col0 hyperloglog))",
-                SemanticErrorCode.TYPE_MISMATCH, "line 1:81: '>' cannot be applied to row(col0 HyperLogLog), row(col0 HyperLogLog)");
+                SemanticErrorCode.TYPE_MISMATCH, "line 1:81: '>' cannot be applied to row(\"col0\" HyperLogLog), row(\"col0\" HyperLogLog)");
 
         assertInvalidFunction("cast(row(cast(cast ('' as varbinary) as qdigest(double))) as row(col0 qdigest(double))) = cast(row(cast(cast ('' as varbinary) as qdigest(double))) as row(col0 qdigest(double)))",
-                SemanticErrorCode.TYPE_MISMATCH, "line 1:89: '=' cannot be applied to row(col0 qdigest(double)), row(col0 qdigest(double))");
+                SemanticErrorCode.TYPE_MISMATCH, "line 1:89: '=' cannot be applied to row(\"col0\" qdigest(double)), row(\"col0\" qdigest(double))");
         assertInvalidFunction("cast(row(cast(cast ('' as varbinary) as qdigest(double))) as row(col0 qdigest(double))) > cast(row(cast(cast ('' as varbinary) as qdigest(double))) as row(col0 qdigest(double)))",
-                SemanticErrorCode.TYPE_MISMATCH, "line 1:89: '>' cannot be applied to row(col0 qdigest(double)), row(col0 qdigest(double))");
+                SemanticErrorCode.TYPE_MISMATCH, "line 1:89: '>' cannot be applied to row(\"col0\" qdigest(double)), row(\"col0\" qdigest(double))");
 
         assertFunction("row(TRUE, ARRAY [1], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0])) = row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0]))", BOOLEAN, false);
         assertFunction("row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0])) = row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0]))", BOOLEAN, true);

@@ -87,9 +87,9 @@ public class TestFlatMap
     private static final Type STRUCT_TYPE = TYPE_MANAGER.getParameterizedType(
             StandardTypes.ROW,
             ImmutableList.of(
-                    TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("value1", false)), IntegerType.INTEGER.getTypeSignature())),
-                    TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("value2", false)), IntegerType.INTEGER.getTypeSignature())),
-                    TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("value3", false)), IntegerType.INTEGER.getTypeSignature()))));
+                    TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("value1")), IntegerType.INTEGER.getTypeSignature())),
+                    TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("value2")), IntegerType.INTEGER.getTypeSignature())),
+                    TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("value3")), IntegerType.INTEGER.getTypeSignature()))));
 
     @Test
     public void testByte()

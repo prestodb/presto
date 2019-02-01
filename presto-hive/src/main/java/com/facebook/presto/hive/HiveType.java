@@ -240,7 +240,7 @@ public final class HiveType
                     // Users can't work around this by casting in their queries because Presto parser always lower case types.
                     // TODO: This is a hack. Presto engine should be able to handle identifiers in a case insensitive way where necessary.
                     String rowFieldName = structFieldNames.get(i).toLowerCase(Locale.US);
-                    typeSignatureBuilder.add(TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName(rowFieldName, false)), typeSignature)));
+                    typeSignatureBuilder.add(TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName(rowFieldName)), typeSignature)));
                 }
                 return new TypeSignature(StandardTypes.ROW, typeSignatureBuilder.build());
         }

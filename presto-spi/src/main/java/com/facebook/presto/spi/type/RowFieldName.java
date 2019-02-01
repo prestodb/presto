@@ -23,27 +23,17 @@ import static java.util.Objects.requireNonNull;
 public class RowFieldName
 {
     private final String name;
-    private final boolean delimited;
 
     @JsonCreator
-    public RowFieldName(
-            @JsonProperty("name") String name,
-            @JsonProperty("delimited") boolean delimited)
+    public RowFieldName(@JsonProperty("name") String name)
     {
         this.name = requireNonNull(name, "name is null");
-        this.delimited = delimited;
     }
 
     @JsonProperty
     public String getName()
     {
         return name;
-    }
-
-    @JsonProperty
-    public boolean isDelimited()
-    {
-        return delimited;
     }
 
     @Override
@@ -58,22 +48,18 @@ public class RowFieldName
 
         RowFieldName other = (RowFieldName) o;
 
-        return Objects.equals(this.name, other.name) &&
-                Objects.equals(this.delimited, other.delimited);
+        return Objects.equals(this.name, other.name);
     }
 
     @Override
     public String toString()
     {
-        if (!isDelimited()) {
-            return name;
-        }
         return '"' + name.replace("\"", "\"\"") + '"';
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, delimited);
+        return Objects.hash(name);
     }
 }

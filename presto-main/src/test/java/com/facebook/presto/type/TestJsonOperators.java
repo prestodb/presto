@@ -424,7 +424,7 @@ public class TestJsonOperators
         assertInvalidCastWithJsonParse(
                 "{\"a\" :1,  \"b\": {} }",
                 "ROW(a INTEGER, b ARRAY<INTEGER>)",
-                "Cannot cast to row(a integer,b array(integer)). Expected a json array, but got {\n{\"a\" :1,  \"b\": {} }");
+                "Cannot cast to row(\"a\" integer,\"b\" array(integer)). Expected a json array, but got {\n{\"a\" :1,  \"b\": {} }");
         assertInvalidCastWithJsonParse(
                 "[  1,  {}  ]",
                 "ROW(INTEGER, ARRAY<INTEGER>)",

@@ -53,8 +53,8 @@ public class TestClientTypeSignature
         assertJsonRoundTrip(new ClientTypeSignature(
                 "row",
                 ImmutableList.of(
-                        new ClientTypeSignatureParameter(TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("foo", false)), bigint))),
-                        new ClientTypeSignatureParameter(TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("bar", false)), bigint))))));
+                        new ClientTypeSignatureParameter(TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("foo")), bigint))),
+                        new ClientTypeSignatureParameter(TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("bar")), bigint))))));
     }
 
     @Test

@@ -522,7 +522,7 @@ public class OrcStorageManager
                 ImmutableList.Builder<TypeSignatureParameter> fieldTypes = ImmutableList.builder();
                 for (int i = 0; i < type.getFieldCount(); i++) {
                     fieldTypes.add(TypeSignatureParameter.of(new NamedTypeSignature(
-                            Optional.of(new RowFieldName(fieldNames.get(i), false)),
+                            Optional.of(new RowFieldName(fieldNames.get(i))),
                             getType(types, type.getFieldTypeIndex(i)).getTypeSignature())));
                 }
                 return typeManager.getParameterizedType(StandardTypes.ROW, fieldTypes.build());
