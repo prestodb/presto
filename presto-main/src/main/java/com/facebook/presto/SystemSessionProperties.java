@@ -113,7 +113,7 @@ public final class SystemSessionProperties
     public static final String LEGACY_UNNEST = "legacy_unnest";
     public static final String STATISTICS_CPU_TIMER_ENABLED = "statistics_cpu_timer_enabled";
     public static final String ENABLE_STATS_CALCULATOR = "enable_stats_calculator";
-    public static final String ARIA = "aria";
+    public static final String ARIA_SCAN = "aria_scan";
     public static final String ARIA_REUSE_PAGES = "aria_reuse_pages";
     public static final String ARIA_REORDER = "aria_reorder";
     public static final String ARIA_FLAGS = "aria_flags";
@@ -529,7 +529,7 @@ public final class SystemSessionProperties
                         "Experimental: Enable statistics calculator",
                         featuresConfig.isEnableStatsCalculator(),
                         false),
-                booleanProperty(ARIA,
+                booleanProperty(ARIA_SCAN,
                                 "Enable Aria Presto! scan operator",
                                 true,
                                 false),
@@ -936,9 +936,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(ENABLE_STATS_CALCULATOR, Boolean.class);
     }
 
-    public static boolean enableAria(Session session)
+    public static boolean isAriaScanEnabled(Session session)
     {
-        return session.getSystemProperty(ARIA, Boolean.class);
+        return session.getSystemProperty(ARIA_SCAN, Boolean.class);
     }
 
     public static boolean enableAriaReusePages(Session session)

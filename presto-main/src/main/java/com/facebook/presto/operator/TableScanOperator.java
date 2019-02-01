@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
@@ -37,6 +36,8 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.SystemSessionProperties.ariaFlags;
+import static com.facebook.presto.SystemSessionProperties.isAriaScanEnabled;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
@@ -265,22 +266,24 @@ public class TableScanOperator
 
     private void setupAria()
     {
-        boolean enableAria = SystemSessionProperties.enableAria(operatorContext.getSession());
-        if (enableAria && !columns.isEmpty()) {
-            int[] channels = new int[columns.size()];
-            for (int i = 0; i < channels.length; i++) {
-                channels[i] = i;
-            }
-            int ariaFlags = SystemSessionProperties.ariaFlags(operatorContext.getSession());
-            PageSourceOptions options = new PageSourceOptions(channels,
-                                                              channels,
-                                                              reusePages,
-                                                              null,
-                                                              false,
-                                                              512 * 1024,
-                                                              ariaFlags);
-            source.pushdownFilterAndProjection(options);
+        if (!isAriaScanEnabled(operatorContext.getSession()) || columns.isEmpty()) {
+            return;
         }
+
+        int[] channels = new int[columns.size()];
+        for (int i = 0; i < channels.length; i++) {
+            channels[i] = i;
+        }
+
+        PageSourceOptions options = new PageSourceOptions(
+                channels,
+                channels,
+                reusePages,
+                null,
+                false,
+                512 * 1024,
+                ariaFlags(operatorContext.getSession()));
+        source.pushdownFilterAndProjection(options);
     }
 
     @Override

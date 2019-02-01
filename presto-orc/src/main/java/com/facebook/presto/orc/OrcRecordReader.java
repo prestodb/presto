@@ -759,7 +759,7 @@ public class OrcRecordReader
             return false;
         }
         int[] internalChannels = options.getInternalChannels();
-        int[] targetChannels = options.getOutputChannels();
+        int[] outputChannels = options.getOutputChannels();
         reuseBlocks = options.getReusePages();
         reorderFilters = options.getReorderFilters();
         reader = new ColumnGroupReader(streamReaders,
@@ -767,7 +767,7 @@ public class OrcRecordReader
                                        channelColumns,
                                        types,
                                        internalChannels,
-                                       targetChannels,
+                                       outputChannels,
                                        filters,
                                        options.getFilterFunctions(),
                                        reuseBlocks,
@@ -813,7 +813,7 @@ public class OrcRecordReader
         }
     }
 
-    Page resultPage()
+    private Page resultPage()
     {
         if (numResults == 0) {
             return null;
