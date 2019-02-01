@@ -16,6 +16,8 @@ package com.facebook.presto.server;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeState;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.ResponseHandler;
@@ -30,6 +32,7 @@ import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -64,6 +67,40 @@ public class WorkerResource
     public Response getThreads(@PathParam("nodeId") String nodeId)
     {
         return proxyJsonResponse(nodeId, "v1/thread");
+    }
+
+    @GET
+    public Response getWorkers()
+    {
+        Set<Node> nodes = nodeManager.getAllNodes().getActiveNodes();
+        Set<NodeInfo> nodeInfos = nodes.stream().map(node -> new NodeInfo(node.getNodeIdentifier(), node.getHostAndPort().getHostText())).collect(Collectors.toSet());
+        return Response.ok().entity(nodeInfos).build();
+    }
+
+    public static class NodeInfo
+    {
+        private final String nodeId;
+        private final String nodeIp;
+
+        @JsonCreator
+        public NodeInfo(@JsonProperty("nodeId") String nodeId,
+                @JsonProperty("nodeIp") String nodeIp)
+        {
+            this.nodeId = requireNonNull(nodeId, "nodeId is null");
+            this.nodeIp = requireNonNull(nodeIp, "nodeIp is null");
+        }
+
+        @JsonProperty
+        public String getNodeId()
+        {
+            return nodeId;
+        }
+
+        @JsonProperty
+        public String getNodeIp()
+        {
+            return nodeIp;
+        }
     }
 
     private Response proxyJsonResponse(String nodeId, String workerPath)

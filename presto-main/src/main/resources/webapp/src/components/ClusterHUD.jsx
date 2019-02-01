@@ -158,7 +158,10 @@ export class ClusterHUD extends React.Component {
                     <div className="col-xs-4">
                         <div className="stat-title">
                             <span className="text" data-toggle="tooltip" data-placement="right" title="Total number of active worker nodes">
-                                Active workers
+                                Active workers&nbsp;
+                                <a target="_blank" href="workers.html" title="All worker nodes info list">
+                                    <span className="glyphicon glyphicon-link small"></span>
+                                </a>
                             </span>
                         </div>
                     </div>
