@@ -371,7 +371,6 @@ public class ColumnGroupReader
             if (reader != null) {
                 blocks[channel] = reader.getBlock(numFirstRows, false);
             }
-            return blocks;
         }
         return blocks;
     }
