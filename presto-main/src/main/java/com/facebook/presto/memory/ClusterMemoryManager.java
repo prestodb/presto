@@ -260,15 +260,24 @@ public class ClusterMemoryManager
         clusterUserMemoryReservation.set(totalUserMemoryBytes);
         clusterTotalMemoryReservation.set(totalMemoryBytes);
 
-        if (!(lowMemoryKiller instanceof NoneLowMemoryKiller) &&
+        boolean killOnOomDelayPassed = nanosSince(lastTimeNotOutOfMemory).compareTo(killOnOutOfMemoryDelay) > 0;
+        boolean lastKilledQueryGone = isLastKilledQueryGone();
+        boolean shouldCallOomKiller = !(lowMemoryKiller instanceof NoneLowMemoryKiller) &&
                 outOfMemory &&
                 !queryKilled &&
-                nanosSince(lastTimeNotOutOfMemory).compareTo(killOnOutOfMemoryDelay) > 0) {
-            if (isLastKilledQueryGone()) {
-                callOomKiller(runningQueries);
-            }
-            else {
-                log.debug("Last killed query is still not gone: %s", lastKilledQuery);
+                killOnOomDelayPassed &&
+                lastKilledQueryGone;
+
+        if (shouldCallOomKiller) {
+            callOomKiller(runningQueries);
+        }
+        else {
+            // if the cluster is out of memory and we didn't trigger the oom killer we log the state to make debugging easier
+            if (outOfMemory) {
+                log.debug("The cluster is out of memory and the OOM killer is not called (query killed: %s, kill on OOM delay passed: %s, last killed query gone: %s).",
+                        queryKilled,
+                        killOnOomDelayPassed,
+                        lastKilledQueryGone);
             }
         }
 
