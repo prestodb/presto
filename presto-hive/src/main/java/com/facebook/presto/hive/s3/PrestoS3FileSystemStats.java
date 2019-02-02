@@ -251,15 +251,15 @@ public class PrestoS3FileSystemStats
         listObjectsCalls.update(1);
     }
 
-    public void newReadError(Exception e)
+    public void newReadError(Throwable t)
     {
-        if (e instanceof SocketException) {
+        if (t instanceof SocketException) {
             socketExceptions.update(1);
         }
-        else if (e instanceof SocketTimeoutException) {
+        else if (t instanceof SocketTimeoutException) {
             socketTimeoutExceptions.update(1);
         }
-        else if (e instanceof AbortedException) {
+        else if (t instanceof AbortedException) {
             awsAbortedExceptions.update(1);
         }
         else {
