@@ -28,7 +28,8 @@ public class TestKerberosConfig
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(KerberosConfig.class)
                 .setKerberosConfig(null)
                 .setServiceName(null)
-                .setKeytab(null));
+                .setKeytab(null)
+                .setHostName(null));
     }
 
     @Test
@@ -38,12 +39,14 @@ public class TestKerberosConfig
                 .put("http.authentication.krb5.config", "/etc/krb5.conf")
                 .put("http.server.authentication.krb5.service-name", "airlift")
                 .put("http.server.authentication.krb5.keytab", "/tmp/presto.keytab")
+                .put("http.authentication.krb5.host-name", "prestodb.io")
                 .build();
 
         KerberosConfig expected = new KerberosConfig()
                 .setKerberosConfig(new File("/etc/krb5.conf"))
                 .setServiceName("airlift")
-                .setKeytab(new File("/tmp/presto.keytab"));
+                .setKeytab(new File("/tmp/presto.keytab"))
+                .setHostName("prestodb.io");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

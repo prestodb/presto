@@ -26,6 +26,7 @@ public class KerberosConfig
     private File kerberosConfig;
     private String serviceName;
     private File keytab;
+    private String hostName;
 
     @NotNull
     public File getKerberosConfig()
@@ -62,6 +63,18 @@ public class KerberosConfig
     public KerberosConfig setKeytab(File keytab)
     {
         this.keytab = keytab;
+        return this;
+    }
+
+    public String getHostName()
+    {
+        return hostName;
+    }
+
+    @Config("http.authentication.krb5.host-name")
+    public KerberosConfig setHostName(String hostName)
+    {
+        this.hostName = hostName;
         return this;
     }
 }

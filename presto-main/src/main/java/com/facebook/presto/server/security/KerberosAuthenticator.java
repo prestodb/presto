@@ -64,7 +64,12 @@ public class KerberosAuthenticator
         System.setProperty("java.security.krb5.conf", config.getKerberosConfig().getAbsolutePath());
 
         try {
-            String hostname = InetAddress.getLocalHost().getCanonicalHostName().toLowerCase(Locale.US);
+            String hostname = config.getHostName();
+
+            if (hostname == null || hostname.isEmpty()) {
+                hostname = InetAddress.getLocalHost().getCanonicalHostName().toLowerCase(Locale.US);
+            }
+
             String servicePrincipal = config.getServiceName() + "/" + hostname;
             loginContext = new LoginContext("", null, null, new Configuration()
             {
@@ -90,8 +95,9 @@ public class KerberosAuthenticator
             });
             loginContext.login();
 
+            String finalHostname = hostname;
             serverCredential = doAs(loginContext.getSubject(), () -> gssManager.createCredential(
-                    gssManager.createName(config.getServiceName() + "@" + hostname, GSSName.NT_HOSTBASED_SERVICE),
+                    gssManager.createName(config.getServiceName() + "@" + finalHostname, GSSName.NT_HOSTBASED_SERVICE),
                     INDEFINITE_LIFETIME,
                     new Oid[] {
                             new Oid("1.2.840.113554.1.2.2"), // kerberos 5
