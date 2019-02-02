@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.sql.ParsingException;
 import com.google.common.base.Joiner;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;

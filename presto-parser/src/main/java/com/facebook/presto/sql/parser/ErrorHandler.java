@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.sql.ParsingException;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import io.airlift.log.Logger;

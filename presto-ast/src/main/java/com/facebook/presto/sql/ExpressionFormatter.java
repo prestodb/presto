@@ -716,11 +716,11 @@ public final class ExpressionFormatter
             }
             else if (codePoint <= 0xFFFF) {
                 builder.append('\\');
-                builder.append(String.format("%04X", codePoint));
+                builder.append(format("%04X", codePoint));
             }
             else {
                 builder.append("\\+");
-                builder.append(String.format("%06X", codePoint));
+                builder.append(format("%06X", codePoint));
             }
         }
         builder.append("'");

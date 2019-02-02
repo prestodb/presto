@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.facebook.presto.sql.parser.ParsingException;
+import com.facebook.presto.sql.ParsingException;
 
 import java.util.Objects;
 import java.util.Optional;

@@ -17,7 +17,7 @@ import com.facebook.presto.Session.ResourceEstimateBuilder;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.session.ResourceEstimates;
-import com.facebook.presto.sql.parser.ParsingException;
+import com.facebook.presto.sql.ParsingException;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.transaction.TransactionId;

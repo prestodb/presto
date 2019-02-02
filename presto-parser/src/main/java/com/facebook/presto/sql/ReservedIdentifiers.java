@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql;
 
-import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlBaseLexer;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Identifier;

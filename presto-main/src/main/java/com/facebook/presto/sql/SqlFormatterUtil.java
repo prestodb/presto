@@ -14,7 +14,6 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;

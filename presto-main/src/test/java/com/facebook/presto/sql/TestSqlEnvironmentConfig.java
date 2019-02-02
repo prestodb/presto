@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql;
 
-import com.facebook.presto.sql.parser.ParsingException;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 

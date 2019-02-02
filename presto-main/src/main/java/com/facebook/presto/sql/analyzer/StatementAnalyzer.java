@@ -39,7 +39,7 @@ import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.sql.parser.ParsingException;
+import com.facebook.presto.sql.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.SymbolsExtractor;

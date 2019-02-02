@@ -8,8 +8,8 @@
         <version>0.218-SNAPSHOT</version>
     </parent>
 
-    <artifactId>presto-parser</artifactId>
-    <name>presto-parser</name>
+    <artifactId>presto-ast</artifactId>
+    <name>presto-ast</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
@@ -17,34 +17,19 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-ast</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
             <optional>true</optional>
         </dependency>
 
         <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>slice</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.antlr</groupId>
-            <artifactId>antlr4-runtime</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log</artifactId>
         </dependency>
 
         <!-- for testing -->
@@ -54,13 +39,4 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.antlr</groupId>
-                <artifactId>antlr4-maven-plugin</artifactId>
-            </plugin>
-        </plugins>
-    </build>
 </project>

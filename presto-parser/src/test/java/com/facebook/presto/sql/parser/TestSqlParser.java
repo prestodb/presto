@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.sql.ParsingException;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;

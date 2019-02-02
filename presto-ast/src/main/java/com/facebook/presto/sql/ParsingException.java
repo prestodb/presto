@@ -11,10 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.parser;
+package com.facebook.presto.sql;
 
 import com.facebook.presto.sql.tree.NodeLocation;
-import org.antlr.v4.runtime.RecognitionException;
 
 import static java.lang.String.format;
 
@@ -24,7 +23,7 @@ public class ParsingException
     private final int line;
     private final int charPositionInLine;
 
-    public ParsingException(String message, RecognitionException cause, int line, int charPositionInLine)
+    public ParsingException(String message, RuntimeException cause, int line, int charPositionInLine)
     {
         super(message, cause);
 

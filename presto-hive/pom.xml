@@ -258,7 +258,7 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-parser</artifactId>
+            <artifactId>presto-ast</artifactId>
             <scope>test</scope>
         </dependency>
 

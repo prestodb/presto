@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.sql.ParsingException;
 import com.facebook.presto.sql.parser.CaseInsensitiveStream;
-import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.type.TypeCalculationParser.ArithmeticBinaryContext;
 import com.facebook.presto.type.TypeCalculationParser.ArithmeticUnaryContext;
 import com.facebook.presto.type.TypeCalculationParser.BinaryFunctionContext;
