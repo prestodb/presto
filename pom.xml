@@ -1097,6 +1097,12 @@
                 <artifactId>javassist</artifactId>
                 <version>3.22.0-GA</version>
             </dependency>
+
+            <dependency>
+                <groupId>com.googlecode.libphonenumber</groupId>
+                <artifactId>libphonenumber</artifactId>
+                <version>8.9.5</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

@@ -385,6 +385,11 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-plugin-toolkit</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>com.googlecode.libphonenumber</groupId>
+            <artifactId>libphonenumber</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

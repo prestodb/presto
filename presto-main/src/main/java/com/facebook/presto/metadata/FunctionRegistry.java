@@ -87,6 +87,7 @@ import com.facebook.presto.operator.scalar.ArraySortFunction;
 import com.facebook.presto.operator.scalar.ArrayUnionFunction;
 import com.facebook.presto.operator.scalar.ArraysOverlapFunction;
 import com.facebook.presto.operator.scalar.BitwiseFunctions;
+import com.facebook.presto.operator.scalar.CanonicalizePhoneNumberFunction;
 import com.facebook.presto.operator.scalar.CharacterStringCasts;
 import com.facebook.presto.operator.scalar.ColorFunctions;
 import com.facebook.presto.operator.scalar.CombineHashFunction;
@@ -591,6 +592,7 @@ public class FunctionRegistry
                 .scalar(MapIndeterminateOperator.class)
                 .scalar(TypeOfFunction.class)
                 .scalar(TryFunction.class)
+                .scalars(CanonicalizePhoneNumberFunction.class)
                 .functions(ZIP_WITH_FUNCTION, MAP_ZIP_WITH_FUNCTION)
                 .functions(ZIP_FUNCTIONS)
                 .functions(ARRAY_JOIN, ARRAY_JOIN_WITH_NULL_REPLACEMENT)
