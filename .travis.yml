@@ -37,6 +37,9 @@ cache:
 services:
   - docker
 
+git:
+  quiet: true
+
 install:
   - ./mvnw -v
   - |
