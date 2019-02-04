@@ -29,6 +29,7 @@ import com.google.common.collect.SetMultimap;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
@@ -66,11 +67,12 @@ public final class Checkpoints
             Map<StreamId, List<RowGroupIndex>> columnIndexes)
             throws InvalidCheckpointException
     {
-        ImmutableSetMultimap.Builder<Integer, StreamKind> streamKindsBuilder = ImmutableSetMultimap.builder();
+        // map from (column, sequence) to available StreamKind
+        ImmutableSetMultimap.Builder<ColumnAndSequence, StreamKind> streamKindsBuilder = ImmutableSetMultimap.builder();
         for (Stream stream : streams.values()) {
-            streamKindsBuilder.put(stream.getColumn(), stream.getStreamKind());
+            streamKindsBuilder.put(new ColumnAndSequence(stream.getColumn(), stream.getSequence()), stream.getStreamKind());
         }
-        SetMultimap<Integer, StreamKind> streamKinds = streamKindsBuilder.build();
+        SetMultimap<ColumnAndSequence, StreamKind> streamKinds = streamKindsBuilder.build();
 
         ImmutableMap.Builder<StreamId, StreamCheckpoint> checkpoints = ImmutableMap.builder();
         for (Map.Entry<StreamId, List<RowGroupIndex>> entry : columnIndexes.entrySet()) {
@@ -83,9 +85,9 @@ public final class Checkpoints
             int sequence = entry.getKey().getSequence();
             List<Integer> positionsList = entry.getValue().get(rowGroupId).getPositions();
 
-            ColumnEncodingKind columnEncoding = columnEncodings.get(column).getColumnEncodingKind();
+            ColumnEncodingKind columnEncoding = columnEncodings.get(column).getColumnEncoding(sequence).getColumnEncodingKind();
             OrcTypeKind columnType = columnTypes.get(column).getOrcTypeKind();
-            Set<StreamKind> availableStreams = streamKinds.get(column);
+            Set<StreamKind> availableStreams = streamKinds.get(new ColumnAndSequence(column, sequence));
 
             ColumnPositionsList columnPositionsList = new ColumnPositionsList(column, sequence, columnType, positionsList);
             switch (columnType) {
@@ -509,6 +511,38 @@ public final class Checkpoints
             }
 
             return positionsList.get(index++);
+        }
+    }
+
+    private static class ColumnAndSequence
+    {
+        private final int column;
+        private final int sequence;
+
+        private ColumnAndSequence(int column, int sequence)
+        {
+            this.column = column;
+            this.sequence = sequence;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ColumnAndSequence that = (ColumnAndSequence) o;
+            return column == that.column &&
+                    sequence == that.sequence;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(column, sequence);
         }
     }
 }
