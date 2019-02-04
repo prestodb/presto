@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.eventlistener;
 
 import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.spi.resourceGroups.QueryType;
 
 import java.time.Instant;
 import java.util.List;
@@ -29,6 +30,7 @@ public class QueryCompletedEvent
     private final QueryIOMetadata ioMetadata;
     private final Optional<QueryFailureInfo> failureInfo;
     private final List<PrestoWarning> warnings;
+    private final Optional<QueryType> queryType;
 
     private final Instant createTime;
     private final Instant executionStartTime;
@@ -41,6 +43,7 @@ public class QueryCompletedEvent
             QueryIOMetadata ioMetadata,
             Optional<QueryFailureInfo> failureInfo,
             List<PrestoWarning> warnings,
+            Optional<QueryType> queryType,
             Instant createTime,
             Instant executionStartTime,
             Instant endTime)
@@ -51,6 +54,7 @@ public class QueryCompletedEvent
         this.ioMetadata = requireNonNull(ioMetadata, "ioMetadata is null");
         this.failureInfo = requireNonNull(failureInfo, "failureInfo is null");
         this.warnings = requireNonNull(warnings, "queryWarnings is null");
+        this.queryType = requireNonNull(queryType, "queryType is null");
         this.createTime = requireNonNull(createTime, "createTime is null");
         this.executionStartTime = requireNonNull(executionStartTime, "executionStartTime is null");
         this.endTime = requireNonNull(endTime, "endTime is null");
@@ -84,6 +88,11 @@ public class QueryCompletedEvent
     public List<PrestoWarning> getWarnings()
     {
         return warnings;
+    }
+
+    public Optional<QueryType> getQueryType()
+    {
+        return queryType;
     }
 
     public Instant getCreateTime()

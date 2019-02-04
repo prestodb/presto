@@ -37,6 +37,7 @@ import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
@@ -132,6 +133,7 @@ public class SqlQueryExecution
             Session session,
             URI self,
             ResourceGroupId resourceGroup,
+            Optional<QueryType> queryType,
             PreparedQuery preparedQuery,
             ClusterSizeMonitor clusterSizeMonitor,
             TransactionManager transactionManager,
@@ -187,6 +189,7 @@ public class SqlQueryExecution
                     session,
                     self,
                     resourceGroup,
+                    queryType,
                     false,
                     transactionManager,
                     accessControl,
@@ -749,7 +752,8 @@ public class SqlQueryExecution
                 Session session,
                 PreparedQuery preparedQuery,
                 ResourceGroupId resourceGroup,
-                WarningCollector warningCollector)
+                WarningCollector warningCollector,
+                Optional<QueryType> queryType)
         {
             String executionPolicyName = SystemSessionProperties.getExecutionPolicy(session);
             ExecutionPolicy executionPolicy = executionPolicies.get(executionPolicyName);
@@ -760,6 +764,7 @@ public class SqlQueryExecution
                     session,
                     locationFactory.createQueryLocation(session.getQueryId()),
                     resourceGroup,
+                    queryType,
                     preparedQuery,
                     clusterSizeMonitor,
                     transactionManager,

@@ -38,6 +38,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
@@ -110,6 +111,7 @@ public class TestResetSessionTask
                 session,
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),
+                Optional.empty(),
                 false,
                 transactionManager,
                 accessControl,

@@ -117,6 +117,7 @@ public class TestSetRoleTask
                         .build(),
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),
+                Optional.empty(),
                 false,
                 transactionManager,
                 accessControl,

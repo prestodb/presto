@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.transaction.TransactionId;
@@ -78,6 +79,7 @@ public class QueryInfo
     private final Optional<Output> output;
     private final boolean completeInfo;
     private final Optional<ResourceGroupId> resourceGroupId;
+    private final Optional<QueryType> queryType;
 
     @JsonCreator
     public QueryInfo(
@@ -108,7 +110,8 @@ public class QueryInfo
             @JsonProperty("inputs") Set<Input> inputs,
             @JsonProperty("output") Optional<Output> output,
             @JsonProperty("completeInfo") boolean completeInfo,
-            @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId)
+            @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId,
+            @JsonProperty("queryType") Optional<QueryType> queryType)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(session, "session is null");
@@ -130,6 +133,7 @@ public class QueryInfo
         requireNonNull(output, "output is null");
         requireNonNull(resourceGroupId, "resourceGroupId is null");
         requireNonNull(warnings, "warnings is null");
+        requireNonNull(queryType, "queryType is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -160,9 +164,16 @@ public class QueryInfo
         this.output = output;
         this.completeInfo = completeInfo;
         this.resourceGroupId = resourceGroupId;
+        this.queryType = queryType;
     }
 
-    public static QueryInfo immediateFailureQueryInfo(Session session, String query, URI self, Optional<ResourceGroupId> resourceGroupId, Throwable throwable)
+    public static QueryInfo immediateFailureQueryInfo(
+            Session session,
+            String query,
+            URI self,
+            Optional<ResourceGroupId> resourceGroupId,
+            Optional<QueryType> queryType,
+            Throwable throwable)
     {
         ExecutionFailureInfo failureCause = toFailure(throwable);
         QueryInfo queryInfo = new QueryInfo(
@@ -193,7 +204,8 @@ public class QueryInfo
                 ImmutableSet.of(),
                 Optional.empty(),
                 true,
-                resourceGroupId);
+                resourceGroupId,
+                queryType);
 
         return queryInfo;
     }
@@ -374,6 +386,12 @@ public class QueryInfo
     public Optional<ResourceGroupId> getResourceGroupId()
     {
         return resourceGroupId;
+    }
+
+    @JsonProperty
+    public Optional<QueryType> getQueryType()
+    {
+        return queryType;
     }
 
     @Override

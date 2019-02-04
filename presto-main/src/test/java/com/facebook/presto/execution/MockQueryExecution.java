@@ -176,6 +176,7 @@ public class MockQueryExecution
                 ImmutableSet.of(),
                 Optional.empty(),
                 state.isDone(),
+                Optional.empty(),
                 Optional.empty());
     }
 

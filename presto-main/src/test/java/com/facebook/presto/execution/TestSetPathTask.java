@@ -110,6 +110,7 @@ public class TestSetPathTask
                 TEST_SESSION,
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),
+                Optional.empty(),
                 false,
                 transactionManager,
                 accessControl,
