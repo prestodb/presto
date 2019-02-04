@@ -162,6 +162,7 @@ public class QueryMonitor
                 new QueryIOMetadata(ImmutableList.of(), Optional.empty()),
                 createQueryFailureInfo(failure, Optional.empty()),
                 ImmutableList.of(),
+                queryInfo.getQueryType(),
                 ofEpochMilli(queryInfo.getQueryStats().getCreateTime().getMillis()),
                 ofEpochMilli(queryInfo.getQueryStats().getCreateTime().getMillis()),
                 ofEpochMilli(queryInfo.getQueryStats().getEndTime().getMillis())));
@@ -180,6 +181,7 @@ public class QueryMonitor
                         getQueryIOMetadata(queryInfo),
                         createQueryFailureInfo(queryInfo.getFailureInfo(), queryInfo.getOutputStage()),
                         queryInfo.getWarnings(),
+                        queryInfo.getQueryType(),
                         ofEpochMilli(queryStats.getCreateTime().getMillis()),
                         ofEpochMilli(queryStats.getExecutionStartTime().getMillis()),
                         ofEpochMilli(queryStats.getEndTime() != null ? queryStats.getEndTime().getMillis() : 0)));

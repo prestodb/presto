@@ -24,6 +24,7 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.transaction.TransactionManager;
@@ -85,6 +86,7 @@ public class TestQueryStateMachine
             .put("drink", "coffee")
             .build();
     private static final List<String> RESET_SESSION_PROPERTIES = ImmutableList.of("candy");
+    private static final Optional<QueryType> QUERY_TYPE = Optional.of(QueryType.SELECT);
 
     private final ExecutorService executor = newCachedThreadPool();
 
@@ -403,6 +405,7 @@ public class TestQueryStateMachine
         assertEquals(queryInfo.getFieldNames(), OUTPUT_FIELD_NAMES);
         assertEquals(queryInfo.getUpdateType(), UPDATE_TYPE);
         assertEquals(queryInfo.getMemoryPool(), MEMORY_POOL.getId());
+        assertEquals(queryInfo.getQueryType(), QUERY_TYPE);
 
         QueryStats queryStats = queryInfo.getQueryStats();
         assertNotNull(queryStats.getElapsedTime());
@@ -462,6 +465,7 @@ public class TestQueryStateMachine
                 TEST_SESSION,
                 LOCATION,
                 new ResourceGroupId("test"),
+                QUERY_TYPE,
                 false,
                 transactionManager,
                 accessControl,

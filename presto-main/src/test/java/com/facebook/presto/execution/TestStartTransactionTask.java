@@ -263,6 +263,7 @@ public class TestStartTransactionTask
                 session,
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),
+                Optional.empty(),
                 true,
                 transactionManager,
                 new AccessControlManager(transactionManager),

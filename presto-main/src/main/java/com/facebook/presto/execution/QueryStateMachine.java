@@ -28,6 +28,7 @@ import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.StageGcStatistics;
+import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.type.Type;
@@ -97,6 +98,7 @@ public class QueryStateMachine
     private final String query;
     private final Session session;
     private final URI self;
+    private final Optional<QueryType> queryType;
     private final Optional<ResourceGroupId> resourceGroup;
     private final TransactionManager transactionManager;
     private final Metadata metadata;
@@ -148,6 +150,7 @@ public class QueryStateMachine
             Session session,
             URI self,
             Optional<ResourceGroupId> resourceGroup,
+            Optional<QueryType> queryType,
             TransactionManager transactionManager,
             Executor executor,
             Ticker ticker,
@@ -159,6 +162,7 @@ public class QueryStateMachine
         this.queryId = session.getQueryId();
         this.self = requireNonNull(self, "self is null");
         this.resourceGroup = requireNonNull(resourceGroup, "resourceGroup is null");
+        this.queryType = requireNonNull(queryType, "queryType is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.queryStateTimer = new QueryStateTimer(ticker);
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -177,6 +181,7 @@ public class QueryStateMachine
             Session session,
             URI self,
             ResourceGroupId resourceGroup,
+            Optional<QueryType> queryType,
             boolean transactionControl,
             TransactionManager transactionManager,
             AccessControl accessControl,
@@ -189,6 +194,7 @@ public class QueryStateMachine
                 session,
                 self,
                 resourceGroup,
+                queryType,
                 transactionControl,
                 transactionManager,
                 accessControl,
@@ -203,6 +209,7 @@ public class QueryStateMachine
             Session session,
             URI self,
             ResourceGroupId resourceGroup,
+            Optional<QueryType> queryType,
             boolean transactionControl,
             TransactionManager transactionManager,
             AccessControl accessControl,
@@ -223,6 +230,7 @@ public class QueryStateMachine
                 session,
                 self,
                 Optional.of(resourceGroup),
+                queryType,
                 transactionManager,
                 executor,
                 ticker,
@@ -339,7 +347,8 @@ public class QueryStateMachine
                 query,
                 queryStats,
                 errorCode == null ? null : errorCode.getType(),
-                errorCode);
+                errorCode,
+                queryType);
     }
 
     @VisibleForTesting
@@ -391,7 +400,8 @@ public class QueryStateMachine
                 inputs.get(),
                 output.get(),
                 completeInfo,
-                resourceGroup);
+                resourceGroup,
+                queryType);
     }
 
     private QueryStats getQueryStats(Optional<StageInfo> rootStage)
@@ -957,7 +967,8 @@ public class QueryStateMachine
                 queryInfo.getInputs(),
                 queryInfo.getOutput(),
                 queryInfo.isCompleteInfo(),
-                queryInfo.getResourceGroupId());
+                queryInfo.getResourceGroupId(),
+                queryInfo.getQueryType());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }
 

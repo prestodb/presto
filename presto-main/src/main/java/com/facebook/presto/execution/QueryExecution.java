@@ -19,6 +19,7 @@ import com.facebook.presto.execution.QueryTracker.TrackedQuery;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
+import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Plan;
@@ -28,6 +29,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -65,7 +67,13 @@ public interface QueryExecution
 
     interface QueryExecutionFactory<T extends QueryExecution>
     {
-        T createQueryExecution(String query, Session session, PreparedQuery preparedQuery, ResourceGroupId resourceGroup, WarningCollector warningCollector);
+        T createQueryExecution(
+                String query,
+                Session session,
+                PreparedQuery preparedQuery,
+                ResourceGroupId resourceGroup,
+                WarningCollector warningCollector,
+                Optional<QueryType> queryType);
     }
 
     /**

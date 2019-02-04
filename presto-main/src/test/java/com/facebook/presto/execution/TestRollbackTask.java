@@ -120,6 +120,7 @@ public class TestRollbackTask
                 session,
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),
+                Optional.empty(),
                 true,
                 transactionManager,
                 new AllowAllAccessControl(),
