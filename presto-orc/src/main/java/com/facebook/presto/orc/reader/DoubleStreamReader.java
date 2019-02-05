@@ -233,7 +233,6 @@ public class DoubleStreamReader
         int valueIdx = 0;
         int nextActive = inputPositions[0];
         int activeIdx = 0;
-        int numActive = input.getPositionCount();
         int toSkip = 0;
         for (int i = 0; i < rowsInRange; i++) {
             if (i + posInRowGroup == nextActive) {
@@ -268,7 +267,7 @@ public class DoubleStreamReader
                     else {
                         orcDataStream.skipFully(inputOffset - offsetInStream);
                         value = dataStream.next();
-                        available = orcDataStream.available();
+                        available = orcDataStream.available() - SIZE_OF_DOUBLE;
                         inputBuffer = orcDataStream.getBuffer(available);
                         inputOffset = orcDataStream.getOffsetInBuffer();
                         offsetInStream = inputOffset;
@@ -290,7 +289,7 @@ public class DoubleStreamReader
                     }
                     valueIdx++;
                 }
-                if (++activeIdx == numActive) {
+                if (++activeIdx == input.getPositionCount()) {
                     i++;
                     if (present != null) {
                         for (; i < end; i++) {
@@ -305,7 +304,6 @@ public class DoubleStreamReader
                     break;
                 }
                 nextActive = inputPositions[activeIdx];
-                continue;
             }
             else {
                 // The row is notg in the input qualifying set. Add to skip if non-null.
