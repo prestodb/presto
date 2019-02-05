@@ -67,6 +67,7 @@ import static com.facebook.presto.orc.OrcWriteValidation.WriteChecksumBuilder.cr
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
 import static java.util.Comparator.comparingLong;
 import static java.util.Objects.requireNonNull;
@@ -419,9 +420,9 @@ public class OrcRecordReader
         // single fixed width column are: 1, 16, 256, 1024, 1024,..., 1024, 256 and the 256 was because there is only
         // 256 rows left in this row group, then the nextBatchSize should be 1024 instead of 512. So we need to grow the
         // nextBatchSize before limiting the currentBatchSize by currentGroupRowCount - nextRowInGroup.
-        currentBatchSize = toIntExact(min(nextBatchSize, maxBatchSize));
-        nextBatchSize = min(currentBatchSize * BATCH_SIZE_GROWTH_FACTOR, MAX_BATCH_SIZE);
-        currentBatchSize = toIntExact(min(currentBatchSize, currentGroupRowCount - nextRowInGroup));
+        currentBatchSize = min(nextBatchSize, maxBatchSize);
+        nextBatchSize = min(multiplyExact(currentBatchSize, BATCH_SIZE_GROWTH_FACTOR), MAX_BATCH_SIZE);
+        currentBatchSize = min(currentBatchSize, toIntExact(currentGroupRowCount - nextRowInGroup));
 
         for (StreamReader column : streamReaders) {
             if (column != null) {
