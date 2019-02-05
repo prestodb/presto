@@ -30,7 +30,8 @@ public interface StreamReader
     enclosing query. Fields not mentioned should be returned as null
     RLEs so as to preserve record layout without materializing the
     data. 'depth' is the position corresponding to this StreamReader
-    in subfields.get(n).getPath(). If subfields is {"a.b.c", "a.b.d"} and this is the StrucStreamReader of b then depth is 1.
+    in subfields.get(n).getPath(). If subfields is {"a.b.c", "a.b.d"}
+    and this is the StrucStreamReader of b then depth is 1.
     */
     default void setReferencedSubfields(List<SubfieldPath> subfields, int depth) {}
 
@@ -71,6 +72,9 @@ public interface StreamReader
         return false;
     }
 
+    /**
+     * The channel being read.
+     */
     default int getChannel()
     {
         return -1;
@@ -90,6 +94,7 @@ public interface StreamReader
         return null;
     }
 
+    // TODO Remove this method
     default int getColumnIndex()
     {
         return -1;

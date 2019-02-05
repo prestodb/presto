@@ -46,7 +46,6 @@ import static java.util.Objects.requireNonNull;
 
 public class LongDirectStreamReader
         extends ColumnReader
-        implements StreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongDirectStreamReader.class).instanceSize();
 
@@ -185,7 +184,7 @@ public class LongDirectStreamReader
 
     public void compactValues(int[] positions, int base, int numPositions)
     {
-        if (outputChannel != -1) {
+        if (channel != -1) {
             StreamReaders.compactArrays(positions, base, numPositions, values, valueIsNull);
             numValues = base + numPositions;
         }
@@ -202,11 +201,14 @@ public class LongDirectStreamReader
     public void scan()
             throws IOException
     {
+        if (!rowGroupOpen) {
+            openRowGroup();
+        }
         beginScan(presentStream, null);
         if (presentStream != null) {
             throw new UnsupportedOperationException("scan() does not support nulls");
         }
-        if (outputChannel != -1) {
+        if (channel != -1) {
             ensureValuesSize();
         }
         QualifyingSet input = inputQualifyingSet;
@@ -264,7 +266,7 @@ public class LongDirectStreamReader
 
     private void ensureValuesSize()
     {
-        if (outputChannel == -1) {
+        if (channel == -1) {
             return;
         }
         int numInput = inputQualifyingSet.getPositionCount();

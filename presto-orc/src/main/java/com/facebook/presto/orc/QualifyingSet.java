@@ -19,10 +19,13 @@ import com.facebook.presto.spi.PrestoException;
 import java.util.Arrays;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class QualifyingSet
 {
-    // begin and end define the range of rows coverd. If a row >=
+    private static final int MAX_SIZE = 10_000;
+
+    // begin and end define the range of rows covered. If a row >=
     // begin and < end and is not in positions rangeBegins[i] <= row <
     // rangeEnds[i] then row is not in the qualifying set.
     private int end;
@@ -35,27 +38,27 @@ public class QualifyingSet
     private int[] inputNumbers;
     private ErrorSet errorSet;
 
-    static volatile int[] wholeRowGroup;
-    static volatile int[] allZeros;
+    private static volatile int[] wholeRowGroup;
+    private static volatile int[] allZeros;
     private int[] ownedPositions;
     private int[] ownedInputNumbers;
-    private QualifyingSet parent;
 
     static {
-        wholeRowGroup = new int[10000];
-        allZeros = new int[10000];
+        wholeRowGroup = new int[MAX_SIZE];
+        allZeros = new int[MAX_SIZE];
         Arrays.fill(allZeros, 0);
-        for (int i = 0; i < 10000; i++) {
+        for (int i = 0; i < MAX_SIZE; i++) {
             wholeRowGroup[i] = i;
         }
     }
 
-    public void setRange(int begin, int end)
+    public void setRange(int end)
     {
+        checkArgument(end >= 0, "end must not be negative");
         this.end = end;
         int[] zeros = allZeros;
-        if (zeros.length < end - begin) {
-            int[] newZeros = new int[end - begin];
+        if (zeros.length < end) {
+            int[] newZeros = new int[end];
             Arrays.fill(newZeros, 0);
             allZeros = newZeros;
             inputNumbers = newZeros;
@@ -63,32 +66,23 @@ public class QualifyingSet
         else {
             inputNumbers = zeros;
         }
-        if (begin == 0) {
-            int[] rowGroup = wholeRowGroup;
-            if (rowGroup.length >= end) {
-                positions = rowGroup;
-            }
-            else {
-                // Thread safe.  If many concurrently create a new wholeRowGroup, many are created but all but one become garbage and everybody has a right size array.
-                int[] newWholeRowGroup = new int[end];
-                for (int i = 0; i < end; i++) {
-                    newWholeRowGroup[i] = i;
-                }
-                positions = newWholeRowGroup;
-                wholeRowGroup = newWholeRowGroup;
-            }
-            positionCount = end;
+
+        int[] rowGroup = wholeRowGroup;
+        if (rowGroup.length >= end) {
+            positions = rowGroup;
         }
         else {
-            if (ownedPositions == null || ownedPositions.length < end - begin) {
-                ownedPositions = new int[(int) ((end - begin) * 1.2)];
+            // Thread safe.  If many concurrently create a new wholeRowGroup,
+            // many are created but all but one become garbage and everybody
+            // has a right size array.
+            int[] newWholeRowGroup = new int[end];
+            for (int i = 0; i < end; i++) {
+                newWholeRowGroup[i] = i;
             }
-            positions = ownedPositions;
-
-            for (int i = begin; i < end; i++) {
-                positions[i - begin] = i;
-            }
+            positions = newWholeRowGroup;
+            wholeRowGroup = newWholeRowGroup;
         }
+        positionCount = end;
     }
 
     public boolean isEmpty()
@@ -143,17 +137,7 @@ public class QualifyingSet
         }
         return inputNumbers;
     }
-    /*
-    public int getBegin()
-    {
-        return begin;
-    }
 
-    public void setBegin(int begin)
-    {
-        this.begin = begin;
-    }
-    */
     public int getEnd()
     {
         if (truncationPosition != -1) {
@@ -169,6 +153,7 @@ public class QualifyingSet
 
     public void setEnd(int end)
     {
+        checkArgument(end >= 0, "end must not be negative");
         this.end = end;
     }
 
@@ -233,7 +218,7 @@ public class QualifyingSet
         }
     }
 
-    public int findPositionAtOrAbove(int row)
+    private int findPositionAtOrAbove(int row)
     {
         int pos = Arrays.binarySearch(positions, 0, positionCount, row);
         return pos < 0 ? -1 - pos : pos;
@@ -257,7 +242,7 @@ public class QualifyingSet
         this.errorSet = errorSet;
     }
 
-    // Erases qulifying rows and corresponding input numbers below
+    // Erases qualifying rows and corresponding input numbers below
     // position. If one of the erased positions has an error, throws
     // the error. This is used to remove a row that is past all
     // filters. Errors that were masked by subsequent filters will
@@ -326,6 +311,7 @@ public class QualifyingSet
             ownedInputNumbers = inputNumbers;
         }
     }
+
     public void compactPositionsAndErrors(int[] surviving, int numSurviving)
     {
         int[] rows = getMutablePositions(0);
@@ -360,18 +346,5 @@ public class QualifyingSet
     public boolean hasErrors()
     {
         return errorSet != null && !errorSet.isEmpty();
-    }
-
-    public void check()
-    {
-        for (int i = 0; i < positionCount; i++) {
-            int pos = positions[i];
-            if (pos >= end) {
-                throw new IllegalArgumentException("QualifyingSet contains past end");
-            }
-            if (i > 0 && positions[i - 1] >= pos) {
-                throw new IllegalArgumentException("QualifyingSet contains positions out of order");
-            }
-        }
     }
 }

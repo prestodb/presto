@@ -17,63 +17,68 @@ import com.facebook.presto.orc.Filter;
 import com.facebook.presto.orc.QualifyingSet;
 import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.LongInputStream;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 
 import java.io.IOException;
 import java.util.Arrays;
 
+import static java.util.Objects.requireNonNull;
+
 abstract class ColumnReader
         implements StreamReader
 {
-    QualifyingSet inputQualifyingSet;
-    QualifyingSet outputQualifyingSet;
-    Block block;
-    int outputChannel = -1;
-    Filter filter;
-    int columnIndex;
-    Type type;
-    int expectNumValues = 10000;
+    protected final int expectNumValues = 10000;
+
+    protected QualifyingSet inputQualifyingSet;
+    protected QualifyingSet outputQualifyingSet;
+    protected int channel = -1;
+    protected Filter filter;
+    protected int columnIndex;
+    protected Type type;
     // First row number in row group that is not processed due to
     // reaching target size. This must occur as a position in
     // inputQualifyingSet. -1 if all inputQualifyingSet is processed.
-    int truncationRow = -1;
+    protected int truncationRow = -1;
 
-    boolean rowGroupOpen;
+    protected boolean rowGroupOpen;
     // Lengths for the rows of the input QualifyingSet.
-    int[] lengths;
+    protected int[] lengths;
     // Number of elements in lengths.
-    int numLengths;
-    // Index of length of first unprocessed element in 'lemgths'.
-    int lengthIdx;
-    //Present flag for each row in input QualifyingSet.
-    boolean[] present;
+    protected int numLengths;
+    // Index of length of first unprocessed element in 'lengths'.
+    protected int lengthIdx;
+    // Present flag for each row in input QualifyingSet.
+    protected boolean[] present;
 
     // Number of values in 'present'.
-    int numPresent;
+    private int numPresent;
 
     // position of first unprocessed row from the start of the row group.
-    int posInRowGroup;
+    protected int positionInRowGroup;
 
-    // Number of values in Block to be returned by getBlock.
-    int numValues;
+    // Number of values in Block to be returned by getBlock. These values
+    // may accumulate across multiple scan() invocations.
+    protected int numValues;
 
     // Number of result rows in scan() so far.
-    int numResults;
+    protected int numResults;
 
     // Number of bytes the next scan() may add to the result.
-    long resultSizeBudget = 8 * 10000;
+    protected long resultSizeBudget = 8 * 10000;
 
+    @Override
     public QualifyingSet getInputQualifyingSet()
     {
         return inputQualifyingSet;
     }
 
+    @Override
     public void setInputQualifyingSet(QualifyingSet qualifyingSet)
     {
-        inputQualifyingSet = qualifyingSet;
+        inputQualifyingSet = requireNonNull(qualifyingSet, "qualifyingSet is null");
     }
 
+    @Override
     public QualifyingSet getOutputQualifyingSet()
     {
         return outputQualifyingSet;
@@ -92,15 +97,16 @@ abstract class ColumnReader
     public void setFilterAndChannel(Filter filter, int channel, int columnIndex, Type type)
     {
         this.filter = filter;
-        outputChannel = channel;
+        this.channel = channel;
+        // TODO Remove columnIndex as it is used only in ColumnGroupReader::toString
         this.columnIndex = columnIndex;
-        this.type = type;
+        this.type = requireNonNull(type, "type is null");
     }
 
     @Override
     public int getChannel()
     {
-        return outputChannel;
+        return channel;
     }
 
     @Override
@@ -130,9 +136,10 @@ abstract class ColumnReader
     @Override
     public int getPosition()
     {
-        return posInRowGroup;
+        return positionInRowGroup;
     }
 
+    // TODO Rename to trancationPosition
     @Override
     public int getTruncationRow()
     {
@@ -149,7 +156,7 @@ abstract class ColumnReader
         throw new UnsupportedOperationException("Variable width streams must implement getResultSizeInBytes()");
     }
 
-    public void compactQualifyingSet(int[] surviving, int numSurviving)
+    protected void compactQualifyingSet(int[] surviving, int numSurviving)
     {
         if (outputQualifyingSet == null) {
             return;
@@ -161,21 +168,18 @@ abstract class ColumnReader
             throws IOException
     {
         if (!rowGroupOpen) {
-            openRowGroup();
+            throw new IllegalStateException("beginScan called before openRowGroup");
         }
         numResults = 0;
         truncationRow = -1;
-        QualifyingSet input = inputQualifyingSet;
-        QualifyingSet output = outputQualifyingSet;
-        if (filter != null && output == null) {
+        if (filter != null && outputQualifyingSet == null) {
             outputQualifyingSet = new QualifyingSet();
         }
-        int numInput = input.getPositionCount();
-        int end = input.getEnd();
-        int rowsInRange = end - posInRowGroup;
-        int neededLengths = 0;
+        int rowsInRange = inputQualifyingSet.getEnd() - positionInRowGroup;
+
+        int numValuesPresent = 0;
         if (presentStream == null) {
-            neededLengths = rowsInRange;
+            numValuesPresent = rowsInRange;
         }
         else {
             if (present == null || present.length < rowsInRange) {
@@ -184,41 +188,35 @@ abstract class ColumnReader
             if (numPresent > 0 && rowsInRange > numPresent) {
                 throw new IllegalArgumentException("The present stream should be read in full the first time");
             }
-            presentStream.getSetBits(rowsInRange, present);
+            numValuesPresent = presentStream.getSetBits(rowsInRange, present);
             numPresent = rowsInRange;
-            if (lengthStream != null) {
-                for (int i = 0; i < rowsInRange; i++) {
-                    if (present[i]) {
-                        neededLengths++;
-                    }
-                }
-            }
         }
-        if (lengthStream == null || neededLengths <= numLengths) {
+
+        if (lengthStream == null || numValuesPresent <= numLengths) {
             return;
         }
-        neededLengths -= numLengths;
+
         if (lengths == null) {
-            lengths = new int[neededLengths + numLengths];
+            lengths = new int[numValuesPresent];
         }
-        else if (lengths.length < numLengths + neededLengths) {
-            lengths = Arrays.copyOf(lengths, numLengths + neededLengths + 100);
+        else if (lengths.length < numValuesPresent) {
+            lengths = Arrays.copyOf(lengths, numValuesPresent + 100);
         }
-        lengthStream.nextIntVector(neededLengths, lengths, numLengths);
-        numLengths += neededLengths;
+        lengthStream.nextIntVector(numValuesPresent, lengths, 0);
+        numLengths = numValuesPresent;
     }
 
     protected void endScan(BooleanInputStream presentStream)
     {
         // The reader is positioned at inputQualifyingSet.end() or truncationRow.
         int end = inputQualifyingSet.getEnd(); // getNonTruncatedEnd();
-        posInRowGroup = truncationRow != -1 ? truncationRow : end;
+        positionInRowGroup = truncationRow != -1 ? truncationRow : end;
 
         if (presentStream != null) {
-            if (posInRowGroup != end) {
-                System.arraycopy(present, posInRowGroup, present, 0, end - posInRowGroup);
+            if (positionInRowGroup != end) {
+                System.arraycopy(present, positionInRowGroup, present, 0, end - positionInRowGroup);
             }
-            numPresent -= end - posInRowGroup;
+            numPresent -= end - positionInRowGroup;
         }
         if (lengths != null) {
             if (lengthIdx < numLengths) {
@@ -227,10 +225,10 @@ abstract class ColumnReader
             numLengths -= lengthIdx;
         }
         if (outputQualifyingSet != null) {
-            outputQualifyingSet.setEnd(posInRowGroup);
+            outputQualifyingSet.setEnd(positionInRowGroup);
             outputQualifyingSet.setPositionCount(numResults);
         }
-        if (outputChannel != -1) {
+        if (channel != -1) {
             numValues += numResults;
         }
     }
@@ -238,7 +236,7 @@ abstract class ColumnReader
     protected void openRowGroup()
             throws IOException
     {
-        posInRowGroup = 0;
+        positionInRowGroup = 0;
         numLengths = 0;
         numPresent = 0;
         lengthIdx = 0;

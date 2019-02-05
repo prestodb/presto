@@ -58,7 +58,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class StructStreamReader
-        extends ColumnReader implements StreamReader
+        extends ColumnReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(StructStreamReader.class).instanceSize();
 
@@ -345,7 +345,7 @@ public class StructStreamReader
             }
         }
         fieldChannels = fieldColumns;
-        if (outputChannel == -1) {
+        if (channel == -1) {
             // If the struct is not projected out, none of its members is either.
             Arrays.fill(fieldChannels, -1);
         }
@@ -375,7 +375,7 @@ public class StructStreamReader
     public void erase(int end)
     {
         // Without a reader there is nothing to erase, even if the struct is all nulls.
-        if (reader == null || outputChannel == -1) {
+        if (reader == null || channel == -1) {
             return;
         }
         int fieldEnd;
@@ -410,7 +410,7 @@ public class StructStreamReader
     @Override
     public void compactValues(int[] surviving, int base, int numSurviving)
     {
-        if (outputChannel != -1) {
+        if (channel != -1) {
             if (fieldSurviving == null || fieldSurviving.length < numSurviving) {
                 fieldSurviving = new int[numSurviving];
             }
@@ -464,7 +464,7 @@ public class StructStreamReader
         }
         int distance = 0;
         for (int i = from; i < to; i++) {
-            if (present[i - posInRowGroup]) {
+            if (present[i - positionInRowGroup]) {
                 distance++;
             }
         }
@@ -509,18 +509,18 @@ public class StructStreamReader
             int numInput = input.getPositionCount();
             int[] inputRows = input.getPositions();
             int end = input.getEnd();
-            int rowsInRange = end - posInRowGroup;
+            int rowsInRange = end - positionInRowGroup;
             int[] fieldRows = fieldQualifyingSet.getMutablePositions(numInput);
             int[] fieldInputNumbers = fieldQualifyingSet.getMutableInputNumbers(numInput);
             int prevFieldRow = posInFields;
-            int prevRow = posInRowGroup;
+            int prevRow = positionInRowGroup;
             numFieldRows = 0;
             if (innerToOuter == null || innerToOuter.length < numInput) {
                 innerToOuter = new int[numInput + 100];
             }
             for (int i = 0; i < numInput; i++) {
                 int activeRow = inputRows[i];
-                if (presentStream == null || present[activeRow - posInRowGroup]) {
+                if (presentStream == null || present[activeRow - positionInRowGroup]) {
                     int numSkip = innerDistance(prevRow, activeRow);
                     fieldRows[numFieldRows] = prevFieldRow + numSkip;
                     fieldInputNumbers[numFieldRows] = i;
@@ -577,7 +577,7 @@ public class StructStreamReader
         // filter). It goes to the result. 3. There was a struct but
         // it was dropped by a filter. We move on.
         for (int i = 0; i < numInput; i++) {
-            int presentIdx = inputRows[i] - posInRowGroup;
+            int presentIdx = inputRows[i] - positionInRowGroup;
             if (presentStream != null && !present[presentIdx]) {
                 if (filter == null || filter.testNull()) {
                     valueIsNull[numValues + numResults] = true;

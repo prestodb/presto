@@ -280,13 +280,13 @@ public class ColumnGroupReader
 
     // Divides the space available in the result Page between the
     // streams at firstStreamIdx and to the right of at.
-    boolean makeResultBudget(int firstStreamIdx, int numRows, boolean mayReturn)
+    private boolean makeResultBudget(int firstStreamIndex, int numRows, boolean mayReturn)
     {
         int bytesSoFar = 0;
         double selectivity = 1;
         int totalAsk = 0;
         if ((ariaFlags & AriaFlags.noReaderBudget) != 0) {
-            for (int i = firstStreamIdx; i < sortedStreamReaders.length; i++) {
+            for (int i = firstStreamIndex; i < sortedStreamReaders.length; i++) {
                 StreamReader reader = sortedStreamReaders[i];
                 if (reader.getChannel() != -1) {
                     // Arbitrarily large but no Long overflow
@@ -298,13 +298,12 @@ public class ColumnGroupReader
         for (int i = 0; i < sortedStreamReaders.length; i++) {
             StreamReader reader = sortedStreamReaders[i];
             bytesSoFar += reader.getResultSizeInBytes();
-            if (i >= firstStreamIdx) {
+            if (i >= firstStreamIndex) {
                 Filter filter = reader.getFilter();
-                int channel = reader.getChannel();
                 if (filter != null) {
                     selectivity *= filter.getSelectivity();
                 }
-                if (channel != -1) {
+                if (reader.getChannel() != -1) {
                     int avgSize = reader.getAverageResultSize();
                     readerBudget[i] = Math.max(8000, (int) (numRows * selectivity * avgSize));
                     totalAsk += readerBudget[i];
@@ -334,7 +333,7 @@ public class ColumnGroupReader
             available = 10000;
         }
         double grantedFraction = (double) available / totalAsk;
-        for (int i = firstStreamIdx; i < sortedStreamReaders.length; i++) {
+        for (int i = firstStreamIndex; i < sortedStreamReaders.length; i++) {
             StreamReader reader = sortedStreamReaders[i];
             if (reader.getChannel() != -1) {
                 int budget = (int) (readerBudget[i] * grantedFraction);
@@ -389,14 +388,14 @@ public class ColumnGroupReader
 
     public boolean hasUnfetchedRows()
     {
-        return findLastTruncatedStreamIdx() != -1;
+        return findLastTruncatedStreamIndex() != -1;
     }
 
     public void advance()
             throws IOException
     {
         int firstStreamIdx;
-        lastTruncatedStreamIdx = findLastTruncatedStreamIdx();
+        lastTruncatedStreamIdx = findLastTruncatedStreamIndex();
         QualifyingSet qualifyingSet;
         if (lastTruncatedStreamIdx == -1) {
             firstStreamIdx = 0;
@@ -442,27 +441,27 @@ public class ColumnGroupReader
                 }
             }
         }
-        int lastTruncatedStreamIdx = findLastTruncatedStreamIdx();
+        int lastTruncatedStreamIdx = findLastTruncatedStreamIndex();
         // Numbor of rows surviving all truncations/filters.
         int numAdded = qualifyingSet.getPositionCount();
         alignResultsAndRemoveFromQualifyingSet(numAdded, sortedStreamReaders.length - 1);
         numRowsInResult += numAdded;
     }
 
-    QualifyingSet evaluateFilterFunction(int streamIdx, QualifyingSet qualifyingSet)
+    private QualifyingSet evaluateFilterFunction(int streamIndex, QualifyingSet qualifyingSet)
     {
         boolean isFirstFunction = true;
-        for (FilterFunction function : filterFunctionOrder[streamIdx]) {
+        for (FilterFunction function : filterFunctionOrder[streamIndex]) {
             int[] channels = function.getInputChannels();
             Block[] blocks = new Block[channels.length];
             int numRows = qualifyingSet.getPositionCount();
             for (int channelIdx = 0; channelIdx < channels.length; channelIdx++) {
-                blocks[channelIdx] = makeFilterFunctionInputBlock(channelIdx, streamIdx, numRows, function);
+                blocks[channelIdx] = makeFilterFunctionInputBlock(channelIdx, streamIndex, numRows, function);
             }
             if (filterResults == null || filterResults.length < numRows) {
                 filterResults = new int[numRows + 100];
             }
-            StreamReader reader = sortedStreamReaders[streamIdx];
+            StreamReader reader = sortedStreamReaders[streamIndex];
             qualifyingSet = reader.getOrCreateOutputQualifyingSet();
             long start = System.nanoTime();
             int numHits = function.filter(new Page(numRows, blocks), filterResults, qualifyingSet.getOrCreateErrorSet());
@@ -569,19 +568,19 @@ public class ColumnGroupReader
         }
     }
 
-    int[] copyMap(int[][] maps, int channelIdx, int numRows, int[] map)
+    private int[] copyMap(int[][] maps, int channelIndex, int numRows, int[] map)
     {
-        int[] copy = allocRowNumberMap(maps, channelIdx, numRows);
+        int[] copy = allocRowNumberMap(maps, channelIndex, numRows);
         System.arraycopy(map, 0, copy, 0, numRows);
         return copy;
     }
 
-    int[] allocRowNumberMap(int[][] maps, int mapIdx, int size)
+    private int[] allocRowNumberMap(int[][] maps, int mapIndex, int size)
     {
-        int[] map = maps[mapIdx];
+        int[] map = maps[mapIndex];
         if (map == null || map.length < size) {
-            maps[mapIdx] = new int[size + 100];
-            return maps[mapIdx];
+            maps[mapIndex] = new int[size + 100];
+            return maps[mapIndex];
         }
         return map;
     }
@@ -719,7 +718,7 @@ public class ColumnGroupReader
         throw new IllegalArgumentException("Truncation row was not in the input QualifyingSet");
     }
 
-    int findLastTruncatedStreamIdx()
+    private int findLastTruncatedStreamIndex()
     {
         for (int i = sortedStreamReaders.length - 1; i >= 0; i--) {
             if (sortedStreamReaders[i].getTruncationRow() != -1) {
@@ -731,11 +730,11 @@ public class ColumnGroupReader
 
     public int getTruncationRow()
     {
-        int idx = findLastTruncatedStreamIdx();
-        if (idx == -1) {
+        int index = findLastTruncatedStreamIndex();
+        if (index == -1) {
             return -1;
         }
-        return sortedStreamReaders[idx].getTruncationRow();
+        return sortedStreamReaders[index].getTruncationRow();
     }
 
     public int getResultSizeInBytes()
@@ -761,6 +760,7 @@ public class ColumnGroupReader
         return sum;
     }
 
+    @Override
     public String toString()
     {
         StringBuilder builder = new StringBuilder("CGR: rows:")

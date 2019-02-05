@@ -45,11 +45,11 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Double.doubleToLongBits;
+import static java.lang.Math.multiplyExact;
 import static java.util.Objects.requireNonNull;
 
 public class DoubleStreamReader
         extends ColumnReader
-        implements StreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(DoubleStreamReader.class).instanceSize();
 
@@ -65,8 +65,8 @@ public class DoubleStreamReader
     private boolean[] valueIsNull;
     private long[] values;
     // Result arrays from outputQualifyingSet.
-    int[] outputRows;
-    int[] resultInputNumbers;
+    private int[] outputRows;
+    private int[] resultInputNumbers;
 
     private InputStreamSource<DoubleInputStream> dataStreamSource = missingStreamSource(DoubleInputStream.class);
     @Nullable
@@ -140,7 +140,6 @@ public class DoubleStreamReader
     {
         presentStream = presentStreamSource.openStream();
         dataStream = dataStreamSource.openStream();
-        rowGroupOpen = true;
         super.openRowGroup();
     }
 
@@ -192,7 +191,7 @@ public class DoubleStreamReader
     @Override
     public void compactValues(int[] surviving, int base, int numSurviving)
     {
-        if (outputChannel != -1) {
+        if (channel != -1) {
             StreamReaders.compactArrays(surviving, base, numSurviving, values, valueIsNull);
             numValues = base + numSurviving;
         }
@@ -215,147 +214,149 @@ public class DoubleStreamReader
         beginScan(presentStream, null);
         QualifyingSet input = inputQualifyingSet;
         QualifyingSet output = outputQualifyingSet;
-        int numInput = input.getPositionCount();
         int end = input.getEnd();
-        int rowsInRange = end - posInRowGroup;
-        int valuesSize = end;
+        int rowsInRange = end - positionInRowGroup;
+
         OrcInputStream orcDataStream = dataStream.getInput();
+
         int available = orcDataStream.available();
         byte[] inputBuffer = orcDataStream.getBuffer(available);
         int inputOffset = orcDataStream.getOffsetInBuffer();
         int offsetInStream = inputOffset;
-        if (values == null || values.length < valuesSize) {
-            values = new long[valuesSize];
+
+        if (values == null || values.length < end) {
+            values = new long[end];
         }
         outputRows = filter != null ? output.getMutablePositions(rowsInRange) : null;
         resultInputNumbers = filter != null ? output.getMutableInputNumbers(rowsInRange) : null;
+        int numActive = input.getPositionCount();
         int[] inputPositions = input.getPositions();
-        int valueIdx = 0;
-        int nextActive = inputPositions[0];
         int activeIdx = 0;
         int toSkip = 0;
         for (int i = 0; i < rowsInRange; i++) {
-            if (i + posInRowGroup == nextActive) {
-                if (present != null && !present[i]) {
-                    if (filter == null || filter.testNull()) {
-                        addNullResult(i + posInRowGroup, activeIdx);
-                    }
+            int position = i + positionInRowGroup;
+            int nextQualifiedPosition = inputPositions[activeIdx];
+            verify(position <= nextQualifiedPosition);
+
+            boolean isNull = present != null && !present[i];
+            if (position < nextQualifiedPosition) {
+                if (!isNull) {
+                    toSkip++;
                 }
-                else {
-                    // Non-null row in qualifying set.
-                    if (toSkip > 0) {
-                        int bytes = SIZE_OF_DOUBLE * toSkip;
-                        if (bytes > available) {
-                            orcDataStream.skipFully(bytes + inputOffset - offsetInStream);
-                            available = orcDataStream.available();
-                            inputBuffer = orcDataStream.getBuffer(available);
-                            inputOffset = orcDataStream.getOffsetInBuffer();
-                            offsetInStream = inputOffset;
-                        }
-                        else {
-                            inputOffset += bytes;
-                            available -= bytes;
-                        }
-                        toSkip = 0;
+                continue;
+            }
+
+            if (isNull) {
+                // Null row in the qualifying set
+                if (filter == null || filter.testNull()) {
+                    if (filter != null) {
+                        outputRows[numResults] = position;
+                        resultInputNumbers[numResults] = activeIdx;
                     }
-                    double value;
-                    if (available >= SIZE_OF_DOUBLE) {
-                        value = ByteArrays.getDouble(inputBuffer, inputOffset);
-                        available -= SIZE_OF_DOUBLE;
-                        inputOffset += SIZE_OF_DOUBLE;
-                    }
-                    else {
-                        orcDataStream.skipFully(inputOffset - offsetInStream);
-                        value = dataStream.next();
-                        available = orcDataStream.available() - SIZE_OF_DOUBLE;
+                    appendNull();
+                }
+            }
+            else {
+                // Non-null row in the qualifying set.
+                if (toSkip > 0) {
+                    int bytes = multiplyExact(toSkip, SIZE_OF_DOUBLE);
+                    if (bytes > available) {
+                        orcDataStream.skipFully(bytes + inputOffset - offsetInStream);
+                        available = orcDataStream.available();
                         inputBuffer = orcDataStream.getBuffer(available);
                         inputOffset = orcDataStream.getOffsetInBuffer();
                         offsetInStream = inputOffset;
                     }
+                    else {
+                        inputOffset += bytes;
+                        available -= bytes;
+                    }
+                    toSkip = 0;
+                }
+                double value;
+                if (available >= SIZE_OF_DOUBLE) {
+                    value = ByteArrays.getDouble(inputBuffer, inputOffset);
+                    available -= SIZE_OF_DOUBLE;
+                    inputOffset += SIZE_OF_DOUBLE;
+                }
+                else {
+                    orcDataStream.skipFully(inputOffset - offsetInStream);
+                    value = dataStream.next();
+                    available = orcDataStream.available() - SIZE_OF_DOUBLE;
+                    inputBuffer = orcDataStream.getBuffer(available);
+                    inputOffset = orcDataStream.getOffsetInBuffer();
+                    offsetInStream = inputOffset;
+                }
+                if (filter == null || filter.testDouble(value)) {
                     if (filter != null) {
-                        if (filter.testDouble(value)) {
-                            outputRows[numResults] = i + posInRowGroup;
-                            resultInputNumbers[numResults] = activeIdx;
-                            if (outputChannel != -1) {
-                                addResult(value);
-                            }
-                            numResults++;
-                        }
+                        outputRows[numResults] = position;
+                        resultInputNumbers[numResults] = activeIdx;
                     }
-                    else {
-                        // No filter.
-                        addResult(value);
-                        numResults++;
-                    }
-                    valueIdx++;
+                    appendValue(value);
                 }
-                if (++activeIdx == input.getPositionCount()) {
-                    i++;
-                    if (present != null) {
-                        for (; i < end; i++) {
-                            if (present[i]) {
-                                toSkip++;
-                            }
-                        }
-                    }
-                    else {
-                        toSkip = end - i;
-                    }
-                    break;
-                }
-                nextActive = inputPositions[activeIdx];
             }
-            else {
-                // The row is notg in the input qualifying set. Add to skip if non-null.
-                if (presentStream == null || present[i]) {
-                    toSkip++;
-                    valueIdx++;
+
+            activeIdx++;
+            if (activeIdx == numActive) {
+                if (present != null) {
+                    for (int j = i + 1; j < rowsInRange; j++) {
+                        if (present[j]) {
+                            toSkip++;
+                        }
+                    }
                 }
+                else {
+                    toSkip = rowsInRange - i - 1;
+                }
+                break;
             }
         }
+
         if (toSkip > 0 || inputOffset != offsetInStream) {
             orcDataStream.skipFully(toSkip * SIZE_OF_DOUBLE + (inputOffset - offsetInStream));
         }
         endScan(presentStream);
     }
 
-    void addNullResult(int row, int activeIdx)
+    private void appendNull()
     {
-        if (outputChannel != -1) {
-            if (valueIsNull == null) {
-                valueIsNull = new boolean[values.length];
-            }
-            ensureResultRows();
-            valueIsNull[numResults + numValues] = true;
+        if (channel == -1) {
+            numResults++;
+            return;
         }
-        if (filter != null) {
-            outputRows[numResults] = row;
-            resultInputNumbers[numResults] = activeIdx;
+
+        int position = numValues + numResults;
+        if (valueIsNull == null) {
+            valueIsNull = new boolean[values.length];
         }
+        ensureValuesCapacity(position + 1);
+        valueIsNull[position] = true;
         numResults++;
     }
 
-    void addResult(double value)
+    private void appendValue(double value)
     {
-        int position = numValues + numResults;
-        if (position >= values.length) {
-            ensureResultRows();
+        if (channel == -1) {
+            numResults++;
+            return;
         }
+
+        int position = numValues + numResults;
+        ensureValuesCapacity(position + 1);
         values[position] = doubleToLongBits(value);
         if (valueIsNull != null) {
             valueIsNull[position] = false;
         }
+        numResults++;
     }
 
-    void ensureResultRows()
+    private void ensureValuesCapacity(int size)
     {
-        if (values.length <= numValues + numResults) {
-            values = Arrays.copyOf(values, Math.max(numValues + numResults + 10, values.length * 2));
-            block = null;
+        if (values.length <= size) {
+            values = Arrays.copyOf(values, Math.max(size + 10, values.length * 2));
         }
-        if (valueIsNull != null) {
+        if (valueIsNull != null && valueIsNull.length != values.length) {
             valueIsNull = Arrays.copyOf(valueIsNull, values.length);
-            block = null;
         }
     }
 

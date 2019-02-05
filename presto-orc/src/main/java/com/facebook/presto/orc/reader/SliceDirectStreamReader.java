@@ -57,7 +57,6 @@ import static java.util.Objects.requireNonNull;
 
 public class SliceDirectStreamReader
         extends ColumnReader
-        implements StreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDirectStreamReader.class).instanceSize();
     private static final int ONE_GIGABYTE = toIntExact(new DataSize(1, GIGABYTE).toBytes());
@@ -291,7 +290,7 @@ public class SliceDirectStreamReader
     @Override
     public void compactValues(int[] positions, int base, int numPositions)
     {
-        if (outputChannel != -1) {
+        if (channel != -1) {
             int toOffset = resultOffsets[base];
             for (int i = 0; i < numPositions; i++) {
                 int fromPosition = base + positions[i];
@@ -342,7 +341,7 @@ public class SliceDirectStreamReader
             openRowGroup();
         }
         beginScan(presentStream, lengthStream);
-        if (resultOffsets == null && outputChannel != -1) {
+        if (resultOffsets == null && channel != -1) {
             resultOffsets = new int[10001];
             bytes = new byte[100000];
             numValues = 0;
@@ -355,10 +354,9 @@ public class SliceDirectStreamReader
         QualifyingSet output = outputQualifyingSet;
         int numInput = input.getPositionCount();
         int end = input.getEnd();
-        int rowsInRange = end - posInRowGroup;
+        int rowsInRange = end - positionInRowGroup;
         outputRows = filter != null ? output.getMutablePositions(rowsInRange) : null;
         resultInputNumbers = filter != null ? output.getMutableInputNumbers(rowsInRange) : null;
-        int toOffset = 0;
         int[] inputPositions = input.getPositions();
         lengthIdx = 0;
         int nextActive = inputPositions[0];
@@ -367,13 +365,13 @@ public class SliceDirectStreamReader
         int toSkip = 0;
         int i = 0;
         for (; i < rowsInRange; i++) {
-            if (i + posInRowGroup == nextActive) {
+            if (i + positionInRowGroup == nextActive) {
                 if (truncationRow == nextActive) {
                     break;
                 }
                 if (presentStream != null && !present[i]) {
                     if (filter == null || filter.testNull()) {
-                        addNullResult(i + posInRowGroup, activeIdx);
+                        addNullResult(i + positionInRowGroup, activeIdx);
                     }
                 }
                 else {
@@ -400,9 +398,9 @@ public class SliceDirectStreamReader
                             toSkip += length;
                         }
                         if (filter.testBytes(buffer, pos, length)) {
-                            outputRows[numResults] = i + posInRowGroup;
+                            outputRows[numResults] = i + positionInRowGroup;
                             resultInputNumbers[numResults] = activeIdx;
-                            if (outputChannel != -1) {
+                            if (channel != -1) {
                                 addResultBytes(buffer, pos, length);
                                 bytesToGo -= length + 4;
                             }
@@ -418,10 +416,10 @@ public class SliceDirectStreamReader
                     lengthIdx++;
                 }
                 if (++activeIdx == numActive) {
-                    if (posInRowGroup + numLengths < end) {
+                    if (positionInRowGroup + numLengths < end) {
                         throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "lengths do not cover the range of the qualifying set");
                     }
-                    while (posInRowGroup + lengthIdx < end) {
+                    while (positionInRowGroup + lengthIdx < end) {
                         toSkip += lengths[lengthIdx++];
                     }
                     break;
@@ -446,7 +444,7 @@ public class SliceDirectStreamReader
         if (toSkip > 0) {
             dataStream.skip(toSkip);
         }
-        if (outputChannel != -1) {
+        if (channel != -1) {
             totalRows += numResults;
             totalBytes += resultOffsets[numValues + numResults] - resultOffsets[numValues];
         }
@@ -455,7 +453,7 @@ public class SliceDirectStreamReader
 
     void addNullResult(int row, int activeIdx)
     {
-        if (outputChannel != -1) {
+        if (channel != -1) {
             if (valueIsNull == null) {
                 valueIsNull = new boolean[resultOffsets.length];
             }
