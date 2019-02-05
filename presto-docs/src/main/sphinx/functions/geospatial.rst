@@ -285,6 +285,10 @@ Accessors
     returns ``NULL``.
     Use :func:``ST_NumPoints`` to find out the total number of elements.
 
+.. function:: ST_Points(Geometry) -> array(Point)
+
+    Returns an array of points in a linestring.
+
 .. function:: ST_XMax(Geometry) -> double
 
     Returns X maxima of a bounding box of a geometry.

@@ -520,6 +520,23 @@ public class TestGeoFunctions
     }
 
     @Test
+    public void testSTPoints()
+    {
+        assertFunction("ST_Points(ST_GeometryFromText('LINESTRING EMPTY'))", new ArrayType(GEOMETRY), null);
+        assertSTPoints("LINESTRING (0 0, 0 0)", "0 0", "0 0");
+        assertSTPoints("LINESTRING (8 4, 3 9, 8 4)", "8 4", "3 9", "8 4");
+        assertSTPoints("LINESTRING (8 4, 3 9, 5 6)", "8 4", "3 9", "5 6");
+        assertSTPoints("LINESTRING (8 4, 3 9, 5 6, 3 9, 8 4)", "8 4", "3 9", "5 6", "3 9", "8 4");
+        assertInvalidFunction("ST_Points(ST_GeometryFromText('POLYGON ((8 4, 3 9, 5 6))'))", "ST_Points only applies to LINE_STRING. Input type is: POLYGON");
+    }
+
+    private void assertSTPoints(String wkt, String... expected)
+    {
+        assertFunction(String.format("transform(ST_Points(ST_GeometryFromText('%s')), x -> ST_AsText(x))", wkt), new ArrayType(VARCHAR),
+                Arrays.stream(expected).map(s -> "POINT (" + s + ")").collect(Collectors.toList()));
+    }
+
+    @Test
     public void testSTXY()
     {
         assertFunction("ST_Y(ST_GeometryFromText('POINT EMPTY'))", DOUBLE, null);
