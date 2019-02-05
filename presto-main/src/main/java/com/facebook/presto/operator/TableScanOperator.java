@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageSourceOptions;
+import com.facebook.presto.spi.PageSourceOptions.FilterFunction;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.split.EmptySplit;
 import com.facebook.presto.split.EmptySplitPageSource;
@@ -279,7 +280,7 @@ public class TableScanOperator
                 channels,
                 channels,
                 reusePages,
-                null,
+                new FilterFunction[0],
                 false,
                 512 * 1024,
                 ariaFlags(operatorContext.getSession()));
