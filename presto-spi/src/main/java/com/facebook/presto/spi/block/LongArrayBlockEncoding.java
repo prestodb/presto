@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.spi.block;
 
+import io.airlift.slice.ByteArrays;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
 import static com.facebook.presto.spi.block.EncoderUtil.decodeNullBits;
 import static com.facebook.presto.spi.block.EncoderUtil.encodeNullsAsBits;
-
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
@@ -103,7 +103,7 @@ public class LongArrayBlockEncoding
                         }
                         else {
                             if (toRead > 0) {
-                                values[position++] = ByteArrayUtils.getLong(buffer, offset + bytesRead);
+                                values[position++] = ByteArrays.getLong(buffer, offset + bytesRead);
                                 toRead--;
                                 bytesRead += SIZE_OF_LONG;
                             }
