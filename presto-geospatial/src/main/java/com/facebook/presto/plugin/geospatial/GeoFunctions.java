@@ -885,6 +885,25 @@ public final class GeoFunctions
     }
 
     @SqlNullable
+    @Description("Returns an array of points in a linestring")
+    @ScalarFunction("ST_Points")
+    @SqlType("array(" + GEOMETRY_TYPE_NAME + ")")
+    public static Block stPoints(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
+    {
+        OGCGeometry geometry = deserialize(input);
+        validateType("ST_Points", geometry, EnumSet.of(LINE_STRING));
+        if (geometry.isEmpty()) {
+            return null;
+        }
+        MultiPath lines = (MultiPath) geometry.getEsriGeometry();
+        BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(null, lines.getPointCount());
+        for (int i = 0; i < lines.getPointCount(); i++) {
+            GEOMETRY.writeSlice(blockBuilder, serialize(createFromEsriGeometry(lines.getPoint(i), null)));
+        }
+        return blockBuilder.build();
+    }
+
+    @SqlNullable
     @Description("Return the X coordinate of the point")
     @ScalarFunction("ST_X")
     @SqlType(DOUBLE)
