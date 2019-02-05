@@ -15,6 +15,8 @@ package com.facebook.presto.spi;
 
 import java.util.Arrays;
 
+import static java.util.Objects.requireNonNull;
+
 public class PageSourceOptions
 {
     private final boolean reusePages;
@@ -187,10 +189,14 @@ public class PageSourceOptions
                              int targetBytes,
                              int ariaFlags)
     {
+        requireNonNull(internalChannels, "internalChannels is null");
+        if (internalChannels.length == 0) {
+            throw new IllegalArgumentException("internalChannels must not be empty");
+        };
         this.internalChannels = internalChannels;
-        this.outputChannels = outputChannels;
+        this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
         this.reusePages = reusePages;
-        this.filterFunctions = filterFunctions;
+        this.filterFunctions = requireNonNull(filterFunctions, "filterFunctions is null");
         this.reorderFilters = reorderFilters;
         this.targetBytes = targetBytes;
         this.ariaFlags = ariaFlags;
