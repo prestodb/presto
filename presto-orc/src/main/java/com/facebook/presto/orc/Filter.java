@@ -18,6 +18,13 @@ import com.facebook.presto.spi.PageSourceOptions;
 public class Filter
         extends PageSourceOptions.FilterStats
 {
+    boolean nullAllowed;
+
+    public Filter(boolean nullAllowed)
+    {
+        this.nullAllowed = nullAllowed;
+    }
+
     // True if one may call the filter once per distinct value. This
     // is usually true but a counter example is a filter on the data
     // column of a map where different positions have a different
@@ -44,7 +51,7 @@ public class Filter
 
     public boolean testNull()
     {
-        return false;
+        return nullAllowed;
     }
 
     // If there are no scores, return a number for making initial filter order. Less is better.

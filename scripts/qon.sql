@@ -2,7 +2,7 @@
 -- Different configurations of Queen of the Night
 
 -- Baseline
-set session aria=false;
+set session aria_scan=false;
 set session aria_reuse_pages=false;
 set session aria_flags = 0;
 
@@ -25,7 +25,7 @@ select count (*), sum (l.extendedprice * (1 - l.discount) - l.quantity * p.suppl
 
 
 -- Aria scan
-set session aria = true;
+set session aria_scan = true;
 set session aria_flags = 15;
 select count (*), sum (l.extendedprice * (1 - l.discount) - l.quantity * p.supplycost) from hive.tpch.lineitem_s l, hive.tpch.partsupp p where l.partkey = p.partkey and l.suppkey = p.suppkey and p.availqty < 1000;
 
