@@ -49,6 +49,11 @@ public interface StreamReader
         return null;
     }
 
+    default void setOutputQualifyingSet(QualifyingSet set)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     default QualifyingSet getOrCreateOutputQualifyingSet()
     {
         throw new UnsupportedOperationException();

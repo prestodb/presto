@@ -346,11 +346,11 @@ public class TupleDomainOrcPredicate<C>
                     filter = new Filters.IsNull();
                 }
                 else if (ranges.size() == 1) {
-                    filter = createRangeFilter(type, ranges.get(0));
+                    filter = createRangeFilter(type, ranges.get(0), predicateDomain.isNullAllowed());
                 }
                 else {
-                    List<Filter> rangeFilters = ranges.stream().map(r -> createRangeFilter(type, r)).collect(toList());
-                    filter = Filters.createMultiRange(rangeFilters);
+                    List<Filter> rangeFilters = ranges.stream().map(r -> createRangeFilter(type, r, false)).collect(toList());
+                    filter = Filters.createMultiRange(rangeFilters, predicateDomain.isNullAllowed());
                 }
                 if (filter == null) {
                     // The domain cannot be converted to a filter. Pushdown fails.
@@ -365,16 +365,16 @@ public class TupleDomainOrcPredicate<C>
         return filters;
     }
 
-    private static Filter createRangeFilter(Type type, Range range)
+    private static Filter createRangeFilter(Type type, Range range, boolean nullAllowed)
     {
         if (isVarcharType(type)) {
-            return VarcharRangeToFilter(range);
+            return VarcharRangeToFilter(range, nullAllowed);
         }
         if (type == BIGINT) {
-            return BigintRangeToFilter(range);
+            return BigintRangeToFilter(range, nullAllowed);
         }
         if (type == DOUBLE) {
-            return doubleRangeToFilter(range);
+            return doubleRangeToFilter(range, nullAllowed);
         }
         return null;
     }
@@ -413,7 +413,7 @@ public class TupleDomainOrcPredicate<C>
         }
     }
 
-    private static Filter BigintRangeToFilter(Range range)
+    private static Filter BigintRangeToFilter(Range range, boolean nullAllowed)
     {
         Marker low = range.getLow();
         Marker high = range.getHigh();
@@ -425,10 +425,10 @@ public class TupleDomainOrcPredicate<C>
         if (low.getBound() == Marker.Bound.ABOVE) {
             ++lowerLong;
         }
-        return new Filters.BigintRange(lowerLong, upperLong);
+        return new Filters.BigintRange(lowerLong, upperLong, nullAllowed);
     }
 
-    private static Filter doubleRangeToFilter(Range range)
+    private static Filter doubleRangeToFilter(Range range, boolean nullAllowed)
     {
         Marker low = range.getLow();
         Marker high = range.getHigh();
@@ -441,10 +441,10 @@ public class TupleDomainOrcPredicate<C>
                 low.getBound() == Marker.Bound.ABOVE,
                 upperDouble,
                 high.isUpperUnbounded(),
-                high.getBound() == Marker.Bound.BELOW);
+                                       high.getBound() == Marker.Bound.BELOW, nullAllowed);
     }
 
-    private static Filter VarcharRangeToFilter(Range range)
+    private static Filter VarcharRangeToFilter(Range range, boolean nullAllowed)
     {
         Marker low = range.getLow();
         Marker high = range.getHigh();
@@ -455,6 +455,6 @@ public class TupleDomainOrcPredicate<C>
         return new Filters.BytesRange(lowerValue == null ? null : lowerValue.getBytes(),
                 lowerBound == Marker.Bound.EXACTLY,
                 upperValue == null ? null : upperValue.getBytes(),
-                upperBound == Marker.Bound.EXACTLY);
+                                      upperBound == Marker.Bound.EXACTLY, nullAllowed);
     }
 }

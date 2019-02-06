@@ -45,7 +45,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class LongDirectStreamReader
-        extends ColumnReader
+        extends NullWrappingColumnReader
         implements StreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongDirectStreamReader.class).instanceSize();
@@ -55,9 +55,6 @@ public class LongDirectStreamReader
     private int readOffset;
     private int nextBatchSize;
 
-    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
-    @Nullable
-    private BooleanInputStream presentStream;
     private boolean[] nullVector = new boolean[0];
 
     private InputStreamSource<LongInputStream> dataStreamSource = missingStreamSource(LongInputStream.class);
@@ -67,7 +64,6 @@ public class LongDirectStreamReader
     private LocalMemoryContext systemMemoryContext;
 
     private long[] values;
-    private boolean[] valueIsNull;
 
     public LongDirectStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
     {
@@ -202,51 +198,74 @@ public class LongDirectStreamReader
     public void scan()
             throws IOException
     {
-        beginScan(presentStream, null);
-        if (presentStream != null) {
-            throw new UnsupportedOperationException("scan() does not support nulls");
+        if (!rowGroupOpen) {
+            openRowGroup();
         }
+        beginScan(presentStream, null);
         if (outputChannel != -1) {
             ensureValuesSize();
         }
-        QualifyingSet input = inputQualifyingSet;
+        makeInnerQualifyingSets(0, inputQualifyingSet.getPositionCount());
+        QualifyingSet input = hasNulls ? innerQualifyingSet : inputQualifyingSet;
         QualifyingSet output = outputQualifyingSet;
-        int numInput = input.getPositionCount();
-        if (filter != null) {
-            if (outputQualifyingSet == null) {
-                outputQualifyingSet = new QualifyingSet();
-                output = outputQualifyingSet;
+        // Read dataStream if there are non-null values in the QualifyingSet.
+        if (input.getPositionCount() > 0) {
+            if (filter != null) {
+                int numInput = input.getPositionCount();
+                int[] innerToOuter = !hasNulls ? null : innerQualifyingSet.getInputNumbers();
+                int[] outerRows = !hasNulls ? input.getPositions() : inputQualifyingSet.getPositions();
+                numInnerResults = dataStream.scan(filter,
+                                             input.getPositions(),
+                                             0,
+                                             numInput,
+                                             input.getEnd(),
+                                             outerRows,
+                                             innerToOuter,
+                                             output.getMutablePositions(numInput),
+                                             output.getMutableInputNumbers(numInput),
+                                             values,
+                                             numValues);
             }
-            numResults = dataStream.scan(filter,
-                                     input.getPositions(),
-                                     numInput,
-                                     input.getEnd(),
-                                     input.getPositions(),
-                                     null,
-                                     output.getMutablePositions(numInput),
-                                     output.getMutableInputNumbers(numInput),
-                                     values,
-                                     numValues);
-            output.setEnd(input.getEnd());
+            else {
+                numInnerResults = dataStream.scan(null,
+                                             input.getPositions(),
+                                             0,
+                                                  input.getPositionCount(),
+                                             input.getEnd(),
+                                             null,
+                                             null,
+                                             null,
+                                             null,
+                                             values,
+                                             numValues);
+            }
         }
-        else {
-            numResults = dataStream.scan(null,
-                                     input.getPositions(),
-                                     numInput,
-                                     input.getEnd(),
-                                     null,
-                                     null,
-                                     null,
-                                     null,
-                                     values,
-                                     numValues);
+        if (hasNulls) {
+            innerPosInRowGroup = innerQualifyingSet.getEnd();
+        }
+        addNullsAfterScan(filter != null ? outputQualifyingSet : inputQualifyingSet, inputQualifyingSet.getEnd());
+        if (filter != null) {
+            outputQualifyingSet.setEnd(inputQualifyingSet.getEnd());
         }
         endScan(presentStream);
     }
 
     @Override
+    protected void shiftUp(int from, int to)
+    {
+        values[to] = values[from];
+    }
+
+    @Override
+        protected void writeNull(int i)
+    {
+        // No action. values[i] is undefined if valueIsNull[i] == true.
+    }
+
+    @Override
     public Block getBlock(int numFirstRows, boolean mayReuse)
     {
+        checkEnoughValues(numFirstRows);
         if (mayReuse) {
             return new LongArrayBlock(numFirstRows, valueIsNull == null ? Optional.empty() : Optional.of(valueIsNull), values);
         }

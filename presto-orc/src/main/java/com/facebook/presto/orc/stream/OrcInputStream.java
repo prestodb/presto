@@ -48,6 +48,8 @@ public final class OrcInputStream
     private FixedLengthSliceInput current;
 
     private byte[] buffer;
+    private byte[] uncompressedBuffer;
+    private int uncompressedBufferOffset;
     private final LocalMemoryContext bufferMemoryUsage;
     private boolean isUncompressed;
 
@@ -105,15 +107,18 @@ public final class OrcInputStream
 
     public byte[] getBuffer(int minBytes)
     {
-        if (isUncompressed || available() < minBytes) {
+        if (available() < minBytes) {
             return null;
+        }
+        if (isUncompressed) {
+            return uncompressedBuffer;
         }
         return buffer;
     }
 
     public int getOffsetInBuffer()
     {
-        return (int) current.position();
+        return (int) current.position() + uncompressedBufferOffset;
     }
 
     @Override
@@ -263,8 +268,12 @@ public final class OrcInputStream
 
         if (isUncompressed) {
             current = chunk.getInput();
+            uncompressedBuffer = (byte[]) chunk.getBase();
+            uncompressedBufferOffset = (int) chunk.getAddress();
         }
         else {
+            uncompressedBuffer = null;
+            uncompressedBufferOffset = 0;
             OrcDecompressor.OutputBuffer output = new OrcDecompressor.OutputBuffer()
             {
                 @Override

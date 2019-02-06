@@ -803,7 +803,6 @@ public class OrcRecordReader
                 }
             }
             reader.advance();
-            System.out.println("RG " + currentRowGroup + reader.toString());
             numResults = reader.getNumResults();
             if (numResults > targetResultRows || reader.getResultSizeInBytes() > targetResultBytes * 8 / 10) {
                 return resultPage();
