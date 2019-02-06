@@ -727,7 +727,13 @@ public class PlanPrinter
                     .map(PlanNode::getId)
                     .collect(toList());
 
-            NodeRepresentation nodeOutput = addNode(node, operatorName, format(formatString, arguments.toArray(new Object[0])), allNodes, ImmutableList.of(), ImmutableList.of());
+            NodeRepresentation nodeOutput = addNode(
+                    node,
+                    operatorName,
+                    format(formatString, arguments.toArray(new Object[0])),
+                    allNodes,
+                    ImmutableList.of(sourceNode),
+                    ImmutableList.of());
 
             if (projectNode.isPresent()) {
                 printAssignments(nodeOutput, projectNode.get().getAssignments());
