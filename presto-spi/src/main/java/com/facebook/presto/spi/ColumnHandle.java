@@ -14,6 +14,7 @@
 package com.facebook.presto.spi;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public interface ColumnHandle
 {
@@ -46,7 +47,7 @@ public interface ColumnHandle
         return null;
     }
 
-    default ArrayList<SubfieldPath> getReferencedSubfields()
+    default List<SubfieldPath> getReferencedSubfields()
     {
         return null;
     }
