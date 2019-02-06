@@ -26,7 +26,6 @@ import com.esri.core.geometry.OperatorUnion;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.Polygon;
 import com.esri.core.geometry.Polyline;
-import com.esri.core.geometry.SpatialReference;
 import com.esri.core.geometry.ogc.OGCConcreteGeometryCollection;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.esri.core.geometry.ogc.OGCGeometryCollection;
@@ -844,8 +843,7 @@ public final class GeoFunctions
             return null;
         }
         MultiPath lines = (MultiPath) geometry.getEsriGeometry();
-        SpatialReference reference = geometry.getEsriSpatialReference();
-        return serialize(createFromEsriGeometry(lines.getPoint(0), reference));
+        return serialize(createFromEsriGeometry(lines.getPoint(0), null));
     }
 
     @Description("Returns a \"simplified\" version of the given geometry")
@@ -880,8 +878,7 @@ public final class GeoFunctions
             return null;
         }
         MultiPath lines = (MultiPath) geometry.getEsriGeometry();
-        SpatialReference reference = geometry.getEsriSpatialReference();
-        return serialize(createFromEsriGeometry(lines.getPoint(lines.getPointCount() - 1), reference));
+        return serialize(createFromEsriGeometry(lines.getPoint(lines.getPointCount() - 1), null));
     }
 
     @SqlNullable

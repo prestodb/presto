@@ -515,8 +515,8 @@ public class TestGeoFunctions
     {
         assertFunction("ST_AsText(ST_StartPoint(ST_GeometryFromText('LINESTRING (8 4, 4 8, 5 6)')))", VARCHAR, "POINT (8 4)");
         assertFunction("ST_AsText(ST_EndPoint(ST_GeometryFromText('LINESTRING (8 4, 4 8, 5 6)')))", VARCHAR, "POINT (5 6)");
-        assertInvalidFunction("ST_AsText(ST_StartPoint(ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))')))", "ST_StartPoint only applies to LINE_STRING. Input type is: POLYGON");
-        assertInvalidFunction("ST_AsText(ST_EndPoint(ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))')))", "ST_EndPoint only applies to LINE_STRING. Input type is: POLYGON");
+        assertInvalidFunction("ST_StartPoint(ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))'))", "ST_StartPoint only applies to LINE_STRING. Input type is: POLYGON");
+        assertInvalidFunction("ST_EndPoint(ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))'))", "ST_EndPoint only applies to LINE_STRING. Input type is: POLYGON");
     }
 
     @Test
