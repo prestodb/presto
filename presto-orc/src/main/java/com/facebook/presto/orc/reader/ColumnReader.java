@@ -46,7 +46,7 @@ abstract class ColumnReader
     // Number of elements in lengths.
     protected int numLengths;
     // Index of length of first unprocessed element in 'lengths'.
-    protected int lengthIdx;
+    protected int lengthIndex;
     // Present flag for each row in input QualifyingSet.
     protected boolean[] present;
 
@@ -219,10 +219,10 @@ abstract class ColumnReader
             numPresent -= end - positionInRowGroup;
         }
         if (lengths != null) {
-            if (lengthIdx < numLengths) {
-                System.arraycopy(lengths, lengthIdx, lengths, 0, numLengths - lengthIdx);
+            if (lengthIndex < numLengths) {
+                System.arraycopy(lengths, lengthIndex, lengths, 0, numLengths - lengthIndex);
             }
-            numLengths -= lengthIdx;
+            numLengths -= lengthIndex;
         }
         if (outputQualifyingSet != null) {
             outputQualifyingSet.setEnd(positionInRowGroup);
@@ -239,7 +239,7 @@ abstract class ColumnReader
         positionInRowGroup = 0;
         numLengths = 0;
         numPresent = 0;
-        lengthIdx = 0;
+        lengthIndex = 0;
         rowGroupOpen = true;
     }
 }

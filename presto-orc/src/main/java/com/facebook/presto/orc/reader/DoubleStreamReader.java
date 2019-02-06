@@ -229,13 +229,13 @@ public class DoubleStreamReader
         }
         outputRows = filter != null ? output.getMutablePositions(rowsInRange) : null;
         resultInputNumbers = filter != null ? output.getMutableInputNumbers(rowsInRange) : null;
-        int numActive = input.getPositionCount();
         int[] inputPositions = input.getPositions();
-        int activeIdx = 0;
+        int inputPositionCount = input.getPositionCount();
+        int inputPositionIndex = 0;
         int toSkip = 0;
         for (int i = 0; i < rowsInRange; i++) {
             int position = i + positionInRowGroup;
-            int nextQualifiedPosition = inputPositions[activeIdx];
+            int nextQualifiedPosition = inputPositions[inputPositionIndex];
             verify(position <= nextQualifiedPosition);
 
             boolean isNull = present != null && !present[i];
@@ -251,7 +251,7 @@ public class DoubleStreamReader
                 if (filter == null || filter.testNull()) {
                     if (filter != null) {
                         outputRows[numResults] = position;
-                        resultInputNumbers[numResults] = activeIdx;
+                        resultInputNumbers[numResults] = inputPositionIndex;
                     }
                     appendNull();
                 }
@@ -290,14 +290,14 @@ public class DoubleStreamReader
                 if (filter == null || filter.testDouble(value)) {
                     if (filter != null) {
                         outputRows[numResults] = position;
-                        resultInputNumbers[numResults] = activeIdx;
+                        resultInputNumbers[numResults] = inputPositionIndex;
                     }
                     appendValue(value);
                 }
             }
 
-            activeIdx++;
-            if (activeIdx == numActive) {
+            inputPositionIndex++;
+            if (inputPositionIndex == inputPositionCount) {
                 if (present != null) {
                     for (int j = i + 1; j < rowsInRange; j++) {
                         if (present[j]) {
