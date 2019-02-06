@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class ColumnGroupReader
 {
@@ -80,10 +81,7 @@ public class ColumnGroupReader
         this.reuseBlocks = reuseBlocks;
         this.reorderFilters = reorderFilters;
         this.ariaFlags = ariaFlags;
-        if (outputChannels == null) {
-            outputChannels = internalChannels;
-        }
-        this.outputChannels = outputChannels;
+        this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
         channelToStreamReader = new HashMap();
         for (int i = 0; i < channelColumns.length; i++) {
             int columnIndex = channelColumns[i];
@@ -102,7 +100,7 @@ public class ColumnGroupReader
             streamReader.setFilterAndChannel(filter, internalChannel, columnIndex, types.get(i));
             channelToStreamReader.put(internalChannel, streamReader);
         }
-        this.filterFunctions = filterFunctions != null ? filterFunctions : new FilterFunction[0];
+        this.filterFunctions = requireNonNull(filterFunctions, "filterFunctions is null");
         for (int i = 0; i < outputChannels.length; i++) {
             maxOutputChannel = Math.max(maxOutputChannel, outputChannels[i]);
         }
