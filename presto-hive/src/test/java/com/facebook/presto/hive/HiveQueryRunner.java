@@ -198,7 +198,8 @@ public final class HiveQueryRunner
                         "hive",
                         Optional.empty(),
                         role.map(selectedRole -> ImmutableMap.of(HIVE_CATALOG, selectedRole))
-                                .orElse(ImmutableMap.of())))
+                                .orElse(ImmutableMap.of()),
+                        ImmutableMap.of()))
                 .setCatalog(HIVE_CATALOG)
                 .setSchema(TPCH_SCHEMA)
                 .build();
@@ -211,7 +212,8 @@ public final class HiveQueryRunner
                         "hive",
                         Optional.empty(),
                         role.map(selectedRole -> ImmutableMap.of(HIVE_BUCKETED_CATALOG, selectedRole))
-                                .orElse(ImmutableMap.of())))
+                                .orElse(ImmutableMap.of()),
+                        ImmutableMap.of()))
                 .setCatalog(HIVE_BUCKETED_CATALOG)
                 .setSchema(TPCH_BUCKETED_SCHEMA)
                 .build();
@@ -224,7 +226,8 @@ public final class HiveQueryRunner
                         "hive",
                         Optional.empty(),
                         role.map(selectedRole -> ImmutableMap.of("hive", selectedRole))
-                                .orElse(ImmutableMap.of())))
+                                .orElse(ImmutableMap.of()),
+                        ImmutableMap.of()))
                 .setSystemProperty(PARTITIONING_PROVIDER_CATALOG, HIVE_CATALOG)
                 .setSystemProperty(EXCHANGE_MATERIALIZATION_STRATEGY, ExchangeMaterializationStrategy.ALL.toString())
                 .setSystemProperty(HASH_PARTITION_COUNT, "13")
