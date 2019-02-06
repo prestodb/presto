@@ -1458,7 +1458,7 @@ public class SemiTransactionalHiveMetastore
             switch (declaredIntentionToWrite.getMode()) {
                 case STAGE_AND_MOVE_TO_TARGET_DIRECTORY:
                 case DIRECT_TO_TARGET_NEW_DIRECTORY: {
-                    if (skipTargetCleanupOnRollback && declaredIntentionToWrite.getMode() != DIRECT_TO_TARGET_NEW_DIRECTORY) {
+                    if (skipTargetCleanupOnRollback && declaredIntentionToWrite.getMode() == DIRECT_TO_TARGET_NEW_DIRECTORY) {
                         break;
                     }
                     // Note: For STAGE_AND_MOVE_TO_TARGET_DIRECTORY there is no need to cleanup the target directory as it will only be written
