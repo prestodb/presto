@@ -203,7 +203,7 @@ public class TestCachingOrcDataSource
 
         OrcRecordReader orcRecordReader = orcReader.createRecordReader(
                 ImmutableMap.of(0, VARCHAR),
-                null,
+                ImmutableMap.of(),
                 (numberOfRows, statisticsByColumnIndex) -> true,
                 HIVE_STORAGE_TIME_ZONE,
                 newSimpleAggregatedMemoryContext(),
