@@ -844,8 +844,7 @@ public final class GeoFunctions
             return null;
         }
         MultiPath lines = (MultiPath) geometry.getEsriGeometry();
-        SpatialReference reference = geometry.getEsriSpatialReference();
-        return serialize(createFromEsriGeometry(lines.getPoint(0), reference));
+        return serialize(createFromEsriGeometry(lines.getPoint(0), null));
     }
 
     @Description("Returns a \"simplified\" version of the given geometry")
@@ -880,8 +879,7 @@ public final class GeoFunctions
             return null;
         }
         MultiPath lines = (MultiPath) geometry.getEsriGeometry();
-        SpatialReference reference = geometry.getEsriSpatialReference();
-        return serialize(createFromEsriGeometry(lines.getPoint(lines.getPointCount() - 1), reference));
+        return serialize(createFromEsriGeometry(lines.getPoint(lines.getPointCount() - 1), null));
     }
 
     @SqlNullable
