@@ -40,6 +40,14 @@ public class QualifyingSet
     private int[] ownedPositions;
     private int[] ownedInputNumbers;
     private QualifyingSet parent;
+    private QualifyingSet firstOfLevel;
+    // True if the output of the scan whose input this is should be
+    // expressed in row/input numbers of 'parent' of 'this'. If so,
+    // 'inputNumbers' gives the translation. This is used when a
+    // qualifying set is in terms of a non-null rows of a
+    // struct/list/map but the results should be expressed in row
+    // numbers that include the nulls.
+    boolean translateResultToParentRows;
 
     static {
         wholeRowGroup = new int[10000];
@@ -195,14 +203,42 @@ public class QualifyingSet
         this.positionCount = positionCount;
     }
 
-    // Returns the first position after the argument position where
+    // Returns the first row number after the argument position where
     // one can truncate a result column. For a top level column this
-    // is the position itself. For a nested column, this is the
-    // positioning corresponding to the first of row of the next top
-    // level row.
-    public int getNextTruncationPosition(int position)
+    // is the row itself. For a nested column, this is the
+    // position corresponding to the first row of this column
+    // corresponding to the next top level qualifying row. If this row
+    // is already nested within the last top level row, the row is -1.
+    public int truncateAndReturnTruncationRow(int position)
     {
-        return position;
+        if (firstOfLevel == null || firstOfLevel.parent == null) {
+            truncationPosition = position;
+            return positions[position];
+        }
+        int thisTopLevelPos = getTopLevelPosition(position);
+        for (int pos = position + 1; pos < positionCount; pos++) {
+            int newTopLevelPos = getTopLevelPosition(pos);
+            if (newTopLevelPos != thisTopLevelPos) {
+                truncationPosition = pos;
+                return positions[pos];
+            }
+        }
+        // We are already under the last top level row.
+        return -1;
+    }
+
+    private int getTopLevelPosition(int position)
+    {
+        int row = positions[position];
+        if (firstOfLevel == null || firstOfLevel.parent == null) {
+            return position;
+        }
+        int posInFirstOfLevel = Arrays.binarySearch(firstOfLevel.positions, 0, firstOfLevel.positionCount, row);
+        if (posInFirstOfLevel < 0) {
+            throw new IllegalArgumentException("Row in qualifying set is not found in the first qualifying set of the level");
+        }
+        int parentPos = firstOfLevel.inputNumbers[posInFirstOfLevel];
+        return firstOfLevel.parent.getTopLevelPosition(parentPos);
     }
 
     public void setTruncationPosition(int position)
@@ -237,6 +273,31 @@ public class QualifyingSet
     {
         int pos = Arrays.binarySearch(positions, 0, positionCount, row);
         return pos < 0 ? -1 - pos : pos;
+    }
+
+    public QualifyingSet getParent()
+    {
+        return parent;
+    }
+
+    public void setParent(QualifyingSet parent)
+    {
+        this.parent = parent;
+    }
+
+    public void setFirstOfLevel(QualifyingSet first)
+    {
+        firstOfLevel = first;
+    }
+
+    public boolean getTranslateResultToParentRows()
+    {
+        return translateResultToParentRows;
+    }
+
+    public void setTranslateResultToParentRows(boolean translateResultToParentRows)
+    {
+        this.translateResultToParentRows = translateResultToParentRows;
     }
 
     public ErrorSet getErrorSet()
@@ -293,7 +354,7 @@ public class QualifyingSet
         }
         positions = getMutablePositions(positionCount);
         inputNumbers = getMutableInputNumbers(positionCount);
-        int lowestSurvivingInput = inputNumbers[surviving];
+        int lowestSurvivingInput = translateResultToParentRows ? 0 : inputNumbers[surviving];
         for (int i = surviving; i < positionCount; i++) {
             positions[i - surviving] = positions[i];
             inputNumbers[i - surviving] = inputNumbers[i] - lowestSurvivingInput;
@@ -326,6 +387,7 @@ public class QualifyingSet
             ownedInputNumbers = inputNumbers;
         }
     }
+
     public void compactPositionsAndErrors(int[] surviving, int numSurviving)
     {
         int[] rows = getMutablePositions(0);

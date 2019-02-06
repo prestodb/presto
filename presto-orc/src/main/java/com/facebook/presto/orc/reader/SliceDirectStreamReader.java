@@ -67,10 +67,6 @@ public class SliceDirectStreamReader
     private int readOffset;
     private int nextBatchSize;
 
-    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
-    @Nullable
-    private BooleanInputStream presentStream;
-
     private InputStreamSource<LongInputStream> lengthStreamSource = missingStreamSource(LongInputStream.class);
     @Nullable
     private LongInputStream lengthStream;
@@ -83,8 +79,6 @@ public class SliceDirectStreamReader
     private byte[] bytes;
     // Start offsets for use in returned Block.
     private int[] resultOffsets;
-    // Null flags for use in result Block.
-    boolean[] valueIsNull;
     // Temp space for extracting values to filter when a value straddles buffers.
     private byte[] tempBytes;
     // Result arrays from outputQualifyingSet.
@@ -418,21 +412,21 @@ public class SliceDirectStreamReader
                     lengthIdx++;
                 }
                 if (++activeIdx == numActive) {
-                    if (posInRowGroup + numLengths < end) {
+                    // Calculate the distance from the last qualifying
+                    // row to the end of the qualifying set. Take
+                    // nulls into account.
+                    int numPresentBeforeEnd = countPresent(i + 1, end - posInRowGroup);
+                    if (numPresentBeforeEnd < 0 || numLengths < lengthIdx + numPresentBeforeEnd) {
                         throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "lengths do not cover the range of the qualifying set");
                     }
-                    while (posInRowGroup + lengthIdx < end) {
+                    for (int counter = 0; counter < numPresentBeforeEnd; counter++) {
                         toSkip += lengths[lengthIdx++];
                     }
                     break;
                 }
                 nextActive = inputPositions[activeIdx];
                 if (bytesToGo <= 0) {
-                    int truncationPosition = input.getNextTruncationPosition(activeIdx);
-                    if (truncationPosition < numActive) {
-                        truncationRow = inputPositions[truncationPosition];
-                    }
-                    input.setTruncationPosition(truncationPosition);
+                    truncationRow = input.truncateAndReturnTruncationRow(activeIdx);
                 }
                 continue;
             }
@@ -519,6 +513,7 @@ public class SliceDirectStreamReader
     @Override
     public Block getBlock(int numFirstRows, boolean mayReuse)
     {
+        checkEnoughValues(numFirstRows);
         if (mayReuse) {
             return new VariableWidthBlock(numFirstRows, Slices.wrappedBuffer(bytes), resultOffsets, valueIsNull == null ? Optional.empty() : Optional.of(valueIsNull));
         }

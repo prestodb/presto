@@ -1,19 +1,52 @@
+set session aria_scan = false;
+
+create table hive.tpch.lineitem1
+   as
+select *,
+          map(array[1, 2, 3], array[l_orderkey, l_partkey, l_suppkey]) as l_map,
+           array[l_orderkey, l_partkey, l_suppkey] as l_array
+from (
+select  orderkey as l_orderkey,
+partkey as l_partkey,
+suppkey as l_suppkey,
+linenumber as l_linenumber,
+quantity as l_quantity,
+ extendedprice as l_extendedprice,
+shipmode as l_shipmode,
+ comment as l_comment,
+returnflag = 'R' as is_returned,
+ cast (quantity + 1 as real) as l_floatQuantity
+  from tpch.sf1.lineitem);
 
 
--- custkey with map from year to an array of purchases that year.
 
+--
 
-create table hive.tpch.cust_year_parts as select custkey, map_agg(y, parts) as year_parts, map_agg(y, total_cost) as year_cost
-  from (select c.custkey, year(shipdate) as y, array_agg(cast (row (partkey, extendedprice, quantity) as row (pk bigint, ep double, qt double))) as parts, sum (extendedprice) as total_cost
-  from hive.tpch.lineitem_s l, hive.tpch.orders o, hive.tpch.customer c where l.orderkey = o.orderkey and o.custkey = c.custkey and c.nationkey = 1 and quantity < 10
-  group by c.custkey, year(shipdate))
-  group by custkey;
+-- Alternating stretches of non-nulls for 99K rows followed by 99K rows where non-key columns have nulls every few rows.
 
+create table hive.tpch.lineitem1_nulls
+   as
+select *,
+        if (mod (l_orderkey, 198000) > 99000 and mod(l_orderkey + l_linenumber, 5) = 0, null,
+          map(array[1, 2, 3], array[l_orderkey, l_partkey, l_suppkey])) as l_map,
+        if (mod (l_orderkey, 198000) > 99000 and mod(l_orderkey + l_linenumber, 5) = 0, null,
+           array[l_orderkey, l_partkey, l_suppkey]) as l_array
 
-
+from (
+select  orderkey as l_orderkey,
+  if (have_nulls and mod(orderkey + linenumber, 11) = 0, null, partkey) as l_partkey,
+  if (have_nulls and mod(orderkey + linenumber, 13) = 0, null, suppkey) as l_suppkey,
+linenumber as l_linenumber,
+  if (have_nulls and mod (orderkey + linenumber, 17) = 0, null, quantity) as l_quantity,
+  if (have_nulls and mod (orderkey + linenumber, 19) = 0, null, extendedprice) as l_extendedprice,
+  if (have_nulls and mod (orderkey + linenumber, 23) = 0, null, shipmode) as l_shipmode,
+  if (have_nulls and mod (orderkey + linenumber, 7) = 0, null, comment) as l_comment,
+    if (have_nulls and mod(orderkey + linenumber, 31) = 0, null, returnflag = 'R') as is_returned,
+      if (have_nulls and mod(orderkey + linenumber, 37) = 0, null, cast (quantity + 1 as real)) as l_floatQuantity
+  from (select mod (orderkey, 198000) > 99000 as have_nulls, * from tpch.sf1.lineitem));
   
 
-create table hive.tpch.exportlineitem as
+create table hive.tpch.lineitem1_struct as
 select l.orderkey as l_orderkey, linenumber as l_linenumber,
 cast (row (
 l.partkey, l.suppkey, extendedprice, discount, quantity, shipdate, receiptdate, commitdate, l.comment)
@@ -35,19 +68,12 @@ is_inside_eu int,
 is_restricted int,
 license row (applydate date, grantdate date, filing_no bigint, comment varchar)))
 end as l_export
-from hive.tpch.lineitem l, hive.tpch.orders o, hive.tpch.customer c, hive.tpch.supplier s, hive.tpch.part p
+from tpch.sf1.lineitem l, tpch.sf1.orders o, tpch.sf1.customer c, tpch.sf1.supplier s, tpch.sf1.part p
 where l.orderkey = o.orderkey and l.partkey = p.partkey and l.suppkey = s.suppkey and c.custkey = o.custkey; 
 
 
 
-select l.applydate from (select e.license as l from (select export as e from hive.tpch.exportinfo where orderkey < 5));
-
-select orderkey, linenumber, s_nation, l.applydate from (select orderkey, linenumber, e.s_nation, e.license as l from (select orderkey, linenumber, export as e from hive.tpch.exportinfo where orderkey < 15));
-
-
-
-
-create table hive.tpch.cust_order_line as
+create table hive.tpch.cust_order_line1 as
 select c_custkey, max(c_name) as c_name, max(c_address) as c_address, max(c_nationkey) as c_nationkey, max(c_phone) as c_phone, max(c_acctbal) as c_acctbal, max(c_mktsegment) as c_mktsegment, max(c_comment) as c_comment,
 array_agg(
   cast (row (o_orderkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_shippriority,
@@ -114,7 +140,7 @@ max (o_orderstatus) as o_orderstatus, max(o_totalprice) as o_totalprice,   max(o
  sl_hipinstruct  varchar(25) ,
  l_shipmode varchar(10), 
  l_comment  varchar(44) ))) as lines
-from hive.tpch.lineitem l,
+from tpch.sf1.lineitem l,
   (select 
  c.custkey as c_custkey, 
  name     as c_name,
@@ -132,7 +158,7 @@ from hive.tpch.lineitem l,
  clerk as o_clerk,     
  shippriority as o_shippriority, 
  o.comment as o_comment    
-from hive.tpch.orders o, hive.tpch.customer c
+from tpch.sf1.orders o, tpch.sf1.customer c
 where 
 o.custkey = c.custkey and c.custkey between 0 and 2000000)
 where o_orderkey = l.orderkey  
@@ -140,10 +166,32 @@ group by c_custkey, o_orderkey)
 group by c_custkey;
 
 
-select count (*) from    hive.tpch.cust_order_line cross join unnest (c_orders) cross join unnest (o_lines) where l_partkey = 111111;
+create table hive.tpch.strings as select
+ orderkey, linenumber, comment as s1,
+ concat (cast(partkey as varchar), comment) as s2,
+        concat(cast(suppkey as varchar), comment) as s3,
+                            concat(cast(quantity as varchar), comment) as s4
+                            from tpch.sf1.lineitem where orderkey < 100000;
 
 
-select count (*) from hive.tpch.exportlineitem where export.s_nation = 2;
+create table hive.tpch.strings_struct as select
+ orderkey, linenumber,
+ cast (row(comment,
+ concat (cast(partkey as varchar), comment))
+   as row(s1 varchar, s2 varchar)) as s1,
+        cast (row(concat(cast(suppkey as varchar), comment),
+                            concat(cast(quantity as varchar), comment))
+                              as row(s3 varchar, s4 varchar)) as s3
+                            from tpch.sf1.lineitem where orderkey < 100000;
 
+create table hive.tpch.strings_struct_nulls as select
+ orderkey, linenumber,
+ cast (if (mod(partkey, 5) = 0, null, row(comment,
+ if (mod(partkey, 13) = 0, null,  concat (cast(partkey as varchar), comment))))
+   as row(s1 varchar, s2 varchar)) as s1,
+        cast (if (mod (partkey, 7) = 0, null,
+           row(if (mod(suppkey, 17) = 0, null, concat(cast(suppkey as varchar), comment)),
+                            concat(cast(quantity as varchar), comment)))
+                              as row(s3 varchar, s4 varchar)) as s3
+                            from hive.tpch.lineitem_s where orderkey < 100000;
 
-select count(*), sum (l_shipment.l_partkey) from hive.tpch.exportlineitem where l_export.license.comment between 'fur' and 'hag';

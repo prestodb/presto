@@ -112,7 +112,7 @@ public class LongInputStreamV2
     // value at offsets[i] is used instead. If inputNumbers is null, i
     // is used instead of inputNumbers[i]. valuesOut may be null, in
     // which case the value is discarded after the filter. Returns the number of values written into the output arrays.
-    public int scan(Filter filter, int[]offsets, int numOffsets, int endOffset, int[] rowNumbers, int[] inputNumbers, int[] rowNumbersOut, int[] inputNumbersOut, long[] valuesOut, int valuesFill)
+    public int scan(Filter filter, int[]offsets, int beginOffset, int numOffsets, int endOffset, int[] rowNumbers, int[] inputNumbers, int[] rowNumbersOut, int[] inputNumbersOut, long[] valuesOut, int valuesFill)
             throws IOException
     {
         this.filter = filter;
@@ -126,7 +126,7 @@ public class LongInputStreamV2
         this.valuesOut = valuesOut;
         this.valuesFill = valuesFill;
         numResults = 0;
-        offsetIdx = 0;
+        offsetIdx = beginOffset;
         if (numLiterals > 0) {
             scanLiterals();
         }
@@ -171,10 +171,15 @@ public class LongInputStreamV2
     void addResult(long val)
     {
         if (rowNumbersOut != null) {
-            rowNumbersOut[numResults] = inputRowNumbers == null
-                ? offsets[offsetIdx]
-                : inputRowNumbers[offsetIdx];
-            inputNumbersOut[numResults] = inputNumbers == null ? offsetIdx : inputNumbers[offsetIdx];
+            if (inputNumbers == null) {
+                rowNumbersOut[numResults] = offsets[offsetIdx];
+                inputNumbersOut[numResults] = offsetIdx;
+            }
+            else {
+                int outerIdx = inputNumbers[offsetIdx];
+                rowNumbersOut[numResults] = inputRowNumbers[outerIdx];
+                inputNumbersOut[numResults] = outerIdx;
+            }
         }
         if (valuesOut != null) {
             valuesOut[numResults + valuesFill] = val;

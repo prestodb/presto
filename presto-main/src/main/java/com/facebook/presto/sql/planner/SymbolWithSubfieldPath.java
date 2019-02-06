@@ -44,6 +44,12 @@ public class SymbolWithSubfieldPath
     }
 
     @Override
+    public String getName()
+    {
+        return toString();
+    }
+
+    @Override
     public String toString()
     {
         return path.toString();
