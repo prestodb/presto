@@ -32,12 +32,7 @@ public class Identity
 
     public Identity(String user, Optional<Principal> principal)
     {
-        this(user, principal, emptyMap());
-    }
-
-    public Identity(String user, Optional<Principal> principal, Map<String, SelectedRole> roles)
-    {
-        this(user, principal, roles, emptyMap());
+        this(user, principal, emptyMap(), emptyMap());
     }
 
     public Identity(String user, Optional<Principal> principal, Map<String, SelectedRole> roles, Map<String, String> extraCredentials)

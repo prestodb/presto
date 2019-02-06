@@ -354,7 +354,8 @@ public class TestHiveRecoverableGroupedExecution
                         "hive",
                         Optional.empty(),
                         role.map(selectedRole -> ImmutableMap.of("hive", selectedRole))
-                                .orElse(ImmutableMap.of())))
+                                .orElse(ImmutableMap.of()),
+                        ImmutableMap.of()))
                 .setSystemProperty(COLOCATED_JOIN, "true")
                 .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
                 .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
