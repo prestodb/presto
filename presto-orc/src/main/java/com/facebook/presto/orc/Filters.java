@@ -28,6 +28,11 @@ public class Filters
     public static class IsNull
             extends Filter
     {
+        IsNull()
+        {
+            super(true);
+        }
+
         @Override
         public boolean testNull()
         {
@@ -41,8 +46,9 @@ public class Filters
         private final long lower;
         private final long upper;
 
-        BigintRange(long lower, long upper)
+        BigintRange(long lower, long upper, boolean nullAllowed)
         {
+            super(nullAllowed);
             this.lower = lower;
             this.upper = upper;
         }
@@ -90,8 +96,9 @@ public class Filters
         private final boolean upperUnbounded;
         private final boolean upperExclusive;
 
-        DoubleRange(double lower, boolean lowerUnbounded, boolean lowerExclusive, double upper, boolean upperUnbounded, boolean upperExclusive)
+        DoubleRange(double lower, boolean lowerUnbounded, boolean lowerExclusive, double upper, boolean upperUnbounded, boolean upperExclusive, boolean nullAllowed)
         {
+            super(nullAllowed);
             this.lower = lower;
             this.lowerUnbounded = lowerUnbounded;
             this.lowerExclusive = lowerExclusive;
@@ -142,8 +149,9 @@ public class Filters
         private final boolean lowerInclusive;
         private final boolean upperInclusive;
 
-        public BytesRange(byte[] lower, boolean lowerInclusive, byte[] upper, boolean upperInclusive)
+        public BytesRange(byte[] lower, boolean lowerInclusive, byte[] upper, boolean upperInclusive, boolean nullAllowed)
         {
+            super(nullAllowed);
             this.lower = lower;
             this.upper = upper;
             this.lowerInclusive = lowerInclusive;
@@ -199,6 +207,11 @@ public class Filters
     {
         private final HashMap<SubfieldPath.PathElement, Filter> filters = new HashMap();
 
+        StructFilter()
+        {
+            super(false);
+        }
+
         public Filter getMember(SubfieldPath.PathElement member)
         {
             return filters.get(member);
@@ -216,8 +229,9 @@ public class Filters
         Filter[] filters;
         long[] longLowerBounds;
 
-        MultiRange(List<Filter> filters)
+        MultiRange(List<Filter> filters, boolean nullAllowed)
         {
+            super(nullAllowed);
             this.filters = new Filter[filters.size()];
             for (int i = 0; i < this.filters.length; i++) {
                 this.filters[i] = filters.get(i);
@@ -282,8 +296,9 @@ public class Filters
         int size;
         private boolean containsEmptyMarker;
 
-        public InTest(List<Filter> filters)
+        public InTest(List<Filter> filters, boolean nullAllowed)
         {
+            super(nullAllowed);
             size = Integer.highestOneBit((int) (filters.size() * 3));
             longs = new long[size];
             Arrays.fill(longs, emptyMarker);
@@ -326,13 +341,13 @@ public class Filters
         }
     }
 
-    public static Filter createMultiRange(List<Filter> filters)
+    public static Filter createMultiRange(List<Filter> filters, boolean nullAllowed)
     {
         if (filters.get(0) instanceof BigintRange && filters.stream().allMatch(Filter::isEquality)) {
-            return new InTest(filters);
+            return new InTest(filters, nullAllowed);
         }
         else {
-            return new MultiRange(filters);
+            return new MultiRange(filters, nullAllowed);
         }
     }
 }

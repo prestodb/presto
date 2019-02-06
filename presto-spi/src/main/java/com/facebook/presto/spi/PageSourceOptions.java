@@ -133,6 +133,7 @@ public class PageSourceOptions
         {
             if (positionCount <= end) {
                 clear();
+                return;
             }
             System.arraycopy(errors, end, errors, 0, positionCount - end);
             positionCount -= end;

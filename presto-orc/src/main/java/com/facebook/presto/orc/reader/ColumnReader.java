@@ -16,16 +16,26 @@ package com.facebook.presto.orc.reader;
 import com.facebook.presto.orc.Filter;
 import com.facebook.presto.orc.QualifyingSet;
 import com.facebook.presto.orc.stream.BooleanInputStream;
+import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.util.Arrays;
+
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 
 abstract class ColumnReader
         implements StreamReader
 {
+    protected InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
+
+    @Nullable
+    protected BooleanInputStream presentStream;
+
     QualifyingSet inputQualifyingSet;
     QualifyingSet outputQualifyingSet;
     Block block;
@@ -40,20 +50,24 @@ abstract class ColumnReader
     int truncationRow = -1;
 
     boolean rowGroupOpen;
-    // Lengths for the rows of the input QualifyingSet.
-    int[] lengths;
-    // Number of elements in lengths.
-    int numLengths;
-    // Index of length of first unprocessed element in 'lemgths'.
-    int lengthIdx;
-    //Present flag for each row in input QualifyingSet.
+
+    // position of first unprocessed row from the start of the row group.
+    int posInRowGroup;
+
+    //Present flag for each row between posInRowGroup and end of inputQualifyingSet.
     boolean[] present;
 
     // Number of values in 'present'.
     int numPresent;
 
-    // position of first unprocessed row from the start of the row group.
-    int posInRowGroup;
+    // Lengths for present rows from posInRowGroup to end of inputQualifyingSet.
+    int[] lengths;
+
+    // Number of elements in lengths.
+    int numLengths;
+
+    // Index of length of first unprocessed element in 'lemgths'.
+    int lengthIdx;
 
     // Number of values in Block to be returned by getBlock.
     int numValues;
@@ -63,6 +77,9 @@ abstract class ColumnReader
 
     // Number of bytes the next scan() may add to the result.
     long resultSizeBudget = 8 * 10000;
+
+    // Null flags for retrieved values. At least numValues + numResults elements.
+    boolean[] valueIsNull;
 
     public QualifyingSet getInputQualifyingSet()
     {
@@ -77,6 +94,11 @@ abstract class ColumnReader
     public QualifyingSet getOutputQualifyingSet()
     {
         return outputQualifyingSet;
+    }
+
+    public void setOutputQualifyingSet(QualifyingSet set)
+    {
+        outputQualifyingSet = set;
     }
 
     @Override
@@ -160,9 +182,6 @@ abstract class ColumnReader
     protected void beginScan(BooleanInputStream presentStream, LongInputStream lengthStream)
             throws IOException
     {
-        if (!rowGroupOpen) {
-            openRowGroup();
-        }
         numResults = 0;
         truncationRow = -1;
         QualifyingSet input = inputQualifyingSet;
@@ -184,8 +203,10 @@ abstract class ColumnReader
             if (numPresent > 0 && rowsInRange > numPresent) {
                 throw new IllegalArgumentException("The present stream should be read in full the first time");
             }
-            presentStream.getSetBits(rowsInRange, present);
-            numPresent = rowsInRange;
+            if (numPresent == 0) {
+                presentStream.getSetBits(rowsInRange, present);
+                numPresent = rowsInRange;
+            }
             if (lengthStream != null) {
                 for (int i = 0; i < rowsInRange; i++) {
                     if (present[i]) {
@@ -210,21 +231,25 @@ abstract class ColumnReader
 
     protected void endScan(BooleanInputStream presentStream)
     {
-        // The reader is positioned at inputQualifyingSet.end() or truncationRow.
-        int end = inputQualifyingSet.getEnd(); // getNonTruncatedEnd();
+        // The reader is positioned at inputQualifyingSet.end() or
+        // truncationRow. posInRowGroup is where the calling scan()
+        // started.
+        int initialPosInRowGroup = posInRowGroup;
+        int end = inputQualifyingSet.getEnd();
         posInRowGroup = truncationRow != -1 ? truncationRow : end;
-
         if (presentStream != null) {
-            if (posInRowGroup != end) {
-                System.arraycopy(present, posInRowGroup, present, 0, end - posInRowGroup);
+            int numAdvanced = posInRowGroup - initialPosInRowGroup;
+            if (numAdvanced < numPresent) {
+                System.arraycopy(present, posInRowGroup - initialPosInRowGroup, present, 0, numPresent - numAdvanced);
             }
-            numPresent -= end - posInRowGroup;
+            numPresent -= numAdvanced;
         }
         if (lengths != null) {
             if (lengthIdx < numLengths) {
                 System.arraycopy(lengths, lengthIdx, lengths, 0, numLengths - lengthIdx);
             }
             numLengths -= lengthIdx;
+            lengthIdx = 0;
         }
         if (outputQualifyingSet != null) {
             outputQualifyingSet.setEnd(posInRowGroup);
@@ -243,5 +268,27 @@ abstract class ColumnReader
         numPresent = 0;
         lengthIdx = 0;
         rowGroupOpen = true;
+    }
+
+    // Returns the number of non-null rows to skip to go from 'begin' to 'end'. 'begin' and 'end' are offsets from 'posInRowGroup'.
+    protected int countPresent(int begin, int end)
+    {
+        if (presentStream == null) {
+            return end - begin;
+        }
+        int count = 0;
+        for (int i = begin; i < end; i++) {
+            if (present[i]) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    protected void checkEnoughValues(int numFirstRows)
+    {
+        if (numValues < numFirstRows) {
+            throw new IllegalArgumentException("Reader does not have enough rows");
+        }
     }
 }

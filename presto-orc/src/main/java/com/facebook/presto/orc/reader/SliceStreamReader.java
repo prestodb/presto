@@ -121,6 +121,12 @@ public class SliceStreamReader
     }
 
     @Override
+    public void setOutputQualifyingSet(QualifyingSet set)
+    {
+        currentReader.setOutputQualifyingSet(set);
+    }
+
+    @Override
     public QualifyingSet getOrCreateOutputQualifyingSet()
     {
         return currentReader.getOrCreateOutputQualifyingSet();
