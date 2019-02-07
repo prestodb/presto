@@ -151,7 +151,7 @@ public class SemiTransactionalHiveMetastore
             case ADD:
             case ALTER:
             case INSERT_EXISTING:
-                return Optional.of(tableAction.getData().getTable());
+                return Optional.of(tableAction.getData().getAugmentTableForInTransactionRead());
             case DROP:
                 return Optional.empty();
             default:
@@ -2005,6 +2005,26 @@ public class SemiTransactionalHiveMetastore
             return statisticsUpdate;
         }
 
+        public Table getAugmentTableForInTransactionRead()
+        {
+            // For unpartitioned table, this method augments the location field of the table
+            // to the staging location.
+            // This way, if the table is accessed in an ongoing transaction, staged data
+            // can be found and accessed.
+            if (!this.currentLocation.isPresent()) {
+                return this.table;
+            }
+
+            Table table = this.table;
+            String currentLocation = this.currentLocation.get().toString();
+            if (!currentLocation.equals(table.getStorage().getLocation())) {
+                table = Table.builder(table)
+                        .withStorage(storage -> storage.setLocation(currentLocation))
+                        .build();
+            }
+            return table;
+        }
+
         @Override
         public String toString()
         {
@@ -2065,6 +2085,9 @@ public class SemiTransactionalHiveMetastore
 
         public Partition getAugmentedPartitionForInTransactionRead()
         {
+            return partition;
+
+            /*
             // This method augments the location field of the partition to the staging location.
             // This way, if the partition is accessed in an ongoing transaction, staged data
             // can be found and accessed.
@@ -2076,6 +2099,7 @@ public class SemiTransactionalHiveMetastore
                         .build();
             }
             return partition;
+            */
         }
 
         @Override
