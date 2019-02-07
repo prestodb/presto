@@ -151,7 +151,7 @@ public class SemiTransactionalHiveMetastore
             case ADD:
             case ALTER:
             case INSERT_EXISTING:
-                return Optional.of(tableAction.getData().getTable());
+                return Optional.of(tableAction.getData().getAugmentedTableForInTransactionRead());
             case DROP:
                 return Optional.empty();
             default:
@@ -2004,6 +2004,27 @@ public class SemiTransactionalHiveMetastore
         public PartitionStatistics getStatisticsUpdate()
         {
             return statisticsUpdate;
+        }
+
+        public Table getAugmentedTableForInTransactionRead()
+        {
+            if (!this.currentLocation.isPresent()) {
+                // partitioned table
+                return this.table;
+            }
+
+            // For unpartitioned table, this method augments the location field of the table
+            // to the staging location.
+            // This way, if the table is accessed in an ongoing transaction, staged data
+            // can be found and accessed.
+            Table table = this.table;
+            String currentLocation = this.currentLocation.get().toString();
+            if (!currentLocation.equals(table.getStorage().getLocation())) {
+                table = Table.builder(table)
+                        .withStorage(storage -> storage.setLocation(currentLocation))
+                        .build();
+            }
+            return table;
         }
 
         @Override
