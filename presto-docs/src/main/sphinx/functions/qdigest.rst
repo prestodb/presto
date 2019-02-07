@@ -52,8 +52,9 @@ Functions
     must be a value greater than zero and less than one, and it must be constant
     for all input rows.
 
-.. function:: truncated_mean(qdigest(T), lower_quantile, upper_quantile) -> double
+.. function:: truncated_mean(qdigest(T), lower_quantile, upper_quantile) -> double or real
 
     Returns the approximate truncated mean of values bounded by ``lower_quantile``
     and ``upper_quantile``, which must be between zero and one and must be
-    constant for all input rows.
+    constant for all input rows. Returns a double if T is long or double,
+    or a real if T is real.

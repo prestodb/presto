@@ -255,6 +255,34 @@ Approximate Aggregate Functions
     ``accuracy`` must be a value greater than zero and less than one, and it
     must be constant for all input rows.
 
+.. function:: approx_truncated_mean(x, lower_quantile, upper_quantile) -> double or real
+
+    Returns the approximate truncated mean for input values of ``x`` which fall
+    in the quantile range bounded by ``lower_quantile`` and ``upper_quantile``.
+    The quantile arguments must be between zero and one and must be constant for
+    all input rows. Returns a double if x is long or double, or a real if x is real.
+
+.. function:: approx_truncated_mean(x, w, lower_quantile, upper_quantile) -> double or real
+
+    Returns the approximate truncated mean for input values of ``x`` which fall
+    in the quantile range bounded by ``lower_quantile`` and ``upper_quantile``,
+    using the per-item weight ``w``. The weight must be an integer value of at
+    least one. It is effectively a replication count for the value ``x``. The
+    quantile arguments must be between zero and one and must be constant for
+    all input rows. Returns a double if x is long or double, or a real if x is real.
+
+.. function:: approx_truncated_mean(x, w, lower_quantile, upper_quantile, accuracy) -> double or real
+
+    Returns the approximate truncated mean for input values of ``x`` which fall
+    in the quantile range bounded by ``lower_quantile`` and ``upper_quantile``,
+    using the per-item weight ``w``, with a maximum quantile rank error of
+    ``accuracy``. The weight must be an integer value of at least one. It is
+    effectively a replication count for the value ``x``. The quantile arguments
+    must be between zero and one and must be constant for all input rows.
+    ``accuracy`` must be a value greater than zero and less than one, and it
+    must be constant for all input rows. Returns a double if x is long or
+    double, or a real if x is real.
+
 .. function:: approx_set(x) -> HyperLogLog
     :noindex:
 
