@@ -54,6 +54,7 @@ public class StatsCalculatorModule
         rules.add(new AssignUniqueIdStatsRule());
         rules.add(new SemiJoinStatsRule());
         rules.add(new RowNumberStatsRule(normalizer));
+        rules.add(new UnnestStatsRule());
 
         return new ComposableStatsCalculator(rules.build());
     }

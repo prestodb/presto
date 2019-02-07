@@ -159,6 +159,11 @@ public class Patterns
         return typeOf(RowNumberNode.class);
     }
 
+    public static Pattern<UnnestNode> unnest()
+    {
+        return typeOf(UnnestNode.class);
+    }
+
     public static Property<PlanNode, PlanNode> source()
     {
         return optionalProperty("source", node -> node.getSources().size() == 1 ?
