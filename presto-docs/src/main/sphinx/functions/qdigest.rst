@@ -51,3 +51,9 @@ Functions
     the per-item weight ``w`` and maximum error of ``accuracy``. ``accuracy``
     must be a value greater than zero and less than one, and it must be constant
     for all input rows.
+
+.. function:: truncated_mean(qdigest(T), lower_quantile, upper_quantile) -> double
+
+    Returns the approximate truncated mean of values bounded by ``lower_quantile``
+    and ``upper_quantile``, which must be between zero and one and must be
+    constant for all input rows.
