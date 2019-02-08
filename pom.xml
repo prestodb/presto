@@ -1181,7 +1181,7 @@
                 <plugin>
                     <groupId>io.airlift.maven.plugins</groupId>
                     <artifactId>sphinx-maven-plugin</artifactId>
-                    <version>2.0</version>
+                    <version>2.1</version>
                 </plugin>
 
                 <plugin>
