@@ -750,7 +750,7 @@ public class TestAnalyzer
     @Test
     public void testInsert()
     {
-        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t6 (a) SELECT b from t6");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "Mismatch at column 1: 'a' is of type bigint but expression is of type varchar", "INSERT INTO t6 (a) SELECT b from t6");
         analyze("INSERT INTO t1 SELECT * FROM t1");
         analyze("INSERT INTO t3 SELECT * FROM t3");
         analyze("INSERT INTO t3 SELECT a, b FROM t3");
@@ -799,10 +799,33 @@ public class TestAnalyzer
         assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t1 (a, b) VALUES (1), (1, 2)");
         assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t1 (a, b) VALUES (1, 2), (1, 2), (1, 2, 3)");
         assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t1 (a, b) VALUES ('a', 'b'), ('a', 'b', 'c')");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES,
+                "line 1:51: Insert query has 5 expression.s. but expected 4 target column.s.. Mismatch at column 5",
+                "INSERT INTO t6 (a, b, c, d) VALUES (1, 'a', 1, 1, 1)");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES,
+                "line 1:38: Insert query has 5 expression.s. but expected 4 target column.s.. Mismatch at column 5",
+                "INSERT INTO t6 VALUES (1, 'a', 1, 1, 1)");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES,
+                "line 3:3: Insert query has 3 expression.s. but expected 4 target column.s.. Mismatch at column 4: 'd'",
+                "INSERT INTO t6 (a, b, c, d) VALUES (1\n, 'a'\n, 1)");
 
         // fail if mismatched column types
+        assertFails(MISMATCHED_SET_COLUMN_TYPES,
+                "line 1:45: Mismatch at column 3: 'c' is of type bigint but expression is of type varchar.*",
+                "INSERT INTO t6 (a, b, c, d) VALUES (1, 'a', 'a', 1)");
         assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t1 (a, b) VALUES ('a', 'b'), (1, 'b')");
         assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t1 (a, b) VALUES ('a', 'b'), ('a', 'b'), (1, 'b')");
+
+        // show size mismatch as well as the first mismatched column position
+        assertFails(MISMATCHED_SET_COLUMN_TYPES,
+                "line 1:45: Insert query has 5 expression.s. but expected 4 target column.s.. Mismatch at column 3: 'c' is of type bigint but expression is of type varchar.*",
+                "INSERT INTO t6 (a, b, c, d) VALUES (1, 'a', 'a', 1, 1)");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES,
+                "line 1:32: Insert query has 5 expression.s. but expected 4 target column.s.. Mismatch at column 3: 'c' is of type bigint but expression is of type varchar.*",
+                "INSERT INTO t6 VALUES (1, 'a', 'a', 1, 1)");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES,
+                "line 1:40: Insert query has 3 expression.s. but expected 4 target column.s.. Mismatch at column 2: 'b' is of type varchar but expression is of type integer",
+                "INSERT INTO t6 (a, b, c, d) VALUES (1, 1, 1)");
     }
 
     @Test

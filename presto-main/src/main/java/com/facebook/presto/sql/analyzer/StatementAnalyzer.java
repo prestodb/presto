@@ -95,6 +95,7 @@ import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameColumn;
@@ -125,7 +126,6 @@ import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.facebook.presto.sql.util.AstUtils;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -137,7 +137,6 @@ import com.google.common.collect.Multimap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -211,7 +210,6 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
-import static com.google.common.collect.Iterables.transform;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -338,44 +336,69 @@ class StatementAnalyzer
                 insertColumns = tableColumns;
             }
 
+            List<ColumnMetadata> expectedColumns = insertColumns.stream()
+                    .map(insertColumn -> tableMetadata.getColumn(insertColumn))
+                    .collect(toImmutableList());
+
+            checkTypesMatchForInsert(insert, queryScope, expectedColumns);
+
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle.get());
             analysis.setInsert(new Analysis.Insert(
                     targetTableHandle.get(),
                     insertColumns.stream().map(columnHandles::get).collect(toImmutableList())));
 
-            Iterable<Type> tableTypes = insertColumns.stream()
-                    .map(insertColumn -> tableMetadata.getColumn(insertColumn).getType())
-                    .collect(toImmutableList());
-
-            Iterable<Type> queryTypes = transform(queryScope.getRelationType().getVisibleFields(), Field::getType);
-
-            if (!typesMatchForInsert(tableTypes, queryTypes)) {
-                throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES, insert, "Insert query has mismatched column types: " +
-                        "Table: [" + Joiner.on(", ").join(tableTypes) + "], " +
-                        "Query: [" + Joiner.on(", ").join(queryTypes) + "]");
-            }
-
             return createAndAssignScope(insert, scope, Field.newUnqualified("rows", BIGINT));
         }
 
-        private boolean typesMatchForInsert(Iterable<Type> tableTypes, Iterable<Type> queryTypes)
+        private void checkTypesMatchForInsert(Insert insert, Scope queryScope, List<ColumnMetadata> expectedColumns)
         {
-            if (Iterables.size(tableTypes) != Iterables.size(queryTypes)) {
-                return false;
+            List<Type> queryColumnTypes = queryScope.getRelationType().getVisibleFields().stream()
+                    .map(Field::getType)
+                    .collect(toImmutableList());
+
+            String errorMessage = "";
+            if (expectedColumns.size() != queryColumnTypes.size()) {
+                errorMessage = format("Insert query has %d expression(s) but expected %d target column(s). ",
+                        queryColumnTypes.size(), expectedColumns.size());
             }
 
-            Iterator<Type> tableTypesIterator = tableTypes.iterator();
-            Iterator<Type> queryTypesIterator = queryTypes.iterator();
-            while (tableTypesIterator.hasNext()) {
-                Type tableType = tableTypesIterator.next();
-                Type queryType = queryTypesIterator.next();
-
-                if (!metadata.getTypeManager().canCoerce(queryType, tableType)) {
-                    return false;
+            for (int i = 0; i < Math.max(expectedColumns.size(), queryColumnTypes.size()); i++) {
+                Node node = insert;
+                QueryBody queryBody = insert.getQuery().getQueryBody();
+                if (queryBody instanceof Values) {
+                    List<Expression> rows = ((Values) queryBody).getRows();
+                    checkState(!rows.isEmpty(), "Missing column values");
+                    node = rows.get(0);
+                    if (node instanceof Row) {
+                        int columnIndex = Math.min(i, queryColumnTypes.size() - 1);
+                        node = ((Row) rows.get(0)).getItems().get(columnIndex);
+                    }
+                }
+                if (i == expectedColumns.size()) {
+                    throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
+                            node,
+                            errorMessage + "Mismatch at column %d",
+                            i + 1);
+                }
+                if (i == queryColumnTypes.size()) {
+                    throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
+                            node,
+                            errorMessage + "Mismatch at column %d: '%s'",
+                            i + 1,
+                            expectedColumns.get(i).getName());
+                }
+                if (!metadata.getTypeManager().canCoerce(
+                        queryColumnTypes.get(i),
+                        expectedColumns.get(i).getType())) {
+                    throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
+                            node,
+                            errorMessage + "Mismatch at column %d: '%s' is of type %s but expression is of type %s",
+                            i + 1,
+                            expectedColumns.get(i).getName(),
+                            expectedColumns.get(i).getType(),
+                            queryColumnTypes.get(i));
                 }
             }
-
-            return true;
         }
 
         @Override
