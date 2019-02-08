@@ -465,7 +465,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("INSERT INTO test_insert (a) VALUES (ARRAY[1234])", 1);
         assertQuery("SELECT a[1] FROM test_insert", "VALUES (null), (1234)");
 
-        assertQueryFails("INSERT INTO test_insert (b) VALUES (ARRAY[1.23E1])", "Insert query has mismatched column types: .*");
+        assertQueryFails("INSERT INTO test_insert (b) VALUES (ARRAY[1.23E1])", "line 1:37: Mismatch at column 1.*");
 
         assertUpdate("DROP TABLE test_insert");
     }
