@@ -613,22 +613,22 @@ public class PlanFragmenter
         @Override
         public GroupedExecutionProperties visitWindow(WindowNode node, Void context)
         {
-            return visitWindowFunctionNode(node);
+            return processWindowFunction(node);
         }
 
         @Override
         public GroupedExecutionProperties visitRowNumber(RowNumberNode node, Void context)
         {
-            return visitWindowFunctionNode(node);
+            return processWindowFunction(node);
         }
 
         @Override
         public GroupedExecutionProperties visitTopNRowNumber(TopNRowNumberNode node, Void context)
         {
-            return visitWindowFunctionNode(node);
+            return processWindowFunction(node);
         }
 
-        private GroupedExecutionProperties visitWindowFunctionNode(PlanNode node)
+        private GroupedExecutionProperties processWindowFunction(PlanNode node)
         {
             GroupedExecutionProperties properties = getOnlyElement(node.getSources()).accept(this, null);
             if (groupedExecutionForAggregation && properties.isCurrentNodeCapable()) {
