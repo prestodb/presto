@@ -16,6 +16,7 @@ package com.facebook.presto.util;
 import org.apache.bval.jsr.ApacheValidationProvider;
 import org.testng.annotations.Test;
 
+import javax.validation.ClockProvider;
 import javax.validation.ConstraintValidatorContext;
 import javax.validation.ConstraintViolation;
 import javax.validation.Validation;
@@ -88,6 +89,12 @@ public class TestPowerOfTwoValidator
         public String getDefaultConstraintMessageTemplate()
         {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public ClockProvider getClockProvider()
+        {
+            return null;
         }
 
         @Override

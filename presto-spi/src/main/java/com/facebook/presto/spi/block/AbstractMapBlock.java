@@ -218,6 +218,7 @@ public abstract class AbstractMapBlock
                 Integer.BYTES * HASH_MULTIPLIER * (long) usedEntryCount +
                 getHashTables().getInstanceSizeInBytes();
     }
+
     @Override
     public Block copyRegion(int position, int length)
     {

@@ -23,6 +23,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static java.util.Arrays.asList;
+
 public class TestArrayNgramsFunction
 
         extends AbstractTestFunctions
