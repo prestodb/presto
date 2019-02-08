@@ -838,6 +838,12 @@ class StatementAnalyzer
             }
 
             QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
+            if (name.getObjectName().isEmpty()) {
+                throw new SemanticException(MISSING_TABLE, table, "Table name is empty");
+            }
+            if (name.getSchemaName().isEmpty()) {
+                throw new SemanticException(MISSING_SCHEMA, table, "Schema name is empty");
+            }
             analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name);
 
             Optional<ViewDefinition> optionalView = metadata.getView(session, name);

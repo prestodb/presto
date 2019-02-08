@@ -1499,6 +1499,18 @@ public class TestAnalyzer
         analyze("SELECT * FROM (VALUES array[2, 2]) a(x) FULL OUTER JOIN LATERAL(VALUES x) ON true");
     }
 
+    @Test
+    public void testEmptyTableName()
+    {
+        assertFails(MISSING_TABLE, "SELECT * FROM \"\"");
+    }
+
+    @Test
+    public void testEmptySchemaName()
+    {
+        assertFails(MISSING_SCHEMA, "SELECT * FROM \"\".foo");
+    }
+
     @BeforeClass
     public void setup()
     {
