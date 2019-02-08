@@ -22,6 +22,7 @@ import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Floats;
 import io.airlift.stats.QuantileDigest;
 import org.testng.annotations.Test;
@@ -251,6 +252,7 @@ public class TestQuantileDigestAggregationFunction
 
         SqlVarbinary returned = (SqlVarbinary) AggregationTestUtils.aggregation(function, page);
         assertPercentileWithinError(StandardTypes.BIGINT, returned, maxError, rows, 0.1, 0.5, 0.9, 0.99);
+        assertTruncatedMeansWithinError(StandardTypes.BIGINT, returned, maxError, rows);
     }
 
     private void testAggregationDoubles(InternalAggregationFunction function, Page page, double maxError, double... inputs)
@@ -266,6 +268,7 @@ public class TestQuantileDigestAggregationFunction
 
         SqlVarbinary returned = (SqlVarbinary) AggregationTestUtils.aggregation(function, page);
         assertPercentileWithinError(StandardTypes.DOUBLE, returned, maxError, rows, 0.1, 0.5, 0.9, 0.99);
+        assertTruncatedMeansWithinError(StandardTypes.DOUBLE, returned, maxError, rows);
     }
 
     private void testAggregationReal(InternalAggregationFunction function, Page page, double maxError, float... inputs)
@@ -281,6 +284,7 @@ public class TestQuantileDigestAggregationFunction
 
         SqlVarbinary returned = (SqlVarbinary) AggregationTestUtils.aggregation(function, page);
         assertPercentileWithinError(StandardTypes.REAL, returned, maxError, rows, 0.1, 0.5, 0.9, 0.99);
+        assertTruncatedMeansWithinError(StandardTypes.REAL, returned, maxError, rows);
     }
 
     private Object getExpectedValueLongs(double maxError, long... values)
@@ -331,8 +335,8 @@ public class TestQuantileDigestAggregationFunction
 
     private void assertPercentileWithinError(String type, SqlVarbinary binary, double error, List<? extends Number> rows, double percentile)
     {
-        Number lowerBound = getLowerBound(error, rows, percentile);
-        Number upperBound = getUpperBound(error, rows, percentile);
+        Number lowerBound = getPercentileValueLowerBound(error, rows, percentile);
+        Number upperBound = getPercentileValueUpperBound(error, rows, percentile);
 
         // Check that the chosen quantile is within the upper and lower bound of the error
         functionAssertions.assertFunction(
@@ -348,8 +352,8 @@ public class TestQuantileDigestAggregationFunction
     private void assertPercentilesWithinError(String type, SqlVarbinary binary, double error, List<? extends Number> rows, double[] percentiles)
     {
         List<Double> boxedPercentiles = Arrays.stream(percentiles).sorted().boxed().collect(toImmutableList());
-        List<Number> lowerBounds = boxedPercentiles.stream().map(percentile -> getLowerBound(error, rows, percentile)).collect(toImmutableList());
-        List<Number> upperBounds = boxedPercentiles.stream().map(percentile -> getUpperBound(error, rows, percentile)).collect(toImmutableList());
+        List<Number> lowerBounds = boxedPercentiles.stream().map(percentile -> getPercentileValueLowerBound(error, rows, percentile)).collect(toImmutableList());
+        List<Number> upperBounds = boxedPercentiles.stream().map(percentile -> getPercentileValueUpperBound(error, rows, percentile)).collect(toImmutableList());
 
         // Ensure that the lower bound of each item in the distribution is not greater than the chosen quantiles
         functionAssertions.assertFunction(
@@ -374,17 +378,83 @@ public class TestQuantileDigestAggregationFunction
                 Collections.nCopies(percentiles.length, true));
     }
 
-    private Number getLowerBound(double error, List<? extends Number> rows, double percentile)
+    private void assertTruncatedMeansWithinError(String type, SqlVarbinary binary, double error, List<? extends Number> rows)
+    {
+        List<List<Double>> quantileBoundPairs = ImmutableList.of(
+                ImmutableList.of(0.4, 0.6),
+                ImmutableList.of(0.0, 0.95),
+                ImmutableList.of(0.0, 0.1),
+                ImmutableList.of(0.1, 0.9));
+
+        for (List<Double> bounds : quantileBoundPairs) {
+            assertTruncatedMeanWithinError(type, binary, error, rows, bounds);
+        }
+    }
+
+    private void assertTruncatedMeanWithinError(String type, SqlVarbinary binary, double error, List<? extends Number> rows, List<Double> quantileBounds)
+    {
+        if (rows.isEmpty()) {
+            return;
+        }
+
+        Double lowerQuantile = quantileBounds.get(0);
+        Double upperQuantile = quantileBounds.get(1);
+        Double lowerBound = getTruncatedMeanLowerBound(error, rows, lowerQuantile, upperQuantile);
+        Double upperBound = getTruncatedMeanUpperBound(error, rows, lowerQuantile, upperQuantile);
+
+        functionAssertions.assertFunction(
+                format("truncated_mean(CAST(X'%s' AS qdigest(%s)), %s, %s) >= %s",
+                        binary.toString().replaceAll("\\s+", " "),
+                        type,
+                        lowerQuantile,
+                        upperQuantile,
+                        lowerBound),
+                BOOLEAN,
+                (lowerBound == null) ? null : true);
+        functionAssertions.assertFunction(
+                format("truncated_mean(CAST(X'%s' AS qdigest(%s)), %s, %s) <= %s",
+                        binary.toString().replaceAll("\\s+", " "),
+                        type,
+                        lowerQuantile,
+                        upperQuantile,
+                        upperBound),
+                BOOLEAN,
+                (upperBound == null) ? null : true);
+    }
+
+    private Number getPercentileValueLowerBound(double error, List<? extends Number> rows, double percentile)
     {
         int medianIndex = (int) (rows.size() * percentile);
         int marginOfError = (int) (rows.size() * error / 2);
         return rows.get(max(medianIndex - marginOfError, 0));
     }
 
-    private Number getUpperBound(double error, List<? extends Number> rows, double percentile)
+    private Number getPercentileValueUpperBound(double error, List<? extends Number> rows, double percentile)
     {
         int medianIndex = (int) (rows.size() * percentile);
         int marginOfError = (int) (rows.size() * error / 2);
         return rows.get(min(medianIndex + marginOfError, rows.size() - 1));
+    }
+
+    private Double getTruncatedMeanLowerBound(double error, List<? extends Number> rows, double lowerQuantile, double upperQuantile)
+    {
+        double lowerQuantileValue = getPercentileValueLowerBound(error, rows, lowerQuantile).doubleValue();
+        double upperQuantileValue = getPercentileValueLowerBound(error, rows, upperQuantile).doubleValue();
+        if (lowerQuantileValue == upperQuantileValue) {
+            return null;
+        }
+        double mean = rows.stream().mapToDouble(Number::doubleValue).filter(x -> x >= lowerQuantileValue && x < upperQuantileValue).average().getAsDouble();
+        return mean - (Math.abs(mean) * error);
+    }
+
+    private Double getTruncatedMeanUpperBound(double error, List<? extends Number> rows, double lowerQuantile, double upperQuantile)
+    {
+        double lowerQuantileValue = getPercentileValueUpperBound(error, rows, lowerQuantile).doubleValue();
+        double upperQuantileValue = getPercentileValueUpperBound(error, rows, upperQuantile).doubleValue();
+        if (lowerQuantileValue == upperQuantileValue) {
+            return null;
+        }
+        double mean = rows.stream().mapToDouble(Number::doubleValue).filter(x -> x >= lowerQuantileValue && x < upperQuantileValue).average().getAsDouble();
+        return mean + (Math.abs(mean) * error);
     }
 }

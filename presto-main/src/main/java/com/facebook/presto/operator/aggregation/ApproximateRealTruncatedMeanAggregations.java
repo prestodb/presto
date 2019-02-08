@@ -53,8 +53,13 @@ public final class ApproximateRealTruncatedMeanAggregations
     }
 
     @InputFunction
-    public static void weightedInput(@AggregationState DigestAndPercentileArrayState state, @SqlType(StandardTypes.REAL) long value, @SqlType(StandardTypes.BIGINT) long weight,
-            @SqlType(StandardTypes.DOUBLE) double lowerQuantile, @SqlType(StandardTypes.DOUBLE) double upperQuantile, @SqlType(StandardTypes.DOUBLE) double accuracy)
+    public static void weightedInput(
+            @AggregationState DigestAndPercentileArrayState state,
+            @SqlType(StandardTypes.REAL) long value,
+            @SqlType(StandardTypes.BIGINT) long weight,
+            @SqlType(StandardTypes.DOUBLE) double lowerQuantile,
+            @SqlType(StandardTypes.DOUBLE) double upperQuantile,
+            @SqlType(StandardTypes.DOUBLE) double accuracy)
     {
         ApproximateRealPercentileArrayAggregations.weightedInput(state, value, weight,
                 ApproximateLongTruncatedMeanAggregations.quantileBoundsToArray(lowerQuantile, upperQuantile), accuracy);

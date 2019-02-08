@@ -131,8 +131,10 @@ public final class QuantileDigestFunctions
     @ScalarFunction("truncated_mean")
     @Description("The approx arithmetic mean, estimated from qdigest, of values in the quantile range bounded by lowerQuantile and upperQuantile.")
     @SqlType(StandardTypes.DOUBLE)
-    public static Double truncatedMeanDouble(@SqlType("qdigest(double)") Slice input,
-            @SqlType(StandardTypes.DOUBLE) double lowerQuantile, @SqlType(StandardTypes.DOUBLE) double upperQuantile)
+    public static Double truncatedMeanDouble(
+            @SqlType("qdigest(double)") Slice input,
+            @SqlType(StandardTypes.DOUBLE) double lowerQuantile,
+            @SqlType(StandardTypes.DOUBLE) double upperQuantile)
     {
         validateQuantileRange(lowerQuantile, upperQuantile);
         QuantileDigest digest = new QuantileDigest(input);
@@ -144,8 +146,10 @@ public final class QuantileDigestFunctions
     @ScalarFunction("truncated_mean")
     @Description("The approx arithmetic mean, estimated from qdigest, of values in the quantile range bounded by lowerQuantile and upperQuantile.")
     @SqlType(StandardTypes.REAL)
-    public static Long truncatedMeanReal(@SqlType("qdigest(real)") Slice input,
-            @SqlType(StandardTypes.DOUBLE) double lowerQuantile, @SqlType(StandardTypes.DOUBLE) double upperQuantile)
+    public static Long truncatedMeanReal(
+            @SqlType("qdigest(real)") Slice input,
+            @SqlType(StandardTypes.DOUBLE) double lowerQuantile,
+            @SqlType(StandardTypes.DOUBLE) double upperQuantile)
     {
         validateQuantileRange(lowerQuantile, upperQuantile);
         QuantileDigest digest = new QuantileDigest(input);
@@ -161,8 +165,10 @@ public final class QuantileDigestFunctions
     @ScalarFunction("truncated_mean")
     @Description("The approx arithmetic mean, estimated from qdigest, of values in the quantile range bounded by lowerQuantile and upperQuantile.")
     @SqlType(StandardTypes.DOUBLE)
-    public static Double truncatedMeanBigint(@SqlType("qdigest(bigint)") Slice input,
-            @SqlType(StandardTypes.DOUBLE) double lowerQuantile, @SqlType(StandardTypes.DOUBLE) double upperQuantile)
+    public static Double truncatedMeanBigint(
+            @SqlType("qdigest(bigint)") Slice input,
+            @SqlType(StandardTypes.DOUBLE) double lowerQuantile,
+            @SqlType(StandardTypes.DOUBLE) double upperQuantile)
     {
         validateQuantileRange(lowerQuantile, upperQuantile);
         QuantileDigest digest = new QuantileDigest(input);

@@ -16,8 +16,6 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createBlockOfReals;
@@ -26,6 +24,7 @@ import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongRepeatBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
+import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
 import static com.facebook.presto.block.BlockAssertions.createSequenceBlockOfReal;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
@@ -433,12 +432,5 @@ public class TestApproximateTruncatedMeanAggregation
                 createRLEBlock(0.1, 10000),
                 createRLEBlock(0.9001, 10000),
                 createRLEBlock(0.001, 10000));
-    }
-
-    private static RunLengthEncodedBlock createRLEBlock(double value, int positionCount)
-    {
-        BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(null, 1);
-        DOUBLE.writeDouble(blockBuilder, value);
-        return new RunLengthEncodedBlock(blockBuilder.build(), positionCount);
     }
 }

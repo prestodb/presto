@@ -32,22 +32,34 @@ public final class ApproximateDoubleTruncatedMeanAggregations
     private ApproximateDoubleTruncatedMeanAggregations() {}
 
     @InputFunction
-    public static void input(@AggregationState DigestAndPercentileArrayState state, @SqlType(StandardTypes.DOUBLE) double value,
-            @SqlType(StandardTypes.DOUBLE) double lowerQuantile, @SqlType(StandardTypes.DOUBLE) double upperQuantile)
+    public static void input(
+            @AggregationState DigestAndPercentileArrayState state,
+            @SqlType(StandardTypes.DOUBLE) double value,
+            @SqlType(StandardTypes.DOUBLE) double lowerQuantile,
+            @SqlType(StandardTypes.DOUBLE) double upperQuantile)
     {
         ApproximateDoublePercentileArrayAggregations.input(state, value, quantileBoundsToArray(lowerQuantile, upperQuantile));
     }
 
     @InputFunction
-    public static void weightedInput(@AggregationState DigestAndPercentileArrayState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.BIGINT) long weight,
-            @SqlType(StandardTypes.DOUBLE) double lowerQuantile, @SqlType(StandardTypes.DOUBLE) double upperQuantile)
+    public static void weightedInput(
+            @AggregationState DigestAndPercentileArrayState state,
+            @SqlType(StandardTypes.DOUBLE) double value,
+            @SqlType(StandardTypes.BIGINT) long weight,
+            @SqlType(StandardTypes.DOUBLE) double lowerQuantile,
+            @SqlType(StandardTypes.DOUBLE) double upperQuantile)
     {
         ApproximateDoublePercentileArrayAggregations.weightedInput(state, value, weight, quantileBoundsToArray(lowerQuantile, upperQuantile));
     }
 
     @InputFunction
-    public static void weightedInput(@AggregationState DigestAndPercentileArrayState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.BIGINT) long weight,
-            @SqlType(StandardTypes.DOUBLE) double lowerQuantile, @SqlType(StandardTypes.DOUBLE) double upperQuantile, @SqlType(StandardTypes.DOUBLE) double accuracy)
+    public static void weightedInput(
+            @AggregationState DigestAndPercentileArrayState state,
+            @SqlType(StandardTypes.DOUBLE) double value,
+            @SqlType(StandardTypes.BIGINT) long weight,
+            @SqlType(StandardTypes.DOUBLE) double lowerQuantile,
+            @SqlType(StandardTypes.DOUBLE) double upperQuantile,
+            @SqlType(StandardTypes.DOUBLE) double accuracy)
     {
         ApproximateDoublePercentileArrayAggregations.weightedInput(state, value, weight, quantileBoundsToArray(lowerQuantile, upperQuantile), accuracy);
     }
