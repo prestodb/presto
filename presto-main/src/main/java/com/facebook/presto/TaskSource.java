@@ -14,6 +14,7 @@
 package com.facebook.presto;
 
 import com.facebook.presto.execution.Lifespan;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;

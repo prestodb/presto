@@ -15,7 +15,6 @@ package com.facebook.presto.testing;
 
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.PagesIndexPageSorter;
-import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.TaskSource;
@@ -54,6 +53,7 @@ import com.facebook.presto.execution.RenameColumnTask;
 import com.facebook.presto.execution.RenameTableTask;
 import com.facebook.presto.execution.ResetSessionTask;
 import com.facebook.presto.execution.RollbackTask;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.SetPathTask;
 import com.facebook.presto.execution.SetSessionTask;
 import com.facebook.presto.execution.StartTransactionTask;
