@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.execution.buffer;
 
-import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.buffer.ClientBuffer.PagesSupplier;
+import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.BigintType;
 import com.google.common.collect.ImmutableList;
