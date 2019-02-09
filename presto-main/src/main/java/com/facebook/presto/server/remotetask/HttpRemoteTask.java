@@ -14,7 +14,6 @@
 package com.facebook.presto.server.remotetask;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.FutureStateChange;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
@@ -23,6 +22,7 @@ import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.BufferInfo;
