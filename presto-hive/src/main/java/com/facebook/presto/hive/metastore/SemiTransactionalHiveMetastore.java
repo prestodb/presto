@@ -346,7 +346,7 @@ public class SemiTransactionalHiveMetastore
             ConnectorSession session,
             Table table,
             PrincipalPrivileges principalPrivileges,
-            Optional<Path> currentPath,
+            Optional<Path> currentPath, // unpartitioned table only
             boolean ignoreExisting,
             PartitionStatistics statistics)
     {
@@ -1965,6 +1965,7 @@ public class SemiTransactionalHiveMetastore
             this.statistics = requireNonNull(statistics, "statistics is null");
             this.statisticsUpdate = requireNonNull(statisticsUpdate, "statisticsUpdate is null");
 
+            checkArgument(table.getPartitionColumns().isEmpty() || !currentLocation.isPresent(), "currentLocation can not be supplied for partitioned table");
             checkArgument(!table.getStorage().getLocation().isEmpty() || !currentLocation.isPresent(), "currentLocation can not be supplied for table without location");
             checkArgument(!fileNames.isPresent() || currentLocation.isPresent(), "fileNames can be supplied only when currentLocation is supplied");
         }
