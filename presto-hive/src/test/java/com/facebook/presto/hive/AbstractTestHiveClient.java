@@ -3246,12 +3246,13 @@ public abstract class AbstractTestHiveClient
                 assertEquals(otherTableStatistics.getRowCount().getAsLong(), CREATE_TABLE_DATA.getRowCount() * 3L);
             }
 
-            // verify we did not modify the table directory
-            assertEquals(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName()), existingFiles);
+            // verify we did not modify the table target directory
+            HdfsContext context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            Path targetPathRoot = getTargetPathRoot(insertTableHandle);
+            assertEquals(listAllDataFiles(context, targetPathRoot), existingFiles);
 
             // verify all temp files start with the unique prefix
             stagingPathRoot = getStagingPathRoot(insertTableHandle);
-            HdfsContext context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
             Set<String> tempFiles = listAllDataFiles(context, stagingPathRoot);
             assertTrue(!tempFiles.isEmpty());
             for (String filePath : tempFiles) {
