@@ -186,8 +186,8 @@ public final class SystemSessionProperties
                 booleanProperty(
                         DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION,
                         "Experimental: Use dynamic schedule for grouped execution when possible",
-                        false,
-                        featuresConfig.isDynamicScheduleForGroupedExecutionEnabled()),
+                        featuresConfig.isDynamicScheduleForGroupedExecutionEnabled(),
+                        false),
                 booleanProperty(
                         PREFER_STREAMING_OPERATORS,
                         "Prefer source table layouts that produce streaming operators",
