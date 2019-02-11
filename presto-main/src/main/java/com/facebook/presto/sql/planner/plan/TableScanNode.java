@@ -55,25 +55,7 @@ public class TableScanNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("table") TableHandle table,
             @JsonProperty("outputSymbols") List<Symbol> outputs,
-            @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
-            @JsonProperty("layout") Optional<TableLayoutHandle> tableLayout)
-    {
-        // This constructor is for JSON deserialization only. Do not use.
-        super(id);
-        this.table = requireNonNull(table, "table is null");
-        this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
-        this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
-        checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
-        this.tableLayout = requireNonNull(tableLayout, "tableLayout is null");
-        this.currentConstraint = null;
-        this.enforcedConstraint = null;
-    }
-
-    public TableScanNode(
-            PlanNodeId id,
-            TableHandle table,
-            List<Symbol> outputs,
-            Map<Symbol, ColumnHandle> assignments)
+            @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments)
     {
         this(id, table, outputs, assignments, Optional.empty(), TupleDomain.all(), TupleDomain.all());
     }
@@ -106,7 +88,6 @@ public class TableScanNode
         return table;
     }
 
-    @JsonProperty
     public Optional<TableLayoutHandle> getLayout()
     {
         return tableLayout;
