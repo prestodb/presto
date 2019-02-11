@@ -902,7 +902,7 @@ class StatementAnalyzer
                 // are implicitly coercible to the declared view types.
                 List<Field> outputFields = view.getColumns().stream()
                         .map(column -> Field.newQualified(
-                                QualifiedName.of(name.getObjectName()),
+                                table.getName(),
                                 Optional.of(column.getName()),
                                 column.getType(),
                                 false,
