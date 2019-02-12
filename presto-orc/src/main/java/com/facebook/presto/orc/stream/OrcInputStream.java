@@ -121,6 +121,17 @@ public final class OrcInputStream
         return (int) current.position() + uncompressedBufferOffset;
     }
 
+    public byte[] getBufferAndAdvance()
+            throws IOException
+    {
+        if (current == null) {
+            return null;
+        }
+        byte[] result = isUncompressed ? uncompressedBuffer : buffer;
+        advance();
+        return result;
+    }
+
     @Override
     public int read()
             throws IOException
