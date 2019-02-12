@@ -152,6 +152,8 @@ public class HiveClientConfig
     private boolean isTemporaryStagingDirectoryEnabled = true;
     private String temporaryStagingDirectoryPath = "/tmp/presto-${USER}";
 
+    private boolean preloadSplitsForGroupedExecution;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -1232,6 +1234,19 @@ public class HiveClientConfig
     public HiveClientConfig setTemporaryStagingDirectoryPath(String temporaryStagingDirectoryPath)
     {
         this.temporaryStagingDirectoryPath = temporaryStagingDirectoryPath;
+        return this;
+    }
+
+    public boolean isPreloadSplitsForGroupedExecution()
+    {
+        return preloadSplitsForGroupedExecution;
+    }
+
+    @Config("hive.preload-splits-for-grouped-execution")
+    @ConfigDescription("Preload splits before scheduling for grouped execution")
+    public HiveClientConfig setPreloadSplitsForGroupedExecution(boolean preloadSplitsForGroupedExecution)
+    {
+        this.preloadSplitsForGroupedExecution = preloadSplitsForGroupedExecution;
         return this;
     }
 }

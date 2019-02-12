@@ -27,6 +27,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
@@ -50,6 +51,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxSplitSize;
+import static com.facebook.presto.hive.HiveSessionProperties.isPreloadSplitsForGroupedExecution;
 import static com.facebook.presto.hive.HiveSplitSource.StateKind.CLOSED;
 import static com.facebook.presto.hive.HiveSplitSource.StateKind.FAILED;
 import static com.facebook.presto.hive.HiveSplitSource.StateKind.INITIAL;
@@ -199,6 +201,8 @@ class HiveSplitSource
                 {
                     private final Map<Integer, AsyncQueue<InternalHiveSplit>> queues = new ConcurrentHashMap<>();
                     private final AtomicBoolean finished = new AtomicBoolean();
+                    private final boolean preloadSplitsForGroupedExecution = isPreloadSplitsForGroupedExecution(session);
+                    private final SettableFuture<?> allSplitsLoaded = SettableFuture.create();
 
                     @Override
                     public ListenableFuture<?> offer(OptionalInt bucketNumber, InternalHiveSplit connectorSplit)
@@ -213,6 +217,10 @@ class HiveSplitSource
                     @Override
                     public <O> ListenableFuture<O> borrowBatchAsync(OptionalInt bucketNumber, int maxSize, Function<List<InternalHiveSplit>, BorrowResult<InternalHiveSplit, O>> function)
                     {
+                        // The call to borrowBatchAsync() is blocked until allSplitsLoaded is complete, which is set in finish(), then it would call borrowBatchAsync() again.
+                        if (preloadSplitsForGroupedExecution && !finished.get()) {
+                            return allSplitsLoaded.transformAsync(ignored -> borrowBatchAsync(bucketNumber, maxSize, function), executor);
+                        }
                         return queueFor(bucketNumber).borrowBatchAsync(maxSize, function);
                     }
 
@@ -221,6 +229,7 @@ class HiveSplitSource
                     {
                         if (finished.compareAndSet(false, true)) {
                             queues.values().forEach(AsyncQueue::finish);
+                            allSplitsLoaded.set(null);
                         }
                     }
 
@@ -230,7 +239,7 @@ class HiveSplitSource
                         return queueFor(bucketNumber).isFinished();
                     }
 
-                    public AsyncQueue<InternalHiveSplit> queueFor(OptionalInt bucketNumber)
+                    private AsyncQueue<InternalHiveSplit> queueFor(OptionalInt bucketNumber)
                     {
                         checkArgument(bucketNumber.isPresent());
                         AtomicBoolean isNew = new AtomicBoolean();

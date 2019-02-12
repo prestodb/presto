@@ -118,7 +118,8 @@ public class TestHiveClientConfig
                 .setS3SelectPushdownEnabled(false)
                 .setS3SelectPushdownMaxConnections(500)
                 .setTemporaryStagingDirectoryEnabled(true)
-                .setTemporaryStagingDirectoryPath("/tmp/presto-${USER}"));
+                .setTemporaryStagingDirectoryPath("/tmp/presto-${USER}")
+                .setPreloadSplitsForGroupedExecution(false));
     }
 
     @Test
@@ -205,6 +206,7 @@ public class TestHiveClientConfig
                 .put("hive.s3select-pushdown.max-connections", "1234")
                 .put("hive.temporary-staging-directory-enabled", "false")
                 .put("hive.temporary-staging-directory-path", "updated")
+                .put("hive.preload-splits-for-grouped-execution", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -288,7 +290,8 @@ public class TestHiveClientConfig
                 .setS3SelectPushdownEnabled(true)
                 .setS3SelectPushdownMaxConnections(1234)
                 .setTemporaryStagingDirectoryEnabled(false)
-                .setTemporaryStagingDirectoryPath("updated");
+                .setTemporaryStagingDirectoryPath("updated")
+                .setPreloadSplitsForGroupedExecution(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
