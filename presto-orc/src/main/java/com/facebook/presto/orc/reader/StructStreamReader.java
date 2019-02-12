@@ -22,6 +22,7 @@ import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSources;
+import com.facebook.presto.spi.PageSourceOptions.FilterFunction;
 import com.facebook.presto.spi.SubfieldPath;
 import com.facebook.presto.spi.SubfieldPath.PathElement;
 import com.facebook.presto.spi.block.Block;
@@ -335,7 +336,7 @@ public class StructStreamReader
                                        fieldColumns,
                                        fieldColumns,
                                        filters,
-                                       null,
+                                       new FilterFunction[0],
                                        true,
                                        true,
                                        0);
@@ -469,15 +470,17 @@ public class StructStreamReader
             // posInRowGroup is the first unprocessed enclosing level
             // row, by definition part of the input qualifying set.
             firstRow = posInRowGroup;
-            innerQualifyingSet.clearTruncationPosition();
+            setInnerTruncation();
+            int originalTarget = innerQualifyingSet.getEnd();
             reader.advance();
             int newTruncation = reader.getTruncationRow();
             if (newTruncation != -1) {
+                innerPosInRowGroup = newTruncation;
                 truncationRow = innerToOuterRow(newTruncation);
                 inputQualifyingSet.setTruncationRow(truncationRow);
             }
             else {
-                innerPosInRowGroup = innerQualifyingSet.getEnd();
+                innerPosInRowGroup = originalTarget;
             }
         }
         else {

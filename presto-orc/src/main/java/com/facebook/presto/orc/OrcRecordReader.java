@@ -88,6 +88,7 @@ public class OrcRecordReader
     private final Set<Integer> presentColumns;
     private final long maxBlockBytes;
     private final Map<Integer, Type> includedColumns;
+    private final Map<Integer, ColumnHandle> includedColumnHandles;
     private long currentPosition;
     private long currentStripePosition;
     private int currentBatchSize;
@@ -154,7 +155,6 @@ public class OrcRecordReader
             int initialBatchSize)
     {
         requireNonNull(includedColumns, "includedColumns is null");
-        requireNonNull(includedColumnHandles, "includedColumnHandles is null");
         requireNonNull(predicate, "predicate is null");
         requireNonNull(fileStripes, "fileStripes is null");
         requireNonNull(stripeStats, "stripeStats is null");
@@ -166,6 +166,7 @@ public class OrcRecordReader
         requireNonNull(systemMemoryUsage, "systemMemoryUsage is null");
 
         this.includedColumns = requireNonNull(includedColumns, "includedColumns is null");
+        this.includedColumnHandles = requireNonNull(includedColumnHandles, "includedColumnHandles is null");
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
         this.writeChecksumBuilder = writeValidation.map(validation -> createWriteChecksumBuilder(includedColumns));
         this.rowGroupStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(includedColumns));
@@ -255,7 +256,15 @@ public class OrcRecordReader
                 metadataReader,
                 writeValidation);
 
-        streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, presentColumnsAndTypes.build(), includedColumnHandles, streamReadersSystemMemoryContext);
+        streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, presentColumnsAndTypes.build(), streamReadersSystemMemoryContext);
+        if (includedColumnHandles != null) {
+            for (int columnIdx = 0; columnIdx < streamReaders.length; columnIdx++) {
+                ColumnHandle columnHandle = includedColumnHandles.get(columnIdx);
+                if (columnHandle != null && streamReaders[columnIdx] != null && columnHandle.getReferencedSubfields() != null) {
+                    streamReaders[columnIdx].setReferencedSubfields(columnHandle.getReferencedSubfields(), 0);
+                }
+            }
+        }
         maxBytesPerCell = new long[streamReaders.length];
         nextBatchSize = initialBatchSize;
     }
@@ -575,7 +584,6 @@ public class OrcRecordReader
             List<OrcType> types,
             DateTimeZone hiveStorageTimeZone,
             Map<Integer, Type> includedColumns,
-            Map<Integer, ColumnHandle> includedColumnHandles,
             AggregatedMemoryContext systemMemoryContext)
     {
         List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, types, orcDataSource).getNestedStreams();
@@ -586,11 +594,6 @@ public class OrcRecordReader
             if (includedColumns.containsKey(columnId)) {
                 StreamDescriptor streamDescriptor = streamDescriptors.get(columnId);
                 streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
-
-                ColumnHandle columnHandle = includedColumnHandles.get(columnId);
-                if (columnHandle != null && columnHandle.getReferencedSubfields() != null) {
-                    streamReaders[columnId].setReferencedSubfields(columnHandle.getReferencedSubfields(), 0);
-                }
             }
         }
 
@@ -802,6 +805,7 @@ public class OrcRecordReader
                     reader.maybeReorderFilters();
                 }
             }
+            qualifyingSet.clearTruncationPosition();
             reader.advance();
             numResults = reader.getNumResults();
             if (numResults > targetResultRows || reader.getResultSizeInBytes() > targetResultBytes * 8 / 10) {
