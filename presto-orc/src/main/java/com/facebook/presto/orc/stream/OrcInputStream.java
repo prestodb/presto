@@ -268,8 +268,8 @@ public final class OrcInputStream
 
         if (isUncompressed) {
             current = chunk.getInput();
-            uncompressedBuffer = (byte[]) chunk.getBase();
-            uncompressedBufferOffset = (int) chunk.getAddress();
+            uncompressedBuffer = chunk.getBytes();
+            uncompressedBufferOffset = 0;
         }
         else {
             uncompressedBuffer = null;
