@@ -600,6 +600,14 @@ public class ColumnGroupReader
     private void setNewTruncation(int streamIdx, QualifyingSet set)
     {
         // Do not read past the end of a column to the left. The new truncation is the end of the closest truncated to the left or the closest filter.
+        if (streamIdx == 0) {
+            // If leftmost column is truncated, inputQualifyingSet has
+            // the new truncation, which is set by the caller. The top
+            // level reader always clears the truncation, a struct
+            // reader sets it according to the truncation in its input
+            // QualifyingSet.
+            return;
+        }
         int newEnd = -1;
         for (int i = streamIdx - 1; i >= 0; i--) {
             StreamReader reader = sortedStreamReaders[i];
@@ -687,15 +695,17 @@ public class ColumnGroupReader
                 QualifyingSet parent = inputQualifyingSet.getParent();
                 int[] parentRows = parent.getPositions();
                 for (int i = 0; i < numAdded; i++) {
-                    int parentPos = translation[survivingRows[i]];
+                    int row = needCompact ? survivingRows[i] : i;
+                    int parentPos = translation[row];
                     inputs[i] = parentPos;
                     rows[i] = parentRows[parentPos];
                 }
             }
             else {
                 for (int i = 0; i < numAdded; i++) {
-                    inputs[i] = survivingRows[i];
-                    rows[i] = inputRows[survivingRows[i]];
+                    int row = needCompact ? survivingRows[i] : i;
+                    inputs[i] = row;
+                    rows[i] = inputRows[row];
                 }
             }
             outputQualifyingSet.setPositionCount(numAdded);

@@ -239,6 +239,19 @@ abstract class NullWrappingColumnReader
         }
     }
 
+    // Sets the truncation position of the inner QualifyingSet according to that of the outer.
+    protected void setInnerTruncation()
+    {
+        int truncationPos = inputQualifyingSet.getTruncationPosition();
+        if (truncationPos == -1) {
+            innerQualifyingSet.clearTruncationPosition();
+            return;
+        }
+        int outerRow = inputQualifyingSet.getPositions()[truncationPos];
+        int numInner = countPresent(0, outerRow - posInRowGroup);
+        innerQualifyingSet.setTruncationRow(innerPosInRowGroup + numInner);
+    }
+
     @Override
     protected void openRowGroup()
             throws IOException
