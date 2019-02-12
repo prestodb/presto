@@ -19,6 +19,7 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
@@ -33,6 +34,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
@@ -45,6 +47,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.preferPartialAggregation;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.INTERMEDIATE;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
@@ -148,6 +151,11 @@ public class PushPartialAggregationThroughExchange
     private PlanNode pushPartial(AggregationNode aggregation, ExchangeNode exchange, Context context)
     {
         List<PlanNode> partials = new ArrayList<>();
+
+        if (inputAreIntermediateTypes(aggregation, context)) {
+            aggregation = aggregation.withStep(INTERMEDIATE, context.getIdAllocator().getNextId());
+        }
+
         for (int i = 0; i < exchange.getSources().size(); i++) {
             PlanNode source = exchange.getSources().get(i);
 
@@ -193,6 +201,27 @@ public class PushPartialAggregationThroughExchange
                 partials,
                 ImmutableList.copyOf(Collections.nCopies(partials.size(), aggregation.getOutputSymbols())),
                 Optional.empty());
+    }
+
+    private boolean inputAreIntermediateTypes(AggregationNode aggregationNode, Context context)
+    {
+        for (AggregationNode.Aggregation aggregation : aggregationNode.getAggregations().values()) {
+            if (aggregation.getCall().getArguments().size() != 1 || !(aggregation.getCall().getArguments().get(0) instanceof SymbolReference)) {
+                return false;
+            }
+            try {
+                Type intermediateType = functionRegistry.getAggregateFunctionImplementation(aggregation.getSignature()).getIntermediateType();
+                String inputSymbol = ((SymbolReference) aggregation.getCall().getArguments().get(0)).getName();
+                Type inputType = context.getSymbolAllocator().getTypes().get(new Symbol(inputSymbol));
+                if (!intermediateType.equals(inputType)) {
+                    return false;
+                }
+            }
+            catch (Throwable ignored) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private PlanNode split(AggregationNode node, Context context)

@@ -92,6 +92,11 @@ public class AggregationNode
         this.outputs = outputs.build();
     }
 
+    public AggregationNode withStep(Step step, PlanNodeId newId)
+    {
+        return new AggregationNode(newId, this.source, this.aggregations, this.groupingSets, this.preGroupedSymbols, step, this.hashSymbol, this.groupIdSymbol);
+    }
+
     public List<Symbol> getGroupingKeys()
     {
         return groupingSets.getGroupingKeys();

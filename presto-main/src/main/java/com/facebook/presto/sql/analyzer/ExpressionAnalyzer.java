@@ -24,6 +24,7 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.DenyAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.CharType;
@@ -887,7 +888,7 @@ public class ExpressionAnalyzer
                     FunctionType expectedFunctionType = (FunctionType) expectedType;
                     process(expression, new StackableAstVisitorContext<>(context.getContext().expectingLambda(expectedFunctionType.getArgumentTypes())));
                 }
-                else {
+                else if (!matchIntermediateType(function, typeManager.getType(argumentTypes.get(i).getTypeSignature()))) {
                     Type actualType = typeManager.getType(argumentTypes.get(i).getTypeSignature());
                     coerceType(expression, actualType, expectedType, format("Function %s argument %d", function, i));
                 }
@@ -896,6 +897,14 @@ public class ExpressionAnalyzer
 
             Type type = typeManager.getType(function.getReturnType());
             return setExpressionType(node, type);
+        }
+
+        private boolean matchIntermediateType(Signature function, Type type)
+        {
+            if (function.getKind() == FunctionKind.AGGREGATE) {
+                return functionRegistry.getAggregateFunctionImplementation(function).getIntermediateType().getTypeSignature().equals(type.getTypeSignature());
+            }
+            return false;
         }
 
         @Override
