@@ -1,0 +1,257 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.hive;
+
+import com.facebook.presto.Session;
+import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.tests.AbstractTestQueryFramework;
+import io.airlift.log.Logger;
+import org.testng.annotations.Test;
+
+import static com.facebook.presto.SystemSessionProperties.ARIA_FLAGS;
+import static com.facebook.presto.SystemSessionProperties.ARIA_REORDER;
+import static com.facebook.presto.SystemSessionProperties.ARIA_REUSE_PAGES;
+import static com.facebook.presto.SystemSessionProperties.ARIA_SCAN;
+import static io.airlift.tpch.TpchTable.getTables;
+import static io.airlift.units.Duration.nanosSince;
+
+public class TestAriaHiveDistributedQueries
+        extends AbstractTestQueryFramework
+{
+    private static final Logger log = Logger.get(TestAriaHiveDistributedQueries.class);
+
+    protected TestAriaHiveDistributedQueries()
+    {
+        super(() -> createQueryRunner());
+    }
+
+    private static QueryRunner createQueryRunner()
+            throws Exception
+    {
+        QueryRunner queryRunner = HiveQueryRunner.createQueryRunner(getTables());
+
+        createTable(queryRunner, "lineitem_aria", "CREATE TABLE lineitem_aria AS\n" +
+                "SELECT\n" +
+                "    orderkey,\n" +
+                "    partkey,\n" +
+                "    suppkey,\n" +
+                "    linenumber,\n" +
+                "    quantity,\n" +
+                "    extendedprice,\n" +
+                "    shipmode,\n" +
+                "    comment,\n" +
+                "    returnflag = 'R' AS is_returned,\n" +
+                "    CAST(quantity + 1 AS REAL) AS float_quantity,\n" +
+                "    MAP(\n" +
+                "        ARRAY[1, 2, 3],\n" +
+                "        ARRAY[orderkey, partkey, suppkey]\n" +
+                "    ) AS order_part_supp_map,\n" +
+                "    ARRAY[ARRAY[orderkey, partkey, suppkey]] AS order_part_supp_array\n" +
+                "FROM tpch.tiny.lineitem");
+
+        createTable(queryRunner, "lineitem_aria_nulls", "CREATE TABLE lineitem_aria_nulls AS\n" +
+                "SELECT *,\n" +
+                "   IF(have_complex_nulls, null, map(array[1, 2, 3], array[orderkey, partkey, suppkey])) as order_part_supp_map,\n" +
+                "   IF(have_complex_nulls, null, array[orderkey, partkey, suppkey]) as order_part_supp_array\n" +
+                "FROM (\n" +
+                "   SELECT \n" +
+                "       orderkey,\n" +
+                "       linenumber,\n" +
+                "       have_simple_nulls and mod(orderkey + linenumber, 5) = 0 AS have_complex_nulls,\n" +
+                "       IF(have_simple_nulls and mod(orderkey + linenumber, 11) = 0, null, partkey) as partkey,\n" +
+                "       IF(have_simple_nulls and mod(orderkey + linenumber, 13) = 0, null, suppkey) as suppkey,\n" +
+                "       IF(have_simple_nulls and mod (orderkey + linenumber, 17) = 0, null, quantity) as quantity,\n" +
+                "       IF(have_simple_nulls and mod (orderkey + linenumber, 19) = 0, null, extendedprice) as extendedprice,\n" +
+                "       IF(have_simple_nulls and mod (orderkey + linenumber, 23) = 0, null, shipmode) as shipmode,\n" +
+                "       IF(have_simple_nulls and mod (orderkey + linenumber, 7) = 0, null, comment) as comment,\n" +
+                "       IF(have_simple_nulls and mod(orderkey + linenumber, 31) = 0, null, returnflag = 'R') as is_returned,\n" +
+                "       IF(have_simple_nulls and mod(orderkey + linenumber, 37) = 0, null, CAST(quantity + 1 as real)) as float_quantity\n" +
+                "   FROM (SELECT mod(orderkey, 198000) > 99000 as have_simple_nulls, * from tpch.tiny.lineitem))\n");
+
+        createTable(queryRunner, "lineitem_aria_strings", "CREATE TABLE lineitem_aria_strings AS\n" +
+                "SELECT\n" +
+                "    orderkey,\n" +
+                "    linenumber,\n" +
+                "    comment,\n" +
+                "    CONCAT(CAST(partkey AS VARCHAR), comment) AS partkey_comment,\n" +
+                "    CONCAT(CAST(suppkey AS VARCHAR), comment) AS suppkey_comment,\n" +
+                "    CONCAT(CAST(quantity AS VARCHAR), comment) AS quantity_comment\n" +
+                "FROM tpch.tiny.lineitem\n" +
+                "WHERE orderkey < 100000");
+
+        createTable(queryRunner, "lineitem_aria_string_structs", "CREATE TABLE lineitem_aria_string_structs AS\n" +
+                "SELECT\n" +
+                "    orderkey,\n" +
+                "    linenumber,\n" +
+                "    CAST(\n" +
+                "        ROW(\n" +
+                "            comment,\n" +
+                "            CONCAT(CAST(partkey AS VARCHAR), comment)\n" +
+                "        ) AS ROW(\n" +
+                "            comment VARCHAR,\n" +
+                "            partkey_comment VARCHAR\n" +
+                "        )\n" +
+                "    ) AS partkey_struct,\n" +
+                "    CAST(\n" +
+                "        ROW(\n" +
+                "            CONCAT(CAST(suppkey AS VARCHAR), comment),\n" +
+                "            CONCAT(CAST(quantity AS VARCHAR), comment)\n" +
+                "        ) AS ROW(\n" +
+                "            suppkey_comment VARCHAR,\n" +
+                "            quantity_comment VARCHAR\n" +
+                "        )\n" +
+                "    ) AS suppkey_quantity_struct\n" +
+                "FROM tpch.tiny.lineitem\n" +
+                "WHERE orderkey < 100000");
+
+        return queryRunner;
+    }
+
+    private static void createTable(QueryRunner queryRunner, String tableName, String sql)
+    {
+        log.info("Creating %s table", tableName);
+        long start = System.nanoTime();
+        long rows = (Long) queryRunner.execute(sql).getMaterializedRows().get(0).getField(0);
+        log.info("Created %s rows for %s in %s", rows, tableName, nanosSince(start).convertToMostSuccinctTimeUnit());
+    }
+
+    private Session ariaSession()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(ARIA_SCAN, "true")
+                .setSystemProperty(ARIA_REORDER, "true")
+                .setSystemProperty(ARIA_REUSE_PAGES, "true")
+                .setSystemProperty(ARIA_FLAGS, "127")
+                .build();
+    }
+
+    // filters1.sql
+    // filters1_nulls.sql
+    @Test
+    public void testFilters()
+    {
+        assertQuery(ariaSession(), "SELECT\n" +
+                "    orderkey,\n" +
+                "    linenumber,\n" +
+                "    partkey,\n" +
+                "    suppkey,\n" +
+                "    comment\n" +
+                "FROM lineitem\n" +
+                "WHERE\n" +
+                "    orderkey BETWEEN 100000 AND 200000\n" +
+                "    AND partkey BETWEEN 10000 AND 30000\n" +
+                "    AND suppkey BETWEEN 1000 AND 5000\n" +
+                "    AND comment > 'f'",
+                "SELECT\n" +
+                        "    orderkey,\n" +
+                        "    linenumber,\n" +
+                        "    partkey,\n" +
+                        "    suppkey,\n" +
+                        "    comment\n" +
+                        "FROM lineitem\n" +
+                        "WHERE\n" +
+                        "    orderkey BETWEEN 100000 AND 200000\n" +
+                        "    AND partkey BETWEEN 10000 AND 30000\n" +
+                        "    AND suppkey BETWEEN 1000 AND 5000\n" +
+                        "    AND comment > 'f'");
+
+        assertQuery(ariaSession(), "SELECT\n" +
+                "    orderkey,\n" +
+                "    linenumber,\n" +
+                "    partkey,\n" +
+                "    suppkey,\n" +
+                "    comment\n" +
+                "FROM lineitem_aria_nulls\n" +
+                "WHERE\n" +
+                "    orderkey BETWEEN 100000 AND 200000\n" +
+                "    AND partkey BETWEEN 10000 AND 30000\n" +
+                "    AND suppkey BETWEEN 1000 AND 5000\n" +
+                "    AND comment > 'f'");
+    }
+
+    // nulls1.sql
+    // nulls2_sql
+    @Test
+    public void testNulls()
+    {
+        assertQuery(ariaSession(), "SELECT\n" +
+                "    orderkey,\n" +
+                "    linenumber,\n" +
+                "    partkey,\n" +
+                "    suppkey\n" +
+                "FROM lineitem\n" +
+                "WHERE\n" +
+                "    partkey IS NULL\n" +
+                "    AND suppkey IS NULL");
+
+        assertQuery(ariaSession(), "SELECT\n" +
+                "    orderkey,\n" +
+                "    linenumber,\n" +
+                "    partkey,\n" +
+                "    suppkey,\n" +
+                "    quantity,\n" +
+                "    comment\n" +
+                "FROM lineitem\n" +
+                "WHERE (\n" +
+                "        partkey IS NULL\n" +
+                "        OR partkey BETWEEN 1000 AND 2000\n" +
+                "        OR partkey BETWEEN 10000 AND 11000\n" +
+                "    )\n" +
+                "    AND (\n" +
+                "        suppkey IS NULL\n" +
+                "        OR suppkey BETWEEN 1000 AND 2000\n" +
+                "        OR suppkey BETWEEN 3000 AND 4000\n" +
+                "    )\n" +
+                "    AND (\n" +
+                "        quantity IS NULL\n" +
+                "        OR quantity BETWEEN 5 AND 10\n" +
+                "        OR quantity BETWEEN 20 AND 40\n" +
+                "    )");
+    }
+
+    @Test
+    public void testStrings()
+    {
+        assertQuery(ariaSession(), "SELECT\n" +
+                "    orderkey,\n" +
+                "    linenumber,\n" +
+                "    comment,\n" +
+                "    partkey_comment,\n" +
+                "    suppkey_comment,\n" +
+                "    quantity_comment\n" +
+                "FROM lineitem_aria_strings\n" +
+                "WHERE\n" +
+                "    comment > 'f'\n" +
+                "    AND partkey_comment > '1'\n" +
+                "    AND suppkey_comment > '1'\n" +
+                "    AND quantity_comment > '2'");
+
+        assertQuery(ariaSession(), "SELECT\n" +
+                "    orderkey,\n" +
+                "    linenumber,\n" +
+                "    partkey_struct.comment,\n" +
+                "    partkey_struct.partkey_comment,\n" +
+                "    suppkey_quantity_struct.suppkey_comment,\n" +
+                "    suppkey_quantity_struct.quantity_comment\n" +
+                "FROM lineitem_aria_string_structs",
+                "SELECT\n" +
+                        "    orderkey,\n" +
+                        "    linenumber,\n" +
+                        "    comment,\n" +
+                        "    partkey_comment,\n" +
+                        "    suppkey_comment,\n" +
+                        "    quantity_comment\n" +
+                        "FROM lineitem_aria_strings");
+    }
+}
