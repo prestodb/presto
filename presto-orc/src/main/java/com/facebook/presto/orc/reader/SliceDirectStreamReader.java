@@ -81,9 +81,6 @@ public class SliceDirectStreamReader
     private int[] resultOffsets;
     // Temp space for extracting values to filter when a value straddles buffers.
     private byte[] tempBytes;
-    // Result arrays from outputQualifyingSet.
-    int[] outputRows;
-    int[] resultInputNumbers;
     long totalBytes;
     long totalRows;
 
@@ -347,12 +344,11 @@ public class SliceDirectStreamReader
         numResults = 0;
         QualifyingSet input = inputQualifyingSet;
         QualifyingSet output = outputQualifyingSet;
-        int numInput = input.getPositionCount();
         int end = input.getEnd();
         int rowsInRange = end - posInRowGroup;
-        outputRows = filter != null ? output.getMutablePositions(rowsInRange) : null;
-        resultInputNumbers = filter != null ? output.getMutableInputNumbers(rowsInRange) : null;
-        int toOffset = 0;
+        if (filter != null) {
+            output.ensureCapacity(rowsInRange);
+        }
         int[] inputPositions = input.getPositions();
         lengthIdx = 0;
         int nextActive = inputPositions[0];
@@ -367,7 +363,10 @@ public class SliceDirectStreamReader
                 }
                 if (presentStream != null && !present[i]) {
                     if (filter == null || filter.testNull()) {
-                        addNullResult(i + posInRowGroup, activeIdx);
+                        if (filter != null) {
+                            output.append(i + posInRowGroup, activeIdx);
+                        }
+                        addNullResult();
                     }
                 }
                 else {
@@ -394,8 +393,7 @@ public class SliceDirectStreamReader
                             toSkip += length;
                         }
                         if (filter.testBytes(buffer, pos, length)) {
-                            outputRows[numResults] = i + posInRowGroup;
-                            resultInputNumbers[numResults] = activeIdx;
+                            output.append(i + posInRowGroup, activeIdx);
                             if (outputChannel != -1) {
                                 addResultBytes(buffer, pos, length);
                                 bytesToGo -= length + 4;
@@ -447,7 +445,7 @@ public class SliceDirectStreamReader
         endScan(presentStream);
     }
 
-    void addNullResult(int row, int activeIdx)
+    void addNullResult()
     {
         if (outputChannel != -1) {
             if (valueIsNull == null) {
@@ -456,10 +454,6 @@ public class SliceDirectStreamReader
             ensureResultRows();
             valueIsNull[numResults + numValues] = true;
             resultOffsets[numValues + numResults + 1] = resultOffsets[numValues + numResults];
-        }
-        if (filter != null) {
-            outputRows[numResults] = row;
-            resultInputNumbers[numResults] = activeIdx;
         }
         numResults++;
     }
