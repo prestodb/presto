@@ -269,7 +269,7 @@ public class OrcTester
         orcTester.structTestsEnabled = false;
         orcTester.mapTestsEnabled = false;
         orcTester.listTestsEnabled = false;
-        orcTester.nullTestsEnabled = false;
+        orcTester.nullTestsEnabled = true;
         orcTester.missingStructFieldsTestsEnabled = false;
         orcTester.skipBatchTestsEnabled = false;
         orcTester.formats = ImmutableSet.of(ORC_12, ORC_11, DWRF);
