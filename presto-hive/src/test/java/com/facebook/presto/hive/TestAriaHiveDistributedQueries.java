@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import org.testng.annotations.Test;
 
@@ -23,6 +24,8 @@ import static com.facebook.presto.SystemSessionProperties.ARIA_FLAGS;
 import static com.facebook.presto.SystemSessionProperties.ARIA_REORDER;
 import static com.facebook.presto.SystemSessionProperties.ARIA_REUSE_PAGES;
 import static com.facebook.presto.SystemSessionProperties.ARIA_SCAN;
+import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
+import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.airlift.tpch.TpchTable.getTables;
 import static io.airlift.units.Duration.nanosSince;
 
@@ -39,7 +42,13 @@ public class TestAriaHiveDistributedQueries
     private static QueryRunner createQueryRunner()
             throws Exception
     {
-        QueryRunner queryRunner = HiveQueryRunner.createQueryRunner(getTables());
+        QueryRunner queryRunner = HiveQueryRunner.createQueryRunner(ImmutableList.of());
+
+        Session noAria = Session.builder(queryRunner.getDefaultSession())
+                .setSystemProperty(ARIA_SCAN, "false")
+                .build();
+
+        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, noAria, getTables());
 
         createTable(queryRunner, "lineitem_aria", "CREATE TABLE lineitem_aria AS\n" +
                 "SELECT\n" +
