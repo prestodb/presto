@@ -31,6 +31,7 @@ abstract class NullWrappingColumnReader
     int innerPosInRowGroup;
     int numInnerRows;
     int[] nullsToAdd;
+    int[] nullsToAddIndexes;
     int numNullsToAdd;
     // Number of elements retrieved from inner reader.
     int numInnerResults;
@@ -69,7 +70,7 @@ abstract class NullWrappingColumnReader
             int row = inputRows[activeIdx] - posInRowGroup;
             if (!present[row]) {
                 if (keepNulls) {
-                    addNullToKeep(inputRows[activeIdx]);
+                    addNullToKeep(inputRows[activeIdx], activeIdx);
                 }
             }
             else {
@@ -83,7 +84,7 @@ abstract class NullWrappingColumnReader
         innerQualifyingSet.setEnd(skip + prevInner);
     }
 
-    private void addNullToKeep(int position)
+    private void addNullToKeep(int position, int inputIndex)
     {
         if (nullsToAdd == null) {
             nullsToAdd = new int[100];
@@ -91,7 +92,17 @@ abstract class NullWrappingColumnReader
         else if (nullsToAdd.length <= numNullsToAdd) {
             nullsToAdd = Arrays.copyOf(nullsToAdd, nullsToAdd.length * 2);
         }
-        nullsToAdd[numNullsToAdd++] = position;
+
+        if (nullsToAddIndexes == null) {
+            nullsToAddIndexes = new int[nullsToAdd.length];
+        }
+        else if (nullsToAddIndexes.length < nullsToAdd.length) {
+            nullsToAddIndexes = Arrays.copyOf(nullsToAddIndexes, nullsToAdd.length);
+        }
+
+        nullsToAdd[numNullsToAdd] = position;
+        nullsToAddIndexes[numNullsToAdd] = inputIndex;
+        numNullsToAdd++;
     }
 
     protected abstract void shiftUp(int from, int to);
@@ -136,15 +147,16 @@ abstract class NullWrappingColumnReader
             numResults = numInnerResults;
         }
         else {
-            addNullsAfterRead(output, end);
+            addNullsAfterRead(output);
         }
         int nullsLeft = savedNullsToAdd - numNullsToAdd;
         System.arraycopy(nullsToAdd, numNullsToAdd, nullsToAdd, 0, nullsLeft);
+        System.arraycopy(nullsToAddIndexes, numNullsToAdd, nullsToAddIndexes, 0, nullsLeft);
         numResults = numInnerResults + numNullsToAdd;
         numNullsToAdd = nullsLeft;
     }
 
-    private void addNullsAfterRead(QualifyingSet output, int endRow)
+    private void addNullsAfterRead(QualifyingSet output)
     {
         ensureNulls(numValues + numInnerResults + numNullsToAdd);
         int end = numValues + numInnerResults + numNullsToAdd;
@@ -187,41 +199,21 @@ abstract class NullWrappingColumnReader
             nullIdx--;
         }
         verify(targetIdx == numValues - 1);
-        moveNonNullsAroundNulls();
-    }
 
-    private void moveNonNullsAroundNulls()
-    {
-        int sourceRow = numInnerResults - 1;
-        int[] rows = null;
-        int[] inputNumbers = null;
-
-        int nullCtr = numNullsToAdd - 1;
         if (outputQualifyingSet != null) {
-            outputQualifyingSet.ensureCapacity(numInnerResults + numNullsToAdd);
-            outputQualifyingSet.setPositionCount(numInnerResults + numNullsToAdd);
-            rows = outputQualifyingSet.getPositions();
-            inputNumbers = outputQualifyingSet.getInputNumbers();
+            outputQualifyingSet.insert(nullsToAdd, nullsToAddIndexes, numNullsToAdd);
         }
-        for (int i = numInnerResults + numNullsToAdd - 1; i >= 0; i--) {
-            if (!valueIsNull[i + numValues]) {
-                if (outputChannel != -1) {
+
+        if (outputChannel != -1) {
+            int sourceRow = numInnerResults - 1;
+
+            for (int i = numInnerResults + numNullsToAdd - 1; i >= 0; i--) {
+                if (!valueIsNull[i + numValues]) {
                     shiftUp(sourceRow + numValues, i);
+                    sourceRow--;
                 }
-                if (rows != null) {
-                    rows[i] = rows[sourceRow];
-                    inputNumbers[i] = inputNumbers[sourceRow];
-                }
-                sourceRow--;
-            }
-            else {
-                if (outputChannel != -1) {
+                else {
                     writeNull(i + numValues);
-                }
-                if (rows != null) {
-                    rows[i] = nullsToAdd[nullCtr];
-                    inputNumbers[i] = inputQualifyingSet.findPositionAtOrAbove(nullsToAdd[nullCtr]);
-                    nullCtr--;
                 }
             }
         }
