@@ -145,6 +145,28 @@ public class QualifyingSet
         positionCount++;
     }
 
+    public void insert(int[] newPositions, int[] newInputIndexes, int newCount)
+    {
+        int originalIndex = positionCount - 1;
+        int newIndex = newCount - 1;
+
+        positionCount += newCount;
+        ensureCapacity(positionCount);
+
+        for (int i = positionCount - 1; i >= 0; i--) {
+            if (newIndex == -1 || (originalIndex != -1 && positions[originalIndex] > newPositions[newIndex])) {
+                positions[i] = positions[originalIndex];
+                inputNumbers[i] = inputNumbers[originalIndex];
+                originalIndex--;
+            }
+            else {
+                positions[i] = newPositions[newIndex];
+                inputNumbers[i] = newInputIndexes[newIndex];
+                newIndex--;
+            }
+        }
+    }
+
     // Use ensureCapacity + append
     @Deprecated
     public int[] getMutableInputNumbers(int minSize)
