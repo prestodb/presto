@@ -795,7 +795,7 @@ public class OrcRecordReader
                 if (qualifyingSet == null) {
                     qualifyingSet = new QualifyingSet();
                 }
-                qualifyingSet.setRange(0, (int) currentGroupRowCount);
+                qualifyingSet.setRange((int) currentGroupRowCount);
                 reader.setQualifyingSets(qualifyingSet, null);
                 if (reorderFilters && (currentRowGroup & 0x3) != 0 && currentRowGroup != 0) {
                     // Reconsider filter order Every 4 row groups.
