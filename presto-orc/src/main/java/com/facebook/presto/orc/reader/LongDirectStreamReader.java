@@ -205,13 +205,14 @@ public class LongDirectStreamReader
         ensureValuesSize();
         makeInnerQualifyingSets();
         QualifyingSet input = hasNulls ? innerQualifyingSet : inputQualifyingSet;
-        QualifyingSet output = outputQualifyingSet;
         // Read dataStream if there are non-null values in the QualifyingSet.
         if (input.getPositionCount() > 0) {
             if (filter != null) {
                 int numInput = input.getPositionCount();
                 int[] innerToOuter = !hasNulls ? null : innerQualifyingSet.getInputNumbers();
                 int[] outerRows = !hasNulls ? input.getPositions() : inputQualifyingSet.getPositions();
+                QualifyingSet output = outputQualifyingSet;
+                output.ensureCapacity(numInput);
                 numInnerResults = dataStream.scan(filter,
                                              input.getPositions(),
                                              0,
@@ -219,8 +220,8 @@ public class LongDirectStreamReader
                                              input.getEnd(),
                                              outerRows,
                                              innerToOuter,
-                                             output.getMutablePositions(numInput),
-                                             output.getMutableInputNumbers(numInput),
+                                             output.getPositions(),
+                                             output.getInputNumbers(),
                                              values,
                                              numValues);
             }
@@ -228,7 +229,7 @@ public class LongDirectStreamReader
                 numInnerResults = dataStream.scan(null,
                                              input.getPositions(),
                                              0,
-                                                  input.getPositionCount(),
+                                             input.getPositionCount(),
                                              input.getEnd(),
                                              null,
                                              null,
@@ -255,7 +256,7 @@ public class LongDirectStreamReader
     }
 
     @Override
-        protected void writeNull(int i)
+    protected void writeNull(int i)
     {
         // No action. values[i] is undefined if valueIsNull[i] == true.
     }

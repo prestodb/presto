@@ -60,9 +60,6 @@ public class DoubleStreamReader
 
     private boolean[] nullVector = new boolean[0];
     private long[] values;
-    // Result arrays from outputQualifyingSet.
-    int[] outputRows;
-    int[] resultInputNumbers;
 
     private InputStreamSource<DoubleInputStream> dataStreamSource = missingStreamSource(DoubleInputStream.class);
     @Nullable
@@ -211,7 +208,6 @@ public class DoubleStreamReader
         beginScan(presentStream, null);
         QualifyingSet input = inputQualifyingSet;
         QualifyingSet output = outputQualifyingSet;
-        int numInput = input.getPositionCount();
         int end = input.getEnd();
         int rowsInRange = end - posInRowGroup;
         int valuesSize = end;
@@ -223,10 +219,10 @@ public class DoubleStreamReader
         if (values == null || values.length < valuesSize) {
             values = new long[valuesSize];
         }
-        outputRows = filter != null ? output.getMutablePositions(rowsInRange) : null;
-        resultInputNumbers = filter != null ? output.getMutableInputNumbers(rowsInRange) : null;
+        if (filter != null) {
+            output.ensureCapacity(rowsInRange);
+        }
         int[] inputPositions = input.getPositions();
-        int valueIdx = 0;
         int nextActive = inputPositions[0];
         int activeIdx = 0;
         int toSkip = 0;
@@ -237,7 +233,10 @@ public class DoubleStreamReader
                 }
                 if (presentStream != null && !present[i]) {
                     if (filter == null || filter.testNull()) {
-                        addNullResult(i + posInRowGroup, activeIdx);
+                        if (filter != null) {
+                            output.append(i + posInRowGroup, activeIdx);
+                        }
+                        addNullResult();
                     }
                 }
                 else {
@@ -273,8 +272,7 @@ public class DoubleStreamReader
                     }
                     if (filter != null) {
                         if (filter.testDouble(value)) {
-                            outputRows[numResults] = i + posInRowGroup;
-                            resultInputNumbers[numResults] = activeIdx;
+                            output.append(i + posInRowGroup, activeIdx);
                             if (outputChannel != -1) {
                                 addResult(value);
                             }
@@ -286,7 +284,6 @@ public class DoubleStreamReader
                         addResult(value);
                         numResults++;
                     }
-                    valueIdx++;
                 }
                 if (++activeIdx == input.getPositionCount()) {
                     toSkip = countPresent(i + 1, end - posInRowGroup);
@@ -302,7 +299,6 @@ public class DoubleStreamReader
                 // The row is notg in the input qualifying set. Add to skip if non-null.
                 if (presentStream == null || present[i]) {
                     toSkip++;
-                    valueIdx++;
                 }
             }
         }
@@ -312,7 +308,7 @@ public class DoubleStreamReader
         endScan(presentStream);
     }
 
-    void addNullResult(int row, int activeIdx)
+    void addNullResult()
     {
         if (outputChannel != -1) {
             if (valueIsNull == null) {
@@ -320,10 +316,6 @@ public class DoubleStreamReader
             }
             ensureResultRows();
             valueIsNull[numResults + numValues] = true;
-        }
-        if (filter != null) {
-            outputRows[numResults] = row;
-            resultInputNumbers[numResults] = activeIdx;
         }
         numResults++;
     }

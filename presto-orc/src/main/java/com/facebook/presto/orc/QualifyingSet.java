@@ -121,7 +121,7 @@ public class QualifyingSet
         return inputNumbers;
     }
 
-    private void ensureCapacity(int capacity)
+    public void ensureCapacity(int capacity)
     {
         if (positions == null) {
             positions = new int[capacity];
@@ -138,12 +138,15 @@ public class QualifyingSet
         }
     }
 
-    public int[] getMutablePositions(int minSize)
+    public void append(int position, int inputIndex)
     {
-        ensureCapacity(minSize);
-        return positions;
+        positions[positionCount] = position;
+        inputNumbers[positionCount] = inputIndex;
+        positionCount++;
     }
 
+    // Use ensureCapacity + append
+    @Deprecated
     public int[] getMutableInputNumbers(int minSize)
     {
         ensureCapacity(minSize);
@@ -340,8 +343,7 @@ public class QualifyingSet
             }
             return;
         }
-        positions = getMutablePositions(positionCount);
-        inputNumbers = getMutableInputNumbers(positionCount);
+        ensureCapacity(positionCount);
         int lowestSurvivingInput = translateResultToParentRows ? 0 : inputNumbers[surviving];
         for (int i = surviving; i < positionCount; i++) {
             positions[i - surviving] = positions[i];
@@ -365,9 +367,8 @@ public class QualifyingSet
 
     public void compactPositionsAndErrors(int[] surviving, int numSurviving)
     {
-        int[] rows = getMutablePositions(0);
         for (int i = 0; i < numSurviving; i++) {
-            rows[i] = rows[surviving[i]];
+            positions[i] = positions[surviving[i]];
         }
         positionCount = numSurviving;
         if (errorSet != null && !errorSet.isEmpty()) {
