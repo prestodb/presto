@@ -81,6 +81,7 @@ import static io.airlift.tpch.TpchTable.LINE_ITEM;
 import static io.airlift.tpch.TpchTable.NATION;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.airlift.tpch.TpchTable.PART;
+import static io.airlift.tpch.TpchTable.PART_SUPPLIER;
 import static io.airlift.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
@@ -158,6 +159,15 @@ public class H2QueryRunner
                 ")");
         insertRows(tpchMetadata, PART);
 
+        handle.execute("CREATE TABLE partsupp (\n" +
+                "  partkey bigint NOT NULL,\n" +
+                "  suppkey bigint NOT NULL,\n" +
+                "  availqty integer NOT NULL,\n" +
+                "  supplycost double NOT NULL,\n" +
+                "  comment varchar(199) NOT NULL\n" +
+                ")");
+        insertRows(tpchMetadata, PART_SUPPLIER);
+
         handle.execute("CREATE TABLE lineitem_aria_nulls AS\n" +
                 "SELECT *\n" +
 //                "   CASEWHEN(have_complex_nulls, null, map(array[1, 2, 3], array[orderkey, partkey, suppkey])) as order_part_supp_map,\n" +
@@ -175,19 +185,20 @@ public class H2QueryRunner
                 "       CASEWHEN(have_simple_nulls and mod (orderkey + linenumber, 7) = 0, null, comment) as comment,\n" +
                 "       CASEWHEN(have_simple_nulls and mod(orderkey + linenumber, 31) = 0, null, returnflag = 'R') as is_returned,\n" +
                 "       CASEWHEN(have_simple_nulls and mod(orderkey + linenumber, 37) = 0, null, CAST(quantity + 1 as real)) as float_quantity\n" +
-                "   FROM (SELECT mod(orderkey, 198000) > 99000 as have_simple_nulls, * from lineitem))\n");
+                "   FROM (SELECT mod(orderkey, 198000) > 99000 as have_simple_nulls, * FROM lineitem))\n");
 
         handle.execute("CREATE TABLE lineitem_aria_strings AS\n" +
                 "SELECT\n" +
                 "    orderkey,\n" +
+                "    partkey,\n" +
+                "    suppkey,\n" +
                 "    linenumber,\n" +
                 "    comment,\n" +
                 "    CONCAT(CAST(partkey AS VARCHAR), comment) AS partkey_comment,\n" +
                 "    CONCAT(CAST(suppkey AS VARCHAR), comment) AS suppkey_comment,\n" +
                 "    CONCAT(CAST(quantity AS VARCHAR), comment) AS quantity_comment\n" +
                 "FROM lineitem\n" +
-                "WHERE\n" +
-                "    orderkey < 100000");
+                "WHERE orderkey < 100000");
     }
 
     private void insertRows(TpchMetadata tpchMetadata, TpchTable tpchTable)
