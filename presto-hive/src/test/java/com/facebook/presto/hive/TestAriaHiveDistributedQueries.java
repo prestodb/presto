@@ -82,6 +82,8 @@ public class TestAriaHiveDistributedQueries
         createTable(queryRunner, "lineitem_aria_strings", "CREATE TABLE lineitem_aria_strings AS\n" +
                 "SELECT\n" +
                 "    orderkey,\n" +
+                "    partkey,\n" +
+                "    suppkey,\n" +
                 "    linenumber,\n" +
                 "    comment,\n" +
                 "    CONCAT(CAST(partkey AS VARCHAR), comment) AS partkey_comment,\n" +
@@ -93,6 +95,8 @@ public class TestAriaHiveDistributedQueries
         createTable(queryRunner, "lineitem_aria_string_structs", "CREATE TABLE lineitem_aria_string_structs AS\n" +
                 "SELECT\n" +
                 "    orderkey,\n" +
+                "    partkey,\n" +
+                "    suppkey,\n" +
                 "    linenumber,\n" +
                 "    CAST(\n" +
                 "        ROW(\n" +
@@ -110,6 +114,41 @@ public class TestAriaHiveDistributedQueries
                 "        ) AS ROW(\n" +
                 "            suppkey_comment VARCHAR,\n" +
                 "            quantity_comment VARCHAR\n" +
+                "        )\n" +
+                "    ) AS suppkey_quantity_struct\n" +
+                "FROM tpch.tiny.lineitem\n" +
+                "WHERE orderkey < 100000");
+
+        createTable(queryRunner, "", "CREATE TABLE lineitem_aria_string_structs_with_nulls AS\n" +
+                "SELECT\n" +
+                "    orderkey,\n" +
+                "    partkey,\n" +
+                "    suppkey,\n" +
+                "    linenumber,\n" +
+                "    CAST(\n" +
+                "        IF(mod(partkey, 5) = 0, NULL,\n" +
+                "            ROW(\n" +
+                "                comment,\n" +
+                "                IF (mod(partkey, 13) = 0, NULL,\n" +
+                "                    CONCAT(CAST(partkey AS VARCHAR), comment)\n" +
+                "                )\n" +
+                "            )\n" +
+                "        ) AS ROW(\n" +
+                "            comment VARCHAR,\n" +
+                "            partkey_comment VARCHAR\n" +
+                "        )\n" +
+                "    ) AS partkey_struct,\n" +
+                "    CAST(\n" +
+                "        IF(mod(suppkey, 7) = 0, NULL,\n" +
+                "            ROW(\n" +
+                "                IF (mod(suppkey, 17) = 0, NULL,\n" +
+                "                    CONCAT(CAST(suppkey AS VARCHAR), comment)\n" +
+                "                ),\n" +
+                "                CONCAT(CAST(quantity AS VARCHAR), comment)\n" +
+                "            )\n" +
+                "        ) AS ROW(\n" +
+                "            suppkey_comment VARCHAR,\n" +
+                "            quantity_comment varchar\n" +
                 "        )\n" +
                 "    ) AS suppkey_quantity_struct\n" +
                 "FROM tpch.tiny.lineitem\n" +
@@ -253,5 +292,64 @@ public class TestAriaHiveDistributedQueries
                         "    suppkey_comment,\n" +
                         "    quantity_comment\n" +
                         "FROM lineitem_aria_strings");
+
+        assertQuery(ariaSession(), "SELECT\n" +
+                        "    orderkey,\n" +
+                        "    linenumber,\n" +
+                        "    partkey_struct.comment,\n" +
+                        "    partkey_struct.partkey_comment,\n" +
+                        "    suppkey_quantity_struct.suppkey_comment,\n" +
+                        "    suppkey_quantity_struct.quantity_comment\n" +
+                        "FROM lineitem_aria_string_structs_with_nulls",
+                "SELECT\n" +
+                        "    orderkey,\n" +
+                        "    linenumber,\n" +
+                        "    CASEWHEN(mod(partkey, 5) = 0, null, comment),\n" +
+                        "    CASEWHEN(mod(partkey, 5) = 0 OR mod(partkey, 13) = 0, null, partkey_comment),\n" +
+                        "    CASEWHEN(mod(suppkey, 7) = 0 OR mod(suppkey, 17) = 0, null, suppkey_comment),\n" +
+                        "    CASEWHEN(mod(suppkey, 7) = 0, null, quantity_comment)\n" +
+                        "FROM lineitem_aria_strings");
+
+        assertQuery(ariaSession(), "SELECT\n" +
+                "    orderkey,\n" +
+                "    linenumber,\n" +
+                "    partkey_struct.comment,\n" +
+                "    partkey_struct.partkey_comment,\n" +
+                "    suppkey_quantity_struct.suppkey_comment,\n" +
+                "    suppkey_quantity_struct.quantity_comment\n" +
+                "FROM lineitem_aria_string_structs_with_nulls\n" +
+                "WHERE\n" +
+                "    partkey_struct.comment > 'f'\n" +
+                "    AND partkey_struct.partkey_comment > '1'\n" +
+                "    AND suppkey_quantity_struct.suppkey_comment > '1'\n" +
+                "    AND suppkey_quantity_struct.quantity_comment > '2'",
+                "SELECT\n" +
+                        "    orderkey,\n" +
+                        "    linenumber,\n" +
+                        "    comment,\n" +
+                        "    partkey_comment,\n" +
+                        "    suppkey_comment,\n" +
+                        "    quantity_comment\n" +
+                        "FROM lineitem_aria_strings\n" +
+                        "WHERE\n" +
+                        "    mod(partkey, 5) <> 0 AND mod(partkey, 13) <> 0" +
+                        "    AND mod(suppkey, 7) <> 0 AND mod(suppkey, 17) <> 0" +
+                        "    AND comment > 'f'\n" +
+                        "    AND partkey_comment > '1'\n" +
+                        "    AND suppkey_comment > '1'\n" +
+                        "    AND quantity_comment > '2'");
+    }
+
+    @Test
+    public void testQueenOfTheNight()
+    {
+        assertQuery(ariaSession(), "SELECT\n" +
+                "    COUNT(*),\n" +
+                "    SUM(l.extendedprice * (1 - l.discount) - l.quantity * p.supplycost)\n" +
+                "FROM lineitem l, partsupp p\n" +
+                "WHERE\n" +
+                "    l.partkey = p.partkey\n" +
+                "    AND l.suppkey = p.suppkey\n" +
+                "    AND p.availqty < 1000");
     }
 }
