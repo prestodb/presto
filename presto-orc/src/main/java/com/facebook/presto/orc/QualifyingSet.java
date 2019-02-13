@@ -58,12 +58,12 @@ public class QualifyingSet
         }
     }
 
-    public void setRange(int begin, int end)
+    public void setRange(int end)
     {
         this.end = end;
         int[] zeros = allZeros;
-        if (zeros.length < end - begin) {
-            int[] newZeros = new int[end - begin];
+        if (zeros.length < end) {
+            int[] newZeros = new int[end];
             Arrays.fill(newZeros, 0);
             allZeros = newZeros;
             inputNumbers = newZeros;
@@ -71,32 +71,21 @@ public class QualifyingSet
         else {
             inputNumbers = zeros;
         }
-        if (begin == 0) {
-            int[] rowGroup = wholeRowGroup;
-            if (rowGroup.length >= end) {
-                positions = rowGroup;
-            }
-            else {
-                // Thread safe.  If many concurrently create a new wholeRowGroup, many are created but all but one become garbage and everybody has a right size array.
-                int[] newWholeRowGroup = new int[end];
-                for (int i = 0; i < end; i++) {
-                    newWholeRowGroup[i] = i;
-                }
-                positions = newWholeRowGroup;
-                wholeRowGroup = newWholeRowGroup;
-            }
-            positionCount = end;
+
+        int[] rowGroup = wholeRowGroup;
+        if (rowGroup.length >= end) {
+            positions = rowGroup;
         }
         else {
-            if (ownedPositions == null || ownedPositions.length < end - begin) {
-                ownedPositions = new int[(int) ((end - begin) * 1.2)];
+            // Thread safe.  If many concurrently create a new wholeRowGroup, many are created but all but one become garbage and everybody has a right size array.
+            int[] newWholeRowGroup = new int[end];
+            for (int i = 0; i < end; i++) {
+                newWholeRowGroup[i] = i;
             }
-            positions = ownedPositions;
-
-            for (int i = begin; i < end; i++) {
-                positions[i - begin] = i;
-            }
+            positions = newWholeRowGroup;
+            wholeRowGroup = newWholeRowGroup;
         }
+        positionCount = end;
     }
 
     public boolean isEmpty()
@@ -151,17 +140,7 @@ public class QualifyingSet
         }
         return inputNumbers;
     }
-    /*
-    public int getBegin()
-    {
-        return begin;
-    }
 
-    public void setBegin(int begin)
-    {
-        this.begin = begin;
-    }
-    */
     public int getEnd()
     {
         if (truncationPosition != -1) {
