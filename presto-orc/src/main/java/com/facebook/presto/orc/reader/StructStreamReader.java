@@ -462,14 +462,10 @@ public class StructStreamReader
         }
         check();
         beginScan(presentStream, null);
-        QualifyingSet input = inputQualifyingSet;
-        QualifyingSet output = outputQualifyingSet;
         int initialFieldResults = reader.getNumResults();
-        int firstRow = inputQualifyingSet.getPositions()[0];
         if (reader.hasUnfetchedRows()) {
             // posInRowGroup is the first unprocessed enclosing level
             // row, by definition part of the input qualifying set.
-            firstRow = posInRowGroup;
             setInnerTruncation();
             int originalTarget = innerQualifyingSet.getEnd();
             reader.advance();
@@ -488,8 +484,7 @@ public class StructStreamReader
                 inputCopy = new QualifyingSet();
             }
             inputCopy.copyFrom(inputQualifyingSet);
-            int numInput = input.getPositionCount();
-            makeInnerQualifyingSets(0, numInput);
+            makeInnerQualifyingSets();
             if (hasNulls) {
                 innerQualifyingSet.setParent(inputQualifyingSet);
                 innerQualifyingSet.setTranslateResultToParentRows(true);
