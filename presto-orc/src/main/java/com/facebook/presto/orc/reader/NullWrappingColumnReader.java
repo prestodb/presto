@@ -45,10 +45,10 @@ abstract class NullWrappingColumnReader
     // Translates the positions of inputQualifyingSet between
     // beginPosition and endPosition into an inner qualifying set for
     // the non-null content.
-    protected void makeInnerQualifyingSets(int beginPosition, int endPosition)
+    protected void makeInnerQualifyingSets()
     {
         if (presentStream == null) {
-            numInnerRows = endPosition - beginPosition;
+            numInnerRows = inputQualifyingSet.getPositionCount();
             hasNulls = false;
             return;
         }
@@ -57,9 +57,8 @@ abstract class NullWrappingColumnReader
         if (innerQualifyingSet == null) {
             innerQualifyingSet = new QualifyingSet();
         }
-        QualifyingSet input = inputQualifyingSet;
-        int[] inputRows = input.getPositions();
-        int numActive = Math.min(endPosition, input.getPositionCount());
+        int[] inputRows = inputQualifyingSet.getPositions();
+        int numActive = inputQualifyingSet.getPositionCount();
         QualifyingSet inner = innerQualifyingSet;
         int[] innerRows = inner.getMutablePositions(numActive);
         int[] innerToOuter = inner.getMutableInputNumbers(numActive);
@@ -67,7 +66,7 @@ abstract class NullWrappingColumnReader
         int prevInner = innerPosInRowGroup;
         numNullsToAdd = 0;
         boolean keepNulls = filter == null || filter.testNull();
-        for (int activeIdx = beginPosition; activeIdx < endPosition; activeIdx++) {
+        for (int activeIdx = 0; activeIdx < numActive; activeIdx++) {
             int row = inputRows[activeIdx] - posInRowGroup;
             if (!present[row]) {
                 if (keepNulls) {
@@ -82,10 +81,7 @@ abstract class NullWrappingColumnReader
                 prevInner = innerRows[numInnerRows - 1];
             }
         }
-        int end = endPosition < inputQualifyingSet.getPositionCount()
-                ? inputRows[endPosition]
-                : input.getEnd();
-        int skip = countPresent(prevRow, end - posInRowGroup);
+        int skip = countPresent(prevRow, inputQualifyingSet.getEnd() - posInRowGroup);
         innerQualifyingSet.setPositionCount(numInnerRows);
         innerQualifyingSet.setEnd(skip + prevInner);
     }

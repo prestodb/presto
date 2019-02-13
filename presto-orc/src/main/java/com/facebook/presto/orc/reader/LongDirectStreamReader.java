@@ -202,10 +202,8 @@ public class LongDirectStreamReader
             openRowGroup();
         }
         beginScan(presentStream, null);
-        if (outputChannel != -1) {
-            ensureValuesSize();
-        }
-        makeInnerQualifyingSets(0, inputQualifyingSet.getPositionCount());
+        ensureValuesSize();
+        makeInnerQualifyingSets();
         QualifyingSet input = hasNulls ? innerQualifyingSet : inputQualifyingSet;
         QualifyingSet output = outputQualifyingSet;
         // Read dataStream if there are non-null values in the QualifyingSet.
@@ -292,10 +290,10 @@ public class LongDirectStreamReader
         }
         else if (numValues + numInput > values.length) {
             int newSize = (int) ((numValues + numInput) * 1.2);
+            values = Arrays.copyOf(values, newSize);
             if (valueIsNull != null) {
                 valueIsNull = Arrays.copyOf(valueIsNull, newSize);
             }
-            values = Arrays.copyOf(values, newSize);
         }
     }
 
