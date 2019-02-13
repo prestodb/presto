@@ -211,18 +211,33 @@ public class DoubleStreamReader
         int end = input.getEnd();
         int rowsInRange = end - posInRowGroup;
         int valuesSize = end;
+        int[] inputPositions = input.getPositions();
+        if (filter != null) {
+            output.ensureCapacity(rowsInRange);
+        }
+        if (values == null || values.length < valuesSize) {
+            values = new long[valuesSize];
+        }
+
+        if (dataStream == null) {
+            // all values are null
+            if (filter == null || filter.testNull()) {
+                for (int i = 0; i < input.getPositionCount(); i++) {
+                    if (filter != null) {
+                        output.append(inputPositions[i], i);
+                    }
+                    addNullResult();
+                }
+            }
+            endScan(presentStream);
+            return;
+        }
+
         OrcInputStream orcDataStream = dataStream.getInput();
         int available = orcDataStream.available();
         byte[] inputBuffer = orcDataStream.getBuffer(available);
         int inputOffset = orcDataStream.getOffsetInBuffer();
         int offsetInStream = inputOffset;
-        if (values == null || values.length < valuesSize) {
-            values = new long[valuesSize];
-        }
-        if (filter != null) {
-            output.ensureCapacity(rowsInRange);
-        }
-        int[] inputPositions = input.getPositions();
         int nextActive = inputPositions[0];
         int activeIdx = 0;
         int toSkip = 0;
