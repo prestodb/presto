@@ -635,7 +635,6 @@ public class ColumnGroupReader
     private void alignResultsAndRemoveFromQualifyingSet(int numAdded, int lastStreamIdx)
     {
         boolean needCompact = false;
-        boolean hasErrors = false;
         int numSurviving = numAdded;
         for (int streamIdx = lastStreamIdx; streamIdx >= 0; --streamIdx) {
             StreamReader reader = sortedStreamReaders[streamIdx];
@@ -643,9 +642,6 @@ public class ColumnGroupReader
                 reader.compactValues(survivingRows, numRowsInResult, numSurviving);
             }
             QualifyingSet output = reader.getOutputQualifyingSet();
-            if (output != null && output.hasErrors()) {
-                hasErrors = true;
-            }
             QualifyingSet input = reader.getInputQualifyingSet();
             int truncationRow = reader.getTruncationRow();
             if (truncationRow == -1 &&
@@ -687,9 +683,8 @@ public class ColumnGroupReader
         }
         // Record the input rows that made it into the output qualifying set.
         if (outputQualifyingSet != null) {
-            int[] inputRows = inputQualifyingSet.getPositions();
-            int[] rows = outputQualifyingSet.getMutablePositions(numAdded);
-            int[] inputs = outputQualifyingSet.getMutableInputNumbers(numAdded);
+            outputQualifyingSet.ensureCapacity(numAdded);
+            outputQualifyingSet.setPositionCount(0);
             if (inputQualifyingSet.getTranslateResultToParentRows()) {
                 int[] translation = inputQualifyingSet.getInputNumbers();
                 QualifyingSet parent = inputQualifyingSet.getParent();
@@ -697,18 +692,16 @@ public class ColumnGroupReader
                 for (int i = 0; i < numAdded; i++) {
                     int row = needCompact ? survivingRows[i] : i;
                     int parentPos = translation[row];
-                    inputs[i] = parentPos;
-                    rows[i] = parentRows[parentPos];
+                    outputQualifyingSet.append(parentRows[parentPos], parentPos);
                 }
             }
             else {
+                int[] inputRows = inputQualifyingSet.getPositions();
                 for (int i = 0; i < numAdded; i++) {
                     int row = needCompact ? survivingRows[i] : i;
-                    inputs[i] = row;
-                    rows[i] = inputRows[row];
+                    outputQualifyingSet.append(inputRows[row], row);
                 }
             }
-            outputQualifyingSet.setPositionCount(numAdded);
         }
         StreamReader lastReader = sortedStreamReaders[lastStreamIdx];
         int endRow = getCurrentRow(lastReader);

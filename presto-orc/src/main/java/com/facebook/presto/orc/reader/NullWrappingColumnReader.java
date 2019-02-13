@@ -53,15 +53,14 @@ abstract class NullWrappingColumnReader
             return;
         }
         hasNulls = true;
-        numInnerRows = 0;
         if (innerQualifyingSet == null) {
             innerQualifyingSet = new QualifyingSet();
         }
         int[] inputRows = inputQualifyingSet.getPositions();
         int numActive = inputQualifyingSet.getPositionCount();
-        QualifyingSet inner = innerQualifyingSet;
-        int[] innerRows = inner.getMutablePositions(numActive);
-        int[] innerToOuter = inner.getMutableInputNumbers(numActive);
+
+        innerQualifyingSet.ensureCapacity(numActive);
+        innerQualifyingSet.setPositionCount(0);
         int prevRow = posInRowGroup;
         int prevInner = innerPosInRowGroup;
         numNullsToAdd = 0;
@@ -74,15 +73,13 @@ abstract class NullWrappingColumnReader
                 }
             }
             else {
-                int distance = countPresent(prevRow, row);
+                prevInner += countPresent(prevRow, row);
                 prevRow = row;
-                innerToOuter[numInnerRows] = activeIdx;
-                innerRows[numInnerRows++] = prevInner + distance;
-                prevInner = innerRows[numInnerRows - 1];
+                innerQualifyingSet.append(prevInner, activeIdx);
             }
         }
+        numInnerRows = innerQualifyingSet.getPositionCount();
         int skip = countPresent(prevRow, inputQualifyingSet.getEnd() - posInRowGroup);
-        innerQualifyingSet.setPositionCount(numInnerRows);
         innerQualifyingSet.setEnd(skip + prevInner);
     }
 
@@ -97,17 +94,11 @@ abstract class NullWrappingColumnReader
         nullsToAdd[numNullsToAdd++] = position;
     }
 
-    protected void shiftUp(int from, int to)
-    {
-        throw new UnsupportedOperationException("subclasses must implement");
-    }
+    protected abstract void shiftUp(int from, int to);
 
     // When nulls are inserted into results, this is called for the
     // positions that are null, after moving the value with shiftUp().
-    protected void writeNull(int position)
-    {
-        throw new UnsupportedOperationException("subclass should implement");
-    }
+    protected abstract void writeNull(int position);
 
     private void ensureNulls(int size)
     {
@@ -201,34 +192,35 @@ abstract class NullWrappingColumnReader
 
     private void moveNonNullsAroundNulls()
     {
-        int sourceRow = numValues + numInnerResults - 1;
+        int sourceRow = numInnerResults - 1;
         int[] rows = null;
         int[] inputNumbers = null;
 
         int nullCtr = numNullsToAdd - 1;
         if (outputQualifyingSet != null) {
-            rows = outputQualifyingSet.getMutablePositions(numInnerResults + numNullsToAdd);
-            inputNumbers = outputQualifyingSet.getMutablePositions(numInnerResults + numNullsToAdd);
+            outputQualifyingSet.ensureCapacity(numInnerResults + numNullsToAdd);
             outputQualifyingSet.setPositionCount(numInnerResults + numNullsToAdd);
+            rows = outputQualifyingSet.getPositions();
+            inputNumbers = outputQualifyingSet.getInputNumbers();
         }
-        for (int i = numValues + numInnerResults + numNullsToAdd - 1; i >= numValues; i--) {
-            if (!valueIsNull[i]) {
+        for (int i = numInnerResults + numNullsToAdd - 1; i >= 0; i--) {
+            if (!valueIsNull[i + numValues]) {
                 if (outputChannel != -1) {
-                    shiftUp(sourceRow, i);
+                    shiftUp(sourceRow + numValues, i);
                 }
                 if (rows != null) {
-                    rows[i - numValues] = rows[sourceRow - numValues];
-                    inputNumbers[i - numValues] = inputNumbers[sourceRow - numValues];
+                    rows[i] = rows[sourceRow];
+                    inputNumbers[i] = inputNumbers[sourceRow];
                 }
                 sourceRow--;
             }
             else {
                 if (outputChannel != -1) {
-                    writeNull(i);
+                    writeNull(i + numValues);
                 }
                 if (rows != null) {
-                    rows[i - numValues] = nullsToAdd[nullCtr];
-                    inputNumbers[i - numValues] = inputQualifyingSet.findPositionAtOrAbove(nullsToAdd[nullCtr]);
+                    rows[i] = nullsToAdd[nullCtr];
+                    inputNumbers[i] = inputQualifyingSet.findPositionAtOrAbove(nullsToAdd[nullCtr]);
                     nullCtr--;
                 }
             }
