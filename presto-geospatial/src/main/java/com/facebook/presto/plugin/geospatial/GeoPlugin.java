@@ -41,6 +41,7 @@ public class GeoPlugin
     public Set<Class<?>> getFunctions()
     {
         return ImmutableSet.<Class<?>>builder()
+                .add(GeometryOperators.class)
                 .add(GeoFunctions.class)
                 .add(BingTileOperators.class)
                 .add(BingTileFunctions.class)

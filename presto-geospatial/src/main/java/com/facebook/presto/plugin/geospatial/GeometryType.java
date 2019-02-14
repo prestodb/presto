@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.plugin.geospatial;
 
+import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.AbstractVariableWidthType;
 import com.facebook.presto.spi.type.TypeSignature;
 import io.airlift.slice.Slice;
+import io.airlift.slice.XxHash64;
 
 import static com.facebook.presto.geospatial.serde.GeometrySerde.deserialize;
 
@@ -84,5 +86,31 @@ public class GeometryType
         }
         Slice slice = block.getSlice(position, 0, block.getSliceLength(position));
         return deserialize(slice).asText();
+    }
+
+    @Override
+    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        if (leftBlock.isNull(leftPosition)) {
+            return rightBlock.isNull(rightPosition);
+        }
+
+        if (rightBlock.isNull(rightPosition)) {
+            return false;
+        }
+
+        OGCGeometry leftGeometry = deserialize(leftBlock.getSlice(leftPosition, 0, leftBlock.getSliceLength(leftPosition)));
+        OGCGeometry rightGeometry = deserialize(rightBlock.getSlice(rightPosition, 0, rightBlock.getSliceLength(rightPosition)));
+        return leftGeometry.Equals(rightGeometry);
+    }
+
+    @Override
+    public long hash(Block block, int position)
+    {
+        if (block.isNull(position)) {
+            return 0;
+        }
+
+        return XxHash64.hash(deserialize(block.getSlice(position, 0, block.getSliceLength(position))).hashCode());
     }
 }

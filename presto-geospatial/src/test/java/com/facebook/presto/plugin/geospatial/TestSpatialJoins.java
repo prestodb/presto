@@ -14,29 +14,13 @@
 package com.facebook.presto.plugin.geospatial;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.hive.HdfsConfiguration;
-import com.facebook.presto.hive.HdfsConfigurationUpdater;
-import com.facebook.presto.hive.HdfsEnvironment;
-import com.facebook.presto.hive.HiveClientConfig;
-import com.facebook.presto.hive.HiveHdfsConfiguration;
-import com.facebook.presto.hive.HivePlugin;
-import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
-import com.facebook.presto.hive.metastore.Database;
-import com.facebook.presto.hive.metastore.PrincipalType;
-import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
-import com.facebook.presto.tests.AbstractTestQueryFramework;
-import com.facebook.presto.tests.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
-import java.io.File;
-import java.util.Optional;
-
 import static com.facebook.presto.SystemSessionProperties.SPATIAL_PARTITIONING_TABLE_NAME;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 
 public class TestSpatialJoins
-        extends AbstractTestQueryFramework
+        extends AbstractTestSpatialQueries
 {
     // A set of polygons such that:
     // - a and c intersect;
@@ -58,39 +42,6 @@ public class TestSpatialJoins
             "(2.1, 2.1, 'y', 2), " +
             "(7.1, 7.2, 'z', 3), " +
             "(null, 1.2, 'null', 4)";
-
-    public TestSpatialJoins()
-    {
-        super(() -> createQueryRunner());
-    }
-
-    private static DistributedQueryRunner createQueryRunner()
-            throws Exception
-    {
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(testSessionBuilder()
-                .setSource(TestSpatialJoins.class.getSimpleName())
-                .setCatalog("hive")
-                .setSchema("default")
-                .build(), 4);
-        queryRunner.installPlugin(new GeoPlugin());
-
-        File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
-
-        HiveClientConfig hiveClientConfig = new HiveClientConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig));
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig, new NoHdfsAuthentication());
-
-        FileHiveMetastore metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
-        metastore.createDatabase(Database.builder()
-                .setDatabaseName("default")
-                .setOwnerName("public")
-                .setOwnerType(PrincipalType.ROLE)
-                .build());
-        queryRunner.installPlugin(new HivePlugin("hive", Optional.of(metastore)));
-
-        queryRunner.createCatalog("hive", "hive");
-        return queryRunner;
-    }
 
     @Test
     public void testBroadcastSpatialJoinContains()
