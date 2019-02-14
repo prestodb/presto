@@ -53,7 +53,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class MapDirectStreamReader
-        extends ColumnReader implements StreamReader
+        extends ColumnReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapDirectStreamReader.class).instanceSize();
 
