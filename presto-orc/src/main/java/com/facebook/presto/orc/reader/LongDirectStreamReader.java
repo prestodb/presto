@@ -212,7 +212,7 @@ public class LongDirectStreamReader
                 int[] innerToOuter = !hasNulls ? null : innerQualifyingSet.getInputNumbers();
                 int[] outerRows = !hasNulls ? input.getPositions() : inputQualifyingSet.getPositions();
                 QualifyingSet output = outputQualifyingSet;
-                output.ensureCapacity(numInput);
+                output.reset(numInput);
                 numInnerResults = dataStream.scan(filter,
                                              input.getPositions(),
                                              0,
