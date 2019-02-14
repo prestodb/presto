@@ -121,6 +121,12 @@ public class QualifyingSet
         return inputNumbers;
     }
 
+    public void reset(int capacity)
+    {
+        ensureCapacity(capacity);
+        positionCount = 0;
+    }
+
     public void ensureCapacity(int capacity)
     {
         if (positions == null) {

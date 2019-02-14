@@ -683,8 +683,7 @@ public class ColumnGroupReader
         }
         // Record the input rows that made it into the output qualifying set.
         if (outputQualifyingSet != null) {
-            outputQualifyingSet.ensureCapacity(numAdded);
-            outputQualifyingSet.setPositionCount(0);
+            outputQualifyingSet.reset(numAdded);
             if (inputQualifyingSet.getTranslateResultToParentRows()) {
                 int[] translation = inputQualifyingSet.getInputNumbers();
                 QualifyingSet parent = inputQualifyingSet.getParent();
