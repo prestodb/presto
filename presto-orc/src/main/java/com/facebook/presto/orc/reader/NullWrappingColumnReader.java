@@ -109,14 +109,13 @@ abstract class NullWrappingColumnReader
     // positions that are null, after moving the value with shiftUp().
     protected abstract void writeNull(int position);
 
-    private void ensureNulls(int size)
+    private void ensureValueIsNullCapacity(int capacity)
     {
         if (valueIsNull == null) {
-            valueIsNull = new boolean[size];
-            return;
+            valueIsNull = new boolean[capacity];
         }
-        if (valueIsNull.length < size) {
-            valueIsNull = Arrays.copyOf(valueIsNull, Math.max(size, valueIsNull.length * 2));
+        else if (valueIsNull.length < capacity) {
+            valueIsNull = Arrays.copyOf(valueIsNull, capacity);
         }
     }
 
@@ -128,7 +127,7 @@ abstract class NullWrappingColumnReader
     {
         if (numNullsToAdd == 0) {
             if (valueIsNull != null) {
-                ensureNulls(numValues + numInnerResults);
+                ensureValueIsNullCapacity(numValues + numInnerResults);
                 Arrays.fill(valueIsNull, numValues, numValues + numInnerResults, false);
             }
             numResults = numInnerResults;
@@ -156,7 +155,7 @@ abstract class NullWrappingColumnReader
 
     private void addNullsAfterRead(QualifyingSet output)
     {
-        ensureNulls(numValues + numInnerResults + numNullsToAdd);
+        ensureValueIsNullCapacity(numValues + numInnerResults + numNullsToAdd);
         int end = numValues + numInnerResults + numNullsToAdd;
         Arrays.fill(valueIsNull, numValues, end, false);
         if (numNullsToAdd == 0) {
@@ -207,7 +206,7 @@ abstract class NullWrappingColumnReader
 
             for (int i = numInnerResults + numNullsToAdd - 1; i >= 0; i--) {
                 if (!valueIsNull[i + numValues]) {
-                    shiftUp(sourceRow + numValues, i);
+                    shiftUp(sourceRow + numValues, i + numValues);
                     sourceRow--;
                 }
                 else {
