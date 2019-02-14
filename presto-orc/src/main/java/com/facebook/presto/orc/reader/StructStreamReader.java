@@ -484,7 +484,7 @@ public class StructStreamReader
                 inputCopy = new QualifyingSet();
             }
             inputCopy.copyFrom(inputQualifyingSet);
-            makeInnerQualifyingSets();
+            makeInnerQualifyingSet();
             if (hasNulls) {
                 innerQualifyingSet.setParent(inputQualifyingSet);
                 innerQualifyingSet.setTranslateResultToParentRows(true);
