@@ -46,7 +46,6 @@ import static java.util.Objects.requireNonNull;
 
 public class LongDirectStreamReader
         extends NullWrappingColumnReader
-        implements StreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongDirectStreamReader.class).instanceSize();
 

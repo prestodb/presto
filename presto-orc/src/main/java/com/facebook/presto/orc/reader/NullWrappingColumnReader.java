@@ -24,7 +24,6 @@ import static com.google.common.base.Verify.verify;
 
 abstract class NullWrappingColumnReader
         extends ColumnReader
-        implements StreamReader
 {
     QualifyingSet innerQualifyingSet;
     boolean hasNulls;
