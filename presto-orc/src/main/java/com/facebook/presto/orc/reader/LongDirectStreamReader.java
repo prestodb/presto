@@ -224,6 +224,7 @@ public class LongDirectStreamReader
                                              output.getInputNumbers(),
                                              values,
                                              numValues);
+                output.setPositionCount(numInnerResults);
             }
             else {
                 numInnerResults = dataStream.scan(null,
