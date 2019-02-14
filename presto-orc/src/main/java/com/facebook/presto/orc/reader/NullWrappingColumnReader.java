@@ -234,7 +234,7 @@ abstract class NullWrappingColumnReader
     protected void openRowGroup()
             throws IOException
     {
-        super.openRowGroup();
         innerPosInRowGroup = 0;
+        super.openRowGroup();
     }
 }
