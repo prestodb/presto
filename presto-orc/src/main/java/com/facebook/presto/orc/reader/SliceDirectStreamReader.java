@@ -347,7 +347,7 @@ public class SliceDirectStreamReader
         int end = input.getEnd();
         int rowsInRange = end - posInRowGroup;
         if (filter != null) {
-            output.ensureCapacity(rowsInRange);
+            output.reset(rowsInRange);
         }
         int[] inputPositions = input.getPositions();
         lengthIdx = 0;
