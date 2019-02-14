@@ -87,7 +87,7 @@ Constructors
 
     Returns a LineString formed from an array of points. If there are fewer
     than two non-empty points in the input array, an empty LineString will be
-    returned.  Throws an exception if any element in the array is `null` or
+    returned.  Throws an exception if any element in the array is ``null`` or
     empty or same as the previous one.  The returned geometry may not be
     simple, e.g. may self-intersect or may contain duplicate vertexes depending
     on the input.
@@ -95,8 +95,8 @@ Constructors
 .. function:: ST_MultiPoint(array(Point)) -> MultiPoint
 
     Returns a MultiPoint geometry object formed from the specified points.
-    Return `null` if input array is empty.  Throws an exception if any element
-    in the array is `null` or empty.  The returned geometry may not be simple
+    Return ``null`` if input array is empty.  Throws an exception if any element
+    in the array is ``null`` or empty.  The returned geometry may not be simple
     and may contain duplicate points if input array has duplicates.
 
 .. function:: ST_Point(x, y) -> Point
@@ -201,7 +201,7 @@ Operations
 .. function:: ST_EnvelopeAsPts(Geometry) -> array(Geometry)
 
     Returns an array of two points: the lower left and upper right corners of
-    the bounding rectangular polygon of a geometry. Returns null if input
+    the bounding rectangular polygon of a geometry. Returns ``null`` if input
     geometry is empty.
 
 .. function:: ST_ExteriorRing(Geometry) -> Geometry
@@ -365,7 +365,7 @@ Accessors
 .. function:: ST_InteriorRings(Geometry) -> Geometry
 
    Returns an array of all interior rings found in the input geometry, or an empty
-   array if the polygon has no interior rings. Returns null if the input geometry
+   array if the polygon has no interior rings. Returns ``null`` if the input geometry
    is empty. Throws an error if the input geometry is not a polygon.
 
 .. function:: ST_NumGeometries(Geometry) -> bigint
@@ -379,7 +379,7 @@ Accessors
 .. function:: ST_Geometries(Geometry) -> Geometry
 
    Returns an array of geometries in the specified collection. Returns a one-element array
-   if the input geometry is not a multi-geometry. Returns null if input geometry is empty.
+   if the input geometry is not a multi-geometry. Returns ``null`` if input geometry is empty.
 
 .. function:: ST_NumPoints(Geometry) -> bigint
 
