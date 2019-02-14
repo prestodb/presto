@@ -43,7 +43,6 @@ abstract class ColumnReader
     Filter filter;
     int columnIndex;
     Type type;
-    int expectNumValues = 10000;
     // First row number in row group that is not processed due to
     // reaching target size. This must occur as a position in
     // inputQualifyingSet. -1 if all inputQualifyingSet is processed.
