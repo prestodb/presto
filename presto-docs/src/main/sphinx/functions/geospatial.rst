@@ -22,7 +22,9 @@ Binary (WKB) form of spatial objects:
 * ``GEOMETRYCOLLECTION (POINT(2 3), LINESTRING (2 3, 3 4))``
 
 Use ST_GeometryFromText and ST_GeomFromBinary functions to create geometry
-objects from WKT or WKB.
+objects from WKT or WKB.  In WKT/WKB, the coordinate order is ``(x, y)``.
+For spherical/geospatial uses, this implies ``(longitude, latitude)`` instead
+of ``(latitude, longitude)``.
 
 The SphericalGeography type provides native support for spatial features
 represented on "geographic" coordinates (sometimes called "geodetic"
@@ -97,7 +99,7 @@ Constructors
     in the array is `null` or empty.  The returned geometry may not be simple
     and may contain duplicate points if input array has duplicates.
 
-.. function:: ST_Point(double, double) -> Point
+.. function:: ST_Point(x, y) -> Point
 
     Returns a geometry type point object with the given coordinate values.
 
@@ -398,7 +400,7 @@ Accessors
 .. function:: geometry_invalid_reason(Geometry) -> varchar
 
     Returns the reason for why the input geometry is not valid.
-    Returns null if the input is valid.
+    Returns ``null`` if the input is valid.
 
 .. function:: great_circle_distance(latitude1, longitude1, latitude2, longitude2) -> double
 
@@ -418,7 +420,8 @@ Bing Tiles
 ----------
 
 These functions convert between geometries and
-`Bing tiles <https://msdn.microsoft.com/en-us/library/bb259689.aspx>`_.
+`Bing tiles <https://msdn.microsoft.com/en-us/library/bb259689.aspx>`_.  For
+Bing tiles, ``x`` and ``y`` refer to ``tile_x`` and ``tile_y``.
 
 .. function:: bing_tile(x, y, zoom_level) -> BingTile
 
