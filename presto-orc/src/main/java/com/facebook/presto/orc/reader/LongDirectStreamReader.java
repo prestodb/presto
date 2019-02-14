@@ -203,7 +203,7 @@ public class LongDirectStreamReader
         }
         beginScan(presentStream, null);
         ensureValuesSize();
-        makeInnerQualifyingSets();
+        makeInnerQualifyingSet();
         QualifyingSet input = hasNulls ? innerQualifyingSet : inputQualifyingSet;
         // Read dataStream if there are non-null values in the QualifyingSet.
         if (input.getPositionCount() > 0) {
