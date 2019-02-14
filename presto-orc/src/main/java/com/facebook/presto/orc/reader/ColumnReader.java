@@ -248,8 +248,6 @@ abstract class ColumnReader
         }
         if (outputQualifyingSet != null) {
             outputQualifyingSet.setEnd(posInRowGroup);
-            // TODO This shouldn't be necessary
-            outputQualifyingSet.setPositionCount(numResults);
         }
         if (outputChannel != -1) {
             numValues += numResults;
