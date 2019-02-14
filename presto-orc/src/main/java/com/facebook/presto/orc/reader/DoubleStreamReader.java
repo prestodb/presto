@@ -213,7 +213,7 @@ public class DoubleStreamReader
         int valuesSize = end;
         int[] inputPositions = input.getPositions();
         if (filter != null) {
-            output.ensureCapacity(rowsInRange);
+            output.reset(rowsInRange);
         }
         if (values == null || values.length < valuesSize) {
             values = new long[valuesSize];
