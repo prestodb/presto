@@ -132,7 +132,6 @@ public class DoubleStreamReader
     {
         presentStream = presentStreamSource.openStream();
         dataStream = dataStreamSource.openStream();
-        rowGroupOpen = true;
         super.openRowGroup();
     }
 
