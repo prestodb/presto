@@ -272,7 +272,7 @@ public class OrcTester
         orcTester.nullTestsEnabled = true;
         orcTester.missingStructFieldsTestsEnabled = false;
         orcTester.skipBatchTestsEnabled = false;
-        orcTester.formats = ImmutableSet.of(ORC_12, ORC_11, DWRF);
+        orcTester.formats = ImmutableSet.of(ORC_12);
         orcTester.compressions = ImmutableSet.of(ZLIB);
         orcTester.ariaEnabled = true;
         return orcTester;
