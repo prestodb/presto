@@ -46,7 +46,7 @@ abstract class NullWrappingColumnReader
     // Translates the positions of inputQualifyingSet between
     // beginPosition and endPosition into an inner qualifying set for
     // the non-null content.
-    protected void makeInnerQualifyingSets()
+    protected void makeInnerQualifyingSet()
     {
         if (presentStream == null) {
             numInnerRows = inputQualifyingSet.getPositionCount();
