@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc.stream;
 
-import com.facebook.presto.orc.Filter;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamV2Checkpoint;
@@ -52,15 +51,9 @@ public class LongInputStreamV2
     private int numOffsets;
     private int offsetIdx;
     // Copies of arguments to scan().
-    private Filter filter;
-    private int[] inputRowNumbers;
-    private int[] inputNumbers;
+    private ResultsConsumer resultsConsumer;
     // Offset of first row not covered by the current call to scan().
     private int endOffset;
-    private int[] rowNumbersOut;
-    private int[] inputNumbersOut;
-    private long[] valuesOut;
-    private int valuesFill;
     private int numResults;
 
     // readValues sets this to true to indicate that all operations
@@ -105,26 +98,26 @@ public class LongInputStreamV2
     int trapOffsetIdx = 100000;
 
     // Applies filter to values at numOffsets first positions in
-    // offsets. If the filter is true for the value at offsets[i][,
+    // offsets. If the filter is true for the value at offsets[i],
     // appends inputNumbers[i] to inputNumbersOut and rowNumbers[i] to
     // rowNumbersOut and the value itself to valuesOut. If filter is
     // null, all values pass the filter. If rowNumbers is null, the
     // value at offsets[i] is used instead. If inputNumbers is null, i
     // is used instead of inputNumbers[i]. valuesOut may be null, in
-    // which case the value is discarded after the filter. Returns the number of values written into the output arrays.
-    public int scan(Filter filter, int[]offsets, int beginOffset, int numOffsets, int endOffset, int[] rowNumbers, int[] inputNumbers, int[] rowNumbersOut, int[] inputNumbersOut, long[] valuesOut, int valuesFill)
+    // which case the value is discarded after the filter. Returns the
+    // number of values written into the output arrays.
+    public int scan(
+            int[] offsets,
+            int beginOffset,
+            int numOffsets,
+            int endOffset,
+            ResultsConsumer resultsConsumer)
             throws IOException
     {
-        this.filter = filter;
         this.offsets = offsets;
         this.numOffsets = numOffsets;
         this.endOffset = endOffset;
-        this.inputRowNumbers = rowNumbers;
-        this.inputNumbers = inputNumbers;
-        this.rowNumbersOut = rowNumbersOut;
-        this.inputNumbersOut = inputNumbersOut;
-        this.valuesOut = valuesOut;
-        this.valuesFill = valuesFill;
+        this.resultsConsumer = resultsConsumer;
         numResults = 0;
         offsetIdx = beginOffset;
         if (numLiterals > 0) {
@@ -148,6 +141,7 @@ public class LongInputStreamV2
 
     // Apply filter to values materialized in literals.
     private void scanLiterals()
+            throws IOException
     {
         for (; ; ) {
             if (offsetIdx >= numOffsets) {
@@ -160,31 +154,11 @@ public class LongInputStreamV2
                 numLiterals = 0;
                 return;
             }
-            long literal = literals[offset - currentRunOffset];
-            if (filter == null || filter.testLong(literal)) {
-                addResult(literal);
+            if (resultsConsumer.consume(offsetIdx, literals[offset - currentRunOffset])) {
+                ++numResults;
             }
             ++offsetIdx;
         }
-    }
-
-    void addResult(long val)
-    {
-        if (rowNumbersOut != null) {
-            if (inputNumbers == null) {
-                rowNumbersOut[numResults] = offsets[offsetIdx];
-                inputNumbersOut[numResults] = offsetIdx;
-            }
-            else {
-                int outerIdx = inputNumbers[offsetIdx];
-                rowNumbersOut[numResults] = inputRowNumbers[outerIdx];
-                inputNumbersOut[numResults] = outerIdx;
-            }
-        }
-        if (valuesOut != null) {
-            valuesOut[numResults + valuesFill] = val;
-        }
-        ++numResults;
     }
 
     // This comes from the Apache Hive ORC code
@@ -387,9 +361,8 @@ public class LongInputStreamV2
                     }
                 }
                 for (int i = 0; i < numInRange; i++) {
-                    long literal = literals[i + numLiterals];
-                    if (filter == null || filter.testLong(literal)) {
-                        addResult(literal);
+                    if (resultsConsumer.consume(offsetIdx, literals[i + numLiterals])) {
+                        ++numResults;
                     }
                     ++offsetIdx;
                 }
@@ -425,11 +398,11 @@ public class LongInputStreamV2
         // run lengths values are stored only after MIN_REPEAT value is met
         length += MIN_REPEAT_SIZE;
 
-        // read the repeated value which is store using fixed bytes
-        long val = bytesToLongBE(input, size);
+        // read the repeated value which is stored using fixed bytes
+        long literal = bytesToLongBE(input, size);
 
         if (signed) {
-            val = LongDecode.zigzagDecode(val);
+            literal = LongDecode.zigzagDecode(literal);
         }
 
         if (offsets != null) {
@@ -440,15 +413,10 @@ public class LongInputStreamV2
             }
             int numInRle = numOffsetsWithin(length);
             if (numInRle > 0) {
-                if (filter == null || filter.testLong(val)) {
-                    for (int i = 0; i < numInRle; ++i) {
-                        addResult(val);
-                        ++offsetIdx;
-                    }
+                if (resultsConsumer.consumeRepeated(offsetIdx, literal, numInRle)) {
+                    numResults += numInRle;
                 }
-                else {
-                    offsetIdx += numInRle;
-                }
+                offsetIdx += numInRle;
                 currentRunOffset += length;
                 scanDone = true;
                 return;
@@ -456,7 +424,7 @@ public class LongInputStreamV2
         }
             // repeat the value for length times
         for (int i = 0; i < length; i++) {
-            literals[numLiterals++] = val;
+            literals[numLiterals++] = literal;
         }
     }
 

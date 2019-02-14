@@ -65,7 +65,7 @@ public interface StreamReader
      * to a Block. The Block can be retrieved by getBlock(). */
     default void setFilterAndChannel(Filter filter, int channel, int columnIndex, Type type)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("setFilterAndChannel is not supported by " + this.getClass().getSimpleName());
     }
 
     /* True if the extracted values depend on a row group
@@ -87,7 +87,7 @@ public interface StreamReader
     // alter the Blocks contents.
     default Block getBlock(int numFirstRows, boolean mayReuse)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("getBlock is not supported by " + this.getClass().getSimpleName());
     }
 
     default Filter getFilter()
@@ -113,9 +113,9 @@ public interface StreamReader
         throw new UnsupportedOperationException();
     }
 
-    default void erase(int end)
+    default void erase(int numFirstRows)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("erase is not supported by " + this.getClass().getSimpleName());
     }
 
     default void compactValues(int[] surviving, int base, int numValues)

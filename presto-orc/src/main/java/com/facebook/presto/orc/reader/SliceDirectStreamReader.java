@@ -49,6 +49,7 @@ import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.lang.Math.toIntExact;
@@ -312,7 +313,7 @@ public class SliceDirectStreamReader
         if (numValues == 0) {
             return 0;
         }
-        return 4 * numValues + resultOffsets[numValues];
+        return SIZE_OF_INT * numValues + resultOffsets[numValues];
     }
 
     @Override
@@ -475,10 +476,12 @@ public class SliceDirectStreamReader
         ensureResultBytes(length);
         ensureResultRows();
         int endOffset = resultOffsets[numValues + numResults];
-        // This is an unaccountable perversion and a violation of
-        // every principle of consistent design: The argument of next()called
-        // length is in fact an end offset into the buffer.
-        dataStream.next(bytes, endOffset, endOffset + length);
+        if (length > 0) {
+            // This is an unaccountable perversion and a violation of
+            // every principle of consistent design: The argument of next()called
+            // length is in fact an end offset into the buffer.
+            dataStream.next(bytes, endOffset, endOffset + length);
+        }
         resultOffsets[numValues + numResults + 1] = endOffset + length;
         if (valueIsNull != null) {
             valueIsNull[numValues + numResults] = false;

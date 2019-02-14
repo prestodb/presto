@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.util.Arrays;
 
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static java.lang.String.format;
 
 abstract class ColumnReader
         implements StreamReader
@@ -281,7 +282,7 @@ abstract class ColumnReader
     protected void checkEnoughValues(int numFirstRows)
     {
         if (numValues < numFirstRows) {
-            throw new IllegalArgumentException("Reader does not have enough rows");
+            throw new IllegalArgumentException(format("Reader does not have enough rows: requested %s, available %s", numFirstRows, numValues));
         }
     }
 }

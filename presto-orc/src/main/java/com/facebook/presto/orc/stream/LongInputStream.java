@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc.stream;
 
-import com.facebook.presto.orc.Filter;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
@@ -80,6 +79,15 @@ public interface LongInputStream
         return sum;
     }
 
+    interface ResultsConsumer
+    {
+        boolean consume(int offsetIndex, long value)
+                throws IOException;
+
+        boolean consumeRepeated(int offsetIndex, long value, int count)
+                throws IOException;
+    }
+
     // Applies filter to enumerated positions in this stream. The
     // positions are relative to the last checkpoint. The positions to
     // look at are given in offsets. firstOffset is the first element
@@ -99,19 +107,14 @@ public interface LongInputStream
     // written there, starting at offset valuesFill. The number of
     // elements for which filter was true is returned. If filter is
     // null, it is considered always true.
-    default int scan(Filter filter,
-                     int[]offsets,
-                     int beginOffset,
-                     int numOffsets,
-                     int endOffset,
-                     int[] rowNumbers,
-                     int[] inputNumbers,
-                     int[] rowNumbersOut,
-                     int[] inputNumbersOut,
-                     long[] valuesOut,
-                     int valuesFill)
+    default int scan(
+            int[] offsets,
+            int beginOffset,
+            int numOffsets,
+            int endOffset,
+            ResultsConsumer resultsConsumer)
             throws IOException
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("scan is not supported by " + this.getClass().getSimpleName());
     }
 }
