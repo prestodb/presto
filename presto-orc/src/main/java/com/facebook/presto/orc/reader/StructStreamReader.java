@@ -55,7 +55,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class StructStreamReader
-        extends NullWrappingColumnReader implements StreamReader
+        extends NullWrappingColumnReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(StructStreamReader.class).instanceSize();
 
