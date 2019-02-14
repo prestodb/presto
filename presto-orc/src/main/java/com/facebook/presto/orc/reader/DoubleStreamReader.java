@@ -49,7 +49,6 @@ import static java.util.Objects.requireNonNull;
 
 public class DoubleStreamReader
         extends ColumnReader
-        implements StreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(DoubleStreamReader.class).instanceSize();
 
