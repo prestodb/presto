@@ -200,19 +200,7 @@ public class TestAriaHiveDistributedQueries
                 "    orderkey BETWEEN 100000 AND 200000\n" +
                 "    AND partkey BETWEEN 10000 AND 30000\n" +
                 "    AND suppkey BETWEEN 1000 AND 5000\n" +
-                "    AND comment > 'f'",
-                "SELECT\n" +
-                        "    orderkey,\n" +
-                        "    linenumber,\n" +
-                        "    partkey,\n" +
-                        "    suppkey,\n" +
-                        "    comment\n" +
-                        "FROM lineitem\n" +
-                        "WHERE\n" +
-                        "    orderkey BETWEEN 100000 AND 200000\n" +
-                        "    AND partkey BETWEEN 10000 AND 30000\n" +
-                        "    AND suppkey BETWEEN 1000 AND 5000\n" +
-                        "    AND comment > 'f'");
+                "    AND comment > 'f'");
 
         assertQuery(ariaSession(), "SELECT\n" +
                 "    orderkey,\n" +
@@ -226,6 +214,15 @@ public class TestAriaHiveDistributedQueries
                 "    AND partkey BETWEEN 10000 AND 30000\n" +
                 "    AND suppkey BETWEEN 1000 AND 5000\n" +
                 "    AND comment > 'f'");
+
+        // SliceDictionaryStreamReader for shipinstruct
+        assertQuery(ariaSession(), "SELECT\n" +
+                "    linenumber,\n" +
+                "    orderkey,\n" +
+                "    shipinstruct\n" +
+                "FROM lineitem\n" +
+                "WHERE\n" +
+                "    shipinstruct = 'TAKE BACK RETURN'");
     }
 
     // nulls1.sql
