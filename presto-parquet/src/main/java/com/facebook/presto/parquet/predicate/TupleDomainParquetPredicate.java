@@ -55,6 +55,7 @@ import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
+import static io.airlift.slice.SliceUtf8.compareUtf16BE;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -198,7 +199,7 @@ public class TupleDomainParquetPredicate
             BinaryStatistics binaryStatistics = (BinaryStatistics) statistics;
             Slice minSlice = Slices.wrappedBuffer(binaryStatistics.getMin().getBytes());
             Slice maxSlice = Slices.wrappedBuffer(binaryStatistics.getMax().getBytes());
-            if (minSlice.compareTo(maxSlice) > 0) {
+            if (compareUtf16BE(minSlice, maxSlice) > 0) {
                 failWithCorruptionException(failOnCorruptedParquetStatistics, column, id, binaryStatistics);
                 return Domain.create(ValueSet.all(type), hasNullValue);
             }
