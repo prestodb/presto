@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.system.SystemTableHandle;
+import com.facebook.presto.json.PrestoJsonModule;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -22,7 +23,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
-import io.airlift.json.JsonModule;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -47,7 +47,7 @@ public class TestSystemTableHandle
     @BeforeMethod
     public void startUp()
     {
-        Injector injector = Guice.createInjector(new JsonModule(), new HandleJsonModule());
+        Injector injector = Guice.createInjector(new PrestoJsonModule(true), new HandleJsonModule());
 
         objectMapper = injector.getInstance(ObjectMapper.class);
     }

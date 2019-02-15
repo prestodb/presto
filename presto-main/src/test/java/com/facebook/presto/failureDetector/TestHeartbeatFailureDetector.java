@@ -15,6 +15,7 @@ package com.facebook.presto.failureDetector;
 
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.failureDetector.HeartbeatFailureDetector.Stats;
+import com.facebook.presto.json.PrestoJsonModule;
 import com.facebook.presto.server.InternalCommunicationConfig;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -28,7 +29,6 @@ import io.airlift.discovery.client.testing.TestingDiscoveryModule;
 import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.jmx.testing.TestingJmxModule;
-import io.airlift.json.JsonModule;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
@@ -60,7 +60,7 @@ public class TestHeartbeatFailureDetector
                 new TestingDiscoveryModule(),
                 new TestingHttpServerModule(),
                 new TraceTokenModule(),
-                new JsonModule(),
+                new PrestoJsonModule(true),
                 new JaxrsModule(true),
                 new FailureDetectorModule(),
                 new Module()

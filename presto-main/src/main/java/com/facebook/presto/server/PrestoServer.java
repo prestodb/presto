@@ -18,6 +18,7 @@ import com.facebook.presto.eventlistener.EventListenerModule;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.warnings.WarningCollectorModule;
+import com.facebook.presto.json.PrestoJsonModule;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.StaticCatalogStore;
@@ -41,7 +42,6 @@ import io.airlift.http.server.HttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.jmx.JmxHttpModule;
 import io.airlift.jmx.JmxModule;
-import io.airlift.json.JsonModule;
 import io.airlift.log.LogJmxModule;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeModule;
@@ -93,7 +93,7 @@ public class PrestoServer
                 new NodeModule(),
                 new DiscoveryModule(),
                 new HttpServerModule(),
-                new JsonModule(),
+                new PrestoJsonModule(),
                 new JaxrsModule(true),
                 new MBeanModule(),
                 new JmxModule(),

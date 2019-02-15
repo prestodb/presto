@@ -131,6 +131,7 @@
         <module>presto-proxy</module>
         <module>presto-kudu</module>
         <module>presto-elasticsearch</module>
+        <module>presto-json</module>
     </modules>
 
     <dependencyManagement>
@@ -431,6 +432,12 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-json</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-thrift-connector-api</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
@@ -639,6 +646,12 @@
                 <groupId>io.airlift.drift</groupId>
                 <artifactId>drift-transport-netty</artifactId>
                 <version>${dep.drift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.module</groupId>
+                <artifactId>jackson-module-afterburner</artifactId>
+                <version>${dep.jackson.version}</version>
             </dependency>
 
             <dependency>

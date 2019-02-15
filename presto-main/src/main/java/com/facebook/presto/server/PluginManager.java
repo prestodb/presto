@@ -65,7 +65,7 @@ public class PluginManager
 {
     private static final ImmutableList<String> SPI_PACKAGES = ImmutableList.<String>builder()
             .add("com.facebook.presto.spi.")
-            .add("com.fasterxml.jackson.annotation.")
+            .add("com.fasterxml.jackson.")
             .add("io.airlift.slice.")
             .add("io.airlift.units.")
             .add("org.openjdk.jol.")

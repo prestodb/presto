@@ -28,6 +28,7 @@ import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.TaskTestUtils;
 import com.facebook.presto.execution.TestSqlTaskManager;
+import com.facebook.presto.json.PrestoJsonModule;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.PrestoNode;
@@ -56,7 +57,6 @@ import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.jaxrs.JsonMapper;
 import io.airlift.jaxrs.testing.JaxrsTestingHttpProcessor;
 import io.airlift.json.JsonCodec;
-import io.airlift.json.JsonModule;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
@@ -221,7 +221,7 @@ public class TestHttpRemoteTask
             throws Exception
     {
         Bootstrap app = new Bootstrap(
-                new JsonModule(),
+                new PrestoJsonModule(true),
                 new HandleJsonModule(),
                 new Module()
                 {

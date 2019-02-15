@@ -23,6 +23,7 @@ import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
+import com.facebook.presto.json.PrestoJsonModule;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.metadata.AllNodes;
@@ -70,7 +71,6 @@ import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.jmx.testing.TestingJmxModule;
-import io.airlift.json.JsonModule;
 import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import org.weakref.jmx.guice.MBeanModule;
@@ -222,7 +222,7 @@ public class TestingPrestoServer
         ImmutableList.Builder<Module> modules = ImmutableList.<Module>builder()
                 .add(new TestingNodeModule(Optional.ofNullable(environment)))
                 .add(new TestingHttpServerModule(parseInt(coordinator ? coordinatorPort : "0")))
-                .add(new JsonModule())
+                .add(new PrestoJsonModule())
                 .add(new JaxrsModule(true))
                 .add(new MBeanModule())
                 .add(new TestingJmxModule())
