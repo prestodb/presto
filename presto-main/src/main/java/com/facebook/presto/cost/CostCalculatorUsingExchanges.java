@@ -31,6 +31,7 @@ import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
@@ -278,6 +279,12 @@ public class CostCalculatorUsingExchanges
             // or in CostCalculatorWithEstimatedExchanges#CostEstimator#visitUnion
             // This stub is needed just to avoid the cumulative cost being set to unknown
             return PlanNodeCostEstimate.zero();
+        }
+
+        @Override
+        public PlanNodeCostEstimate visitSort(SortNode node, Void context)
+        {
+            return cpuCost(getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types));
         }
 
         private PlanNodeStatsEstimate getStats(PlanNode node)

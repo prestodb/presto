@@ -165,4 +165,11 @@ public class TestTpchDistributedStats
         statisticsAssertion.check("SELECT l_returnflag, l_linestatus FROM lineitem GROUP BY l_returnflag, l_linestatus",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, absoluteError(2))); // real row count is 4
     }
+
+    @Test
+    public void testSort()
+    {
+        statisticsAssertion.check("SELECT * FROM nation ORDER BY n_nationkey",
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, noError()));
+    }
 }
