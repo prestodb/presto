@@ -38,7 +38,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
+import java.util.Base64;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -57,6 +59,8 @@ import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
 import static com.facebook.presto.sql.relational.SqlToColumnExpressionTranslator.translate;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -177,6 +181,20 @@ public class ExpressionEquivalence
                                 false),
                         call.getType(),
                         swapPair(call.getArguments()));
+            }
+
+            if (callName.equalsIgnoreCase("$literal$timestamp")) {
+                return new ConstantExpression(((ConstantExpression) call.getArguments().get(0)).getValue(), TIMESTAMP);
+            }
+            else if (callName.equalsIgnoreCase("$literal$varbinary")) {
+                ColumnExpression castedConstant = call.getArguments().get(0);
+                if (castedConstant instanceof CallExpression && ((CallExpression) castedConstant).getSignature().getName().equalsIgnoreCase("from_base64")
+                        && ((CallExpression) castedConstant).getArguments().get(0) instanceof ConstantExpression) {
+                    Object value = ((ConstantExpression) ((CallExpression) castedConstant).getArguments().get(0)).getValue();
+                    if (value instanceof Slice) {
+                        return new ConstantExpression(Slices.wrappedBuffer(Base64.getDecoder().decode((((Slice) value).getBytes()))), VARBINARY);
+                    }
+                }
             }
 
             return call;

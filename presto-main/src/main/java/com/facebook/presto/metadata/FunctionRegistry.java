@@ -696,6 +696,15 @@ public class FunctionRegistry
                 .collect(toImmutableList());
     }
 
+    public Set<QualifiedName> getFunctions(Signature signature)
+    {
+        // TODO Better function matching?
+        return functions.functions.entries().stream()
+                .filter(entry -> entry.getValue().getSignature().getName().equals(signature.getName()))
+                .map(entry -> entry.getKey())
+                .collect(toImmutableSet());
+    }
+
     public boolean isAggregationFunction(QualifiedName name)
     {
         return Iterables.any(functions.get(name), function -> function.getSignature().getKind() == AGGREGATE);
@@ -1180,6 +1189,11 @@ public class FunctionRegistry
     public static String mangleOperatorName(String operatorName)
     {
         return OPERATOR_PREFIX + operatorName;
+    }
+
+    public static boolean isOperator(String functionName)
+    {
+        return functionName.startsWith(OPERATOR_PREFIX);
     }
 
     @VisibleForTesting

@@ -819,19 +819,19 @@ public final class SqlToColumnExpressionTranslator
         }
     }
 
-    private static class InlineInputChannelVistor
+    public static class InlineInputChannelVisitor
             implements ColumnExpressionVisitor<ColumnExpression, Void>
     {
         private final List<ColumnExpression> inputs;
 
-        private InlineInputChannelVistor(List<ColumnExpression> inputs)
+        private InlineInputChannelVisitor(List<ColumnExpression> inputs)
         {
             this.inputs = requireNonNull(inputs, "input is null");
         }
 
-        public static ColumnExpression inlineInputs(ColumnExpression columnExpression, List<ColumnExpression> inputs)
+        public static ColumnExpression inlineInputs(ColumnExpression columnExpression, List<? extends ColumnExpression> inputs)
         {
-            return columnExpression.accept(new InlineInputChannelVistor(inputs), null);
+            return columnExpression.accept(new InlineInputChannelVisitor(inputs.stream().map(ColumnExpression.class::cast).collect(toImmutableList())), null);
         }
 
         @Override
@@ -875,19 +875,19 @@ public final class SqlToColumnExpressionTranslator
         }
     }
 
-    private static class ChangeColumnReferencetoInputReferenceVistor
+    public static class ChangeColumnReferencetoInputReferenceVisitor
             implements ColumnExpressionVisitor<ColumnExpression, Void>
     {
         private final List<ColumnReferenceExpression> inputColumns;
 
-        private ChangeColumnReferencetoInputReferenceVistor(List<ColumnReferenceExpression> inputColumns)
+        private ChangeColumnReferencetoInputReferenceVisitor(List<ColumnReferenceExpression> inputColumns)
         {
             this.inputColumns = inputColumns;
         }
 
         public static ColumnExpression rewriteColumnReferenceToInputReference(ColumnExpression columnExpression, List<ColumnReferenceExpression> inputColumns)
         {
-            return columnExpression.accept(new ChangeColumnReferencetoInputReferenceVistor(inputColumns), null);
+            return columnExpression.accept(new ChangeColumnReferencetoInputReferenceVisitor(inputColumns), null);
         }
 
         @Override
