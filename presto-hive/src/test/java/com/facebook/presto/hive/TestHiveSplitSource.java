@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
@@ -44,6 +45,8 @@ import static org.testng.Assert.fail;
 
 public class TestHiveSplitSource
 {
+    private static final Executor EXECUTOR = Executors.newFixedThreadPool(5);
+
     @Test
     public void testOutstandingSplitCount()
     {
@@ -56,7 +59,7 @@ public class TestHiveSplitSource
                 10,
                 new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),
-                Executors.newFixedThreadPool(5),
+                EXECUTOR,
                 new CounterStat());
 
         // add 10 splits
@@ -90,7 +93,7 @@ public class TestHiveSplitSource
                 10,
                 new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),
-                Executors.newFixedThreadPool(5),
+                EXECUTOR,
                 new CounterStat());
 
         // add some splits
@@ -139,7 +142,7 @@ public class TestHiveSplitSource
     public void testReaderWaitsForSplits()
             throws Exception
     {
-        final HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
+        HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
                 SESSION,
                 "database",
                 "table",
@@ -148,27 +151,22 @@ public class TestHiveSplitSource
                 10,
                 new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),
-                Executors.newFixedThreadPool(5),
+                EXECUTOR,
                 new CounterStat());
 
-        final SettableFuture<ConnectorSplit> splits = SettableFuture.create();
+        SettableFuture<ConnectorSplit> splits = SettableFuture.create();
 
         // create a thread that will get a split
-        final CountDownLatch started = new CountDownLatch(1);
-        Thread getterThread = new Thread(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                try {
-                    started.countDown();
-                    List<ConnectorSplit> batch = getSplits(hiveSplitSource, 1);
-                    assertEquals(batch.size(), 1);
-                    splits.set(batch.get(0));
-                }
-                catch (Throwable e) {
-                    splits.setException(e);
-                }
+        CountDownLatch started = new CountDownLatch(1);
+        Thread getterThread = new Thread(() -> {
+            try {
+                started.countDown();
+                List<ConnectorSplit> batch = getSplits(hiveSplitSource, 1);
+                assertEquals(batch.size(), 1);
+                splits.set(batch.get(0));
+            }
+            catch (Throwable e) {
+                splits.setException(e);
             }
         });
         getterThread.start();
@@ -207,7 +205,7 @@ public class TestHiveSplitSource
                 10000,
                 maxOutstandingSplitsSize,
                 new TestingHiveSplitLoader(),
-                Executors.newFixedThreadPool(5),
+                EXECUTOR,
                 new CounterStat());
         int testSplitSizeInBytes = new TestSplit(0).getEstimatedSizeInBytes();
 
@@ -244,7 +242,7 @@ public class TestHiveSplitSource
                 10,
                 new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),
-                Executors.newFixedThreadPool(5),
+                EXECUTOR,
                 new CounterStat());
         hiveSplitSource.addToQueue(new TestSplit(0, OptionalInt.of(2)));
         hiveSplitSource.noMoreSplits();
