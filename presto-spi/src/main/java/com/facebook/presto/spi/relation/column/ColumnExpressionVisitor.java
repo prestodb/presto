@@ -24,4 +24,6 @@ public interface ColumnExpressionVisitor<R, C>
     R visitLambda(LambdaDefinitionExpression lambda, C context);
 
     R visitVariableReference(VariableReferenceExpression reference, C context);
+
+    R visitColumnReference(ColumnReferenceExpression columnReferenceExpression, C context);
 }

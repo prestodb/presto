@@ -18,6 +18,7 @@ import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.relation.column.CallExpression;
 import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.spi.relation.column.ColumnExpressionVisitor;
+import com.facebook.presto.spi.relation.column.ColumnReferenceExpression;
 import com.facebook.presto.spi.relation.column.ConstantExpression;
 import com.facebook.presto.spi.relation.column.InputReferenceExpression;
 import com.facebook.presto.spi.relation.column.LambdaDefinitionExpression;
@@ -81,6 +82,12 @@ public class DeterminismEvaluator
 
         @Override
         public Boolean visitVariableReference(VariableReferenceExpression reference, Void context)
+        {
+            return true;
+        }
+
+        @Override
+        public Boolean visitColumnReference(ColumnReferenceExpression columnReferenceExpression, Void context)
         {
             return true;
         }

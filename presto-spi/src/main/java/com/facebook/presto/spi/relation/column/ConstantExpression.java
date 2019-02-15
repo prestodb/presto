@@ -15,6 +15,7 @@ package com.facebook.presto.spi.relation.column;
 
 import com.facebook.presto.spi.type.Type;
 
+import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
@@ -67,6 +68,12 @@ public final class ConstantExpression
         }
         ConstantExpression other = (ConstantExpression) obj;
         return Objects.equals(this.value, other.value) && Objects.equals(this.type, other.type);
+    }
+
+    @Override
+    public ColumnExpression replaceChildren(List<ColumnExpression> newChildren)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override

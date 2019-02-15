@@ -17,6 +17,7 @@ import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.relation.column.CallExpression;
 import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.spi.relation.column.ColumnExpressionVisitor;
+import com.facebook.presto.spi.relation.column.ColumnReferenceExpression;
 import com.facebook.presto.spi.relation.column.ConstantExpression;
 import com.facebook.presto.spi.relation.column.InputReferenceExpression;
 import com.facebook.presto.spi.relation.column.LambdaDefinitionExpression;
@@ -101,6 +102,13 @@ public final class Expressions
                 public Void visitVariableReference(VariableReferenceExpression reference, Void context)
                 {
                     builder.add(reference);
+                    return null;
+                }
+
+                @Override
+                public Void visitColumnReference(ColumnReferenceExpression columnReferenceExpression, Void context)
+                {
+                    builder.add(columnReferenceExpression);
                     return null;
                 }
             }, null);

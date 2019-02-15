@@ -95,6 +95,13 @@ public final class LambdaDefinitionExpression
     }
 
     @Override
+    public ColumnExpression replaceChildren(List<ColumnExpression> newChildren)
+    {
+        checkArgument(newChildren.size() == 1, "Lambda defintion can only has one children");
+        return new LambdaDefinitionExpression(argumentTypes, arguments, newChildren.get(0));
+    }
+
+    @Override
     public <R, C> R accept(ColumnExpressionVisitor<R, C> visitor, C context)
     {
         return visitor.visitLambda(this, context);

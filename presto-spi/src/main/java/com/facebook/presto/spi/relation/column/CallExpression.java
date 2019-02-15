@@ -89,6 +89,12 @@ public final class CallExpression
     }
 
     @Override
+    public ColumnExpression replaceChildren(List<ColumnExpression> newChildren)
+    {
+        return new CallExpression(signature, returnType, newChildren);
+    }
+
+    @Override
     public <R, C> R accept(ColumnExpressionVisitor<R, C> visitor, C context)
     {
         return visitor.visitCall(this, context);

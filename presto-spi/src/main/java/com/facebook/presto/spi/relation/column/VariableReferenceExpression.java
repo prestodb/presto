@@ -15,6 +15,7 @@ package com.facebook.presto.spi.relation.column;
 
 import com.facebook.presto.spi.type.Type;
 
+import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
@@ -52,6 +53,12 @@ public final class VariableReferenceExpression
     public String toString()
     {
         return name;
+    }
+
+    @Override
+    public ColumnExpression replaceChildren(List<ColumnExpression> newChildren)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override

@@ -13,51 +13,62 @@
  */
 package com.facebook.presto.spi.relation.column;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.Type;
-import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 import java.util.Objects;
 
-import static java.util.Objects.requireNonNull;
-
-public final class InputReferenceExpression
+public class ColumnReferenceExpression
         extends ColumnExpression
 {
-    private final int field;
+    private final ColumnHandle columnHandle;
     private final Type type;
 
-    public InputReferenceExpression(int field, Type type)
+    public ColumnReferenceExpression(ColumnHandle columnHandle, Type type)
     {
-        requireNonNull(type, "type is null");
-
-        this.field = field;
+        this.columnHandle = columnHandle;
         this.type = type;
     }
 
-    @JsonProperty
-    public int getField()
+    public ColumnHandle getColumnHandle()
     {
-        return field;
+        return columnHandle;
     }
 
     @Override
-    @JsonProperty
     public Type getType()
     {
         return type;
     }
 
     @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof ColumnReferenceExpression)) {
+            return false;
+        }
+        ColumnReferenceExpression that = (ColumnReferenceExpression) o;
+        return Objects.equals(columnHandle, that.columnHandle) &&
+                Objects.equals(type, that.type);
+    }
+
+    @Override
     public int hashCode()
     {
-        return Objects.hash(field, type);
+        return Objects.hash(columnHandle, type);
     }
 
     @Override
     public String toString()
     {
-        return "#" + field;
+        return "ColumnReferenceExpression{" +
+                "columnHandle=" + columnHandle +
+                ", type=" + type +
+                '}';
     }
 
     @Override
@@ -69,19 +80,6 @@ public final class InputReferenceExpression
     @Override
     public <R, C> R accept(ColumnExpressionVisitor<R, C> visitor, C context)
     {
-        return visitor.visitInputReference(this, context);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        InputReferenceExpression other = (InputReferenceExpression) obj;
-        return Objects.equals(this.field, other.field) && Objects.equals(this.type, other.type);
+        return visitor.visitColumnReference(this, context);
     }
 }

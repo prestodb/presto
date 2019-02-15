@@ -15,6 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.spi.relation.column.CallExpression;
 import com.facebook.presto.spi.relation.column.ColumnExpressionVisitor;
+import com.facebook.presto.spi.relation.column.ColumnReferenceExpression;
 import com.facebook.presto.spi.relation.column.ConstantExpression;
 import com.facebook.presto.spi.relation.column.InputReferenceExpression;
 import com.facebook.presto.spi.relation.column.LambdaDefinitionExpression;
@@ -93,6 +94,12 @@ class InputReferenceCompiler
 
     @Override
     public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Scope context)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public BytecodeNode visitColumnReference(ColumnReferenceExpression reference, Scope context)
     {
         throw new UnsupportedOperationException();
     }

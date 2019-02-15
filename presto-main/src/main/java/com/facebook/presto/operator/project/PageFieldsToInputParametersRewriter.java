@@ -16,6 +16,7 @@ package com.facebook.presto.operator.project;
 import com.facebook.presto.spi.relation.column.CallExpression;
 import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.spi.relation.column.ColumnExpressionVisitor;
+import com.facebook.presto.spi.relation.column.ColumnReferenceExpression;
 import com.facebook.presto.spi.relation.column.ConstantExpression;
 import com.facebook.presto.spi.relation.column.InputReferenceExpression;
 import com.facebook.presto.spi.relation.column.LambdaDefinitionExpression;
@@ -101,6 +102,12 @@ public final class PageFieldsToInputParametersRewriter
 
         @Override
         public ColumnExpression visitVariableReference(VariableReferenceExpression reference, Void context)
+        {
+            return reference;
+        }
+
+        @Override
+        public ColumnExpression visitColumnReference(ColumnReferenceExpression reference, Void context)
         {
             return reference;
         }

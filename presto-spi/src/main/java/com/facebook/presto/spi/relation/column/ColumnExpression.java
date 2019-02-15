@@ -15,6 +15,8 @@ package com.facebook.presto.spi.relation.column;
 
 import com.facebook.presto.spi.type.Type;
 
+import java.util.List;
+
 public abstract class ColumnExpression
 {
     public abstract Type getType();
@@ -27,6 +29,8 @@ public abstract class ColumnExpression
 
     @Override
     public abstract String toString();
+
+    public abstract ColumnExpression replaceChildren(List<ColumnExpression> newChildren);
 
     public abstract <R, C> R accept(ColumnExpressionVisitor<R, C> visitor, C context);
 }

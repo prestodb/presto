@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.relation.column.CallExpression;
 import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.spi.relation.column.ColumnExpressionVisitor;
+import com.facebook.presto.spi.relation.column.ColumnReferenceExpression;
 import com.facebook.presto.spi.relation.column.ConstantExpression;
 import com.facebook.presto.spi.relation.column.InputReferenceExpression;
 import com.facebook.presto.spi.relation.column.LambdaDefinitionExpression;
@@ -350,6 +351,12 @@ public class LambdaBytecodeGenerator
                 return new BytecodeBlock()
                         .append(parameter)
                         .append(unboxPrimitiveIfNecessary(context, type));
+            }
+
+            @Override
+            public BytecodeNode visitColumnReference(ColumnReferenceExpression columnReferenceExpression, Scope context)
+            {
+                throw new UnsupportedOperationException();
             }
         };
     }

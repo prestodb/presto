@@ -16,6 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.spi.relation.column.CallExpression;
 import com.facebook.presto.spi.relation.column.ColumnExpression;
 import com.facebook.presto.spi.relation.column.ColumnExpressionVisitor;
+import com.facebook.presto.spi.relation.column.ColumnReferenceExpression;
 import com.facebook.presto.spi.relation.column.ConstantExpression;
 import com.facebook.presto.spi.relation.column.InputReferenceExpression;
 import com.facebook.presto.spi.relation.column.LambdaDefinitionExpression;
@@ -75,6 +76,12 @@ public class LambdaExpressionExtractor
 
         @Override
         public Void visitVariableReference(VariableReferenceExpression reference, Context context)
+        {
+            return null;
+        }
+
+        @Override
+        public Void visitColumnReference(ColumnReferenceExpression reference, Context context)
         {
             return null;
         }
