@@ -16,7 +16,7 @@ package com.facebook.presto.spi.statistics;
 
 import com.facebook.presto.spi.ColumnHandle;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -92,7 +92,7 @@ public final class TableStatistics
     public static final class Builder
     {
         private Estimate rowCount = Estimate.unknown();
-        private Map<ColumnHandle, ColumnStatistics> columnStatisticsMap = new HashMap<>();
+        private Map<ColumnHandle, ColumnStatistics> columnStatisticsMap = new LinkedHashMap<>();
 
         public Builder setRowCount(Estimate rowCount)
         {

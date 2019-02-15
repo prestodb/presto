@@ -14,7 +14,7 @@
 package com.facebook.presto.spi.statistics;
 
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -42,8 +42,8 @@ public class TableStatisticsMetadata
             Set<TableStatisticType> tableStatistics,
             List<String> groupingColumns)
     {
-        this.columnStatistics = unmodifiableSet(new HashSet<>(requireNonNull(columnStatistics, "columnStatistics is null")));
-        this.tableStatistics = unmodifiableSet(new HashSet<>(requireNonNull(tableStatistics, "tableStatistics is null")));
+        this.columnStatistics = unmodifiableSet(new LinkedHashSet<>(requireNonNull(columnStatistics, "columnStatistics is null")));
+        this.tableStatistics = unmodifiableSet(new LinkedHashSet<>(requireNonNull(tableStatistics, "tableStatistics is null")));
         this.groupingColumns = unmodifiableList(new ArrayList<>(requireNonNull(groupingColumns, "groupingColumns is null")));
     }
 
