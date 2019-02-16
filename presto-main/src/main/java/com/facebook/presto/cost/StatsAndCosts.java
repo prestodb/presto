@@ -83,7 +83,7 @@ public class StatsAndCosts
         ImmutableMap.Builder<PlanNodeId, PlanCostEstimate> costs = ImmutableMap.builder();
         for (PlanNode node : planIterator) {
             stats.put(node.getId(), statsProvider.getStats(node));
-            costs.put(node.getId(), costProvider.getCumulativeCost(node));
+            costs.put(node.getId(), costProvider.getCost(node));
         }
         return new StatsAndCosts(stats.build(), costs.build());
     }

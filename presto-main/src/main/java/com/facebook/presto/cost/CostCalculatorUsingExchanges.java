@@ -77,7 +77,7 @@ public class CostCalculatorUsingExchanges
         LocalCostEstimate localCost = node.accept(costEstimator, null);
 
         PlanCostEstimate sourcesCost = node.getSources().stream()
-                .map(sourcesCosts::getCumulativeCost)
+                .map(sourcesCosts::getCost)
                 .reduce(PlanCostEstimate.zero(), CostCalculatorUsingExchanges::add);
         return add(sourcesCost, localCost);
     }

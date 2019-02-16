@@ -241,16 +241,16 @@ public class TestMemo
         PlanCostEstimate yCost = new PlanCostEstimate(42, 0, 0);
         PlanCostEstimate xCost = new PlanCostEstimate(42, 0, 37);
 
-        memo.storeCumulativeCost(yGroup, yCost);
-        memo.storeCumulativeCost(xGroup, xCost);
+        memo.storeCost(yGroup, yCost);
+        memo.storeCost(xGroup, xCost);
 
-        assertEquals(memo.getCumulativeCost(yGroup), Optional.of(yCost));
-        assertEquals(memo.getCumulativeCost(xGroup), Optional.of(xCost));
+        assertEquals(memo.getCost(yGroup), Optional.of(yCost));
+        assertEquals(memo.getCost(xGroup), Optional.of(xCost));
 
         memo.replace(yGroup, node(), "rule");
 
-        assertEquals(memo.getCumulativeCost(yGroup), Optional.empty());
-        assertEquals(memo.getCumulativeCost(xGroup), Optional.empty());
+        assertEquals(memo.getCost(yGroup), Optional.empty());
+        assertEquals(memo.getCost(xGroup), Optional.empty());
     }
 
     private static void assertMatchesStructure(PlanNode actual, PlanNode expected)
