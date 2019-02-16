@@ -177,7 +177,7 @@ public class CostCalculatorUsingExchanges
 
         private PlanCostEstimate calculateJoinCost(PlanNode join, PlanNode probe, PlanNode build, boolean replicated)
         {
-            PlanCostEstimate joinInputCost = calculateJoinInputCost(
+            LocalCostEstimate joinInputCost = calculateJoinInputCost(
                     probe,
                     build,
                     stats,
@@ -185,7 +185,10 @@ public class CostCalculatorUsingExchanges
                     replicated,
                     taskCountEstimator.estimateSourceDistributedTaskCount());
             PlanCostEstimate joinOutputCost = calculateJoinOutputCost(join);
-            return joinInputCost.add(joinOutputCost);
+            return new PlanCostEstimate(
+                    joinOutputCost.getCpuCost() + joinInputCost.getCpuCost(),
+                    joinOutputCost.getMemoryCost() + joinInputCost.getMaxMemory(),
+                    joinOutputCost.getNetworkCost() + joinInputCost.getNetworkCost());
         }
 
         private PlanCostEstimate calculateJoinOutputCost(PlanNode join)
@@ -198,16 +201,21 @@ public class CostCalculatorUsingExchanges
         @Override
         public PlanCostEstimate visitExchange(ExchangeNode node, Void context)
         {
+            return exchangeCost(node).toPlanCost();
+        }
+
+        private LocalCostEstimate exchangeCost(ExchangeNode node)
+        {
             double inputSizeInBytes = getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types);
             switch (node.getScope()) {
                 case LOCAL:
                     switch (node.getType()) {
                         case GATHER:
-                            return PlanCostEstimate.zero();
+                            return LocalCostEstimate.zero();
                         case REPARTITION:
                             return calculateLocalRepartitionCost(inputSizeInBytes);
                         case REPLICATE:
-                            return PlanCostEstimate.zero();
+                            return LocalCostEstimate.zero();
                         default:
                             throw new IllegalArgumentException("Unexpected type: " + node.getType());
                     }
