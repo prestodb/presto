@@ -238,8 +238,8 @@ public class TestMemo
         Memo memo = new Memo(idAllocator, x);
         int xGroup = memo.getRootGroup();
         int yGroup = getChildGroup(memo, memo.getRootGroup());
-        PlanCostEstimate yCost = PlanCostEstimate.cpuCost(42);
-        PlanCostEstimate xCost = yCost.add(PlanCostEstimate.networkCost(37));
+        PlanCostEstimate yCost = new PlanCostEstimate(42, 0, 0);
+        PlanCostEstimate xCost = new PlanCostEstimate(42, 0, 37);
 
         memo.storeCumulativeCost(yGroup, yCost);
         memo.storeCumulativeCost(xGroup, xCost);

@@ -31,7 +31,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 public interface CostCalculator
 {
     /**
-     * Calculates non-cumulative cost of a node.
+     * Calculates cumulative cost of a node.
      *
      * @param node The node to compute cost for.
      * @param stats The stats provider for node's stats and child nodes' stats, to be used if stats are needed to compute cost for the {@code node}
@@ -39,6 +39,7 @@ public interface CostCalculator
     PlanCostEstimate calculateCost(
             PlanNode node,
             StatsProvider stats,
+            CostProvider sourcesCosts,
             Session session,
             TypeProvider types);
 
