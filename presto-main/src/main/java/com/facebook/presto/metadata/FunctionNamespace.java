@@ -48,7 +48,7 @@ class FunctionNamespace
         return registry.list();
     }
 
-    public Signature resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    public FunctionHandle resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         return registry.resolveFunction(name, parameterTypes);
     }
@@ -78,7 +78,7 @@ class FunctionNamespace
         return registry.canResolveOperator(operatorType, returnType, argumentTypes);
     }
 
-    public Signature resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    public FunctionHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
         return registry.resolveOperator(operatorType, argumentTypes);

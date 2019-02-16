@@ -682,7 +682,7 @@ class FunctionRegistry
         return Iterables.any(functions.get(name), function -> function.getSignature().getKind() == AGGREGATE);
     }
 
-    public Signature resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    public FunctionHandle resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         Collection<SqlFunction> allCandidates = functions.get(name);
         List<SqlFunction> exactCandidates = allCandidates.stream()
@@ -691,7 +691,7 @@ class FunctionRegistry
 
         Optional<Signature> match = matchFunctionExact(exactCandidates, parameterTypes);
         if (match.isPresent()) {
-            return match.get();
+            return new FunctionHandle(match.get());
         }
 
         List<SqlFunction> genericCandidates = allCandidates.stream()
@@ -700,12 +700,12 @@ class FunctionRegistry
 
         match = matchFunctionExact(genericCandidates, parameterTypes);
         if (match.isPresent()) {
-            return match.get();
+            return new FunctionHandle(match.get());
         }
 
         match = matchFunctionWithCoercion(allCandidates, parameterTypes);
         if (match.isPresent()) {
-            return match.get();
+            return new FunctionHandle(match.get());
         }
 
         List<String> expectedParameters = new ArrayList<>();
@@ -732,7 +732,7 @@ class FunctionRegistry
             // verify we have one parameter of the proper type
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
 
-            return getMagicLiteralFunctionSignature(type);
+            return new FunctionHandle(getMagicLiteralFunctionSignature(type));
         }
 
         throw new PrestoException(FUNCTION_NOT_FOUND, message);
@@ -1072,11 +1072,11 @@ class FunctionRegistry
         }
     }
 
-    public Signature resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    public FunctionHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
         try {
-            return resolveFunction(QualifiedName.of(mangleOperatorName(operatorType)), fromTypes(argumentTypes));
+            return new FunctionHandle(resolveFunction(QualifiedName.of(mangleOperatorName(operatorType)), fromTypes(argumentTypes)).getSignature());
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_NOT_FOUND.toErrorCode().getCode()) {

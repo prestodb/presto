@@ -63,7 +63,7 @@ public class FunctionManager
 
     public Signature resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
-        return globalFunctionNamespace.resolveFunction(name, parameterTypes);
+        return globalFunctionNamespace.resolveFunction(name, parameterTypes).getSignature();
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(Signature signature)
@@ -93,7 +93,7 @@ public class FunctionManager
 
     public Signature resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
     {
-        return globalFunctionNamespace.resolveOperator(operatorType, argumentTypes);
+        return globalFunctionNamespace.resolveOperator(operatorType, argumentTypes).getSignature();
     }
 
     public boolean isRegistered(Signature signature)

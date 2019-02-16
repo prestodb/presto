@@ -86,8 +86,8 @@ public class TestFunctionRegistry
             if (function.getSignature().getArgumentTypes().stream().anyMatch(TypeSignature::isCalculated)) {
                 continue;
             }
-            Signature exactOperator = registry.resolveOperator(operatorType, resolveTypes(function.getSignature().getArgumentTypes(), typeManager));
-            assertEquals(exactOperator, function.getSignature());
+            FunctionHandle exactOperator = registry.resolveOperator(operatorType, resolveTypes(function.getSignature().getArgumentTypes(), typeManager));
+            assertEquals(exactOperator.getSignature(), function.getSignature());
             foundOperator = true;
         }
         assertTrue(foundOperator);
@@ -103,8 +103,8 @@ public class TestFunctionRegistry
 
         TypeRegistry typeManager = new TypeRegistry();
         FunctionRegistry registry = createFunctionRegistry(typeManager);
-        Signature function = registry.resolveFunction(QualifiedName.of(signature.getName()), fromTypeSignatures(signature.getArgumentTypes()));
-        assertEquals(function.getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
+        FunctionHandle functionHandle = registry.resolveFunction(QualifiedName.of(signature.getName()), fromTypeSignatures(signature.getArgumentTypes()));
+        assertEquals(functionHandle.getSignature().getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
     }
 
@@ -353,16 +353,16 @@ public class TestFunctionRegistry
 
         public ResolveFunctionAssertion returns(SignatureBuilder functionSignature)
         {
-            Signature expectedSignature = functionSignature.name(TEST_FUNCTION_NAME).build();
-            Signature actualSignature = resolveSignature();
-            assertEquals(actualSignature, expectedSignature);
+            FunctionHandle expectedFunction = new FunctionHandle(functionSignature.name(TEST_FUNCTION_NAME).build());
+            FunctionHandle actualFunction = resolveFunctionHandle();
+            assertEquals(expectedFunction, actualFunction);
             return this;
         }
 
         public ResolveFunctionAssertion failsWithMessage(String... messages)
         {
             try {
-                resolveSignature();
+                resolveFunctionHandle();
                 fail("didn't fail as expected");
             }
             catch (RuntimeException e) {
@@ -376,7 +376,7 @@ public class TestFunctionRegistry
             return this;
         }
 
-        private Signature resolveSignature()
+        private FunctionHandle resolveFunctionHandle()
         {
             FeaturesConfig featuresConfig = new FeaturesConfig();
             FunctionManager functionManager = new FunctionManager(typeRegistry, blockEncoding, featuresConfig);
