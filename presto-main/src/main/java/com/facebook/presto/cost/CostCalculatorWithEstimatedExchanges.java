@@ -58,10 +58,10 @@ public class CostCalculatorWithEstimatedExchanges
     }
 
     @Override
-    public PlanCostEstimate calculateCost(PlanNode node, StatsProvider stats, Session session, TypeProvider types)
+    public PlanCostEstimate calculateCost(PlanNode node, StatsProvider stats, CostProvider sourcesCosts, Session session, TypeProvider types)
     {
         ExchangeCostEstimator exchangeCostEstimator = new ExchangeCostEstimator(stats, types, taskCountEstimator);
-        PlanCostEstimate costEstimate = costCalculator.calculateCost(node, stats, session, types);
+        PlanCostEstimate costEstimate = costCalculator.calculateCost(node, stats, sourcesCosts, session, types);
         LocalCostEstimate estimatedExchangeCost = node.accept(exchangeCostEstimator, null);
         return addExchangeCost(costEstimate, estimatedExchangeCost);
     }

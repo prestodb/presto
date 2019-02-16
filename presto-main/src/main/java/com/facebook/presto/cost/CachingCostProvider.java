@@ -106,13 +106,6 @@ public class CachingCostProvider
 
     private PlanCostEstimate calculateCumulativeCost(PlanNode node)
     {
-        PlanCostEstimate localCosts = costCalculator.calculateCost(node, statsProvider, session, types);
-
-        PlanCostEstimate sourcesCost = node.getSources().stream()
-                .map(this::getCumulativeCost)
-                .reduce(PlanCostEstimate.zero(), PlanCostEstimate::add);
-
-        PlanCostEstimate cumulativeCost = localCosts.add(sourcesCost);
-        return cumulativeCost;
+        return costCalculator.calculateCost(node, statsProvider, this, session, types);
     }
 }

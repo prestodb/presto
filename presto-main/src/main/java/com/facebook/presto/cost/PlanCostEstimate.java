@@ -49,16 +49,6 @@ public final class PlanCostEstimate
         return ZERO;
     }
 
-    public static PlanCostEstimate cpuCost(double cpuCost)
-    {
-        return new PlanCostEstimate(cpuCost, 0, 0);
-    }
-
-    public static PlanCostEstimate networkCost(double networkCost)
-    {
-        return new PlanCostEstimate(0, 0, networkCost);
-    }
-
     @JsonCreator
     public PlanCostEstimate(
             @JsonProperty("cpuCost") double cpuCost,
@@ -137,13 +127,5 @@ public final class PlanCostEstimate
     public int hashCode()
     {
         return Objects.hash(cpuCost, memoryCost, networkCost);
-    }
-
-    public PlanCostEstimate add(PlanCostEstimate other)
-    {
-        return new PlanCostEstimate(
-                cpuCost + other.cpuCost,
-                memoryCost + other.memoryCost,
-                networkCost + other.networkCost);
     }
 }

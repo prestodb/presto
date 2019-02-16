@@ -71,10 +71,23 @@ public class CostCalculatorUsingExchanges
     }
 
     @Override
-    public PlanCostEstimate calculateCost(PlanNode node, StatsProvider stats, Session session, TypeProvider types)
+    public PlanCostEstimate calculateCost(PlanNode node, StatsProvider stats, CostProvider sourcesCosts, Session session, TypeProvider types)
     {
         CostEstimator costEstimator = new CostEstimator(stats, types, taskCountEstimator);
-        return node.accept(costEstimator, null).toPlanCost();
+        LocalCostEstimate localCost = node.accept(costEstimator, null);
+
+        PlanCostEstimate sourcesCost = node.getSources().stream()
+                .map(sourcesCosts::getCumulativeCost)
+                .reduce(PlanCostEstimate.zero(), CostCalculatorUsingExchanges::add);
+        return add(sourcesCost, localCost);
+    }
+
+    private static PlanCostEstimate add(PlanCostEstimate sourcesCost, LocalCostEstimate localCost)
+    {
+        return new PlanCostEstimate(
+                sourcesCost.getCpuCost() + localCost.getCpuCost(),
+                sourcesCost.getMemoryCost() + localCost.getMaxMemory(),
+                sourcesCost.getNetworkCost() + localCost.getNetworkCost());
     }
 
     private static class CostEstimator
@@ -291,5 +304,13 @@ public class CostCalculatorUsingExchanges
         {
             return stats.getStats(node);
         }
+    }
+
+    private static PlanCostEstimate add(PlanCostEstimate a, PlanCostEstimate b)
+    {
+        return new PlanCostEstimate(
+                a.getCpuCost() + b.getCpuCost(),
+                a.getMemoryCost() + b.getMemoryCost(),
+                a.getNetworkCost() + b.getNetworkCost());
     }
 }
