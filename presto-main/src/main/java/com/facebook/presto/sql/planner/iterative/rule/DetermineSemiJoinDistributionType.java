@@ -147,6 +147,8 @@ public class DetermineSemiJoinDistributionType
          *
          *   However assuming the cost of SEMI-JOIN output is always the same, we can still make
          *   cost based decisions based on the input cost for different types of SEMI-JOINs.
+         *
+         *   TODO Decision about the distribution should be based on LocalCostEstimate only when PlanCostEstimate cannot be calculated. Otherwise cost comparator cannot take query.max-memory into account.
          */
 
         int estimatedSourceDistributedTaskCount = taskCountEstimator.estimateSourceDistributedTaskCount();

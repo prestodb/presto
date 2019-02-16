@@ -59,12 +59,14 @@ public class CostComparator
         requireNonNull(right, "right is null");
         checkArgument(!left.hasUnknownComponents() && !right.hasUnknownComponents(), "cannot compare unknown costs");
 
+        // TODO when one left.getMaxMemory() and right.getMaxMemory() exceeds query memory limit * configurable safety margin, choose the plan with lower memory usage
+
         double leftCost = left.getCpuCost() * cpuWeight
-                + left.getMemoryCost() * memoryWeight
+                + left.getMaxMemory() * memoryWeight
                 + left.getNetworkCost() * networkWeight;
 
         double rightCost = right.getCpuCost() * cpuWeight
-                + right.getMemoryCost() * memoryWeight
+                + right.getMaxMemory() * memoryWeight
                 + right.getNetworkCost() * networkWeight;
 
         return Double.compare(leftCost, rightCost);

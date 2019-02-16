@@ -26,12 +26,13 @@ import static java.lang.Double.isNaN;
 
 public final class PlanCostEstimate
 {
-    private static final PlanCostEstimate INFINITE = new PlanCostEstimate(POSITIVE_INFINITY, POSITIVE_INFINITY, POSITIVE_INFINITY);
-    private static final PlanCostEstimate UNKNOWN = new PlanCostEstimate(NaN, NaN, NaN);
-    private static final PlanCostEstimate ZERO = new PlanCostEstimate(0, 0, 0);
+    private static final PlanCostEstimate INFINITE = new PlanCostEstimate(POSITIVE_INFINITY, POSITIVE_INFINITY, POSITIVE_INFINITY, POSITIVE_INFINITY);
+    private static final PlanCostEstimate UNKNOWN = new PlanCostEstimate(NaN, NaN, NaN, NaN);
+    private static final PlanCostEstimate ZERO = new PlanCostEstimate(0, 0, 0, 0);
 
     private final double cpuCost;
-    private final double memoryCost;
+    private final double maxMemory;
+    private final double maxMemoryWhenOutputting;
     private final double networkCost;
 
     public static PlanCostEstimate infinite()
@@ -52,19 +53,25 @@ public final class PlanCostEstimate
     @JsonCreator
     public PlanCostEstimate(
             @JsonProperty("cpuCost") double cpuCost,
-            @JsonProperty("memoryCost") double memoryCost,
+            @JsonProperty("maxMemory") double maxMemory,
+            @JsonProperty("maxMemoryWhenOutputting") double maxMemoryWhenOutputting,
             @JsonProperty("networkCost") double networkCost)
     {
-        checkArgument(isNaN(cpuCost) || cpuCost >= 0, "cpuCost cannot be negative");
-        checkArgument(isNaN(memoryCost) || memoryCost >= 0, "memoryCost cannot be negative");
-        checkArgument(isNaN(networkCost) || networkCost >= 0, "networkCost cannot be negative");
+        checkArgument(!(cpuCost < 0), "cpuCost cannot be negative: %s", cpuCost);
+        checkArgument(!(maxMemory < 0), "maxMemory cannot be negative: %s", maxMemory);
+        checkArgument(!(maxMemoryWhenOutputting < 0), "maxMemoryWhenOutputting cannot be negative: %s", maxMemoryWhenOutputting);
+        checkArgument(!(maxMemoryWhenOutputting > maxMemory), "maxMemoryWhenOutputting cannot be greater than maxMemory: %s > %s", maxMemoryWhenOutputting, maxMemory);
+        checkArgument(!(networkCost < 0), "networkCost cannot be negative: %s", networkCost);
         this.cpuCost = cpuCost;
-        this.memoryCost = memoryCost;
+        this.maxMemory = maxMemory;
+        this.maxMemoryWhenOutputting = maxMemoryWhenOutputting;
         this.networkCost = networkCost;
     }
 
     /**
-     * Returns CPU component of the cost. Unknown value is represented by {@link Double#NaN}
+     * Returns CPU component of the cost.
+     * <p>
+     * Unknown value is represented by {@link Double#NaN}
      */
     @JsonProperty
     public double getCpuCost()
@@ -73,16 +80,33 @@ public final class PlanCostEstimate
     }
 
     /**
-     * Returns memory component of the cost. Unknown value is represented by {@link Double#NaN}
+     * Returns maximal memory usage of a query plan (or subplan).
+     * <p>
+     * Unknown value is represented by {@link Double#NaN}
      */
     @JsonProperty
-    public double getMemoryCost()
+    public double getMaxMemory()
     {
-        return memoryCost;
+        return maxMemory;
     }
 
     /**
-     * Returns network component of the cost. Unknown value is represented by {@link Double#NaN}
+     * Returns maximal memory usage of a query plan (or subplan) after a first output row was produced.
+     * When this cost represents a cost of a subplan, this information can be used to determine maximum memory
+     * usage (and maximum memory usage after a first output row was produced) for plan nodes higher up in the plan tree.
+     * <p>
+     * Unknown value is represented by {@link Double#NaN}.
+     */
+    @JsonProperty
+    public double getMaxMemoryWhenOutputting()
+    {
+        return maxMemoryWhenOutputting;
+    }
+
+    /**
+     * Returns network component of the cost.
+     * <p>
+     * Unknown value is represented by {@link Double#NaN}
      */
     @JsonProperty
     public double getNetworkCost()
@@ -95,7 +119,7 @@ public final class PlanCostEstimate
      */
     public boolean hasUnknownComponents()
     {
-        return isNaN(cpuCost) || isNaN(memoryCost) || isNaN(networkCost);
+        return isNaN(cpuCost) || isNaN(maxMemory) || isNaN(maxMemoryWhenOutputting) || isNaN(networkCost);
     }
 
     @Override
@@ -103,7 +127,8 @@ public final class PlanCostEstimate
     {
         return toStringHelper(this)
                 .add("cpu", cpuCost)
-                .add("memory", memoryCost)
+                .add("memory", maxMemory)
+                // maxMemoryWhenOutputting is not that useful in toString
                 .add("network", networkCost)
                 .toString();
     }
@@ -119,13 +144,14 @@ public final class PlanCostEstimate
         }
         PlanCostEstimate that = (PlanCostEstimate) o;
         return Double.compare(that.cpuCost, cpuCost) == 0 &&
-                Double.compare(that.memoryCost, memoryCost) == 0 &&
+                Double.compare(that.maxMemory, maxMemory) == 0 &&
+                Double.compare(that.maxMemoryWhenOutputting, maxMemoryWhenOutputting) == 0 &&
                 Double.compare(that.networkCost, networkCost) == 0;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(cpuCost, memoryCost, networkCost);
+        return Objects.hash(cpuCost, maxMemory, maxMemoryWhenOutputting, networkCost);
     }
 }
