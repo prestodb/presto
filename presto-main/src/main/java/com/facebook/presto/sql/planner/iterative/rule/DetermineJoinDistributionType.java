@@ -15,7 +15,7 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.cost.CostComparator;
-import com.facebook.presto.cost.PlanCostEstimate;
+import com.facebook.presto.cost.LocalCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.cost.TaskCountEstimator;
@@ -179,13 +179,13 @@ public class DetermineJoinDistributionType
          *   the hash table scales with the number of nodes where the build side is replicated.
          */
         int estimatedSourceDistributedTaskCount = taskCountEstimator.estimateSourceDistributedTaskCount();
-        PlanCostEstimate cost = calculateJoinCostWithoutOutput(
+        LocalCostEstimate cost = calculateJoinCostWithoutOutput(
                 possibleJoinNode.getLeft(),
                 possibleJoinNode.getRight(),
                 stats,
                 types,
                 replicated,
                 estimatedSourceDistributedTaskCount);
-        return new PlanNodeWithCost(cost, possibleJoinNode);
+        return new PlanNodeWithCost(cost.toPlanCost(), possibleJoinNode);
     }
 }
