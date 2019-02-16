@@ -219,7 +219,7 @@ public class TextRenderer
                     formatAsLong(stats.getOutputRowCount()),
                     formatEstimateAsDataSize(stats.getOutputSizeInBytes(node.getOutputs(), plan.getTypes())),
                     formatDouble(cost.getCpuCost()),
-                    formatDouble(cost.getMemoryCost()),
+                    formatDouble(cost.getMaxMemory()),
                     formatDouble(cost.getNetworkCost())));
 
             if (i < estimateCount - 1) {

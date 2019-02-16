@@ -68,9 +68,18 @@ public class CostCalculatorWithEstimatedExchanges
 
     private static PlanCostEstimate addExchangeCost(PlanCostEstimate costEstimate, LocalCostEstimate estimatedExchangeCost)
     {
+        // Exchange memory estimates are imprecise, because they don't take into account whether current node is streaming, accumulating or a join.
+        // This is OK based on the assumption that exchange memory estimate is small anyway.
         return new PlanCostEstimate(
                 costEstimate.getCpuCost() + estimatedExchangeCost.getCpuCost(),
-                costEstimate.getMemoryCost() + estimatedExchangeCost.getMaxMemory(),
+                // "Estimated" (emulated) exchanges are below current node, not above, so we cannot assume exchange is not allocated concurrently
+                // with the subplan realizing it's max memory allocation. Conservatively we assume this can happen at the same time and so
+                // we increase max memory estimate.
+                costEstimate.getMaxMemory() + estimatedExchangeCost.getMaxMemory(),
+                // "Estimated" (emulated) exchanges are below current node, not above. If the current node is accumulating (e.g. final aggregation),
+                // exchange memory allocation will actually be freed before node is outputting. Conservatively we assume the exchanges can still
+                // hold the memory when the node is outputting.
+                costEstimate.getMaxMemoryWhenOutputting() + estimatedExchangeCost.getMaxMemory(),
                 costEstimate.getNetworkCost() + estimatedExchangeCost.getNetworkCost());
     }
 

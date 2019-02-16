@@ -82,7 +82,7 @@ public class LocalCostEstimate
     @Deprecated
     public PlanCostEstimate toPlanCost()
     {
-        return new PlanCostEstimate(cpuCost, maxMemory, networkCost);
+        return new PlanCostEstimate(cpuCost, maxMemory, maxMemory, networkCost);
     }
 
     @Override

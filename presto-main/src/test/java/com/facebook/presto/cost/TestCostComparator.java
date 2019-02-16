@@ -98,14 +98,14 @@ public class TestCostComparator
         public CostComparisonAssertion smaller(double cpu, double memory, double network)
         {
             checkState(smaller == null, "already set");
-            smaller = new PlanCostEstimate(cpu, memory, network);
+            smaller = new PlanCostEstimate(cpu, memory, 0, network);
             return this;
         }
 
         public CostComparisonAssertion larger(double cpu, double memory, double network)
         {
             checkState(larger == null, "already set");
-            larger = new PlanCostEstimate(cpu, memory, network);
+            larger = new PlanCostEstimate(cpu, memory, 0, network);
             return this;
         }
     }

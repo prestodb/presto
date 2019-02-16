@@ -320,9 +320,9 @@ public class TestCostCalculator
                 "key2");
 
         Map<String, PlanCostEstimate> costs = ImmutableMap.of(
-                "ts1", new PlanCostEstimate(0, 128, 0),
-                "ts2", new PlanCostEstimate(0, 64, 0),
-                "ts3", new PlanCostEstimate(0, 32, 0));
+                "ts1", new PlanCostEstimate(0, 128, 128, 0),
+                "ts2", new PlanCostEstimate(0, 64, 64, 0),
+                "ts3", new PlanCostEstimate(0, 32, 32, 0));
 
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
                 "join", statsEstimate(join, 10_000),
@@ -333,29 +333,56 @@ public class TestCostCalculator
 
         Map<String, Type> types = ImmutableMap.of("key1", BIGINT, "key2", BIGINT, "key3", BIGINT);
 
-        assertCost(join23, costs, stats, types).memory(
-                100 * IS_NULL_OVERHEAD // join23 memory footprint
-                        + 64 + 32); // ts2, ts3 memory footprint
-        assertCost(join, costs, stats, types).memory(
-                2000 * IS_NULL_OVERHEAD // join memory footprint
-                        + 100 * IS_NULL_OVERHEAD // join23 memory footprint
-                        + 128 + 64 + 32); // ts1, ts2, ts3 memory footprint
+        assertCost(join23, costs, stats, types)
+                .memory(
+                        100 * IS_NULL_OVERHEAD // join23 memory footprint
+                                + 64 + 32) // ts2, ts3 memory footprint
+                .memoryWhenOutputting(
+                        100 * IS_NULL_OVERHEAD // join23 memory footprint
+                                + 64); // ts2 memory footprint
 
-        assertCostEstimatedExchanges(join23, costs, stats, types).memory(
-                100 * IS_NULL_OVERHEAD // join23 memory footprint
-                        + 64 + 32); // ts2, ts3 memory footprint
-        assertCostEstimatedExchanges(join, costs, stats, types).memory(
-                2000 * IS_NULL_OVERHEAD // join memory footprint
-                        + 100 * IS_NULL_OVERHEAD // join23 memory footprint
-                        + 128 + 64 + 32); // ts1, ts2, ts3 memory footprint
+        assertCost(join, costs, stats, types)
+                .memory(
+                        2000 * IS_NULL_OVERHEAD // join memory footprint
+                                + 100 * IS_NULL_OVERHEAD + 64 // join23 total memory when outputting
+                                + 128) // ts1 memory footprint
+                .memoryWhenOutputting(
+                        2000 * IS_NULL_OVERHEAD // join memory footprint
+                                + 128); // ts1 memory footprint
 
-        assertCostFragmentedPlan(join23, costs, stats, types).memory(
-                100 * IS_NULL_OVERHEAD // join23 memory footprint
-                        + 64 + 32); // ts2, ts3 memory footprint
-        assertCostFragmentedPlan(join, costs, stats, types).memory(
-                2000 * IS_NULL_OVERHEAD // join memory footprint
-                        + 100 * IS_NULL_OVERHEAD // join23 memory footprint
-                        + 128 + 64 + 32); // ts1, ts2, ts3 memory footprint
+        assertCostEstimatedExchanges(join23, costs, stats, types)
+                .memory(
+                        100 * IS_NULL_OVERHEAD // join23 memory footprint
+                                + 64 + 32) // ts2, ts3 memory footprint
+                .memoryWhenOutputting(
+                        100 * IS_NULL_OVERHEAD // join23 memory footprint
+                                + 64); // ts2 memory footprint
+
+        assertCostEstimatedExchanges(join, costs, stats, types)
+                .memory(
+                        2000 * IS_NULL_OVERHEAD // join memory footprint
+                                + 100 * IS_NULL_OVERHEAD + 64 // join23 total memory when outputting
+                                + 128) // ts1 memory footprint
+                .memoryWhenOutputting(
+                        2000 * IS_NULL_OVERHEAD // join memory footprint
+                                + 128); // ts1 memory footprint
+
+        assertCostFragmentedPlan(join23, costs, stats, types)
+                .memory(
+                        100 * IS_NULL_OVERHEAD // join23 memory footprint
+                                + 64 + 32) // ts2, ts3 memory footprint
+                .memoryWhenOutputting(
+                        100 * IS_NULL_OVERHEAD // join23 memory footprint
+                                + 64); // ts2 memory footprint
+
+        assertCostFragmentedPlan(join, costs, stats, types)
+                .memory(
+                        2000 * IS_NULL_OVERHEAD // join memory footprint
+                                + 100 * IS_NULL_OVERHEAD + 64 // join23 total memory when outputting
+                                + 128) // ts1 memory footprint
+                .memoryWhenOutputting(
+                        2000 * IS_NULL_OVERHEAD // join memory footprint
+                                + 128); // ts1 memory footprint
     }
 
     @Test
@@ -661,7 +688,13 @@ public class TestCostCalculator
 
         CostAssertionBuilder memory(double value)
         {
-            assertEquals(actual.getMemoryCost(), value, 0.000001);
+            assertEquals(actual.getMaxMemory(), value, 0.000001);
+            return this;
+        }
+
+        CostAssertionBuilder memoryWhenOutputting(double value)
+        {
+            assertEquals(actual.getMaxMemoryWhenOutputting(), value, 0.000001);
             return this;
         }
 
@@ -796,6 +829,6 @@ public class TestCostCalculator
 
     private static PlanCostEstimate cpuCost(double cpuCost)
     {
-        return new PlanCostEstimate(cpuCost, 0, 0);
+        return new PlanCostEstimate(cpuCost, 0, 0, 0);
     }
 }

@@ -177,6 +177,8 @@ public class DetermineJoinDistributionType
          *   always goes to the right), determining JOIN type is not that simple. As when
          *   choosing REPLICATED over REPARTITIONED join the cost of exchanging and building
          *   the hash table scales with the number of nodes where the build side is replicated.
+         *
+         *   TODO Decision about the distribution should be based on LocalCostEstimate only when PlanCostEstimate cannot be calculated. Otherwise cost comparator cannot take query.max-memory into account.
          */
         int estimatedSourceDistributedTaskCount = taskCountEstimator.estimateSourceDistributedTaskCount();
         LocalCostEstimate cost = calculateJoinCostWithoutOutput(
