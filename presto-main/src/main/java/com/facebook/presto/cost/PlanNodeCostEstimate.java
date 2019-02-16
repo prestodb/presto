@@ -54,11 +54,6 @@ public final class PlanNodeCostEstimate
         return new PlanNodeCostEstimate(cpuCost, 0, 0);
     }
 
-    public static PlanNodeCostEstimate memoryCost(double memoryCost)
-    {
-        return new PlanNodeCostEstimate(0, memoryCost, 0);
-    }
-
     public static PlanNodeCostEstimate networkCost(double networkCost)
     {
         return new PlanNodeCostEstimate(0, 0, networkCost);
