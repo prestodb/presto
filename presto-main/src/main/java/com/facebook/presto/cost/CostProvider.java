@@ -17,5 +17,5 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 
 public interface CostProvider
 {
-    PlanCostEstimate getCumulativeCost(PlanNode node);
+    PlanCostEstimate getCost(PlanNode node);
 }

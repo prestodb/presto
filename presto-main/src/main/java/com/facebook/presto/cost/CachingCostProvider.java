@@ -57,7 +57,7 @@ public class CachingCostProvider
     }
 
     @Override
-    public PlanCostEstimate getCumulativeCost(PlanNode node)
+    public PlanCostEstimate getCost(PlanNode node)
     {
         if (!isEnableStatsCalculator(session)) {
             return PlanCostEstimate.unknown();
@@ -70,14 +70,14 @@ public class CachingCostProvider
                 return getGroupCost((GroupReference) node);
             }
 
-            PlanCostEstimate cumulativeCost = cache.get(node);
-            if (cumulativeCost != null) {
-                return cumulativeCost;
+            PlanCostEstimate cost = cache.get(node);
+            if (cost != null) {
+                return cost;
             }
 
-            cumulativeCost = calculateCumulativeCost(node);
-            verify(cache.put(node, cumulativeCost) == null, "Cost already set");
-            return cumulativeCost;
+            cost = calculateCost(node);
+            verify(cache.put(node, cost) == null, "Cost already set");
+            return cost;
         }
         catch (RuntimeException e) {
             if (isIgnoreStatsCalculatorFailures(session)) {
@@ -93,18 +93,18 @@ public class CachingCostProvider
         int group = groupReference.getGroupId();
         Memo memo = this.memo.orElseThrow(() -> new IllegalStateException("CachingCostProvider without memo cannot handle GroupReferences"));
 
-        Optional<PlanCostEstimate> cost = memo.getCumulativeCost(group);
-        if (cost.isPresent()) {
-            return cost.get();
+        Optional<PlanCostEstimate> knownCost = memo.getCost(group);
+        if (knownCost.isPresent()) {
+            return knownCost.get();
         }
 
-        PlanCostEstimate cumulativeCost = calculateCumulativeCost(memo.getNode(group));
-        verify(!memo.getCumulativeCost(group).isPresent(), "Group cost already set");
-        memo.storeCumulativeCost(group, cumulativeCost);
-        return cumulativeCost;
+        PlanCostEstimate cost = calculateCost(memo.getNode(group));
+        verify(!memo.getCost(group).isPresent(), "Group cost already set");
+        memo.storeCost(group, cost);
+        return cost;
     }
 
-    private PlanCostEstimate calculateCumulativeCost(PlanNode node)
+    private PlanCostEstimate calculateCost(PlanNode node)
     {
         return costCalculator.calculateCost(node, statsProvider, this, session, types);
     }
