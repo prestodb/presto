@@ -207,7 +207,7 @@ public class SqlTaskManager
                 queryContexts.getUnchecked(assignment.getQueryId()).setMemoryPool(reservedPool);
             }
             else {
-                new IllegalArgumentException(format("Cannot move %s to %s as the target memory pool id is invalid", assignment.getQueryId(), assignment.getPoolId()));
+                throw new IllegalArgumentException(format("Cannot move %s to %s as the target memory pool id is invalid", assignment.getQueryId(), assignment.getPoolId()));
             }
         }
     }
