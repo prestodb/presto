@@ -65,7 +65,7 @@ public class ShardRecoveryStats
 
     public void addShardRecoveryDataRate(DataSize rate, DataSize size, Duration duration)
     {
-        shardRecoveryBytesPerSecond.add(Math.round(rate.toBytes()));
+        shardRecoveryBytesPerSecond.add(rate.toBytes());
         shardRecoveryShardSizeBytes.add(size.toBytes());
         shardRecoveryTimeInMilliSeconds.add(duration.toMillis());
     }
