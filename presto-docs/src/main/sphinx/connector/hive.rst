@@ -129,12 +129,13 @@ Property Name                                      Description                  
                                                    absolutely necessary to access HDFS.
                                                    Example: ``/etc/hdfs-site.xml``
 
-
 ``hive.recursive-directories``                     Enable reading data from subdirectories of table or          ``false``
                                                    partition locations. If disabled, subdirectories are
                                                    ignored. This is equivalent to the
                                                    ``hive.mapred.supports.subdirectories`` property in
                                                    Hive.
+                                                   
+``hive.allow-drop-table``                          Allow Presto to drop tables.                                 ``false``                         
                                                    
 ``hive.storage-format``                            The default file format used when creating new tables.       ``ORC``
 
