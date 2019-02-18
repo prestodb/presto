@@ -29,7 +29,7 @@ const STATE_COLOR_MAP = {
     FINISHED: '#1a4629',
     BLOCKED: '#61003b',
     USER_ERROR: '#9a7d66',
-    USER_CANCELED: '#858959',
+    CANCELED: '#858959',
     INSUFFICIENT_RESOURCES: '#7f5b72',
     EXTERNAL_ERROR: '#ca7640',
     UNKNOWN_ERROR: '#943524'
@@ -53,7 +53,7 @@ export function getQueryStateColor(query: any): string
             switch (query.errorType) {
                 case "USER_ERROR":
                     if (query.errorCode.name === 'USER_CANCELED') {
-                        return STATE_COLOR_MAP.USER_CANCELED;
+                        return STATE_COLOR_MAP.CANCELED;
                     }
                     return STATE_COLOR_MAP.USER_ERROR;
                 case "EXTERNAL":
@@ -88,6 +88,7 @@ export function getStageStateColor(stage: any): string
             return STATE_COLOR_MAP.FINISHED;
         case "CANCELED":
         case "ABORTED":
+            return STATE_COLOR_MAP.CANCELED;
         case "FAILED":
             return STATE_COLOR_MAP.UNKNOWN_ERROR;
         default:
@@ -210,10 +211,9 @@ export function initializeSvg(selector: any)
     return svg;
 }
 
-export function computeSources(nodeInfo: any)
+export function getChildren(nodeInfo: any)
 {
-    let sources = [];
-    let remoteSources = []; // TODO: put remoteSources in node-specific section
+    // TODO: Remove this function by migrating StageDetail to use node JSON representation
     switch (nodeInfo['@type']) {
         case 'output':
         case 'explainAnalyze':
@@ -236,27 +236,19 @@ export function computeSources(nodeInfo: any)
         case 'groupid':
         case 'unnest':
         case 'scalar':
-            sources = [nodeInfo.source];
-            break;
+            return [nodeInfo.source];
         case 'join':
-            sources = [nodeInfo.left, nodeInfo.right];
-            break;
+            return [nodeInfo.left, nodeInfo.right];
         case 'semijoin':
-            sources = [nodeInfo.source, nodeInfo.filteringSource];
-            break;
+            return [nodeInfo.source, nodeInfo.filteringSource];
         case 'spatialjoin':
-            sources = [nodeInfo.left, nodeInfo.right];
-            break;
+            return [nodeInfo.left, nodeInfo.right];
         case 'indexjoin':
-            sources = [nodeInfo.probeSource, nodeInfo.indexSource];
-            break;
+            return [nodeInfo.probeSource, nodeInfo.indexSource];
         case 'union':
         case 'exchange':
-            sources = nodeInfo.sources;
-            break;
+            return nodeInfo.sources;
         case 'remoteSource':
-            remoteSources = nodeInfo.sourceFragmentIds;
-            break;
         case 'tablescan':
         case 'values':
         case 'indexsource':
@@ -265,7 +257,7 @@ export function computeSources(nodeInfo: any)
             console.log("NOTE: Unhandled PlanNode: " + nodeInfo['@type']);
     }
 
-    return [sources, remoteSources];
+    return [];
 }
 
 // Utility functions
@@ -358,6 +350,14 @@ export function formatDuration(duration: number): string {
         unit = "w";
     }
     return precisionRound(duration) + unit;
+}
+
+export function formatRows(count: number): string {
+    if (count === 1) {
+        return "1 row";
+    }
+
+    return formatCount(count) + " rows";
 }
 
 export function formatCount(count: number): string {

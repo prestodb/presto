@@ -69,6 +69,7 @@ public class TestOperatorStats
             new DataSize(22, BYTE),
             new DataSize(23, BYTE),
             new DataSize(24, BYTE),
+            new DataSize(25, BYTE),
             Optional.empty(),
             NON_MERGEABLE_INFO);
 
@@ -109,6 +110,7 @@ public class TestOperatorStats
             new DataSize(22, BYTE),
             new DataSize(23, BYTE),
             new DataSize(24, BYTE),
+            new DataSize(25, BYTE),
             Optional.empty(),
             MERGEABLE_INFO);
 
@@ -158,6 +160,7 @@ public class TestOperatorStats
         assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(22, BYTE));
         assertEquals(actual.getPeakSystemMemoryReservation(), new DataSize(23, BYTE));
         assertEquals(actual.getPeakTotalMemoryReservation(), new DataSize(24, BYTE));
+        assertEquals(actual.getSpilledDataSize(), new DataSize(25, BYTE));
         assertEquals(actual.getInfo().getClass(), SplitOperatorInfo.class);
         assertEquals(((SplitOperatorInfo) actual.getInfo()).getSplitInfo(), NON_MERGEABLE_INFO.getSplitInfo());
     }
@@ -199,6 +202,7 @@ public class TestOperatorStats
         assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(22, BYTE));
         assertEquals(actual.getPeakSystemMemoryReservation(), new DataSize(23, BYTE));
         assertEquals(actual.getPeakTotalMemoryReservation(), new DataSize(24, BYTE));
+        assertEquals(actual.getSpilledDataSize(), new DataSize(3 * 25, BYTE));
         assertNull(actual.getInfo());
     }
 
@@ -239,6 +243,7 @@ public class TestOperatorStats
         assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(22, BYTE));
         assertEquals(actual.getPeakSystemMemoryReservation(), new DataSize(23, BYTE));
         assertEquals(actual.getPeakTotalMemoryReservation(), new DataSize(24, BYTE));
+        assertEquals(actual.getSpilledDataSize(), new DataSize(3 * 25, BYTE));
         assertEquals(actual.getInfo().getClass(), PartitionedOutputInfo.class);
         assertEquals(((PartitionedOutputInfo) actual.getInfo()).getPagesAdded(), 3 * MERGEABLE_INFO.getPagesAdded());
     }

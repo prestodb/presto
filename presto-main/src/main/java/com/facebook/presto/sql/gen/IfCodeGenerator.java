@@ -23,29 +23,33 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 
 import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.sql.gen.BytecodeGenerator.generateWrite;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 
 public class IfCodeGenerator
         implements BytecodeGenerator
 {
-    @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         Preconditions.checkArgument(arguments.size() == 3);
 
         Variable wasNull = context.wasNull();
         BytecodeBlock condition = new BytecodeBlock()
-                .append(context.generate(arguments.get(0)))
+                .append(context.generate(arguments.get(0), Optional.empty()))
                 .comment("... and condition value was not null")
                 .append(wasNull)
                 .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class)
                 .invokeStatic(CompilerOperations.class, "and", boolean.class, boolean.class, boolean.class)
                 .append(wasNull.set(constantFalse()));
 
-        return new IfStatement()
-                .condition(condition)
-                .ifTrue(context.generate(arguments.get(1)))
-                .ifFalse(context.generate(arguments.get(2)));
+        BytecodeBlock block = new BytecodeBlock()
+                .append(new IfStatement()
+                        .condition(condition)
+                        .ifTrue(context.generate(arguments.get(1), Optional.empty()))
+                        .ifFalse(context.generate(arguments.get(2), Optional.empty())));
+        outputBlockVariable.ifPresent(output -> block.append(generateWrite(context, returnType, output)));
+        return block;
     }
 }

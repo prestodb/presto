@@ -28,7 +28,9 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.instruction.LabelNode;
 
 import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.sql.gen.BytecodeGenerator.generateWrite;
 import static com.facebook.presto.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 
@@ -36,7 +38,7 @@ public class NullIfCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         Scope scope = generatorContext.getScope();
 
@@ -49,7 +51,7 @@ public class NullIfCodeGenerator
         Variable firstValue = scope.createTempVariable(first.getType().getJavaType());
         BytecodeBlock block = new BytecodeBlock()
                 .comment("check if first arg is null")
-                .append(generatorContext.generate(first))
+                .append(generatorContext.generate(first, Optional.empty()))
                 .append(ifWasNullPopAndGoto(scope, notMatch, void.class))
                 .dup(first.getType().getJavaType())
                 .putVariable(firstValue);
@@ -65,7 +67,7 @@ public class NullIfCodeGenerator
                 equalsFunction,
                 ImmutableList.of(
                         cast(generatorContext, firstValue, firstType, equalsSignature.getArgumentTypes().get(0)),
-                        cast(generatorContext, generatorContext.generate(second), secondType, equalsSignature.getArgumentTypes().get(1))));
+                        cast(generatorContext, generatorContext.generate(second, Optional.empty()), secondType, equalsSignature.getArgumentTypes().get(1))));
 
         BytecodeBlock conditionBlock = new BytecodeBlock()
                 .append(equalsCall)
@@ -83,6 +85,7 @@ public class NullIfCodeGenerator
                 .ifTrue(trueBlock)
                 .ifFalse(notMatch));
 
+        outputBlockVariable.ifPresent(output -> block.append(generateWrite(generatorContext, returnType, output)));
         return block;
     }
 

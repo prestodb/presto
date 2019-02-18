@@ -41,6 +41,10 @@ import static com.facebook.presto.sql.planner.optimizations.AddExchanges.streami
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.testng.Assert.assertEquals;
 
+/**
+ * These are unit test for the internal logic in AddExchanges.
+ * For plan tests see {@link TestAddExchangesPlans}
+ */
 public class TestAddExchanges
 {
     @Test

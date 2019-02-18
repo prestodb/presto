@@ -100,6 +100,7 @@ public class TestHiveClientConfig
                 .setHdfsAuthenticationType(HdfsAuthenticationType.NONE)
                 .setHdfsImpersonationEnabled(false)
                 .setSkipDeletionForAlter(false)
+                .setSkipTargetCleanupOnRollback(false)
                 .setBucketExecutionEnabled(true)
                 .setFileSystemMaxCacheSize(1000)
                 .setTableStatisticsEnabled(true)
@@ -115,7 +116,9 @@ public class TestHiveClientConfig
                 .setCollectColumnStatisticsOnWrite(false)
                 .setCollectColumnStatisticsOnWrite(false)
                 .setS3SelectPushdownEnabled(false)
-                .setS3SelectPushdownMaxConnections(500));
+                .setS3SelectPushdownMaxConnections(500)
+                .setTemporaryStagingDirectoryEnabled(true)
+                .setTemporaryStagingDirectoryPath("/tmp/presto-${USER}"));
     }
 
     @Test
@@ -183,6 +186,7 @@ public class TestHiveClientConfig
                 .put("hive.hdfs.authentication.type", "KERBEROS")
                 .put("hive.hdfs.impersonation.enabled", "true")
                 .put("hive.skip-deletion-for-alter", "true")
+                .put("hive.skip-target-cleanup-on-rollback", "true")
                 .put("hive.bucket-execution", "false")
                 .put("hive.sorted-writing", "false")
                 .put("hive.fs.cache.max-size", "1010")
@@ -199,6 +203,8 @@ public class TestHiveClientConfig
                 .put("hive.collect-column-statistics-on-write", "true")
                 .put("hive.s3select-pushdown.enabled", "true")
                 .put("hive.s3select-pushdown.max-connections", "1234")
+                .put("hive.temporary-staging-directory-enabled", "false")
+                .put("hive.temporary-staging-directory-path", "updated")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -263,6 +269,7 @@ public class TestHiveClientConfig
                 .setHdfsAuthenticationType(HdfsAuthenticationType.KERBEROS)
                 .setHdfsImpersonationEnabled(true)
                 .setSkipDeletionForAlter(true)
+                .setSkipTargetCleanupOnRollback(true)
                 .setBucketExecutionEnabled(false)
                 .setSortedWritingEnabled(false)
                 .setFileSystemMaxCacheSize(1010)
@@ -279,7 +286,9 @@ public class TestHiveClientConfig
                 .setCollectColumnStatisticsOnWrite(true)
                 .setCollectColumnStatisticsOnWrite(true)
                 .setS3SelectPushdownEnabled(true)
-                .setS3SelectPushdownMaxConnections(1234);
+                .setS3SelectPushdownMaxConnections(1234)
+                .setTemporaryStagingDirectoryEnabled(false)
+                .setTemporaryStagingDirectoryPath("updated");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

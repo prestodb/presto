@@ -86,7 +86,7 @@ public class MemoryTrackingRemoteTaskFactory
             long deltaTotalMemoryInBytes = currentTotalMemory - (previousUserMemory + previousSystemMemory);
             previousUserMemory = currentUserMemory;
             previousSystemMemory = currentSystemMemory;
-            stateMachine.updateMemoryUsage(deltaUserMemoryInBytes, deltaTotalMemoryInBytes, currentTotalMemory);
+            stateMachine.updateMemoryUsage(deltaUserMemoryInBytes, deltaTotalMemoryInBytes, currentUserMemory, currentTotalMemory);
         }
     }
 }

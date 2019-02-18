@@ -26,7 +26,9 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 
 import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.sql.gen.BytecodeGenerator.generateWrite;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
@@ -36,7 +38,7 @@ public class RowConstructorCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type rowType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type rowType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         BytecodeBlock block = new BytecodeBlock().setDescription("Constructor for " + rowType.toString());
         CallSiteBinder binder = context.getCallSiteBinder();
@@ -59,7 +61,7 @@ public class RowConstructorCodeGenerator
             Variable field = scope.createTempVariable(fieldType.getJavaType());
             block.comment("Clean wasNull and Generate + " + i + "-th field of row");
             block.append(context.wasNull().set(constantFalse()));
-            block.append(context.generate(arguments.get(i)));
+            block.append(context.generate(arguments.get(i), Optional.empty()));
             block.putVariable(field);
             block.append(new IfStatement()
                     .condition(context.wasNull())
@@ -71,6 +73,7 @@ public class RowConstructorCodeGenerator
         block.append(constantType(binder, rowType).invoke("getObject", Object.class, blockBuilder.cast(Block.class), constantInt(0))
                 .cast(Block.class));
         block.append(context.wasNull().set(constantFalse()));
+        outputBlockVariable.ifPresent(output -> block.append(generateWrite(context, rowType, output)));
         return block;
     }
 }

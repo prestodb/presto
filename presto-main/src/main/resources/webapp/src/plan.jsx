@@ -11,5 +11,5 @@ ReactDOM.render(
 
 ReactDOM.render(
     <LivePlan queryId={getFirstParameter(window.location.search)} isEmbedded={false}/>,
-    document.getElementById('live-plan-header')
+    document.getElementById('live-plan-container')
 );

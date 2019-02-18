@@ -19,6 +19,7 @@ public enum QueryType
     DELETE,
     DESCRIBE,
     EXPLAIN,
+    ANALYZE,
     INSERT,
     SELECT
 }

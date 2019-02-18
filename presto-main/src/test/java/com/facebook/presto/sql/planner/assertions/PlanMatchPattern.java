@@ -271,6 +271,20 @@ public final class PlanMatchPattern
         return windowMatcherBuilder.build();
     }
 
+    public static PlanMatchPattern rowNumber(Consumer<RowNumberMatcher.Builder> rowNumberMatcherBuilderConsumer, PlanMatchPattern source)
+    {
+        RowNumberMatcher.Builder rowNumberMatcherBuilder = new RowNumberMatcher.Builder(source);
+        rowNumberMatcherBuilderConsumer.accept(rowNumberMatcherBuilder);
+        return rowNumberMatcherBuilder.build();
+    }
+
+    public static PlanMatchPattern topNRowNumber(Consumer<TopNRowNumberMatcher.Builder> topNRowNumberMatcherBuilderComsumer, PlanMatchPattern source)
+    {
+        TopNRowNumberMatcher.Builder topNRowNumberMatcherBuilder = new TopNRowNumberMatcher.Builder(source);
+        topNRowNumberMatcherBuilderComsumer.accept(topNRowNumberMatcherBuilder);
+        return topNRowNumberMatcherBuilder.build();
+    }
+
     public static PlanMatchPattern sort(PlanMatchPattern source)
     {
         return node(SortNode.class, source);
@@ -330,7 +344,12 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, PlanMatchPattern source, PlanMatchPattern filtering)
     {
-        return node(SemiJoinNode.class, source, filtering).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias));
+        return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, Optional.empty(), source, filtering);
+    }
+
+    public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, Optional<SemiJoinNode.DistributionType> distributionType, PlanMatchPattern source, PlanMatchPattern filtering)
+    {
+        return node(SemiJoinNode.class, source, filtering).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias, distributionType));
     }
 
     public static PlanMatchPattern join(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, PlanMatchPattern left, PlanMatchPattern right)

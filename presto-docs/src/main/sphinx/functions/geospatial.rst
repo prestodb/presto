@@ -9,7 +9,7 @@ geometries that are operated on are both simple and valid. For example, it does 
 make sense to calculate the area of a polygon that has a hole defined outside of the
 polygon, or to construct a polygon from a non-simple boundary line.
 
-Presto Geospatial functions support the Well-Known Text (WKT) form of spatial objects:
+Presto Geospatial functions support the Well-Known Text (WKT) and Well-Known Binary (WKB) form of spatial objects:
 
 * ``POINT (0 0)``
 * ``LINESTRING (0 0, 1 1, 1 2)``
@@ -18,6 +18,26 @@ Presto Geospatial functions support the Well-Known Text (WKT) form of spatial ob
 * ``MULTILINESTRING ((0 0, 1 1, 1 2), (2 3, 3 2, 5 4))``
 * ``MULTIPOLYGON (((0 0, 4 0, 4 4, 0 4, 0 0), (1 1, 2 1, 2 2, 1 2, 1 1)), ((-1 -1, -1 -2, -2 -2, -2 -1, -1 -1)))``
 * ``GEOMETRYCOLLECTION (POINT(2 3), LINESTRING (2 3, 3 4))``
+
+Use ST_GeometryFromText and ST_GeomFromBinary functions to create geometry objects from WKT or WKB.
+
+The SphericalGeography type provides native support for spatial features represented on "geographic" coordinates (sometimes called "geodetic" coordinates,
+or "lat/lon", or "lon/lat"). Geographic coordinates are spherical coordinates expressed in angular units (degrees).
+
+The basis for the Geometry type is a plane. The shortest path between two points on the plane is a straight line. That means calculations on geometries (areas, distances, lengths,
+intersections, etc) can be calculated using cartesian mathematics and straight line vectors.
+
+The basis for the SphericalGeography type is a sphere. The shortest path between two points on the sphere is a great circle arc. That means that calculations on geographies
+(areas, distances, lengths, intersections, etc) must be calculated on the sphere, using more complicated mathematics. More accurate measurements that take the actual spheroidal
+shape of the world into account are not supported.
+
+Values returned by the measurement functions ST_Distance and ST_Length are in the unit of meters; values returned by ST_Area are in square meters.
+
+Use ``to_spherical_geography()`` function to convert a geometry object to geography object.
+
+For example, ``ST_Distance(ST_Point(-71.0882, 42.3607), ST_Point(-74.1197, 40.6976))`` returns 3.4577 in the unit of the passed-in values on the euclidean plane, while
+``ST_Distance(to_spherical_geography(ST_Point(-71.0882, 42.3607)), to_spherical_geography(ST_Point(-74.1197, 40.6976)))`` returns 312822.179 in meters.
+
 
 Constructors
 ------------
@@ -65,6 +85,17 @@ Constructors
 .. function:: ST_Polygon(varchar) -> Polygon
 
     Returns a geometry type polygon object from WKT representation.
+
+.. function:: to_spherical_geography(Geometry) -> SphericalGeography
+
+    Converts a Geometry object to a SphericalGeography object on the sphere of the Earth's radius. This function is only applicable to ``POINT``,
+    ``MULTIPOINT``, ``LINESTRING``, ``MULTILINESTRING``, ``POLYGON``, ``MULTIPOLYGON`` geometries defined in 2D space, or ``GEOMETRYCOLLECTION``
+    of such geometries. For each point of the input geometry, it verifies that point.x is within [-180.0, 180.0] and point.y is within [-90.0, 90.0],
+    and uses them as (longitude, latitude) degrees to construct the shape of the SphericalGeography result.
+
+.. function:: to_geometry(SphericalGeography) -> Geometry
+
+    Converts a SphericalGeography object to a Geometry object.
 
 Relationship Tests
 ------------------
@@ -194,6 +225,10 @@ Accessors
     Returns the 2-dimensional cartesian minimum distance (based on spatial ref)
     between two geometries in projected units.
 
+.. function:: ST_Distance(SphericalGeography, SphericalGeography) -> double
+
+    Returns the great-circle distance in meters between two SphericalGeography points.
+
 .. function:: ST_GeometryN(Geometry, index) -> Geometry
 
     Returns the geometry element at a given index (indices start at 1).
@@ -249,6 +284,10 @@ Accessors
     If the given index is less than 1 or greater than the total number of elements in the collection,
     returns ``NULL``.
     Use :func:``ST_NumPoints`` to find out the total number of elements.
+
+.. function:: ST_Points(Geometry) -> array(Point)
+
+    Returns an array of points in a linestring.
 
 .. function:: ST_XMax(Geometry) -> double
 

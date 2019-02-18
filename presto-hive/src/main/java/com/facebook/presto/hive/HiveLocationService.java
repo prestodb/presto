@@ -27,6 +27,7 @@ import javax.inject.Inject;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
+import static com.facebook.presto.hive.HiveSessionProperties.isTemporaryStagingDirectoryEnabled;
 import static com.facebook.presto.hive.HiveWriteUtils.createTemporaryPath;
 import static com.facebook.presto.hive.HiveWriteUtils.getTableDefaultLocation;
 import static com.facebook.presto.hive.HiveWriteUtils.isS3FileSystem;
@@ -59,8 +60,8 @@ public class HiveLocationService
             throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for table '%s.%s' already exists: %s", schemaName, tableName, targetPath));
         }
 
-        if (shouldUseTemporaryDirectory(context, targetPath)) {
-            Path writePath = createTemporaryPath(context, hdfsEnvironment, targetPath);
+        if (shouldUseTemporaryDirectory(session, context, targetPath)) {
+            Path writePath = createTemporaryPath(session, context, hdfsEnvironment, targetPath);
             return new LocationHandle(targetPath, writePath, false, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
         }
         else {
@@ -74,8 +75,8 @@ public class HiveLocationService
         HdfsContext context = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
         Path targetPath = new Path(table.getStorage().getLocation());
 
-        if (shouldUseTemporaryDirectory(context, targetPath)) {
-            Path writePath = createTemporaryPath(context, hdfsEnvironment, targetPath);
+        if (shouldUseTemporaryDirectory(session, context, targetPath)) {
+            Path writePath = createTemporaryPath(session, context, hdfsEnvironment, targetPath);
             return new LocationHandle(targetPath, writePath, true, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
         }
         else {
@@ -83,10 +84,11 @@ public class HiveLocationService
         }
     }
 
-    private boolean shouldUseTemporaryDirectory(HdfsContext context, Path path)
+    private boolean shouldUseTemporaryDirectory(ConnectorSession session, HdfsContext context, Path path)
     {
-        // skip using temporary directory for S3
-        return !isS3FileSystem(context, hdfsEnvironment, path);
+        return isTemporaryStagingDirectoryEnabled(session)
+                // skip using temporary directory for S3
+                && !isS3FileSystem(context, hdfsEnvironment, path);
     }
 
     @Override

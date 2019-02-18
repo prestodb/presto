@@ -70,7 +70,6 @@ import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemory
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
-import static com.facebook.presto.memory.LocalMemoryManager.SYSTEM_POOL;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
@@ -115,9 +114,6 @@ public class ClusterMemoryManager
     @GuardedBy("this")
     private final Map<String, RemoteNodeMemory> nodes = new HashMap<>();
 
-    //TODO remove when the system pool is completely removed
-    private final boolean isLegacySystemPoolEnabled;
-
     @GuardedBy("this")
     private final Map<MemoryPoolId, List<Consumer<MemoryPoolInfo>>> changeListeners = new HashMap<>();
 
@@ -161,22 +157,18 @@ public class ClusterMemoryManager
         this.coordinatorId = queryIdGenerator.getCoordinatorId();
         this.enabled = serverConfig.isCoordinator();
         this.killOnOutOfMemoryDelay = config.getKillOnOutOfMemoryDelay();
-        this.isLegacySystemPoolEnabled = nodeMemoryConfig.isLegacySystemPoolEnabled();
         this.isWorkScheduledOnCoordinator = schedulerConfig.isIncludeCoordinator();
 
         verify(maxQueryMemory.toBytes() <= maxQueryTotalMemory.toBytes(),
                 "maxQueryMemory cannot be greater than maxQueryTotalMemory");
 
-        this.pools = createClusterMemoryPools(nodeMemoryConfig.isLegacySystemPoolEnabled(), nodeMemoryConfig.isReservedPoolEnabled());
+        this.pools = createClusterMemoryPools(nodeMemoryConfig.isReservedPoolEnabled());
     }
 
-    private Map<MemoryPoolId, ClusterMemoryPool> createClusterMemoryPools(boolean systemPoolEnabled, boolean reservedPoolEnabled)
+    private Map<MemoryPoolId, ClusterMemoryPool> createClusterMemoryPools(boolean reservedPoolEnabled)
     {
         Set<MemoryPoolId> memoryPools = new HashSet<>();
         memoryPools.add(GENERAL_POOL);
-        if (systemPoolEnabled) {
-            memoryPools.add(SYSTEM_POOL);
-        }
         if (reservedPoolEnabled) {
             memoryPools.add(RESERVED_POOL);
         }
@@ -245,9 +237,8 @@ public class ClusterMemoryManager
                     queryKilled = true;
                 }
 
-                // enforce global total memory limit if system pool is disabled
                 long totalMemoryLimit = min(maxQueryTotalMemory.toBytes(), getQueryMaxTotalMemory(query.getSession()).toBytes());
-                if (!isLegacySystemPoolEnabled && totalMemoryReservation > totalMemoryLimit) {
+                if (totalMemoryReservation > totalMemoryLimit) {
                     query.fail(exceededGlobalTotalLimit(succinctBytes(totalMemoryLimit)));
                     queryKilled = true;
                 }
@@ -260,15 +251,24 @@ public class ClusterMemoryManager
         clusterUserMemoryReservation.set(totalUserMemoryBytes);
         clusterTotalMemoryReservation.set(totalMemoryBytes);
 
-        if (!(lowMemoryKiller instanceof NoneLowMemoryKiller) &&
+        boolean killOnOomDelayPassed = nanosSince(lastTimeNotOutOfMemory).compareTo(killOnOutOfMemoryDelay) > 0;
+        boolean lastKilledQueryGone = isLastKilledQueryGone();
+        boolean shouldCallOomKiller = !(lowMemoryKiller instanceof NoneLowMemoryKiller) &&
                 outOfMemory &&
                 !queryKilled &&
-                nanosSince(lastTimeNotOutOfMemory).compareTo(killOnOutOfMemoryDelay) > 0) {
-            if (isLastKilledQueryGone()) {
-                callOomKiller(runningQueries);
-            }
-            else {
-                log.debug("Last killed query is still not gone: %s", lastKilledQuery);
+                killOnOomDelayPassed &&
+                lastKilledQueryGone;
+
+        if (shouldCallOomKiller) {
+            callOomKiller(runningQueries);
+        }
+        else {
+            // if the cluster is out of memory and we didn't trigger the oom killer we log the state to make debugging easier
+            if (outOfMemory) {
+                log.debug("The cluster is out of memory and the OOM killer is not called (query killed: %s, kill on OOM delay passed: %s, last killed query gone: %s).",
+                        queryKilled,
+                        killOnOomDelayPassed,
+                        lastKilledQueryGone);
             }
         }
 
@@ -432,19 +432,11 @@ public class ClusterMemoryManager
 
     private QueryMemoryInfo createQueryMemoryInfo(QueryExecution query)
     {
-        // when the legacy system pool is enabled we use the user memory instead of the total memory
-        if (isLegacySystemPoolEnabled) {
-            return new QueryMemoryInfo(query.getQueryId(), query.getMemoryPool().getId(), query.getUserMemoryReservation().toBytes());
-        }
         return new QueryMemoryInfo(query.getQueryId(), query.getMemoryPool().getId(), query.getTotalMemoryReservation().toBytes());
     }
 
     private long getQueryMemoryReservation(QueryExecution query)
     {
-        // when the legacy system pool is enabled we use the user memory instead of the total memory
-        if (isLegacySystemPoolEnabled) {
-            return query.getUserMemoryReservation().toBytes();
-        }
         return query.getTotalMemoryReservation().toBytes();
     }
 

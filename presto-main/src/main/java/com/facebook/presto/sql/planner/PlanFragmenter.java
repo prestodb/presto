@@ -17,14 +17,18 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.QueryManagerConfig;
+import com.facebook.presto.execution.scheduler.BucketNodeMap;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayout.TablePartitioning;
 import com.facebook.presto.metadata.TableLayoutHandle;
-import com.facebook.presto.operator.StageExecutionStrategy;
+import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -36,11 +40,15 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
+import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
+import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -50,22 +58,27 @@ import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxStageCount;
+import static com.facebook.presto.SystemSessionProperties.isDynamicSchduleForGroupedExecution;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
+import static com.facebook.presto.spi.StandardWarningCode.TOO_MANY_STAGES;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonFragmentPlan;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -74,17 +87,22 @@ import static java.util.Objects.requireNonNull;
  */
 public class PlanFragmenter
 {
+    private static final String TOO_MANY_STAGES_MESSAGE = "If the query contains multiple DISTINCTs, please set the 'use_mark_distinct' session property to false. " +
+            "If the query contains multiple CTEs that are referenced more than once, please create temporary table(s) for one or more of the CTEs.";
+
     private final Metadata metadata;
     private final NodePartitioningManager nodePartitioningManager;
+    private final QueryManagerConfig config;
 
     @Inject
     public PlanFragmenter(Metadata metadata, NodePartitioningManager nodePartitioningManager, QueryManagerConfig queryManagerConfig)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
+        this.config = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
     }
 
-    public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode)
+    public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, WarningCollector warningCollector)
     {
         Fragmenter fragmenter = new Fragmenter(session, metadata, plan.getTypes(), plan.getStatsAndCosts());
 
@@ -95,27 +113,30 @@ public class PlanFragmenter
         PlanNode root = SimplePlanRewriter.rewriteWith(fragmenter, plan.getRoot(), properties);
 
         SubPlan subPlan = fragmenter.buildRootFragment(root, properties);
-        subPlan = analyzeGroupedExecution(session, subPlan);
         subPlan = reassignPartitioningHandleIfNecessary(session, subPlan);
+        subPlan = analyzeGroupedExecution(session, subPlan);
 
         checkState(!isForceSingleNodeOutput(session) || subPlan.getFragment().getPartitioning().isSingleNode(), "Root of PlanFragment is not single node");
 
         // TODO: Remove query_max_stage_count session property and use queryManagerConfig.getMaxStageCount() here
-        sanityCheckFragmentedPlan(subPlan, getQueryMaxStageCount(session));
+        sanityCheckFragmentedPlan(subPlan, warningCollector, getQueryMaxStageCount(session), config.getStageCountWarningThreshold());
 
         return subPlan;
     }
 
-    private void sanityCheckFragmentedPlan(SubPlan subPlan, int maxStageCount)
+    private void sanityCheckFragmentedPlan(SubPlan subPlan, WarningCollector warningCollector, int maxStageCount, int stageCountSoftLimit)
     {
         subPlan.sanityCheck();
         int fragmentCount = subPlan.getAllFragments().size();
         if (fragmentCount > maxStageCount) {
             throw new PrestoException(QUERY_HAS_TOO_MANY_STAGES, format(
-                    "Number of stages in the query (%s) exceeds the allowed maximum (%s). " +
-                            "If the query contains multiple DISTINCTs, please set the use_mark_distinct session property to false. " +
-                            "If the query contains multiple CTEs that are referenced more than once, please create temporary table(s) for one or more of the CTEs.",
+                    "Number of stages in the query (%s) exceeds the allowed maximum (%s). " + TOO_MANY_STAGES_MESSAGE,
                     fragmentCount, maxStageCount));
+        }
+        if (fragmentCount > stageCountSoftLimit) {
+            warningCollector.add(new PrestoWarning(TOO_MANY_STAGES, format(
+                    "Number of stages in the query (%s) exceeds the soft limit (%s). " + TOO_MANY_STAGES_MESSAGE,
+                    fragmentCount, stageCountSoftLimit)));
         }
     }
 
@@ -124,7 +145,14 @@ public class PlanFragmenter
         PlanFragment fragment = subPlan.getFragment();
         GroupedExecutionProperties properties = fragment.getRoot().accept(new GroupedExecutionTagger(session, metadata, nodePartitioningManager), null);
         if (properties.isSubTreeUseful()) {
-            fragment = fragment.withGroupedExecution(properties.getCapableTableScanNodes());
+            boolean preferDynamic = fragment.getRemoteSourceNodes().isEmpty() && isDynamicSchduleForGroupedExecution(session);
+            BucketNodeMap bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, fragment.getPartitioning(), preferDynamic);
+            if (bucketNodeMap.isDynamic()) {
+                fragment = fragment.withDynamicLifespanScheduleGroupedExecution(properties.getCapableTableScanNodes());
+            }
+            else {
+                fragment = fragment.withFixedLifespanScheduleGroupedExecution(properties.getCapableTableScanNodes());
+            }
         }
         ImmutableList.Builder<SubPlan> result = ImmutableList.builder();
         for (SubPlan child : subPlan.getChildren()) {
@@ -166,8 +194,9 @@ public class PlanFragmenter
                         outputPartitioningScheme.getHashColumn(),
                         outputPartitioningScheme.isReplicateNullsAndAny(),
                         outputPartitioningScheme.getBucketToPartition()),
-                fragment.getStageExecutionStrategy(),
-                fragment.getStatsAndCosts());
+                fragment.getStageExecutionDescriptor(),
+                fragment.getStatsAndCosts(),
+                fragment.getJsonRepresentation());
 
         ImmutableList.Builder<SubPlan> childrenBuilder = ImmutableList.builder();
         for (SubPlan child : subPlan.getChildren()) {
@@ -213,15 +242,18 @@ public class PlanFragmenter
             boolean equals = properties.getPartitionedSources().equals(ImmutableSet.copyOf(schedulingOrder));
             checkArgument(equals, "Expected scheduling order (%s) to contain an entry for all partitioned sources (%s)", schedulingOrder, properties.getPartitionedSources());
 
+            Map<Symbol, Type> symbols = Maps.filterKeys(types.allTypes(), in(dependencies));
+
             PlanFragment fragment = new PlanFragment(
                     fragmentId,
                     root,
-                    Maps.filterKeys(types.allTypes(), in(dependencies)),
+                    symbols,
                     properties.getPartitioningHandle(),
                     schedulingOrder,
                     properties.getPartitioningScheme(),
-                    StageExecutionStrategy.ungroupedExecution(),
-                    statsAndCosts.getForSubplan(root));
+                    StageExecutionDescriptor.ungroupedExecution(),
+                    statsAndCosts.getForSubplan(root),
+                    Optional.of(jsonFragmentPlan(root, symbols, metadata.getFunctionRegistry(), session)));
 
             return new SubPlan(fragment, properties.getChildren());
         }
@@ -238,6 +270,13 @@ public class PlanFragmenter
 
         @Override
         public PlanNode visitExplainAnalyze(ExplainAnalyzeNode node, RewriteContext<FragmentProperties> context)
+        {
+            context.get().setCoordinatorOnlyDistribution();
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitStatisticsWriterNode(StatisticsWriterNode node, RewriteContext<FragmentProperties> context)
         {
             context.get().setCoordinatorOnlyDistribution();
             return context.defaultRewrite(node, context.get());
@@ -438,32 +477,7 @@ public class PlanFragmenter
             requireNonNull(distribution, "distribution is null");
 
             partitionedSources.add(source);
-
-            if (!partitioningHandle.isPresent()) {
-                partitioningHandle = Optional.of(distribution);
-                return this;
-            }
-
-            PartitioningHandle currentPartitioning = partitioningHandle.get();
-
-            // If already system SINGLE or COORDINATOR_ONLY, leave it as is (this is for single-node execution)
-            if (currentPartitioning.equals(SINGLE_DISTRIBUTION) || currentPartitioning.equals(COORDINATOR_DISTRIBUTION)) {
-                return this;
-            }
-
-            if (currentPartitioning.equals(distribution)) {
-                return this;
-            }
-
-            Optional<PartitioningHandle> commonPartitioning = metadata.getCommonPartitioning(session, currentPartitioning, distribution);
-            if (commonPartitioning.isPresent()) {
-                partitioningHandle = commonPartitioning;
-                return this;
-            }
-
-            throw new IllegalStateException(String.format(
-                    "Cannot overwrite distribution with %s (currently set to %s)",
-                    distribution, currentPartitioning));
+            return setDistribution(distribution, metadata, session);
         }
 
         public FragmentProperties addChildren(List<SubPlan> children)
@@ -592,6 +606,33 @@ public class PlanFragmenter
                     case INTERMEDIATE:
                         return properties;
                 }
+            }
+            return GroupedExecutionProperties.notCapable();
+        }
+
+        @Override
+        public GroupedExecutionProperties visitWindow(WindowNode node, Void context)
+        {
+            return visitWindowFunctionNode(node);
+        }
+
+        @Override
+        public GroupedExecutionProperties visitRowNumber(RowNumberNode node, Void context)
+        {
+            return visitWindowFunctionNode(node);
+        }
+
+        @Override
+        public GroupedExecutionProperties visitTopNRowNumber(TopNRowNumberNode node, Void context)
+        {
+            return visitWindowFunctionNode(node);
+        }
+
+        private GroupedExecutionProperties visitWindowFunctionNode(PlanNode node)
+        {
+            GroupedExecutionProperties properties = getOnlyElement(node.getSources()).accept(this, null);
+            if (groupedExecutionForAggregation && properties.isCurrentNodeCapable()) {
+                return new GroupedExecutionProperties(true, true, properties.capableTableScanNodes);
             }
             return GroupedExecutionProperties.notCapable();
         }

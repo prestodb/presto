@@ -18,6 +18,7 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryData;
 import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.Varchars;
@@ -94,6 +95,9 @@ public class RedisLoader
         {
             this.timeZoneKey = session.getTimeZoneKey();
         }
+
+        @Override
+        public void setWarnings(List<PrestoWarning> warnings) {}
 
         @Override
         public void addResults(QueryStatusInfo statusInfo, QueryData data)

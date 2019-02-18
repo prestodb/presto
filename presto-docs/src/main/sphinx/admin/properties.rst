@@ -116,28 +116,6 @@ Memory Management Properties
     This is the amount of memory set aside as headroom/buffer in the JVM heap
     for allocations that are not tracked by Presto.
 
-``resources.reserved-system-memory``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-    * **Type:** ``data size``
-    * **Default value:** ``JVM max memory * 0.4``
-
-    The amount of JVM memory reserved for system memory usage. System memory is
-    allocated during execution for things that are not directly attributable to
-    or controllable by a user query. For example, memory allocated by the readers,
-    writers, and network buffers, etc. This also accounts for memory that is not
-    tracked by the memory tracking system.
-
-    The purpose of this property is to prevent the JVM from running out of
-    memory (OOM). The default value is suitable for smaller JVM heap sizes or
-    clusters with many concurrent queries. If running fewer queries with a
-    large heap, a smaller value may work. Basically, set this value large
-    enough that the JVM does not fail with ``OutOfMemoryError``.
-
-    Please note that this config property is only used when
-    ``deprecated.legacy-system-pool-enabled=true``, and it will be removed
-    in the future.
-
 .. _tuning-spilling:
 
 Spilling Properties

@@ -30,7 +30,9 @@ import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.bytecode.instruction.VariableInstruction;
 
 import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.sql.gen.BytecodeGenerator.generateWrite;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 
@@ -38,7 +40,7 @@ public class SwitchCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         // TODO: compile as
         /*
@@ -74,7 +76,7 @@ public class SwitchCodeGenerator
 
         // process value, else, and all when clauses
         RowExpression value = arguments.get(0);
-        BytecodeNode valueBytecode = generatorContext.generate(value);
+        BytecodeNode valueBytecode = generatorContext.generate(value, Optional.empty());
         BytecodeNode elseValue;
 
         List<RowExpression> whenClauses;
@@ -87,7 +89,7 @@ public class SwitchCodeGenerator
         }
         else {
             whenClauses = arguments.subList(1, arguments.size() - 1);
-            elseValue = generatorContext.generate(last);
+            elseValue = generatorContext.generate(last, Optional.empty());
         }
 
         // determine the type of the value and result
@@ -123,7 +125,7 @@ public class SwitchCodeGenerator
             BytecodeNode equalsCall = generatorContext.generateCall(
                     equalsFunction.getName(),
                     generatorContext.getRegistry().getScalarFunctionImplementation(equalsFunction),
-                    ImmutableList.of(generatorContext.generate(operand), getTempVariableNode));
+                    ImmutableList.of(generatorContext.generate(operand, Optional.empty()), getTempVariableNode));
 
             BytecodeBlock condition = new BytecodeBlock()
                     .append(equalsCall)
@@ -131,10 +133,12 @@ public class SwitchCodeGenerator
 
             elseValue = new IfStatement("when")
                     .condition(condition)
-                    .ifTrue(generatorContext.generate(result))
+                    .ifTrue(generatorContext.generate(result, Optional.empty()))
                     .ifFalse(elseValue);
         }
 
-        return block.append(elseValue);
+        block.append(elseValue);
+        outputBlockVariable.ifPresent(output -> block.append(generateWrite(generatorContext, returnType, output)));
+        return block;
     }
 }

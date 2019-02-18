@@ -1321,7 +1321,7 @@ public class TestMathFunctions
         assertFunction("inverse_normal_cdf(0.5, 0.25, 0.65)", DOUBLE, 0.59633011660189195);
         assertInvalidFunction("inverse_normal_cdf(4, 48, 0)", "p must be 0 > p > 1");
         assertInvalidFunction("inverse_normal_cdf(4, 48, 1)", "p must be 0 > p > 1");
-        assertInvalidFunction("inverse_normal_cdf(4, 0, 0.4)", "sd must > 0");
+        assertInvalidFunction("inverse_normal_cdf(4, 0, 0.4)", "sd must be > 0");
     }
 
     @Test
@@ -1339,8 +1339,8 @@ public class TestMathFunctions
         assertFunction("normal_cdf(nan(), 1, 0)", DOUBLE, Double.NaN);
         assertFunction("normal_cdf(0, 1, nan())", DOUBLE, Double.NaN);
 
-        assertInvalidFunction("normal_cdf(0, 0, 0.1985)", "standardDeviation must > 0");
-        assertInvalidFunction("normal_cdf(0, nan(), 0.1985)", "standardDeviation must > 0");
+        assertInvalidFunction("normal_cdf(0, 0, 0.1985)", "standardDeviation must be > 0");
+        assertInvalidFunction("normal_cdf(0, nan(), 0.1985)", "standardDeviation must be > 0");
     }
 
     @Test

@@ -72,7 +72,6 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.getConcurrentLifespansPerNode;
 import static com.facebook.presto.SystemSessionProperties.getWriterMinSize;
-import static com.facebook.presto.SystemSessionProperties.isDynamicSchduleForGroupedExecution;
 import static com.facebook.presto.connector.ConnectorId.isInternalSystemConnector;
 import static com.facebook.presto.execution.BasicStageStats.aggregateBasicStageStats;
 import static com.facebook.presto.execution.SqlStageExecution.createSqlStageExecution;
@@ -327,7 +326,7 @@ public class SqlQueryScheduler
             NodeSelector nodeSelector = nodeScheduler.createNodeSelector(connectorId);
             SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stage::getAllTasks);
 
-            checkArgument(!plan.getFragment().getStageExecutionStrategy().isAnyScanGroupedExecution());
+            checkArgument(!plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution());
             stageSchedulers.put(stageId, newSourcePartitionedSchedulerAsStageScheduler(stage, planNodeId, splitSource, placementPolicy, splitBatchSize));
             bucketToPartition = Optional.of(new int[1]);
         }
@@ -341,7 +340,7 @@ public class SqlQueryScheduler
                 List<PlanNodeId> schedulingOrder = plan.getFragment().getPartitionedSources();
                 ConnectorId connectorId = partitioningHandle.getConnectorId().orElseThrow(IllegalStateException::new);
                 List<ConnectorPartitionHandle> connectorPartitionHandles;
-                boolean groupedExecutionForStage = plan.getFragment().getStageExecutionStrategy().isAnyScanGroupedExecution();
+                boolean groupedExecutionForStage = plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution();
                 if (groupedExecutionForStage) {
                     connectorPartitionHandles = nodePartitioningManager.listPartitionHandles(session, partitioningHandle);
                     checkState(!ImmutableList.of(NOT_PARTITIONED).equals(connectorPartitionHandles));
@@ -354,17 +353,20 @@ public class SqlQueryScheduler
                 List<Node> stageNodeList;
                 if (plan.getSubStages().isEmpty()) {
                     // no remote source
-                    boolean preferDynamic = groupedExecutionForStage && isDynamicSchduleForGroupedExecution(session);
-                    bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, preferDynamic);
-                    if (bucketNodeMap.isDynamic()) {
-                        verify(preferDynamic);
-                    }
+                    boolean dynamicLifespanSchedule = plan.getFragment().getStageExecutionDescriptor().isDynamicLifespanSchedule();
+                    bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, dynamicLifespanSchedule);
+
+                    // verify execution is consistent with planner's decision on dynamic lifespan schedule
+                    verify(bucketNodeMap.isDynamic() == dynamicLifespanSchedule);
 
                     stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(connectorId).allNodes());
                     Collections.shuffle(stageNodeList);
                     bucketToPartition = Optional.empty();
                 }
                 else {
+                    // cannot use dynamic lifespan schedule
+                    verify(!plan.getFragment().getStageExecutionDescriptor().isDynamicLifespanSchedule());
+
                     // remote source requires nodePartitionMap
                     NodePartitionMap nodePartitionMap = partitioningCache.apply(plan.getFragment().getPartitioning());
                     if (groupedExecutionForStage) {
@@ -378,7 +380,7 @@ public class SqlQueryScheduler
                 stageSchedulers.put(stageId, new FixedSourcePartitionedScheduler(
                         stage,
                         splitSources,
-                        plan.getFragment().getStageExecutionStrategy(),
+                        plan.getFragment().getStageExecutionDescriptor(),
                         schedulingOrder,
                         stageNodeList,
                         bucketNodeMap,

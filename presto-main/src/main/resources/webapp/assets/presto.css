@@ -675,6 +675,9 @@ pre {
 .graph-container {
     padding: 15px;
     background-color: #1b1b1b;
+    height: 1000px;
+    overflow: scroll;
+    width: 100%;
 }
 
 .graph-container svg {
@@ -733,10 +736,15 @@ text {
     font-size: 15px;
 }
 
-.edgePath path {
-    stroke: #fff;
-    stroke-width: 3px;
+.plan-edge {
+    stroke: #dadada;
     fill: transparent;
+    stroke-width: 3;
+}
+
+.plan-arrowhead {
+    fill: #dadada;
+    stroke-width: 0;
 }
 
 g .cluster:hover {
@@ -775,11 +783,6 @@ g .operator-stats:hover {
 .stage-dropdown {
     margin-top: 20px;
     text-align: right;
-}
-
-.edge-class {
-    stroke-width: 5px;
-    fill: #fff;
 }
 
 /** ============== **/

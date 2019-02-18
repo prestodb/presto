@@ -124,6 +124,11 @@ public class ClusterSizeMonitor
         minimumWorkerRequirementMet = true;
     }
 
+    /**
+     * Returns a listener that completes when the minimum number of workers for the cluster has been met.
+     * Note: caller should not add a listener using the direct executor, as this can delay the
+     * notifications for other listeners.
+     */
     public synchronized ListenableFuture<?> waitForMinimumWorkers()
     {
         if (currentCount >= executionMinCount) {

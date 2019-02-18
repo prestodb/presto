@@ -1,0 +1,46 @@
+{
+    "tableName": "partsupp",
+    "schemaName": "tpch",
+    "host": "localhost",
+    "port": "9300",
+    "clusterName": "test",
+    "index": "partsupp",
+    "type": "doc",
+    "columns": [
+            {
+                "name": "partkey",
+                "type": "bigint",
+                "jsonPath": "partkey",
+                "jsonType": "bigint",
+                "ordinalPosition": "0"
+            },
+            {
+                "name": "suppkey",
+                "type": "bigint",
+                "jsonPath": "suppkey",
+                "jsonType": "bigint",
+                "ordinalPosition": "1"
+            },
+            {
+                "name": "availqty",
+                "type": "bigint",
+                "jsonPath": "availqty",
+                "jsonType": "bigint",
+                "ordinalPosition": "2"
+            },
+            {
+                "name": "supplycost",
+                "type": "double",
+                "jsonPath": "supplycost",
+                "jsonType": "double",
+                "ordinalPosition": "3"
+            },
+            {
+                "name": "comment",
+                "type": "varchar",
+                "jsonPath": "comment",
+                "jsonType": "varchar",
+                "ordinalPosition": "4"
+            }
+        ]
+}

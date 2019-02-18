@@ -134,6 +134,11 @@ public abstract class PlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
+    public R visitStatisticsWriterNode(StatisticsWriterNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitUnion(UnionNode node, C context)
     {
         return visitPlan(node, context);

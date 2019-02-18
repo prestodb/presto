@@ -70,7 +70,6 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
-import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
 import static com.facebook.presto.util.CompilerUtils.defineClass;
@@ -342,7 +341,7 @@ public class PageFunctionCompiler
 
         declareBlockVariables(projection, page, scope, body);
 
-        Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
+        scope.declareVariable("wasNull", body, constantFalse());
         RowExpressionCompiler compiler = new RowExpressionCompiler(
                 callSiteBinder,
                 cachedInstanceBinder,
@@ -350,9 +349,9 @@ public class PageFunctionCompiler
                 metadata.getFunctionRegistry(),
                 compiledLambdaMap);
 
-        body.append(thisVariable.getField(blockBuilder))
-                .append(compiler.compile(projection, scope))
-                .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.getType()))
+        Variable outputBlockVariable = scope.createTempVariable(BlockBuilder.class);
+        body.append(outputBlockVariable.set(thisVariable.getField(blockBuilder)))
+                .append(compiler.compile(projection, scope, Optional.of(outputBlockVariable)))
                 .ret();
         return method;
     }
@@ -525,7 +524,7 @@ public class PageFunctionCompiler
                 compiledLambdaMap);
 
         Variable result = scope.declareVariable(boolean.class, "result");
-        body.append(compiler.compile(filter, scope))
+        body.append(compiler.compile(filter, scope, Optional.empty()))
                 // store result so we can check for null
                 .putVariable(result)
                 .append(and(not(wasNullVariable), result).ret());

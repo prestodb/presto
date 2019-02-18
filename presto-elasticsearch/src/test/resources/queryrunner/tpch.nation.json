@@ -1,0 +1,39 @@
+{
+    "tableName": "nation",
+    "schemaName": "tpch",
+    "host": "localhost",
+    "port": "9300",
+    "clusterName": "test",
+    "index": "nation",
+    "type": "doc",
+    "columns": [
+            {
+                "name": "nationkey",
+                "type": "bigint",
+                "jsonPath": "nationkey",
+                "jsonType": "bigint",
+                "ordinalPosition": "0"
+            },
+            {
+                "name": "name",
+                "type": "varchar",
+                "jsonPath": "name",
+                "jsonType": "varchar",
+                "ordinalPosition": "1"
+            },
+            {
+                "name": "regionkey",
+                "type": "bigint",
+                "jsonPath": "regionkey",
+                "jsonType": "bigint",
+                "ordinalPosition": "2"
+            },
+            {
+                "name": "comment",
+                "type": "varchar",
+                "jsonPath": "comment",
+                "jsonType": "varchar",
+                "ordinalPosition": "3"
+            }
+        ]
+}

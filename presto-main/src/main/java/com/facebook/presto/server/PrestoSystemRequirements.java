@@ -169,7 +169,7 @@ final class PrestoSystemRequirements
     public static void verifySystemTimeIsReasonable()
     {
         int currentYear = DateTime.now().year().get();
-        if (currentYear < 2015) {
+        if (currentYear < 2019) {
             failRequirement("Presto requires the system time to be current (found year %s)", currentYear);
         }
     }

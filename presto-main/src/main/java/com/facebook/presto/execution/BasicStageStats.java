@@ -24,6 +24,7 @@ import java.util.Set;
 
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.airlift.units.Duration.succinctDuration;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -248,8 +249,8 @@ public class BasicStageStats
                 succinctBytes(userMemoryReservation),
                 succinctBytes(totalMemoryReservation),
 
-                new Duration(totalCpuTime, MILLISECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(totalScheduledTimeMillis, MILLISECONDS).convertToMostSuccinctTimeUnit(),
+                succinctDuration(totalCpuTime, MILLISECONDS),
+                succinctDuration(totalScheduledTimeMillis, MILLISECONDS),
 
                 fullyBlocked,
                 blockedReasons,

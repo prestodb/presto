@@ -222,6 +222,7 @@ const BAR_CHART_PROPERTIES = {
     height: '80px',
     barColor: '#747F96',
     zeroColor: '#8997B3',
+    chartRangeMin: 0,
     tooltipClassname: 'sparkline-tooltip',
     tooltipFormat: 'Task {{offset:offset}} - {{value}}',
     disableHiddenCheck: true,
@@ -236,12 +237,13 @@ const HISTOGRAM_PROPERTIES = {
     barColor: '#747F96',
     zeroColor: '#747F96',
     zeroAxis: true,
+    chartRangeMin: 0,
     tooltipClassname: 'sparkline-tooltip',
     tooltipFormat: '{{offset:offset}} -- {{value}} tasks',
     disableHiddenCheck: true,
 };
 
-class StageDetail extends React.Component {
+class StageSummary extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
@@ -310,8 +312,8 @@ class StageDetail extends React.Component {
             const renderTimestamp = Date.now();
             const stageId = getStageNumber(stage.stageId);
 
-            StageDetail.renderHistogram('#scheduled-time-histogram-' + stageId, scheduledTimes, formatDuration);
-            StageDetail.renderHistogram('#cpu-time-histogram-' + stageId, cpuTimes, formatDuration);
+            StageSummary.renderHistogram('#scheduled-time-histogram-' + stageId, scheduledTimes, formatDuration);
+            StageSummary.renderHistogram('#cpu-time-histogram-' + stageId, cpuTimes, formatDuration);
 
             if (this.state.expanded) {
                 // this needs to be a string otherwise it will also be passed to numberFormatter
@@ -589,7 +591,7 @@ class StageList extends React.Component {
             );
         }
 
-        const renderedStages = stages.map(stage => <StageDetail key={stage.stageId} stage={stage}/>);
+        const renderedStages = stages.map(stage => <StageSummary key={stage.stageId} stage={stage}/>);
 
         return (
             <div className="row">
@@ -1388,6 +1390,16 @@ export class QueryDetail extends React.Component {
                                             {query.queryStats.physicalWrittenDataSize}
                                         </td>
                                     </tr>
+                                    {parseDataSize(query.queryStats.spilledDataSize) > 0 &&
+                                    <tr>
+                                        <td className="info-title">
+                                            Spilled Data
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.spilledDataSize}
+                                        </td>
+                                    </tr>
+                                    }
                                     </tbody>
                                 </table>
                             </div>

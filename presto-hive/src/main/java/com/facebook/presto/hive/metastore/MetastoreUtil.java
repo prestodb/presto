@@ -23,6 +23,7 @@ import org.apache.hadoop.hive.metastore.ProtectMode;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -177,9 +178,19 @@ public class MetastoreUtil
 
     public static String makePartName(List<Column> partitionColumns, List<String> values)
     {
-        checkArgument(partitionColumns.size() == values.size());
+        checkArgument(partitionColumns.size() == values.size(), "Partition value count does not match the partition column count");
+        checkArgument(values.stream().allMatch(Objects::nonNull), "partitionValue must not have null elements");
+
         List<String> partitionColumnNames = partitionColumns.stream().map(Column::getName).collect(toList());
         return FileUtils.makePartName(partitionColumnNames, values);
+    }
+
+    public static String getPartitionLocation(Table table, Optional<Partition> partition)
+    {
+        if (!partition.isPresent()) {
+            return table.getStorage().getLocation();
+        }
+        return partition.get().getStorage().getLocation();
     }
 
     private static String toThriftDdl(String structName, List<Column> columns)

@@ -27,7 +27,6 @@ import com.facebook.presto.util.Failures;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.stats.Distribution;
-import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -61,6 +60,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
+import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -82,6 +82,7 @@ public class StageStateMachine
     private final StateMachine<StageState> stageState;
     private final StateMachine<Optional<StageInfo>> finalStageInfo;
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
+    private final AtomicReference<Optional<String>> renderedPlan = new AtomicReference<>(Optional.empty());
 
     private final AtomicReference<DateTime> schedulingComplete = new AtomicReference<>();
     private final Distribution getSplitDistribution = new Distribution();
@@ -324,8 +325,8 @@ public class StageStateMachine
                 succinctBytes(userMemoryReservation),
                 succinctBytes(totalMemoryReservation),
 
-                new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                succinctNanos(totalCpuTime),
+                succinctNanos(totalScheduledTime),
 
                 fullyBlocked,
                 blockedReasons,

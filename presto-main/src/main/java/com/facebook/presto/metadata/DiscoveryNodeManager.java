@@ -145,17 +145,14 @@ public final class DiscoveryNodeManager
     @PostConstruct
     public void startPollingNodeStates()
     {
-        // poll worker states only on the coordinators
-        if (currentNode.isCoordinator()) {
-            nodeStateUpdateExecutor.scheduleWithFixedDelay(() -> {
-                try {
-                    pollWorkers();
-                }
-                catch (Exception e) {
-                    log.error(e, "Error polling state of nodes");
-                }
-            }, 5, 5, TimeUnit.SECONDS);
-        }
+        nodeStateUpdateExecutor.scheduleWithFixedDelay(() -> {
+            try {
+                pollWorkers();
+            }
+            catch (Exception e) {
+                log.error(e, "Error polling state of nodes");
+            }
+        }, 5, 5, TimeUnit.SECONDS);
         pollWorkers();
     }
 
@@ -262,15 +259,20 @@ public final class DiscoveryNodeManager
             }
         }
 
-        // assign allNodes to a local variable for use in the callback below
-        AllNodes allNodes = new AllNodes(activeNodesBuilder.build(), inactiveNodesBuilder.build(), shuttingDownNodesBuilder.build(), coordinatorsBuilder.build());
-        this.allNodes = allNodes;
+        // nodes by connector id changes anytime a node adds or removes a connector (note: this is not part of the listener system)
         activeNodesByConnectorId = byConnectorIdBuilder.build();
-        coordinators = coordinatorsBuilder.build();
 
-        // notify listeners
-        List<Consumer<AllNodes>> listeners = ImmutableList.copyOf(this.listeners);
-        nodeStateEventExecutor.submit(() -> listeners.forEach(listener -> listener.accept(allNodes)));
+        AllNodes allNodes = new AllNodes(activeNodesBuilder.build(), inactiveNodesBuilder.build(), shuttingDownNodesBuilder.build(), coordinatorsBuilder.build());
+        // only update if all nodes actually changed (note: this does not include the connectors registered with the nodes)
+        if (!allNodes.equals(this.allNodes)) {
+            // assign allNodes to a local variable for use in the callback below
+            this.allNodes = allNodes;
+            coordinators = coordinatorsBuilder.build();
+
+            // notify listeners
+            List<Consumer<AllNodes>> listeners = ImmutableList.copyOf(this.listeners);
+            nodeStateEventExecutor.submit(() -> listeners.forEach(listener -> listener.accept(allNodes)));
+        }
     }
 
     private NodeState getNodeState(PrestoNode node)
@@ -357,6 +359,8 @@ public final class DiscoveryNodeManager
     public synchronized void addNodeChangeListener(Consumer<AllNodes> listener)
     {
         listeners.add(requireNonNull(listener, "listener is null"));
+        AllNodes allNodes = this.allNodes;
+        nodeStateEventExecutor.submit(() -> listener.accept(allNodes));
     }
 
     @Override

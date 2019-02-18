@@ -43,6 +43,7 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
+import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -96,7 +97,8 @@ public final class GraphvizPrinter
         TABLE_WRITER,
         TABLE_FINISH,
         INDEX_SOURCE,
-        UNNEST
+        UNNEST,
+        ANALYZE_FINISH,
     }
 
     private static final Map<NodeType, String> NODE_COLORS = immutableEnumMap(ImmutableMap.<NodeType, String>builder()
@@ -120,6 +122,7 @@ public final class GraphvizPrinter
             .put(NodeType.INDEX_SOURCE, "dodgerblue3")
             .put(NodeType.UNNEST, "crimson")
             .put(NodeType.SAMPLE, "goldenrod4")
+            .put(NodeType.ANALYZE_FINISH, "plum")
             .build());
 
     static {
@@ -225,6 +228,13 @@ public final class GraphvizPrinter
         }
 
         @Override
+        public Void visitStatisticsWriterNode(StatisticsWriterNode node, Void context)
+        {
+            printNode(node, format("StatisticsWriterNode[%s]", Joiner.on(", ").join(node.getOutputSymbols())), NODE_COLORS.get(NodeType.ANALYZE_FINISH));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
         public Void visitTableFinish(TableFinishNode node, Void context)
         {
             printNode(node, format("TableFinish[%s]", Joiner.on(", ").join(node.getOutputSymbols())), NODE_COLORS.get(NodeType.TABLE_FINISH));
@@ -309,7 +319,8 @@ public final class GraphvizPrinter
         public Void visitExchange(ExchangeNode node, Void context)
         {
             List<ArgumentBinding> symbols = node.getOutputSymbols().stream()
-                    .map(ArgumentBinding::columnBinding)
+                    .map(Symbol::toSymbolReference)
+                    .map(ArgumentBinding::expressionBinding)
                     .collect(toImmutableList());
             if (node.getType() == REPARTITION) {
                 symbols = node.getPartitioningScheme().getPartitioning().getArguments();

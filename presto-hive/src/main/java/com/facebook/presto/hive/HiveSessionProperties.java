@@ -76,6 +76,8 @@ public final class HiveSessionProperties
     private static final String COLLECT_COLUMN_STATISTICS_ON_WRITE = "collect_column_statistics_on_write";
     private static final String OPTIMIZE_MISMATCHED_BUCKET_COUNT = "optimize_mismatched_bucket_count";
     private static final String S3_SELECT_PUSHDOWN_ENABLED = "s3_select_pushdown_enabled";
+    private static final String TEMPORARY_STAGING_DIRECTORY_ENABLED = "temporary_staging_directory_enabled";
+    private static final String TEMPORARY_STAGING_DIRECTORY_PATH = "temporary_staging_directory_path";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -291,11 +293,21 @@ public final class HiveSessionProperties
                         OPTIMIZE_MISMATCHED_BUCKET_COUNT,
                         "Experimenal: Enable optimization to avoid shuffle when bucket count is compatible but not the same",
                         hiveClientConfig.isOptimizeMismatchedBucketCount(),
-                                false),
+                        false),
                 booleanProperty(
                         S3_SELECT_PUSHDOWN_ENABLED,
                         "S3 Select pushdown enabled",
                         hiveClientConfig.isS3SelectPushdownEnabled(),
+                        false),
+                booleanProperty(
+                        TEMPORARY_STAGING_DIRECTORY_ENABLED,
+                        "Should use temporary staging directory for write operations",
+                        hiveClientConfig.isTemporaryStagingDirectoryEnabled(),
+                        false),
+                stringProperty(
+                        TEMPORARY_STAGING_DIRECTORY_PATH,
+                        "Temporary staging directory location",
+                        hiveClientConfig.getTemporaryStagingDirectoryPath(),
                         false));
     }
 
@@ -493,6 +505,16 @@ public final class HiveSessionProperties
     public static boolean isOptimizedMismatchedBucketCount(ConnectorSession session)
     {
         return session.getProperty(OPTIMIZE_MISMATCHED_BUCKET_COUNT, Boolean.class);
+    }
+
+    public static boolean isTemporaryStagingDirectoryEnabled(ConnectorSession session)
+    {
+        return session.getProperty(TEMPORARY_STAGING_DIRECTORY_ENABLED, Boolean.class);
+    }
+
+    public static String getTemporaryStagingDirectoryPath(ConnectorSession session)
+    {
+        return session.getProperty(TEMPORARY_STAGING_DIRECTORY_PATH, String.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)

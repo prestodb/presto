@@ -5,5 +5,5 @@ import {getFirstParameter} from "./utils";
 
 ReactDOM.render(
     <LivePlan queryId={getFirstParameter(window.location.search)} isEmbedded={true}/>,
-    document.getElementById('live-plan-header')
+    document.getElementById('live-plan-container')
 );

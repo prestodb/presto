@@ -23,6 +23,7 @@ import com.facebook.presto.operator.annotations.ImplementationDependency;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ReturnPlaceConvention;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
@@ -115,11 +116,6 @@ public class ParametricScalarImplementation
             checkArgument(specializedJavaType != Object.class, "specializedTypeParameter must not contain Object.class entries");
             checkArgument(!Primitives.isWrapperType(specializedJavaType), "specializedTypeParameter must not contain boxed primitive types");
         }
-        for (int i = 1; i < choices.size(); i++) {
-            checkCondition(Objects.equals(choices.get(i).checkDependencies(), choices.get(0).checkDependencies()), FUNCTION_IMPLEMENTATION_ERROR, "Implementations for the same function signature must have matching dependencies: %s", signature);
-            checkCondition(Objects.equals(choices.get(i).getConstructorDependencies(), choices.get(0).getConstructorDependencies()), FUNCTION_IMPLEMENTATION_ERROR, "Implementations for the same function signature must have matching constructor dependencies: %s", signature);
-            checkCondition(Objects.equals(choices.get(i).getConstructor(), choices.get(0).getConstructor()), FUNCTION_IMPLEMENTATION_ERROR, "Implementations for the same function signature must have matching constructors: %s", signature);
-        }
     }
 
     public Optional<ScalarFunctionImplementation> specialize(Signature boundSignature, BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry, boolean isDeterministic)
@@ -169,6 +165,7 @@ public class ParametricScalarImplementation
             implementationChoices.add(new ScalarImplementationChoice(
                     choice.nullable,
                     choice.argumentProperties,
+                    choice.returnPlaceConvention,
                     boundMethodHandle.asType(javaMethodType(choice, boundSignature, typeManager)),
                     boundConstructor));
         }
@@ -197,17 +194,10 @@ public class ParametricScalarImplementation
         return argumentNativeContainerTypes;
     }
 
-    public List<ImplementationDependency> getDependencies()
-    {
-        // All choices are required to have the same dependencies at this time. This is asserted in the constructor.
-        return choices.get(0).getDependencies();
-    }
-
     @VisibleForTesting
-    public List<ImplementationDependency> getConstructorDependencies()
+    public List<ParametricScalarImplementationChoice> getChoices()
     {
-        // All choices are required to have the same constructor dependencies at this time. This is asserted in the constructor.
-        return choices.get(0).getConstructorDependencies();
+        return choices;
     }
 
     Class<?> getReturnNativeContainerType()
@@ -317,6 +307,7 @@ public class ParametricScalarImplementation
     {
         private final boolean nullable;
         private final List<ArgumentProperty> argumentProperties;
+        private final ReturnPlaceConvention returnPlaceConvention;
         private final MethodHandle methodHandle;
         private final Optional<MethodHandle> constructor;
         private final List<ImplementationDependency> dependencies;
@@ -328,6 +319,7 @@ public class ParametricScalarImplementation
                 boolean nullable,
                 boolean hasConnectorSession,
                 List<ArgumentProperty> argumentProperties,
+                ReturnPlaceConvention returnPlaceConvention,
                 MethodHandle methodHandle,
                 Optional<MethodHandle> constructor,
                 List<ImplementationDependency> dependencies,
@@ -336,6 +328,7 @@ public class ParametricScalarImplementation
             this.nullable = nullable;
             this.hasConnectorSession = hasConnectorSession;
             this.argumentProperties = ImmutableList.copyOf(requireNonNull(argumentProperties, "argumentProperties is null"));
+            this.returnPlaceConvention = requireNonNull(returnPlaceConvention, "returnPlaceConvention is null");
             this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
             this.constructor = requireNonNull(constructor, "constructor is null");
             this.dependencies = ImmutableList.copyOf(requireNonNull(dependencies, "dependencies is null"));
@@ -365,6 +358,7 @@ public class ParametricScalarImplementation
             return methodHandle;
         }
 
+        @VisibleForTesting
         public List<ImplementationDependency> getDependencies()
         {
             return dependencies;
@@ -373,6 +367,11 @@ public class ParametricScalarImplementation
         public List<ArgumentProperty> getArgumentProperties()
         {
             return argumentProperties;
+        }
+
+        public ReturnPlaceConvention getReturnPlaceConvention()
+        {
+            return returnPlaceConvention;
         }
 
         public boolean checkDependencies()
@@ -386,7 +385,7 @@ public class ParametricScalarImplementation
         }
 
         @VisibleForTesting
-        List<ImplementationDependency> getConstructorDependencies()
+        public List<ImplementationDependency> getConstructorDependencies()
         {
             return constructorDependencies;
         }
@@ -514,7 +513,15 @@ public class ParametricScalarImplementation
 
             this.methodHandle = getMethodHandle(method);
 
-            ParametricScalarImplementationChoice choice = new ParametricScalarImplementationChoice(nullable, hasConnectorSession, argumentProperties, methodHandle, constructorMethodHandle, dependencies, constructorDependencies);
+            ParametricScalarImplementationChoice choice = new ParametricScalarImplementationChoice(
+                    nullable,
+                    hasConnectorSession,
+                    argumentProperties,
+                    ReturnPlaceConvention.STACK, // TODO: support other return place convention
+                    methodHandle,
+                    constructorMethodHandle,
+                    dependencies,
+                    constructorDependencies);
             choices.add(choice);
         }
 

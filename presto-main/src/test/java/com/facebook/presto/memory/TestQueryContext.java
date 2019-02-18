@@ -24,7 +24,6 @@ import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import org.testng.annotations.AfterClass;
@@ -38,7 +37,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
-import static com.facebook.presto.memory.LocalMemoryManager.SYSTEM_POOL;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -65,15 +63,6 @@ public class TestQueryContext
         };
     }
 
-    @DataProvider
-    public Object[][] testMoveTaggedAllocationsOptions()
-    {
-        return new Object[][] {
-                {false},
-                {true},
-        };
-    }
-
     @Test(dataProvider = "testSetMemoryPoolOptions")
     public void testSetMemoryPool(boolean useReservedPool)
     {
@@ -85,7 +74,7 @@ public class TestQueryContext
         }
 
         try (LocalQueryRunner localQueryRunner = new LocalQueryRunner(TEST_SESSION)) {
-            DefaultQueryContext queryContext = new DefaultQueryContext(
+            QueryContext queryContext = new QueryContext(
                     new QueryId("query"),
                     new DataSize(10, BYTE),
                     new DataSize(20, BYTE),
@@ -116,46 +105,12 @@ public class TestQueryContext
     }
 
     @Test
-    public void testLegacyQueryContext()
-    {
-        MemoryPool generalPool = new MemoryPool(GENERAL_POOL, new DataSize(10_000, BYTE));
-        MemoryPool systemPool = new MemoryPool(SYSTEM_POOL, new DataSize(10_000, BYTE));
-        try (LocalQueryRunner localQueryRunner = new LocalQueryRunner(TEST_SESSION)) {
-            LegacyQueryContext queryContext = new LegacyQueryContext(
-                    new QueryId("query"),
-                    new DataSize(10, BYTE),
-                    generalPool,
-                    systemPool,
-                    new TestingGcMonitor(),
-                    localQueryRunner.getExecutor(),
-                    localQueryRunner.getScheduler(),
-                    new DataSize(0, BYTE),
-                    new SpillSpaceTracker(new DataSize(0, BYTE)));
-            TaskStateMachine taskStateMachine = new TaskStateMachine(TaskId.valueOf("task-id"), TEST_EXECUTOR);
-            TaskContext taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, false, false, OptionalInt.empty());
-            LocalMemoryContext systemContext = taskContext.localSystemMemoryContext();
-            ListenableFuture<?> blocked = systemContext.setBytes(10_000);
-
-            // even if the system pool is full, we don't block system allocations for LegacyQueryContext
-            assertTrue(blocked.isDone());
-            assertEquals(systemPool.getReservedBytes(), 10_000);
-            assertEquals(generalPool.getReservedBytes(), 0);
-
-            systemContext.close();
-
-            assertEquals(systemPool.getReservedBytes(), 0);
-            assertEquals(generalPool.getReservedBytes(), 0);
-        }
-    }
-
-    @Test(dataProvider = "testMoveTaggedAllocationsOptions")
-    public void testMoveTaggedAllocations(boolean useLegacyQueryContext)
+    public void testMoveTaggedAllocations()
     {
         MemoryPool generalPool = new MemoryPool(GENERAL_POOL, new DataSize(10_000, BYTE));
         MemoryPool reservedPool = new MemoryPool(RESERVED_POOL, new DataSize(10_000, BYTE));
-        MemoryPool systemPool = new MemoryPool(SYSTEM_POOL, new DataSize(10_000, BYTE));
         QueryId queryId = new QueryId("query");
-        QueryContext queryContext = createQueryContext(useLegacyQueryContext, queryId, generalPool, systemPool);
+        QueryContext queryContext = createQueryContext(queryId, generalPool);
         TaskStateMachine taskStateMachine = new TaskStateMachine(TaskId.valueOf("task-id"), TEST_EXECUTOR);
         TaskContext taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, false, false, OptionalInt.empty());
         DriverContext driverContext = taskContext.addPipelineContext(0, false, false, false).addDriverContext();
@@ -180,26 +135,12 @@ public class TestQueryContext
         memoryContext.close();
 
         assertEquals(generalPool.getFreeBytes(), 10_000);
-        assertEquals(systemPool.getFreeBytes(), 10_000);
         assertEquals(reservedPool.getFreeBytes(), 10_000);
     }
 
-    private static QueryContext createQueryContext(boolean useLegacyQueryContext, QueryId queryId, MemoryPool generalPool, MemoryPool systemPool)
+    private static QueryContext createQueryContext(QueryId queryId, MemoryPool generalPool)
     {
-        if (useLegacyQueryContext) {
-            return new LegacyQueryContext(
-                    queryId,
-                    new DataSize(10_000, BYTE),
-                    generalPool,
-                    systemPool,
-                    new TestingGcMonitor(),
-                    TEST_EXECUTOR,
-                    TEST_EXECUTOR,
-                    new DataSize(0, BYTE),
-                    new SpillSpaceTracker(new DataSize(0, BYTE)));
-        }
-
-        return new DefaultQueryContext(new QueryId("query"),
+        return new QueryContext(queryId,
                 new DataSize(10_000, BYTE),
                 new DataSize(10_000, BYTE),
                 generalPool,

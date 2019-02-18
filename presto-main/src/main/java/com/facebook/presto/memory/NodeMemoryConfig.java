@@ -28,7 +28,6 @@ public class NodeMemoryConfig
     public static final String QUERY_MAX_MEMORY_PER_NODE_CONFIG = "query.max-memory-per-node";
     public static final String QUERY_MAX_TOTAL_MEMORY_PER_NODE_CONFIG = "query.max-total-memory-per-node";
 
-    private boolean isLegacySystemPoolEnabled;
     private boolean isReservedPoolEnabled = true;
 
     private DataSize maxQueryMemoryPerNode = new DataSize(AVAILABLE_HEAP_MEMORY * 0.1, BYTE);
@@ -47,18 +46,6 @@ public class NodeMemoryConfig
     public NodeMemoryConfig setMaxQueryMemoryPerNode(DataSize maxQueryMemoryPerNode)
     {
         this.maxQueryMemoryPerNode = maxQueryMemoryPerNode;
-        return this;
-    }
-
-    public boolean isLegacySystemPoolEnabled()
-    {
-        return isLegacySystemPoolEnabled;
-    }
-
-    @Config("deprecated.legacy-system-pool-enabled")
-    public NodeMemoryConfig setLegacySystemPoolEnabled(boolean legacySystemPoolEnabled)
-    {
-        isLegacySystemPoolEnabled = legacySystemPoolEnabled;
         return this;
     }
 

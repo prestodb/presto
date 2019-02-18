@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.FunctionInvoker;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlOperator;
+import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ReturnPlaceConvention;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.InvocationConvention;
@@ -78,11 +79,13 @@ public class RowDistinctFromOperator
                         new ScalarImplementationChoice(
                                 false,
                                 ImmutableList.of(valueTypeArgumentProperty(USE_NULL_FLAG), valueTypeArgumentProperty(USE_NULL_FLAG)),
+                                ReturnPlaceConvention.STACK,
                                 METHOD_HANDLE_NULL_FLAG.bindTo(type).bindTo(argumentMethods.build()),
                                 Optional.empty()),
                         new ScalarImplementationChoice(
                                 false,
                                 ImmutableList.of(valueTypeArgumentProperty(BLOCK_AND_POSITION), valueTypeArgumentProperty(BLOCK_AND_POSITION)),
+                                ReturnPlaceConvention.STACK,
                                 METHOD_HANDLE_BLOCK_POSITION.bindTo(type).bindTo(argumentMethods.build()),
                                 Optional.empty())),
                 isDeterministic());

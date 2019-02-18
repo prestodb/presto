@@ -64,7 +64,7 @@ public class TestMemoryTracking
     private static final DataSize queryMaxSpillSize = new DataSize(1, GIGABYTE);
     private static final SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(maxSpillSize);
 
-    private DefaultQueryContext queryContext;
+    private QueryContext queryContext;
     private TaskContext taskContext;
     private PipelineContext pipelineContext;
     private DriverContext driverContext;
@@ -97,7 +97,7 @@ public class TestMemoryTracking
     public void setUpTest()
     {
         memoryPool = new MemoryPool(new MemoryPoolId("test"), memoryPoolSize);
-        queryContext = new DefaultQueryContext(
+        queryContext = new QueryContext(
                 new QueryId("test_query"),
                 queryMaxMemory,
                 queryMaxTotalMemory,
@@ -155,7 +155,7 @@ public class TestMemoryTracking
             fail("allocation should hit the per-node total memory limit");
         }
         catch (ExceededMemoryLimitException e) {
-            assertEquals(e.getMessage(), format("Query exceeded per-node total memory limit of %1$s when increasing allocation of %1$s by 1B", queryMaxTotalMemory));
+            assertEquals(e.getMessage(), format("Query exceeded per-node total memory limit of %1$s [Allocated: %1$s, Delta: 1B, Top Consumers: {test=%1$s}]", queryMaxTotalMemory));
         }
     }
 

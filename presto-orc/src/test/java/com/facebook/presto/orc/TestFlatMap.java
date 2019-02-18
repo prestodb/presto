@@ -342,6 +342,19 @@ public class TestFlatMap
                 ExpectedValuesBuilder.get(Function.identity()).setEmptyMapsFrequency(ALL));
     }
 
+    @Test
+    public void testMixedEncodings()
+            throws Exception
+    {
+        // A test case where the values associated with one key are direct encoded, and all other keys are
+        // dictionary encoded.  The dictionary encoded values have occasional values that only appear once
+        // to ensure the IN_DICTIONARY stream is present, which means the checkpoints for dictionary encoded
+        // values will have a different number of positions compared to direct encoded values.
+        runTest("test_flat_map/flat_map_mixed_encodings.dwrf",
+                IntegerType.INTEGER,
+                ExpectedValuesBuilder.get(Function.identity()).setMixedEncodings());
+    }
+
     private <K, V> void runTest(String testOrcFileName, Type type, ExpectedValuesBuilder<K, V> expectedValuesBuilder)
             throws Exception
     {
@@ -446,6 +459,7 @@ public class TestFlatMap
         private Frequency nullValuesFrequency = NONE;
         private Frequency nullRowsFrequency = NONE;
         private Frequency emptyMapsFrequency = NONE;
+        private boolean mixedEncodings;
 
         private ExpectedValuesBuilder(Function<Integer, K> keyConverter, Function<Integer, V> valueConverter)
         {
@@ -484,6 +498,13 @@ public class TestFlatMap
             return this;
         }
 
+        public ExpectedValuesBuilder<K, V> setMixedEncodings()
+        {
+            this.mixedEncodings = true;
+
+            return this;
+        }
+
         public List<Map<K, V>> build()
         {
             List<Map<K, V>> result = new ArrayList<>(NUM_ROWS);
@@ -497,9 +518,25 @@ public class TestFlatMap
                 }
                 else {
                     Map<K, V> row = new HashMap<>();
-                    row.put(keyConverter.apply(i * 3 % 32), passesFrequencyCheck(nullValuesFrequency, i) ? null : valueConverter.apply(i * 3 % 32));
-                    row.put(keyConverter.apply((i * 3 + 1) % 32), valueConverter.apply((i * 3 + 1) % 32));
-                    row.put(keyConverter.apply((i * 3 + 2) % 32), valueConverter.apply((i * 3 + 2) % 32));
+
+                    for (int j = 0; j < 3; j++) {
+                        V value;
+                        int key = (i * 3 + j) % 32;
+
+                        if (j == 0 && passesFrequencyCheck(nullValuesFrequency, i)) {
+                            value = null;
+                        }
+                        else if (mixedEncodings && (key == 1 || j == 2)) {
+                            // TODO: add comments to explain the condition
+                            value = valueConverter.apply(i * 3 + j);
+                        }
+                        else {
+                            value = valueConverter.apply((i * 3 + j) % 32);
+                        }
+
+                        row.put(keyConverter.apply(key), value);
+                    }
+
                     result.add(row);
                 }
             }

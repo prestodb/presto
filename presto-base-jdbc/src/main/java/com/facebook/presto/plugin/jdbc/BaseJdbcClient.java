@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -21,6 +22,8 @@ import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
@@ -235,7 +238,8 @@ public class BaseJdbcClient
                 tableHandle.getCatalogName(),
                 tableHandle.getSchemaName(),
                 tableHandle.getTableName(),
-                layoutHandle.getTupleDomain());
+                layoutHandle.getTupleDomain(),
+                Optional.empty());
         return new FixedSplitSource(ImmutableList.of(jdbcSplit));
     }
 
@@ -265,7 +269,8 @@ public class BaseJdbcClient
                 split.getSchemaName(),
                 split.getTableName(),
                 columnHandles,
-                split.getTupleDomain());
+                split.getTupleDomain(),
+                split.getAdditionalPredicate());
     }
 
     @Override
@@ -452,6 +457,12 @@ public class BaseJdbcClient
         return new SchemaTableName(
                 resultSet.getString("TABLE_SCHEM").toLowerCase(ENGLISH),
                 resultSet.getString("TABLE_NAME").toLowerCase(ENGLISH));
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
+    {
+        return TableStatistics.empty();
     }
 
     protected void execute(Connection connection, String query)

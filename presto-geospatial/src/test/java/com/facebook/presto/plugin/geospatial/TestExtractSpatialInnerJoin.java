@@ -17,10 +17,12 @@ import com.facebook.presto.sql.planner.iterative.rule.ExtractSpatialJoins.Extrac
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;
+import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
+import static com.facebook.presto.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
@@ -73,6 +75,40 @@ public class TestExtractSpatialInnerJoin
                                 p.join(INNER,
                                         p.values(p.symbol("a", GEOMETRY)),
                                         p.values(p.symbol("b", GEOMETRY)))))
+                .doesNotFire();
+
+        // SphericalGeography operand
+        assertRuleApplication()
+                .on(p ->
+                        p.filter(PlanBuilder.expression("ST_Distance(a, b) < 5"),
+                                p.join(INNER,
+                                        p.values(p.symbol("a", SPHERICAL_GEOGRAPHY)),
+                                        p.values(p.symbol("b", SPHERICAL_GEOGRAPHY)))))
+                .doesNotFire();
+
+        assertRuleApplication()
+                .on(p ->
+                        p.filter(PlanBuilder.expression("ST_Contains(polygon, point)"),
+                                p.join(INNER,
+                                        p.values(p.symbol("polygon", SPHERICAL_GEOGRAPHY)),
+                                        p.values(p.symbol("point", SPHERICAL_GEOGRAPHY)))))
+                .doesNotFire();
+
+        // to_spherical_geography() operand
+        assertRuleApplication()
+                .on(p ->
+                        p.filter(PlanBuilder.expression("ST_Distance(to_spherical_geography(ST_GeometryFromText(wkt)), point) < 5"),
+                                p.join(INNER,
+                                        p.values(p.symbol("wkt", VARCHAR)),
+                                        p.values(p.symbol("point", SPHERICAL_GEOGRAPHY)))))
+                .doesNotFire();
+
+        assertRuleApplication()
+                .on(p ->
+                        p.filter(PlanBuilder.expression("ST_Contains(to_spherical_geography(ST_GeometryFromText(wkt)), point)"),
+                                p.join(INNER,
+                                        p.values(p.symbol("wkt", VARCHAR)),
+                                        p.values(p.symbol("point", SPHERICAL_GEOGRAPHY)))))
                 .doesNotFire();
     }
 
@@ -151,8 +187,8 @@ public class TestExtractSpatialInnerJoin
                 .on(p ->
                         p.filter(PlanBuilder.expression(filter),
                                 p.join(INNER,
-                                        p.values(p.symbol("a"), p.symbol("name_a")),
-                                        p.values(p.symbol("b"), p.symbol("name_b"), p.symbol("r")))))
+                                        p.values(p.symbol("a", GEOMETRY), p.symbol("name_a")),
+                                        p.values(p.symbol("b", GEOMETRY), p.symbol("name_b"), p.symbol("r")))))
                 .matches(
                         spatialJoin(newFilter,
                                 values(ImmutableMap.of("a", 0, "name_a", 1)),
@@ -165,8 +201,8 @@ public class TestExtractSpatialInnerJoin
                 .on(p ->
                         p.filter(PlanBuilder.expression(filter),
                                 p.join(INNER,
-                                        p.values(p.symbol("a"), p.symbol("name_a")),
-                                        p.values(p.symbol("b"), p.symbol("name_b"), p.symbol("r")))))
+                                        p.values(p.symbol("a", GEOMETRY), p.symbol("name_a")),
+                                        p.values(p.symbol("b", GEOMETRY), p.symbol("name_b"), p.symbol("r")))))
                 .matches(
                         spatialJoin(newFilter,
                                 values(ImmutableMap.of("a", 0, "name_a", 1)),
@@ -352,6 +388,7 @@ public class TestExtractSpatialInnerJoin
 
     private RuleAssert assertRuleApplication()
     {
-        return tester().assertThat(new ExtractSpatialInnerJoin(tester().getMetadata(), tester().getSplitManager(), tester().getPageSourceManager()));
+        RuleTester tester = tester();
+        return tester.assertThat(new ExtractSpatialInnerJoin(tester.getMetadata(), tester.getSplitManager(), tester.getPageSourceManager(), tester.getSqlParser()));
     }
 }

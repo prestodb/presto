@@ -26,7 +26,6 @@ import com.esri.core.geometry.OperatorUnion;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.Polygon;
 import com.esri.core.geometry.Polyline;
-import com.esri.core.geometry.SpatialReference;
 import com.esri.core.geometry.ogc.OGCConcreteGeometryCollection;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.esri.core.geometry.ogc.OGCGeometryCollection;
@@ -67,6 +66,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
 
+import static com.esri.core.geometry.Geometry.Type;
 import static com.esri.core.geometry.NonSimpleResult.Reason.Clustering;
 import static com.esri.core.geometry.NonSimpleResult.Reason.Cracking;
 import static com.esri.core.geometry.NonSimpleResult.Reason.CrossOver;
@@ -88,6 +88,7 @@ import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeType
 import static com.facebook.presto.geospatial.serde.GeometrySerde.serialize;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
+import static com.facebook.presto.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY_TYPE_NAME;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
 import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
@@ -129,6 +130,14 @@ public final class GeoFunctions
             .build();
     private static final int NUMBER_OF_DIMENSIONS = 3;
     private static final Block EMPTY_ARRAY_OF_INTS = IntegerType.INTEGER.createFixedSizeBlockBuilder(0).build();
+
+    private static final float MIN_LATITUDE = -90;
+    private static final float MAX_LATITUDE = 90;
+    private static final float MIN_LONGITUDE = -180;
+    private static final float MAX_LONGITUDE = 180;
+
+    private static final EnumSet<Type> GEOMETRY_TYPES_FOR_SPHERICAL_GEOGRAPHY = EnumSet.of(
+            Type.Point, Type.Polyline, Type.Polygon, Type.MultiPoint);
 
     private GeoFunctions() {}
 
@@ -270,6 +279,48 @@ public final class GeoFunctions
     public static Slice stGeomFromBinary(@SqlType(VARBINARY) Slice input)
     {
         return serialize(geomFromBinary(input));
+    }
+
+    @Description("Converts a Geometry object to a SphericalGeography object")
+    @ScalarFunction("to_spherical_geography")
+    @SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME)
+    public static Slice toSphericalGeography(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
+    {
+        // "every point in input is in range" <=> "the envelope of input is in range"
+        Envelope envelope = deserializeEnvelope(input);
+        if (envelope != null) {
+            checkLatitude(envelope.getYMin());
+            checkLatitude(envelope.getYMax());
+            checkLongitude(envelope.getXMin());
+            checkLongitude(envelope.getXMax());
+        }
+        OGCGeometry geometry = deserialize(input);
+        if (geometry.is3D()) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot convert 3D geometry to a spherical geography");
+        }
+
+        GeometryCursor cursor = geometry.getEsriGeometryCursor();
+        while (true) {
+            com.esri.core.geometry.Geometry subGeometry = cursor.next();
+            if (subGeometry == null) {
+                break;
+            }
+
+            if (!GEOMETRY_TYPES_FOR_SPHERICAL_GEOGRAPHY.contains(subGeometry.getType())) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot convert geometry of this type to spherical geography: " + subGeometry.getType());
+            }
+        }
+
+        return input;
+    }
+
+    @Description("Converts a SphericalGeography object to a Geometry object.")
+    @ScalarFunction("to_geometry")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice toGeometry(@SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME) Slice input)
+    {
+        // Every SphericalGeography object is a valid geometry object
+        return input;
     }
 
     @Description("Returns the Well-Known Text (WKT) representation of the geometry")
@@ -792,8 +843,7 @@ public final class GeoFunctions
             return null;
         }
         MultiPath lines = (MultiPath) geometry.getEsriGeometry();
-        SpatialReference reference = geometry.getEsriSpatialReference();
-        return serialize(createFromEsriGeometry(lines.getPoint(0), reference));
+        return serialize(createFromEsriGeometry(lines.getPoint(0), null));
     }
 
     @Description("Returns a \"simplified\" version of the given geometry")
@@ -828,8 +878,26 @@ public final class GeoFunctions
             return null;
         }
         MultiPath lines = (MultiPath) geometry.getEsriGeometry();
-        SpatialReference reference = geometry.getEsriSpatialReference();
-        return serialize(createFromEsriGeometry(lines.getPoint(lines.getPointCount() - 1), reference));
+        return serialize(createFromEsriGeometry(lines.getPoint(lines.getPointCount() - 1), null));
+    }
+
+    @SqlNullable
+    @Description("Returns an array of points in a linestring")
+    @ScalarFunction("ST_Points")
+    @SqlType("array(" + GEOMETRY_TYPE_NAME + ")")
+    public static Block stPoints(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
+    {
+        OGCGeometry geometry = deserialize(input);
+        validateType("ST_Points", geometry, EnumSet.of(LINE_STRING));
+        if (geometry.isEmpty()) {
+            return null;
+        }
+        MultiPath lines = (MultiPath) geometry.getEsriGeometry();
+        BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(null, lines.getPointCount());
+        for (int i = 0; i < lines.getPointCount(); i++) {
+            GEOMETRY.writeSlice(blockBuilder, serialize(createFromEsriGeometry(lines.getPoint(i), null)));
+        }
+        return blockBuilder.build();
     }
 
     @SqlNullable
@@ -1229,14 +1297,14 @@ public final class GeoFunctions
 
     private static void checkLatitude(double latitude)
     {
-        if (isNaN(latitude) || isInfinite(latitude) || latitude < -90 || latitude > 90) {
+        if (Double.isNaN(latitude) || Double.isInfinite(latitude) || latitude < MIN_LATITUDE || latitude > MAX_LATITUDE) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Latitude must be between -90 and 90");
         }
     }
 
     private static void checkLongitude(double longitude)
     {
-        if (isNaN(longitude) || isInfinite(longitude) || longitude < -180 || longitude > 180) {
+        if (Double.isNaN(longitude) || Double.isInfinite(longitude) || longitude < MIN_LONGITUDE || longitude > MAX_LONGITUDE) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Longitude must be between -180 and 180");
         }
     }
@@ -1407,6 +1475,36 @@ public final class GeoFunctions
     private interface EnvelopesPredicate
     {
         boolean apply(Envelope left, Envelope right);
+    }
+
+    @SqlNullable
+    @Description("Returns the great-circle distance in meters between two SphericalGeography points.")
+    @ScalarFunction("ST_Distance")
+    @SqlType(DOUBLE)
+    public static Double stSphericalDistance(@SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME) Slice left, @SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME) Slice right)
+    {
+        OGCGeometry leftGeometry = deserialize(left);
+        OGCGeometry rightGeometry = deserialize(right);
+        if (leftGeometry.isEmpty() || rightGeometry.isEmpty()) {
+            return null;
+        }
+
+        // TODO: support more SphericalGeography types.
+        validateSphericalType("ST_Distance", leftGeometry, EnumSet.of(POINT));
+        validateSphericalType("ST_Distance", rightGeometry, EnumSet.of(POINT));
+        Point leftPoint = (Point) leftGeometry.getEsriGeometry();
+        Point rightPoint = (Point) rightGeometry.getEsriGeometry();
+
+        // greatCircleDistance returns distance in KM.
+        return greatCircleDistance(leftPoint.getY(), leftPoint.getX(), rightPoint.getY(), rightPoint.getX()) * 1000;
+    }
+
+    private static void validateSphericalType(String function, OGCGeometry geometry, Set<GeometryType> validTypes)
+    {
+        GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
+        if (!validTypes.contains(type)) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("When applied to SphericalGeography inputs, %s only supports %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
+        }
     }
 
     private static Iterable<Slice> getGeometrySlicesFromBlock(Block block)

@@ -27,7 +27,7 @@ import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.DriverStats;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.PipelineExecutionStrategy;
-import com.facebook.presto.operator.StageExecutionStrategy;
+import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -223,7 +223,7 @@ public class SqlTaskExecution
                     taskContext,
                     localExecutionPlan.getDriverFactories().stream()
                             .collect(toImmutableMap(DriverFactory::getPipelineId, DriverFactory::getPipelineExecutionStrategy)));
-            this.schedulingLifespanManager = new SchedulingLifespanManager(localExecutionPlan.getPartitionedSourceOrder(), localExecutionPlan.getStageExecutionStrategy(), this.status);
+            this.schedulingLifespanManager = new SchedulingLifespanManager(localExecutionPlan.getPartitionedSourceOrder(), localExecutionPlan.getStageExecutionDescriptor(), this.status);
 
             checkArgument(this.driverRunnerFactoriesWithSplitLifeCycle.keySet().equals(partitionedSources),
                     "Fragment is partitioned, but not all partitioned drivers were found");
@@ -765,7 +765,7 @@ public class SqlTaskExecution
         // Note that different drivers in a task may have different pipelineExecutionStrategy.
 
         private final List<PlanNodeId> sourceStartOrder;
-        private final StageExecutionStrategy stageExecutionStrategy;
+        private final StageExecutionDescriptor stageExecutionDescriptor;
         private final Status status;
 
         private final Map<Lifespan, SchedulingLifespan> lifespans = new HashMap<>();
@@ -776,10 +776,10 @@ public class SqlTaskExecution
 
         private int maxScheduledPlanNodeOrdinal;
 
-        public SchedulingLifespanManager(List<PlanNodeId> sourceStartOrder, StageExecutionStrategy stageExecutionStrategy, Status status)
+        public SchedulingLifespanManager(List<PlanNodeId> sourceStartOrder, StageExecutionDescriptor stageExecutionDescriptor, Status status)
         {
             this.sourceStartOrder = ImmutableList.copyOf(sourceStartOrder);
-            this.stageExecutionStrategy = stageExecutionStrategy;
+            this.stageExecutionDescriptor = stageExecutionDescriptor;
             this.status = requireNonNull(status, "status is null");
         }
 
@@ -874,7 +874,7 @@ public class SqlTaskExecution
                 // i.e. One of the following bullet points is true:
                 // * The execution strategy of the plan node is grouped. And lifespan represents a driver group.
                 // * The execution strategy of the plan node is ungrouped. And lifespan is task wide.
-                if (manager.stageExecutionStrategy.isGroupedExecution(manager.sourceStartOrder.get(schedulingPlanNodeOrdinal)) != lifespan.isTaskWide()) {
+                if (manager.stageExecutionDescriptor.isScanGroupedExecution(manager.sourceStartOrder.get(schedulingPlanNodeOrdinal)) != lifespan.isTaskWide()) {
                     return Optional.of(manager.sourceStartOrder.get(schedulingPlanNodeOrdinal));
                 }
                 // This lifespan is incompatible with the plan node. As a result, this method should either

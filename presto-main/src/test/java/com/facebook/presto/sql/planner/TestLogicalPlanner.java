@@ -31,6 +31,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -50,6 +51,7 @@ import static com.facebook.presto.SystemSessionProperties.FORCE_SINGLE_NODE_OUTP
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
+import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.spi.predicate.Domain.singleValue;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -70,12 +72,16 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.markDi
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.rowNumber;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specification;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.topNRowNumber;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
@@ -101,6 +107,23 @@ import static org.testng.Assert.assertFalse;
 public class TestLogicalPlanner
         extends BasePlanTest
 {
+    // TODO: Use com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder#tableScan with required node/stream
+    // partitioning to properly test aggregation, window function and join.
+    @Test
+    public void testAnalyze()
+    {
+        assertDistributedPlan("ANALYZE orders",
+                anyTree(
+                        node(StatisticsWriterNode.class,
+                                anyTree(
+                                        exchange(REMOTE, GATHER,
+                                                node(AggregationNode.class,
+                                                        anyTree(
+                                                                exchange(REMOTE, GATHER,
+                                                                        node(AggregationNode.class,
+                                                                                tableScan("orders", ImmutableMap.of()))))))))));
+    }
+
     @Test
     public void testAggregation()
     {
@@ -129,6 +152,151 @@ public class TestLogicalPlanner
                                                         ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("totalprice"))),
                                                         PARTIAL,
                                                         anyTree(tableScan("orders", ImmutableMap.of("totalprice", "totalprice")))))))));
+    }
+
+    @Test
+    public void testWindow()
+    {
+        // Window partition key is pre-bucketed.
+        assertDistributedPlan("SELECT rank() OVER (PARTITION BY orderkey) FROM orders",
+                anyTree(
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(specification(ImmutableList.of("orderkey"), ImmutableList.of(), ImmutableMap.of()))
+                                        .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
+                                project(tableScan("orders", ImmutableMap.of("orderkey", "orderkey"))))));
+
+        assertDistributedPlan("SELECT row_number() OVER (PARTITION BY orderkey) FROM orders",
+                anyTree(
+                        rowNumber(rowNumberMatcherBuilder -> rowNumberMatcherBuilder
+                                        .partitionBy(ImmutableList.of("orderkey")),
+                                project(tableScan("orders", ImmutableMap.of("orderkey", "orderkey"))))));
+
+        assertDistributedPlan("SELECT orderkey FROM (SELECT orderkey, row_number() OVER (PARTITION BY orderkey ORDER BY custkey) n FROM orders) WHERE n = 1",
+                anyTree(
+                        topNRowNumber(topNRowNumber -> topNRowNumber
+                                        .specification(
+                                                ImmutableList.of("orderkey"),
+                                                ImmutableList.of("custkey"),
+                                                ImmutableMap.of("custkey", ASC_NULLS_LAST)),
+                                project(tableScan("orders", ImmutableMap.of("orderkey", "orderkey", "custkey", "custkey"))))));
+
+        // Window partition key is not pre-bucketed.
+        assertDistributedPlan("SELECT rank() OVER (PARTITION BY orderstatus) FROM orders",
+                anyTree(
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(specification(ImmutableList.of("orderstatus"), ImmutableList.of(), ImmutableMap.of()))
+                                        .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
+                                exchange(LOCAL, GATHER,
+                                        exchange(REMOTE, REPARTITION,
+                                                project(tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus"))))))));
+
+        assertDistributedPlan("SELECT row_number() OVER (PARTITION BY orderstatus) FROM orders",
+                anyTree(
+                        rowNumber(rowNumberMatcherBuilder -> rowNumberMatcherBuilder
+                                        .partitionBy(ImmutableList.of("orderstatus")),
+                                exchange(LOCAL, GATHER,
+                                        exchange(REMOTE, REPARTITION,
+                                                project(tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus"))))))));
+
+        assertDistributedPlan("SELECT orderstatus FROM (SELECT orderstatus, row_number() OVER (PARTITION BY orderstatus ORDER BY custkey) n FROM orders) WHERE n = 1",
+                anyTree(
+                        topNRowNumber(topNRowNumber -> topNRowNumber
+                                        .specification(
+                                                ImmutableList.of("orderstatus"),
+                                                ImmutableList.of("custkey"),
+                                                ImmutableMap.of("custkey", ASC_NULLS_LAST))
+                                        .partial(false),
+                                exchange(LOCAL, GATHER,
+                                        exchange(REMOTE, REPARTITION,
+                                                topNRowNumber(topNRowNumber -> topNRowNumber
+                                                                .specification(
+                                                                        ImmutableList.of("orderstatus"),
+                                                                        ImmutableList.of("custkey"),
+                                                                        ImmutableMap.of("custkey", ASC_NULLS_LAST))
+                                                                .partial(true),
+                                                        project(tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus", "custkey", "custkey")))))))));
+    }
+
+    @Test
+    public void testWindowAfterJoin()
+    {
+        // Window partition key is a super set of join key.
+        assertDistributedPlan("SELECT rank() OVER (PARTITION BY o.orderstatus, o.orderkey) FROM orders o JOIN lineitem l ON o.orderstatus = l.linestatus",
+                anyTree(
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(specification(ImmutableList.of("orderstatus", "orderkey"), ImmutableList.of(), ImmutableMap.of()))
+                                        .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
+                                exchange(LOCAL, GATHER,
+                                        project(
+                                                join(INNER, ImmutableList.of(equiJoinClause("orderstatus", "linestatus")), Optional.empty(), Optional.of(PARTITIONED),
+                                                        exchange(REMOTE, REPARTITION,
+                                                                anyTree(tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus", "orderkey", "orderkey")))),
+                                                        exchange(LOCAL, GATHER,
+                                                                exchange(REMOTE, REPARTITION,
+                                                                        anyTree(tableScan("lineitem", ImmutableMap.of("linestatus", "linestatus")))))))))));
+
+        // Window partition key is not a super set of join key.
+        assertDistributedPlan("SELECT rank() OVER (PARTITION BY o.orderkey) FROM orders o JOIN lineitem l ON o.orderstatus = l.linestatus",
+                anyTree(
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(specification(ImmutableList.of("orderkey"), ImmutableList.of(), ImmutableMap.of()))
+                                        .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
+                                exchange(LOCAL, GATHER,
+                                        exchange(REMOTE, REPARTITION,
+                                                anyTree(join(INNER, ImmutableList.of(equiJoinClause("orderstatus", "linestatus")), Optional.empty(), Optional.of(PARTITIONED),
+                                                        exchange(REMOTE, REPARTITION,
+                                                                anyTree(tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus", "orderkey", "orderkey")))),
+                                                        exchange(LOCAL, GATHER,
+                                                                exchange(REMOTE, REPARTITION,
+                                                                        anyTree(tableScan("lineitem", ImmutableMap.of("linestatus", "linestatus"))))))))))));
+
+        // Test broadcast join
+        Session broadcastJoin = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
+                .setSystemProperty(FORCE_SINGLE_NODE_OUTPUT, Boolean.toString(false))
+                .build();
+        assertDistributedPlan("SELECT rank() OVER (PARTITION BY o.custkey) FROM orders o JOIN lineitem l ON o.orderstatus = l.linestatus",
+                broadcastJoin,
+                anyTree(
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(specification(ImmutableList.of("custkey"), ImmutableList.of(), ImmutableMap.of()))
+                                        .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
+                                exchange(LOCAL, GATHER,
+                                        exchange(REMOTE, REPARTITION,
+                                                project(
+                                                        join(INNER, ImmutableList.of(equiJoinClause("orderstatus", "linestatus")), Optional.empty(), Optional.of(REPLICATED),
+                                                                anyTree(tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus", "custkey", "custkey"))),
+                                                                exchange(LOCAL, GATHER,
+                                                                        exchange(REMOTE, REPLICATE,
+                                                                                anyTree(tableScan("lineitem", ImmutableMap.of("linestatus", "linestatus"))))))))))));
+    }
+
+    @Test
+    public void testWindowAfterAggregation()
+    {
+        // Window partition key is a super set of group by key.
+        assertDistributedPlan("SELECT rank() OVER (PARTITION BY custkey) FROM orders GROUP BY custkey",
+                anyTree(
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(specification(ImmutableList.of("custkey"), ImmutableList.of(), ImmutableMap.of()))
+                                        .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
+                                project(aggregation(singleGroupingSet("custkey"), ImmutableMap.of(), ImmutableMap.of(), Optional.empty(), FINAL,
+                                        exchange(LOCAL, GATHER,
+                                                project(exchange(REMOTE, REPARTITION,
+                                                        anyTree(tableScan("orders", ImmutableMap.of("custkey", "custkey")))))))))));
+
+        // Window partition key is not a super set of group by key.
+        assertDistributedPlan("SELECT rank() OVER (partition by custkey) FROM (SELECT shippriority, custkey, sum(totalprice) FROM orders GROUP BY shippriority, custkey)",
+                anyTree(
+                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(specification(ImmutableList.of("custkey"), ImmutableList.of(), ImmutableMap.of()))
+                                        .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
+                                exchange(LOCAL, GATHER,
+                                        exchange(REMOTE, REPARTITION,
+                                                project(aggregation(singleGroupingSet("shippriority", "custkey"), ImmutableMap.of(), ImmutableMap.of(), Optional.empty(), FINAL,
+                                                        exchange(LOCAL, GATHER,
+                                                                exchange(REMOTE, REPARTITION,
+                                                                        anyTree(tableScan("orders", ImmutableMap.of("custkey", "custkey", "shippriority", "shippriority"))))))))))));
     }
 
     @Test

@@ -329,8 +329,8 @@ public class SqlQueryExecution
     private void waitForMinimumWorkers()
     {
         ListenableFuture<?> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers();
-        addSuccessCallback(minimumWorkerFuture, this::startExecution);
-        addExceptionCallback(minimumWorkerFuture, stateMachine::transitionToFailed);
+        addSuccessCallback(minimumWorkerFuture, () -> queryExecutor.submit(this::startExecution));
+        addExceptionCallback(minimumWorkerFuture, throwable -> queryExecutor.submit(() -> stateMachine.transitionToFailed(throwable)));
     }
 
     private void startExecution()
@@ -427,7 +427,7 @@ public class SqlQueryExecution
         stateMachine.setOutput(output);
 
         // fragment the plan
-        SubPlan fragmentedPlan = planFragmenter.createSubPlans(stateMachine.getSession(), plan, false);
+        SubPlan fragmentedPlan = planFragmenter.createSubPlans(stateMachine.getSession(), plan, false, stateMachine.getWarningCollector());
 
         // record analysis time
         stateMachine.endAnalysis();

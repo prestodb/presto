@@ -29,7 +29,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.util.MoreMaps.mergeMaps;
@@ -37,7 +36,6 @@ import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Lists.reverse;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctDataSize;
-import static java.util.Collections.emptyMap;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
 
@@ -45,11 +43,17 @@ public class PlanNodeStatsSummarizer
 {
     private PlanNodeStatsSummarizer() {}
 
-    public static Map<PlanNodeId, PlanNodeStats> aggregatePlanNodeStats(List<StageInfo> stageInfos)
+    public static Map<PlanNodeId, PlanNodeStats> aggregateStageStats(List<StageInfo> stageInfos)
+    {
+        return aggregateTaskStats(stageInfos.stream()
+                .flatMap(s -> s.getTasks().stream())
+                .collect(toList()));
+    }
+
+    public static Map<PlanNodeId, PlanNodeStats> aggregateTaskStats(List<TaskInfo> taskInfos)
     {
         Map<PlanNodeId, PlanNodeStats> aggregatedStats = new HashMap<>();
-        List<PlanNodeStats> planNodeStats = stageInfos.stream()
-                .flatMap(stageInfo -> stageInfo.getTasks().stream())
+        List<PlanNodeStats> planNodeStats = taskInfos.stream()
                 .map(TaskInfo::getStats)
                 .flatMap(taskStats -> getPlanNodeStats(taskStats).stream())
                 .collect(toList());
@@ -164,22 +168,52 @@ public class PlanNodeStatsSummarizer
             if (!planNodeInputPositions.containsKey(planNodeId)) {
                 continue;
             }
-            stats.add(new PlanNodeStats(
-                    planNodeId,
-                    new Duration(planNodeScheduledMillis.get(planNodeId), MILLISECONDS),
-                    new Duration(planNodeCpuMillis.get(planNodeId), MILLISECONDS),
-                    planNodeInputPositions.get(planNodeId),
-                    succinctDataSize(planNodeInputBytes.get(planNodeId), BYTE),
-                    // It's possible there will be no output stats because all the pipelines that we observed were non-output.
-                    // For example in a query like SELECT * FROM a JOIN b ON c = d LIMIT 1
-                    // It's possible to observe stats after the build starts, but before the probe does
-                    // and therefore only have scheduled time, but no output stats
-                    planNodeOutputPositions.getOrDefault(planNodeId, 0L),
-                    succinctDataSize(planNodeOutputBytes.getOrDefault(planNodeId, 0L), BYTE),
-                    operatorInputStats.get(planNodeId),
-                    // Only some operators emit hash collisions statistics
-                    operatorHashCollisionsStats.getOrDefault(planNodeId, emptyMap()),
-                    Optional.ofNullable(windowNodeStats.get(planNodeId))));
+
+            PlanNodeStats nodeStats;
+
+            // It's possible there will be no output stats because all the pipelines that we observed were non-output.
+            // For example in a query like SELECT * FROM a JOIN b ON c = d LIMIT 1
+            // It's possible to observe stats after the build starts, but before the probe does
+            // and therefore only have scheduled time, but no output stats
+            long outputPositions = planNodeOutputPositions.getOrDefault(planNodeId, 0L);
+
+            if (operatorHashCollisionsStats.containsKey(planNodeId)) {
+                nodeStats = new HashCollisionPlanNodeStats(
+                        planNodeId,
+                        new Duration(planNodeScheduledMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeCpuMillis.get(planNodeId), MILLISECONDS),
+                        planNodeInputPositions.get(planNodeId),
+                        succinctDataSize(planNodeInputBytes.get(planNodeId), BYTE),
+                        outputPositions,
+                        succinctDataSize(planNodeOutputBytes.getOrDefault(planNodeId, 0L), BYTE),
+                        operatorInputStats.get(planNodeId),
+                        operatorHashCollisionsStats.get(planNodeId));
+            }
+            else if (windowNodeStats.containsKey(planNodeId)) {
+                nodeStats = new WindowPlanNodeStats(
+                        planNodeId,
+                        new Duration(planNodeScheduledMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeCpuMillis.get(planNodeId), MILLISECONDS),
+                        planNodeInputPositions.get(planNodeId),
+                        succinctDataSize(planNodeInputBytes.get(planNodeId), BYTE),
+                        outputPositions,
+                        succinctDataSize(planNodeOutputBytes.getOrDefault(planNodeId, 0L), BYTE),
+                        operatorInputStats.get(planNodeId),
+                        windowNodeStats.get(planNodeId));
+            }
+            else {
+                nodeStats = new PlanNodeStats(
+                        planNodeId,
+                        new Duration(planNodeScheduledMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeCpuMillis.get(planNodeId), MILLISECONDS),
+                        planNodeInputPositions.get(planNodeId),
+                        succinctDataSize(planNodeInputBytes.get(planNodeId), BYTE),
+                        outputPositions,
+                        succinctDataSize(planNodeOutputBytes.getOrDefault(planNodeId, 0L), BYTE),
+                        operatorInputStats.get(planNodeId));
+            }
+
+            stats.add(nodeStats);
         }
         return stats;
     }

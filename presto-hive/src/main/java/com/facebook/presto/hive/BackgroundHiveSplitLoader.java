@@ -77,6 +77,7 @@ import static com.facebook.presto.hive.HiveUtil.getHeaderCount;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.S3SelectPushdown.shouldEnablePushdownForTable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionLocation;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPolicy.FAIL;
 import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPolicy.IGNORED;
@@ -531,14 +532,6 @@ public class BackgroundHiveSplitLoader
         return getHiveSchema(partition.get(), table);
     }
 
-    private static String getPartitionLocation(Table table, Optional<Partition> partition)
-    {
-        if (!partition.isPresent()) {
-            return table.getStorage().getLocation();
-        }
-        return partition.get().getStorage().getLocation();
-    }
-
     public static class BucketSplitInfo
     {
         private final List<HiveColumnHandle> bucketColumns;
@@ -558,6 +551,15 @@ public class BackgroundHiveSplitLoader
 
             int tableBucketCount = bucketHandle.get().getTableBucketCount();
             int readBucketCount = bucketHandle.get().getReadBucketCount();
+
+            if (tableBucketCount != readBucketCount && bucketFilter.isPresent()) {
+                // TODO: support this once we fix the "$bucket" column for compatible bucketing read
+                throw new PrestoException(
+                        NOT_SUPPORTED,
+                        "Bucket filter (most likely using a filter on \"$bucket\") is not supported in this query. " +
+                                "Since the table has a different but compatible bucket number with another table in the query.");
+            }
+
             List<HiveColumnHandle> bucketColumns = bucketHandle.get().getColumns();
             IntPredicate predicate = bucketFilter
                     .<IntPredicate>map(filter -> filter.getBucketsToKeep()::contains)
