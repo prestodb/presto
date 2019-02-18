@@ -1026,6 +1026,12 @@ public class MetadataManager
         return analyzePropertyManager;
     }
 
+    @Override
+    public ConnectorTransactionHandle getTransactionHandle(Session session, ConnectorId connectorId)
+    {
+        return getCatalogMetadata(session, connectorId).getTransactionHandleFor(connectorId);
+    }
+
     private ViewDefinition deserializeView(String data)
     {
         try {

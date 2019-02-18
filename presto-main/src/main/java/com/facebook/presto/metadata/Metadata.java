@@ -24,6 +24,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.Privilege;
@@ -332,4 +333,6 @@ public interface Metadata
     ColumnPropertyManager getColumnPropertyManager();
 
     AnalyzePropertyManager getAnalyzePropertyManager();
+
+    ConnectorTransactionHandle getTransactionHandle(Session session, ConnectorId connectorId);
 }

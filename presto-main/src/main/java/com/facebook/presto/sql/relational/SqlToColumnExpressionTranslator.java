@@ -205,6 +205,11 @@ public final class SqlToColumnExpressionTranslator
         return result;
     }
 
+    public static ColumnExpression optimize(FunctionRegistry functionRegistry, TypeManager typeManager, Session session, ColumnExpression columnExpression)
+    {
+        return new ExpressionOptimizer(functionRegistry, typeManager, session).optimize(columnExpression);
+    }
+
     private static class Visitor
             extends AstVisitor<ColumnExpression, Void>
     {

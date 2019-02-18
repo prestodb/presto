@@ -62,6 +62,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
+import static com.facebook.presto.sql.relational.Signatures.CAST;
 import static com.facebook.presto.sql.relational.SqlToColumnExpressionTranslator.translate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -99,6 +100,11 @@ public class ExpressionEquivalence
         ColumnExpression canonicalizedRight = rightColumnExpression.accept(CANONICALIZATION_VISITOR, null);
 
         return canonicalizedLeft.equals(canonicalizedRight);
+    }
+
+    public static ColumnExpression canonicalizeColumnExpression(ColumnExpression columnExpression)
+    {
+        return columnExpression.accept(CANONICALIZATION_VISITOR, null);
     }
 
     private ColumnExpression toColumnExpression(Session session, Expression expression, Map<Symbol, Integer> symbolInput, Map<Integer, Type> inputTypes)
@@ -158,6 +164,14 @@ public class ExpressionEquivalence
                                         .collect(toImmutableList())),
                         BOOLEAN,
                         sortedArguments);
+            }
+
+            if (callName.equals(CAST)) {
+                // remove unnecessary cast
+                checkArgument(call.getArguments().size() == 1, "CAST must only have 1 argument");
+                if (call.getArguments().get(0).getType().equals(call.getType())) {
+                    return call.getArguments().get(0);
+                }
             }
 
             if (callName.equals(mangleOperatorName(EQUAL)) || callName.equals(mangleOperatorName(NOT_EQUAL)) || callName.equals(mangleOperatorName(IS_DISTINCT_FROM))) {

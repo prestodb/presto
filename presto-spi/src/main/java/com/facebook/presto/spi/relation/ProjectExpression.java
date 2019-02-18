@@ -1,0 +1,81 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.spi.relation;
+
+import com.facebook.presto.spi.relation.column.ColumnExpression;
+
+import java.util.List;
+import java.util.Objects;
+
+import static java.util.Objects.requireNonNull;
+
+public class ProjectExpression
+        extends UnaryTableExpression
+{
+    private final List<ColumnExpression> output;
+    private final TableExpression source;
+
+    public ProjectExpression(List<ColumnExpression> output, TableExpression source)
+    {
+        this.output = requireNonNull(output, "output is null");
+        this.source = requireNonNull(source, "source is null");
+    }
+
+    @Override
+    public List<ColumnExpression> getOutput()
+    {
+        return output;
+    }
+
+    @Override
+    public <R, C> R accept(TableExpressionVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitProject(this, context);
+    }
+
+    @Override
+    public TableExpression getSource()
+    {
+        return source;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof ProjectExpression)) {
+            return false;
+        }
+        ProjectExpression that = (ProjectExpression) o;
+        return Objects.equals(output, that.output) &&
+                Objects.equals(source, that.source);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(output, source);
+    }
+
+    @Override
+    public String toString()
+    {
+        return "ProjectExpression{" +
+                "output=" + output +
+                ", source=" + source +
+                '}';
+    }
+}
