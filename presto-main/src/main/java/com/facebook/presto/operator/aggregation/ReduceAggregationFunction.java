@@ -32,6 +32,7 @@ import io.airlift.bytecode.DynamicClassLoader;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
@@ -136,6 +137,7 @@ public class ReduceAggregationFunction
                 inputMethodHandle.asType(
                         inputMethodHandle.type()
                                 .changeParameterType(1, inputType.getJavaType())),
+                Optional.empty(),
                 combineMethodHandle,
                 outputMethodHandle,
                 ImmutableList.of(stateDescriptor),

@@ -58,6 +58,25 @@ public class TestAggregateWindowFunction
     }
 
     @Test
+    public void testCountRowsRolling()
+    {
+        assertWindowQuery("count(*) OVER (ORDER BY orderkey " +
+                        "ROWS BETWEEN 4 PRECEDING AND 1 PRECEDING)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(1, "O", 0L)
+                        .row(2, "O", 1L)
+                        .row(3, "F", 2L)
+                        .row(4, "O", 3L)
+                        .row(5, "F", 4L)
+                        .row(6, "F", 4L)
+                        .row(7, "O", 4L)
+                        .row(32, "O", 4L)
+                        .row(33, "F", 4L)
+                        .row(34, "O", 4L)
+                        .build());
+    }
+
+    @Test
     public void testCountRowsUnordered()
     {
         assertWindowQuery("count(*) OVER (PARTITION BY orderstatus)",

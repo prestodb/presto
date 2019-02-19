@@ -57,6 +57,8 @@ public class GenericAccumulatorFactory
     private final List<LambdaProvider> lambdaProviders;
     private final Optional<Integer> maskChannel;
     private final List<Integer> inputChannels;
+    private final boolean accumulatorHasRemoveInput;
+
     private final List<Type> sourceTypes;
     private final List<Integer> orderByChannels;
     private final List<SortOrder> orderings;
@@ -72,6 +74,7 @@ public class GenericAccumulatorFactory
     public GenericAccumulatorFactory(
             List<AccumulatorStateDescriptor> stateDescriptors,
             Constructor<? extends Accumulator> accumulatorConstructor,
+            boolean accumulatorHasRemoveInput,
             Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor,
             List<LambdaProvider> lambdaProviders,
             List<Integer> inputChannels,
@@ -86,6 +89,7 @@ public class GenericAccumulatorFactory
     {
         this.stateDescriptors = requireNonNull(stateDescriptors, "stateDescriptors is null");
         this.accumulatorConstructor = requireNonNull(accumulatorConstructor, "accumulatorConstructor is null");
+        this.accumulatorHasRemoveInput = accumulatorHasRemoveInput;
         this.groupedAccumulatorConstructor = requireNonNull(groupedAccumulatorConstructor, "groupedAccumulatorConstructor is null");
         this.lambdaProviders = ImmutableList.copyOf(requireNonNull(lambdaProviders, "lambdaProviders is null"));
         this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
@@ -106,6 +110,12 @@ public class GenericAccumulatorFactory
     public List<Integer> getInputChannels()
     {
         return inputChannels;
+    }
+
+    @Override
+    public boolean hasRemoveInput()
+    {
+        return accumulatorHasRemoveInput;
     }
 
     @Override
@@ -285,6 +295,12 @@ public class GenericAccumulatorFactory
 
         @Override
         public void addInput(WindowIndex index, List<Integer> channels, int startPosition, int endPosition)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void removeInput(WindowIndex index, List<Integer> channels, int startPosition, int endPosition)
         {
             throw new UnsupportedOperationException();
         }
@@ -470,6 +486,12 @@ public class GenericAccumulatorFactory
 
         @Override
         public void addInput(WindowIndex index, List<Integer> channels, int startPosition, int endPosition)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void removeInput(WindowIndex index, List<Integer> channels, int startPosition, int endPosition)
         {
             throw new UnsupportedOperationException();
         }

@@ -16,11 +16,15 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.operator.PagesIndex;
+import com.facebook.presto.operator.window.PagesWindowIndex;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.WindowIndex;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -28,16 +32,22 @@ import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.Lists;
+import com.google.common.primitives.Ints;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.block.BlockAssertions.getOnlyValue;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getFinalBlock;
+import static com.facebook.presto.operator.aggregation.groupByAggregations.GroupByAggregationTestUtils.createArgs;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestAggregationFunction
 {
@@ -149,6 +159,59 @@ public abstract class AbstractTestAggregationFunction
     public void testPositiveOnlyValues()
     {
         testAggregation(getExpectedValue(2, 4), getSequenceBlocks(2, 4));
+    }
+
+    @Test
+    public void testSlidingWindow()
+    {
+        // Builds trailing windows of length 0, 1, 2, 3, 4, 5, 5, 4, 3, 2, 1, 0
+        int totalPositions = 12;
+        int[] windowWidths = new int[totalPositions];
+        Object[] expectedValues = new Object[totalPositions];
+
+        for (int i = 0; i < totalPositions; ++i) {
+            int windowWidth = Integer.min(i, totalPositions - 1 - i);
+            windowWidths[i] = windowWidth;
+            expectedValues[i] = getExpectedValue(i, windowWidth);
+        }
+        Page inputPage = new Page(totalPositions, getSequenceBlocks(0, totalPositions));
+
+        InternalAggregationFunction function = getFunction();
+        List<Integer> channels = Ints.asList(createArgs(function));
+        AccumulatorFactory accumulatorFactory = function.bind(channels, Optional.empty());
+        PagesIndex pagesIndex = new PagesIndex.TestingFactory(false).newPagesIndex(function.getParameterTypes(), totalPositions);
+        pagesIndex.addPage(inputPage);
+        WindowIndex windowIndex = new PagesWindowIndex(pagesIndex, 0, totalPositions - 1);
+
+        Accumulator aggregation = accumulatorFactory.createAccumulator();
+        int oldStart = 0;
+        int oldWidth = 0;
+        for (int start = 0; start < totalPositions; ++start) {
+            int width = windowWidths[start];
+            // Note that add/removeInput's interval is inclusive on both ends
+            if (accumulatorFactory.hasRemoveInput()) {
+                for (int oldi = oldStart; oldi < oldStart + oldWidth; ++oldi) {
+                    if (oldi < start || oldi >= start + width) {
+                        aggregation.removeInput(windowIndex, channels, oldi, oldi);
+                    }
+                }
+                for (int newi = start; newi < start + width; ++newi) {
+                    if (newi < oldStart || newi >= oldStart + oldWidth) {
+                        aggregation.addInput(windowIndex, channels, newi, newi);
+                    }
+                }
+            }
+            else {
+                aggregation = accumulatorFactory.createAccumulator();
+                aggregation.addInput(windowIndex, channels, start, start + width - 1);
+            }
+            oldStart = start;
+            oldWidth = width;
+            Block block = getFinalBlock(aggregation);
+            // TODO: let's see if we can do approx equial for double, float, etc
+            // ref: https://github.com/prestodb/presto/pull/8974/commits/9c7b7f7d49af653c30ebe400bac32241af81a89b
+            assertEquals(expectedValues[start], getOnlyValue(aggregation.getFinalType(), block));
+        }
     }
 
     public Block[] createAlternatingNullsBlock(List<Type> types, Block... sequenceBlocks)

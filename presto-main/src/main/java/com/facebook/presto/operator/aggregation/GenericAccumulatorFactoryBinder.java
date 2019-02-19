@@ -32,11 +32,13 @@ public class GenericAccumulatorFactoryBinder
 {
     private final List<AccumulatorStateDescriptor> stateDescriptors;
     private final Constructor<? extends Accumulator> accumulatorConstructor;
+    private final boolean accumulatorHasRemoveInput;
     private final Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor;
 
     public GenericAccumulatorFactoryBinder(
             List<AccumulatorStateDescriptor> stateDescriptors,
             Class<? extends Accumulator> accumulatorClass,
+            boolean accumulatorHasRemoveInput,
             Class<? extends GroupedAccumulator> groupedAccumulatorClass)
     {
         this.stateDescriptors = requireNonNull(stateDescriptors, "stateDescriptors is null");
@@ -47,6 +49,8 @@ public class GenericAccumulatorFactoryBinder
                     List.class,     /* List<Integer> inputChannel */
                     Optional.class, /* Optional<Integer> maskChannel */
                     List.class      /* List<LambdaProvider> lambdaProviders */);
+
+            this.accumulatorHasRemoveInput = accumulatorHasRemoveInput;
 
             groupedAccumulatorConstructor = groupedAccumulatorClass.getConstructor(
                     List.class,     /* List<AccumulatorStateDescriptor> stateDescriptors */
@@ -75,6 +79,7 @@ public class GenericAccumulatorFactoryBinder
         return new GenericAccumulatorFactory(
                 stateDescriptors,
                 accumulatorConstructor,
+                accumulatorHasRemoveInput,
                 groupedAccumulatorConstructor,
                 lambdaProviders,
                 argumentChannels,

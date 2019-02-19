@@ -25,6 +25,7 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
@@ -44,6 +45,7 @@ public class AggregationMetadata
     private final List<ParameterMetadata> valueInputMetadata;
     private final List<Class> lambdaInterfaces;
     private final MethodHandle inputFunction;
+    private final Optional<MethodHandle> removeInputFunction;
     private final MethodHandle combineFunction;
     private final MethodHandle outputFunction;
     private final List<AccumulatorStateDescriptor> accumulatorStateDescriptors;
@@ -53,6 +55,7 @@ public class AggregationMetadata
             String name,
             List<ParameterMetadata> valueInputMetadata,
             MethodHandle inputFunction,
+            Optional<MethodHandle> removeInputFunction,
             MethodHandle combineFunction,
             MethodHandle outputFunction,
             List<AccumulatorStateDescriptor> accumulatorStateDescriptors,
@@ -62,6 +65,7 @@ public class AggregationMetadata
                 name,
                 valueInputMetadata,
                 inputFunction,
+                removeInputFunction,
                 combineFunction,
                 outputFunction,
                 accumulatorStateDescriptors,
@@ -73,6 +77,7 @@ public class AggregationMetadata
             String name,
             List<ParameterMetadata> valueInputMetadata,
             MethodHandle inputFunction,
+            Optional<MethodHandle> removeInputFunction,
             MethodHandle combineFunction,
             MethodHandle outputFunction,
             List<AccumulatorStateDescriptor> accumulatorStateDescriptors,
@@ -83,6 +88,7 @@ public class AggregationMetadata
         this.valueInputMetadata = ImmutableList.copyOf(requireNonNull(valueInputMetadata, "valueInputMetadata is null"));
         this.name = requireNonNull(name, "name is null");
         this.inputFunction = requireNonNull(inputFunction, "inputFunction is null");
+        this.removeInputFunction = requireNonNull(removeInputFunction, "removeInputFunction is null");
         this.combineFunction = requireNonNull(combineFunction, "combineFunction is null");
         this.outputFunction = requireNonNull(outputFunction, "outputFunction is null");
         this.accumulatorStateDescriptors = requireNonNull(accumulatorStateDescriptors, "accumulatorStateDescriptors is null");
@@ -116,6 +122,11 @@ public class AggregationMetadata
     public MethodHandle getInputFunction()
     {
         return inputFunction;
+    }
+
+    public Optional<MethodHandle> getRemoveInputFunction()
+    {
+        return removeInputFunction;
     }
 
     public MethodHandle getCombineFunction()

@@ -23,6 +23,11 @@ import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
+import com.facebook.presto.spi.function.AggregationState;
+import com.facebook.presto.spi.function.CombineFunction;
+import com.facebook.presto.spi.function.InputFunction;
+import com.facebook.presto.spi.function.RemoveInputFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -31,6 +36,7 @@ import io.airlift.bytecode.DynamicClassLoader;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
@@ -51,6 +57,7 @@ public class RealAverageAggregation
     private static final String NAME = "avg";
 
     private static final MethodHandle INPUT_FUNCTION = methodHandle(RealAverageAggregation.class, "input", LongState.class, DoubleState.class, long.class);
+    private static final MethodHandle REMOVE_INPUT_FUNCTION = methodHandle(RealAverageAggregation.class, "removeInput", LongState.class, DoubleState.class, long.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(RealAverageAggregation.class, "combine", LongState.class, DoubleState.class, LongState.class, DoubleState.class);
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(RealAverageAggregation.class, "output", LongState.class, DoubleState.class, BlockBuilder.class);
 
@@ -82,6 +89,7 @@ public class RealAverageAggregation
                 generateAggregationName(NAME, parseTypeSignature(StandardTypes.REAL), ImmutableList.of(parseTypeSignature(StandardTypes.REAL))),
                 ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(STATE), new ParameterMetadata(INPUT_CHANNEL, REAL)),
                 INPUT_FUNCTION,
+                Optional.of(REMOVE_INPUT_FUNCTION),
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
                 ImmutableList.of(
@@ -113,13 +121,22 @@ public class RealAverageAggregation
         return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(BLOCK_INPUT_CHANNEL, value), new ParameterMetadata(BLOCK_INDEX));
     }
 
-    public static void input(LongState count, DoubleState sum, long value)
+    @InputFunction
+    public static void input(@AggregationState LongState count, DoubleState sum, long value)
     {
         count.setLong(count.getLong() + 1);
         sum.setDouble(sum.getDouble() + intBitsToFloat((int) value));
     }
 
-    public static void combine(LongState count, DoubleState sum, LongState otherCount, DoubleState otherSum)
+    @RemoveInputFunction
+    public static void removeInput(@AggregationState LongState state, DoubleState sum, @SqlType(StandardTypes.REAL) long value)
+    {
+        state.setLong(state.getLong() - 1);
+        sum.setDouble(sum.getDouble() - intBitsToFloat((int) value));
+    }
+
+    @CombineFunction
+    public static void combine(@AggregationState LongState count, DoubleState sum, LongState otherCount, DoubleState otherSum)
     {
         count.setLong(count.getLong() + otherCount.getLong());
         sum.setDouble(sum.getDouble() + otherSum.getDouble());
