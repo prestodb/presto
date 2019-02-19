@@ -18,6 +18,7 @@ import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.HashMultiset;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
 
 import javax.annotation.Nullable;
@@ -34,6 +35,7 @@ import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupRefere
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toSet;
 
 /**
  * Stores a plan in a form that's efficient to mutate locally (i.e. without
@@ -67,16 +69,23 @@ public class Memo
 
     private final PlanNodeIdAllocator idAllocator;
     private final int rootGroup;
+    private final Set<TraitCollector> traitCollectors;
 
     private final Map<Integer, Group> groups = new HashMap<>();
 
     private int nextGroupId = ROOT_GROUP_REF + 1;
 
-    public Memo(PlanNodeIdAllocator idAllocator, PlanNode plan)
+    public Memo(PlanNodeIdAllocator idAllocator, PlanNode plan, Set<TraitCollector> traitCollectors)
     {
         this.idAllocator = idAllocator;
+        this.traitCollectors = traitCollectors;
         rootGroup = insertRecursive(plan);
         groups.get(rootGroup).incomingReferences.add(ROOT_GROUP_REF);
+    }
+
+    public Memo(PlanNodeIdAllocator idAllocator, PlanNode plan)
+    {
+        this(idAllocator, plan, ImmutableSet.of());
     }
 
     public int getRootGroup()
@@ -93,6 +102,11 @@ public class Memo
     public PlanNode getNode(int group)
     {
         return getGroup(group).membership;
+    }
+
+    public TraitGroup getTraitGroup(int group)
+    {
+        return getGroup(group).traitGroup;
     }
 
     public PlanNode resolve(GroupReference groupReference)
@@ -129,6 +143,7 @@ public class Memo
 
         incrementReferenceCounts(node, group);
         getGroup(group).membership = node;
+        getGroup(group).traitGroup = mergeTraitGroup(node);
         decrementReferenceCounts(old, group);
         evictStatisticsAndCost(group);
 
@@ -198,7 +213,7 @@ public class Memo
         return node.getSources().stream()
                 .map(GroupReference.class::cast)
                 .map(GroupReference::getGroupId)
-                .collect(Collectors.toSet());
+                .collect(toSet());
     }
 
     private void deleteGroup(int group)
@@ -226,12 +241,30 @@ public class Memo
         }
 
         int group = nextGroupId();
+
         PlanNode rewritten = insertChildrenAndRewrite(node);
 
         groups.put(group, Group.withMember(rewritten));
+        getGroup(group).traitGroup = mergeTraitGroup(rewritten);
+
         incrementReferenceCounts(rewritten, group);
 
         return group;
+    }
+
+    private TraitGroup mergeTraitGroup(PlanNode node)
+    {
+        requireNonNull(node, "node is null");
+        TraitGroup merged = TraitGroup.emptyTraitGroup();
+        node.getSources().stream()
+                .filter(GroupReference.class::isInstance)
+                .map(GroupReference.class::cast)
+                .forEach(groupReference -> merged.addAll(getGroup(groupReference.getGroupId()).traitGroup));
+        traitCollectors.stream()
+                .filter(traitCollector -> traitCollector.canApplyTo(node))
+                .map(traitCollector -> traitCollector.exploreTraits(node))
+                .forEach(traitGroup -> merged.addAll(traitGroup));
+        return merged;
     }
 
     private int nextGroupId()
@@ -254,6 +287,8 @@ public class Memo
         private PlanNode membership;
         private final Multiset<Integer> incomingReferences = HashMultiset.create();
         @Nullable
+        private TraitGroup traitGroup;
+        @Nullable
         private PlanNodeStatsEstimate stats;
         @Nullable
         private PlanNodeCostEstimate cumulativeCost;
@@ -262,5 +297,81 @@ public class Memo
         {
             this.membership = requireNonNull(member, "member is null");
         }
+    }
+
+    public static class TraitGroup
+    {
+        private final Map<Class<?>, TraitSet<?>> traitGroups;
+
+        private TraitGroup()
+        {
+            this.traitGroups = new HashMap<>();
+        }
+
+        public static TraitGroup emptyTraitGroup()
+        {
+            return new TraitGroup();
+        }
+
+        public <T> TraitGroup addTrait(T value)
+        {
+            addTrait(value.getClass(), value);
+            return this;
+        }
+
+        private <T> TraitGroup addTrait(Class<T> type, Object value)
+        {
+            if (!traitGroups.containsKey(type)) {
+                traitGroups.put(type, new TraitSet<T>());
+            }
+            TraitSet<T> traitSet = (TraitSet<T>) traitGroups.get(type);
+            traitSet.addTrait(type.cast(value));
+            return this;
+        }
+
+        public <T> Set<T> getTraitSet(Class<T> type)
+        {
+            if (!traitGroups.containsKey(type)) {
+                return ImmutableSet.of();
+            }
+            return (Set<T>) traitGroups.get(type).getValues();
+        }
+
+        public void addAll(TraitGroup other)
+        {
+            other.traitGroups.entrySet().stream()
+                    .forEach(entry -> entry.getValue().getValues().stream().forEach(
+                            value -> addTrait(entry.getKey(), value)));
+        }
+
+        public TraitGroup merge(TraitGroup other)
+        {
+            TraitGroup newTraitGroup = emptyTraitGroup();
+            newTraitGroup.addAll(this);
+            newTraitGroup.addAll(other);
+            return newTraitGroup;
+        }
+    }
+
+    public static class TraitSet<T>
+    {
+        private final Set<T> values = new HashSet<>();
+
+        public void addTrait(T value)
+        {
+            values.add(value);
+        }
+
+        public Set<T> getValues()
+        {
+            return values;
+        }
+    }
+
+    public interface TraitCollector
+    {
+        boolean canApplyTo(PlanNode node);
+
+        TraitGroup exploreTraits(PlanNode node);
     }
 }

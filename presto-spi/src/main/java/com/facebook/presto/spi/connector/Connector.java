@@ -69,6 +69,14 @@ public interface Connector
     }
 
     /**
+     * @throws UnsupportedOperationException if this connector does not support rewrite plan
+     */
+    default ConnectorRuleProvider getConnectorRuleProvider()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
      * @throws UnsupportedOperationException if this connector does not support partitioned table layouts
      */
     default ConnectorNodePartitioningProvider getNodePartitioningProvider()

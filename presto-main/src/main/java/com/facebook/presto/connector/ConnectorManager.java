@@ -39,6 +39,7 @@ import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorRuleProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -85,6 +86,7 @@ public class ConnectorManager
     private final SplitManager splitManager;
     private final PageSourceManager pageSourceManager;
     private final IndexManager indexManager;
+    private final ConnectorOptimizationRuleManager optimizationRuleManager;
     private final NodePartitioningManager nodePartitioningManager;
 
     private final PageSinkManager pageSinkManager;
@@ -112,7 +114,7 @@ public class ConnectorManager
             SplitManager splitManager,
             PageSourceManager pageSourceManager,
             IndexManager indexManager,
-            NodePartitioningManager nodePartitioningManager,
+            ConnectorOptimizationRuleManager optimizationRuleManager, NodePartitioningManager nodePartitioningManager,
             PageSinkManager pageSinkManager,
             HandleResolver handleResolver,
             InternalNodeManager nodeManager,
@@ -128,6 +130,7 @@ public class ConnectorManager
         this.splitManager = splitManager;
         this.pageSourceManager = pageSourceManager;
         this.indexManager = indexManager;
+        this.optimizationRuleManager = optimizationRuleManager;
         this.nodePartitioningManager = nodePartitioningManager;
         this.pageSinkManager = pageSinkManager;
         this.handleResolver = handleResolver;
@@ -256,6 +259,9 @@ public class ConnectorManager
         connector.getIndexProvider()
                 .ifPresent(indexProvider -> indexManager.addIndexProvider(connectorId, indexProvider));
 
+        connector.getRuleProvider()
+                .ifPresent(ruleProvider -> optimizationRuleManager.addRuleProvider(connectorId, ruleProvider));
+
         connector.getPartitioningProvider()
                 .ifPresent(partitioningProvider -> nodePartitioningManager.addPartitioningProvider(connectorId, partitioningProvider));
 
@@ -288,6 +294,7 @@ public class ConnectorManager
         splitManager.removeConnectorSplitManager(connectorId);
         pageSourceManager.removeConnectorPageSourceProvider(connectorId);
         pageSinkManager.removeConnectorPageSinkProvider(connectorId);
+        optimizationRuleManager.removeRuleProvider(connectorId);
         indexManager.removeIndexProvider(connectorId);
         nodePartitioningManager.removePartitioningProvider(connectorId);
         metadataManager.getProcedureRegistry().removeProcedures(connectorId);
@@ -332,6 +339,7 @@ public class ConnectorManager
         private final ConnectorPageSourceProvider pageSourceProvider;
         private final Optional<ConnectorPageSinkProvider> pageSinkProvider;
         private final Optional<ConnectorIndexProvider> indexProvider;
+        private final Optional<ConnectorRuleProvider> ruleProvider;
         private final Optional<ConnectorNodePartitioningProvider> partitioningProvider;
         private final Optional<ConnectorAccessControl> accessControl;
         private final List<PropertyMetadata<?>> sessionProperties;
@@ -394,6 +402,15 @@ public class ConnectorManager
             catch (UnsupportedOperationException ignored) {
             }
             this.indexProvider = Optional.ofNullable(indexProvider);
+
+            ConnectorRuleProvider ruleProvider = null;
+            try {
+                ruleProvider = connector.getConnectorRuleProvider();
+                requireNonNull(ruleProvider, format("Connector %s returned a null rule provider", connectorId));
+            }
+            catch (UnsupportedOperationException ignored) {
+            }
+            this.ruleProvider = Optional.ofNullable(ruleProvider);
 
             ConnectorNodePartitioningProvider partitioningProvider = null;
             try {
@@ -471,6 +488,11 @@ public class ConnectorManager
         public Optional<ConnectorIndexProvider> getIndexProvider()
         {
             return indexProvider;
+        }
+
+        public Optional<ConnectorRuleProvider> getRuleProvider()
+        {
+            return ruleProvider;
         }
 
         public Optional<ConnectorNodePartitioningProvider> getPartitioningProvider()

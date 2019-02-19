@@ -21,6 +21,7 @@ import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.connector.ConnectorOptimizationRuleManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.ExecutionFailureInfo;
@@ -365,6 +366,8 @@ public class ServerMainModule
 
         // index manager
         binder.bind(IndexManager.class).in(Scopes.SINGLETON);
+
+        binder.bind(ConnectorOptimizationRuleManager.class).in(Scopes.SINGLETON);
 
         // handle resolver
         binder.install(new HandleJsonModule());

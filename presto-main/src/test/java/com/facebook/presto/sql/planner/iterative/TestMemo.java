@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.cost.PlanNodeCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -20,10 +21,12 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.testng.Assert.assertEquals;
@@ -40,6 +43,44 @@ public class TestMemo
 
         assertEquals(memo.getGroupCount(), 2);
         assertMatchesStructure(plan, memo.extract());
+    }
+
+    @Test
+    public void testTraitGroup()
+    {
+        Memo.TraitGroup traitGroup1 = Memo.TraitGroup.emptyTraitGroup();
+        traitGroup1.addTrait(new ConnectorId("test1"));
+        Memo.TraitGroup traitGroup2 = Memo.TraitGroup.emptyTraitGroup();
+        traitGroup2.addTrait(new ConnectorId("test2"));
+        traitGroup2.addTrait(new ConnectorId("test1"));
+        Memo.TraitGroup traitGroup3 = traitGroup1.merge(traitGroup2);
+        Set<ConnectorId> set = traitGroup3.getTraitSet(ConnectorId.class);
+        assertEquals(set, ImmutableSet.of(new ConnectorId("test1"), new ConnectorId("test2")));
+    }
+
+    @Test
+    public void testCollectTrait()
+    {
+        PlanNode plan = node(node(leaf("test1")), node(node(node(leaf("test2")))));
+        Memo memo = new Memo(idAllocator, plan, ImmutableSet.of(
+                new Memo.TraitCollector()
+                {
+                    @Override
+                    public boolean canApplyTo(PlanNode node)
+                    {
+                        return node instanceof LeafNode;
+                    }
+
+                    @Override
+                    public Memo.TraitGroup exploreTraits(PlanNode node)
+                    {
+                        Memo.TraitGroup traitGroup = Memo.TraitGroup.emptyTraitGroup();
+                        traitGroup.addTrait(((LeafNode) node).connectorId);
+                        return traitGroup;
+                    }
+                }));
+        Memo.TraitGroup traitGroup = memo.getTraitGroup(memo.getRootGroup());
+        assertEquals(traitGroup.getTraitSet(ConnectorId.class), ImmutableSet.of(new ConnectorId("test1"), new ConnectorId("test2")));
     }
 
     /*
@@ -282,6 +323,11 @@ public class TestMemo
         return node(idAllocator.getNextId(), children);
     }
 
+    private LeafNode leaf(String connector)
+    {
+        return new LeafNode(idAllocator.getNextId(), new ConnectorId(connector));
+    }
+
     private static class GenericNode
             extends PlanNode
     {
@@ -309,6 +355,36 @@ public class TestMemo
         public PlanNode replaceChildren(List<PlanNode> newChildren)
         {
             return new GenericNode(getId(), newChildren);
+        }
+    }
+
+    private static class LeafNode
+            extends PlanNode
+    {
+        private final ConnectorId connectorId;
+
+        public LeafNode(PlanNodeId id, ConnectorId connectorId)
+        {
+            super(id);
+            this.connectorId = connectorId;
+        }
+
+        @Override
+        public List<PlanNode> getSources()
+        {
+            return ImmutableList.of();
+        }
+
+        @Override
+        public List<Symbol> getOutputSymbols()
+        {
+            return ImmutableList.of();
+        }
+
+        @Override
+        public PlanNode replaceChildren(List<PlanNode> newChildren)
+        {
+            return this;
         }
     }
 }
