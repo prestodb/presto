@@ -43,10 +43,11 @@ public class GeometryUnionAgg
     {
         OGCGeometry geometry = GeometrySerde.deserialize(input);
         if (state.getGeometry() == null) {
-            state.setGeometry(geometry);
+            state.setGeometry(geometry, 0);
         }
         else if (!geometry.isEmpty()) {
-            state.setGeometry(state.getGeometry().union(geometry));
+            long previousMemorySize = state.getGeometry().estimateMemorySize();
+            state.setGeometry(state.getGeometry().union(geometry), previousMemorySize);
         }
     }
 
@@ -54,10 +55,11 @@ public class GeometryUnionAgg
     public static void combine(@AggregationState GeometryState state, @AggregationState GeometryState otherState)
     {
         if (state.getGeometry() == null) {
-            state.setGeometry(otherState.getGeometry());
+            state.setGeometry(otherState.getGeometry(), 0);
         }
         else if (otherState.getGeometry() != null && !otherState.getGeometry().isEmpty()) {
-            state.setGeometry(state.getGeometry().union(otherState.getGeometry()));
+            long previousMemorySize = state.getGeometry().estimateMemorySize();
+            state.setGeometry(state.getGeometry().union(otherState.getGeometry()), previousMemorySize);
         }
     }
 
