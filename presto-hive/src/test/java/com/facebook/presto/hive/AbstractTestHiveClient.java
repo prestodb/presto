@@ -3069,13 +3069,18 @@ public abstract class AbstractTestHiveClient
 
             // verify basic statistics
             if (partitionedBy.isEmpty()) {
-                HiveBasicStatistics statistics = getBasicStatisticsForTable(transaction, tableName);
-                assertEquals(statistics.getRowCount().getAsLong(), 0L);
-                assertEquals(statistics.getFileCount().getAsLong(), 0L);
-                assertEquals(statistics.getInMemoryDataSizeInBytes().getAsLong(), 0L);
-                assertEquals(statistics.getOnDiskDataSizeInBytes().getAsLong(), 0L);
+                assertEmptyTableStatistics(tableName, transaction);
             }
         }
+    }
+
+    protected void assertEmptyTableStatistics(SchemaTableName tableName, Transaction transaction)
+    {
+        HiveBasicStatistics statistics = getBasicStatisticsForTable(transaction, tableName);
+        assertEquals(statistics.getRowCount().getAsLong(), 0L);
+        assertEquals(statistics.getFileCount().getAsLong(), 0L);
+        assertEquals(statistics.getInMemoryDataSizeInBytes().getAsLong(), 0L);
+        assertEquals(statistics.getOnDiskDataSizeInBytes().getAsLong(), 0L);
     }
 
     private void doInsert(HiveStorageFormat storageFormat, SchemaTableName tableName)
