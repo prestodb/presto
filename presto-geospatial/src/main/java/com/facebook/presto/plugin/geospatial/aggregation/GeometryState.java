@@ -23,5 +23,5 @@ public interface GeometryState
 {
     OGCGeometry getGeometry();
 
-    void setGeometry(OGCGeometry geometry);
+    void setGeometry(OGCGeometry geometry, long previousMemorySize);
 }

@@ -44,6 +44,7 @@ public class GeometryStateSerializer
     @Override
     public void deserialize(Block block, int index, GeometryState state)
     {
-        state.setGeometry(GeometrySerde.deserialize(GEOMETRY.getSlice(block, index)));
+        long previousMemorySize = state.getGeometry() != null ? state.getGeometry().estimateMemorySize() : 0;
+        state.setGeometry(GeometrySerde.deserialize(GEOMETRY.getSlice(block, index)), previousMemorySize);
     }
 }

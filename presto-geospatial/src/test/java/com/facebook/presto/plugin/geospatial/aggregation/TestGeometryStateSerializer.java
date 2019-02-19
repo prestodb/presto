@@ -35,7 +35,7 @@ public class TestGeometryStateSerializer
         AccumulatorStateSerializer<GeometryState> serializer = StateCompiler.generateStateSerializer(GeometryState.class);
         GeometryState state = factory.createSingleState();
 
-        state.setGeometry(OGCGeometry.fromText("POINT (1 2)"));
+        state.setGeometry(OGCGeometry.fromText("POINT (1 2)"), 0);
 
         BlockBuilder builder = GeometryType.GEOMETRY.createBlockBuilder(null, 1);
         serializer.serialize(state, builder);
@@ -43,7 +43,8 @@ public class TestGeometryStateSerializer
 
         assertEquals(GeometryType.GEOMETRY.getObjectValue(null, block, 0), "POINT (1 2)");
 
-        state.setGeometry(null);
+        long previousMemorySize = state.getGeometry().estimateMemorySize();
+        state.setGeometry(null, previousMemorySize);
         serializer.deserialize(block, 0, state);
 
         assertEquals(state.getGeometry().asText(), "POINT (1 2)");
@@ -58,10 +59,10 @@ public class TestGeometryStateSerializer
 
         // Add state to group 1
         state.setGroupId(1);
-        state.setGeometry(OGCGeometry.fromText("POINT (1 2)"));
+        state.setGeometry(OGCGeometry.fromText("POINT (1 2)"), 0);
         // Add another state to group 2, to show that this doesn't affect the group under test (group 1)
         state.setGroupId(2);
-        state.setGeometry(OGCGeometry.fromText("POINT (2 3)"));
+        state.setGeometry(OGCGeometry.fromText("POINT (2 3)"), 0);
         // Return to group 1
         state.setGroupId(1);
 
@@ -71,7 +72,8 @@ public class TestGeometryStateSerializer
 
         assertEquals(GeometryType.GEOMETRY.getObjectValue(null, block, 0), "POINT (1 2)");
 
-        state.setGeometry(null);
+        long previousMemorySize = state.getGeometry().estimateMemorySize();
+        state.setGeometry(null, previousMemorySize);
         serializer.deserialize(block, 0, state);
 
         // Assert the state of group 1
