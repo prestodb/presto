@@ -21,17 +21,15 @@ import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.column.statistics.BooleanStatistics;
+import org.apache.parquet.column.statistics.DoubleStatistics;
+import org.apache.parquet.column.statistics.FloatStatistics;
+import org.apache.parquet.column.statistics.IntStatistics;
+import org.apache.parquet.column.statistics.LongStatistics;
+import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.schema.PrimitiveType;
 import org.testng.annotations.Test;
-import parquet.column.ColumnDescriptor;
-import parquet.column.statistics.BinaryStatistics;
-import parquet.column.statistics.BooleanStatistics;
-import parquet.column.statistics.DoubleStatistics;
-import parquet.column.statistics.FloatStatistics;
-import parquet.column.statistics.IntStatistics;
-import parquet.column.statistics.LongStatistics;
-import parquet.column.statistics.Statistics;
-import parquet.io.api.Binary;
-import parquet.schema.PrimitiveType;
 
 import java.util.Map;
 import java.util.Optional;
@@ -59,12 +57,13 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
+import static org.apache.parquet.column.statistics.Statistics.createStats;
+import static org.apache.parquet.schema.OriginalType.UTF8;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
+import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
-import static parquet.column.statistics.Statistics.getStatsBasedOnType;
-import static parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
-import static parquet.schema.Type.Repetition.OPTIONAL;
 
 public class TestTupleDomainParquetPredicate
 {
@@ -192,7 +191,7 @@ public class TestTupleDomainParquetPredicate
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(DOUBLE, 10, doubleColumnStats(42.24, 3.3), ID, column, true))
-                .withMessage("Corrupted statistics for column \"DoubleColumn\" in Parquet file \"testFile\": [min: 42.24000, max: 3.30000, num_nulls: 0]");
+                .withMessage("Corrupted statistics for column \"DoubleColumn\" in Parquet file \"testFile\": [min: 42.24, max: 3.3, num_nulls: 0]");
     }
 
     private static DoubleStatistics doubleColumnStats(double minimum, double maximum)
@@ -223,11 +222,13 @@ public class TestTupleDomainParquetPredicate
                 .withMessage("Corrupted statistics for column \"StringColumn\" in Parquet file \"testFile\": [min: taco, max: apple, num_nulls: 0]");
     }
 
-    private static BinaryStatistics stringColumnStats(String minimum, String maximum)
+    private static Statistics stringColumnStats(String minimum, String maximum)
     {
-        BinaryStatistics statistics = new BinaryStatistics();
-        statistics.setMinMax(Binary.fromString(minimum), Binary.fromString(maximum));
-        return statistics;
+        Statistics.Builder builder = Statistics.getBuilderForReading(new PrimitiveType(OPTIONAL, BINARY, "testFile", UTF8));
+        builder.withMin(minimum.getBytes())
+               .withMax(maximum.getBytes())
+               .withNumNulls(0);
+        return builder.build();
     }
 
     @Test
@@ -251,7 +252,7 @@ public class TestTupleDomainParquetPredicate
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(REAL, 10, floatColumnStats(maximum, minimum), ID, column, true))
-                .withMessage("Corrupted statistics for column \"FloatColumn\" in Parquet file \"testFile\": [min: 40.30000, max: 4.30000, num_nulls: 0]");
+                .withMessage("Corrupted statistics for column \"FloatColumn\" in Parquet file \"testFile\": [min: 40.3, max: 4.3, num_nulls: 0]");
     }
 
     @Test
@@ -280,7 +281,7 @@ public class TestTupleDomainParquetPredicate
         RichColumnDescriptor column = new RichColumnDescriptor(columnDescriptor, new PrimitiveType(OPTIONAL, BINARY, "Test column"));
         TupleDomain<ColumnDescriptor> effectivePredicate = getEffectivePredicate(column, createVarcharType(255), utf8Slice(value));
         TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column));
-        Statistics stats = getStatsBasedOnType(column.getType());
+        Statistics stats = createStats(column.getPrimitiveType());
         stats.setNumNulls(1L);
         stats.setMinMaxFromBytes(value.getBytes(), value.getBytes());
         assertTrue(parquetPredicate.matches(2, singletonMap(column, stats), ID, true));

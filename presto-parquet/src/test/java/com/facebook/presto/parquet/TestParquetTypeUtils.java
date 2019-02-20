@@ -14,17 +14,17 @@
 package com.facebook.presto.parquet;
 
 import com.facebook.presto.spi.predicate.TupleDomain;
+import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.schema.OriginalType;
+import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.testng.annotations.Test;
-import parquet.column.ColumnDescriptor;
-import parquet.schema.OriginalType;
-import parquet.schema.PrimitiveType;
-import parquet.schema.PrimitiveType.PrimitiveTypeName;
 
 import static com.facebook.presto.parquet.ParquetTypeUtils.getPrestoType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.testng.Assert.assertEquals;
-import static parquet.schema.Type.Repetition.OPTIONAL;
 
 public class TestParquetTypeUtils
 {

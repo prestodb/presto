@@ -17,7 +17,7 @@ import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
-import parquet.io.api.Binary;
+import org.apache.parquet.io.api.Binary;
 
 import java.math.BigInteger;
 

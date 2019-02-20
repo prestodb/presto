@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.parquet;
 
-import parquet.column.ColumnDescriptor;
-import parquet.schema.PrimitiveType;
+import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.schema.PrimitiveType;
 
-import static parquet.schema.Type.Repetition.OPTIONAL;
+import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 
 // extension of parquet's ColumnDescriptor. Exposes full Primitive type information
 public class RichColumnDescriptor

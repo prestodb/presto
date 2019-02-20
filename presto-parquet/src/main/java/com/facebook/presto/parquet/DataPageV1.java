@@ -14,7 +14,7 @@
 package com.facebook.presto.parquet;
 
 import io.airlift.slice.Slice;
-import parquet.column.statistics.Statistics;
+import org.apache.parquet.column.statistics.Statistics;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;

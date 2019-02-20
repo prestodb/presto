@@ -14,7 +14,7 @@
 package com.facebook.presto.parquet.dictionary;
 
 import com.facebook.presto.parquet.DictionaryPage;
-import parquet.io.api.Binary;
+import org.apache.parquet.io.api.Binary;
 
 import java.io.IOException;
 

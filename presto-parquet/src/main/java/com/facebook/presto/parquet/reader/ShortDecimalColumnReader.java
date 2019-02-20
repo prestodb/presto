@@ -18,8 +18,8 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 
 import static com.facebook.presto.parquet.ParquetTypeUtils.getShortDecimalValue;
-import static parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
-import static parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 
 public class ShortDecimalColumnReader
         extends PrimitiveColumnReader
@@ -35,10 +35,10 @@ public class ShortDecimalColumnReader
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             long decimalValue;
             // When decimals are encoded with primitive types Parquet stores unscaled values
-            if (columnDescriptor.getType().equals(INT32)) {
+            if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName().equals(INT32)) {
                 decimalValue = valuesReader.readInteger();
             }
-            else if (columnDescriptor.getType().equals(INT64)) {
+            else if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName().equals(INT64)) {
                 decimalValue = valuesReader.readLong();
             }
             else {

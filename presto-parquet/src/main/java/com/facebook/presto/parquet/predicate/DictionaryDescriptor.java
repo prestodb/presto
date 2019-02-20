@@ -14,7 +14,7 @@
 package com.facebook.presto.parquet.predicate;
 
 import com.facebook.presto.parquet.DictionaryPage;
-import parquet.column.ColumnDescriptor;
+import org.apache.parquet.column.ColumnDescriptor;
 
 import java.util.Optional;
 

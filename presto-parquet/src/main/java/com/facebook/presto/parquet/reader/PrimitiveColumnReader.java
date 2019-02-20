@@ -26,17 +26,20 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
-import parquet.bytes.BytesUtils;
-import parquet.column.ColumnDescriptor;
-import parquet.column.values.ValuesReader;
-import parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
-import parquet.io.ParquetDecodingException;
+import org.apache.parquet.bytes.ByteBufferInputStream;
+import org.apache.parquet.bytes.BytesUtils;
+import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.column.values.ValuesReader;
+import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
+import org.apache.parquet.io.ParquetDecodingException;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -266,17 +269,21 @@ public abstract class PrimitiveColumnReader
 
     private ValuesReader readPageV1(DataPageV1 page)
     {
-        ValuesReader rlReader = page.getRepetitionLevelEncoding().getValuesReader(columnDescriptor, REPETITION_LEVEL);
-        ValuesReader dlReader = page.getDefinitionLevelEncoding().getValuesReader(columnDescriptor, DEFINITION_LEVEL);
-        repetitionReader = new LevelValuesReader(rlReader);
-        definitionReader = new LevelValuesReader(dlReader);
+        ValuesReader repetitionLevelReader = page.getRepetitionLevelEncoding().getValuesReader(columnDescriptor, REPETITION_LEVEL);
+        ValuesReader definitionLevelReader = page.getDefinitionLevelEncoding().getValuesReader(columnDescriptor, DEFINITION_LEVEL);
+        repetitionReader = new LevelValuesReader(repetitionLevelReader);
+        definitionReader = new LevelValuesReader(definitionLevelReader);
         try {
             byte[] bytes = page.getSlice().getBytes();
-            rlReader.initFromPage(page.getValueCount(), bytes, 0);
-            int offset = rlReader.getNextOffset();
-            dlReader.initFromPage(page.getValueCount(), bytes, offset);
-            offset = dlReader.getNextOffset();
-            return initDataReader(page.getValueEncoding(), bytes, offset, page.getValueCount());
+            ByteBufferInputStream bufferInputStream = ByteBufferInputStream.wrap(ImmutableList.of(ByteBuffer.wrap(bytes)));
+            repetitionLevelReader.initFromPage(page.getValueCount(), bufferInputStream);
+            int offset = bytes.length - bufferInputStream.available();
+            ByteBuffer definitionLevelByteBuffer = ByteBuffer.wrap(bytes, offset, bytes.length - offset);
+            ByteBufferInputStream definitionLevelInputStream = ByteBufferInputStream.wrap(ImmutableList.of(definitionLevelByteBuffer));
+            definitionLevelReader.initFromPage(page.getValueCount(), definitionLevelInputStream);
+            offset = bytes.length - definitionLevelInputStream.available();
+            ByteBuffer byteBuffer = ByteBuffer.wrap(bytes, offset, bytes.length - offset);
+            return initDataReader(page.getValueEncoding(), ByteBufferInputStream.wrap(ImmutableList.of(byteBuffer)), page.getValueCount());
         }
         catch (IOException e) {
             throw new ParquetDecodingException("Error reading parquet page " + page + " in column " + columnDescriptor, e);
@@ -287,7 +294,8 @@ public abstract class PrimitiveColumnReader
     {
         repetitionReader = buildLevelRLEReader(columnDescriptor.getMaxRepetitionLevel(), page.getRepetitionLevels());
         definitionReader = buildLevelRLEReader(columnDescriptor.getMaxDefinitionLevel(), page.getDefinitionLevels());
-        return initDataReader(page.getDataEncoding(), page.getSlice().getBytes(), 0, page.getValueCount());
+        ByteBuffer byteBuffer = ByteBuffer.wrap(page.getSlice().getBytes());
+        return initDataReader(page.getDataEncoding(), ByteBufferInputStream.wrap(ImmutableList.of(byteBuffer)), page.getValueCount());
     }
 
     private LevelReader buildLevelRLEReader(int maxLevel, Slice slice)
@@ -295,10 +303,11 @@ public abstract class PrimitiveColumnReader
         if (maxLevel == 0) {
             return new LevelNullReader();
         }
+
         return new LevelRLEReader(new RunLengthBitPackingHybridDecoder(BytesUtils.getWidthFromMaxInt(maxLevel), new ByteArrayInputStream(slice.getBytes())));
     }
 
-    private ValuesReader initDataReader(ParquetEncoding dataEncoding, byte[] bytes, int offset, int valueCount)
+    private ValuesReader initDataReader(ParquetEncoding dataEncoding, ByteBufferInputStream inputStream, int valueCount)
     {
         ValuesReader valuesReader;
         if (dataEncoding.usesDictionary()) {
@@ -312,7 +321,7 @@ public abstract class PrimitiveColumnReader
         }
 
         try {
-            valuesReader.initFromPage(valueCount, bytes, offset);
+            valuesReader.initFromPage(valueCount, inputStream);
             return valuesReader;
         }
         catch (IOException e) {
