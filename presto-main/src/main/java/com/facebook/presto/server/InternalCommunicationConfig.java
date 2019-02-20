@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 
 public class InternalCommunicationConfig
@@ -25,6 +26,7 @@ public class InternalCommunicationConfig
     private String keyStorePassword;
     private boolean kerberosEnabled;
     private boolean kerberosUseCanonicalHostname = true;
+    private boolean binaryTransportEnabled;
 
     public boolean isHttpsRequired()
     {
@@ -84,6 +86,19 @@ public class InternalCommunicationConfig
     public InternalCommunicationConfig setKerberosUseCanonicalHostname(boolean kerberosUseCanonicalHostname)
     {
         this.kerberosUseCanonicalHostname = kerberosUseCanonicalHostname;
+        return this;
+    }
+
+    public boolean isBinaryTransportEnabled()
+    {
+        return binaryTransportEnabled;
+    }
+
+    @Config("experimental.internal-communication.binary-transport-enabled")
+    @ConfigDescription("Enables smile encoding support for coordinator-to-worker communication")
+    public InternalCommunicationConfig setBinaryTransportEnabled(boolean binaryTransportEnabled)
+    {
+        this.binaryTransportEnabled = binaryTransportEnabled;
         return this;
     }
 }

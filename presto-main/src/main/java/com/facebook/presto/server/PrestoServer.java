@@ -25,6 +25,7 @@ import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AccessControlModule;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.server.security.ServerSecurityModule;
+import com.facebook.presto.server.smile.SmileModule;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
@@ -102,6 +103,7 @@ public class PrestoServer
                         FeaturesConfig.class,
                         FeaturesConfig::isJsonSerdeCodeGenerationEnabled,
                         binder -> jsonBinder(binder).addModuleBinding().to(AfterburnerModule.class)),
+                new SmileModule(),
                 new JaxrsModule(true),
                 new MBeanModule(),
                 new JmxModule(),

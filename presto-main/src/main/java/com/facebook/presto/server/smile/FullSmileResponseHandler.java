@@ -76,6 +76,7 @@ public class FullSmileResponseHandler<T>
     }
 
     public static class SmileResponse<T>
+            implements BaseResponse<T>
     {
         private final int statusCode;
         private final String statusMessage;
@@ -123,16 +124,19 @@ public class FullSmileResponseHandler<T>
             this.exception = exception;
         }
 
+        @Override
         public int getStatusCode()
         {
             return statusCode;
         }
 
+        @Override
         public String getStatusMessage()
         {
             return statusMessage;
         }
 
+        @Override
         public String getHeader(String name)
         {
             List<String> values = getHeaders().get(HeaderName.of(name));
@@ -142,16 +146,19 @@ public class FullSmileResponseHandler<T>
             return values.get(0);
         }
 
+        @Override
         public List<String> getHeaders(String name)
         {
             return headers.get(HeaderName.of(name));
         }
 
+        @Override
         public ListMultimap<HeaderName, String> getHeaders()
         {
             return headers;
         }
 
+        @Override
         public boolean hasValue()
         {
             return hasValue;
@@ -170,16 +177,19 @@ public class FullSmileResponseHandler<T>
             return (smileBytes == null) ? null : smileBytes.clone();
         }
 
+        @Override
         public int getResponseSize()
         {
             return responseBytes.length;
         }
 
+        @Override
         public byte[] getResponseBytes()
         {
             return responseBytes.clone();
         }
 
+        @Override
         public IllegalArgumentException getException()
         {
             return exception;

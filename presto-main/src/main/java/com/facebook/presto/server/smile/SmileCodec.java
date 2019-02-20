@@ -31,6 +31,7 @@ import static java.util.Objects.requireNonNull;
 
 @Beta
 public class SmileCodec<T>
+        implements Codec<T>
 {
     private static final Supplier<ObjectMapper> OBJECT_MAPPER_SUPPLIER =
             Suppliers.memoize(() -> new SmileObjectMapperProvider().get());
@@ -141,6 +142,7 @@ public class SmileCodec<T>
      * @return smile encoded bytes (UTF-8)
      * @throws IllegalArgumentException if the specified instance can not be converted to smile
      */
+    @Override
     public byte[] toBytes(T instance)
             throws IllegalArgumentException
     {
