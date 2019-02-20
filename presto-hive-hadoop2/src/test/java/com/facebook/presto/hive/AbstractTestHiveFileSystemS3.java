@@ -49,7 +49,7 @@ public abstract class AbstractTestHiveFileSystemS3
         S3ConfigurationUpdater s3Config = new PrestoS3ConfigurationUpdater(new HiveS3Config()
                 .setS3AwsAccessKey(awsAccessKey)
                 .setS3AwsSecretKey(awsSecretKey));
-        return new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config, s3Config), ImmutableSet.of());
+        return new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config, s3Config, ignored -> {}), ImmutableSet.of());
     }
 
     @Override
