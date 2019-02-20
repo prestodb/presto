@@ -16,6 +16,7 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
@@ -176,7 +177,7 @@ public class ExpressionAnalyzer
     private final boolean isDescribe;
     private final boolean legacyRowFieldOrdinalAccess;
 
-    private final Map<NodeRef<FunctionCall>, Signature> resolvedFunctions = new LinkedHashMap<>();
+    private final Map<NodeRef<FunctionCall>, FunctionHandle> resolvedFunctions = new LinkedHashMap<>();
     private final Set<NodeRef<SubqueryExpression>> scalarSubqueries = new LinkedHashSet<>();
     private final Set<NodeRef<ExistsPredicate>> existsSubqueries = new LinkedHashSet<>();
     private final Map<NodeRef<Expression>, Type> expressionCoercions = new LinkedHashMap<>();
@@ -215,7 +216,7 @@ public class ExpressionAnalyzer
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
     }
 
-    public Map<NodeRef<FunctionCall>, Signature> getResolvedFunctions()
+    public Map<NodeRef<FunctionCall>, FunctionHandle> getResolvedFunctions()
     {
         return unmodifiableMap(resolvedFunctions);
     }
@@ -865,7 +866,8 @@ public class ExpressionAnalyzer
             }
 
             ImmutableList<TypeSignatureProvider> argumentTypes = argumentTypesBuilder.build();
-            Signature function = resolveFunction(node, argumentTypes, functionManager);
+            FunctionHandle function = resolveFunction(session, node, argumentTypes, functionManager);
+            Signature functionSignature = function.getSignature();
 
             if (node.getOrderBy().isPresent()) {
                 for (SortItem sortItem : node.getOrderBy().get().getSortItems()) {
@@ -878,8 +880,8 @@ public class ExpressionAnalyzer
 
             for (int i = 0; i < node.getArguments().size(); i++) {
                 Expression expression = node.getArguments().get(i);
-                Type expectedType = typeManager.getType(function.getArgumentTypes().get(i));
-                requireNonNull(expectedType, format("Type %s not found", function.getArgumentTypes().get(i)));
+                Type expectedType = typeManager.getType(functionSignature.getArgumentTypes().get(i));
+                requireNonNull(expectedType, format("Type %s not found", functionSignature.getArgumentTypes().get(i)));
                 if (node.isDistinct() && !expectedType.isComparable()) {
                     throw new SemanticException(TYPE_MISMATCH, node, "DISTINCT can only be applied to comparable types (actual: %s)", expectedType);
                 }
@@ -894,7 +896,7 @@ public class ExpressionAnalyzer
             }
             resolvedFunctions.put(NodeRef.of(node), function);
 
-            Type type = typeManager.getType(function.getReturnType());
+            Type type = typeManager.getType(functionSignature.getReturnType());
             return setExpressionType(node, type);
         }
 
@@ -1418,10 +1420,10 @@ public class ExpressionAnalyzer
         }
     }
 
-    public static Signature resolveFunction(FunctionCall node, List<TypeSignatureProvider> argumentTypes, FunctionManager functionManager)
+    public static FunctionHandle resolveFunction(Session session, FunctionCall node, List<TypeSignatureProvider> argumentTypes, FunctionManager functionManager)
     {
         try {
-            return functionManager.resolveFunction(node.getName(), argumentTypes);
+            return functionManager.resolveFunction(session, node.getName(), argumentTypes);
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
@@ -1588,11 +1590,11 @@ public class ExpressionAnalyzer
         Map<NodeRef<Expression>, Type> expressionTypes = analyzer.getExpressionTypes();
         Map<NodeRef<Expression>, Type> expressionCoercions = analyzer.getExpressionCoercions();
         Set<NodeRef<Expression>> typeOnlyCoercions = analyzer.getTypeOnlyCoercions();
-        Map<NodeRef<FunctionCall>, Signature> resolvedFunctions = analyzer.getResolvedFunctions();
+        Map<NodeRef<FunctionCall>, FunctionHandle> resolvedFunctions = analyzer.getResolvedFunctions();
 
         analysis.addTypes(expressionTypes);
         analysis.addCoercions(expressionCoercions, typeOnlyCoercions);
-        analysis.addFunctionSignatures(resolvedFunctions);
+        analysis.addFunctionHandles(resolvedFunctions);
         analysis.addColumnReferences(analyzer.getColumnReferences());
         analysis.addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());
         analysis.addTableColumnReferences(accessControl, session.getIdentity(), analyzer.getTableColumnReferences());

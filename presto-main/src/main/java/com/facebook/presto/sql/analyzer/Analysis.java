@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
@@ -112,7 +112,7 @@ public class Analysis
     private final Map<NodeRef<Expression>, Type> coercions = new LinkedHashMap<>();
     private final Set<NodeRef<Expression>> typeOnlyCoercions = new LinkedHashSet<>();
     private final Map<NodeRef<Relation>, List<Type>> relationCoercions = new LinkedHashMap<>();
-    private final Map<NodeRef<FunctionCall>, Signature> functionSignature = new LinkedHashMap<>();
+    private final Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles = new LinkedHashMap<>();
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
 
     private final Map<Field, ColumnHandle> columns = new LinkedHashMap<>();
@@ -452,14 +452,14 @@ public class Analysis
         tables.put(NodeRef.of(table), handle);
     }
 
-    public Signature getFunctionSignature(FunctionCall function)
+    public FunctionHandle getFunctionHandle(FunctionCall function)
     {
-        return functionSignature.get(NodeRef.of(function));
+        return functionHandles.get(NodeRef.of(function));
     }
 
-    public void addFunctionSignatures(Map<NodeRef<FunctionCall>, Signature> infos)
+    public void addFunctionHandles(Map<NodeRef<FunctionCall>, FunctionHandle> infos)
     {
-        functionSignature.putAll(infos);
+        functionHandles.putAll(infos);
     }
 
     public Set<NodeRef<Expression>> getColumnReferences()

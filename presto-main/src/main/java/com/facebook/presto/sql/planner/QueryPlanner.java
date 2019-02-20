@@ -556,7 +556,7 @@ class QueryPlanner
             }
             aggregationTranslations.put(aggregate, newSymbol);
 
-            aggregationsBuilder.put(newSymbol, new Aggregation((FunctionCall) rewritten, analysis.getFunctionSignature(aggregate), Optional.empty()));
+            aggregationsBuilder.put(newSymbol, new Aggregation((FunctionCall) rewritten, analysis.getFunctionHandle(aggregate).getSignature(), Optional.empty()));
         }
         Map<Symbol, Aggregation> aggregations = aggregationsBuilder.build();
 
@@ -797,7 +797,7 @@ class QueryPlanner
             outputTranslations.put(windowFunction, newSymbol);
 
             WindowNode.Function function = new WindowNode.Function(
-                    (FunctionCall) rewritten, analysis.getFunctionSignature(windowFunction), frame);
+                    (FunctionCall) rewritten, analysis.getFunctionHandle(windowFunction).getSignature(), frame);
 
             List<Symbol> sourceSymbols = subPlan.getRoot().getOutputSymbols();
             ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();

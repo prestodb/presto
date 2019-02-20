@@ -29,7 +29,7 @@ class WindowFunctionValidator
     {
         requireNonNull(analysis, "analysis is null");
 
-        Signature signature = analysis.getFunctionSignature(functionCall);
+        Signature signature = analysis.getFunctionHandle(functionCall).getSignature();
         if (signature != null && signature.getKind() == WINDOW && !functionCall.getWindow().isPresent()) {
             throw new SemanticException(WINDOW_REQUIRES_OVER, functionCall, "Window function %s requires an OVER clause", signature.getName());
         }
