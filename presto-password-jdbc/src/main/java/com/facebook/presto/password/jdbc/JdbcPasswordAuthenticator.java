@@ -80,6 +80,7 @@ public class JdbcPasswordAuthenticator
 
     private Principal authenticate(String user, String password)
     {
+        log.debug("Authentication request for user [%s]", user);
         String selectFormattedUserSQL = String.format(selectUserSQL, jdbcConfig.getJdbcAuthSchema(), jdbcConfig.getJdbcAuthTable());
         try (Connection connection = datastore.getConnection();
                 PreparedStatement statement = connection.prepareStatement(selectFormattedUserSQL)) {
