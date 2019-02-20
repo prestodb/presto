@@ -20,11 +20,13 @@ import org.apache.hadoop.conf.Configuration;
 import java.net.URI;
 
 import static com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
-import static com.facebook.presto.hive.gcs.GcsAccessTokenProvider.GCS_ACCESS_KEY_CONF;
+import static com.facebook.presto.hive.gcs.GcsAccessTokenProvider.GCS_ACCESS_TOKEN_CONF;
 
 public class GcsConfigurationProvider
         implements DynamicConfigurationProvider
 {
+    private static final String GCS_OAUTH_KEY = "hive.gcs.oauth";
+
     @Override
     public void updateConfiguration(Configuration configuration, HdfsContext context, URI uri)
     {
@@ -32,9 +34,9 @@ public class GcsConfigurationProvider
             return;
         }
 
-        String accessToken = context.getIdentity().getExtraCredentials().get(GCS_ACCESS_KEY_CONF);
+        String accessToken = context.getIdentity().getExtraCredentials().get(GCS_OAUTH_KEY);
         if (accessToken != null) {
-            configuration.set(GCS_ACCESS_KEY_CONF, accessToken);
+            configuration.set(GCS_ACCESS_TOKEN_CONF, accessToken);
         }
     }
 }
