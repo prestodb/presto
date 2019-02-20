@@ -11,17 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto;
+package com.facebook.presto.server.smile;
 
-import com.google.common.net.MediaType;
-
-public final class PrestoMediaTypes
+public interface Codec<T>
 {
-    public static final String PRESTO_PAGES = "application/X-presto-pages";
-    public static final MediaType PRESTO_PAGES_TYPE = MediaType.create("application", "X-presto-pages");
-    public static final String APPLICATION_JACKSON_SMILE = "application/x-jackson-smile";
-
-    private PrestoMediaTypes()
-    {
-    }
+    byte[] toBytes(T instance);
 }

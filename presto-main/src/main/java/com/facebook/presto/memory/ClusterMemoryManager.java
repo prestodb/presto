@@ -20,7 +20,10 @@ import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.memory.LowMemoryKiller.QueryMemoryInfo;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.ServerConfig;
+import com.facebook.presto.server.smile.Codec;
+import com.facebook.presto.server.smile.SmileCodec;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -70,6 +73,7 @@ import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemory
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
+import static com.facebook.presto.server.smile.JsonCodecWrapper.wrapJsonCodec;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
@@ -96,8 +100,8 @@ public class ClusterMemoryManager
     private final LocationFactory locationFactory;
     private final HttpClient httpClient;
     private final MBeanExporter exporter;
-    private final JsonCodec<MemoryInfo> memoryInfoCodec;
-    private final JsonCodec<MemoryPoolAssignmentsRequest> assignmentsRequestJsonCodec;
+    private final Codec<MemoryInfo> memoryInfoCodec;
+    private final Codec<MemoryPoolAssignmentsRequest> assignmentsRequestCodec;
     private final DataSize maxQueryMemory;
     private final DataSize maxQueryTotalMemory;
     private final boolean enabled;
@@ -110,6 +114,7 @@ public class ClusterMemoryManager
     private final AtomicLong clusterMemoryBytes = new AtomicLong();
     private final AtomicLong queriesKilledDueToOutOfMemory = new AtomicLong();
     private final boolean isWorkScheduledOnCoordinator;
+    private final boolean isBinaryTransportEnabled;
 
     @GuardedBy("this")
     private final Map<String, RemoteNodeMemory> nodes = new HashMap<>();
@@ -132,25 +137,27 @@ public class ClusterMemoryManager
             InternalNodeManager nodeManager,
             LocationFactory locationFactory,
             MBeanExporter exporter,
-            JsonCodec<MemoryInfo> memoryInfoCodec,
+            JsonCodec<MemoryInfo> memoryInfoJsonCodec,
+            SmileCodec<MemoryInfo> memoryInfoSmileCodec,
             JsonCodec<MemoryPoolAssignmentsRequest> assignmentsRequestJsonCodec,
+            SmileCodec<MemoryPoolAssignmentsRequest> assignmentsRequestSmileCodec,
             QueryIdGenerator queryIdGenerator,
             LowMemoryKiller lowMemoryKiller,
             ServerConfig serverConfig,
             MemoryManagerConfig config,
             NodeMemoryConfig nodeMemoryConfig,
-            NodeSchedulerConfig schedulerConfig)
+            NodeSchedulerConfig schedulerConfig,
+            InternalCommunicationConfig communicationConfig)
     {
         requireNonNull(config, "config is null");
         requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
         requireNonNull(serverConfig, "serverConfig is null");
         requireNonNull(schedulerConfig, "schedulerConfig is null");
+        requireNonNull(communicationConfig, "communicationConfig is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.exporter = requireNonNull(exporter, "exporter is null");
-        this.memoryInfoCodec = requireNonNull(memoryInfoCodec, "memoryInfoCodec is null");
-        this.assignmentsRequestJsonCodec = requireNonNull(assignmentsRequestJsonCodec, "assignmentsRequestJsonCodec is null");
         this.lowMemoryKiller = requireNonNull(lowMemoryKiller, "lowMemoryKiller is null");
         this.maxQueryMemory = config.getMaxQueryMemory();
         this.maxQueryTotalMemory = config.getMaxQueryTotalMemory();
@@ -158,6 +165,15 @@ public class ClusterMemoryManager
         this.enabled = serverConfig.isCoordinator();
         this.killOnOutOfMemoryDelay = config.getKillOnOutOfMemoryDelay();
         this.isWorkScheduledOnCoordinator = schedulerConfig.isIncludeCoordinator();
+        this.isBinaryTransportEnabled = communicationConfig.isBinaryTransportEnabled();
+        if (this.isBinaryTransportEnabled) {
+            this.memoryInfoCodec = requireNonNull(memoryInfoSmileCodec, "memoryInfoSmileCodec is null");
+            this.assignmentsRequestCodec = requireNonNull(assignmentsRequestSmileCodec, "assignmentsRequestSmileCodec is null");
+        }
+        else {
+            this.memoryInfoCodec = wrapJsonCodec(requireNonNull(memoryInfoJsonCodec, "memoryInfoJsonCodec is null"));
+            this.assignmentsRequestCodec = wrapJsonCodec(requireNonNull(assignmentsRequestJsonCodec, "assignmentsRequestJsonCodec is null"));
+        }
 
         verify(maxQueryMemory.toBytes() <= maxQueryTotalMemory.toBytes(),
                 "maxQueryMemory cannot be greater than maxQueryTotalMemory");
@@ -480,7 +496,15 @@ public class ClusterMemoryManager
         // Add new nodes
         for (Node node : aliveNodes) {
             if (!nodes.containsKey(node.getNodeIdentifier())) {
-                nodes.put(node.getNodeIdentifier(), new RemoteNodeMemory(node, httpClient, memoryInfoCodec, assignmentsRequestJsonCodec, locationFactory.createMemoryInfoLocation(node)));
+                nodes.put(
+                        node.getNodeIdentifier(),
+                        new RemoteNodeMemory(
+                                node,
+                                httpClient,
+                                memoryInfoCodec,
+                                assignmentsRequestCodec,
+                                locationFactory.createMemoryInfoLocation(node),
+                                isBinaryTransportEnabled));
             }
         }
 

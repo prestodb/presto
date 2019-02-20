@@ -51,7 +51,6 @@ import javax.ws.rs.container.CompletionCallback;
 import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.GenericEntity;
-import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
@@ -61,6 +60,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.facebook.presto.PrestoMediaTypes.APPLICATION_JACKSON_SMILE;
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
@@ -76,6 +76,7 @@ import static io.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 
 /**
  * Manages tasks on this worker node
@@ -107,7 +108,8 @@ public class TaskResource
     }
 
     @GET
-    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
+    @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
     public List<TaskInfo> getAllTaskInfo(@Context UriInfo uriInfo)
     {
         List<TaskInfo> allTaskInfo = taskManager.getAllTaskInfo();
@@ -119,8 +121,8 @@ public class TaskResource
 
     @POST
     @Path("{taskId}")
-    @Consumes(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
+    @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
     public Response createOrUpdateTask(@PathParam("taskId") TaskId taskId, TaskUpdateRequest taskUpdateRequest, @Context UriInfo uriInfo)
     {
         requireNonNull(taskUpdateRequest, "taskUpdateRequest is null");
@@ -142,7 +144,8 @@ public class TaskResource
 
     @GET
     @Path("{taskId}")
-    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
+    @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
     public void getTaskInfo(
             @PathParam("taskId") final TaskId taskId,
             @HeaderParam(PRESTO_CURRENT_STATE) TaskState currentState,
@@ -180,7 +183,8 @@ public class TaskResource
 
     @GET
     @Path("{taskId}/status")
-    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
+    @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
     public void getTaskStatus(
             @PathParam("taskId") TaskId taskId,
             @HeaderParam(PRESTO_CURRENT_STATE) TaskState currentState,
@@ -214,7 +218,8 @@ public class TaskResource
 
     @DELETE
     @Path("{taskId}")
-    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
+    @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
     public TaskInfo deleteTask(
             @PathParam("taskId") TaskId taskId,
             @QueryParam("abort") @DefaultValue("true") boolean abort,
@@ -310,7 +315,7 @@ public class TaskResource
 
     @DELETE
     @Path("{taskId}/results/{bufferId}")
-    @Produces(MediaType.APPLICATION_JSON)
+    @Produces(APPLICATION_JSON)
     public void abortResults(@PathParam("taskId") TaskId taskId, @PathParam("bufferId") OutputBufferId bufferId, @Context UriInfo uriInfo)
     {
         requireNonNull(taskId, "taskId is null");
