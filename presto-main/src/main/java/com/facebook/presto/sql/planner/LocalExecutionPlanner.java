@@ -191,7 +191,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.primitives.Ints;
-import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 
 import javax.inject.Inject;
@@ -285,8 +284,6 @@ import static java.util.stream.IntStream.range;
 
 public class LocalExecutionPlanner
 {
-    private static final Logger log = Logger.get(LocalExecutionPlanner.class);
-
     private final Metadata metadata;
     private final SqlParser sqlParser;
     private final Optional<ExplainAnalyzeContext> explainAnalyzeContext;
