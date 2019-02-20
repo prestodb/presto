@@ -347,7 +347,6 @@ public class PlanOptimizers
                                 new TransformCorrelatedSingleRowSubqueryToProject())),
                 new CheckSubqueryNodesAreRewritten(),
                 predicatePushDown,
-                new ConnectorOptimizer(metadata, sqlParser, connectorOptimizationRuleManager, new LiteralEncoder(metadata.getBlockEncodingSerde())),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -438,6 +437,7 @@ public class PlanOptimizers
                         .addAll(new ExtractSpatialJoins(metadata, splitManager, pageSourceManager, sqlParser).rules())
                         .add(new InlineProjections())
                         .build()));
+        builder.add(new ConnectorOptimizer(metadata, sqlParser, connectorOptimizationRuleManager, new LiteralEncoder(metadata.getBlockEncodingSerde())));
 
         if (!forceSingleNode) {
             builder.add(new ReplicateSemiJoinInDelete()); // Must run before AddExchanges

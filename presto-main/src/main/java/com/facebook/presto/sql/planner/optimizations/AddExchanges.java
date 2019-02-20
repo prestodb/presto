@@ -87,6 +87,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.isColocatedJoinEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabled;
@@ -541,7 +542,7 @@ public class AddExchanges
         private PlanWithProperties planTableScan(TableScanNode node, Expression predicate, PreferredProperties preferredProperties)
         {
             List<PlanNode> possiblePlans = PickTableLayout.listTableLayouts(node, predicate, true, session, types, idAllocator, metadata, parser, domainTranslator);
-            List<PlanWithProperties> possiblePlansWithProperties = possiblePlans.stream()
+            List<PlanWithProperties> possiblePlansWithProperties = Stream.concat(node.getLayout().isPresent() ? Stream.of(node) : Stream.empty(), possiblePlans.stream())
                     .map(planNode -> new PlanWithProperties(planNode, derivePropertiesRecursively(planNode)))
                     .collect(toImmutableList());
             return pickPlan(possiblePlansWithProperties, preferredProperties);
