@@ -15,9 +15,20 @@ package com.facebook.presto.jdbc;
 
 import com.facebook.presto.hive.HiveHadoop2Plugin;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.InMemoryRecordSet;
+import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
 import io.airlift.log.Logging;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -33,6 +44,10 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.jdbc.TestPrestoDriver.closeQuietly;
+import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static com.facebook.presto.spi.SystemTable.Distribution.ALL_NODES;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -48,7 +63,9 @@ public class TestJdbcConnection
             throws Exception
     {
         Logging.initialize();
-        server = new TestingPrestoServer();
+        Module systemTables = binder -> newSetBinder(binder, SystemTable.class)
+                .addBinding().to(ExtraCredentialsSystemTable.class).in(Scopes.SINGLETON);
+        server = new TestingPrestoServer(ImmutableList.of(systemTables));
 
         server.installPlugin(new HiveHadoop2Plugin());
         server.createCatalog("hive", "hive-hadoop2", ImmutableMap.<String, String>builder()
@@ -201,11 +218,12 @@ public class TestJdbcConnection
             throws SQLException
     {
         Map<String, String> credentials = ImmutableMap.of("test.token.foo", "bar", "test.token.abc", "xyz");
-        Connection connection = DriverManager.getConnection("jdbc:presto://localhost:8080?extraCredentials=test.token.foo:bar;test.token.abc:xyz", "admin", null);
+        Connection connection = createConnection("extraCredentials=test.token.foo:bar;test.token.abc:xyz");
 
         assertTrue(connection instanceof PrestoConnection);
-        PrestoConnection prestoConnection = (PrestoConnection) connection;
+        PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
         assertEquals(prestoConnection.getExtraCredentials(), credentials);
+        assertEquals(listExtraCredentials(connection), credentials);
     }
 
     private Connection createConnection()
@@ -250,6 +268,17 @@ public class TestJdbcConnection
         return set.build();
     }
 
+    private static Map<String, String> listExtraCredentials(Connection connection)
+            throws SQLException
+    {
+        ResultSet rs = connection.createStatement().executeQuery("SELECT * FROM system.test.extra_credentials");
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        while (rs.next()) {
+            builder.put(rs.getString("name"), rs.getString("value"));
+        }
+        return builder.build();
+    }
+
     private static void assertConnectionSource(Connection connection, String expectedSource)
             throws SQLException
     {
@@ -267,6 +296,37 @@ public class TestJdbcConnection
                 assertThat(rs.getString("source")).isEqualTo(expectedSource);
                 assertFalse(rs.next());
             }
+        }
+    }
+
+    private static class ExtraCredentialsSystemTable
+            implements SystemTable
+    {
+        private static final SchemaTableName NAME = new SchemaTableName("test", "extra_credentials");
+
+        public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
+                .column("name", createUnboundedVarcharType())
+                .column("value", createUnboundedVarcharType())
+                .build();
+
+        @Override
+        public Distribution getDistribution()
+        {
+            return ALL_NODES;
+        }
+
+        @Override
+        public ConnectorTableMetadata getTableMetadata()
+        {
+            return METADATA;
+        }
+
+        @Override
+        public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
+        {
+            InMemoryRecordSet.Builder table = InMemoryRecordSet.builder(METADATA);
+            session.getIdentity().getExtraCredentials().forEach(table::addRow);
+            return table.build().cursor();
         }
     }
 }
