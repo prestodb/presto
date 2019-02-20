@@ -44,7 +44,7 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CLIENT_READ_SHORTCIRCUIT_
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CLIENT_SOCKET_TIMEOUT_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DOMAIN_SOCKET_PATH_KEY;
 
-public class HdfsConfigurationUpdater
+public class HdfsConfigurationInitializer
 {
     private final HostAndPort socksProxy;
     private final Duration ipcPingInterval;
@@ -59,13 +59,13 @@ public class HdfsConfigurationUpdater
     private int textMaxLineLength;
 
     @VisibleForTesting
-    public HdfsConfigurationUpdater(HiveClientConfig config)
+    public HdfsConfigurationInitializer(HiveClientConfig config)
     {
         this(config, ignored -> {});
     }
 
     @Inject
-    public HdfsConfigurationUpdater(HiveClientConfig config, S3ConfigurationUpdater s3ConfigurationUpdater)
+    public HdfsConfigurationInitializer(HiveClientConfig config, S3ConfigurationUpdater s3ConfigurationUpdater)
     {
         requireNonNull(config, "config is null");
         checkArgument(config.getDfsTimeout().toMillis() >= 1, "dfsTimeout must be at least 1 ms");

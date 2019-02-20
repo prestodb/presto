@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.authentication;
 
-import com.facebook.presto.hive.HdfsConfigurationUpdater;
+import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.security.UserGroupInformation;
 
@@ -28,10 +28,10 @@ public class KerberosHadoopAuthentication
 {
     private final KerberosAuthentication kerberosAuthentication;
 
-    public static KerberosHadoopAuthentication createKerberosHadoopAuthentication(KerberosAuthentication kerberosAuthentication, HdfsConfigurationUpdater updater)
+    public static KerberosHadoopAuthentication createKerberosHadoopAuthentication(KerberosAuthentication kerberosAuthentication, HdfsConfigurationInitializer initializer)
     {
         Configuration configuration = getInitialConfiguration();
-        updater.updateConfiguration(configuration);
+        initializer.updateConfiguration(configuration);
 
         // In order to enable KERBEROS authentication method for HDFS
         // UserGroupInformation.authenticationMethod static field must be set to KERBEROS

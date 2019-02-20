@@ -35,7 +35,7 @@ public class TestFileSystemCache
         ImpersonatingHdfsAuthentication auth = new ImpersonatingHdfsAuthentication(new SimpleHadoopAuthentication());
         HdfsEnvironment environment =
                 new HdfsEnvironment(
-                        new HiveHdfsConfiguration(new HdfsConfigurationUpdater(new HiveClientConfig()), ImmutableSet.of()),
+                        new HiveHdfsConfiguration(new HdfsConfigurationInitializer(new HiveClientConfig()), ImmutableSet.of()),
                         new HiveClientConfig(),
                         auth);
         FileSystem fs1 = getFileSystem(environment, "user");
