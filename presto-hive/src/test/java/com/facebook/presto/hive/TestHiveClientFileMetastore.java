@@ -29,7 +29,7 @@ public class TestHiveClientFileMetastore
     {
         File baseDir = new File(tempDir, "metastore");
         HiveClientConfig hiveConfig = new HiveClientConfig();
-        HdfsConfigurationUpdater updator = new HdfsConfigurationUpdater(hiveConfig);
+        HdfsConfigurationInitializer updator = new HdfsConfigurationInitializer(hiveConfig);
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(updator, ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveConfig, new NoHdfsAuthentication());
         return new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");

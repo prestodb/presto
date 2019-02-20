@@ -71,7 +71,7 @@ public class HiveClientModule
         binder.bind(TypeTranslator.class).toInstance(new HiveTypeTranslator());
         binder.bind(CoercionPolicy.class).to(HiveCoercionPolicy.class).in(Scopes.SINGLETON);
 
-        binder.bind(HdfsConfigurationUpdater.class).in(Scopes.SINGLETON);
+        binder.bind(HdfsConfigurationInitializer.class).in(Scopes.SINGLETON);
         newSetBinder(binder, DynamicConfigurationProvider.class);
         binder.bind(HdfsConfiguration.class).to(HiveHdfsConfiguration.class).in(Scopes.SINGLETON);
         binder.bind(HdfsEnvironment.class).in(Scopes.SINGLETON);

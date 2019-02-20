@@ -15,7 +15,7 @@ package com.facebook.presto.plugin.geospatial;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.hive.HdfsConfiguration;
-import com.facebook.presto.hive.HdfsConfigurationUpdater;
+import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
@@ -78,7 +78,7 @@ public class TestSpatialJoins
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
 
         HiveClientConfig hiveClientConfig = new HiveClientConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig), ImmutableSet.of());
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig, new NoHdfsAuthentication());
 
         FileHiveMetastore metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");

@@ -44,11 +44,11 @@ public class HiveHdfsConfiguration
         }
     };
 
-    private final HdfsConfigurationUpdater initializer;
+    private final HdfsConfigurationInitializer initializer;
     private final Set<DynamicConfigurationProvider> dynamicProviders;
 
     @Inject
-    public HiveHdfsConfiguration(HdfsConfigurationUpdater initializer, Set<DynamicConfigurationProvider> dynamicProviders)
+    public HiveHdfsConfiguration(HdfsConfigurationInitializer initializer, Set<DynamicConfigurationProvider> dynamicProviders)
     {
         this.initializer = requireNonNull(initializer, "initializer is null");
         this.dynamicProviders = ImmutableSet.copyOf(requireNonNull(dynamicProviders, "dynamicProviders is null"));

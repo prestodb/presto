@@ -14,7 +14,7 @@
 package com.facebook.presto.hive.metastore.file;
 
 import com.facebook.presto.hive.HdfsConfiguration;
-import com.facebook.presto.hive.HdfsConfigurationUpdater;
+import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.HiveBasicStatistics;
@@ -129,7 +129,7 @@ public class FileHiveMetastore
     public static FileHiveMetastore createTestingFileHiveMetastore(File catalogDirectory)
     {
         HiveClientConfig hiveClientConfig = new HiveClientConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig), ImmutableSet.of());
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig, new NoHdfsAuthentication());
         return new FileHiveMetastore(hdfsEnvironment, catalogDirectory.toURI().toString(), "test");
     }
