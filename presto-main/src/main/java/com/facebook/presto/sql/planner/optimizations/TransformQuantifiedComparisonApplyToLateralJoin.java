@@ -16,12 +16,11 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.ExpressionUtils;
+import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -55,7 +54,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
-import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.globalAggregation;
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
@@ -75,17 +74,17 @@ import static java.util.Objects.requireNonNull;
 public class TransformQuantifiedComparisonApplyToLateralJoin
         implements PlanOptimizer
 {
-    private final Metadata metadata;
+    private final FunctionManager functionManager;
 
-    public TransformQuantifiedComparisonApplyToLateralJoin(Metadata metadata)
+    public TransformQuantifiedComparisonApplyToLateralJoin(FunctionManager functionManager)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
     }
 
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        return rewriteWith(new Rewriter(idAllocator, types, symbolAllocator, metadata), plan, null);
+        return rewriteWith(new Rewriter(functionManager, session, idAllocator, types, symbolAllocator), plan, null);
     }
 
     private static class Rewriter
@@ -95,17 +94,19 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
         private static final QualifiedName MAX = QualifiedName.of("max");
         private static final QualifiedName COUNT = QualifiedName.of("count");
 
+        private final FunctionManager functionManager;
+        private final Session session;
         private final PlanNodeIdAllocator idAllocator;
         private final TypeProvider types;
         private final SymbolAllocator symbolAllocator;
-        private final Metadata metadata;
 
-        public Rewriter(PlanNodeIdAllocator idAllocator, TypeProvider types, SymbolAllocator symbolAllocator, Metadata metadata)
+        public Rewriter(FunctionManager functionManager, Session session, PlanNodeIdAllocator idAllocator, TypeProvider types, SymbolAllocator symbolAllocator)
         {
+            this.functionManager = requireNonNull(functionManager, "functionManager is null");
+            this.session = requireNonNull(session, "session is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.types = requireNonNull(types, "types is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
-            this.metadata = requireNonNull(metadata, "metadata is null");
         }
 
         @Override
@@ -138,9 +139,8 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
             Symbol countAllValue = symbolAllocator.newSymbol("count_all", BigintType.BIGINT);
             Symbol countNonNullValue = symbolAllocator.newSymbol("count_non_null", BigintType.BIGINT);
 
-            FunctionManager functionManager = metadata.getFunctionManager();
             List<Expression> outputColumnReferences = ImmutableList.of(outputColumn.toSymbolReference());
-            List<TypeSignature> outputColumnTypeSignature = ImmutableList.of(outputColumnType.getTypeSignature());
+            List<TypeSignatureProvider> outputColumnTypeSignatures = fromTypes(outputColumnType);
 
             subqueryPlan = new AggregationNode(
                     idAllocator.getNextId(),
@@ -148,19 +148,19 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     ImmutableMap.of(
                             minValue, new Aggregation(
                                     new FunctionCall(MIN, outputColumnReferences),
-                                    functionManager.resolveFunction(MIN, fromTypeSignatures(outputColumnTypeSignature)),
+                                    functionManager.resolveFunction(session, MIN, outputColumnTypeSignatures),
                                     Optional.empty()),
                             maxValue, new Aggregation(
                                     new FunctionCall(MAX, outputColumnReferences),
-                                    functionManager.resolveFunction(MAX, fromTypeSignatures(outputColumnTypeSignature)),
+                                    functionManager.resolveFunction(session, MAX, outputColumnTypeSignatures),
                                     Optional.empty()),
                             countAllValue, new Aggregation(
                                     new FunctionCall(COUNT, emptyList()),
-                                    functionManager.resolveFunction(COUNT, emptyList()),
+                                    functionManager.resolveFunction(session, COUNT, emptyList()),
                                     Optional.empty()),
                             countNonNullValue, new Aggregation(
                                     new FunctionCall(COUNT, outputColumnReferences),
-                                    functionManager.resolveFunction(COUNT, fromTypeSignatures(outputColumnTypeSignature)),
+                                    functionManager.resolveFunction(session, COUNT, outputColumnTypeSignatures),
                                     Optional.empty())),
                     globalAggregation(),
                     ImmutableList.of(),

@@ -14,8 +14,8 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.StreamingAggregationOperator.StreamingAggregationOperatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
@@ -26,6 +26,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -53,11 +54,11 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.operator.BenchmarkHashAndStreamingAggregationOperators.Context.ROWS_PER_PAGE;
 import static com.facebook.presto.operator.BenchmarkHashAndStreamingAggregationOperators.Context.TOTAL_PAGES;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -80,11 +81,12 @@ import static org.testng.Assert.assertEquals;
 public class BenchmarkHashAndStreamingAggregationOperators
 {
     private static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
+    private static final FunctionManager functionManager = metadata.getFunctionManager();
 
-    private static final InternalAggregationFunction LONG_SUM = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("sum", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
-    private static final InternalAggregationFunction COUNT = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("count", AGGREGATE, BIGINT.getTypeSignature()));
+    private static final InternalAggregationFunction LONG_SUM = functionManager.getAggregateFunctionImplementation(
+            functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("sum"), fromTypes(BIGINT)));
+    private static final InternalAggregationFunction COUNT = functionManager.getAggregateFunctionImplementation(
+            functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("count"), ImmutableList.of()));
 
     @State(Thread)
     public static class Context
@@ -144,12 +146,12 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     AggregationNode.Step.SINGLE,
                     ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
                             LONG_SUM.bind(ImmutableList.of(1), Optional.empty())),
-                    new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig()));
+                    new JoinCompiler(metadata, new FeaturesConfig()));
         }
 
         private OperatorFactory createHashAggregationOperatorFactory(Optional<Integer> hashChannel)
         {
-            JoinCompiler joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
+            JoinCompiler joinCompiler = new JoinCompiler(metadata, new FeaturesConfig());
             SpillerFactory spillerFactory = (types, localSpillContext, aggregatedMemoryContext) -> null;
 
             return new HashAggregationOperatorFactory(

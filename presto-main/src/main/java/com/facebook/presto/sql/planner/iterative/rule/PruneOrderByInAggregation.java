@@ -60,7 +60,7 @@ public class PruneOrderByInAggregation
                 aggregations.put(entry);
             }
             // getAggregateFunctionImplementation can be expensive, so check it last.
-            else if (functionManager.getAggregateFunctionImplementation(aggregation.getSignature()).isOrderSensitive()) {
+            else if (functionManager.getAggregateFunctionImplementation(aggregation.getFunctionHandle()).isOrderSensitive()) {
                 aggregations.put(entry);
             }
             else {
@@ -71,7 +71,7 @@ public class PruneOrderByInAggregation
                         aggregation.getCall().getArguments(),
                         aggregation.getCall().getFilter());
 
-                aggregations.put(entry.getKey(), new Aggregation(rewritten, aggregation.getSignature(), aggregation.getMask()));
+                aggregations.put(entry.getKey(), new Aggregation(rewritten, aggregation.getFunctionHandle(), aggregation.getMask()));
             }
         }
 

@@ -157,7 +157,7 @@ public class MultipleDistinctAggregationToMarkDistinct
                                         call.getOrderBy(),
                                         false,
                                         call.getArguments()),
-                                aggregation.getSignature(),
+                                aggregation.getFunctionHandle(),
                                 Optional.of(marker)));
             }
             else {

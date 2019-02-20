@@ -2522,7 +2522,7 @@ public class LocalExecutionPlanner
         {
             InternalAggregationFunction internalAggregationFunction = metadata
                     .getFunctionManager()
-                    .getAggregateFunctionImplementation(aggregation.getSignature());
+                    .getAggregateFunctionImplementation(aggregation.getFunctionHandle());
 
             List<Integer> valueChannels = new ArrayList<>();
             for (Expression argument : aggregation.getCall().getArguments()) {
@@ -2538,7 +2538,7 @@ public class LocalExecutionPlanner
                     .map(LambdaExpression.class::cast)
                     .collect(toImmutableList());
             if (!lambdaExpressions.isEmpty()) {
-                List<FunctionType> functionTypes = aggregation.getSignature().getArgumentTypes().stream()
+                List<FunctionType> functionTypes = aggregation.getFunctionHandle().getSignature().getArgumentTypes().stream()
                         .filter(typeSignature -> typeSignature.getBase().equals(FunctionType.NAME))
                         .map(typeSignature -> (FunctionType) (metadata.getTypeManager().getType(typeSignature)))
                         .collect(toImmutableList());

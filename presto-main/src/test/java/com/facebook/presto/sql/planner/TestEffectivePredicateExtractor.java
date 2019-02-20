@@ -14,17 +14,15 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.FunctionKind;
+import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -53,7 +51,6 @@ import com.facebook.presto.testing.TestingHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.facebook.presto.testing.TestingTransactionHandle;
-import com.facebook.presto.type.UnknownType;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -75,7 +72,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
@@ -142,6 +139,8 @@ public class TestEffectivePredicateExtractor
     @Test
     public void testAggregation()
     {
+        FunctionCall functionCall = new FunctionCall(QualifiedName.of("count"), ImmutableList.of());
+        FunctionHandle functionHandle = metadata.getFunctionManager().resolveFunction(TEST_SESSION, QualifiedName.of("count"), ImmutableList.of());
         PlanNode node = new AggregationNode(newId(),
                 filter(baseTableScan,
                         and(
@@ -153,8 +152,8 @@ public class TestEffectivePredicateExtractor
                                 greaterThan(AE, bigintLiteral(2)),
                                 equals(EE, FE))),
                 ImmutableMap.of(
-                        C, new Aggregation(fakeFunction(), fakeFunctionHandle("test", AGGREGATE), Optional.empty()),
-                        D, new Aggregation(fakeFunction(), fakeFunctionHandle("test", AGGREGATE), Optional.empty())),
+                        C, new Aggregation(functionCall, functionHandle, Optional.empty()),
+                        D, new Aggregation(functionCall, functionHandle, Optional.empty())),
                 singleGroupingSet(ImmutableList.of(A, B, C)),
                 ImmutableList.of(),
                 AggregationNode.Step.FINAL,
@@ -756,16 +755,6 @@ public class TestEffectivePredicateExtractor
     private static IsNullPredicate isNull(Expression expression)
     {
         return new IsNullPredicate(expression);
-    }
-
-    private static FunctionCall fakeFunction()
-    {
-        return new FunctionCall(QualifiedName.of("test"), ImmutableList.of());
-    }
-
-    private static Signature fakeFunctionHandle(String name, FunctionKind kind)
-    {
-        return new Signature(name, kind, TypeSignature.parseTypeSignature(UnknownType.NAME), ImmutableList.of());
     }
 
     private Set<Expression> normalizeConjuncts(Expression... conjuncts)

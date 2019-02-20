@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -34,10 +34,9 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -62,7 +61,6 @@ public class RewriteSpatialPartitioningAggregation
 {
     private static final TypeSignature GEOMETRY_TYPE_SIGNATURE = parseTypeSignature("Geometry");
     private static final String NAME = "spatial_partitioning";
-    private static final Signature INTERNAL_SIGNATURE = new Signature(NAME, AGGREGATE, VARCHAR.getTypeSignature(), GEOMETRY_TYPE_SIGNATURE, INTEGER.getTypeSignature());
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .matching(RewriteSpatialPartitioningAggregation::hasSpatialPartitioningAggregation);
 
@@ -96,9 +94,10 @@ public class RewriteSpatialPartitioningAggregation
             Aggregation aggregation = entry.getValue();
             FunctionCall call = aggregation.getCall();
             QualifiedName name = call.getName();
+            Type geometryType = metadata.getType(GEOMETRY_TYPE_SIGNATURE);
             if (name.toString().equals(NAME) && call.getArguments().size() == 1) {
                 Expression geometry = getOnlyElement(call.getArguments());
-                Symbol envelopeSymbol = context.getSymbolAllocator().newSymbol("envelope", metadata.getType(GEOMETRY_TYPE_SIGNATURE));
+                Symbol envelopeSymbol = context.getSymbolAllocator().newSymbol("envelope", geometryType);
                 if (geometry instanceof FunctionCall && ((FunctionCall) geometry).getName().toString().equalsIgnoreCase("ST_Envelope")) {
                     envelopeAssignments.put(envelopeSymbol, geometry);
                 }
@@ -108,7 +107,7 @@ public class RewriteSpatialPartitioningAggregation
                 aggregations.put(entry.getKey(),
                         new Aggregation(
                                 new FunctionCall(name, ImmutableList.of(envelopeSymbol.toSymbolReference(), partitionCountSymbol.toSymbolReference())),
-                                INTERNAL_SIGNATURE,
+                                metadata.getFunctionManager().resolveFunction(context.getSession(), QualifiedName.of(NAME), fromTypes(geometryType, INTEGER)),
                                 aggregation.getMask()));
             }
             else {

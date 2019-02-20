@@ -16,8 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -36,11 +35,12 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
+import static java.util.Objects.requireNonNull;
 
 public class SimplifyCountOverConstant
         implements Rule<AggregationNode>
@@ -49,6 +49,13 @@ public class SimplifyCountOverConstant
 
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .with(source().matching(project().capturedAs(CHILD)));
+
+    private final FunctionManager functionManager;
+
+    public SimplifyCountOverConstant(FunctionManager functionManager)
+    {
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+    }
 
     @Override
     public Pattern<AggregationNode> getPattern()
@@ -72,7 +79,7 @@ public class SimplifyCountOverConstant
                 changed = true;
                 aggregations.put(symbol, new AggregationNode.Aggregation(
                         new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
-                        new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT)),
+                        functionManager.resolveFunction(context.getSession(), QualifiedName.of("count"), fromTypes(BIGINT)),
                         aggregation.getMask()));
             }
         }
@@ -94,8 +101,8 @@ public class SimplifyCountOverConstant
 
     private static boolean isCountOverConstant(AggregationNode.Aggregation aggregation, Assignments inputs)
     {
-        Signature signature = aggregation.getSignature();
-        if (!signature.getName().equals("count") || signature.getArgumentTypes().size() != 1) {
+        FunctionCall call = aggregation.getCall();
+        if (!call.getName().equals("count") || call.getArguments().size() != 1) {
             return false;
         }
 

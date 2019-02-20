@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -27,50 +28,38 @@ import org.testng.annotations.Test;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringArraysBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.block.BlockAssertions.createTypedLongsBlock;
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.operator.OperatorAssertion.toRow;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.operator.aggregation.MapAggregationFunction.NAME;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 
 public class TestMapAggAggregation
 {
-    private static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
+    private static final FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
 
     @Test
     public void testDuplicateKeysValues()
     {
-        MapType mapType = mapType(DOUBLE, VARCHAR);
-        InternalAggregationFunction aggFunc = metadata.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature(NAME,
-                        AGGREGATE,
-                        mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.VARCHAR)));
+        InternalAggregationFunction aggFunc = getAggregation(DOUBLE, VARCHAR);
         assertAggregation(
                 aggFunc,
                 ImmutableMap.of(1.0, "a"),
                 createDoublesBlock(1.0, 1.0, 1.0),
                 createStringsBlock("a", "b", "c"));
 
-        mapType = mapType(DOUBLE, INTEGER);
-        aggFunc = metadata.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature(NAME,
-                        AGGREGATE,
-                        mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.INTEGER)));
+        aggFunc = getAggregation(DOUBLE, INTEGER);
         assertAggregation(
                 aggFunc,
                 ImmutableMap.of(1.0, 99, 2.0, 99, 3.0, 99),
@@ -81,39 +70,21 @@ public class TestMapAggAggregation
     @Test
     public void testSimpleMaps()
     {
-        MapType mapType = mapType(DOUBLE, VARCHAR);
-        InternalAggregationFunction aggFunc = metadata.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature(NAME,
-                        AGGREGATE,
-                        mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.VARCHAR)));
+        InternalAggregationFunction aggFunc = getAggregation(DOUBLE, VARCHAR);
         assertAggregation(
                 aggFunc,
                 ImmutableMap.of(1.0, "a", 2.0, "b", 3.0, "c"),
                 createDoublesBlock(1.0, 2.0, 3.0),
                 createStringsBlock("a", "b", "c"));
 
-        mapType = mapType(DOUBLE, INTEGER);
-        aggFunc = metadata.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature(NAME,
-                        AGGREGATE,
-                        mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.INTEGER)));
+        aggFunc = getAggregation(DOUBLE, INTEGER);
         assertAggregation(
                 aggFunc,
                 ImmutableMap.of(1.0, 3, 2.0, 2, 3.0, 1),
                 createDoublesBlock(1.0, 2.0, 3.0),
                 createTypedLongsBlock(INTEGER, ImmutableList.of(3L, 2L, 1L)));
 
-        mapType = mapType(DOUBLE, BOOLEAN);
-        aggFunc = metadata.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature(NAME,
-                        AGGREGATE,
-                        mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.BOOLEAN)));
+        aggFunc = getAggregation(DOUBLE, BOOLEAN);
         assertAggregation(
                 aggFunc,
                 ImmutableMap.of(1.0, true, 2.0, false, 3.0, false),
@@ -124,12 +95,7 @@ public class TestMapAggAggregation
     @Test
     public void testNull()
     {
-        InternalAggregationFunction doubleDouble = metadata.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature(NAME,
-                        AGGREGATE,
-                        mapType(DOUBLE, DOUBLE).getTypeSignature(),
-                        parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.DOUBLE)));
+        InternalAggregationFunction doubleDouble = getAggregation(DOUBLE, DOUBLE);
         assertAggregation(
                 doubleDouble,
                 ImmutableMap.of(1.0, 2.0),
@@ -156,14 +122,7 @@ public class TestMapAggAggregation
     @Test
     public void testDoubleArrayMap()
     {
-        ArrayType arrayType = new ArrayType(VARCHAR);
-        MapType mapType = mapType(DOUBLE, arrayType);
-        InternalAggregationFunction aggFunc = metadata.getFunctionManager().getAggregateFunctionImplementation(new Signature(NAME,
-                AGGREGATE,
-                mapType.getTypeSignature(),
-                parseTypeSignature(StandardTypes.DOUBLE),
-                arrayType.getTypeSignature()));
-
+        InternalAggregationFunction aggFunc = getAggregation(DOUBLE, new ArrayType(VARCHAR));
         assertAggregation(
                 aggFunc,
                 ImmutableMap.of(1.0, ImmutableList.of("a", "b"),
@@ -177,12 +136,7 @@ public class TestMapAggAggregation
     public void testDoubleMapMap()
     {
         MapType innerMapType = mapType(VARCHAR, VARCHAR);
-        MapType mapType = mapType(DOUBLE, innerMapType);
-        InternalAggregationFunction aggFunc = metadata.getFunctionManager().getAggregateFunctionImplementation(new Signature(NAME,
-                AGGREGATE,
-                mapType.getTypeSignature(),
-                parseTypeSignature(StandardTypes.DOUBLE),
-                innerMapType.getTypeSignature()));
+        InternalAggregationFunction aggFunc = getAggregation(DOUBLE, innerMapType);
 
         BlockBuilder builder = innerMapType.createBlockBuilder(null, 3);
         innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("a", "b")));
@@ -204,12 +158,7 @@ public class TestMapAggAggregation
         RowType innerRowType = RowType.from(ImmutableList.of(
                 RowType.field("f1", INTEGER),
                 RowType.field("f2", DOUBLE)));
-        MapType mapType = mapType(DOUBLE, innerRowType);
-        InternalAggregationFunction aggFunc = metadata.getFunctionManager().getAggregateFunctionImplementation(new Signature(NAME,
-                AGGREGATE,
-                mapType.getTypeSignature(),
-                parseTypeSignature(StandardTypes.DOUBLE),
-                innerRowType.getTypeSignature()));
+        InternalAggregationFunction aggFunc = getAggregation(DOUBLE, innerRowType);
 
         BlockBuilder builder = innerRowType.createBlockBuilder(null, 3);
         innerRowType.writeObject(builder, toRow(ImmutableList.of(INTEGER, DOUBLE), 1L, 1.0));
@@ -228,15 +177,7 @@ public class TestMapAggAggregation
     @Test
     public void testArrayDoubleMap()
     {
-        ArrayType arrayType = new ArrayType(VARCHAR);
-        MapType mapType = mapType(arrayType, DOUBLE);
-        InternalAggregationFunction aggFunc = metadata.getFunctionManager().getAggregateFunctionImplementation(new Signature(
-                NAME,
-                AGGREGATE,
-                mapType.getTypeSignature(),
-                arrayType.getTypeSignature(),
-                parseTypeSignature(StandardTypes.DOUBLE)));
-
+        InternalAggregationFunction aggFunc = getAggregation(new ArrayType(VARCHAR), DOUBLE);
         assertAggregation(
                 aggFunc,
                 ImmutableMap.of(
@@ -245,5 +186,10 @@ public class TestMapAggAggregation
                         ImmutableList.of("e", "f"), 3.0),
                 createStringArraysBlock(ImmutableList.of(ImmutableList.of("a", "b"), ImmutableList.of("c", "d"), ImmutableList.of("e", "f"))),
                 createDoublesBlock(1.0, 2.0, 3.0));
+    }
+
+    private InternalAggregationFunction getAggregation(Type... arguments)
+    {
+        return functionManager.getAggregateFunctionImplementation(functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(arguments)));
     }
 }

@@ -82,9 +82,9 @@ public class FunctionManager
         return globalFunctionNamespace.getWindowFunctionImplementation(functionHandle);
     }
 
-    public InternalAggregationFunction getAggregateFunctionImplementation(Signature signature)
+    public InternalAggregationFunction getAggregateFunctionImplementation(FunctionHandle functionHandle)
     {
-        return globalFunctionNamespace.getAggregateFunctionImplementation(signature);
+        return globalFunctionNamespace.getAggregateFunctionImplementation(functionHandle);
     }
 
     public ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)

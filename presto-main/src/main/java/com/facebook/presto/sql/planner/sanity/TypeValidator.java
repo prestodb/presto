@@ -173,7 +173,7 @@ public final class TypeValidator
         private void checkFunctionSignature(Map<Symbol, Aggregation> aggregations)
         {
             for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
-                checkSignature(entry.getKey(), entry.getValue().getSignature());
+                checkSignature(entry.getKey(), entry.getValue().getFunctionHandle().getSignature());
             }
         }
 

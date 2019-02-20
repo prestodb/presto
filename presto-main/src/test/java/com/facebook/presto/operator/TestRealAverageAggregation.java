@@ -13,24 +13,25 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.metadata.FunctionKind;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.AbstractTestAggregationFunction;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createBlockOfReals;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.spi.type.RealType.REAL;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.lang.Float.floatToRawIntBits;
 
 @Test(singleThreaded = true)
@@ -42,9 +43,9 @@ public class TestRealAverageAggregation
     @BeforeClass
     public void setUp()
     {
-        MetadataManager metadata = MetadataManager.createTestMetadataManager();
-        avgFunction = metadata.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("avg", FunctionKind.AGGREGATE, parseTypeSignature(StandardTypes.REAL), parseTypeSignature(StandardTypes.REAL)));
+        FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
+        avgFunction = functionManager.getAggregateFunctionImplementation(
+                functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("avg"), fromTypes(REAL)));
     }
 
     @Test

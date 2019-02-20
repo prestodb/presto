@@ -167,7 +167,7 @@ public class SingleDistinctAggregationToGroupBy
                         call.getOrderBy(),
                         false,
                         call.getArguments()),
-                aggregation.getSignature(),
+                aggregation.getFunctionHandle(),
                 aggregation.getMask());
     }
 }

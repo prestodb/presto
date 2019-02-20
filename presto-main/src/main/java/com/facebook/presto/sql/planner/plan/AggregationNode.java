@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -216,7 +216,7 @@ public class AggregationNode
                 .anyMatch(FunctionCall::isDistinct);
 
         boolean decomposableFunctions = getAggregations().values().stream()
-                .map(Aggregation::getSignature)
+                .map(Aggregation::getFunctionHandle)
                 .map(functionManager::getAggregateFunctionImplementation)
                 .allMatch(InternalAggregationFunction::isDecomposable);
 
@@ -359,17 +359,17 @@ public class AggregationNode
     public static class Aggregation
     {
         private final FunctionCall call;
-        private final Signature signature;
+        private final FunctionHandle functionHandle;
         private final Optional<Symbol> mask;
 
         @JsonCreator
         public Aggregation(
                 @JsonProperty("call") FunctionCall call,
-                @JsonProperty("signature") Signature signature,
+                @JsonProperty("functionHandle") FunctionHandle functionHandle,
                 @JsonProperty("mask") Optional<Symbol> mask)
         {
             this.call = requireNonNull(call, "call is null");
-            this.signature = requireNonNull(signature, "signature is null");
+            this.functionHandle = requireNonNull(functionHandle, "functionHandle is null");
             this.mask = requireNonNull(mask, "mask is null");
         }
 
@@ -380,9 +380,9 @@ public class AggregationNode
         }
 
         @JsonProperty
-        public Signature getSignature()
+        public FunctionHandle getFunctionHandle()
         {
-            return signature;
+            return functionHandle;
         }
 
         @JsonProperty

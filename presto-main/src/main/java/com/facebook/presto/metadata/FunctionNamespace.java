@@ -58,9 +58,9 @@ class FunctionNamespace
         return registry.getWindowFunctionImplementation(functionHandle);
     }
 
-    public InternalAggregationFunction getAggregateFunctionImplementation(Signature signature)
+    public InternalAggregationFunction getAggregateFunctionImplementation(FunctionHandle functionHandle)
     {
-        return registry.getAggregateFunctionImplementation(signature);
+        return registry.getAggregateFunctionImplementation(functionHandle);
     }
 
     public ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)

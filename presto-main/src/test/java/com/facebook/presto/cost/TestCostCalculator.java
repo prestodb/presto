@@ -24,13 +24,11 @@ import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
@@ -73,10 +71,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
@@ -768,7 +765,7 @@ public class TestCostCalculator
     {
         AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
                 new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
-                new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT)),
+                metadata.getFunctionManager().resolveFunction(TEST_SESSION, QualifiedName.of("count"), ImmutableList.of()),
                 Optional.empty());
 
         return new AggregationNode(

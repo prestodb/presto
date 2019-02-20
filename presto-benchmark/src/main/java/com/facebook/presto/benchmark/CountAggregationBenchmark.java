@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 
@@ -26,8 +27,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public class CountAggregationBenchmark
         extends AbstractSimpleOperatorBenchmark
@@ -41,8 +43,9 @@ public class CountAggregationBenchmark
     protected List<? extends OperatorFactory> createOperatorFactories()
     {
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "orderkey");
-        InternalAggregationFunction countFunction = localQueryRunner.getMetadata().getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("count", AGGREGATE, BIGINT.getTypeSignature()));
+        FunctionManager functionManager = localQueryRunner.getMetadata().getFunctionManager();
+        InternalAggregationFunction countFunction = functionManager.getAggregateFunctionImplementation(
+                functionManager.resolveFunction(testSessionBuilder().build(), QualifiedName.of("count"), fromTypes(BIGINT)));
         AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(1, new PlanNodeId("test"), Step.SINGLE, ImmutableList.of(countFunction.bind(ImmutableList.of(0), Optional.empty())), false);
         return ImmutableList.of(tableScanOperator, aggregationOperator);
     }

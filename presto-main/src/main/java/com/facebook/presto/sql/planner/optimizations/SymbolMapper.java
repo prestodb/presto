@@ -113,7 +113,7 @@ public class SymbolMapper
     {
         return new Aggregation(
                 (FunctionCall) map(aggregation.getCall()),
-                aggregation.getSignature(),
+                aggregation.getFunctionHandle(),
                 aggregation.getMask().map(this::map));
     }
 

@@ -107,7 +107,7 @@ public class ImplementFilteredAggregations
 
             aggregations.put(output, new Aggregation(
                     new FunctionCall(call.getName(), call.getWindow(), Optional.empty(), call.getOrderBy(), call.isDistinct(), call.getArguments()),
-                    entry.getValue().getSignature(),
+                    entry.getValue().getFunctionHandle(),
                     mask));
         }
 

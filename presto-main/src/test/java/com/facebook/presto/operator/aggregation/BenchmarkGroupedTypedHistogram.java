@@ -13,16 +13,15 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.aggregation.groupByAggregations.GroupByAggregationTestUtils;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.tree.QualifiedName;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -48,13 +47,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.operator.aggregation.histogram.Histogram.NAME;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.util.StructuralTestUtil.mapType;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 
 @OutputTimeUnit(TimeUnit.SECONDS)
 //@BenchmarkMode(Mode.AverageTime)
@@ -159,14 +156,10 @@ public class BenchmarkGroupedTypedHistogram
 
     private static InternalAggregationFunction getInternalAggregationFunctionVarChar(HistogramGroupImplementation groupMode)
     {
-        MapType mapType = mapType(VARCHAR, BIGINT);
-        MetadataManager metadata = getMetadata(groupMode);
+        FunctionManager functionManager = getMetadata(groupMode).getFunctionManager();
 
-        return metadata.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature(NAME,
-                        AGGREGATE,
-                        mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.VARCHAR)));
+        return functionManager.getAggregateFunctionImplementation(
+                functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(VARCHAR)));
     }
 
     private static MetadataManager getMetadata(HistogramGroupImplementation groupMode)

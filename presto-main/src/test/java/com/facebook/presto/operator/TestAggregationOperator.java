@@ -13,14 +13,15 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterMethod;
@@ -34,14 +35,13 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.RealType.REAL;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -56,18 +56,13 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestAggregationOperator
 {
-    private static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
+    private static final FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
 
-    private static final InternalAggregationFunction LONG_AVERAGE = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("avg", AGGREGATE, DOUBLE.getTypeSignature(), BIGINT.getTypeSignature()));
-    private static final InternalAggregationFunction DOUBLE_SUM = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("sum", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
-    private static final InternalAggregationFunction LONG_SUM = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("sum", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
-    private static final InternalAggregationFunction REAL_SUM = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("sum", AGGREGATE, REAL.getTypeSignature(), REAL.getTypeSignature()));
-    private static final InternalAggregationFunction COUNT = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("count", AGGREGATE, BIGINT.getTypeSignature()));
+    private static final InternalAggregationFunction LONG_AVERAGE = getAggregation("avg", BIGINT);
+    private static final InternalAggregationFunction DOUBLE_SUM = getAggregation("sum", DOUBLE);
+    private static final InternalAggregationFunction LONG_SUM = getAggregation("sum", BIGINT);
+    private static final InternalAggregationFunction REAL_SUM = getAggregation("sum", REAL);
+    private static final InternalAggregationFunction COUNT = getAggregation("count", BIGINT);
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -89,11 +84,8 @@ public class TestAggregationOperator
     @Test
     public void testAggregation()
     {
-        MetadataManager metadata = MetadataManager.createTestMetadataManager();
-        InternalAggregationFunction countVarcharColumn = metadata.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.VARCHAR)));
-        InternalAggregationFunction maxVarcharColumn = metadata.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("max", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)));
+        InternalAggregationFunction countVarcharColumn = getAggregation("count", VARCHAR);
+        InternalAggregationFunction maxVarcharColumn = getAggregation("max", VARCHAR);
         List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, VARCHAR, BIGINT, REAL, DOUBLE, VARCHAR)
                 .addSequencePage(100, 0, 0, 300, 500, 400, 500, 500)
                 .build();
@@ -168,5 +160,10 @@ public class TestAggregationOperator
 
         assertEquals(driverContext.getSystemMemoryUsage(), 0);
         assertEquals(driverContext.getMemoryUsage(), 0);
+    }
+
+    private static InternalAggregationFunction getAggregation(String name, Type... arguments)
+    {
+        return functionManager.getAggregateFunctionImplementation(functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(name), fromTypes(arguments)));
     }
 }

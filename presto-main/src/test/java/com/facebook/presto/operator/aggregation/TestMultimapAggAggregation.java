@@ -14,8 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.RowPageBuilder;
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInput;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInputBuilder;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestOutput;
@@ -24,9 +23,9 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -40,20 +39,21 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.operator.aggregation.multimapagg.MultimapAggregationFunction.NAME;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static com.google.common.base.Preconditions.checkState;
 import static org.testng.Assert.assertTrue;
 
 public class TestMultimapAggAggregation
 {
-    private static final MetadataManager metadata = createTestMetadataManager();
+    private static final FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
 
     @Test
     public void testSingleValueMap()
@@ -183,9 +183,7 @@ public class TestMultimapAggAggregation
 
     private static InternalAggregationFunction getInternalAggregationFunction(Type keyType, Type valueType)
     {
-        MapType mapType = mapType(keyType, new ArrayType(valueType));
-        Signature signature = new Signature(NAME, AGGREGATE, mapType.getTypeSignature(), keyType.getTypeSignature(), valueType.getTypeSignature());
-        return metadata.getFunctionManager().getAggregateFunctionImplementation(signature);
+        return functionManager.getAggregateFunctionImplementation(functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(keyType, valueType)));
     }
 
     private static <K, V> void testMultimapAgg(InternalAggregationFunction aggFunc, Type keyType, List<K> expectedKeys, Type valueType, List<V> expectedValues)

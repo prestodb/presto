@@ -27,7 +27,6 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -183,8 +182,8 @@ public class AddIntermediateAggregations
             builder.put(
                     output,
                     new Aggregation(
-                            new FunctionCall(QualifiedName.of(aggregation.getSignature().getName()), ImmutableList.of(output.toSymbolReference())),
-                            aggregation.getSignature(),
+                            new FunctionCall(aggregation.getCall().getName(), ImmutableList.of(output.toSymbolReference())),
+                            aggregation.getFunctionHandle(),
                             Optional.empty()));  // No mask for INTERMEDIATE
         }
         return builder.build();

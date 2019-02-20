@@ -932,8 +932,9 @@ class FunctionRegistry
         }
     }
 
-    public InternalAggregationFunction getAggregateFunctionImplementation(Signature signature)
+    public InternalAggregationFunction getAggregateFunctionImplementation(FunctionHandle functionHandle)
     {
+        Signature signature = functionHandle.getSignature();
         checkArgument(signature.getKind() == AGGREGATE, "%s is not an aggregate function", signature);
         checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s has unbound type parameters", signature);
 

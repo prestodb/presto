@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
@@ -50,10 +50,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -105,6 +104,13 @@ import static java.util.stream.Collectors.toList;
 public class ImplementIntersectAndExceptAsUnion
         implements PlanOptimizer
 {
+    private final FunctionManager functionManager;
+
+    public ImplementIntersectAndExceptAsUnion(FunctionManager functionManager)
+    {
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+    }
+
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
@@ -114,19 +120,23 @@ public class ImplementIntersectAndExceptAsUnion
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator, symbolAllocator), plan);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(session, functionManager, idAllocator, symbolAllocator), plan);
     }
 
     private static class Rewriter
             extends SimplePlanRewriter<Void>
     {
         private static final String MARKER = "marker";
-        private static final Signature COUNT_AGGREGATION = new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BOOLEAN));
+
+        private final Session session;
+        private final FunctionManager functionManager;
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;
 
-        private Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
+        private Rewriter(Session session, FunctionManager functionManager, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
         {
+            this.session = requireNonNull(session, "session is null");
+            this.functionManager = requireNonNull(functionManager, "functionManager is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         }
@@ -235,9 +245,10 @@ public class ImplementIntersectAndExceptAsUnion
 
             for (int i = 0; i < markers.size(); i++) {
                 Symbol output = aggregationOutputs.get(i);
+                QualifiedName name = QualifiedName.of("count");
                 aggregations.put(output, new Aggregation(
-                        new FunctionCall(QualifiedName.of("count"), ImmutableList.of(markers.get(i).toSymbolReference())),
-                        COUNT_AGGREGATION,
+                        new FunctionCall(name, ImmutableList.of(markers.get(i).toSymbolReference())),
+                        functionManager.resolveFunction(session, name, fromTypes(BIGINT)),
                         Optional.empty()));
             }
 

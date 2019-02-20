@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Booleans;
@@ -24,10 +24,10 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 
 public class TestApproximateCountDistinctBoolean
         extends AbstractTestApproximateCountDistinct
@@ -35,8 +35,8 @@ public class TestApproximateCountDistinctBoolean
     @Override
     public InternalAggregationFunction getAggregationFunction()
     {
-        return metadata.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("approx_distinct", AGGREGATE, BIGINT.getTypeSignature(), BOOLEAN.getTypeSignature(), DOUBLE.getTypeSignature()));
+        return functionManager.getAggregateFunctionImplementation(
+                functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("approx_distinct"), fromTypes(BOOLEAN, DOUBLE)));
     }
 
     @Override

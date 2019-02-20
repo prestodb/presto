@@ -13,14 +13,17 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createBlockOfReals;
 import static com.facebook.presto.block.BlockAssertions.createDoubleSequenceBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
@@ -28,57 +31,35 @@ import static com.facebook.presto.block.BlockAssertions.createLongRepeatBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createSequenceBlockOfReal;
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.RealType.REAL;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 
 public class TestApproximatePercentileAggregation
 {
-    private static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
+    private static final FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
 
-    private static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("approx_percentile", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
-    private static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("approx_percentile", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature(), BIGINT.getTypeSignature(), DOUBLE.getTypeSignature()));
-    private static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("approx_percentile", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature(), BIGINT.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
+    private static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION = getAggregation(DOUBLE, DOUBLE);
+    private static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = getAggregation(DOUBLE, BIGINT, DOUBLE);
+    private static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY = getAggregation(DOUBLE, BIGINT, DOUBLE, DOUBLE);
 
-    private static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_AGGREGATION = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("approx_percentile", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), DOUBLE.getTypeSignature()));
-    private static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("approx_percentile", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), DOUBLE.getTypeSignature()));
-    private static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("approx_percentile", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
+    private static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_AGGREGATION = getAggregation(BIGINT, DOUBLE);
+    private static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = getAggregation(BIGINT, BIGINT, DOUBLE);
+    private static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY = getAggregation(BIGINT, BIGINT, DOUBLE, DOUBLE);
 
-    private static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("approx_percentile", AGGREGATE, parseTypeSignature("array(double)"), DOUBLE.getTypeSignature(), parseTypeSignature("array(double)")));
-    private static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("approx_percentile", AGGREGATE, parseTypeSignature("array(double)"), DOUBLE.getTypeSignature(), BIGINT.getTypeSignature(), parseTypeSignature("array(double)")));
+    private static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION = getAggregation(DOUBLE, new ArrayType(DOUBLE));
+    private static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION = getAggregation(DOUBLE, BIGINT, new ArrayType(DOUBLE));
 
-    private static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("approx_percentile", AGGREGATE, parseTypeSignature("array(bigint)"), BIGINT.getTypeSignature(), parseTypeSignature("array(double)")));
-    private static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("approx_percentile", AGGREGATE, parseTypeSignature("array(bigint)"), BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), parseTypeSignature("array(double)")));
+    private static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION = getAggregation(BIGINT, new ArrayType(DOUBLE));
+    private static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION = getAggregation(BIGINT, BIGINT, new ArrayType(DOUBLE));
 
-    private static final InternalAggregationFunction FLOAT_APPROXIMATE_PERCENTILE_AGGREGATION = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("approx_percentile", AGGREGATE, REAL.getTypeSignature(),
-                    ImmutableList.of(REAL.getTypeSignature(), DOUBLE.getTypeSignature())));
-    private static final InternalAggregationFunction FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("approx_percentile", AGGREGATE, REAL.getTypeSignature(),
-                    ImmutableList.of(REAL.getTypeSignature(), BIGINT.getTypeSignature(), DOUBLE.getTypeSignature())));
-    private static final InternalAggregationFunction FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("approx_percentile", AGGREGATE, REAL.getTypeSignature(),
-                    ImmutableList.of(REAL.getTypeSignature(), BIGINT.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature())));
-
-    private static final InternalAggregationFunction FLOAT_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("approx_percentile", AGGREGATE, new ArrayType(REAL).getTypeSignature(),
-                    ImmutableList.of(REAL.getTypeSignature(), new ArrayType(DOUBLE).getTypeSignature())));
-    private static final InternalAggregationFunction FLOAT_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION = metadata.getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("approx_percentile", AGGREGATE, new ArrayType(REAL).getTypeSignature(),
-                    ImmutableList.of(REAL.getTypeSignature(), BIGINT.getTypeSignature(), new ArrayType(DOUBLE).getTypeSignature())));
+    private static final InternalAggregationFunction FLOAT_APPROXIMATE_PERCENTILE_AGGREGATION = getAggregation(REAL, DOUBLE);
+    private static final InternalAggregationFunction FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = getAggregation(REAL, BIGINT, DOUBLE);
+    private static final InternalAggregationFunction FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY = getAggregation(REAL, BIGINT, DOUBLE, DOUBLE);
+    private static final InternalAggregationFunction FLOAT_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION = getAggregation(REAL, new ArrayType(DOUBLE));
+    private static final InternalAggregationFunction FLOAT_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION = getAggregation(REAL, BIGINT, new ArrayType(DOUBLE));
 
     @Test
     public void testLongPartialStep()
@@ -460,6 +441,11 @@ public class TestApproximatePercentileAggregation
                 createDoublesBlock(1.0, 2.0, 3.0),
                 createLongsBlock(4L, 2L, 1L),
                 createRLEBlock(ImmutableList.of(0.5, 0.8), 3));
+    }
+
+    private static InternalAggregationFunction getAggregation(Type... arguments)
+    {
+        return functionManager.getAggregateFunctionImplementation(functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(arguments)));
     }
 
     private static RunLengthEncodedBlock createRLEBlock(double percentile, int positionCount)

@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
@@ -87,7 +86,7 @@ public class OptimizeMixedDistinctAggregations
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         if (isOptimizeDistinctAggregationEnabled(session)) {
-            return SimplePlanRewriter.rewriteWith(new Optimizer(idAllocator, symbolAllocator, metadata), plan, Optional.empty());
+            return SimplePlanRewriter.rewriteWith(new Optimizer(idAllocator, symbolAllocator, metadata, session), plan, Optional.empty());
         }
 
         return plan;
@@ -99,12 +98,14 @@ public class OptimizeMixedDistinctAggregations
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;
         private final Metadata metadata;
+        private final Session session;
 
-        private Optimizer(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Metadata metadata)
+        private Optimizer(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Metadata metadata, Session session)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
+            this.session = requireNonNull(session, "session is null");
         }
 
         @Override
@@ -164,20 +165,19 @@ public class OptimizeMixedDistinctAggregations
                                     functionCall.getWindow(),
                                     false,
                                     ImmutableList.of(aggregateInfo.getNewDistinctAggregateSymbol().toSymbolReference())),
-                            entry.getValue().getSignature(),
+                            entry.getValue().getFunctionHandle(),
                             Optional.empty()));
                 }
                 else {
                     // Aggregations on non-distinct are already done by new node, just extract the non-null value
                     Symbol argument = aggregateInfo.getNewNonDistinctAggregateSymbols().get(entry.getKey());
-                    QualifiedName functionName = QualifiedName.of("arbitrary");
-                    String signatureName = entry.getValue().getSignature().getName();
+                    QualifiedName arbitraryFunctionName = QualifiedName.of("arbitrary");
                     Aggregation aggregation = new Aggregation(
-                            new FunctionCall(functionName, functionCall.getWindow(), false, ImmutableList.of(argument.toSymbolReference())),
-                            getFunctionSignature(functionName, argument),
+                            new FunctionCall(arbitraryFunctionName, functionCall.getWindow(), false, ImmutableList.of(argument.toSymbolReference())),
+                            metadata.getFunctionManager().resolveFunction(session, arbitraryFunctionName, ImmutableList.of(new TypeSignatureProvider(symbolAllocator.getTypes().get(argument).getTypeSignature()))),
                             Optional.empty());
-                    if (signatureName.equals("count")
-                            || signatureName.equals("count_if") || signatureName.equals("approx_distinct")) {
+                    String functionName = functionCall.getName().getSuffix();
+                    if (functionName.equals("count") || functionName.equals("count_if") || functionName.equals("approx_distinct")) {
                         Symbol newSymbol = symbolAllocator.newSymbol("expr", symbolAllocator.getTypes().get(entry.getKey()));
                         aggregations.put(newSymbol, aggregation);
                         coalesceSymbolsBuilder.put(newSymbol, entry.getKey());
@@ -445,7 +445,7 @@ public class OptimizeMixedDistinctAggregations
                             functionCall = new FunctionCall(functionCall.getName(), functionCall.getWindow(), false, arguments.build());
                         }
                     }
-                    aggregations.put(newSymbol, new Aggregation(functionCall, entry.getValue().getSignature(), Optional.empty()));
+                    aggregations.put(newSymbol, new Aggregation(functionCall, entry.getValue().getFunctionHandle(), Optional.empty()));
                 }
             }
             return new AggregationNode(
@@ -457,14 +457,6 @@ public class OptimizeMixedDistinctAggregations
                     SINGLE,
                     originalNode.getHashSymbol(),
                     Optional.empty());
-        }
-
-        private Signature getFunctionSignature(QualifiedName functionName, Symbol argument)
-        {
-            return metadata.getFunctionManager()
-                    .resolveFunction(
-                            functionName,
-                            ImmutableList.of(new TypeSignatureProvider(symbolAllocator.getTypes().get(argument).getTypeSignature())));
         }
 
         // creates if clause specific to use case here, default value always null

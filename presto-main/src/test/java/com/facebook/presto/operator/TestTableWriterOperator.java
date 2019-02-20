@@ -17,8 +17,8 @@ import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.OutputTableHandle;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.DevNullOperator.DevNullOperatorFactory;
 import com.facebook.presto.operator.TableWriterOperator.TableWriterInfo;
@@ -37,6 +37,7 @@ import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.testng.annotations.AfterClass;
@@ -53,11 +54,11 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -74,8 +75,6 @@ import static org.testng.Assert.assertTrue;
 public class TestTableWriterOperator
 {
     private static final ConnectorId CONNECTOR_ID = new ConnectorId("testConnectorId");
-    private static final InternalAggregationFunction LONG_MAX = createTestMetadataManager().getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("max", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
 
@@ -201,13 +200,16 @@ public class TestTableWriterOperator
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, session)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
+        FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
+        InternalAggregationFunction longMaxFunction = functionManager.getAggregateFunctionImplementation(
+                functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("max"), fromTypes(BIGINT)));
         TableWriterOperator operator = (TableWriterOperator) createTableWriterOperator(
                 pageSinkManager,
                 new AggregationOperatorFactory(
                         1,
                         new PlanNodeId("test"),
                         AggregationNode.Step.SINGLE,
-                        ImmutableList.of(LONG_MAX.bind(ImmutableList.of(0), Optional.empty())),
+                        ImmutableList.of(longMaxFunction.bind(ImmutableList.of(0), Optional.empty())),
                         true),
                 outputTypes,
                 session,

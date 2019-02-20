@@ -149,7 +149,7 @@ public class LogicalPlanner
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-        this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(symbolAllocator, metadata);
+        this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(session, symbolAllocator, metadata);
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");

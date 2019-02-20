@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -46,7 +47,7 @@ public abstract class AbstractTestApproximateCountDistinct
 
     public abstract Object randomValue();
 
-    protected static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
+    protected static final FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
 
     protected int getUniqueValuesCount()
     {

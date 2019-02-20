@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeDecorrelator;
@@ -81,12 +80,12 @@ public class TransformExistsApplyToLateralNode
 
     private static final QualifiedName COUNT = QualifiedName.of("count");
     private static final FunctionCall COUNT_CALL = new FunctionCall(COUNT, ImmutableList.of());
-    private final Signature countSignature;
+
+    private final FunctionManager functionManager;
 
     public TransformExistsApplyToLateralNode(FunctionManager functionManager)
     {
-        requireNonNull(functionManager, "functionManager is null");
-        countSignature = functionManager.resolveFunction(COUNT, ImmutableList.of());
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
     }
 
     @Override
@@ -162,7 +161,10 @@ public class TransformExistsApplyToLateralNode
                         new AggregationNode(
                                 context.getIdAllocator().getNextId(),
                                 parent.getSubquery(),
-                                ImmutableMap.of(count, new Aggregation(COUNT_CALL, countSignature, Optional.empty())),
+                                ImmutableMap.of(count, new Aggregation(
+                                        COUNT_CALL,
+                                        functionManager.resolveFunction(context.getSession(), COUNT, ImmutableList.of()),
+                                        Optional.empty())),
                                 globalAggregation(),
                                 ImmutableList.of(),
                                 AggregationNode.Step.SINGLE,

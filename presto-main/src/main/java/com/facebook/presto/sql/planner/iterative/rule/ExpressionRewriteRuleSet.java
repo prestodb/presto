@@ -152,7 +152,7 @@ public class ExpressionRewriteRuleSet
                 FunctionCall call = (FunctionCall) rewriter.rewrite(aggregation.getCall(), context);
                 aggregations.put(
                         entry.getKey(),
-                        new Aggregation(call, aggregation.getSignature(), aggregation.getMask()));
+                        new Aggregation(call, aggregation.getFunctionHandle(), aggregation.getMask()));
                 if (!aggregation.getCall().equals(call)) {
                     anyRewritten = true;
                 }

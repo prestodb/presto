@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.MaxDataSizeForStats;
 import com.facebook.presto.operator.aggregation.SumDataSizeForStats;
 import com.facebook.presto.spi.PrestoException;
@@ -49,11 +50,13 @@ import static java.util.Objects.requireNonNull;
 
 public class StatisticsAggregationPlanner
 {
+    private final Session session;
     private final SymbolAllocator symbolAllocator;
     private final Metadata metadata;
 
-    public StatisticsAggregationPlanner(SymbolAllocator symbolAllocator, Metadata metadata)
+    public StatisticsAggregationPlanner(Session session, SymbolAllocator symbolAllocator, Metadata metadata)
     {
+        this.session = requireNonNull(session, "session is null");
         this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
@@ -80,7 +83,7 @@ public class StatisticsAggregationPlanner
             QualifiedName count = QualifiedName.of("count");
             AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
                     new FunctionCall(count, ImmutableList.of()),
-                    functionManager.resolveFunction(count, ImmutableList.of()),
+                    functionManager.resolveFunction(session, count, ImmutableList.of()),
                     Optional.empty());
             Symbol symbol = symbolAllocator.newSymbol("rowCount", BIGINT);
             aggregations.put(symbol, aggregation);
@@ -128,13 +131,13 @@ public class StatisticsAggregationPlanner
 
     private ColumnStatisticsAggregation createAggregation(QualifiedName functionName, SymbolReference input, Type inputType, Type outputType)
     {
-        Signature signature = metadata.getFunctionManager().resolveFunction(functionName, TypeSignatureProvider.fromTypes(ImmutableList.of(inputType)));
-        Type resolvedType = metadata.getType(getOnlyElement(signature.getArgumentTypes()));
+        FunctionHandle functionHandle = metadata.getFunctionManager().resolveFunction(session, functionName, TypeSignatureProvider.fromTypes(ImmutableList.of(inputType)));
+        Type resolvedType = metadata.getType(getOnlyElement(functionHandle.getSignature().getArgumentTypes()));
         verify(resolvedType.equals(inputType), "resolved function input type does not match the input type: %s != %s", resolvedType, inputType);
         return new ColumnStatisticsAggregation(
                 new AggregationNode.Aggregation(
                         new FunctionCall(functionName, ImmutableList.of(input)),
-                        signature,
+                        functionHandle,
                         Optional.empty()),
                 outputType);
     }
