@@ -21,14 +21,14 @@ import static com.google.common.base.Strings.nullToEmpty;
 public class GcsAccessTokenProvider
         implements AccessTokenProvider
 {
-    public static final String GCS_ACCESS_KEY_CONF = "presto.gcs.oauth-access-token";
+    public static final String GCS_ACCESS_TOKEN_CONF = "presto.gcs.oauth-access-token";
     private Configuration config;
 
     @Override
     public AccessToken getAccessToken()
     {
         // set tokan expiration time to null, as we do not control the token(it is passed by user)
-        return new AccessToken(nullToEmpty(config.get(GCS_ACCESS_KEY_CONF)), null);
+        return new AccessToken(nullToEmpty(config.get(GCS_ACCESS_TOKEN_CONF)), null);
     }
 
     @Override
