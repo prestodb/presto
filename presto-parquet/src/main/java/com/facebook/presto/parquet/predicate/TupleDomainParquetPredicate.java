@@ -28,15 +28,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import parquet.column.ColumnDescriptor;
-import parquet.column.statistics.BinaryStatistics;
-import parquet.column.statistics.BooleanStatistics;
-import parquet.column.statistics.DoubleStatistics;
-import parquet.column.statistics.FloatStatistics;
-import parquet.column.statistics.IntStatistics;
-import parquet.column.statistics.LongStatistics;
-import parquet.column.statistics.Statistics;
-import parquet.schema.PrimitiveType.PrimitiveTypeName;
+import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.column.statistics.BinaryStatistics;
+import org.apache.parquet.column.statistics.BooleanStatistics;
+import org.apache.parquet.column.statistics.DoubleStatistics;
+import org.apache.parquet.column.statistics.FloatStatistics;
+import org.apache.parquet.column.statistics.IntStatistics;
+import org.apache.parquet.column.statistics.LongStatistics;
+import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -196,8 +196,8 @@ public class TupleDomainParquetPredicate
         }
         else if (isVarcharType(type) && statistics instanceof BinaryStatistics) {
             BinaryStatistics binaryStatistics = (BinaryStatistics) statistics;
-            Slice minSlice = Slices.wrappedBuffer(binaryStatistics.getMin().getBytes());
-            Slice maxSlice = Slices.wrappedBuffer(binaryStatistics.getMax().getBytes());
+            Slice minSlice = Slices.wrappedBuffer(binaryStatistics.genericGetMin().getBytes());
+            Slice maxSlice = Slices.wrappedBuffer(binaryStatistics.genericGetMax().getBytes());
             if (minSlice.compareTo(maxSlice) > 0) {
                 failWithCorruptionException(failOnCorruptedParquetStatistics, column, id, binaryStatistics);
                 return Domain.create(ValueSet.all(type), hasNullValue);

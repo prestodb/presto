@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.parquet.reader;
 
-import parquet.column.ColumnDescriptor;
-import parquet.hadoop.metadata.ColumnChunkMetaData;
+import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 
 public class ColumnChunkDescriptor
 {

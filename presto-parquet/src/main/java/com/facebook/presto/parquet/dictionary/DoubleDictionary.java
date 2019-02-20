@@ -14,9 +14,12 @@
 package com.facebook.presto.parquet.dictionary;
 
 import com.facebook.presto.parquet.DictionaryPage;
-import parquet.column.values.plain.PlainValuesReader.DoublePlainValuesReader;
+import com.google.common.collect.ImmutableList;
+import org.apache.parquet.bytes.ByteBufferInputStream;
+import org.apache.parquet.column.values.plain.PlainValuesReader.DoublePlainValuesReader;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -31,7 +34,9 @@ public class DoubleDictionary
         super(dictionaryPage.getEncoding());
         content = new double[dictionaryPage.getDictionarySize()];
         DoublePlainValuesReader doubleReader = new DoublePlainValuesReader();
-        doubleReader.initFromPage(dictionaryPage.getDictionarySize(), dictionaryPage.getSlice().getBytes(), 0);
+        ByteBuffer byteBuffer = ByteBuffer.wrap(dictionaryPage.getSlice().getBytes());
+        ByteBufferInputStream inputStream = ByteBufferInputStream.wrap(ImmutableList.of(byteBuffer));
+        doubleReader.initFromPage(dictionaryPage.getDictionarySize(), inputStream);
         for (int i = 0; i < content.length; i++) {
             content[i] = doubleReader.readDouble();
         }

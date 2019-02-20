@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package parquet.io;
+package org.apache.parquet.io;
 
 import com.facebook.presto.parquet.Field;
 import com.facebook.presto.parquet.GroupField;
@@ -33,10 +33,10 @@ import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
-import static parquet.schema.Type.Repetition.OPTIONAL;
+import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 
 /**
- * Placed in parquet.io package to have access to ColumnIO getRepetitionLevel() and getDefinitionLevel() methods.
+ * Placed in org.apache.parquet.io package to have access to ColumnIO getRepetitionLevel() and getDefinitionLevel() methods.
  */
 public class ColumnIOConverter
 {

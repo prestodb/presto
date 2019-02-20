@@ -25,18 +25,18 @@ import com.facebook.presto.spi.type.RealType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
-import parquet.column.ColumnDescriptor;
-import parquet.column.Encoding;
-import parquet.io.ColumnIO;
-import parquet.io.ColumnIOFactory;
-import parquet.io.GroupColumnIO;
-import parquet.io.InvalidRecordException;
-import parquet.io.MessageColumnIO;
-import parquet.io.ParquetDecodingException;
-import parquet.io.PrimitiveColumnIO;
-import parquet.schema.DecimalMetadata;
-import parquet.schema.MessageType;
-import parquet.schema.OriginalType;
+import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.column.Encoding;
+import org.apache.parquet.io.ColumnIO;
+import org.apache.parquet.io.ColumnIOFactory;
+import org.apache.parquet.io.GroupColumnIO;
+import org.apache.parquet.io.InvalidRecordException;
+import org.apache.parquet.io.MessageColumnIO;
+import org.apache.parquet.io.ParquetDecodingException;
+import org.apache.parquet.io.PrimitiveColumnIO;
+import org.apache.parquet.schema.DecimalMetadata;
+import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.OriginalType;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -48,8 +48,8 @@ import java.util.Optional;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.google.common.base.Preconditions.checkArgument;
-import static parquet.schema.OriginalType.DECIMAL;
-import static parquet.schema.Type.Repetition.REPEATED;
+import static org.apache.parquet.schema.OriginalType.DECIMAL;
+import static org.apache.parquet.schema.Type.Repetition.REPEATED;
 
 public final class ParquetTypeUtils
 {
@@ -161,7 +161,7 @@ public final class ParquetTypeUtils
 
     public static Type getPrestoType(TupleDomain<ColumnDescriptor> effectivePredicate, RichColumnDescriptor descriptor)
     {
-        switch (descriptor.getType()) {
+        switch (descriptor.getPrimitiveType().getPrimitiveTypeName()) {
             case BOOLEAN:
                 return BooleanType.BOOLEAN;
             case BINARY:
@@ -205,7 +205,7 @@ public final class ParquetTypeUtils
             return fileSchema.getFieldIndex(name.toLowerCase(Locale.ENGLISH));
         }
         catch (InvalidRecordException e) {
-            for (parquet.schema.Type type : fileSchema.getFields()) {
+            for (org.apache.parquet.schema.Type type : fileSchema.getFields()) {
                 if (type.getName().equalsIgnoreCase(name)) {
                     return fileSchema.getFieldIndex(type.getName());
                 }
@@ -238,14 +238,14 @@ public final class ParquetTypeUtils
         }
     }
 
-    public static parquet.schema.Type getParquetTypeByName(String columnName, MessageType messageType)
+    public static org.apache.parquet.schema.Type getParquetTypeByName(String columnName, MessageType messageType)
     {
         if (messageType.containsField(columnName)) {
             return messageType.getType(columnName);
         }
         // parquet is case-sensitive, but hive is not. all hive columns get converted to lowercase
         // check for direct match above but if no match found, try case-insensitive match
-        for (parquet.schema.Type type : messageType.getFields()) {
+        for (org.apache.parquet.schema.Type type : messageType.getFields()) {
             if (type.getName().equalsIgnoreCase(columnName)) {
                 return type;
             }

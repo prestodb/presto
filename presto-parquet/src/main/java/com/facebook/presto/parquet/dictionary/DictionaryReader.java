@@ -13,16 +13,15 @@
  */
 package com.facebook.presto.parquet.dictionary;
 
-import parquet.bytes.BytesUtils;
-import parquet.column.values.ValuesReader;
-import parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
-import parquet.io.ParquetDecodingException;
-import parquet.io.api.Binary;
+import org.apache.parquet.bytes.ByteBufferInputStream;
+import org.apache.parquet.column.values.ValuesReader;
+import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
+import org.apache.parquet.io.ParquetDecodingException;
+import org.apache.parquet.io.api.Binary;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.parquet.bytes.BytesUtils.readIntLittleEndianOnOneByte;
 
 public class DictionaryReader
         extends ValuesReader
@@ -36,13 +35,11 @@ public class DictionaryReader
     }
 
     @Override
-    public void initFromPage(int valueCount, byte[] page, int offset)
+    public void initFromPage(int valueCount, ByteBufferInputStream inputStream)
             throws IOException
     {
-        checkArgument(page.length > offset, "Attempt to read offset not in the  page");
-        ByteArrayInputStream in = new ByteArrayInputStream(page, offset, page.length - offset);
-        int bitWidth = BytesUtils.readIntLittleEndianOnOneByte(in);
-        decoder = new RunLengthBitPackingHybridDecoder(bitWidth, in);
+        int bitWidth = readIntLittleEndianOnOneByte(inputStream);
+        decoder = new RunLengthBitPackingHybridDecoder(bitWidth, inputStream);
     }
 
     @Override

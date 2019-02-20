@@ -16,26 +16,28 @@ package com.facebook.presto.parquet.reader;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import parquet.format.ColumnChunk;
-import parquet.format.ColumnMetaData;
-import parquet.format.ConvertedType;
-import parquet.format.Encoding;
-import parquet.format.FileMetaData;
-import parquet.format.KeyValue;
-import parquet.format.RowGroup;
-import parquet.format.SchemaElement;
-import parquet.format.Statistics;
-import parquet.format.Type;
-import parquet.hadoop.metadata.BlockMetaData;
-import parquet.hadoop.metadata.ColumnChunkMetaData;
-import parquet.hadoop.metadata.ColumnPath;
-import parquet.hadoop.metadata.CompressionCodecName;
-import parquet.hadoop.metadata.ParquetMetadata;
-import parquet.schema.MessageType;
-import parquet.schema.OriginalType;
-import parquet.schema.PrimitiveType.PrimitiveTypeName;
-import parquet.schema.Type.Repetition;
-import parquet.schema.Types;
+import org.apache.parquet.format.ColumnChunk;
+import org.apache.parquet.format.ColumnMetaData;
+import org.apache.parquet.format.ConvertedType;
+import org.apache.parquet.format.Encoding;
+import org.apache.parquet.format.FileMetaData;
+import org.apache.parquet.format.KeyValue;
+import org.apache.parquet.format.RowGroup;
+import org.apache.parquet.format.SchemaElement;
+import org.apache.parquet.format.Statistics;
+import org.apache.parquet.format.Type;
+import org.apache.parquet.format.converter.ParquetMetadataConverter;
+import org.apache.parquet.hadoop.metadata.BlockMetaData;
+import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
+import org.apache.parquet.hadoop.metadata.ColumnPath;
+import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.hadoop.metadata.ParquetMetadata;
+import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.OriginalType;
+import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
+import org.apache.parquet.schema.Type.Repetition;
+import org.apache.parquet.schema.Types;
 
 import java.io.ByteArrayInputStream;
 import java.io.EOFException;
@@ -54,7 +56,7 @@ import java.util.Set;
 
 import static com.facebook.presto.parquet.ParquetValidationUtils.validateParquet;
 import static java.nio.charset.StandardCharsets.US_ASCII;
-import static parquet.format.Util.readFileMetaData;
+import static org.apache.parquet.format.Util.readFileMetaData;
 
 public final class MetadataReader
 {
@@ -107,6 +109,7 @@ public final class MetadataReader
         MessageType messageType = readParquetSchema(schema);
         List<BlockMetaData> blocks = new ArrayList<>();
         List<RowGroup> rowGroups = fileMetaData.getRow_groups();
+        ParquetMetadataConverter metadataConverter = new ParquetMetadataConverter();
         if (rowGroups != null) {
             for (RowGroup rowGroup : rowGroups) {
                 BlockMetaData blockMetaData = new BlockMetaData();
@@ -125,11 +128,14 @@ public final class MetadataReader
                             .map(value -> value.toLowerCase(Locale.ENGLISH))
                             .toArray(String[]::new);
                     ColumnPath columnPath = ColumnPath.get(path);
-                    PrimitiveTypeName primitiveTypeName = messageType.getType(columnPath.toArray()).asPrimitiveType().getPrimitiveTypeName();
+                    PrimitiveType primitiveType = messageType.getType(columnPath.toArray()).asPrimitiveType();
+                    PrimitiveTypeName primitiveTypeName = primitiveType.getPrimitiveTypeName();
+
                     ColumnChunkMetaData column = ColumnChunkMetaData.get(
                             columnPath,
-                            primitiveTypeName,
+                            primitiveType,
                             CompressionCodecName.fromParquet(metaData.codec),
+                            metadataConverter.convertEncodingStats(metaData.encoding_stats),
                             readEncodings(metaData.encodings),
                             readStats(metaData.statistics, primitiveTypeName),
                             metaData.data_page_offset,
@@ -151,7 +157,7 @@ public final class MetadataReader
                 keyValueMetaData.put(keyValue.key, keyValue.value);
             }
         }
-        return new ParquetMetadata(new parquet.hadoop.metadata.FileMetaData(messageType, keyValueMetaData, fileMetaData.getCreated_by()), blocks);
+        return new ParquetMetadata(new org.apache.parquet.hadoop.metadata.FileMetaData(messageType, keyValueMetaData, fileMetaData.getCreated_by()), blocks);
     }
 
     private static MessageType readParquetSchema(List<SchemaElement> schema)
@@ -196,9 +202,9 @@ public final class MetadataReader
         }
     }
 
-    public static parquet.column.statistics.Statistics<?> readStats(Statistics statistics, PrimitiveTypeName type)
+    public static org.apache.parquet.column.statistics.Statistics<?> readStats(Statistics statistics, PrimitiveTypeName type)
     {
-        parquet.column.statistics.Statistics<?> stats = parquet.column.statistics.Statistics.getStatsBasedOnType(type);
+        org.apache.parquet.column.statistics.Statistics<?> stats = org.apache.parquet.column.statistics.Statistics.getStatsBasedOnType(type);
         if (statistics != null) {
             if (statistics.isSetMax() && statistics.isSetMin()) {
                 stats.setMinMaxFromBytes(statistics.min.array(), statistics.max.array());
@@ -208,11 +214,11 @@ public final class MetadataReader
         return stats;
     }
 
-    private static Set<parquet.column.Encoding> readEncodings(List<Encoding> encodings)
+    private static Set<org.apache.parquet.column.Encoding> readEncodings(List<Encoding> encodings)
     {
-        Set<parquet.column.Encoding> columnEncodings = new HashSet<>();
+        Set<org.apache.parquet.column.Encoding> columnEncodings = new HashSet<>();
         for (Encoding encoding : encodings) {
-            columnEncodings.add(parquet.column.Encoding.valueOf(encoding.name()));
+            columnEncodings.add(org.apache.parquet.column.Encoding.valueOf(encoding.name()));
         }
         return Collections.unmodifiableSet(columnEncodings);
     }

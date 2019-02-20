@@ -17,7 +17,7 @@ import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
-import parquet.io.api.Binary;
+import org.apache.parquet.io.api.Binary;
 
 import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.Chars.truncateToLengthAndTrimSpaces;

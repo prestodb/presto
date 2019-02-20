@@ -19,12 +19,12 @@ import com.facebook.presto.parquet.DataPageV2;
 import com.facebook.presto.parquet.DictionaryPage;
 import com.facebook.presto.parquet.ParquetCorruptionException;
 import io.airlift.slice.Slice;
-import parquet.column.Encoding;
-import parquet.format.DataPageHeader;
-import parquet.format.DataPageHeaderV2;
-import parquet.format.DictionaryPageHeader;
-import parquet.format.PageHeader;
-import parquet.format.Util;
+import org.apache.parquet.column.Encoding;
+import org.apache.parquet.format.DataPageHeader;
+import org.apache.parquet.format.DataPageHeaderV2;
+import org.apache.parquet.format.DictionaryPageHeader;
+import org.apache.parquet.format.PageHeader;
+import org.apache.parquet.format.Util;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
