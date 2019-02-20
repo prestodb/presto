@@ -58,6 +58,7 @@ import java.util.Optional;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.sql.relational.SqlToColumnExpressionTranslator.InputCollector.listColumnHandles;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -116,6 +117,7 @@ public class TableExpressionToPlanNodeTranslator
         @Override
         protected Optional<PlanNode> visitProject(ProjectExpression project, Context context)
         {
+            checkNoColumnInputs(project);
             List<Symbol> outputChannelNames = context.getOutput();
             List<Symbol> inputChannelNames = getInputChannels(project);
             checkArgument(outputChannelNames.size() == project.getOutput().size(), "project does not have expected size as output");
@@ -144,6 +146,7 @@ public class TableExpressionToPlanNodeTranslator
         @Override
         protected Optional<PlanNode> visitFilter(FilterExpression filter, Context context)
         {
+            checkArgument(listColumnHandles(filter.getPredicate()).size() == 0, "Filter node predicate has column reference");
             Optional<PlanNode> source = filter.getSource().accept(this, context);
             if (source.isPresent()) {
                 Optional<Expression> predicate = translate(filter.getPredicate(), source.get().getOutputSymbols());
@@ -157,6 +160,7 @@ public class TableExpressionToPlanNodeTranslator
         @Override
         protected Optional<PlanNode> visitAggregate(AggregateExpression aggregate, Context context)
         {
+            checkNoColumnInputs(aggregate);
             int numGroups = aggregate.getGroups().size();
             List<Symbol> outputChannelNames = context.getOutput();
             checkArgument(outputChannelNames.size() == aggregate.getOutput().size(), "aggregate %s does not have expected size as output", aggregate.getOutput());
@@ -327,6 +331,14 @@ public class TableExpressionToPlanNodeTranslator
         private Optional<Expression> translate(ColumnExpression rowExpression, List<Symbol> inputChannelNames)
         {
             return ColumnExpressionToSqlTranslator.translate(rowExpression, inputChannelNames, ImmutableMap.of(), literalEncoder, functionRegistry);
+        }
+
+        private void checkNoColumnInputs(UnaryTableExpression node)
+        {
+            int numColumnReferences = node.getOutput().stream()
+                    .mapToInt(column -> listColumnHandles(column).size())
+                    .sum();
+            checkArgument(numColumnReferences == 0, "Unary node %s has uncleaned column reference", node);
         }
     }
 }

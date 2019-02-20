@@ -86,11 +86,13 @@ import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.UnknownType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
@@ -139,12 +141,14 @@ import static com.facebook.presto.util.LegacyRowFieldOrdinalAccessUtil.parseAnon
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
-public final class SqlToColumnExpressionTranslator
+public final class
+SqlToColumnExpressionTranslator
 {
     private SqlToColumnExpressionTranslator() {}
 
@@ -933,6 +937,68 @@ public final class SqlToColumnExpressionTranslator
             int i = inputColumns.indexOf(columnReferenceExpression);
             checkArgument(i >= 0, "Column %s does not exists in input", columnReferenceExpression);
             return new InputReferenceExpression(i, columnReferenceExpression.getType());
+        }
+    }
+
+    public static class InputCollector
+            implements ColumnExpressionVisitor<Set<ColumnExpression>, Void>
+    {
+        private InputCollector()
+        {
+        }
+
+        public static Set<ColumnExpression> listInputs(ColumnExpression columnExpression)
+        {
+            return columnExpression.accept(new InputCollector(), null);
+        }
+
+        public static Set<ColumnHandle> listColumnHandles(ColumnExpression columnExpression)
+        {
+            return columnExpression.accept(new InputCollector(), null)
+                    .stream()
+                    .filter(ColumnReferenceExpression.class::isInstance)
+                    .map(ColumnReferenceExpression.class::cast)
+                    .map(ColumnReferenceExpression::getColumnHandle)
+                    .collect(toImmutableSet());
+        }
+
+        @Override
+        public Set<ColumnExpression> visitCall(CallExpression call, Void context)
+        {
+            return call.getArguments().stream()
+                    .map(argument -> argument.accept(this, context))
+                    .flatMap(Set::stream)
+                    .collect(toImmutableSet());
+        }
+
+        @Override
+        public Set<ColumnExpression> visitInputReference(InputReferenceExpression reference, Void context)
+        {
+            return ImmutableSet.of(reference);
+        }
+
+        @Override
+        public Set<ColumnExpression> visitConstant(ConstantExpression literal, Void context)
+        {
+            return ImmutableSet.of();
+        }
+
+        @Override
+        public Set<ColumnExpression> visitLambda(LambdaDefinitionExpression lambda, Void context)
+        {
+            return lambda.getBody().accept(this, context);
+        }
+
+        @Override
+        public Set<ColumnExpression> visitVariableReference(VariableReferenceExpression reference, Void context)
+        {
+            return ImmutableSet.of();
+        }
+
+        @Override
+        public Set<ColumnExpression> visitColumnReference(ColumnReferenceExpression columnReferenceExpression, Void context)
+        {
+            return ImmutableSet.of(columnReferenceExpression);
         }
     }
 }
