@@ -21,8 +21,8 @@ import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.index.IndexManager;
+import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.AssignUniqueIdOperator;
 import com.facebook.presto.operator.DeleteOperator.DeleteOperatorFactory;
@@ -901,15 +901,15 @@ public class LocalExecutionPlanner
                 FrameInfo frameInfo = new FrameInfo(frame.getType(), frame.getStartType(), frameStartChannel, frame.getEndType(), frameEndChannel);
 
                 FunctionCall functionCall = entry.getValue().getFunctionCall();
-                Signature signature = entry.getValue().getSignature();
+                FunctionHandle functionHandle = entry.getValue().getFunctionHandle();
                 ImmutableList.Builder<Integer> arguments = ImmutableList.builder();
                 for (Expression argument : functionCall.getArguments()) {
                     Symbol argumentSymbol = Symbol.from(argument);
                     arguments.add(source.getLayout().get(argumentSymbol));
                 }
                 Symbol symbol = entry.getKey();
-                WindowFunctionSupplier windowFunctionSupplier = metadata.getFunctionManager().getWindowFunctionImplementation(signature);
-                Type type = metadata.getType(signature.getReturnType());
+                WindowFunctionSupplier windowFunctionSupplier = metadata.getFunctionManager().getWindowFunctionImplementation(functionHandle);
+                Type type = metadata.getType(functionHandle.getSignature().getReturnType());
                 windowFunctionsBuilder.add(window(windowFunctionSupplier, type, frameInfo, arguments.build()));
                 windowFunctionOutputSymbolsBuilder.add(symbol);
             }

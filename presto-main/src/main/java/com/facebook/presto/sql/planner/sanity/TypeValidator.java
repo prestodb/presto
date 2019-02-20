@@ -147,7 +147,7 @@ public final class TypeValidator
         private void checkWindowFunctions(Map<Symbol, WindowNode.Function> functions)
         {
             for (Map.Entry<Symbol, WindowNode.Function> entry : functions.entrySet()) {
-                Signature signature = entry.getValue().getSignature();
+                Signature signature = entry.getValue().getFunctionHandle().getSignature();
                 FunctionCall call = entry.getValue().getFunctionCall();
 
                 checkSignature(entry.getKey(), signature);

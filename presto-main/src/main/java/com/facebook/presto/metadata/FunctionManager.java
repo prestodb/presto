@@ -77,9 +77,9 @@ public class FunctionManager
         return globalFunctionNamespace.resolveFunction(name, parameterTypes).getSignature();
     }
 
-    public WindowFunctionSupplier getWindowFunctionImplementation(Signature signature)
+    public WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle)
     {
-        return globalFunctionNamespace.getWindowFunctionImplementation(signature);
+        return globalFunctionNamespace.getWindowFunctionImplementation(functionHandle);
     }
 
     public InternalAggregationFunction getAggregateFunctionImplementation(Signature signature)

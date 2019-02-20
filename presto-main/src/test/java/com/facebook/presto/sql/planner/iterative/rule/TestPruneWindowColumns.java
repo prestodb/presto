@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.metadata.FunctionKind;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
@@ -40,7 +39,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -55,14 +57,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 public class TestPruneWindowColumns
         extends BaseRuleTest
 {
-    private static final Signature signature = new Signature(
-            "min",
-            FunctionKind.WINDOW,
-            ImmutableList.of(),
-            ImmutableList.of(),
-            BIGINT.getTypeSignature(),
-            ImmutableList.of(BIGINT.getTypeSignature()),
-            false);
+    private static final FunctionHandle FUNCTION_HANDLE = createTestMetadataManager().getFunctionManager().resolveFunction(TEST_SESSION, QualifiedName.of("min"), fromTypes(BIGINT));
 
     private static final List<String> inputSymbolNameList =
             ImmutableList.of("orderKey", "partitionKey", "hash", "startValue1", "startValue2", "endValue1", "endValue2", "input1", "input2", "unused");
@@ -115,7 +110,7 @@ public class TestPruneWindowColumns
                                                 .addFunction(
                                                         "output2",
                                                         functionCall("min", ImmutableList.of("input2")),
-                                                        signature,
+                                                        FUNCTION_HANDLE,
                                                         frameProvider2)
                                                 .hashSymbol("hash"),
                                         strictProject(
@@ -171,12 +166,12 @@ public class TestPruneWindowColumns
                                                 .addFunction(
                                                         "output1",
                                                         functionCall("min", ImmutableList.of("input1")),
-                                                        signature,
+                                                        FUNCTION_HANDLE,
                                                         frameProvider1)
                                                 .addFunction(
                                                         "output2",
                                                         functionCall("min", ImmutableList.of("input2")),
-                                                        signature,
+                                                        FUNCTION_HANDLE,
                                                         frameProvider2)
                                                 .hashSymbol("hash"),
                                         strictProject(
@@ -221,7 +216,7 @@ public class TestPruneWindowColumns
                                 output1,
                                 new WindowNode.Function(
                                         new FunctionCall(QualifiedName.of("min"), ImmutableList.of(input1.toSymbolReference())),
-                                        signature,
+                                        FUNCTION_HANDLE,
                                         new WindowNode.Frame(
                                                 WindowFrame.Type.RANGE,
                                                 UNBOUNDED_PRECEDING,
@@ -233,7 +228,7 @@ public class TestPruneWindowColumns
                                 output2,
                                 new WindowNode.Function(
                                         new FunctionCall(QualifiedName.of("min"), ImmutableList.of(input2.toSymbolReference())),
-                                        signature,
+                                        FUNCTION_HANDLE,
                                         new WindowNode.Frame(
                                                 WindowFrame.Type.RANGE,
                                                 UNBOUNDED_PRECEDING,

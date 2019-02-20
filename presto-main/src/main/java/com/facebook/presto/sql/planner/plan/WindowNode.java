@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
@@ -326,17 +326,17 @@ public class WindowNode
     public static final class Function
     {
         private final FunctionCall functionCall;
-        private final Signature signature;
+        private final FunctionHandle functionHandle;
         private final Frame frame;
 
         @JsonCreator
         public Function(
                 @JsonProperty("functionCall") FunctionCall functionCall,
-                @JsonProperty("signature") Signature signature,
+                @JsonProperty("functionHandle") FunctionHandle functionHandle,
                 @JsonProperty("frame") Frame frame)
         {
             this.functionCall = requireNonNull(functionCall, "functionCall is null");
-            this.signature = requireNonNull(signature, "Signature is null");
+            this.functionHandle = requireNonNull(functionHandle, "Signature is null");
             this.frame = requireNonNull(frame, "Frame is null");
         }
 
@@ -347,9 +347,9 @@ public class WindowNode
         }
 
         @JsonProperty
-        public Signature getSignature()
+        public FunctionHandle getFunctionHandle()
         {
-            return signature;
+            return functionHandle;
         }
 
         @JsonProperty
@@ -361,7 +361,7 @@ public class WindowNode
         @Override
         public int hashCode()
         {
-            return Objects.hash(functionCall, signature, frame);
+            return Objects.hash(functionCall, functionHandle, frame);
         }
 
         @Override
@@ -375,7 +375,7 @@ public class WindowNode
             }
             Function other = (Function) obj;
             return Objects.equals(this.functionCall, other.functionCall) &&
-                    Objects.equals(this.signature, other.signature) &&
+                    Objects.equals(this.functionHandle, other.functionHandle) &&
                     Objects.equals(this.frame, other.frame);
         }
     }

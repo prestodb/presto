@@ -797,7 +797,7 @@ class QueryPlanner
             outputTranslations.put(windowFunction, newSymbol);
 
             WindowNode.Function function = new WindowNode.Function(
-                    (FunctionCall) rewritten, analysis.getFunctionHandle(windowFunction).getSignature(), frame);
+                    (FunctionCall) rewritten, analysis.getFunctionHandle(windowFunction), frame);
 
             List<Symbol> sourceSymbols = subPlan.getRoot().getOutputSymbols();
             ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();

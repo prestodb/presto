@@ -53,9 +53,9 @@ class FunctionNamespace
         return registry.resolveFunction(name, parameterTypes);
     }
 
-    public WindowFunctionSupplier getWindowFunctionImplementation(Signature signature)
+    public WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle)
     {
-        return registry.getWindowFunctionImplementation(signature);
+        return registry.getWindowFunctionImplementation(functionHandle);
     }
 
     public InternalAggregationFunction getAggregateFunctionImplementation(Signature signature)

@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.OrderingScheme;
@@ -195,10 +195,10 @@ public class UnaliasSymbolReferences
                 Symbol symbol = entry.getKey();
 
                 FunctionCall canonicalFunctionCall = (FunctionCall) canonicalize(entry.getValue().getFunctionCall());
-                Signature signature = entry.getValue().getSignature();
+                FunctionHandle functionHandle = entry.getValue().getFunctionHandle();
                 WindowNode.Frame canonicalFrame = canonicalize(entry.getValue().getFrame());
 
-                functions.put(canonicalize(symbol), new WindowNode.Function(canonicalFunctionCall, signature, canonicalFrame));
+                functions.put(canonicalize(symbol), new WindowNode.Function(canonicalFunctionCall, functionHandle, canonicalFrame));
             }
 
             return new WindowNode(

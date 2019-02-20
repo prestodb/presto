@@ -277,7 +277,7 @@ public class WindowFilterPushDown
                 return false;
             }
             Symbol rowNumberSymbol = getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
-            return isRowNumberSignature(node.getWindowFunctions().get(rowNumberSymbol).getSignature());
+            return isRowNumberSignature(node.getWindowFunctions().get(rowNumberSymbol).getFunctionHandle().getSignature());
         }
 
         private static boolean isRowNumberSignature(Signature signature)
