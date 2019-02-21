@@ -396,7 +396,7 @@ public class LocalExecutionPlanner
                         if (argument.isConstant()) {
                             return -1;
                         }
-                        return outputLayout.indexOf(argument.getColumn());
+                        return outputLayout.indexOf(argument.getSymbol());
                     })
                     .collect(toImmutableList());
             partitionConstants = partitioningScheme.getPartitioning().getArguments().stream()
@@ -412,7 +412,7 @@ public class LocalExecutionPlanner
                         if (argument.isConstant()) {
                             return argument.getConstant().getType();
                         }
-                        return types.get(argument.getColumn());
+                        return types.get(argument.getSymbol());
                     })
                     .collect(toImmutableList());
         }
@@ -2441,7 +2441,7 @@ public class LocalExecutionPlanner
 
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
             List<Integer> channels = node.getPartitioningScheme().getPartitioning().getArguments().stream()
-                    .map(argument -> node.getOutputSymbols().indexOf(argument.getColumn()))
+                    .map(argument -> node.getOutputSymbols().indexOf(argument.getSymbol()))
                     .collect(toImmutableList());
             Optional<Integer> hashChannel = node.getPartitioningScheme().getHashColumn()
                     .map(symbol -> node.getOutputSymbols().indexOf(symbol));

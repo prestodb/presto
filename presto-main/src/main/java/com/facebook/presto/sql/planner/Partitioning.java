@@ -90,8 +90,8 @@ public final class Partitioning
     public Set<Symbol> getColumns()
     {
         return arguments.stream()
-                .filter(ArgumentBinding::isVariable)
-                .map(ArgumentBinding::getColumn)
+                .filter(ArgumentBinding::isSymbolReference)
+                .map(ArgumentBinding::getSymbol)
                 .collect(toImmutableSet());
     }
 
@@ -141,18 +141,18 @@ public final class Partitioning
             Function<Symbol, Optional<NullableValue>> rightConstantMapping,
             Function<Symbol, Set<Symbol>> leftToRightMappings)
     {
-        if (leftArgument.isVariable()) {
-            if (rightArgument.isVariable()) {
-                // variable == variable
-                Set<Symbol> mappedColumns = leftToRightMappings.apply(leftArgument.getColumn());
-                return mappedColumns.contains(rightArgument.getColumn());
+        if (leftArgument.isSymbolReference()) {
+            if (rightArgument.isSymbolReference()) {
+                // symbol == symbol
+                Set<Symbol> mappedColumns = leftToRightMappings.apply(leftArgument.getSymbol());
+                return mappedColumns.contains(rightArgument.getSymbol());
             }
             else {
-                // variable == constant
+                // symbol == constant
                 // Normally, this would be a false condition, but if we happen to have an external
                 // mapping from the symbol to a constant value and that constant value matches the
                 // right value, then we are co-partitioned.
-                Optional<NullableValue> leftConstant = leftConstantMapping.apply(leftArgument.getColumn());
+                Optional<NullableValue> leftConstant = leftConstantMapping.apply(leftArgument.getSymbol());
                 return leftConstant.isPresent() && leftConstant.get().equals(rightArgument.getConstant());
             }
         }
@@ -162,8 +162,8 @@ public final class Partitioning
                 return leftArgument.getConstant().equals(rightArgument.getConstant());
             }
             else {
-                // constant == variable
-                Optional<NullableValue> rightConstant = rightConstantMapping.apply(rightArgument.getColumn());
+                // constant == symbol
+                Optional<NullableValue> rightConstant = rightConstantMapping.apply(rightArgument.getSymbol());
                 return rightConstant.isPresent() && rightConstant.get().equals(leftArgument.getConstant());
             }
         }
@@ -177,10 +177,10 @@ public final class Partitioning
             if (argument.isConstant()) {
                 continue;
             }
-            if (!argument.isVariable()) {
+            if (!argument.isSymbolReference()) {
                 return false;
             }
-            if (!knownConstants.contains(argument.getColumn()) && !columns.contains(argument.getColumn())) {
+            if (!knownConstants.contains(argument.getSymbol()) && !columns.contains(argument.getSymbol())) {
                 return false;
             }
         }
@@ -198,8 +198,8 @@ public final class Partitioning
                 .filter(symbol -> !knownConstants.contains(symbol))
                 .collect(toImmutableSet());
         Set<Symbol> nonConstantArgs = arguments.stream()
-                .filter(ArgumentBinding::isVariable)
-                .map(ArgumentBinding::getColumn)
+                .filter(ArgumentBinding::isSymbolReference)
+                .map(ArgumentBinding::getSymbol)
                 .filter(symbol -> !knownConstants.contains(symbol))
                 .collect(toImmutableSet());
         return !nonConstantArgs.equals(keysWithoutConstants);
@@ -309,12 +309,12 @@ public final class Partitioning
             return constant != null;
         }
 
-        public boolean isVariable()
+        public boolean isSymbolReference()
         {
             return expression instanceof SymbolReference;
         }
 
-        public Symbol getColumn()
+        public Symbol getSymbol()
         {
             verify(expression instanceof SymbolReference, "Expect the expression to be a SymbolReference");
             return Symbol.from(expression);
@@ -346,7 +346,7 @@ public final class Partitioning
                 return Optional.of(this);
             }
 
-            if (!isVariable()) {
+            if (!isSymbolReference()) {
                 return translator.expressionTranslator.apply(expression)
                         .map(Symbol::toSymbolReference)
                         .map(ArgumentBinding::expressionBinding);

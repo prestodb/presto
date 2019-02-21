@@ -490,10 +490,10 @@ public class HashGenerationOptimizer
             Optional<HashComputation> partitionSymbols = Optional.empty();
             PartitioningScheme partitioningScheme = node.getPartitioningScheme();
             if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_HASH_DISTRIBUTION) &&
-                    partitioningScheme.getPartitioning().getArguments().stream().allMatch(ArgumentBinding::isVariable)) {
+                    partitioningScheme.getPartitioning().getArguments().stream().allMatch(ArgumentBinding::isSymbolReference)) {
                 // add precomputed hash for exchange
                 partitionSymbols = computeHash(partitioningScheme.getPartitioning().getArguments().stream()
-                        .map(ArgumentBinding::getColumn)
+                        .map(ArgumentBinding::getSymbol)
                         .collect(toImmutableList()));
                 preference = preference.withHashComputation(partitionSymbols);
             }
