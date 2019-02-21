@@ -41,6 +41,7 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Plan;
@@ -49,6 +50,7 @@ import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.testing.TestingEventListenerManager;
 import com.facebook.presto.testing.TestingWarningCollectorModule;
 import com.facebook.presto.transaction.TransactionManager;
+import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -96,7 +98,9 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
+import static io.airlift.json.JsonBinder.jsonBinder;
 import static java.lang.Integer.parseInt;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.isDirectory;
@@ -223,6 +227,10 @@ public class TestingPrestoServer
                 .add(new TestingNodeModule(Optional.ofNullable(environment)))
                 .add(new TestingHttpServerModule(parseInt(coordinator ? coordinatorPort : "0")))
                 .add(new JsonModule())
+                .add(installModuleIf(
+                        FeaturesConfig.class,
+                        FeaturesConfig::isJsonSerdeCodeGenerationEnabled,
+                        binder -> jsonBinder(binder).addModuleBinding().to(AfterburnerModule.class)))
                 .add(new JaxrsModule(true))
                 .add(new MBeanModule())
                 .add(new TestingJmxModule())
