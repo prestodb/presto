@@ -63,9 +63,19 @@ import static java.util.Objects.requireNonNull;
 @ThreadSafe
 public class PluginManager
 {
+    // When generating code the AfterBurner module loads classes with *some* classloader.
+    // When the AfterBurner module is configured not to use the value classloader
+    // (e.g., AfterBurner().setUseValueClassLoader(false)) AppClassLoader is used for loading those
+    // classes. Otherwise, the PluginClassLoader is used, which is the default behavior.
+    // Therefore, in the former case Afterburner won't be able to load the connector classes
+    // as AppClassLoader doesn't see them, and in the latter case the PluginClassLoader won't be
+    // able to load the AfterBurner classes themselves. So, our solution is to use the PluginClassLoader
+    // and whitelist the AfterBurner classes here, so that the PluginClassLoader can load the
+    // AfterBurner classes.
     private static final ImmutableList<String> SPI_PACKAGES = ImmutableList.<String>builder()
             .add("com.facebook.presto.spi.")
             .add("com.fasterxml.jackson.annotation.")
+            .add("com.fasterxml.jackson.module.afterburner.")
             .add("io.airlift.slice.")
             .add("io.airlift.units.")
             .add("org.openjdk.jol.")

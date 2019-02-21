@@ -125,6 +125,8 @@ public class FeaturesConfig
     private int maxGroupingSets = 2048;
     private boolean legacyUnnestArrayRows;
 
+    private boolean jsonSerdeCodeGenerationEnabled;
+
     public enum JoinReorderingStrategy
     {
         NONE,
@@ -911,5 +913,18 @@ public class FeaturesConfig
     {
         this.legacyUnnestArrayRows = legacyUnnestArrayRows;
         return this;
+    }
+
+    @Config("experimental.json-serde-codegen-enabled")
+    @ConfigDescription("Enable code generation for JSON serialization and deserialization")
+    public FeaturesConfig setJsonSerdeCodeGenerationEnabled(boolean jsonSerdeCodeGenerationEnabled)
+    {
+        this.jsonSerdeCodeGenerationEnabled = jsonSerdeCodeGenerationEnabled;
+        return this;
+    }
+
+    public boolean isJsonSerdeCodeGenerationEnabled()
+    {
+        return jsonSerdeCodeGenerationEnabled;
     }
 }
