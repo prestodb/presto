@@ -56,7 +56,7 @@ public final class AccumuloColumnHandle
         checkArgument(ordinal >= 0, "ordinal must be >= zero");
 
         this.comment = requireNonNull(comment, "comment is null");
-        this.indexed = requireNonNull(indexed, "indexed is null");
+        this.indexed = indexed;
     }
 
     @JsonProperty
