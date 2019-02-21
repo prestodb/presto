@@ -26,7 +26,7 @@ public final class MemoryOutputTableHandle
         implements ConnectorOutputTableHandle
 {
     private final MemoryTableHandle table;
-    private Set<Long> activeTableIds;
+    private final Set<Long> activeTableIds;
 
     @JsonCreator
     public MemoryOutputTableHandle(
