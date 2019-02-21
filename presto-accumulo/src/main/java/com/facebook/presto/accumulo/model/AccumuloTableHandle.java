@@ -52,7 +52,7 @@ public final class AccumuloTableHandle
             @JsonProperty("scanAuthorizations") Optional<String> scanAuthorizations)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
-        this.external = requireNonNull(external, "external is null");
+        this.external = external;
         this.rowId = requireNonNull(rowId, "rowId is null");
         this.scanAuthorizations = scanAuthorizations;
         this.schema = requireNonNull(schema, "schema is null");

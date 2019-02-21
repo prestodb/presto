@@ -42,7 +42,7 @@ public class AccumuloColumnConstraint
         this.name = requireNonNull(name, "name is null");
         this.family = requireNonNull(family, "family is null");
         this.qualifier = requireNonNull(qualifier, "qualifier is null");
-        this.indexed = requireNonNull(indexed, "indexed is null");
+        this.indexed = indexed;
         this.domain = requireNonNull(domain, "domain is null");
     }
 

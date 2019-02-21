@@ -31,7 +31,7 @@ public class PermissionMetadata
             @JsonProperty("grantOption") boolean grantOption)
     {
         this.permission = requireNonNull(permission, "permission is null");
-        this.grantOption = requireNonNull(grantOption, "grantOption is null");
+        this.grantOption = grantOption;
     }
 
     public PermissionMetadata(HivePrivilegeInfo privilegeInfo)
