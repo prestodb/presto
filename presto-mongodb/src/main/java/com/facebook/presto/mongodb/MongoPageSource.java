@@ -66,7 +66,7 @@ public class MongoPageSource
     private long count;
     private boolean finished;
 
-    private PageBuilder pageBuilder;
+    private final PageBuilder pageBuilder;
 
     public MongoPageSource(
             MongoSession mongoSession,

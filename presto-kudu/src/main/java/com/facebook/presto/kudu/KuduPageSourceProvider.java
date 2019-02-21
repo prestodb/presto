@@ -29,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 public class KuduPageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private KuduRecordSetProvider recordSetProvider;
+    private final KuduRecordSetProvider recordSetProvider;
 
     @Inject
     public KuduPageSourceProvider(KuduRecordSetProvider recordSetProvider)

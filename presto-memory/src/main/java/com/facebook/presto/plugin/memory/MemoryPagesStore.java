@@ -146,7 +146,7 @@ public class MemoryPagesStore
 
     private static final class TableData
     {
-        private List<Page> pages = new ArrayList<>();
+        private final List<Page> pages = new ArrayList<>();
         private long rows;
 
         public void add(Page page)
