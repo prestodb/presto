@@ -26,6 +26,7 @@ import static com.facebook.presto.connector.thrift.ThriftErrorCode.THRIFT_SERVIC
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.util.concurrent.Futures.catchingAsync;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 public final class ThriftExceptions
 {
@@ -47,6 +48,6 @@ public final class ThriftExceptions
 
     public static <T> ListenableFuture<T> catchingThriftException(ListenableFuture<T> future)
     {
-        return catchingAsync(future, Exception.class, e -> immediateFailedFuture(toPrestoException(e)));
+        return catchingAsync(future, Exception.class, e -> immediateFailedFuture(toPrestoException(e)), directExecutor());
     }
 }
