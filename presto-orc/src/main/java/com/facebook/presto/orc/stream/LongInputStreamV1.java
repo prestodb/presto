@@ -34,6 +34,10 @@ public class LongInputStreamV1
     private boolean repeat;
     private long lastReadInputCheckpoint;
 
+    private int[] positions;
+    private int offset;
+    private int count;
+
     public LongInputStreamV1(OrcInputStream input, boolean signed)
     {
         this.input = input;
@@ -74,6 +78,23 @@ public class LongInputStreamV1
                 literals[i] = LongDecode.readVInt(signed, input);
             }
         }
+    }
+
+    public void setPositions(int[] positions)
+    {
+        this.positions = positions;
+    }
+
+    public long nextLong()
+            throws IOException
+    {
+        long value;
+        do {
+            value = next();
+        }
+        while (count++ < positions[offset]);
+        offset++;
+        return value;
     }
 
     @Override

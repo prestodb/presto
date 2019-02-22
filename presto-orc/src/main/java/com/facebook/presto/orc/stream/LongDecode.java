@@ -15,6 +15,7 @@ package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
+import com.facebook.presto.orc.stream.aria.AriaOrcInputStream;
 import io.airlift.slice.SliceOutput;
 
 import java.io.IOException;
@@ -126,6 +127,12 @@ public final class LongDecode
         return zigzagDecode(result);
     }
 
+    public static long readSignedVInt(AriaOrcInputStream inputStream)
+            throws IOException
+    {
+        long result = readUnsignedVInt(inputStream);
+        return zigzagDecode(result);
+    }
     private static long readUnsignedVInt(OrcInputStream inputStream)
             throws IOException
     {
@@ -144,6 +151,23 @@ public final class LongDecode
         return result;
     }
 
+    private static long readUnsignedVInt(AriaOrcInputStream inputStream)
+            throws IOException
+    {
+        long result = 0;
+        int offset = 0;
+        long b;
+        do {
+            b = inputStream.read();
+            if (b == -1) {
+                throw new OrcCorruptionException(inputStream.getOrcDataSourceId(), "EOF while reading unsigned vint");
+            }
+            result |= (b & 0b0111_1111) << offset;
+            offset += 7;
+        }
+        while ((b & 0b1000_0000) != 0);
+        return result;
+    }
     public static long readVInt(boolean signed, OrcInputStream inputStream)
             throws IOException
     {
@@ -155,6 +179,16 @@ public final class LongDecode
         }
     }
 
+    public static long readVInt(boolean signed, AriaOrcInputStream inputStream)
+            throws IOException
+    {
+        if (signed) {
+            return readSignedVInt(inputStream);
+        }
+        else {
+            return readUnsignedVInt(inputStream);
+        }
+    }
     public static long zigzagDecode(long value)
     {
         return (value >>> 1) ^ -(value & 1);

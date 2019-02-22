@@ -28,6 +28,12 @@ public interface LongInputStream
     long next()
             throws IOException;
 
+    default long nextLong()
+            throws IOException
+    {
+        return next();
+    }
+
     default void nextIntVector(int items, int[] vector, int offset)
             throws IOException
     {
