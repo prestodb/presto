@@ -1075,10 +1075,7 @@ public class HiveMetadata
     {
         HiveOutputTableHandle handle = (HiveOutputTableHandle) tableHandle;
 
-        List<PartitionUpdate> partitionUpdates = fragments.stream()
-                .map(Slice::getBytes)
-                .map(partitionUpdateCodec::fromJson)
-                .collect(toList());
+        List<PartitionUpdate> partitionUpdates = getPartitionUpdates(fragments);
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(handle.getLocationHandle());
         Table table = buildTableObject(
@@ -1297,10 +1294,7 @@ public class HiveMetadata
     {
         HiveInsertTableHandle handle = (HiveInsertTableHandle) insertHandle;
 
-        List<PartitionUpdate> partitionUpdates = fragments.stream()
-                .map(Slice::getBytes)
-                .map(partitionUpdateCodec::fromJson)
-                .collect(toList());
+        List<PartitionUpdate> partitionUpdates = getPartitionUpdates(fragments);
 
         HiveStorageFormat tableStorageFormat = handle.getTableStorageFormat();
         partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
@@ -2042,6 +2036,14 @@ public class HiveMetadata
     private static boolean hasAdminRole(Set<PrestoPrincipal> roles)
     {
         return roles.stream().anyMatch(principal -> principal.getName().equalsIgnoreCase(ADMIN_ROLE_NAME));
+    }
+
+    private List<PartitionUpdate> getPartitionUpdates(Collection<Slice> fragments)
+    {
+        return fragments.stream()
+                .map(Slice::getBytes)
+                .map(partitionUpdateCodec::fromJson)
+                .collect(toList());
     }
 
     private void verifyJvmTimeZone()
