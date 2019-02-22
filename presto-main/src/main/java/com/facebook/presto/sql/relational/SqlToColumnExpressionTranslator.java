@@ -147,8 +147,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
-public final class
-SqlToColumnExpressionTranslator
+public final class SqlToColumnExpressionTranslator
 {
     private SqlToColumnExpressionTranslator() {}
 

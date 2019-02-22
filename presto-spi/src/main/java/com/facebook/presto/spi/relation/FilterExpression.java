@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class FilterExpression
+public final class FilterExpression
         extends UnaryTableExpression
 {
     private final ColumnExpression predicate;
@@ -41,12 +41,6 @@ public class FilterExpression
     public List<ColumnExpression> getOutput()
     {
         return source.getOutput();
-    }
-
-    @Override
-    public <R, C> R accept(TableExpressionVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitFilter(this, context);
     }
 
     @Override

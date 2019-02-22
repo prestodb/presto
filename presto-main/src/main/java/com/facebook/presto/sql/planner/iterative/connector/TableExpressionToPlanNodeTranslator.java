@@ -25,7 +25,6 @@ import com.facebook.presto.spi.relation.AggregateExpression;
 import com.facebook.presto.spi.relation.FilterExpression;
 import com.facebook.presto.spi.relation.ProjectExpression;
 import com.facebook.presto.spi.relation.TableExpression;
-import com.facebook.presto.spi.relation.TableExpressionVisitor;
 import com.facebook.presto.spi.relation.TableScanExpression;
 import com.facebook.presto.spi.relation.UnaryTableExpression;
 import com.facebook.presto.spi.relation.column.CallExpression;
@@ -36,6 +35,7 @@ import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.iterative.connector.rewriter.TableExpressionRewriter;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -84,7 +84,7 @@ public class TableExpressionToPlanNodeTranslator
 
     public Optional<PlanNode> translate(Session session, ConnectorId connectorId, TableExpression tableExpression, List<Symbol> outputSymbols)
     {
-        return tableExpression.accept(new Visitor(session, connectorId), new Context(outputSymbols));
+        return new Visitor(session, connectorId).accept(tableExpression, new Context(outputSymbols));
     }
 
     private static class Context
@@ -103,26 +103,35 @@ public class TableExpressionToPlanNodeTranslator
     }
 
     private class Visitor
-            extends TableExpressionVisitor<Optional<PlanNode>, Context>
     {
         private final Session session;
         private final ConnectorId connectorId;
+        private final TableExpressionRewriter<Optional<PlanNode>, Context> rewriter;
 
         public Visitor(Session session, ConnectorId connectorId)
         {
             this.session = requireNonNull(session, "session is null");
             this.connectorId = requireNonNull(connectorId, "session is null");
+            this.rewriter = new TableExpressionRewriter<Optional<PlanNode>, Context>()
+                    .addRule(ProjectExpression.class, this::visitProject)
+                    .addRule(FilterExpression.class, this::visitFilter)
+                    .addRule(AggregateExpression.class, this::visitAggregate)
+                    .addRule(TableScanExpression.class, this::visitTableScan);
         }
 
-        @Override
-        protected Optional<PlanNode> visitProject(ProjectExpression project, Context context)
+        public Optional<PlanNode> accept(TableExpression node, Context context)
+        {
+            return rewriter.accept(node, context);
+        }
+
+        private Optional<PlanNode> visitProject(TableExpressionRewriter<Optional<PlanNode>, Context> currentRewriter, ProjectExpression project, Context context)
         {
             checkNoColumnInputs(project);
             List<Symbol> outputChannelNames = context.getOutput();
             List<Symbol> inputChannelNames = getInputChannels(project);
             checkArgument(outputChannelNames.size() == project.getOutput().size(), "project does not have expected size as output");
 
-            Optional<PlanNode> source = project.getSource().accept(this, new Context(inputChannelNames));
+            Optional<PlanNode> source = currentRewriter.accept(project.getSource(), new Context(inputChannelNames));
 
             if (source.isPresent()) {
                 List<Expression> assignmentExpressions = project.getOutput().stream()
@@ -143,11 +152,10 @@ public class TableExpressionToPlanNodeTranslator
             return Optional.empty();
         }
 
-        @Override
-        protected Optional<PlanNode> visitFilter(FilterExpression filter, Context context)
+        private Optional<PlanNode> visitFilter(TableExpressionRewriter<Optional<PlanNode>, Context> currentRewriter, FilterExpression filter, Context context)
         {
             checkArgument(listColumnHandles(filter.getPredicate()).size() == 0, "Filter node predicate has column reference");
-            Optional<PlanNode> source = filter.getSource().accept(this, context);
+            Optional<PlanNode> source = currentRewriter.accept(filter.getSource(), context);
             if (source.isPresent()) {
                 Optional<Expression> predicate = translate(filter.getPredicate(), source.get().getOutputSymbols());
                 if (predicate.isPresent()) {
@@ -157,8 +165,7 @@ public class TableExpressionToPlanNodeTranslator
             return Optional.empty();
         }
 
-        @Override
-        protected Optional<PlanNode> visitAggregate(AggregateExpression aggregate, Context context)
+        private Optional<PlanNode> visitAggregate(TableExpressionRewriter<Optional<PlanNode>, Context> currentRewriter, AggregateExpression aggregate, Context context)
         {
             checkNoColumnInputs(aggregate);
             int numGroups = aggregate.getGroups().size();
@@ -174,7 +181,7 @@ public class TableExpressionToPlanNodeTranslator
             }
             List<Symbol> inputChannelNames = aggregate.getGroupSets().size() > 1 ? getInputChannels(aggregate) : getInputChannels(aggregate, groupingSymbol);
 
-            Optional<PlanNode> source = aggregate.getSource().accept(this, new Context(inputChannelNames));
+            Optional<PlanNode> source = currentRewriter.accept(aggregate.getSource(), new Context(inputChannelNames));
             if (!source.isPresent()) {
                 return Optional.empty();
             }
@@ -261,8 +268,7 @@ public class TableExpressionToPlanNodeTranslator
                             groupIdSymbol));
         }
 
-        @Override
-        protected Optional<PlanNode> visitTableScan(TableScanExpression tableScan, Context context)
+        private Optional<PlanNode> visitTableScan(TableScanExpression tableScan, Context context)
         {
             List<Symbol> outputChannelNames = context.getOutput();
             List<ColumnHandle> columnHandles = tableScan.getOutput().stream()

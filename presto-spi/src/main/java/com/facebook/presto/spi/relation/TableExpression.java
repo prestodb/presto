@@ -20,6 +20,4 @@ import java.util.List;
 public abstract class TableExpression
 {
     public abstract List<ColumnExpression> getOutput();
-
-    public abstract <R, C> R accept(TableExpressionVisitor<R, C> visitor, C context);
 }

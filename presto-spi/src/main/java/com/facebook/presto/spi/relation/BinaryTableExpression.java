@@ -18,5 +18,5 @@ import java.util.List;
 public abstract class BinaryTableExpression
         extends TableExpression
 {
-    abstract List<TableExpression> getSources();
+    public abstract List<TableExpression> getSources();
 }

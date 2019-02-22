@@ -20,7 +20,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class ProjectExpression
+public final class ProjectExpression
         extends UnaryTableExpression
 {
     private final List<ColumnExpression> output;
@@ -36,12 +36,6 @@ public class ProjectExpression
     public List<ColumnExpression> getOutput()
     {
         return output;
-    }
-
-    @Override
-    public <R, C> R accept(TableExpressionVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitProject(this, context);
     }
 
     @Override

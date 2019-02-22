@@ -23,7 +23,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class TableScanExpression
+public final class TableScanExpression
         extends LeafTableExpression
 {
     private final ConnectorTableHandle tableHandle;
@@ -58,12 +58,6 @@ public class TableScanExpression
     public TableScanExpression withTableLayout(ConnectorTableLayoutHandle connectorTableHandle)
     {
         return new TableScanExpression(tableHandle, output, Optional.of(connectorTableHandle));
-    }
-
-    @Override
-    public <R, C> R accept(TableExpressionVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitTableScan(this, context);
     }
 
     @Override

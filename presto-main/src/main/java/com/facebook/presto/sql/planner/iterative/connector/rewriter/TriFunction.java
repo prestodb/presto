@@ -11,15 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.relation;
+package com.facebook.presto.sql.planner.iterative.connector.rewriter;
 
-public abstract class TableExpressionVisitor<R, C>
+@FunctionalInterface
+public interface TriFunction<S, T, U, R>
 {
-    protected abstract R visitProject(ProjectExpression project, C context);
-
-    protected abstract R visitFilter(FilterExpression filter, C context);
-
-    protected abstract R visitAggregate(AggregateExpression aggregate, C context);
-
-    protected abstract R visitTableScan(TableScanExpression tableScan, C context);
+    R apply(S s, T t, U u);
 }

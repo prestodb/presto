@@ -22,7 +22,7 @@ import java.util.Objects;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
-public class AggregateExpression
+public final class AggregateExpression
         extends UnaryTableExpression
 {
     private final List<ColumnExpression> aggregations;
@@ -70,12 +70,6 @@ public class AggregateExpression
         outputs.addAll(groups);
         outputs.addAll(aggregations);
         return unmodifiableList(outputs);
-    }
-
-    @Override
-    public <R, C> R accept(TableExpressionVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitAggregate(this, context);
     }
 
     @Override
