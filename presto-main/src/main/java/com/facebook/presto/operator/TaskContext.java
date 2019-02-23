@@ -92,6 +92,8 @@ public class TaskContext
 
     private final OptionalInt totalPartitions;
 
+    private final boolean legacyLifespanCompletionCondition;
+
     private final Object cumulativeMemoryLock = new Object();
     private final AtomicDouble cumulativeUserMemory = new AtomicDouble(0.0);
 
@@ -113,9 +115,21 @@ public class TaskContext
             MemoryTrackingContext taskMemoryContext,
             boolean perOperatorCpuTimerEnabled,
             boolean cpuTimerEnabled,
-            OptionalInt totalPartitions)
+            OptionalInt totalPartitions,
+            boolean legacyLifespanCompletionCondition)
     {
-        TaskContext taskContext = new TaskContext(queryContext, taskStateMachine, gcMonitor, notificationExecutor, yieldExecutor, session, taskMemoryContext, perOperatorCpuTimerEnabled, cpuTimerEnabled, totalPartitions);
+        TaskContext taskContext = new TaskContext(
+                queryContext,
+                taskStateMachine,
+                gcMonitor,
+                notificationExecutor,
+                yieldExecutor,
+                session,
+                taskMemoryContext,
+                perOperatorCpuTimerEnabled,
+                cpuTimerEnabled,
+                totalPartitions,
+                legacyLifespanCompletionCondition);
         taskContext.initialize();
         return taskContext;
     }
@@ -129,7 +143,8 @@ public class TaskContext
             MemoryTrackingContext taskMemoryContext,
             boolean perOperatorCpuTimerEnabled,
             boolean cpuTimerEnabled,
-            OptionalInt totalPartitions)
+            OptionalInt totalPartitions,
+            boolean legacyLifespanCompletionCondition)
     {
         this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
         this.gcMonitor = requireNonNull(gcMonitor, "gcMonitor is null");
@@ -143,6 +158,7 @@ public class TaskContext
         this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
         this.cpuTimerEnabled = cpuTimerEnabled;
         this.totalPartitions = requireNonNull(totalPartitions, "totalPartitions is null");
+        this.legacyLifespanCompletionCondition = legacyLifespanCompletionCondition;
     }
 
     // the state change listener is added here in a separate initialize() method
@@ -296,6 +312,11 @@ public class TaskContext
     public boolean isCpuTimerEnabled()
     {
         return cpuTimerEnabled;
+    }
+
+    public boolean isLegacyLifespanCompletionCondition()
+    {
+        return legacyLifespanCompletionCondition;
     }
 
     public CounterStat getInputDataSize()

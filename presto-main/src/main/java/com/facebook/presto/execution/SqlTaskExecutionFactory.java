@@ -43,6 +43,7 @@ public class SqlTaskExecutionFactory
     private final SplitMonitor splitMonitor;
     private final boolean perOperatorCpuTimerEnabled;
     private final boolean cpuTimerEnabled;
+    private final boolean legacyLifespanCompletionCondition;
 
     public SqlTaskExecutionFactory(
             Executor taskNotificationExecutor,
@@ -58,6 +59,7 @@ public class SqlTaskExecutionFactory
         requireNonNull(config, "config is null");
         this.perOperatorCpuTimerEnabled = config.isPerOperatorCpuTimerEnabled();
         this.cpuTimerEnabled = config.isTaskCpuTimerEnabled();
+        this.legacyLifespanCompletionCondition = config.isLegacyLifespanCompletionCondition();
     }
 
     public SqlTaskExecution create(Session session, QueryContext queryContext, TaskStateMachine taskStateMachine, OutputBuffer outputBuffer, PlanFragment fragment, List<TaskSource> sources, OptionalInt totalPartitions)
@@ -67,7 +69,8 @@ public class SqlTaskExecutionFactory
                 session,
                 perOperatorCpuTimerEnabled,
                 cpuTimerEnabled,
-                totalPartitions);
+                totalPartitions,
+                legacyLifespanCompletionCondition);
 
         LocalExecutionPlan localExecutionPlan;
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskStateMachine.getTaskId())) {

@@ -1330,9 +1330,11 @@ public class SqlTaskExecution
             // no more output will be created
             outputBuffer.setNoMorePagesForLifespan(lifespan);
 
-            // are there still pages in the output buffer?
-            if (!outputBuffer.isFinishedForLifespan(lifespan)) {
-                return;
+            if (!taskContext.isLegacyLifespanCompletionCondition()) {
+                // are there still pages in the output buffer?
+                if (!outputBuffer.isFinishedForLifespan(lifespan)) {
+                    return;
+                }
             }
 
             // Cool! All done!

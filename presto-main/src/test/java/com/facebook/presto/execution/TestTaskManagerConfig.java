@@ -59,7 +59,8 @@ public class TestTaskManagerConfig
                 .setTaskNotificationThreads(5)
                 .setTaskYieldThreads(3)
                 .setLevelTimeMultiplier(new BigDecimal("2"))
-                .setStatisticsCpuTimerEnabled(true));
+                .setStatisticsCpuTimerEnabled(true)
+                .setLegacyLifespanCompletionCondition(false));
     }
 
     @Test
@@ -93,6 +94,7 @@ public class TestTaskManagerConfig
                 .put("task.task-yield-threads", "8")
                 .put("task.level-time-multiplier", "2.1")
                 .put("task.statistics-cpu-timer-enabled", "false")
+                .put("task.legacy-lifespan-completion-condition", "true")
                 .build();
 
         TaskManagerConfig expected = new TaskManagerConfig()
@@ -122,7 +124,8 @@ public class TestTaskManagerConfig
                 .setTaskNotificationThreads(13)
                 .setTaskYieldThreads(8)
                 .setLevelTimeMultiplier(new BigDecimal("2.1"))
-                .setStatisticsCpuTimerEnabled(false);
+                .setStatisticsCpuTimerEnabled(false)
+                .setLegacyLifespanCompletionCondition(true);
 
         assertFullMapping(properties, expected);
     }
