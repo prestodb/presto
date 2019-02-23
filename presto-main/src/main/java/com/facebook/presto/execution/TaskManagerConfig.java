@@ -75,6 +75,8 @@ public class TaskManagerConfig
 
     private BigDecimal levelTimeMultiplier = new BigDecimal(2.0);
 
+    private boolean legacyLifespanCompletionCondition;
+
     @MinDuration("1ms")
     @MaxDuration("10s")
     @NotNull
@@ -444,6 +446,20 @@ public class TaskManagerConfig
     public TaskManagerConfig setTaskYieldThreads(int taskYieldThreads)
     {
         this.taskYieldThreads = taskYieldThreads;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isLegacyLifespanCompletionCondition()
+    {
+        return legacyLifespanCompletionCondition;
+    }
+
+    @Deprecated
+    @Config("task.legacy-lifespan-completion-condition")
+    public TaskManagerConfig setLegacyLifespanCompletionCondition(boolean legacyLifespanCompletionCondition)
+    {
+        this.legacyLifespanCompletionCondition = legacyLifespanCompletionCondition;
         return this;
     }
 }

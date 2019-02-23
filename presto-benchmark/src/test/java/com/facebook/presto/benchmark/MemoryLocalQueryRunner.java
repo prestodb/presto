@@ -92,7 +92,8 @@ public class MemoryLocalQueryRunner
                         localQueryRunner.getDefaultSession(),
                         false,
                         false,
-                        OptionalInt.empty());
+                        OptionalInt.empty(),
+                        false);
 
         // Use NullOutputFactory to avoid coping out results to avoid affecting benchmark results
         ImmutableList.Builder<Page> output = ImmutableList.builder();

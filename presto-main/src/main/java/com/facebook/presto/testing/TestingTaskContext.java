@@ -71,7 +71,8 @@ public final class TestingTaskContext
                 session,
                 true,
                 true,
-                OptionalInt.empty());
+                OptionalInt.empty(),
+                false);
     }
 
     public static Builder builder(Executor notificationExecutor, ScheduledExecutorService yieldExecutor, Session session)

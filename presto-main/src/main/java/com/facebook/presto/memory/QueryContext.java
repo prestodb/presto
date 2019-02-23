@@ -246,7 +246,13 @@ public class QueryContext
         return memoryPool;
     }
 
-    public TaskContext addTaskContext(TaskStateMachine taskStateMachine, Session session, boolean perOperatorCpuTimerEnabled, boolean cpuTimerEnabled, OptionalInt totalPartitions)
+    public TaskContext addTaskContext(
+            TaskStateMachine taskStateMachine,
+            Session session,
+            boolean perOperatorCpuTimerEnabled,
+            boolean cpuTimerEnabled,
+            OptionalInt totalPartitions,
+            boolean legacyLifespanCompletionCondition)
     {
         TaskContext taskContext = TaskContext.createTaskContext(
                 this,
@@ -258,7 +264,8 @@ public class QueryContext
                 queryMemoryContext.newMemoryTrackingContext(),
                 perOperatorCpuTimerEnabled,
                 cpuTimerEnabled,
-                totalPartitions);
+                totalPartitions,
+                legacyLifespanCompletionCondition);
         taskContexts.put(taskStateMachine.getTaskId(), taskContext);
         return taskContext;
     }

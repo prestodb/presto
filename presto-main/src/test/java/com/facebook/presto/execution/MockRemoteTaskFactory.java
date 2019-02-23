@@ -192,7 +192,7 @@ public class MockRemoteTaskFactory
                     scheduledExecutor,
                     new DataSize(1, MEGABYTE),
                     spillSpaceTracker);
-            this.taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, true, true, totalPartitions);
+            this.taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, true, true, totalPartitions, false);
 
             this.location = URI.create("fake://task/" + taskId);
 
