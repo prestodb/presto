@@ -34,6 +34,7 @@ import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import javax.annotation.Nullable;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
@@ -171,10 +172,11 @@ public class StatementResource
     }
 
     @GET
-    @Path("{queryId}/{token}")
+    @Path("{queryId}/{slug}/{token}")
     @Produces(MediaType.APPLICATION_JSON)
     public void getQueryResults(
             @PathParam("queryId") QueryId queryId,
+            @PathParam("slug") String slug,
             @PathParam("token") long token,
             @QueryParam("maxWait") Duration maxWait,
             @QueryParam("targetResultSize") DataSize targetResultSize,
@@ -182,7 +184,7 @@ public class StatementResource
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
-        Query query = queries.get(queryId);
+        Query query = getQuery(queryId, slug);
         if (query == null) {
             asyncResponse.resume(Response.status(Status.NOT_FOUND).build());
             return;
@@ -192,6 +194,16 @@ public class StatementResource
         }
 
         asyncQueryResults(query, OptionalLong.of(token), maxWait, targetResultSize, uriInfo, proto, asyncResponse);
+    }
+
+    @Nullable
+    private Query getQuery(QueryId queryId, String slug)
+    {
+        Query query = queries.get(queryId);
+        if (query != null && query.isSlugValid(slug)) {
+            return query;
+        }
+        return null;
     }
 
     private void asyncQueryResults(
@@ -262,12 +274,14 @@ public class StatementResource
     }
 
     @DELETE
-    @Path("{queryId}/{token}")
+    @Path("{queryId}/{slug}/{token}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response cancelQuery(@PathParam("queryId") QueryId queryId,
+    public Response cancelQuery(
+            @PathParam("queryId") QueryId queryId,
+            @PathParam("slug") String slug,
             @PathParam("token") long token)
     {
-        Query query = queries.get(queryId);
+        Query query = getQuery(queryId, slug);
         if (query == null) {
             return Response.status(Status.NOT_FOUND).build();
         }
