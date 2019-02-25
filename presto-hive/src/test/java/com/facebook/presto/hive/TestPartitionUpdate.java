@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
 import com.facebook.presto.hive.PartitionUpdate.UpdateMode;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
@@ -34,7 +35,7 @@ public class TestPartitionUpdate
                 UpdateMode.APPEND,
                 "/writePath",
                 "/targetPath",
-                ImmutableList.of("file1", "file3"),
+                ImmutableList.of(new PartitionUpdate.FileWriteInfo(".file1", "file1"), new FileWriteInfo(".file3", "file3")),
                 123,
                 456,
                 789);
@@ -45,7 +46,7 @@ public class TestPartitionUpdate
         assertEquals(actual.getUpdateMode(), UpdateMode.APPEND);
         assertEquals(actual.getWritePath(), new Path("/writePath"));
         assertEquals(actual.getTargetPath(), new Path("/targetPath"));
-        assertEquals(actual.getFileNames(), ImmutableList.of("file1", "file3"));
+        assertEquals(actual.getFileWriteInfos(), ImmutableList.of(new FileWriteInfo(".file1", "file1"), new FileWriteInfo(".file3", "file3")));
         assertEquals(actual.getRowCount(), 123);
         assertEquals(actual.getInMemoryDataSizeInBytes(), 456);
         assertEquals(actual.getOnDiskDataSizeInBytes(), 789);

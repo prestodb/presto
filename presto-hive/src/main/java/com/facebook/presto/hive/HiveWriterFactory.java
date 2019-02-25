@@ -70,9 +70,11 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMA
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
+import static com.facebook.presto.hive.HiveSessionProperties.isWritingStagingFilesEnabled;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.hive.HiveWriteUtils.createPartitionValues;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
+import static com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
@@ -265,14 +267,6 @@ public class HiveWriterFactory
             checkArgument(!bucketNumber.isPresent(), "Bucket number provided by for table that is not bucketed");
         }
 
-        String fileName;
-        if (bucketNumber.isPresent()) {
-            fileName = computeBucketedFileName(filePrefix, bucketNumber.getAsInt());
-        }
-        else {
-            fileName = filePrefix + "_" + randomUUID();
-        }
-
         List<String> partitionValues = createPartitionValues(partitionColumnTypes, partitionColumns, position);
 
         Optional<String> partitionName;
@@ -423,9 +417,24 @@ public class HiveWriterFactory
 
         validateSchema(partitionName, schema);
 
-        String fileNameWithExtension = fileName + getFileExtension(conf, outputStorageFormat);
+        String extension = getFileExtension(conf, outputStorageFormat);
+        String targetFileName;
+        if (bucketNumber.isPresent()) {
+            targetFileName = computeBucketedFileName(filePrefix, bucketNumber.getAsInt()) + extension;
+        }
+        else {
+            targetFileName = filePrefix + "_" + randomUUID() + extension;
+        }
 
-        Path path = new Path(writeInfo.getWritePath(), fileNameWithExtension);
+        String writeFileName;
+        if (isWritingStagingFilesEnabled(session)) {
+            writeFileName = ".tmp.presto." + filePrefix + "_" + randomUUID() + extension;
+        }
+        else {
+            writeFileName = targetFileName;
+        }
+
+        Path path = new Path(writeInfo.getWritePath(), writeFileName);
 
         HiveFileWriter hiveFileWriter = null;
         for (HiveFileWriterFactory fileWriterFactory : fileWriterFactories) {
@@ -533,7 +542,7 @@ public class HiveWriterFactory
                 hiveFileWriter,
                 partitionName,
                 updateMode,
-                fileNameWithExtension,
+                new FileWriteInfo(writeFileName, targetFileName),
                 writeInfo.getWritePath().toString(),
                 writeInfo.getTargetPath().toString(),
                 onCommit,

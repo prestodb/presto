@@ -77,6 +77,7 @@ import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static com.facebook.presto.hive.HiveQueryRunner.createBucketedSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveSessionProperties.RCFILE_OPTIMIZED_WRITER_ENABLED;
+import static com.facebook.presto.hive.HiveSessionProperties.WRITING_STAGING_FILES_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.getInsertExistingPartitionsBehavior;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
@@ -2881,6 +2882,71 @@ public class TestHiveIntegrationSmokeTest
                         formattedPlan));
             }
         };
+    }
+
+    @Test
+    public void testInsertAndCreateTableWithWritingStagingFileEnabled()
+    {
+        try {
+            Session session = Session.builder(getSession())
+                    .setCatalogSessionProperty(catalog, WRITING_STAGING_FILES_ENABLED, "true")
+                    .build();
+
+            // Test CREATE TABLE AS
+            assertUpdate(
+                    session,
+                    "CREATE TABLE test_write_staging_files_for_create_unbucketed_table_as\n" +
+                            "WITH (partitioned_by = ARRAY['partition_key']) AS\n" +
+                            "SELECT comment value, orderstatus partition_key FROM orders",
+                    15000);
+            assertQuery("SELECT value, partition_key FROM test_write_staging_files_for_create_unbucketed_table_as",
+                    "SELECT comment value, orderstatus partition_key FROM orders");
+
+            assertUpdate(
+                    session,
+                    "CREATE TABLE test_write_staging_files_for_create_bucketed_table_as\n" +
+                            "WITH (partitioned_by = ARRAY['partition_key'], bucket_count = 13, bucketed_by = ARRAY['bucket_key']) AS\n" +
+                            "SELECT custkey bucket_key, comment value, orderstatus partition_key FROM orders",
+                    15000);
+            assertQuery("SELECT bucket_key, value, partition_key FROM test_write_staging_files_for_create_bucketed_table_as",
+                    "SELECT custkey bucket_key, comment value, orderstatus partition_key FROM orders");
+
+            // Test INSERT
+            assertUpdate(
+                    session,
+                    "CREATE TABLE test_write_staging_files_for_insert_unbucketed_table (" +
+                            "  value VARCHAR,\n" +
+                            "  partition_key VARCHAR)\n" +
+                            "WITH (partitioned_by = ARRAY['partition_key'])");
+            assertUpdate(
+                    session,
+                    "INSERT INTO test_write_staging_files_for_insert_unbucketed_table\n" +
+                            "SELECT comment value, orderstatus partition_key FROM orders",
+                    15000);
+            assertQuery("SELECT value, partition_key FROM test_write_staging_files_for_insert_unbucketed_table",
+                    "SELECT comment value, orderstatus partition_key FROM orders");
+
+            assertUpdate(
+                    session,
+                    "CREATE TABLE test_write_staging_files_for_insert_bucketed_table (" +
+                            "  bucket_key BIGINT,\n" +
+                            "  value VARCHAR,\n" +
+                            "  partition_key VARCHAR)\n" +
+                            "WITH (partitioned_by = ARRAY['partition_key'], bucket_count = 13, bucketed_by = ARRAY['bucket_key'])");
+            assertUpdate(
+                    session,
+                    "INSERT INTO test_write_staging_files_for_insert_bucketed_table\n" +
+                            "SELECT orderkey bucket_key, comment value, orderstatus partition_key FROM orders",
+                    15000);
+            assertQuery("SELECT bucket_key, value, partition_key FROM test_write_staging_files_for_insert_bucketed_table",
+                    "SELECT orderkey bucket_key, comment value, orderstatus partition_key FROM orders");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_write_staging_files_for_create_unbucketed_table_as");
+            assertUpdate("DROP TABLE IF EXISTS test_write_staging_files_for_create_bucketed_table_as");
+            assertUpdate("DROP TABLE IF EXISTS test_write_staging_files_for_insert_unbucketed_table");
+            assertUpdate("DROP TABLE IF EXISTS test_write_staging_files_for_insert_bucketed_table");
+        }
     }
 
     @Test

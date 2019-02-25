@@ -181,6 +181,7 @@ public abstract class AbstractTestHiveFileSystem
                 new TableParameterCodec(),
                 partitionUpdateCodec,
                 new HiveTypeTranslator(),
+                new HiveStagingFileCommitter(hdfsEnvironment, executor),
                 new NodeVersion("test_version"));
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
