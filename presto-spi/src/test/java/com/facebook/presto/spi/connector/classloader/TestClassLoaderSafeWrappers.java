@@ -14,7 +14,6 @@
 package com.facebook.presto.spi.connector.classloader;
 
 import com.facebook.presto.spi.ConnectorPageSink;
-import com.facebook.presto.spi.classloader.ClassLoaderSafeConnectorPageSink;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
