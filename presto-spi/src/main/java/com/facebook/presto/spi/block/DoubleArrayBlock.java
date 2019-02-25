@@ -22,8 +22,8 @@ import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
-import static com.facebook.presto.spi.block.BlockUtil.countUsedPositions;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
+import static com.facebook.presto.spi.block.BlockUtil.countUsedPositions;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.toIntExact;
 
@@ -306,8 +306,10 @@ public class DoubleArrayBlock
     }
 
     @Override
-    public void getContents(BlockDecoder contents) {
-	contents.doubles = values;
-	contents.valueIsNull = valueIsNull;
+    public void getContents(BlockDecoder contents)
+    {
+        contents.setValues(values);
+        contents.setValueIsNull(valueIsNull);
+        contents.setArrayOffset(arrayOffset);
     }
 }

@@ -303,10 +303,11 @@ public class LongArrayBlock
     }
 
     @Override
-    public void getContents(BlockDecoder contents) {
-	contents.longs = values;
-	contents.valueIsNull = valueIsNull;
-        contents.arrayOffset = arrayOffset;
+    public void getContents(BlockDecoder contents)
+    {
+        contents.setValues(values);
+        contents.setValueIsNull(valueIsNull);
+        contents.setArrayOffset(arrayOffset);
     }
 
     @Override

@@ -219,12 +219,13 @@ public class VariableWidthBlock
         return new VariableWidthBlock(0, length, newSlice, newOffsets, newValueIsNull);
     }
 
-        @Override
-    public void getContents(BlockDecoder contents) {
-	contents.slice = slice;
-        contents.offsets = offsets;
-	contents.valueIsNull = valueIsNull;
-        contents.arrayOffset = arrayOffset;
+    @Override
+    public void getContents(BlockDecoder contents)
+    {
+        contents.setValues(slice);
+        contents.setOffsets(offsets);
+        contents.setValueIsNull(valueIsNull);
+        contents.setArrayOffset(arrayOffset);
     }
 
     @Override

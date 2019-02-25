@@ -70,7 +70,7 @@ public class LongArrayBlockEncoding
     public Block readBlockReusing(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput, BlockDecoder toReuse)
     {
         int positionCount = sliceInput.readInt();
-        long[] values = toReuse.getLongs();
+        long[] values = toReuse.getValues(long[].class);
         boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount, toReuse != null ? toReuse.getValueIsNull() : null).orElse(null);
         if (values == null || values.length < positionCount) {
             values = new long[positionCount];
@@ -134,7 +134,7 @@ public class LongArrayBlockEncoding
     @Override
     public int reserveBytesInBuffer(BlockDecoder contents, int numValues, int startInBuffer, EncodingState state)
     {
-        //  Reserves space for serialized 'rows' non-null longs
+        //  Reserves space for serialized 'rows' non-null array
         // including headers. 5 for vallue count and null indicator, 4
         // for name character count + length of the name string.
         int size = 8 * numValues + 5 + 4 + NAME.length();
@@ -150,8 +150,8 @@ public class LongArrayBlockEncoding
     @Override
     public void addValues(BlockDecoder contents, int[] rows, int firstRow, int numRows, EncodingState state)
     {
-        long[] longs = contents.longs;
-        int[] map = contents.isIdentityMap ? null : contents.rowNumberMap;
+        long[] longs = contents.getValues(long[].class);
+        int[] map = contents.isIdentityMap() ? null : contents.getRowNumberMap();
         int longsOffset = state.valueOffset + 5 + state.numValues * SIZE_OF_LONG + (int) state.topLevelBuffer.getAddress() - ARRAY_BYTE_BASE_OFFSET;
         byte[] target = (byte[]) state.topLevelBuffer.getBase();
         if (!useGather) {

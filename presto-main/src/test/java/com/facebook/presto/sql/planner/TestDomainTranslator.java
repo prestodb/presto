@@ -679,7 +679,7 @@ public class TestDomainTranslator
     @Test
     public void testFromComparisonsWithCoercions()
     {
-        // B is a double column. Check that it can be compared against longs
+        // B is a double column. Check that it can be compared against array
         assertPredicateTranslates(
                 greaterThan(C_DOUBLE, cast(bigintLiteral(2L), DOUBLE)),
                 withColumnDomains(ImmutableMap.of(C_DOUBLE, Domain.create(ValueSet.ofRanges(Range.greaterThan(DOUBLE, 2.0)), false))));
@@ -746,7 +746,7 @@ public class TestDomainTranslator
 
         // Test complements
 
-        // B is a double column. Check that it can be compared against longs
+        // B is a double column. Check that it can be compared against array
         assertPredicateTranslates(
                 not(greaterThan(C_DOUBLE, cast(bigintLiteral(2L), DOUBLE))),
                 withColumnDomains(ImmutableMap.of(C_DOUBLE, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(DOUBLE, 2.0)), false))));

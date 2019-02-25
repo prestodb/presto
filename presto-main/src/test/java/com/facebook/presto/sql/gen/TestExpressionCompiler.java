@@ -1164,7 +1164,7 @@ public class TestExpressionCompiler
                     BOOLEAN,
                     value == null ? null : testValues.contains(value) ? true : null);
 
-            // compare a double to in containing longs
+            // compare a double to in containing array
             assertExecute(generateExpression("%s in (33.0E0, 9, -9, -33.0E0)", value),
                     BOOLEAN,
                     value == null ? null : testValues.contains(value));

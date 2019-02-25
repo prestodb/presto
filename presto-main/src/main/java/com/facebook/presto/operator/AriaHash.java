@@ -297,16 +297,16 @@ public class AriaHash
 
         public void addInput(Page page)
         {
-            k1.decodeBlock(page.getBlock(hashChannels[0]), intArrayAllocator);
-            k2.decodeBlock(page.getBlock(hashChannels[1]), intArrayAllocator);
-            d1.decodeBlock(page.getBlock(outputChannels[0]), intArrayAllocator);
+            k1.decodeBlock(page.getBlock(hashChannels[0]));
+            k2.decodeBlock(page.getBlock(hashChannels[1]));
+            d1.decodeBlock(page.getBlock(outputChannels[0]));
             int positionCount = page.getPositionCount();
             nullsInBatch = null;
-            int[] k1Map = k1.rowNumberMap;
-            int[] k2Map = k2.rowNumberMap;
-            int[] d1Map = d1.rowNumberMap;
-            addNullFlags(k1.valueIsNull, k1.isIdentityMap ? null : k1Map, positionCount);
-            addNullFlags(k2.valueIsNull, k2.isIdentityMap ? null : k2Map, positionCount);
+            int[] k1Map = k1.getRowNumberMap();
+            int[] k2Map = k2.getRowNumberMap();
+            int[] d1Map = d1.getRowNumberMap();
+            addNullFlags(k1.getValueIsNull(), k1.isIdentityMap() ? null : k1Map, positionCount);
+            addNullFlags(k2.getValueIsNull(), k2.isIdentityMap() ? null : k2Map, positionCount);
 
             AriaLookupSource table = this.table;
             int statusMask = table.statusMask;
@@ -325,15 +325,15 @@ public class AriaHash
                         kslice = slices[(int) ((row) >> 17)];
                         koffset = (int) (row) & 0x1ffff;
                     }
-                    kslice.setLong(koffset + 0, k1.longs[k1Map[i]]);
-                    kslice.setLong(koffset + 8, k2.longs[k1Map[i]]);
-                    kslice.setLong(koffset + 16, d1.longs[d1Map[i]]);
+                    kslice.setLong(koffset + 0, k1.getValues(long[].class)[k1Map[i]]);
+                    kslice.setLong(koffset + 8, k2.getValues(long[].class)[k1Map[i]]);
+                    kslice.setLong(koffset + 16, d1.getValues(long[].class)[d1Map[i]]);
                     kslice.setLong(koffset + 24, -1);
                 }
             }
-            k1.release(intArrayAllocator);
-            k2.release(intArrayAllocator);
-            d1.release(intArrayAllocator);
+            k1.release();
+            k2.release();
+            d1.release();
         }
 
         public static class AriaLookupSourceSupplier
@@ -534,8 +534,8 @@ public class AriaHash
         {
             this.probe = probe;
             Block[] probes = probe.getProbeBlocks();
-            k1.decodeBlock(probes[0], intArrayAllocator);
-            k2.decodeBlock(probes[1], intArrayAllocator);
+            k1.decodeBlock(probes[0]);
+            k2.decodeBlock(probes[1]);
             positionCount = probe.getPage().getPositionCount();
             if (partitions == null || partitions.length < positionCount) {
                 partitions = new int[(int) (positionCount * 1.2)];
@@ -544,11 +544,11 @@ public class AriaHash
             Block hashBlock = probe.getProbeHashBlock();
             if (hashBlock != null && tables.length > 1) {
                 if (hashDecoder == null) {
-                    hashDecoder = new BlockDecoder(intArrayAllocator);
+                    hashDecoder = new BlockDecoder();
                 }
                 hashDecoder.decodeBlock(hashBlock);
-                long[] longs = hashDecoder.longs;
-                int[] map = hashDecoder.rowNumberMap;
+                long[] longs = hashDecoder.getValues(long[].class);
+                int[] map = hashDecoder.getRowNumberMap();
                 int numPartitions = tables.length;
                 for (int i = 0; i < positionCount; i++) {
                     partitions[i] = partitionGenerator.getPartition(longs[map[i]]);
@@ -563,12 +563,12 @@ public class AriaHash
                 hashes = new long[positionCount + 10];
             }
             nullsInBatch = null;
-            k1d = k1.longs;
-            k2d = k2.longs;
-            k1Map = k1.rowNumberMap;
-            k2Map = k2.rowNumberMap;
-            addNullFlags(k1.valueIsNull, k1.isIdentityMap ? null : k1Map, positionCount);
-            addNullFlags(k2.valueIsNull, k2.isIdentityMap ? null : k2Map, positionCount);
+            k1d = k1.getValues(long[].class);
+            k2d = k2.getValues(long[].class);
+            k1Map = k1.getRowNumberMap();
+            k2Map = k2.getRowNumberMap();
+            addNullFlags(k1.getValueIsNull(), k1.isIdentityMap() ? null : k1Map, positionCount);
+            addNullFlags(k2.getValueIsNull(), k2.isIdentityMap() ? null : k2Map, positionCount);
             candidateFill = 0;
             if (candidates == null || candidates.length < positionCount) {
                 candidates = intArrayAllocator.getIntArray(positionCount);
@@ -672,8 +672,8 @@ public class AriaHash
                 ++currentProbe;
             }
             if (currentProbe == candidateFill) {
-                k1.release(intArrayAllocator);
-                k2.release(intArrayAllocator);
+                k1.release();
+                k2.release();
             }
             if (resultFill == 0) {
                 returnPage = null;
