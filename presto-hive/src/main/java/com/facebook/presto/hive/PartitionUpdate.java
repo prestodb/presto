@@ -22,6 +22,7 @@ import org.apache.hadoop.fs.Path;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -35,7 +36,7 @@ public class PartitionUpdate
     private final UpdateMode updateMode;
     private final Path writePath;
     private final Path targetPath;
-    private final List<String> fileNames;
+    private final List<FileWriteInfo> fileWriteInfos;
     private final long rowCount;
     private final long inMemoryDataSizeInBytes;
     private final long onDiskDataSizeInBytes;
@@ -46,7 +47,7 @@ public class PartitionUpdate
             @JsonProperty("updateMode") UpdateMode updateMode,
             @JsonProperty("writePath") String writePath,
             @JsonProperty("targetPath") String targetPath,
-            @JsonProperty("fileNames") List<String> fileNames,
+            @JsonProperty("fileWriteInfos") List<FileWriteInfo> fileWriteInfos,
             @JsonProperty("rowCount") long rowCount,
             @JsonProperty("inMemoryDataSizeInBytes") long inMemoryDataSizeInBytes,
             @JsonProperty("onDiskDataSizeInBytes") long onDiskDataSizeInBytes)
@@ -56,7 +57,7 @@ public class PartitionUpdate
                 updateMode,
                 new Path(requireNonNull(writePath, "writePath is null")),
                 new Path(requireNonNull(targetPath, "targetPath is null")),
-                fileNames,
+                fileWriteInfos,
                 rowCount,
                 inMemoryDataSizeInBytes,
                 onDiskDataSizeInBytes);
@@ -67,7 +68,7 @@ public class PartitionUpdate
             UpdateMode updateMode,
             Path writePath,
             Path targetPath,
-            List<String> fileNames,
+            List<FileWriteInfo> fileWriteInfos,
             long rowCount,
             long inMemoryDataSizeInBytes,
             long onDiskDataSizeInBytes)
@@ -76,7 +77,7 @@ public class PartitionUpdate
         this.updateMode = requireNonNull(updateMode, "updateMode is null");
         this.writePath = requireNonNull(writePath, "writePath is null");
         this.targetPath = requireNonNull(targetPath, "targetPath is null");
-        this.fileNames = ImmutableList.copyOf(requireNonNull(fileNames, "fileNames is null"));
+        this.fileWriteInfos = ImmutableList.copyOf(requireNonNull(fileWriteInfos, "fileWriteInfos is null"));
         checkArgument(rowCount >= 0, "rowCount is negative: %d", rowCount);
         this.rowCount = rowCount;
         checkArgument(inMemoryDataSizeInBytes >= 0, "inMemoryDataSizeInBytes is negative: %d", inMemoryDataSizeInBytes);
@@ -108,9 +109,9 @@ public class PartitionUpdate
     }
 
     @JsonProperty
-    public List<String> getFileNames()
+    public List<FileWriteInfo> getFileWriteInfos()
     {
-        return fileNames;
+        return fileWriteInfos;
     }
 
     @JsonProperty("targetPath")
@@ -151,7 +152,7 @@ public class PartitionUpdate
                 .add("updateMode", updateMode)
                 .add("writePath", writePath)
                 .add("targetPath", targetPath)
-                .add("fileNames", fileNames)
+                .add("fileWriteInfos", fileWriteInfos)
                 .add("rowCount", rowCount)
                 .add("inMemoryDataSizeInBytes", inMemoryDataSizeInBytes)
                 .add("onDiskDataSizeInBytes", onDiskDataSizeInBytes)
@@ -160,7 +161,7 @@ public class PartitionUpdate
 
     public HiveBasicStatistics getStatistics()
     {
-        return new HiveBasicStatistics(fileNames.size(), rowCount, inMemoryDataSizeInBytes, onDiskDataSizeInBytes);
+        return new HiveBasicStatistics(fileWriteInfos.size(), rowCount, inMemoryDataSizeInBytes, onDiskDataSizeInBytes);
     }
 
     public static List<PartitionUpdate> mergePartitionUpdates(Iterable<PartitionUpdate> unMergedUpdates)
@@ -169,7 +170,7 @@ public class PartitionUpdate
         for (Collection<PartitionUpdate> partitionGroup : Multimaps.index(unMergedUpdates, PartitionUpdate::getName).asMap().values()) {
             PartitionUpdate firstPartition = partitionGroup.iterator().next();
 
-            ImmutableList.Builder<String> allFileNames = ImmutableList.builder();
+            ImmutableList.Builder<FileWriteInfo> allFileWriterInfos = ImmutableList.builder();
             long totalRowCount = 0;
             long totalInMemoryDataSizeInBytes = 0;
             long totalOnDiskDataSizeInBytes = 0;
@@ -181,7 +182,7 @@ public class PartitionUpdate
                         !partition.getTargetPath().equals(firstPartition.getTargetPath())) {
                     throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, format("Partition %s was added or modified during INSERT", firstPartition.getName()));
                 }
-                allFileNames.addAll(partition.getFileNames());
+                allFileWriterInfos.addAll(partition.getFileWriteInfos());
                 totalRowCount += partition.getRowCount();
                 totalInMemoryDataSizeInBytes += partition.getInMemoryDataSizeInBytes();
                 totalOnDiskDataSizeInBytes += partition.getOnDiskDataSizeInBytes();
@@ -191,7 +192,7 @@ public class PartitionUpdate
                     firstPartition.getUpdateMode(),
                     firstPartition.getWritePath(),
                     firstPartition.getTargetPath(),
-                    allFileNames.build(),
+                    allFileWriterInfos.build(),
                     totalRowCount,
                     totalInMemoryDataSizeInBytes,
                     totalOnDiskDataSizeInBytes));
@@ -204,5 +205,61 @@ public class PartitionUpdate
         NEW,
         APPEND,
         OVERWRITE,
+    }
+
+    public static class FileWriteInfo
+    {
+        private final String writeFileName;
+        private final String targetFileName;
+
+        @JsonCreator
+        public FileWriteInfo(
+                @JsonProperty("writeFileName") String writeFileName,
+                @JsonProperty("targetFileName") String targetFileName)
+        {
+            this.writeFileName = requireNonNull(writeFileName, "writeFileName is null");
+            this.targetFileName = requireNonNull(targetFileName, "targetFileName is null");
+        }
+
+        @JsonProperty
+        public String getWriteFileName()
+        {
+            return writeFileName;
+        }
+
+        @JsonProperty
+        public String getTargetFileName()
+        {
+            return targetFileName;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof FileWriteInfo)) {
+                return false;
+            }
+            FileWriteInfo that = (FileWriteInfo) o;
+            return Objects.equals(writeFileName, that.writeFileName) &&
+                    Objects.equals(targetFileName, that.targetFileName);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(writeFileName, targetFileName);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("writeFileName", writeFileName)
+                    .add("targetFileName", targetFileName)
+                    .toString();
+        }
     }
 }

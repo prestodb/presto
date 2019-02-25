@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
 import com.facebook.presto.hive.PartitionUpdate.UpdateMode;
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
@@ -28,7 +29,7 @@ public class HiveWriter
     private final HiveFileWriter fileWriter;
     private final Optional<String> partitionName;
     private final UpdateMode updateMode;
-    private final String fileName;
+    private final FileWriteInfo fileWriteInfo;
     private final String writePath;
     private final String targetPath;
     private final Consumer<HiveWriter> onCommit;
@@ -41,7 +42,7 @@ public class HiveWriter
             HiveFileWriter fileWriter,
             Optional<String> partitionName,
             UpdateMode updateMode,
-            String fileName,
+            FileWriteInfo fileWriteInfo,
             String writePath,
             String targetPath,
             Consumer<HiveWriter> onCommit,
@@ -50,7 +51,7 @@ public class HiveWriter
         this.fileWriter = requireNonNull(fileWriter, "fileWriter is null");
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
         this.updateMode = requireNonNull(updateMode, "updateMode is null");
-        this.fileName = requireNonNull(fileName, "fileName is null");
+        this.fileWriteInfo = requireNonNull(fileWriteInfo, "fileWriteInfo is null");
         this.writePath = requireNonNull(writePath, "writePath is null");
         this.targetPath = requireNonNull(targetPath, "targetPath is null");
         this.onCommit = requireNonNull(onCommit, "onCommit is null");
@@ -109,7 +110,7 @@ public class HiveWriter
                 updateMode,
                 writePath,
                 targetPath,
-                ImmutableList.of(fileName),
+                ImmutableList.of(fileWriteInfo),
                 rowCount,
                 inputSizeInBytes,
                 fileWriter.getWrittenBytes());
@@ -120,7 +121,8 @@ public class HiveWriter
     {
         return toStringHelper(this)
                 .add("fileWriter", fileWriter)
-                .add("filePath", writePath + "/" + fileName)
+                .add("writeFilePath", writePath + "/" + fileWriteInfo.getWriteFileName())
+                .add("targetFilePath", writePath + "/" + fileWriteInfo.getTargetFileName())
                 .toString();
     }
 }

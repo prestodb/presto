@@ -749,6 +749,7 @@ public abstract class AbstractTestHiveClient
                 partitionUpdateCodec,
                 newFixedThreadPool(2),
                 new HiveTypeTranslator(),
+                new HiveStagingFileCommitter(hdfsEnvironment, executor),
                 TEST_SERVER_VERSION);
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
@@ -4738,7 +4739,7 @@ public abstract class AbstractTestHiveClient
         {
             for (PartitionUpdate partitionUpdate : partitionUpdates) {
                 if ("pk2=insert2".equals(partitionUpdate.getTargetPath().getName())) {
-                    path = new Path(partitionUpdate.getTargetPath(), partitionUpdate.getFileNames().get(0));
+                    path = new Path(partitionUpdate.getTargetPath(), partitionUpdate.getFileWriteInfos().get(0).getTargetFileName());
                     break;
                 }
             }

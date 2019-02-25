@@ -154,6 +154,8 @@ public class HiveClientConfig
 
     private boolean preloadSplitsForGroupedExecution;
 
+    private boolean writingStagingFilesEnabled;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -1247,6 +1249,19 @@ public class HiveClientConfig
     public HiveClientConfig setPreloadSplitsForGroupedExecution(boolean preloadSplitsForGroupedExecution)
     {
         this.preloadSplitsForGroupedExecution = preloadSplitsForGroupedExecution;
+        return this;
+    }
+
+    public boolean isWritingStagingFilesEnabled()
+    {
+        return writingStagingFilesEnabled;
+    }
+
+    @Config("hive.writing-staging-files-enabled")
+    @ConfigDescription("Write data to staging files and rename to target files when commit")
+    public HiveClientConfig setWritingStagingFilesEnabled(boolean writingStagingFilesEnabled)
+    {
+        this.writingStagingFilesEnabled = writingStagingFilesEnabled;
         return this;
     }
 }

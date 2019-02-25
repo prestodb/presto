@@ -53,6 +53,7 @@ public class HiveMetadataFactory
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final ListeningExecutorService fileRenameExecutor;
     private final TypeTranslator typeTranslator;
+    private final StagingFileCommitter stagingFileCommitter;
     private final String prestoVersion;
 
     @Inject
@@ -68,6 +69,7 @@ public class HiveMetadataFactory
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             TypeTranslator typeTranslator,
+            StagingFileCommitter stagingFileCommitter,
             NodeVersion nodeVersion)
     {
         this(
@@ -88,6 +90,7 @@ public class HiveMetadataFactory
                 partitionUpdateCodec,
                 executorService,
                 typeTranslator,
+                stagingFileCommitter,
                 nodeVersion.toString());
     }
 
@@ -109,6 +112,7 @@ public class HiveMetadataFactory
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             ExecutorService executorService,
             TypeTranslator typeTranslator,
+            StagingFileCommitter stagingFileCommitter,
             String prestoVersion)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
@@ -128,6 +132,7 @@ public class HiveMetadataFactory
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.fileRenameExecutor = listeningDecorator(requireNonNull(executorService, "executorService is null"));
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
+        this.stagingFileCommitter = requireNonNull(stagingFileCommitter, "stagingFileCommitter is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
         this.maxPartitions = maxPartitions;
 
@@ -164,6 +169,7 @@ public class HiveMetadataFactory
                 typeTranslator,
                 prestoVersion,
                 new MetastoreHiveStatisticsProvider(metastore),
-                maxPartitions);
+                maxPartitions,
+                stagingFileCommitter);
     }
 }

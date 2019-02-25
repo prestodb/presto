@@ -1763,7 +1763,9 @@ public class SemiTransactionalHiveMetastore
                 boolean eligible = false;
                 // never delete presto dot files
                 if (!fileName.startsWith(".presto")) {
-                    eligible = filePrefixes.stream().anyMatch(fileName::startsWith);
+                    // file name that starts with ".tmp.presto" is staging file, see HiveWriterFactory#createWriter.
+                    eligible = filePrefixes.stream().anyMatch(prefix ->
+                            fileName.startsWith(prefix) || fileName.startsWith(".tmp.presto." + prefix));
                 }
                 if (eligible) {
                     if (!deleteIfExists(fileSystem, filePath, false)) {
