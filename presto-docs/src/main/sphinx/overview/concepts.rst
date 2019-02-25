@@ -223,7 +223,7 @@ Driver
 
 Tasks contain one or more parallel drivers. Drivers act upon data and
 combine operators to produce output that is then aggregated by a task
-and then delivered to another task in a another stage. A driver is a
+and then delivered to another task in another stage. A driver is a
 sequence of operator instances, or you can think of a driver as a
 physical set of operators in memory. It is the lowest level of
 parallelism in the Presto architecture. A driver has one input and
