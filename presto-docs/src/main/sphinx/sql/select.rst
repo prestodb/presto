@@ -84,6 +84,11 @@ Additionally, the relations within a ``WITH`` clause can chain::
       z AS (SELECT b AS c FROM y)
     SELECT c FROM z;
 
+.. WARNING::
+    Currently, the SQL for the ``WITH`` clause will be inlined anywhere the named
+    relation is used. This means that if the relation is used more than once and the query
+    is non-deterministic, the results may be different each time.
+
 GROUP BY Clause
 ---------------
 
