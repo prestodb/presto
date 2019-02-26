@@ -223,6 +223,16 @@ public class TestAriaHiveDistributedQueries
                 "FROM lineitem\n" +
                 "WHERE\n" +
                 "    shipinstruct = 'TAKE BACK RETURN'");
+
+        // SliceDictionaryStreamReader for shipinstruct and shipmode
+        assertQuery(ariaSession(), "SELECT\n" +
+                "    linenumber,\n" +
+                "    orderkey,\n" +
+                "    shipinstruct,\n" +
+                "    shipmode\n" +
+                "FROM lineitem\n" +
+                "WHERE\n" +
+                "    shipinstruct = 'TAKE BACK RETURN' AND shipmode = 'AIR'");
     }
 
     // nulls1.sql
