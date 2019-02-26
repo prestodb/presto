@@ -171,7 +171,7 @@ abstract class ColumnReader
         throw new UnsupportedOperationException("Variable width streams must implement getResultSizeInBytes()");
     }
 
-    public void compactQualifyingSet(int[] surviving, int numSurviving)
+    protected void compactQualifyingSet(int[] surviving, int numSurviving)
     {
         if (outputQualifyingSet == null) {
             return;

@@ -118,7 +118,7 @@ public interface StreamReader
         throw new UnsupportedOperationException("erase is not supported by " + this.getClass().getSimpleName());
     }
 
-    default void compactValues(int[] surviving, int base, int numValues)
+    default void compactValues(int[] surviving, int base, int numSurviving)
     {
         throw new UnsupportedOperationException();
     }
