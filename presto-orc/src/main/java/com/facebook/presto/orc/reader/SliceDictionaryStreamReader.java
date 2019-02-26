@@ -599,6 +599,16 @@ public class SliceDictionaryStreamReader
         }
     }
 
+    @Override
+    public void compactValues(int[] surviving, int base, int numSurviving)
+    {
+        if (outputChannel != -1) {
+            StreamReaders.compactArrays(surviving, base, numSurviving, values, valueIsNull);
+            numValues = base + numSurviving;
+        }
+        compactQualifyingSet(surviving, numSurviving);
+    }
+
     private void ensureValuesCapacity()
     {
         if (outputChannel == -1) {
