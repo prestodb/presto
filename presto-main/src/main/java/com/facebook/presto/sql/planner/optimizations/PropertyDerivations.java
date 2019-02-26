@@ -430,7 +430,7 @@ public class PropertyDerivations
 
                     return ActualProperties.builderFrom(buildProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
                             .local(ImmutableList.of())
-                            .unordered(unordered)
+                            .unordered(true)
                             .build();
                 case FULL:
                     if (probeProperties.getNodePartitioning().isPresent()) {
@@ -446,12 +446,10 @@ public class PropertyDerivations
 
                         return ActualProperties.builder()
                                 .global(partitionedOn(Partitioning.createWithExpressions(nodePartitioning.getHandle(), coalesceExpressions.build()), Optional.empty()))
-                                .unordered(unordered)
                                 .build();
                     }
                     return ActualProperties.builder()
                             .global(probeProperties.isSingleNode() ? singleStreamPartition() : arbitraryPartition())
-                            .unordered(unordered)
                             .build();
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
