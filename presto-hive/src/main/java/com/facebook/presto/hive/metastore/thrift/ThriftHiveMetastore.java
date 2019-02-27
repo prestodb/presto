@@ -23,7 +23,6 @@ import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
-import com.facebook.presto.hive.metastore.HivePrincipal;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.spi.PrestoException;
@@ -78,7 +77,6 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
-import static com.facebook.presto.hive.metastore.HivePrincipal.toHivePrincipal;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.parsePrivilege;
@@ -1154,7 +1152,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges)
+    public void grantTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         Set<PrivilegeGrantInfo> requestedPrivileges = privileges.stream()
                 .map(privilege -> toMetastoreApiPrivilegeGrantInfo(grantee, privilege))
@@ -1166,8 +1164,7 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("grantTablePrivileges", stats.getGrantTablePrivileges().wrap(() -> {
                         try (HiveMetastoreClient metastoreClient = clientProvider.createMetastoreClient()) {
-                            HivePrincipal hivePrincipal = toHivePrincipal(grantee);
-                            Set<HivePrivilegeInfo> existingPrivileges = listTablePrivileges(databaseName, tableName, new PrestoPrincipal(USER, grantee));
+                            Set<HivePrivilegeInfo> existingPrivileges = listTablePrivileges(databaseName, tableName, grantee);
 
                             Set<PrivilegeGrantInfo> privilegesToGrant = new HashSet<>(requestedPrivileges);
                             Iterator<PrivilegeGrantInfo> iterator = privilegesToGrant.iterator();
@@ -1192,7 +1189,7 @@ public class ThriftHiveMetastore
                                 return null;
                             }
 
-                            metastoreClient.grantPrivileges(buildPrivilegeBag(databaseName, tableName, hivePrincipal, privilegesToGrant));
+                            metastoreClient.grantPrivileges(buildPrivilegeBag(databaseName, tableName, grantee, privilegesToGrant));
                         }
                         return null;
                     }));
@@ -1206,7 +1203,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges)
+    public void revokeTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         Set<PrivilegeGrantInfo> requestedPrivileges = privileges.stream()
                 .map(privilege -> toMetastoreApiPrivilegeGrantInfo(grantee, privilege))
@@ -1218,8 +1215,7 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("revokeTablePrivileges", stats.getRevokeTablePrivileges().wrap(() -> {
                         try (HiveMetastoreClient metastoreClient = clientProvider.createMetastoreClient()) {
-                            HivePrincipal hivePrincipal = toHivePrincipal(grantee);
-                            Set<HivePrivilege> existingHivePrivileges = listTablePrivileges(databaseName, tableName, new PrestoPrincipal(USER, grantee)).stream()
+                            Set<HivePrivilege> existingHivePrivileges = listTablePrivileges(databaseName, tableName, grantee).stream()
                                     .map(HivePrivilegeInfo::getHivePrivilege)
                                     .collect(toSet());
 
@@ -1231,7 +1227,7 @@ public class ThriftHiveMetastore
                                 return null;
                             }
 
-                            metastoreClient.revokePrivileges(buildPrivilegeBag(databaseName, tableName, hivePrincipal, privilegesToRevoke));
+                            metastoreClient.revokePrivileges(buildPrivilegeBag(databaseName, tableName, grantee, privilegesToRevoke));
                         }
                         return null;
                     }));
@@ -1279,7 +1275,7 @@ public class ThriftHiveMetastore
     private PrivilegeBag buildPrivilegeBag(
             String databaseName,
             String tableName,
-            HivePrincipal hivePrincipal,
+            PrestoPrincipal grantee,
             Set<PrivilegeGrantInfo> privilegeGrantInfos)
     {
         ImmutableList.Builder<HiveObjectPrivilege> privilegeBagBuilder = ImmutableList.builder();
@@ -1287,8 +1283,8 @@ public class ThriftHiveMetastore
             privilegeBagBuilder.add(
                     new HiveObjectPrivilege(
                             new HiveObjectRef(TABLE, databaseName, tableName, null, null),
-                            hivePrincipal.getPrincipalName(),
-                            hivePrincipal.getPrincipalType(),
+                            grantee.getName(),
+                            fromPrestoPrincipalType(grantee.getType()),
                             privilegeGrantInfo));
         }
         return new PrivilegeBag(privilegeBagBuilder.build());
