@@ -491,13 +491,34 @@ public class TestCostCalculator
             Map<String, PlanNodeStatsEstimate> stats,
             Map<String, Type> types)
     {
+        Function<PlanNode, PlanNodeStatsEstimate> statsProvider = planNode -> stats.get(planNode.getId().toString());
         PlanNodeCostEstimate cumulativeCost = calculateCumulativeCost(
                 costCalculator,
                 node,
-                planNode -> costs.get(planNode.getId().toString()),
-                planNode -> stats.get(planNode.getId().toString()),
+                sourceCostProvider(costCalculator, costs, statsProvider, types),
+                statsProvider,
                 types);
         return new CostAssertionBuilder(cumulativeCost);
+    }
+
+    private Function<PlanNode, PlanNodeCostEstimate> sourceCostProvider(
+            CostCalculator costCalculator,
+            Map<String, PlanNodeCostEstimate> costs,
+            Function<PlanNode, PlanNodeStatsEstimate> statsProvider,
+            Map<String, Type> types)
+    {
+        return node -> {
+            PlanNodeCostEstimate providedCost = costs.get(node.getId().toString());
+            if (providedCost != null) {
+                return providedCost;
+            }
+            return calculateCumulativeCost(
+                    costCalculator,
+                    node,
+                    sourceCostProvider(costCalculator, costs, statsProvider, types),
+                    statsProvider,
+                    types);
+        };
     }
 
     private void assertCostHasUnknownComponentsForUnknownStats(PlanNode node, Map<String, Type> types)
