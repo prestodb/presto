@@ -1991,7 +1991,8 @@ public class HiveMetadata
     @Override
     public List<GrantInfo> listTablePrivileges(ConnectorSession session, SchemaTablePrefix schemaTablePrefix)
     {
-        Set<PrestoPrincipal> principals = listEnabledPrincipals(metastore, session.getIdentity());
+        Set<PrestoPrincipal> principals = listEnabledPrincipals(metastore, session.getIdentity())
+                .collect(toImmutableSet());
         ImmutableList.Builder<GrantInfo> result = ImmutableList.builder();
         for (SchemaTableName tableName : listTables(session, schemaTablePrefix)) {
             for (PrestoPrincipal grantee : principals) {
