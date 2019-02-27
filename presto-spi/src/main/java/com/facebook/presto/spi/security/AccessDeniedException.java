@@ -18,6 +18,7 @@ import com.facebook.presto.spi.PrestoException;
 import java.security.Principal;
 import java.util.Collection;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.lang.String.format;
@@ -293,6 +294,16 @@ public class AccessDeniedException
     public static void denyDropRole(String roleName)
     {
         throw new AccessDeniedException(format("Cannot drop role %s", roleName));
+    }
+
+    public static void denyGrantRoles(Set<String> roles, Set<PrestoPrincipal> grantees)
+    {
+        throw new AccessDeniedException(format("Cannot grant roles %s to %s ", roles, grantees));
+    }
+
+    public static void denyRevokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees)
+    {
+        throw new AccessDeniedException(format("Cannot revoke roles %s from %s ", roles, grantees));
     }
 
     private static Object formatExtraInfo(String extraInfo)
