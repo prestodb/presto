@@ -20,7 +20,10 @@ import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.security.Privilege;
 
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.hive.HiveMetadata.getSourceTableNameForPartitionsTable;
@@ -58,5 +61,65 @@ public class PartitionsAwareAccessControl
         }
 
         delegate.checkCanSelectFromColumns(transactionHandle, identity, tableName, columnNames);
+    }
+
+    @Override
+    public void checkCanInsertIntoTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    {
+        delegate.checkCanInsertIntoTable(transactionHandle, identity, tableName);
+    }
+
+    @Override
+    public void checkCanDeleteFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
+    {
+        delegate.checkCanDeleteFromTable(transactionHandle, identity, tableName);
+    }
+
+    @Override
+    public void checkCanCreateView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
+    {
+        delegate.checkCanCreateView(transactionHandle, identity, viewName);
+    }
+
+    @Override
+    public void checkCanDropView(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName)
+    {
+        delegate.checkCanDropView(transactionHandle, identity, viewName);
+    }
+
+    @Override
+    public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName, Set<String> columnNames)
+    {
+        delegate.checkCanCreateViewWithSelectFromColumns(transactionHandle, identity, tableName, columnNames);
+    }
+
+    @Override
+    public void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transactionHandle, Identity identity, String propertyName)
+    {
+        delegate.checkCanSetCatalogSessionProperty(transactionHandle, identity, propertyName);
+    }
+
+    @Override
+    public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName, String grantee, boolean withGrantOption)
+    {
+        delegate.checkCanGrantTablePrivilege(transactionHandle, identity, privilege, tableName, grantee, withGrantOption);
+    }
+
+    @Override
+    public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName, String revokee, boolean grantOptionFor)
+    {
+        delegate.checkCanRevokeTablePrivilege(transactionHandle, identity, privilege, tableName, revokee, grantOptionFor);
+    }
+
+    @Override
+    public void checkCanCreateRole(ConnectorTransactionHandle transactionHandle, Identity identity, String role, Optional<PrestoPrincipal> grantor)
+    {
+        delegate.checkCanCreateRole(transactionHandle, identity, role, grantor);
+    }
+
+    @Override
+    public void checkCanDropRole(ConnectorTransactionHandle transactionHandle, Identity identity, String role)
+    {
+        delegate.checkCanDropRole(transactionHandle, identity, role);
     }
 }
