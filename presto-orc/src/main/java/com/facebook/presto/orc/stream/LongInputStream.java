@@ -84,7 +84,7 @@ public interface LongInputStream
         boolean consume(int offsetIndex, long value)
                 throws IOException;
 
-        boolean consumeRepeated(int offsetIndex, long value, int count)
+        int consumeRepeated(int offsetIndex, long value, int count)
                 throws IOException;
     }
 

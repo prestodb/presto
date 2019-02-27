@@ -413,9 +413,7 @@ public class LongInputStreamV2
             }
             int numInRle = numOffsetsWithin(length);
             if (numInRle > 0) {
-                if (resultsConsumer.consumeRepeated(offsetIdx, literal, numInRle)) {
-                    numResults += numInRle;
-                }
+                numResults += resultsConsumer.consumeRepeated(offsetIdx, literal, numInRle);
                 offsetIdx += numInRle;
                 currentRunOffset += length;
                 scanDone = true;

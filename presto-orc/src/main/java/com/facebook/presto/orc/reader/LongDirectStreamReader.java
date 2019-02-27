@@ -270,16 +270,21 @@ public class LongDirectStreamReader
         }
 
         @Override
-        public boolean consumeRepeated(int offsetIndex, long value, int count)
+        public int consumeRepeated(int offsetIndex, long value, int count)
         {
-            if (filter != null && !filter.testLong(value)) {
-                return false;
+            if (deterministicFilter && !filter.testLong(value)) {
+                return 0;
             }
 
+            int added = 0;
             for (int i = 0; i < count; i++) {
+                if (!deterministicFilter && filter != null && !filter.testLong(value)) {
+                    continue;
+                }
                 addResult(offsetIndex + i, value);
+                added++;
             }
-            return true;
+            return added;
         }
 
         private void addResult(int offsetIndex, long value)
