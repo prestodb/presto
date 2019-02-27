@@ -466,7 +466,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName, String grantee, boolean withGrantOption)
+    public void checkCanGrantTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal grantee, boolean withGrantOption)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(tableName, "tableName is null");
@@ -483,7 +483,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName, String revokee, boolean grantOptionFor)
+    public void checkCanRevokeTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(tableName, "tableName is null");
