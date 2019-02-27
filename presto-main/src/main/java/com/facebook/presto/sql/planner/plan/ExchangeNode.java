@@ -125,8 +125,24 @@ public class ExchangeNode
                 id,
                 scope,
                 child,
+                Partitioning.create(FIXED_HASH_DISTRIBUTION, partitioningColumns),
+                hashColumn,
+                replicateNullsAndAny);
+    }
+
+    public static ExchangeNode partitionedExchange(PlanNodeId id, Scope scope, PlanNode child, Partitioning partitioning, Optional<Symbol> hashColumn)
+    {
+        return partitionedExchange(id, scope, child, partitioning, hashColumn, false);
+    }
+
+    public static ExchangeNode partitionedExchange(PlanNodeId id, Scope scope, PlanNode child, Partitioning partitioning, Optional<Symbol> hashColumn, boolean replicateNullsAndAny)
+    {
+        return partitionedExchange(
+                id,
+                scope,
+                child,
                 new PartitioningScheme(
-                        Partitioning.create(FIXED_HASH_DISTRIBUTION, partitioningColumns),
+                        partitioning,
                         child.getOutputSymbols(),
                         hashColumn,
                         replicateNullsAndAny,

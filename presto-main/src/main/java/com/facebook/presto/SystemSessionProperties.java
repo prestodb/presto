@@ -58,6 +58,7 @@ public final class SystemSessionProperties
     public static final String DISTRIBUTED_JOIN = "distributed_join";
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
+    public static final String PARTITIONING_PROVIDER_CATALOG = "partitioning_provider_catalog";
     public static final String GROUPED_EXECUTION_FOR_AGGREGATION = "grouped_execution_for_aggregation";
     public static final String DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION = "dynamic_schedule_for_grouped_execution";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
@@ -178,6 +179,11 @@ public final class SystemSessionProperties
                         HASH_PARTITION_COUNT,
                         "Number of partitions for distributed joins and aggregations",
                         queryManagerConfig.getHashPartitionCount(),
+                        false),
+                stringProperty(
+                        PARTITIONING_PROVIDER_CATALOG,
+                        "Name of the catalog providing custom partitioning",
+                        queryManagerConfig.getPartitioningProviderCatalog(),
                         false),
                 booleanProperty(
                         GROUPED_EXECUTION_FOR_AGGREGATION,
@@ -594,6 +600,11 @@ public final class SystemSessionProperties
     public static int getHashPartitionCount(Session session)
     {
         return session.getSystemProperty(HASH_PARTITION_COUNT, Integer.class);
+    }
+
+    public static String getPartitioningProviderCatalog(Session session)
+    {
+        return session.getSystemProperty(PARTITIONING_PROVIDER_CATALOG, String.class);
     }
 
     public static boolean isGroupedExecutionForAggregationEnabled(Session session)

@@ -138,6 +138,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public PartitioningHandle getPartitioningHandleForExchange(Session session, String catalogName, int partitionCount, List<Type> partitionTypes)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Optional<Object> getInfo(Session session, TableLayoutHandle handle)
     {
         throw new UnsupportedOperationException();

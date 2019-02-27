@@ -91,6 +91,11 @@ public interface Metadata
      */
     Optional<PartitioningHandle> getCommonPartitioning(Session session, PartitioningHandle left, PartitioningHandle right);
 
+    /**
+     * Provides partitioning handle for exchange.
+     */
+    PartitioningHandle getPartitioningHandleForExchange(Session session, String catalogName, int partitionCount, List<Type> partitionTypes);
+
     Optional<Object> getInfo(Session session, TableLayoutHandle handle);
 
     /**
