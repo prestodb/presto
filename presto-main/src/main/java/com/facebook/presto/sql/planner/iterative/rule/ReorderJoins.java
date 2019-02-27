@@ -17,7 +17,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.CostProvider;
-import com.facebook.presto.cost.PlanNodeCostEstimate;
+import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
@@ -568,18 +568,18 @@ public class ReorderJoins
     @VisibleForTesting
     static class JoinEnumerationResult
     {
-        public static final JoinEnumerationResult UNKNOWN_COST_RESULT = new JoinEnumerationResult(Optional.empty(), PlanNodeCostEstimate.unknown());
-        public static final JoinEnumerationResult INFINITE_COST_RESULT = new JoinEnumerationResult(Optional.empty(), PlanNodeCostEstimate.infinite());
+        public static final JoinEnumerationResult UNKNOWN_COST_RESULT = new JoinEnumerationResult(Optional.empty(), PlanCostEstimate.unknown());
+        public static final JoinEnumerationResult INFINITE_COST_RESULT = new JoinEnumerationResult(Optional.empty(), PlanCostEstimate.infinite());
 
         private final Optional<PlanNode> planNode;
-        private final PlanNodeCostEstimate cost;
+        private final PlanCostEstimate cost;
 
-        private JoinEnumerationResult(Optional<PlanNode> planNode, PlanNodeCostEstimate cost)
+        private JoinEnumerationResult(Optional<PlanNode> planNode, PlanCostEstimate cost)
         {
             this.planNode = requireNonNull(planNode, "planNode is null");
             this.cost = requireNonNull(cost, "cost is null");
-            checkArgument((cost.hasUnknownComponents() || cost.equals(PlanNodeCostEstimate.infinite())) && !planNode.isPresent()
-                            || (!cost.hasUnknownComponents() || !cost.equals(PlanNodeCostEstimate.infinite())) && planNode.isPresent(),
+            checkArgument((cost.hasUnknownComponents() || cost.equals(PlanCostEstimate.infinite())) && !planNode.isPresent()
+                            || (!cost.hasUnknownComponents() || !cost.equals(PlanCostEstimate.infinite())) && planNode.isPresent(),
                     "planNode should be present if and only if cost is known");
         }
 
@@ -588,17 +588,17 @@ public class ReorderJoins
             return planNode;
         }
 
-        public PlanNodeCostEstimate getCost()
+        public PlanCostEstimate getCost()
         {
             return cost;
         }
 
-        static JoinEnumerationResult createJoinEnumerationResult(Optional<PlanNode> planNode, PlanNodeCostEstimate cost)
+        static JoinEnumerationResult createJoinEnumerationResult(Optional<PlanNode> planNode, PlanCostEstimate cost)
         {
             if (cost.hasUnknownComponents()) {
                 return UNKNOWN_COST_RESULT;
             }
-            if (cost.equals(PlanNodeCostEstimate.infinite())) {
+            if (cost.equals(PlanCostEstimate.infinite())) {
                 return INFINITE_COST_RESULT;
             }
             return new JoinEnumerationResult(planNode, cost);

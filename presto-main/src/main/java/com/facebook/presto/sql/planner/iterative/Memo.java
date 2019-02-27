@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative;
 
-import com.facebook.presto.cost.PlanNodeCostEstimate;
+import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -160,12 +160,12 @@ public class Memo
         group.stats = requireNonNull(stats, "stats is null");
     }
 
-    public Optional<PlanNodeCostEstimate> getCumulativeCost(int group)
+    public Optional<PlanCostEstimate> getCumulativeCost(int group)
     {
         return Optional.ofNullable(getGroup(group).cumulativeCost);
     }
 
-    public void storeCumulativeCost(int group, PlanNodeCostEstimate cost)
+    public void storeCumulativeCost(int group, PlanCostEstimate cost)
     {
         getGroup(group).cumulativeCost = requireNonNull(cost, "cost is null");
     }
@@ -256,7 +256,7 @@ public class Memo
         @Nullable
         private PlanNodeStatsEstimate stats;
         @Nullable
-        private PlanNodeCostEstimate cumulativeCost;
+        private PlanCostEstimate cumulativeCost;
 
         private Group(PlanNode member)
         {
