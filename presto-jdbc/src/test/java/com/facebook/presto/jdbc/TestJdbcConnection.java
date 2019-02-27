@@ -57,6 +57,7 @@ public class TestJdbcConnection
 
         try (Connection connection = createConnection();
                 Statement statement = connection.createStatement()) {
+            statement.execute("SET ROLE admin");
             statement.execute("CREATE SCHEMA default");
             statement.execute("CREATE SCHEMA fruit");
         }
@@ -203,7 +204,7 @@ public class TestJdbcConnection
             throws SQLException
     {
         String url = format("jdbc:presto://%s/hive/default?%s", server.getAddress(), extra);
-        return DriverManager.getConnection(url, "test", null);
+        return DriverManager.getConnection(url, "admin", null);
     }
 
     private static Set<String> listTables(Connection connection)

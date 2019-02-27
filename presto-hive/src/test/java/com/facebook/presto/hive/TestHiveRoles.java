@@ -368,13 +368,13 @@ public class TestHiveRoles
     public void testSetRole()
             throws Exception
     {
-        assertUpdate("CREATE ROLE set_role_1");
-        assertUpdate("CREATE ROLE set_role_2");
-        assertUpdate("CREATE ROLE set_role_3");
-        assertUpdate("CREATE ROLE set_role_4");
-        assertUpdate("GRANT set_role_1 TO USER set_user_1");
-        assertUpdate("GRANT set_role_2 TO ROLE set_role_1");
-        assertUpdate("GRANT set_role_3 TO ROLE set_role_2");
+        executeFromAdmin("CREATE ROLE set_role_1");
+        executeFromAdmin("CREATE ROLE set_role_2");
+        executeFromAdmin("CREATE ROLE set_role_3");
+        executeFromAdmin("CREATE ROLE set_role_4");
+        executeFromAdmin("GRANT set_role_1 TO USER set_user_1");
+        executeFromAdmin("GRANT set_role_2 TO ROLE set_role_1");
+        executeFromAdmin("GRANT set_role_3 TO ROLE set_role_2");
 
         Session unsetRole = Session.builder(getQueryRunner().getDefaultSession())
                 .setIdentity(new Identity("set_user_1", Optional.empty()))
@@ -457,10 +457,10 @@ public class TestHiveRoles
 
         assertQueryFails(setRole4, "SELECT * FROM hive.information_schema.enabled_roles", ".*?Cannot set role set_role_4");
 
-        assertUpdate("DROP ROLE set_role_1");
-        assertUpdate("DROP ROLE set_role_2");
-        assertUpdate("DROP ROLE set_role_3");
-        assertUpdate("DROP ROLE set_role_4");
+        executeFromAdmin("DROP ROLE set_role_1");
+        executeFromAdmin("DROP ROLE set_role_2");
+        executeFromAdmin("DROP ROLE set_role_3");
+        executeFromAdmin("DROP ROLE set_role_4");
     }
 
     private Set<String> listRoles()
@@ -512,7 +512,9 @@ public class TestHiveRoles
 
     private Session createAdminSession()
     {
-        return createUserSession("admin");
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(new Identity("admin", Optional.empty(), ImmutableMap.of("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("admin")))))
+                .build();
     }
 
     private Session createUserSession(String user)

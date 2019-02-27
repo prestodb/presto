@@ -45,6 +45,7 @@ import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import org.apache.hadoop.fs.Path;
@@ -156,15 +157,19 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testSchemaOperations()
     {
-        assertUpdate("CREATE SCHEMA new_schema");
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setIdentity(new Identity("hive", Optional.empty(), ImmutableMap.of("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("admin")))))
+                .build();
 
-        assertUpdate("CREATE TABLE new_schema.test (x bigint)");
+        assertUpdate(admin, "CREATE SCHEMA new_schema");
 
-        assertQueryFails("DROP SCHEMA new_schema", "Schema not empty: new_schema");
+        assertUpdate(admin, "CREATE TABLE new_schema.test (x bigint)");
 
-        assertUpdate("DROP TABLE new_schema.test");
+        assertQueryFails(admin, "DROP SCHEMA new_schema", "Schema not empty: new_schema");
 
-        assertUpdate("DROP SCHEMA new_schema");
+        assertUpdate(admin, "DROP TABLE new_schema.test");
+
+        assertUpdate(admin, "DROP SCHEMA new_schema");
     }
 
     @Test
