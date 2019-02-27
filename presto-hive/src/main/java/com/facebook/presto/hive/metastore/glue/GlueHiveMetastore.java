@@ -784,6 +784,24 @@ public class GlueHiveMetastore
     }
 
     @Override
+    public void createRole(String role, String grantor)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "createRole is not supported by Glue");
+    }
+
+    @Override
+    public void dropRole(String role)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "dropRole is not supported by Glue");
+    }
+
+    @Override
+    public Set<String> listRoles()
+    {
+        return ImmutableSet.of(PUBLIC_ROLE_NAME);
+    }
+
+    @Override
     public Set<String> getRoles(String user)
     {
         // all users belong to public role implicitly

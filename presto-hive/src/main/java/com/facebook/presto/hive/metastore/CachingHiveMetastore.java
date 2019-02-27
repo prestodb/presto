@@ -83,6 +83,7 @@ public class CachingHiveMetastore
     private final LoadingCache<HiveTableName, Optional<List<String>>> partitionNamesCache;
     private final LoadingCache<String, Set<String>> userRolesCache;
     private final LoadingCache<UserTableKey, Set<HivePrivilegeInfo>> userTablePrivileges;
+    private final LoadingCache<String, Set<String>> rolesCache;
 
     @Inject
     public CachingHiveMetastore(@ForCachingHiveMetastore ExtendedHiveMetastore delegate, @ForCachingHiveMetastore ExecutorService executor, HiveClientConfig hiveClientConfig)
@@ -184,10 +185,13 @@ public class CachingHiveMetastore
                 }, executor));
 
         userRolesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
-                .build(asyncReloading(CacheLoader.from(this::loadRoles), executor));
+                .build(asyncReloading(CacheLoader.from(user -> loadRoles(user)), executor));
 
         userTablePrivileges = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
                 .build(asyncReloading(CacheLoader.from(key -> loadTablePrivileges(key.getUser(), key.getDatabase(), key.getTable())), executor));
+
+        rolesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
+                .build(asyncReloading(CacheLoader.from(() -> loadRoles()), executor));
     }
 
     @Managed
@@ -205,6 +209,7 @@ public class CachingHiveMetastore
         tableStatisticsCache.invalidateAll();
         partitionStatisticsCache.invalidateAll();
         userRolesCache.invalidateAll();
+        rolesCache.invalidateAll();
     }
 
     private static <K, V> V get(LoadingCache<K, V> cache, K key)
@@ -610,6 +615,41 @@ public class CachingHiveMetastore
         finally {
             invalidatePartitionCache(databaseName, tableName);
         }
+    }
+
+    @Override
+    public void createRole(String role, String grantor)
+    {
+        try {
+            delegate.createRole(role, grantor);
+        }
+        finally {
+            rolesCache.invalidateAll();
+            userRolesCache.invalidate(grantor);
+        }
+    }
+
+    @Override
+    public void dropRole(String role)
+    {
+        try {
+            delegate.dropRole(role);
+        }
+        finally {
+            rolesCache.invalidateAll();
+            userRolesCache.invalidateAll();
+        }
+    }
+
+    @Override
+    public Set<String> listRoles()
+    {
+        return get(rolesCache, "");
+    }
+
+    private Set<String> loadRoles()
+    {
+        return delegate.listRoles();
     }
 
     private void invalidatePartitionCache(String databaseName, String tableName)
