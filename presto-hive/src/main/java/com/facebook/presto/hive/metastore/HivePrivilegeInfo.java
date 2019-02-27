@@ -22,10 +22,8 @@ import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.concurrent.Immutable;
 
-import java.util.Arrays;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
@@ -110,9 +108,7 @@ public class HivePrivilegeInfo
             case UPDATE:
                 return ImmutableSet.of(new PrivilegeInfo(Privilege.UPDATE, isGrantOption()));
             case OWNERSHIP:
-                return ImmutableSet.copyOf(Arrays.stream(Privilege.values())
-                        .map(privilege -> new PrivilegeInfo(privilege, Boolean.TRUE))
-                        .collect(Collectors.toSet()));
+                return ImmutableSet.of();
             default:
                 throw new IllegalArgumentException("Unsupported hivePrivilege: " + hivePrivilege);
         }
