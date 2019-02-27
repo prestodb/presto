@@ -32,7 +32,7 @@ public class NodeRepresentation
     private final String name;
     private final String type;
     private final String identifier;
-    private final List<Symbol> outputs;
+    private final List<OutputSymbol> outputs;
     private final List<PlanNodeId> children;
     private final List<PlanFragmentId> remoteSources;
     private final Optional<PlanNodeStats> stats;
@@ -46,7 +46,7 @@ public class NodeRepresentation
             String name,
             String type,
             String identifier,
-            List<Symbol> outputs,
+            List<OutputSymbol> outputs,
             Optional<PlanNodeStats> stats,
             List<PlanNodeStatsEstimate> estimatedStats,
             List<PlanCostEstimate> estimatedCost,
@@ -103,7 +103,7 @@ public class NodeRepresentation
         return identifier;
     }
 
-    public List<Symbol> getOutputs()
+    public List<OutputSymbol> getOutputs()
     {
         return outputs;
     }
@@ -136,5 +136,27 @@ public class NodeRepresentation
     public List<PlanCostEstimate> getEstimatedCost()
     {
         return estimatedCost;
+    }
+
+    public static class OutputSymbol
+    {
+        private final Symbol symbol;
+        private final String type;
+
+        public OutputSymbol(Symbol symbol, String type)
+        {
+            this.symbol = symbol;
+            this.type = type;
+        }
+
+        public Symbol getSymbol()
+        {
+            return symbol;
+        }
+
+        public String getType()
+        {
+            return type;
+        }
     }
 }
