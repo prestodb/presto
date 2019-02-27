@@ -180,7 +180,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledTablePrivileges;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledPrincipals;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.hive.util.Statistics.ReduceOperator.ADD;
 import static com.facebook.presto.hive.util.Statistics.createComputedStatisticsToPartitionMap;
@@ -1989,23 +1989,26 @@ public class HiveMetadata
     @Override
     public List<GrantInfo> listTablePrivileges(ConnectorSession session, SchemaTablePrefix schemaTablePrefix)
     {
-        ImmutableList.Builder<GrantInfo> grantInfos = ImmutableList.builder();
+        Set<PrestoPrincipal> principals = listEnabledPrincipals(metastore, session.getIdentity());
+        ImmutableList.Builder<GrantInfo> result = ImmutableList.builder();
         for (SchemaTableName tableName : listTables(session, schemaTablePrefix)) {
-            Set<PrivilegeInfo> privileges =
-                    listEnabledTablePrivileges(metastore, tableName.getSchemaName(), tableName.getTableName(), session.getIdentity()).stream()
-                            .map(HivePrivilegeInfo::toPrivilegeInfo)
-                            .flatMap(Set::stream)
-                            .collect(toImmutableSet());
-
-            grantInfos.add(
-                    new GrantInfo(
-                            privileges,
-                            session.getIdentity(),
-                            tableName,
-                            Optional.empty(), // Can't access grantor
-                            Optional.empty())); // Can't access withHierarchy
+            for (PrestoPrincipal grantee : principals) {
+                Set<HivePrivilegeInfo> hivePrivileges = metastore.listTablePrivileges(tableName.getSchemaName(), tableName.getTableName(), grantee);
+                for (HivePrivilegeInfo hivePrivilege : hivePrivileges) {
+                    Set<PrivilegeInfo> prestoPrivileges = hivePrivilege.toPrivilegeInfo();
+                    for (PrivilegeInfo prestoPrivilege : prestoPrivileges) {
+                        GrantInfo grant = new GrantInfo(
+                                prestoPrivilege,
+                                grantee,
+                                tableName,
+                                Optional.of(hivePrivilege.getGrantor()),
+                                Optional.empty());
+                        result.add(grant);
+                    }
+                }
+            }
         }
-        return grantInfos.build();
+        return result.build();
     }
 
     private void verifyJvmTimeZone()
