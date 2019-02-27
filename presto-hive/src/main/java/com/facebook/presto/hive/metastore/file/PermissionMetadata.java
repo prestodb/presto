@@ -56,6 +56,6 @@ public class PermissionMetadata
 
     public HivePrivilegeInfo toHivePrivilegeInfo()
     {
-        return new HivePrivilegeInfo(permission, grantOption, new PrestoPrincipal(USER, "admin"));
+        return new HivePrivilegeInfo(permission, grantOption, new PrestoPrincipal(USER, "admin"), new PrestoPrincipal(USER, "admin"));
     }
 }
