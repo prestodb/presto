@@ -15,16 +15,18 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.ByteArrayAllocator;
 import com.facebook.presto.spi.block.ConcatenatedByteArrayInputStream;
-import com.facebook.presto.spi.memory.ByteArrayPool;
+import com.facebook.presto.spi.memory.ArrayPool;
+
+import static java.util.Objects.requireNonNull;
 
 public class ExchangeClientByteArrayAllocator
         implements ByteArrayAllocator
 {
-    private ByteArrayPool pool;
+    private final ArrayPool<byte[]> pool;
 
-    public ExchangeClientByteArrayAllocator(ByteArrayPool pool)
+    public ExchangeClientByteArrayAllocator(ArrayPool<byte[]> pool)
     {
-        this.pool = pool;
+        this.pool = requireNonNull(pool, "pool is null");
     }
 
     public ConcatenatedByteArrayInputStream.Allocator toPrestoAllocator()
@@ -35,7 +37,7 @@ public class ExchangeClientByteArrayAllocator
     @Override
     public byte[] allocate(int size)
     {
-        return pool.getBytes(size);
+        return pool.allocate(size);
     }
 
     @Override

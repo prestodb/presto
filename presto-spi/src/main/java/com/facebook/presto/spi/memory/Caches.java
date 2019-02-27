@@ -13,18 +13,83 @@
  */
 package com.facebook.presto.spi.memory;
 
-public class Caches
+import java.util.Arrays;
+
+public final class Caches
 {
-    private static ByteArrayPool byteArrayPool;
+    static final int BOOLEAN_SMALLEST_ARRAY_SIZE = 16;
+    static final int BOOLEAN_LARGEST_ARRAY_SIZE = 64 * 1024;
+    static final long BOOLEAN_POOL_CAPACITY = 1024 * 1024;
+    static final int BYTE_SMALLEST_ARRAY_SIZE = 1024;
+    static final int BYTE_LARGEST_ARRAY_SIZE = 8 * 1024 * 1024;
+    static final long BYTE_POOL_CAPACITY = 2028 * 1024 * 1024;
+
+    private static ArrayPool<byte[]> byteArrayPool;
     private static ByteArrayPoolCacheAdapter byteArrayPoolCacheAdapter;
 
     private Caches() {}
 
-    public static ByteArrayPool getByteArrayPool()
+    private static class BooleanArrayAllocator
+            extends ArrayPool.Allocator<boolean[]>
+    {
+        @Override
+        boolean[] allocate(int size)
+        {
+            return new boolean[size];
+        }
+
+        @Override
+        void initialize(boolean[] array)
+        {
+            Arrays.fill(array, false);
+        }
+
+        @Override
+        int getSize(boolean[] array)
+        {
+            return array.length;
+        }
+    }
+
+    private static class ByteArrayAllocator
+            extends ArrayPool.Allocator<byte[]>
+    {
+        @Override
+        byte[] allocate(int size)
+        {
+            return new byte[size];
+        }
+
+        @Override
+        void initialize(byte[] array)
+        {
+            Arrays.fill(array, (byte) 0);
+        }
+
+        @Override
+        int getSize(byte[] array)
+        {
+            return array.length;
+        }
+    }
+
+    private static ArrayPool<boolean[]> booleanArrayPool;
+
+    public static ArrayPool<boolean[]> getBooleanArrayPool()
+    {
+        synchronized (Caches.class) {
+            if (booleanArrayPool == null) {
+                booleanArrayPool = new ArrayPool(BOOLEAN_SMALLEST_ARRAY_SIZE, BOOLEAN_LARGEST_ARRAY_SIZE, BOOLEAN_POOL_CAPACITY, new BooleanArrayAllocator());
+            }
+        }
+        return booleanArrayPool;
+    }
+
+    public static ArrayPool<byte[]> getByteArrayPool()
     {
         synchronized (Caches.class) {
             if (byteArrayPool == null) {
-                byteArrayPool = new ByteArrayPool(1024, 8 * 1024 * 1024, 2028 * 1024 * 1024);
+                byteArrayPool = new ArrayPool(BYTE_SMALLEST_ARRAY_SIZE, BYTE_LARGEST_ARRAY_SIZE, BYTE_POOL_CAPACITY, new ByteArrayAllocator());
             }
         }
         return byteArrayPool;
@@ -32,7 +97,7 @@ public class Caches
 
     public static CacheAdapter getByteArrayPoolCacheAdapter()
     {
-        ByteArrayPool pool = getByteArrayPool();
+        ArrayPool<byte[]> pool = getByteArrayPool();
         synchronized (Caches.class) {
             if (byteArrayPoolCacheAdapter == null) {
                 byteArrayPoolCacheAdapter = new ByteArrayPoolCacheAdapter(byteArrayPool);

@@ -13,26 +13,28 @@
  */
 package com.facebook.presto.spi.memory;
 
+import static java.util.Objects.requireNonNull;
+
 public class ByteArrayPoolCacheAdapter
         implements CacheAdapter
 {
-    private ByteArrayPool pool;
+    private final ArrayPool<byte[]> pool;
 
-    ByteArrayPoolCacheAdapter(ByteArrayPool pool)
+    ByteArrayPoolCacheAdapter(ArrayPool<byte[]> pool)
     {
-        this.pool = pool;
+        this.pool = requireNonNull(pool, "pool is null");
     }
 
     public static class ByteArrayCacheEntry
             implements CacheEntry
     {
         private final byte[] data;
-        private final ByteArrayPool pool;
+        private final ArrayPool<byte[]> pool;
 
-        public ByteArrayCacheEntry(ByteArrayPool pool, byte[] data)
+        public ByteArrayCacheEntry(ArrayPool<byte[]> pool, byte[] data)
         {
-            this.pool = pool;
-            this.data = data;
+            this.pool = requireNonNull(pool, "pool is null");
+            this.data = requireNonNull(data, "data is null");
         }
 
         @Override
@@ -73,6 +75,6 @@ public class ByteArrayPoolCacheAdapter
 
     public ByteArrayCacheEntry get(long position, int size)
     {
-        return new ByteArrayCacheEntry(pool, pool.getBytes(size));
+        return new ByteArrayCacheEntry(pool, pool.allocate(size));
     }
 }

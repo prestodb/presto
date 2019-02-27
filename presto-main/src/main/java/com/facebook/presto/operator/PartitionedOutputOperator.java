@@ -28,7 +28,7 @@ import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.EncodingState;
 import com.facebook.presto.spi.block.IntArrayAllocator;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.memory.ByteArrayPool;
+import com.facebook.presto.spi.memory.ArrayPool;
 import com.facebook.presto.spi.memory.Caches;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.type.Type;
@@ -324,9 +324,9 @@ public class PartitionedOutputOperator
         BlockEncoding[] encodings;
         Slice topLevelSlice;
         PagesSerde serde;
-        ByteArrayPool pool;
+        private final ArrayPool<byte[]> pool;
 
-        PartitionData(int partition, AtomicLong pagesAdded, AtomicLong rowsAdded, PagesSerde serde, ByteArrayPool pool)
+        PartitionData(int partition, AtomicLong pagesAdded, AtomicLong rowsAdded, PagesSerde serde, ArrayPool<byte[]> pool)
         {
             this.partition = partition;
             this.pagesAdded = pagesAdded;
@@ -343,7 +343,7 @@ public class PartitionedOutputOperator
         private byte[] newBytes(int size)
         {
             if (pool != null) {
-                return pool.getBytes(size);
+                return pool.allocate(size);
             }
             return new byte[size];
         }
@@ -499,7 +499,7 @@ public class PartitionedOutputOperator
         private IntArrayAllocator intArrayAllocator;
         private boolean useAria;
         private boolean recycleBuffers;
-        private ByteArrayPool pool;
+        private ArrayPool<byte[]> pool;
 
         public PagePartitioner(
                 PartitionFunction partitionFunction,

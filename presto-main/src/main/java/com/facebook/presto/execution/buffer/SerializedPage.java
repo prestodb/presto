@@ -14,7 +14,7 @@
 package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.spi.block.ConcatenatedByteArrayInputStream;
-import com.facebook.presto.spi.memory.ByteArrayPool;
+import com.facebook.presto.spi.memory.ArrayPool;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -33,7 +33,7 @@ public class SerializedPage
     private final PageCompression compression;
     private final int positionCount;
     private final int uncompressedSizeInBytes;
-    private ByteArrayPool pool;
+    private ArrayPool<byte[]> pool;
     private final ConcatenatedByteArrayInputStream stream;
     private final long position;
 
@@ -61,7 +61,7 @@ public class SerializedPage
         this.uncompressedSizeInBytes = uncompressedSizeInBytes;
     }
 
-    public void setByteArrayPool(ByteArrayPool pool)
+    public void setByteArrayPool(ArrayPool<byte[]> pool)
     {
         this.pool = pool;
     }
