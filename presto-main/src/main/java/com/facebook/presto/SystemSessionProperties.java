@@ -176,7 +176,7 @@ public final class SystemSessionProperties
                 integerProperty(
                         HASH_PARTITION_COUNT,
                         "Number of partitions for distributed joins and aggregations",
-                        queryManagerConfig.getInitialHashPartitions(),
+                        queryManagerConfig.getHashPartitionCount(),
                         false),
                 booleanProperty(
                         GROUPED_EXECUTION_FOR_AGGREGATION,
