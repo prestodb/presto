@@ -294,6 +294,72 @@ public class TestCostCalculator
     }
 
     @Test
+    public void testMemoryCostJoinAboveJoin()
+    {
+        //      join
+        //     /   \
+        //   ts1    join23
+        //          /    \
+        //        ts2     ts3
+
+        TableScanNode ts1 = tableScan("ts1", "key1");
+        TableScanNode ts2 = tableScan("ts2", "key2");
+        TableScanNode ts3 = tableScan("ts3", "key3");
+        JoinNode join23 = join(
+                "join23",
+                ts2,
+                ts3,
+                JoinNode.DistributionType.PARTITIONED,
+                "key2",
+                "key3");
+        JoinNode join = join(
+                "join",
+                ts1,
+                join23,
+                JoinNode.DistributionType.PARTITIONED,
+                "key1",
+                "key2");
+
+        Map<String, PlanNodeCostEstimate> costs = ImmutableMap.of(
+                "ts1", new PlanNodeCostEstimate(0, 128, 0),
+                "ts2", new PlanNodeCostEstimate(0, 64, 0),
+                "ts3", new PlanNodeCostEstimate(0, 32, 0));
+
+        Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
+                "join", statsEstimate(join, 10_000),
+                "join23", statsEstimate(join23, 2_000),
+                "ts1", statsEstimate(ts1, 10_000),
+                "ts2", statsEstimate(ts2, 1_000),
+                "ts3", statsEstimate(ts3, 100));
+
+        Map<String, Type> types = ImmutableMap.of("key1", BIGINT, "key2", BIGINT, "key3", BIGINT);
+
+        assertCost(join23, costs, stats, types).memory(
+                100 * IS_NULL_OVERHEAD // join23 memory footprint
+                        + 64 + 32); // ts2, ts3 memory footprint
+        assertCost(join, costs, stats, types).memory(
+                2000 * IS_NULL_OVERHEAD // join memory footprint
+                        + 100 * IS_NULL_OVERHEAD // join23 memory footprint
+                        + 128 + 64 + 32); // ts1, ts2, ts3 memory footprint
+
+        assertCostEstimatedExchanges(join23, costs, stats, types).memory(
+                100 * IS_NULL_OVERHEAD // join23 memory footprint
+                        + 64 + 32); // ts2, ts3 memory footprint
+        assertCostEstimatedExchanges(join, costs, stats, types).memory(
+                2000 * IS_NULL_OVERHEAD // join memory footprint
+                        + 100 * IS_NULL_OVERHEAD // join23 memory footprint
+                        + 128 + 64 + 32); // ts1, ts2, ts3 memory footprint
+
+        assertCostFragmentedPlan(join23, costs, stats, types).memory(
+                100 * IS_NULL_OVERHEAD // join23 memory footprint
+                        + 64 + 32); // ts2, ts3 memory footprint
+        assertCostFragmentedPlan(join, costs, stats, types).memory(
+                2000 * IS_NULL_OVERHEAD // join memory footprint
+                        + 100 * IS_NULL_OVERHEAD // join23 memory footprint
+                        + 128 + 64 + 32); // ts1, ts2, ts3 memory footprint
+    }
+
+    @Test
     public void testAggregation()
     {
         TableScanNode tableScan = tableScan("ts", "orderkey");
