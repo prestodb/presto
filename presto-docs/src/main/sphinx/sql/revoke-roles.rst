@@ -12,13 +12,11 @@ Synopsis
     role [, ...]
     FROM ( user | USER user | ROLE role) [, ...]
     [ GRANTED BY ( user | USER user | ROLE role | CURRENT_USER | CURRENT_ROLE ) ]
-    [ IN catalog ]
 
 Description
 -----------
 
-Revokes the specified role(s) from the specified principal(s) in ``catalog`` or
-in the current catalog if ``catalog`` is not specified.
+Revokes the specified role(s) from the specified principal(s) in the current catalog.
 
 If the ``ADMIN OPTION FOR`` clause is specified, the ``GRANT`` permission is
 revoked instead of the role.
@@ -40,10 +38,6 @@ Revoke role ``bar`` from user ``foo`` ::
 Revoke admin option for roles ``bar`` and ``foo`` from user ``baz`` and role ``qux`` ::
 
     REVOKE ADMIN OPTION FOR bar, foo FROM USER baz, ROLE qux;
-
-Revoke role ``bar`` from user ``foo`` in catalog ``baz`` ::
-
-    REVOKE bar FROM USER foo IN baz;
 
 Limitations
 -----------

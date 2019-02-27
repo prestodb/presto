@@ -7,13 +7,12 @@ Synopsis
 
 .. code-block:: none
 
-    SET ROLE ( role | ALL | NONE ) [ IN catalog ]
+    SET ROLE ( role | ALL | NONE )
 
 Description
 -----------
 
-``SET ROLE`` sets the enabled role for the current session in ``catalog``
-or in the current catalog if ``catalog`` is not specified.
+``SET ROLE`` sets the enabled role for the current session in the current catalog.
 
 ``SET ROLE role`` enables a single specified role for the current session.
 For the ``SET ROLE role`` statement to succeed, the user executing it should

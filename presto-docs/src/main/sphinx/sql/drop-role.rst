@@ -7,13 +7,12 @@ Synopsis
 
 .. code-block:: none
 
-    DROP ROLE role_name [ IN catalog ]
+    DROP ROLE role_name
 
 Description
 -----------
 
-``DROP ROLE`` drops the specified role in ``catalog`` or in the
-current catalog if ``catalog`` is not specified.
+``DROP ROLE`` drops the specified role in the current catalog.
 
 For ``DROP ROLE`` statement to succeed, the user executing it should possess
 admin privileges for the given role.
@@ -24,10 +23,6 @@ Examples
 Drop role ``admin`` ::
 
     DROP ROLE admin;
-
-Drop role ``foo`` in catalog ``bar``::
-
-    DROP ROLE foo IN bar;
 
 Limitations
 -----------

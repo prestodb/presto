@@ -9,13 +9,11 @@ Synopsis
 
     CREATE ROLE role_name
     [ WITH ADMIN ( user | USER user | ROLE role | CURRENT_USER | CURRENT_ROLE ) ]
-    [ IN catalog ]
 
 Description
 -----------
 
-``CREATE ROLE`` creates the specified role in ``catalog`` or in the
-current catalog if ``catalog`` is not specified.
+``CREATE ROLE`` creates the specified role in the current catalog.
 
 The optional ``WITH ADMIN`` clause causes the role to be created with
 the specified user as a role admin. A role admin has permission to drop
@@ -32,10 +30,6 @@ Create role ``admin`` ::
 Create role ``moderator`` with admin ``bob``::
 
     CREATE ROLE moderator WITH ADMIN USER bob;
-
-Create role ``foo`` in catalog ``bar``::
-
-    CREATE ROLE foo IN bar;
 
 Limitations
 -----------
