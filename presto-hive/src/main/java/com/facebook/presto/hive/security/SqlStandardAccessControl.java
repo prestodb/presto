@@ -39,9 +39,10 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.toHivePrivilege;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.isRoleApplicable;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.isRoleEnabled;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.listApplicableRoles;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.listApplicableTablePrivileges;
-import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledRoles;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledTablePrivileges;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateRole;
@@ -317,7 +318,7 @@ public class SqlStandardAccessControl
     public void checkCanSetRole(ConnectorTransactionHandle transaction, ConnectorIdentity identity, String role, String catalogName)
     {
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
-        if (!listApplicableRoles(metastore, new PrestoPrincipal(USER, identity.getUser())).contains(role)) {
+        if (!isRoleApplicable(metastore, new PrestoPrincipal(USER, identity.getUser()), role)) {
             denySetRole(role);
         }
     }
@@ -343,7 +344,7 @@ public class SqlStandardAccessControl
     private boolean isAdmin(ConnectorTransactionHandle transaction, ConnectorIdentity identity)
     {
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
-        return listEnabledRoles(identity, metastore::listRoleGrants).contains(ADMIN_ROLE_NAME);
+        return isRoleEnabled(identity, metastore::listRoleGrants, ADMIN_ROLE_NAME);
     }
 
     private boolean isDatabaseOwner(ConnectorTransactionHandle transaction, ConnectorIdentity identity, String databaseName)
@@ -369,7 +370,7 @@ public class SqlStandardAccessControl
         if (database.getOwnerType() == USER && identity.getUser().equals(database.getOwnerName())) {
             return true;
         }
-        if (database.getOwnerType() == ROLE && listEnabledRoles(identity, metastore::listRoleGrants).contains(database.getOwnerName())) {
+        if (database.getOwnerType() == ROLE && isRoleEnabled(identity, metastore::listRoleGrants, database.getOwnerName())) {
             return true;
         }
         return false;
