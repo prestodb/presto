@@ -15,7 +15,7 @@ package com.facebook.presto.spi.block;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.type.TimeZoneKey;
 
 import java.util.Locale;
@@ -42,9 +42,9 @@ public final class TestingSession
         }
 
         @Override
-        public Identity getIdentity()
+        public ConnectorIdentity getIdentity()
         {
-            return new Identity("user", Optional.empty());
+            return new ConnectorIdentity("user", Optional.empty());
         }
 
         @Override
