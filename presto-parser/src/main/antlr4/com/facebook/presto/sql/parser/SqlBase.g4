@@ -76,6 +76,7 @@ statement
         FROM principal (',' principal)*
         (GRANTED BY grantor)?
         (IN catalog=identifier)?                                       #revokeRoles
+    | SET ROLE (ALL | NONE | role=identifier) (IN catalog=identifier)? #setRole
     | GRANT
         (privilege (',' privilege)* | ALL PRIVILEGES)
         ON TABLE? qualifiedName TO grantee=identifier
@@ -497,7 +498,7 @@ nonReserved
     | JSON
     | LAST | LATERAL | LEVEL | LIMIT | LOGICAL
     | MAP | MINUTE | MONTH
-    | NFC | NFD | NFKC | NFKD | NO | NULLIF | NULLS
+    | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
     | ONLY | OPTION | ORDINALITY | OUTPUT | OVER
     | PARTITION | PARTITIONS | PATH | POSITION | PRECEDING | PRIVILEGES | PROPERTIES
     | RANGE | READ | RENAME | REPEATABLE | REPLACE | RESET | RESTRICT | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS
@@ -614,6 +615,7 @@ NFD : 'NFD';
 NFKC : 'NFKC';
 NFKD : 'NFKD';
 NO: 'NO';
+NONE: 'NONE';
 NORMALIZE: 'NORMALIZE';
 NOT: 'NOT';
 NULL: 'NULL';
