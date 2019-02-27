@@ -441,12 +441,6 @@ public class OrcRecordReader
         return block;
     }
 
-    public StreamReader getStreamReader(int index)
-    {
-        checkArgument(index < streamReaders.length, "index does not exist");
-        return streamReaders[index];
-    }
-
     public Map<String, Slice> getUserMetadata()
     {
         return ImmutableMap.copyOf(Maps.transformValues(userMetadata, Slices::copyOf));
@@ -781,7 +775,6 @@ public class OrcRecordReader
     {
         reader.newBatch(numResults);
         numResults = 0;
-        nextRowGroup:
         for (; ; ) {
             if (currentRowGroup == -1 || qualifyingSet == null || (qualifyingSet.isEmpty() && !reader.hasUnfetchedRows())) {
                 if (currentPosition == totalRowCount) {
@@ -798,7 +791,7 @@ public class OrcRecordReader
                 qualifyingSet.setRange((int) currentGroupRowCount);
                 reader.setQualifyingSets(qualifyingSet, null);
                 if (reorderFilters && (currentRowGroup & 0x3) != 0 && currentRowGroup != 0) {
-                    // Reconsider filter order Every 4 row groups.
+                    // Reconsider filter order every 4 row groups.
                     reader.maybeReorderFilters();
                 }
             }

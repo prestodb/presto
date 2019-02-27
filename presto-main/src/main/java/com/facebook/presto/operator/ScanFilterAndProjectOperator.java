@@ -341,7 +341,7 @@ public class ScanFilterAndProjectOperator
 
         PageSourceOptions options = new PageSourceOptions(
                 channels,
-                projectionPushdownChannels == null ? channels : projectionInputChannels,
+                projectionPushdownChannels == null ? channels : projectionPushdownChannels,
                 reusePages,
                 filters,
                 ariaReorderFilters(operatorContext.getSession()),
