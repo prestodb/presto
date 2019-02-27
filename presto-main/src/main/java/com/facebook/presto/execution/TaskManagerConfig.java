@@ -53,6 +53,7 @@ public class TaskManagerConfig
     private Integer initialSplitsPerNode;
     private int minDriversPerTask = 3;
     private int maxDriversPerTask = Integer.MAX_VALUE;
+    private int maxTasksPerStage = Integer.MAX_VALUE;
     private Duration splitConcurrencyAdjustmentInterval = new Duration(100, TimeUnit.MILLISECONDS);
 
     private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
@@ -292,6 +293,20 @@ public class TaskManagerConfig
     public TaskManagerConfig setMinDriversPerTask(int minDriversPerTask)
     {
         this.minDriversPerTask = minDriversPerTask;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxTasksPerStage()
+    {
+        return maxTasksPerStage;
+    }
+
+    @Config("stage.max-tasks-per-stage")
+    @ConfigDescription("Maximum number of tasks for a non source distributed stage")
+    public TaskManagerConfig setMaxTasksPerStage(int maxTasksPerStage)
+    {
+        this.maxTasksPerStage = maxTasksPerStage;
         return this;
     }
 

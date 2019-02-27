@@ -46,6 +46,7 @@ import java.util.function.ToIntFunction;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.SystemSessionProperties.getMaxTasksPerStage;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -143,7 +144,7 @@ public class NodePartitioningManager
         }
         else {
             bucketToNode = createArbitraryBucketToNode(
-                    nodeScheduler.createNodeSelector(connectorId).allNodes(),
+                    nodeScheduler.createNodeSelector(connectorId).selectRandomNodes(getMaxTasksPerStage(session)),
                     connectorBucketNodeMap.getBucketCount());
         }
 
@@ -182,7 +183,7 @@ public class NodePartitioningManager
         return new FixedBucketNodeMap(
                 getSplitToBucket(session, partitioningHandle),
                 createArbitraryBucketToNode(
-                        new ArrayList<>(nodeScheduler.createNodeSelector(partitioningHandle.getConnectorId().get()).allNodes()),
+                        new ArrayList<>(nodeScheduler.createNodeSelector(partitioningHandle.getConnectorId().get()).selectRandomNodes(getMaxTasksPerStage(session))),
                         connectorBucketNodeMap.getBucketCount()));
     }
 
