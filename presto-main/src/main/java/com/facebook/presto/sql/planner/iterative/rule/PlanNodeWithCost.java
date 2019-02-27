@@ -14,7 +14,7 @@
 
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.cost.PlanNodeCostEstimate;
+import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import static java.util.Objects.requireNonNull;
@@ -22,9 +22,9 @@ import static java.util.Objects.requireNonNull;
 public class PlanNodeWithCost
 {
     private final PlanNode planNode;
-    private final PlanNodeCostEstimate cost;
+    private final PlanCostEstimate cost;
 
-    public PlanNodeWithCost(PlanNodeCostEstimate cost, PlanNode planNode)
+    public PlanNodeWithCost(PlanCostEstimate cost, PlanNode planNode)
     {
         this.cost = requireNonNull(cost, "cost is null");
         this.planNode = requireNonNull(planNode, "planNode is null");
@@ -35,7 +35,7 @@ public class PlanNodeWithCost
         return planNode;
     }
 
-    public PlanNodeCostEstimate getCost()
+    public PlanCostEstimate getCost()
     {
         return cost;
     }

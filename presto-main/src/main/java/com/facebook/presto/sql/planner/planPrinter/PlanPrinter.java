@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.cost.PlanNodeCostEstimate;
+import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.StageInfo;
@@ -1168,8 +1168,8 @@ public class PlanPrinter
             List<PlanNodeStatsEstimate> estimatedStats = allNodes.stream()
                     .map(nodeId -> estimatedStatsAndCosts.getStats().getOrDefault(nodeId, PlanNodeStatsEstimate.unknown()))
                     .collect(toList());
-            List<PlanNodeCostEstimate> estimatedCosts = allNodes.stream()
-                    .map(nodeId -> estimatedStatsAndCosts.getCosts().getOrDefault(nodeId, PlanNodeCostEstimate.unknown()))
+            List<PlanCostEstimate> estimatedCosts = allNodes.stream()
+                    .map(nodeId -> estimatedStatsAndCosts.getCosts().getOrDefault(nodeId, PlanCostEstimate.unknown()))
                     .collect(toList());
 
             NodeRepresentation nodeOutput = new NodeRepresentation(

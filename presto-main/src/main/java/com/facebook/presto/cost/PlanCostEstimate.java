@@ -24,43 +24,43 @@ import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Double.isNaN;
 
-public final class PlanNodeCostEstimate
+public final class PlanCostEstimate
 {
-    private static final PlanNodeCostEstimate INFINITE = new PlanNodeCostEstimate(POSITIVE_INFINITY, POSITIVE_INFINITY, POSITIVE_INFINITY);
-    private static final PlanNodeCostEstimate UNKNOWN = new PlanNodeCostEstimate(NaN, NaN, NaN);
-    private static final PlanNodeCostEstimate ZERO = new PlanNodeCostEstimate(0, 0, 0);
+    private static final PlanCostEstimate INFINITE = new PlanCostEstimate(POSITIVE_INFINITY, POSITIVE_INFINITY, POSITIVE_INFINITY);
+    private static final PlanCostEstimate UNKNOWN = new PlanCostEstimate(NaN, NaN, NaN);
+    private static final PlanCostEstimate ZERO = new PlanCostEstimate(0, 0, 0);
 
     private final double cpuCost;
     private final double memoryCost;
     private final double networkCost;
 
-    public static PlanNodeCostEstimate infinite()
+    public static PlanCostEstimate infinite()
     {
         return INFINITE;
     }
 
-    public static PlanNodeCostEstimate unknown()
+    public static PlanCostEstimate unknown()
     {
         return UNKNOWN;
     }
 
-    public static PlanNodeCostEstimate zero()
+    public static PlanCostEstimate zero()
     {
         return ZERO;
     }
 
-    public static PlanNodeCostEstimate cpuCost(double cpuCost)
+    public static PlanCostEstimate cpuCost(double cpuCost)
     {
-        return new PlanNodeCostEstimate(cpuCost, 0, 0);
+        return new PlanCostEstimate(cpuCost, 0, 0);
     }
 
-    public static PlanNodeCostEstimate networkCost(double networkCost)
+    public static PlanCostEstimate networkCost(double networkCost)
     {
-        return new PlanNodeCostEstimate(0, 0, networkCost);
+        return new PlanCostEstimate(0, 0, networkCost);
     }
 
     @JsonCreator
-    public PlanNodeCostEstimate(
+    public PlanCostEstimate(
             @JsonProperty("cpuCost") double cpuCost,
             @JsonProperty("memoryCost") double memoryCost,
             @JsonProperty("networkCost") double networkCost)
@@ -127,7 +127,7 @@ public final class PlanNodeCostEstimate
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        PlanNodeCostEstimate that = (PlanNodeCostEstimate) o;
+        PlanCostEstimate that = (PlanCostEstimate) o;
         return Double.compare(that.cpuCost, cpuCost) == 0 &&
                 Double.compare(that.memoryCost, memoryCost) == 0 &&
                 Double.compare(that.networkCost, networkCost) == 0;
@@ -139,9 +139,9 @@ public final class PlanNodeCostEstimate
         return Objects.hash(cpuCost, memoryCost, networkCost);
     }
 
-    public PlanNodeCostEstimate add(PlanNodeCostEstimate other)
+    public PlanCostEstimate add(PlanCostEstimate other)
     {
-        return new PlanNodeCostEstimate(
+        return new PlanCostEstimate(
                 cpuCost + other.cpuCost,
                 memoryCost + other.memoryCost,
                 networkCost + other.networkCost);

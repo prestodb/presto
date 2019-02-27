@@ -19,7 +19,7 @@ import com.facebook.presto.cost.CachingCostProvider;
 import com.facebook.presto.cost.CachingStatsProvider;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.CostProvider;
-import com.facebook.presto.cost.PlanNodeCostEstimate;
+import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -103,7 +103,7 @@ public class TestJoinEnumerator
                 createContext());
         JoinEnumerationResult actual = joinEnumerator.createJoinAccordingToPartitioning(multiJoinNode.getSources(), multiJoinNode.getOutputSymbols(), ImmutableSet.of(0));
         assertFalse(actual.getPlanNode().isPresent());
-        assertEquals(actual.getCost(), PlanNodeCostEstimate.infinite());
+        assertEquals(actual.getCost(), PlanCostEstimate.infinite());
     }
 
     private Rule.Context createContext()

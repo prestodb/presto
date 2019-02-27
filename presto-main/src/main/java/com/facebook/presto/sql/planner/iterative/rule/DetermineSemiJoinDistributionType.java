@@ -28,7 +28,7 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.cost.CostComparator;
-import com.facebook.presto.cost.PlanNodeCostEstimate;
+import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.cost.TaskCountEstimator;
@@ -150,7 +150,7 @@ public class DetermineSemiJoinDistributionType
          */
 
         int estimatedSourceDistributedTaskCount = taskCountEstimator.estimateSourceDistributedTaskCount();
-        PlanNodeCostEstimate cost = calculateJoinCostWithoutOutput(
+        PlanCostEstimate cost = calculateJoinCostWithoutOutput(
                 possibleJoinNode.getSource(),
                 possibleJoinNode.getFilteringSource(),
                 stats,

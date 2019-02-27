@@ -46,13 +46,13 @@ public class CostComparator
         this.networkWeight = networkWeight;
     }
 
-    public Ordering<PlanNodeCostEstimate> forSession(Session session)
+    public Ordering<PlanCostEstimate> forSession(Session session)
     {
         requireNonNull(session, "session is null");
         return Ordering.from((left, right) -> this.compare(session, left, right));
     }
 
-    public int compare(Session session, PlanNodeCostEstimate left, PlanNodeCostEstimate right)
+    public int compare(Session session, PlanCostEstimate left, PlanCostEstimate right)
     {
         requireNonNull(session, "session is null");
         requireNonNull(left, "left is null");

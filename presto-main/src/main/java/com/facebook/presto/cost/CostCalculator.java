@@ -36,7 +36,7 @@ public interface CostCalculator
      * @param node The node to compute cost for.
      * @param stats The stats provider for node's stats and child nodes' stats, to be used if stats are needed to compute cost for the {@code node}
      */
-    PlanNodeCostEstimate calculateCost(
+    PlanCostEstimate calculateCost(
             PlanNode node,
             StatsProvider stats,
             Session session,

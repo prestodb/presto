@@ -69,9 +69,9 @@ public class TestCostComparator
     {
         CostComparator costComparator = new CostComparator(1.0, 1.0, 1.0);
         Session session = testSessionBuilder().build();
-        assertThrows(IllegalArgumentException.class, () -> costComparator.compare(session, PlanNodeCostEstimate.zero(), PlanNodeCostEstimate.unknown()));
-        assertThrows(IllegalArgumentException.class, () -> costComparator.compare(session, PlanNodeCostEstimate.unknown(), PlanNodeCostEstimate.zero()));
-        assertThrows(IllegalArgumentException.class, () -> costComparator.compare(session, PlanNodeCostEstimate.unknown(), PlanNodeCostEstimate.unknown()));
+        assertThrows(IllegalArgumentException.class, () -> costComparator.compare(session, PlanCostEstimate.zero(), PlanCostEstimate.unknown()));
+        assertThrows(IllegalArgumentException.class, () -> costComparator.compare(session, PlanCostEstimate.unknown(), PlanCostEstimate.zero()));
+        assertThrows(IllegalArgumentException.class, () -> costComparator.compare(session, PlanCostEstimate.unknown(), PlanCostEstimate.unknown()));
     }
 
     private static class CostComparisonAssertion
@@ -79,8 +79,8 @@ public class TestCostComparator
         private final CostComparator costComparator;
         private final Session session = testSessionBuilder().build();
 
-        private PlanNodeCostEstimate smaller;
-        private PlanNodeCostEstimate larger;
+        private PlanCostEstimate smaller;
+        private PlanCostEstimate larger;
 
         public CostComparisonAssertion(double cpuWeight, double memoryWeight, double networkWeight)
         {
@@ -98,14 +98,14 @@ public class TestCostComparator
         public CostComparisonAssertion smaller(double cpu, double memory, double network)
         {
             checkState(smaller == null, "already set");
-            smaller = new PlanNodeCostEstimate(cpu, memory, network);
+            smaller = new PlanCostEstimate(cpu, memory, network);
             return this;
         }
 
         public CostComparisonAssertion larger(double cpu, double memory, double network)
         {
             checkState(larger == null, "already set");
-            larger = new PlanNodeCostEstimate(cpu, memory, network);
+            larger = new PlanCostEstimate(cpu, memory, network);
             return this;
         }
     }
