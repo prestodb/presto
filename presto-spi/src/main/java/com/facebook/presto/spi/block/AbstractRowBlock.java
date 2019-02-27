@@ -115,7 +115,8 @@ public abstract class AbstractRowBlock
 
         int usedPositionCount = 0;
         boolean[] fieldPositions = new boolean[getRawFieldBlocks()[0].getPositionCount()];
-        for (int i = 0; i < positions.length; i++) {
+        int end = Math.min(positions.length, getPositionCount());
+        for (int i = 0; i < end; i++) {
             if (positions[i]) {
                 usedPositionCount++;
                 int startFieldBlockOffset = getFieldBlockOffset(i);

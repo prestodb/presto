@@ -177,7 +177,8 @@ public abstract class AbstractMapBlock
         boolean[] entryPositions = new boolean[getRawKeyBlock().getPositionCount()];
         int usedEntryCount = 0;
         int usedPositionCount = 0;
-        for (int i = 0; i < positions.length; ++i) {
+        int end = Math.min(positionCount, positions.length);
+        for (int i = 0; i < end; ++i) {
             if (positions[i]) {
                 usedPositionCount++;
                 int entriesStart = getOffsets()[getOffsetBase() + i];

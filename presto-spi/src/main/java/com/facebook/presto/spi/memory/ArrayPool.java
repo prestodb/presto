@@ -40,6 +40,7 @@ public class ArrayPool<T>
     {
         private static final int INITIAL_SIZE = 10;
         private long[] longs = new long[INITIAL_SIZE];
+
         private int size;
 
         void add(long value)

@@ -51,7 +51,7 @@ final class BlockUtil
 
     static void checkValidPositions(boolean[] positions, int positionCount)
     {
-        if (positions.length != positionCount) {
+        if (positions.length < positionCount) {
             throw new IllegalArgumentException(format("Invalid positions array size %d, actual position count is %d", positions.length, positionCount));
         }
     }

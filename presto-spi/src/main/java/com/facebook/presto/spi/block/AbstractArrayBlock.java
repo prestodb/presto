@@ -110,7 +110,8 @@ public abstract class AbstractArrayBlock
         checkValidPositions(positions, getPositionCount());
         boolean[] used = new boolean[getRawElementBlock().getPositionCount()];
         int usedPositionCount = 0;
-        for (int i = 0; i < positions.length; ++i) {
+        int end = Math.min(positions.length, getPositionCount());
+        for (int i = 0; i < end; ++i) {
             if (positions[i]) {
                 usedPositionCount++;
                 int valueStart = getOffsets()[getOffsetBase() + i];
