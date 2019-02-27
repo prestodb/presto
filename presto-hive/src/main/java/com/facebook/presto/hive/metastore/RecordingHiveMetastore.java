@@ -18,6 +18,8 @@ import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -76,6 +78,7 @@ public class RecordingHiveMetastore
     private final Cache<UserDatabaseKey, Set<HivePrivilegeInfo>> databasePrivilegesCache;
     private final Cache<UserTableKey, Set<HivePrivilegeInfo>> tablePrivilegesCache;
     private final Cache<String, Set<String>> listRolesCache;
+    private final Cache<PrestoPrincipal, Set<RoleGrant>> listRoleGrantsCache;
 
     @Inject
     public RecordingHiveMetastore(@ForRecordingHiveMetastore ExtendedHiveMetastore delegate, HiveClientConfig hiveClientConfig)
@@ -101,6 +104,7 @@ public class RecordingHiveMetastore
         databasePrivilegesCache = createCache(hiveClientConfig);
         tablePrivilegesCache = createCache(hiveClientConfig);
         listRolesCache = createCache(hiveClientConfig);
+        listRoleGrantsCache = createCache(hiveClientConfig);
 
         if (replay) {
             loadRecording();
@@ -129,6 +133,7 @@ public class RecordingHiveMetastore
         databasePrivilegesCache.putAll(toMap(recording.getDatabasePrivileges()));
         tablePrivilegesCache.putAll(toMap(recording.getTablePrivileges()));
         listRolesCache.putAll(toMap(recording.getListRoles()));
+        listRoleGrantsCache.putAll(toMap(recording.getListRoleGrants()));
     }
 
     private static <K, V> Cache<K, V> createCache(HiveClientConfig hiveClientConfig)
@@ -167,7 +172,8 @@ public class RecordingHiveMetastore
                 toPairs(rolesCache),
                 toPairs(databasePrivilegesCache),
                 toPairs(tablePrivilegesCache),
-                toPairs(listRolesCache));
+                toPairs(listRolesCache),
+                toPairs(listRoleGrantsCache));
         new ObjectMapperProvider().get()
                 .writerWithDefaultPrettyPrinter()
                 .writeValue(new File(recordingPath), recording);
@@ -455,6 +461,29 @@ public class RecordingHiveMetastore
                 () -> delegate.listRoles());
     }
 
+    @Override
+    public void grantRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor)
+    {
+        verifyRecordingMode();
+        delegate.grantRoles(roles, grantees, withAdminOption, grantor);
+    }
+
+    @Override
+    public void revokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor)
+    {
+        verifyRecordingMode();
+        delegate.revokeRoles(roles, grantees, adminOptionFor, grantor);
+    }
+
+    @Override
+    public Set<RoleGrant> listRoleGrants(PrestoPrincipal principal)
+    {
+        return loadValue(
+                listRoleGrantsCache,
+                principal,
+                () -> delegate.listRoleGrants(principal));
+    }
+
     private <K, V> V loadValue(Cache<K, V> cache, K key, Supplier<V> valueSupplier)
     {
         if (replay) {
@@ -493,6 +522,7 @@ public class RecordingHiveMetastore
         private final List<Pair<UserDatabaseKey, Set<HivePrivilegeInfo>>> databasePrivileges;
         private final List<Pair<UserTableKey, Set<HivePrivilegeInfo>>> tablePrivileges;
         private final List<Pair<String, Set<String>>> listRoles;
+        private final List<Pair<PrestoPrincipal, Set<RoleGrant>>> listRoleGrants;
 
         @JsonCreator
         public Recording(
@@ -511,7 +541,8 @@ public class RecordingHiveMetastore
                 @JsonProperty("roles") List<Pair<String, Set<String>>> roles,
                 @JsonProperty("databasePrivileges") List<Pair<UserDatabaseKey, Set<HivePrivilegeInfo>>> databasePrivileges,
                 @JsonProperty("tablePrivileges") List<Pair<UserTableKey, Set<HivePrivilegeInfo>>> tablePrivileges,
-                @JsonProperty("listRoles") List<Pair<String, Set<String>>> listRoles)
+                @JsonProperty("listRoles") List<Pair<String, Set<String>>> listRoles,
+                @JsonProperty("listRoleGrants") List<Pair<PrestoPrincipal, Set<RoleGrant>>> listRoleGrants)
         {
             this.allDatabases = allDatabases;
             this.databases = databases;
@@ -529,6 +560,7 @@ public class RecordingHiveMetastore
             this.databasePrivileges = databasePrivileges;
             this.tablePrivileges = tablePrivileges;
             this.listRoles = listRoles;
+            this.listRoleGrants = listRoleGrants;
         }
 
         @JsonProperty
@@ -625,6 +657,12 @@ public class RecordingHiveMetastore
         public List<Pair<String, Set<String>>> getListRoles()
         {
             return listRoles;
+        }
+
+        @JsonProperty
+        public List<Pair<PrestoPrincipal, Set<RoleGrant>>> getListRoleGrants()
+        {
+            return listRoleGrants;
         }
     }
 

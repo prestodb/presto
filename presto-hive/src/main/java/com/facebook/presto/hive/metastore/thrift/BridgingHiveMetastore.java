@@ -27,6 +27,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
@@ -307,6 +309,24 @@ public class BridgingHiveMetastore
     public Set<String> listRoles()
     {
         return delegate.listRoles();
+    }
+
+    @Override
+    public void grantRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor)
+    {
+        delegate.grantRoles(roles, grantees, withAdminOption, grantor);
+    }
+
+    @Override
+    public void revokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor)
+    {
+        delegate.revokeRoles(roles, grantees, adminOptionFor, grantor);
+    }
+
+    @Override
+    public Set<RoleGrant> listRoleGrants(PrestoPrincipal principal)
+    {
+        return delegate.listRoleGrants(principal);
     }
 
     @Override

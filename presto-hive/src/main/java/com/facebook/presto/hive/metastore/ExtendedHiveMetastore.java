@@ -15,6 +15,8 @@ package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.PartitionStatistics;
+import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.facebook.presto.spi.type.Type;
 
@@ -90,6 +92,12 @@ public interface ExtendedHiveMetastore
     void dropRole(String role);
 
     Set<String> listRoles();
+
+    void grantRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor);
+
+    void revokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor);
+
+    Set<RoleGrant> listRoleGrants(PrestoPrincipal principal);
 
     Set<String> getRoles(String user);
 
