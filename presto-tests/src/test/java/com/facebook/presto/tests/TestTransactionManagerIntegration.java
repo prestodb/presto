@@ -38,13 +38,6 @@ public class TestTransactionManagerIntegration
             assertThatThrownBy(() -> queryRunner.execute("select regionkey from nation group by regionkey having 'wrong_condition'"))
                     .isInstanceOf(RuntimeException.class);
             assertTrue(queryRunner.getTransactionManager().getAllTransactionInfos().isEmpty());
-            // test query that fails during plan
-            assertThatThrownBy(() -> queryRunner.execute("select 1/0"))
-                    .isInstanceOf(RuntimeException.class);
-            // test query that fails during execution
-            assertThatThrownBy(() -> queryRunner.execute("select regionkey / (regionkey - regionkey) from nation"))
-                    .isInstanceOf(RuntimeException.class);
-            assertTrue(queryRunner.getTransactionManager().getAllTransactionInfos().isEmpty());
         }
     }
 }
