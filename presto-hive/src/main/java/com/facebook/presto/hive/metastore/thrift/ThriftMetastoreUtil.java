@@ -69,6 +69,7 @@ import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -91,6 +92,11 @@ import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDeci
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createStringColumnStatistics;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
 import static com.facebook.presto.spi.security.PrincipalType.ROLE;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE;
@@ -115,8 +121,10 @@ import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.Math.round;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.binaryStats;
@@ -643,6 +651,30 @@ public final class ThriftMetastoreUtil
         }
 
         return sd;
+    }
+
+    public static Set<HivePrivilegeInfo> parsePrivilege(PrivilegeGrantInfo userGrant)
+    {
+        boolean withGrantOption = userGrant.isGrantOption();
+        String name = userGrant.getPrivilege().toUpperCase(ENGLISH);
+        switch (name) {
+            case "ALL":
+                return Arrays.stream(HivePrivilegeInfo.HivePrivilege.values())
+                        .map(hivePrivilege -> new HivePrivilegeInfo(hivePrivilege, withGrantOption))
+                        .collect(toImmutableSet());
+            case "SELECT":
+                return ImmutableSet.of(new HivePrivilegeInfo(SELECT, withGrantOption));
+            case "INSERT":
+                return ImmutableSet.of(new HivePrivilegeInfo(INSERT, withGrantOption));
+            case "UPDATE":
+                return ImmutableSet.of(new HivePrivilegeInfo(UPDATE, withGrantOption));
+            case "DELETE":
+                return ImmutableSet.of(new HivePrivilegeInfo(DELETE, withGrantOption));
+            case "OWNERSHIP":
+                return ImmutableSet.of(new HivePrivilegeInfo(OWNERSHIP, withGrantOption));
+            default:
+                throw new IllegalArgumentException("Unsupported privilege name: " + name);
+        }
     }
 
     public static HiveBasicStatistics getHiveBasicStatistics(Map<String, String> parameters)
