@@ -52,7 +52,6 @@ import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
-import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -66,13 +65,16 @@ public class SliceDictionaryStreamReader
     // add one extra entry for null after strip/rowGroup dictionary
     private static final int[] EMPTY_DICTIONARY_OFFSETS = new int[2];
 
+    private static final byte FILTER_NOT_EVALUATED = 0;
+    private static final byte FILTER_PASSED = 1;
+    private static final byte FILTER_FAILED = 2;
+
     private final StreamDescriptor streamDescriptor;
 
     private int readOffset;
     private int nextBatchSize;
 
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
-    private boolean[] isNullVector = new boolean[0];
 
     private InputStreamSource<ByteArrayInputStream> stripeDictionaryDataStreamSource = missingStreamSource(ByteArrayInputStream.class);
     private boolean stripeDictionaryOpen;
@@ -89,7 +91,9 @@ public class SliceDictionaryStreamReader
     private InputStreamSource<BooleanInputStream> inDictionaryStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
     private BooleanInputStream inDictionaryStream;
-    private boolean[] inDictionaryVector = new boolean[0];
+
+    // An indicator per dictionary value of whether the filter has been evaluated and what was the result
+    private byte[] filterResults;
 
     private InputStreamSource<ByteArrayInputStream> rowGroupDictionaryDataStreamSource = missingStreamSource(ByteArrayInputStream.class);
 
@@ -206,6 +210,15 @@ public class SliceDictionaryStreamReader
             isNullVector[positionCount - 1] = true;
             dictionaryOffsets[positionCount] = dictionaryOffsets[positionCount - 1];
             dictionaryBlock = new VariableWidthBlock(positionCount, wrappedBuffer(dictionaryData), dictionaryOffsets, Optional.of(isNullVector));
+            if (deterministicFilter) {
+                if (filterResults == null || filterResults.length < positionCount) {
+                    filterResults = new byte[positionCount];
+                    // the default values are zeros which means FILTER_NOT_EVALUATED
+                }
+                else {
+                    Arrays.fill(filterResults, FILTER_NOT_EVALUATED);
+                }
+            }
             currentDictionaryData = dictionaryData;
         }
     }
@@ -391,14 +404,12 @@ public class SliceDictionaryStreamReader
     public void close()
     {
         systemMemoryContext.close();
-        isNullVector = null;
-        inDictionaryVector = null;
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + sizeOf(isNullVector) + sizeOf(inDictionaryVector);
+        return INSTANCE_SIZE;
     }
 
     @Override
@@ -490,13 +501,22 @@ public class SliceDictionaryStreamReader
             }
         }
 
-        boolean test(long value)
+        private boolean test(long value)
         {
-            if (filter == null) {
-                return true;
-            }
-            // TODO Test value only once
             int dictionaryPosition = toIntExact(value);
+            if (!deterministicFilter) {
+                return evaluateFilter(dictionaryPosition);
+            }
+
+            if (filterResults[dictionaryPosition] == FILTER_NOT_EVALUATED) {
+                filterResults[dictionaryPosition] = evaluateFilter(dictionaryPosition) ? FILTER_PASSED : FILTER_FAILED;
+            }
+
+            return filterResults[dictionaryPosition] == FILTER_PASSED;
+        }
+
+        private boolean evaluateFilter(int dictionaryPosition)
+        {
             Slice slice = dictionaryBlock.getSlice(dictionaryPosition, 0, dictionaryBlock.getSliceLength(dictionaryPosition));
             return filter.testBytes(slice.getBytes(), 0, slice.length());
         }
@@ -516,7 +536,7 @@ public class SliceDictionaryStreamReader
                 throws IOException
         {
             int intValue = adjustValue(value);
-            if (!test(intValue)) {
+            if (filter != null && !test(intValue)) {
                 return false;
             }
 
@@ -525,18 +545,23 @@ public class SliceDictionaryStreamReader
         }
 
         @Override
-        public boolean consumeRepeated(int offsetIndex, long value, int count)
+        public int consumeRepeated(int offsetIndex, long value, int count)
                 throws IOException
         {
             int intValue = adjustValue(value);
-            if (!test(intValue)) {
-                return false;
+            if (filter != null && deterministicFilter && !test(intValue)) {
+                return 0;
             }
 
+            int added = 0;
             for (int i = 0; i < count; i++) {
+                if (filter != null && !deterministicFilter && !test(intValue)) {
+                    continue;
+                }
                 addResult(offsetIndex + i, intValue);
+                added++;
             }
-            return true;
+            return added;
         }
 
         private void addResult(int offsetIndex, int value)
