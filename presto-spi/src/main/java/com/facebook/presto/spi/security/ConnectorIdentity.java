@@ -14,7 +14,6 @@
 package com.facebook.presto.spi.security;
 
 import java.security.Principal;
-import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -50,21 +49,15 @@ public class ConnectorIdentity
     @Override
     public boolean equals(Object o)
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        ConnectorIdentity that = (ConnectorIdentity) o;
-        return Objects.equals(user, that.user) &&
-                Objects.equals(principal, that.principal);
+        // TODO: remove equals completely after a few months
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(user, principal);
+        // TODO remove hashCode completely after a few months
+        throw new UnsupportedOperationException();
     }
 
     @Override
