@@ -243,4 +243,10 @@ public interface AccessControl
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanSetRole(TransactionId requiredTransactionId, Identity identity, String role, String catalog);
+
+    /**
+     * Check if identity is allowed to show roles on the specified catalog.
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanShowRoles(TransactionId transactionId, Identity identity, String catalogName);
 }
