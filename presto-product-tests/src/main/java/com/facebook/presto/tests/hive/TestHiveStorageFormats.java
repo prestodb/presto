@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests.hive;
 
+import com.facebook.presto.tests.utils.JdbcDriverUtils;
 import com.google.common.collect.ImmutableMap;
 import io.prestodb.tempto.ProductTest;
 import io.prestodb.tempto.assertions.QueryAssert.Row;
@@ -64,6 +65,8 @@ public class TestHiveStorageFormats
     @Test(dataProvider = "storage_formats", groups = {STORAGE_FORMATS})
     public void testInsertIntoTable(StorageFormat storageFormat)
     {
+        // only admin user is allowed to change session properties
+        setRole("admin");
         setSessionProperties(storageFormat);
 
         String tableName = "storage_formats_test_insert_into_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
@@ -105,6 +108,8 @@ public class TestHiveStorageFormats
     @Test(dataProvider = "storage_formats", groups = {STORAGE_FORMATS})
     public void testCreateTableAs(StorageFormat storageFormat)
     {
+        // only admin user is allowed to change session properties
+        setRole("admin");
         setSessionProperties(storageFormat);
 
         String tableName = "storage_formats_test_create_table_as_select_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
@@ -129,6 +134,8 @@ public class TestHiveStorageFormats
     @Test(dataProvider = "storage_formats", groups = {STORAGE_FORMATS})
     public void testInsertIntoPartitionedTable(StorageFormat storageFormat)
     {
+        // only admin user is allowed to change session properties
+        setRole("admin");
         setSessionProperties(storageFormat);
 
         String tableName = "storage_formats_test_insert_into_partitioned_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
@@ -170,6 +177,8 @@ public class TestHiveStorageFormats
     @Test(dataProvider = "storage_formats", groups = {STORAGE_FORMATS})
     public void testCreatePartitionedTableAs(StorageFormat storageFormat)
     {
+        // only admin user is allowed to change session properties
+        setRole("admin");
         setSessionProperties(storageFormat);
 
         String tableName = "storage_formats_test_create_table_as_select_partitioned_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
@@ -223,6 +232,17 @@ public class TestHiveStorageFormats
         assertThat(actual)
                 .hasColumns(expected.getColumnTypes())
                 .containsExactly(expectedRows);
+    }
+
+    private static void setRole(String role)
+    {
+        Connection connection = defaultQueryExecutor().getConnection();
+        try {
+            JdbcDriverUtils.setRole(connection, role);
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static void setSessionProperties(StorageFormat storageFormat)
