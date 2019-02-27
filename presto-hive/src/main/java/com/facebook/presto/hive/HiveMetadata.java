@@ -1759,6 +1759,17 @@ public class HiveMetadata
                 hiveLayoutHandle.getBucketFilter());
     }
 
+    @Override
+    public ConnectorPartitioningHandle getPartitioningHandleForExchange(ConnectorSession session, int partitionCount, List<Type> partitionTypes)
+    {
+        return new HivePartitioningHandle(
+                partitionCount,
+                partitionTypes.stream()
+                        .map(type -> toHiveType(typeTranslator, type))
+                        .collect(toImmutableList()),
+                OptionalInt.empty());
+    }
+
     @VisibleForTesting
     static TupleDomain<ColumnHandle> createPredicate(List<ColumnHandle> partitionColumns, List<HivePartition> partitions)
     {

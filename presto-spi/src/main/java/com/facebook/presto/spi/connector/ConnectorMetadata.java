@@ -39,6 +39,7 @@ import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
+import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -130,6 +131,14 @@ public interface ConnectorMetadata
             return Optional.of(left);
         }
         return Optional.empty();
+    }
+
+    /**
+     * Provides partitioning handle for exchange.
+     */
+    default ConnectorPartitioningHandle getPartitioningHandleForExchange(ConnectorSession session, int partitionCount, List<Type> partitionTypes)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support custom partitioning");
     }
 
     /**
