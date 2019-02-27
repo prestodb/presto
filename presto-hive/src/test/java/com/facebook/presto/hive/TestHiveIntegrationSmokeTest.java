@@ -2181,35 +2181,6 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testCreateUnpartitionedTableAndQuery()
-    {
-        Session session = getSession();
-
-        List<MaterializedRow> expected = MaterializedResult.resultBuilder(session, BIGINT, BIGINT)
-                .row(101L, 1L)
-                .row(201L, 2L)
-                .row(202L, 2L)
-                .row(301L, 3L)
-                .row(302L, 3L)
-                .build()
-                .getMaterializedRows();
-
-        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
-                .execute(session, transactionSession -> {
-                    assertUpdate(
-                            transactionSession,
-                            "CREATE TABLE tmp_create_query AS " +
-                                    "SELECT * from (VALUES (CAST (101 AS BIGINT), CAST (1 AS BIGINT)), (201, 2), (202, 2), (301, 3), (302, 3)) t(a, z)",
-                            5);
-                    MaterializedResult actualFromCurrentTransaction = computeActual(transactionSession, "SELECT * FROM tmp_create_query");
-                    assertEqualsIgnoreOrder(actualFromCurrentTransaction, expected);
-                });
-
-        MaterializedResult actualAfterTransaction = computeActual(session, "SELECT * FROM tmp_create_query");
-        assertEqualsIgnoreOrder(actualAfterTransaction, expected);
-    }
-
-    @Test
     public void testAddColumn()
     {
         assertUpdate("CREATE TABLE test_add_column (a bigint COMMENT 'test comment AAA')");

@@ -151,7 +151,7 @@ public class SemiTransactionalHiveMetastore
             case ADD:
             case ALTER:
             case INSERT_EXISTING:
-                return Optional.of(tableAction.getData().getAugmentedTableForInTransactionRead());
+                return Optional.of(tableAction.getData().getTable());
             case DROP:
                 return Optional.empty();
             default:
@@ -346,7 +346,7 @@ public class SemiTransactionalHiveMetastore
             ConnectorSession session,
             Table table,
             PrincipalPrivileges principalPrivileges,
-            Optional<Path> currentPath, // unpartitioned table only
+            Optional<Path> currentPath,
             boolean ignoreExisting,
             PartitionStatistics statistics)
     {
@@ -1965,7 +1965,6 @@ public class SemiTransactionalHiveMetastore
             this.statistics = requireNonNull(statistics, "statistics is null");
             this.statisticsUpdate = requireNonNull(statisticsUpdate, "statisticsUpdate is null");
 
-            checkArgument(table.getPartitionColumns().isEmpty() || !currentLocation.isPresent(), "currentLocation can not be supplied for partitioned table");
             checkArgument(!table.getStorage().getLocation().isEmpty() || !currentLocation.isPresent(), "currentLocation can not be supplied for table without location");
             checkArgument(!fileNames.isPresent() || currentLocation.isPresent(), "fileNames can be supplied only when currentLocation is supplied");
         }
@@ -2004,27 +2003,6 @@ public class SemiTransactionalHiveMetastore
         public PartitionStatistics getStatisticsUpdate()
         {
             return statisticsUpdate;
-        }
-
-        public Table getAugmentedTableForInTransactionRead()
-        {
-            if (!this.currentLocation.isPresent()) {
-                // partitioned table
-                return this.table;
-            }
-
-            // For unpartitioned table, this method augments the location field of the table
-            // to the staging location.
-            // This way, if the table is accessed in an ongoing transaction, staged data
-            // can be found and accessed.
-            Table table = this.table;
-            String currentLocation = this.currentLocation.get().toString();
-            if (!currentLocation.equals(table.getStorage().getLocation())) {
-                table = Table.builder(table)
-                        .withStorage(storage -> storage.setLocation(currentLocation))
-                        .build();
-            }
-            return table;
         }
 
         @Override
