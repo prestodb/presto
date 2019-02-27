@@ -22,6 +22,7 @@ Keyword                        SQL:2016      SQL-92
 ``CUBE``                       reserved
 ``CURRENT_DATE``               reserved      reserved
 ``CURRENT_PATH``               reserved
+``CURRENT_ROLE``               reserved      reserved
 ``CURRENT_TIME``               reserved      reserved
 ``CURRENT_TIMESTAMP``          reserved      reserved
 ``CURRENT_USER``               reserved
