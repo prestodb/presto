@@ -55,13 +55,12 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class RecordingHiveMetastore
         implements ExtendedHiveMetastore
 {
-    private static final String LIST_ROLES_KEY = "LIST_ROLES_KEY";
-
     private final ExtendedHiveMetastore delegate;
     private final String recordingPath;
     private final boolean replay;
 
     private volatile Optional<List<String>> allDatabases = Optional.empty();
+    private volatile Optional<Set<String>> allRoles = Optional.empty();
 
     private final Cache<String, Optional<Database>> databaseCache;
     private final Cache<HiveTableName, Optional<Table>> tableCache;
@@ -74,9 +73,8 @@ public class RecordingHiveMetastore
     private final Cache<HiveTableName, Optional<List<String>>> partitionNamesCache;
     private final Cache<PartitionFilter, Optional<List<String>>> partitionNamesByPartsCache;
     private final Cache<Set<HivePartitionName>, Map<String, Optional<Partition>>> partitionsByNamesCache;
-    private final Cache<UserTableKey, Set<HivePrivilegeInfo>> listTablePrivilegesCache;
-    private final Cache<String, Set<String>> listRolesCache;
-    private final Cache<PrestoPrincipal, Set<RoleGrant>> listRoleGrantsCache;
+    private final Cache<UserTableKey, Set<HivePrivilegeInfo>> tablePrivilegesCache;
+    private final Cache<PrestoPrincipal, Set<RoleGrant>> roleGrantsCache;
 
     @Inject
     public RecordingHiveMetastore(@ForRecordingHiveMetastore ExtendedHiveMetastore delegate, HiveClientConfig hiveClientConfig)
@@ -98,9 +96,8 @@ public class RecordingHiveMetastore
         partitionNamesCache = createCache(hiveClientConfig);
         partitionNamesByPartsCache = createCache(hiveClientConfig);
         partitionsByNamesCache = createCache(hiveClientConfig);
-        listTablePrivilegesCache = createCache(hiveClientConfig);
-        listRolesCache = createCache(hiveClientConfig);
-        listRoleGrantsCache = createCache(hiveClientConfig);
+        tablePrivilegesCache = createCache(hiveClientConfig);
+        roleGrantsCache = createCache(hiveClientConfig);
 
         if (replay) {
             loadRecording();
@@ -114,6 +111,7 @@ public class RecordingHiveMetastore
         Recording recording = new ObjectMapperProvider().get().readValue(new File(recordingPath), Recording.class);
 
         allDatabases = recording.getAllDatabases();
+        allRoles = recording.getAllRoles();
         databaseCache.putAll(toMap(recording.getDatabases()));
         tableCache.putAll(toMap(recording.getTables()));
         supportedColumnStatisticsCache.putAll(toMap(recording.getSupportedColumnStatistics()));
@@ -125,9 +123,8 @@ public class RecordingHiveMetastore
         partitionNamesCache.putAll(toMap(recording.getPartitionNames()));
         partitionNamesByPartsCache.putAll(toMap(recording.getPartitionNamesByParts()));
         partitionsByNamesCache.putAll(toMap(recording.getPartitionsByNames()));
-        listTablePrivilegesCache.putAll(toMap(recording.getListTablePrivileges()));
-        listRolesCache.putAll(toMap(recording.getListRoles()));
-        listRoleGrantsCache.putAll(toMap(recording.getListRoleGrants()));
+        tablePrivilegesCache.putAll(toMap(recording.getTablePrivileges()));
+        roleGrantsCache.putAll(toMap(recording.getRoleGrants()));
     }
 
     private static <K, V> Cache<K, V> createCache(HiveClientConfig hiveClientConfig)
@@ -152,6 +149,7 @@ public class RecordingHiveMetastore
 
         Recording recording = new Recording(
                 allDatabases,
+                allRoles,
                 toPairs(databaseCache),
                 toPairs(tableCache),
                 toPairs(supportedColumnStatisticsCache),
@@ -163,9 +161,8 @@ public class RecordingHiveMetastore
                 toPairs(partitionNamesCache),
                 toPairs(partitionNamesByPartsCache),
                 toPairs(partitionsByNamesCache),
-                toPairs(listTablePrivilegesCache),
-                toPairs(listRolesCache),
-                toPairs(listRoleGrantsCache));
+                toPairs(tablePrivilegesCache),
+                toPairs(roleGrantsCache));
         new ObjectMapperProvider().get()
                 .writerWithDefaultPrettyPrinter()
                 .writeValue(new File(recordingPath), recording);
@@ -389,7 +386,7 @@ public class RecordingHiveMetastore
     public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, PrestoPrincipal principal)
     {
         return loadValue(
-                listTablePrivilegesCache,
+                tablePrivilegesCache,
                 new UserTableKey(principal, databaseName, tableName),
                 () -> delegate.listTablePrivileges(databaseName, tableName, principal));
     }
@@ -432,10 +429,13 @@ public class RecordingHiveMetastore
     @Override
     public Set<String> listRoles()
     {
-        return loadValue(
-                listRolesCache,
-                LIST_ROLES_KEY,
-                () -> delegate.listRoles());
+        if (replay) {
+            return allRoles.orElseThrow(() -> new PrestoException(NOT_FOUND, "Missing entry for roles"));
+        }
+
+        Set<String> result = delegate.listRoles();
+        allRoles = Optional.of(result);
+        return result;
     }
 
     @Override
@@ -456,7 +456,7 @@ public class RecordingHiveMetastore
     public Set<RoleGrant> listRoleGrants(PrestoPrincipal principal)
     {
         return loadValue(
-                listRoleGrantsCache,
+                roleGrantsCache,
                 principal,
                 () -> delegate.listRoleGrants(principal));
     }
@@ -484,6 +484,7 @@ public class RecordingHiveMetastore
     public static class Recording
     {
         private final Optional<List<String>> allDatabases;
+        private final Optional<Set<String>> allRoles;
         private final List<Pair<String, Optional<Database>>> databases;
         private final List<Pair<HiveTableName, Optional<Table>>> tables;
         private final List<Pair<String, Set<ColumnStatisticType>>> supportedColumnStatistics;
@@ -495,13 +496,13 @@ public class RecordingHiveMetastore
         private final List<Pair<HiveTableName, Optional<List<String>>>> partitionNames;
         private final List<Pair<PartitionFilter, Optional<List<String>>>> partitionNamesByParts;
         private final List<Pair<Set<HivePartitionName>, Map<String, Optional<Partition>>>> partitionsByNames;
-        private final List<Pair<UserTableKey, Set<HivePrivilegeInfo>>> listTablePrivileges;
-        private final List<Pair<String, Set<String>>> listRoles;
-        private final List<Pair<PrestoPrincipal, Set<RoleGrant>>> listRoleGrants;
+        private final List<Pair<UserTableKey, Set<HivePrivilegeInfo>>> tablePrivileges;
+        private final List<Pair<PrestoPrincipal, Set<RoleGrant>>> roleGrants;
 
         @JsonCreator
         public Recording(
                 @JsonProperty("allDatabases") Optional<List<String>> allDatabases,
+                @JsonProperty("allRoles") Optional<Set<String>> allRoles,
                 @JsonProperty("databases") List<Pair<String, Optional<Database>>> databases,
                 @JsonProperty("tables") List<Pair<HiveTableName, Optional<Table>>> tables,
                 @JsonProperty("supportedColumnStatistics") List<Pair<String, Set<ColumnStatisticType>>> supportedColumnStatistics,
@@ -513,11 +514,11 @@ public class RecordingHiveMetastore
                 @JsonProperty("partitionNames") List<Pair<HiveTableName, Optional<List<String>>>> partitionNames,
                 @JsonProperty("partitionNamesByParts") List<Pair<PartitionFilter, Optional<List<String>>>> partitionNamesByParts,
                 @JsonProperty("partitionsByNames") List<Pair<Set<HivePartitionName>, Map<String, Optional<Partition>>>> partitionsByNames,
-                @JsonProperty("listTablePrivileges") List<Pair<UserTableKey, Set<HivePrivilegeInfo>>> listTablePrivileges,
-                @JsonProperty("listRoles") List<Pair<String, Set<String>>> listRoles,
-                @JsonProperty("listRoleGrants") List<Pair<PrestoPrincipal, Set<RoleGrant>>> listRoleGrants)
+                @JsonProperty("tablePrivileges") List<Pair<UserTableKey, Set<HivePrivilegeInfo>>> tablePrivileges,
+                @JsonProperty("roleGrants") List<Pair<PrestoPrincipal, Set<RoleGrant>>> roleGrants)
         {
             this.allDatabases = allDatabases;
+            this.allRoles = allRoles;
             this.databases = databases;
             this.tables = tables;
             this.supportedColumnStatistics = supportedColumnStatistics;
@@ -529,15 +530,20 @@ public class RecordingHiveMetastore
             this.partitionNames = partitionNames;
             this.partitionNamesByParts = partitionNamesByParts;
             this.partitionsByNames = partitionsByNames;
-            this.listTablePrivileges = listTablePrivileges;
-            this.listRoles = listRoles;
-            this.listRoleGrants = listRoleGrants;
+            this.tablePrivileges = tablePrivileges;
+            this.roleGrants = roleGrants;
         }
 
         @JsonProperty
         public Optional<List<String>> getAllDatabases()
         {
             return allDatabases;
+        }
+
+        @JsonProperty
+        public Optional<Set<String>> getAllRoles()
+        {
+            return allRoles;
         }
 
         @JsonProperty
@@ -607,21 +613,15 @@ public class RecordingHiveMetastore
         }
 
         @JsonProperty
-        public List<Pair<UserTableKey, Set<HivePrivilegeInfo>>> getListTablePrivileges()
+        public List<Pair<UserTableKey, Set<HivePrivilegeInfo>>> getTablePrivileges()
         {
-            return listTablePrivileges;
+            return tablePrivileges;
         }
 
         @JsonProperty
-        public List<Pair<String, Set<String>>> getListRoles()
+        public List<Pair<PrestoPrincipal, Set<RoleGrant>>> getRoleGrants()
         {
-            return listRoles;
-        }
-
-        @JsonProperty
-        public List<Pair<PrestoPrincipal, Set<RoleGrant>>> getListRoleGrants()
-        {
-            return listRoleGrants;
+            return roleGrants;
         }
     }
 
