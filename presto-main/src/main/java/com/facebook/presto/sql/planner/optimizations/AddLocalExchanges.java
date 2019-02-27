@@ -84,6 +84,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.mergingExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.systemPartitionedExchange;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -290,7 +291,7 @@ public class AddLocalExchanges
                 // This is required so that default outputs from multiple instances of partial aggregations are passed to a single final aggregation.
                 PlanWithProperties child = planAndEnforce(node.getSource(), any(), defaultParallelism(session));
                 PlanWithProperties exchange = deriveProperties(
-                        partitionedExchange(
+                        systemPartitionedExchange(
                                 idAllocator.getNextId(),
                                 LOCAL,
                                 child.getNode(),
@@ -708,7 +709,7 @@ public class AddLocalExchanges
 
             if (requiredProperties.isParallelPreferred()) {
                 // partitioned parallel streams required
-                ExchangeNode exchangeNode = partitionedExchange(
+                ExchangeNode exchangeNode = systemPartitionedExchange(
                         idAllocator.getNextId(),
                         LOCAL,
                         planWithProperties.getNode(),
