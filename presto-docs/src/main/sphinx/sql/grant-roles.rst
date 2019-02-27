@@ -11,13 +11,11 @@ Synopsis
     TO ( user | USER user | ROLE role) [, ...]
     [ GRANTED BY ( user | USER user | ROLE role | CURRENT_USER | CURRENT_ROLE ) ]
     [ WITH ADMIN OPTION ]
-    [ IN catalog ]
 
 Description
 -----------
 
-Grants the specified role(s) to the specified principal(s) in ``catalog`` or
-in the current catalog if ``catalog`` is not specified.
+Grants the specified role(s) to the specified principal(s) in the current catalog.
 
 If the ``WITH ADMIN OPTION`` clause is specified, the role(s) are granted
 to the users with ``GRANT`` option.
@@ -39,10 +37,6 @@ Grant role ``bar`` to user ``foo`` ::
 Grant roles ``bar`` and ``foo`` to user ``baz`` and role ``qux`` with admin option ::
 
     GRANT bar, foo TO USER baz, ROLE qux WITH ADMIN OPTION;
-
-Grant role ``bar`` to user ``foo`` in catalog ``baz`` ::
-
-    GRANT bar TO USER foo IN baz;
 
 Limitations
 -----------
