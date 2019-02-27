@@ -96,6 +96,7 @@ import static com.facebook.presto.metadata.MetadataUtil.createQualifiedName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.QueryUtil.aliased;
 import static com.facebook.presto.sql.QueryUtil.aliasedName;
@@ -236,16 +237,19 @@ final class ShowQueriesRewrite
                         session.getIdentity(),
                         new CatalogSchemaName(catalogName, qualifiedTableName.getSchemaName()));
 
-                predicate = Optional.of(equal(identifier("table_name"), new StringLiteral(qualifiedTableName.getObjectName())));
+                predicate = Optional.of(combineConjuncts(
+                        equal(identifier("table_schema"), new StringLiteral(qualifiedTableName.getSchemaName())),
+                        equal(identifier("table_name"), new StringLiteral(qualifiedTableName.getObjectName()))));
             }
+            else {
+                if (catalogName == null) {
+                    throw new SemanticException(CATALOG_NOT_SPECIFIED, showGrants, "Catalog must be specified when session catalog is not set");
+                }
 
-            if (catalogName == null) {
-                throw new SemanticException(CATALOG_NOT_SPECIFIED, showGrants, "Catalog must be specified when session catalog is not set");
-            }
-
-            Set<String> allowedSchemas = listSchemas(session, metadata, accessControl, catalogName);
-            for (String schema : allowedSchemas) {
-                accessControl.checkCanShowTablesMetadata(session.getRequiredTransactionId(), session.getIdentity(), new CatalogSchemaName(catalogName, schema));
+                Set<String> allowedSchemas = listSchemas(session, metadata, accessControl, catalogName);
+                for (String schema : allowedSchemas) {
+                    accessControl.checkCanShowTablesMetadata(session.getRequiredTransactionId(), session.getIdentity(), new CatalogSchemaName(catalogName, schema));
+                }
             }
 
             return simpleQuery(
