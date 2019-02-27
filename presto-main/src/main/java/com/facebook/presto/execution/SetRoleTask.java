@@ -45,7 +45,7 @@ public class SetRoleTask
     public ListenableFuture<?> execute(SetRole statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
-        String catalog = createCatalogName(session, statement, statement.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)));
+        String catalog = createCatalogName(session, statement);
         if (statement.getType() == SetRole.Type.ROLE) {
             accessControl.checkCanSetRole(
                     session.getRequiredTransactionId(),

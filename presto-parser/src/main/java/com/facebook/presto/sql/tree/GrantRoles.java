@@ -31,27 +31,24 @@ public class GrantRoles
     private final Set<PrincipalSpecification> grantees;
     private final boolean withAdminOption;
     private final Optional<GrantorSpecification> grantor;
-    private final Optional<Identifier> catalog;
 
     public GrantRoles(
             NodeLocation location,
             Set<Identifier> roles,
             Set<PrincipalSpecification> grantees,
             boolean withAdminOption,
-            Optional<GrantorSpecification> grantor,
-            Optional<Identifier> catalog)
+            Optional<GrantorSpecification> grantor)
     {
-        this(Optional.of(location), roles, grantees, withAdminOption, grantor, catalog);
+        this(Optional.of(location), roles, grantees, withAdminOption, grantor);
     }
 
     public GrantRoles(
             Set<Identifier> roles,
             Set<PrincipalSpecification> grantees,
             boolean withAdminOption,
-            Optional<GrantorSpecification> grantor,
-            Optional<Identifier> catalog)
+            Optional<GrantorSpecification> grantor)
     {
-        this(Optional.empty(), roles, grantees, withAdminOption, grantor, catalog);
+        this(Optional.empty(), roles, grantees, withAdminOption, grantor);
     }
 
     private GrantRoles(
@@ -59,15 +56,13 @@ public class GrantRoles
             Set<Identifier> roles,
             Set<PrincipalSpecification> grantees,
             boolean withAdminOption,
-            Optional<GrantorSpecification> grantor,
-            Optional<Identifier> catalog)
+            Optional<GrantorSpecification> grantor)
     {
         super(location);
         this.roles = ImmutableSet.copyOf(requireNonNull(roles, "roles is null"));
         this.grantees = ImmutableSet.copyOf(requireNonNull(grantees, "grantees is null"));
         this.withAdminOption = withAdminOption;
         this.grantor = requireNonNull(grantor, "grantor is null");
-        this.catalog = requireNonNull(catalog, "catalog is null");
     }
 
     public Set<Identifier> getRoles()
@@ -88,11 +83,6 @@ public class GrantRoles
     public Optional<GrantorSpecification> getGrantor()
     {
         return grantor;
-    }
-
-    public Optional<Identifier> getCatalog()
-    {
-        return catalog;
     }
 
     @Override
@@ -120,14 +110,13 @@ public class GrantRoles
         return withAdminOption == grantRoles.withAdminOption &&
                 Objects.equals(roles, grantRoles.roles) &&
                 Objects.equals(grantees, grantRoles.grantees) &&
-                Objects.equals(grantor, grantRoles.grantor) &&
-                Objects.equals(catalog, grantRoles.catalog);
+                Objects.equals(grantor, grantRoles.grantor);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(roles, grantees, withAdminOption, grantor, catalog);
+        return Objects.hash(roles, grantees, withAdminOption, grantor);
     }
 
     @Override
@@ -138,7 +127,6 @@ public class GrantRoles
                 .add("grantees", grantees)
                 .add("withAdminOption", withAdminOption)
                 .add("grantor", grantor)
-                .add("catalog", catalog)
                 .toString();
     }
 }

@@ -36,7 +36,6 @@ import static com.facebook.presto.spi.security.PrincipalType.ROLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ROLE;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static java.util.Locale.ENGLISH;
 
 public class RevokeRolesTask
         implements DataDefinitionTask<RevokeRoles>
@@ -58,7 +57,7 @@ public class RevokeRolesTask
                 .collect(toImmutableSet());
         boolean adminOptionFor = statement.isAdminOptionFor();
         Optional<PrestoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
-        String catalog = createCatalogName(session, statement, statement.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)));
+        String catalog = createCatalogName(session, statement);
 
         Set<String> availableRoles = metadata.listRoles(session, catalog);
         Set<String> specifiedRoles = new LinkedHashSet<>();
