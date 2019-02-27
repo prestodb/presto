@@ -39,7 +39,6 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +53,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.MoreFutures.whenAnyCompleteCancelOthers;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public class NodeScheduler
@@ -180,11 +180,11 @@ public class NodeScheduler
         }
     }
 
-    public static List<Node> selectNodes(int limit, Iterator<Node> candidates)
+    public static List<Node> selectNodes(int limit, ResettableRandomizedIterator<Node> candidates)
     {
         checkArgument(limit > 0, "limit must be at least 1");
 
-        List<Node> selected = new ArrayList<>(limit);
+        List<Node> selected = new ArrayList<>(min(limit, candidates.size()));
         while (selected.size() < limit && candidates.hasNext()) {
             selected.add(candidates.next());
         }
