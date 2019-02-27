@@ -46,7 +46,7 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
-import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.MaterializedResult;
@@ -105,7 +105,7 @@ import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestHiveFileSystem
 {
-    private static final HdfsContext TESTING_CONTEXT = new HdfsContext(new Identity("test", Optional.empty()));
+    private static final HdfsContext TESTING_CONTEXT = new HdfsContext(new ConnectorIdentity("test", Optional.empty()));
 
     protected String database;
     protected SchemaTableName table;

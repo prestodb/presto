@@ -203,10 +203,15 @@ public class AccessDeniedException
 
     public static void denyCreateViewWithSelect(String sourceName, Identity identity)
     {
+        denyCreateViewWithSelect(sourceName, identity.toConnectorIdentity());
+    }
+
+    public static void denyCreateViewWithSelect(String sourceName, ConnectorIdentity identity)
+    {
         denyCreateViewWithSelect(sourceName, identity, null);
     }
 
-    public static void denyCreateViewWithSelect(String sourceName, Identity identity, String extraInfo)
+    public static void denyCreateViewWithSelect(String sourceName, ConnectorIdentity identity, String extraInfo)
     {
         throw new AccessDeniedException(format("View owner '%s' cannot create view that selects from %s%s", identity.getUser(), sourceName, formatExtraInfo(extraInfo)));
     }
