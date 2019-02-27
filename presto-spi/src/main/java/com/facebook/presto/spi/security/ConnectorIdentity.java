@@ -66,6 +66,7 @@ public class ConnectorIdentity
         StringBuilder sb = new StringBuilder("ConnectorIdentity{");
         sb.append("user='").append(user).append('\'');
         principal.ifPresent(principal -> sb.append(", principal=").append(principal));
+        role.ifPresent(role -> sb.append(", role=").append(role));
         sb.append('}');
         return sb.toString();
     }
