@@ -39,8 +39,6 @@ public class ThriftHiveMetastoreStats
     private final HiveMetastoreApiStats addPartitions = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats dropPartition = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats alterPartition = new HiveMetastoreApiStats();
-    private final HiveMetastoreApiStats loadRoles = new HiveMetastoreApiStats();
-    private final HiveMetastoreApiStats getPrivilegeSet = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats listPrivileges = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats grantTablePrivileges = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats revokeTablePrivileges = new HiveMetastoreApiStats();
@@ -210,20 +208,6 @@ public class ThriftHiveMetastoreStats
     public HiveMetastoreApiStats getRevokeTablePrivileges()
     {
         return revokeTablePrivileges;
-    }
-
-    @Managed
-    @Nested
-    public HiveMetastoreApiStats getLoadRoles()
-    {
-        return loadRoles;
-    }
-
-    @Managed
-    @Nested
-    public HiveMetastoreApiStats getGetPrivilegeSet()
-    {
-        return getPrivilegeSet;
     }
 
     @Managed
