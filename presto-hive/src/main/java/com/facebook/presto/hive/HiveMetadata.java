@@ -1116,13 +1116,7 @@ public class HiveMetadata
             tableStatistics = new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of());
         }
 
-        metastore.createTable(
-                session,
-                table,
-                principalPrivileges,
-                table.getPartitionColumns().isEmpty() ? Optional.of(writeInfo.getWritePath()) : Optional.empty(),
-                false,
-                tableStatistics);
+        metastore.createTable(session, table, principalPrivileges, Optional.of(writeInfo.getWritePath()), false, tableStatistics);
 
         if (!handle.getPartitionedBy().isEmpty()) {
             if (isRespectTableFormat(session)) {
