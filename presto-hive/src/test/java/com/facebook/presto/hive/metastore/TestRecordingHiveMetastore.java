@@ -135,9 +135,7 @@ public class TestRecordingHiveMetastore
         assertEquals(hiveMetastore.getPartitionNames("database", "table"), Optional.of(ImmutableList.of("value")));
         assertEquals(hiveMetastore.getPartitionNamesByParts("database", "table", ImmutableList.of("value")), Optional.of(ImmutableList.of("value")));
         assertEquals(hiveMetastore.getPartitionsByNames("database", "table", ImmutableList.of("value")), ImmutableMap.of("value", Optional.of(PARTITION)));
-        assertEquals(hiveMetastore.getRoles("user"), ImmutableSet.of("role1", "role2"));
-        assertEquals(hiveMetastore.getDatabasePrivileges("user", "database"), ImmutableSet.of(PRIVILEGE_INFO));
-        assertEquals(hiveMetastore.getTablePrivileges("user", "database", "table"), ImmutableSet.of(PRIVILEGE_INFO));
+        assertEquals(hiveMetastore.listTablePrivileges("database", "table", new PrestoPrincipal(USER, "user")), ImmutableSet.of(PRIVILEGE_INFO));
         assertEquals(hiveMetastore.listRoles(), ImmutableSet.of("role"));
         assertEquals(hiveMetastore.listRoleGrants(new PrestoPrincipal(USER, "user")), ImmutableSet.of(ROLE_GRANT));
     }
@@ -264,25 +262,9 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public Set<String> getRoles(String user)
+        public Set<HivePrivilegeInfo> listTablePrivileges(String database, String table, PrestoPrincipal prestoPrincipal)
         {
-            return ImmutableSet.of("role1", "role2");
-        }
-
-        @Override
-        public Set<HivePrivilegeInfo> getDatabasePrivileges(String user, String databaseName)
-        {
-            if (user.equals("user") && databaseName.equals("database")) {
-                return ImmutableSet.of(PRIVILEGE_INFO);
-            }
-
-            return ImmutableSet.of();
-        }
-
-        @Override
-        public Set<HivePrivilegeInfo> getTablePrivileges(String user, String databaseName, String tableName)
-        {
-            if (user.equals("user") && databaseName.equals("database") && tableName.equals("table")) {
+            if (database.equals("database") && table.equals("table") && prestoPrincipal.getType() == USER && prestoPrincipal.getName().equals("user")) {
                 return ImmutableSet.of(PRIVILEGE_INFO);
             }
 

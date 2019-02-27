@@ -210,24 +210,6 @@ class UnimplementedHiveMetastore
     }
 
     @Override
-    public Set<String> getRoles(String user)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Set<HivePrivilegeInfo> getDatabasePrivileges(String user, String databaseName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Set<HivePrivilegeInfo> getTablePrivileges(String user, String databaseName, String tableName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges)
     {
         throw new UnsupportedOperationException();
@@ -235,6 +217,12 @@ class UnimplementedHiveMetastore
 
     @Override
     public void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, PrestoPrincipal principal)
     {
         throw new UnsupportedOperationException();
     }

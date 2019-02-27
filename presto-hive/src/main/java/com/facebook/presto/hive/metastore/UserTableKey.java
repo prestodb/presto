@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -26,22 +27,25 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class UserTableKey
 {
-    private final String user;
+    private final PrestoPrincipal principal;
     private final String database;
     private final String table;
 
     @JsonCreator
-    public UserTableKey(@JsonProperty("user") String user, @JsonProperty("table") String table, @JsonProperty("database") String database)
+    public UserTableKey(
+            @JsonProperty("principal") PrestoPrincipal principal,
+            @JsonProperty("database") String database,
+            @JsonProperty("table") String table)
     {
-        this.user = requireNonNull(user, "user is null");
+        this.principal = requireNonNull(principal, "principal is null");
         this.table = requireNonNull(table, "table is null");
         this.database = requireNonNull(database, "database is null");
     }
 
     @JsonProperty
-    public String getUser()
+    public PrestoPrincipal getPrincipal()
     {
-        return user;
+        return principal;
     }
 
     @JsonProperty
@@ -71,7 +75,7 @@ public class UserTableKey
             return false;
         }
         UserTableKey that = (UserTableKey) o;
-        return Objects.equals(user, that.user) &&
+        return Objects.equals(principal, that.principal) &&
                 Objects.equals(table, that.table) &&
                 Objects.equals(database, that.database);
     }
@@ -79,14 +83,14 @@ public class UserTableKey
     @Override
     public int hashCode()
     {
-        return Objects.hash(user, table, database);
+        return Objects.hash(principal, table, database);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("user", user)
+                .add("principal", principal)
                 .add("table", table)
                 .add("database", database)
                 .toString();
