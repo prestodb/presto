@@ -82,8 +82,7 @@ public class TestRoles
     public void testCreateRole()
     {
         onPresto().executeQuery(format("CREATE ROLE %s", ROLE1));
-        onPresto().executeQuery(format("CREATE ROLE %s IN hive", ROLE2));
-        assertThat(listRoles()).contains(ROLE1, ROLE2);
+        assertThat(listRoles()).contains(ROLE1);
     }
 
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
@@ -99,7 +98,6 @@ public class TestRoles
     public void testListRoles()
     {
         onPresto().executeQuery(format("CREATE ROLE %s", ROLE1));
-        onPresto().executeQuery(format("CREATE ROLE %s IN hive", ROLE2));
         QueryResult expected = onHive().executeQuery("SHOW ROLES");
         QueryResult actual = onPresto().executeQuery("SELECT * FROM hive.information_schema.roles");
         assertThat(actual.rows()).containsOnly(expected.rows().toArray(new List[] {}));

@@ -43,7 +43,7 @@ public class DropRoleTask
     public ListenableFuture<?> execute(DropRole statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
-        String catalog = createCatalogName(session, statement, statement.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)));
+        String catalog = createCatalogName(session, statement);
         String role = statement.getName().getValue().toLowerCase(ENGLISH);
         accessControl.checkCanDropRole(session.getRequiredTransactionId(), session.getIdentity(), role, catalog);
         Set<String> existingRoles = metadata.listRoles(session, catalog);

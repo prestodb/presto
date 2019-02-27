@@ -31,27 +31,24 @@ public class RevokeRoles
     private final Set<PrincipalSpecification> grantees;
     private final boolean adminOptionFor;
     private final Optional<GrantorSpecification> grantor;
-    private final Optional<Identifier> catalog;
 
     public RevokeRoles(
             NodeLocation location,
             Set<Identifier> roles,
             Set<PrincipalSpecification> grantees,
             boolean adminOptionFor,
-            Optional<GrantorSpecification> grantor,
-            Optional<Identifier> catalog)
+            Optional<GrantorSpecification> grantor)
     {
-        this(Optional.of(location), roles, grantees, adminOptionFor, grantor, catalog);
+        this(Optional.of(location), roles, grantees, adminOptionFor, grantor);
     }
 
     public RevokeRoles(
             Set<Identifier> roles,
             Set<PrincipalSpecification> grantees,
             boolean adminOptionFor,
-            Optional<GrantorSpecification> grantor,
-            Optional<Identifier> catalog)
+            Optional<GrantorSpecification> grantor)
     {
-        this(Optional.empty(), roles, grantees, adminOptionFor, grantor, catalog);
+        this(Optional.empty(), roles, grantees, adminOptionFor, grantor);
     }
 
     private RevokeRoles(
@@ -59,15 +56,13 @@ public class RevokeRoles
             Set<Identifier> roles,
             Set<PrincipalSpecification> grantees,
             boolean adminOptionFor,
-            Optional<GrantorSpecification> grantor,
-            Optional<Identifier> catalog)
+            Optional<GrantorSpecification> grantor)
     {
         super(location);
         this.roles = ImmutableSet.copyOf(requireNonNull(roles, "roles is null"));
         this.grantees = ImmutableSet.copyOf(requireNonNull(grantees, "grantees is null"));
         this.adminOptionFor = adminOptionFor;
         this.grantor = requireNonNull(grantor, "grantor is null");
-        this.catalog = requireNonNull(catalog, "catalog is null");
     }
 
     public Set<Identifier> getRoles()
@@ -88,11 +83,6 @@ public class RevokeRoles
     public Optional<GrantorSpecification> getGrantor()
     {
         return grantor;
-    }
-
-    public Optional<Identifier> getCatalog()
-    {
-        return catalog;
     }
 
     @Override
@@ -120,14 +110,13 @@ public class RevokeRoles
         return adminOptionFor == that.adminOptionFor &&
                 Objects.equals(roles, that.roles) &&
                 Objects.equals(grantees, that.grantees) &&
-                Objects.equals(grantor, that.grantor) &&
-                Objects.equals(catalog, that.catalog);
+                Objects.equals(grantor, that.grantor);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(roles, grantees, adminOptionFor, grantor, catalog);
+        return Objects.hash(roles, grantees, adminOptionFor, grantor);
     }
 
     @Override
@@ -138,7 +127,6 @@ public class RevokeRoles
                 .add("grantees", grantees)
                 .add("adminOptionFor", adminOptionFor)
                 .add("grantor", grantor)
-                .add("catalog", catalog)
                 .toString();
     }
 }

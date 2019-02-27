@@ -835,8 +835,7 @@ class AstBuilder
         return new CreateRole(
                 getLocation(context),
                 (Identifier) visit(context.name),
-                getGrantorSpecificationIfPresent(context.grantor()),
-                getIdentifierIfPresent(context.catalog));
+                getGrantorSpecificationIfPresent(context.grantor()));
     }
 
     @Override
@@ -844,8 +843,7 @@ class AstBuilder
     {
         return new DropRole(
                 getLocation(context),
-                (Identifier) visit(context.name),
-                getIdentifierIfPresent(context.catalog));
+                (Identifier) visit(context.name));
     }
 
     @Override
@@ -856,8 +854,7 @@ class AstBuilder
                 ImmutableSet.copyOf(getIdentifiers(context.roles().identifier())),
                 ImmutableSet.copyOf(getPrincipalSpecifications(context.principal())),
                 context.OPTION() != null,
-                getGrantorSpecificationIfPresent(context.grantor()),
-                getIdentifierIfPresent(context.catalog));
+                getGrantorSpecificationIfPresent(context.grantor()));
     }
 
     @Override
@@ -868,8 +865,7 @@ class AstBuilder
                 ImmutableSet.copyOf(getIdentifiers(context.roles().identifier())),
                 ImmutableSet.copyOf(getPrincipalSpecifications(context.principal())),
                 context.OPTION() != null,
-                getGrantorSpecificationIfPresent(context.grantor()),
-                getIdentifierIfPresent(context.catalog));
+                getGrantorSpecificationIfPresent(context.grantor()));
     }
 
     @Override
@@ -882,7 +878,7 @@ class AstBuilder
         else if (context.NONE() != null) {
             type = SetRole.Type.NONE;
         }
-        return new SetRole(getLocation(context), type, getIdentifierIfPresent(context.role), getIdentifierIfPresent(context.catalog));
+        return new SetRole(getLocation(context), type, getIdentifierIfPresent(context.role));
     }
 
     @Override

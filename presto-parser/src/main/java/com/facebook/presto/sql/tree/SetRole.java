@@ -32,24 +32,22 @@ public class SetRole
 
     private final Type type;
     private final Optional<Identifier> role;
-    private final Optional<Identifier> catalog;
 
-    public SetRole(Type type, Optional<Identifier> role, Optional<Identifier> catalog)
+    public SetRole(Type type, Optional<Identifier> role)
     {
-        this(Optional.empty(), type, role, catalog);
+        this(Optional.empty(), type, role);
     }
 
-    public SetRole(NodeLocation location, Type type, Optional<Identifier> role, Optional<Identifier> catalog)
+    public SetRole(NodeLocation location, Type type, Optional<Identifier> role)
     {
-        this(Optional.of(location), type, role, catalog);
+        this(Optional.of(location), type, role);
     }
 
-    private SetRole(Optional<NodeLocation> location, Type type, Optional<Identifier> role, Optional<Identifier> catalog)
+    private SetRole(Optional<NodeLocation> location, Type type, Optional<Identifier> role)
     {
         super(location);
         this.type = requireNonNull(type, "type is null");
         this.role = requireNonNull(role, "role is null");
-        this.catalog = requireNonNull(catalog, "catalog is null");
     }
 
     public Type getType()
@@ -60,11 +58,6 @@ public class SetRole
     public Optional<Identifier> getRole()
     {
         return role;
-    }
-
-    public Optional<Identifier> getCatalog()
-    {
-        return catalog;
     }
 
     @Override
@@ -90,14 +83,13 @@ public class SetRole
         }
         SetRole setRole = (SetRole) o;
         return type == setRole.type &&
-                Objects.equals(role, setRole.role) &&
-                Objects.equals(catalog, setRole.catalog);
+                Objects.equals(role, setRole.role);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(type, role, catalog);
+        return Objects.hash(type, role);
     }
 
     @Override
@@ -106,7 +98,6 @@ public class SetRole
         return toStringHelper(this)
                 .add("type", type)
                 .add("role", role)
-                .add("catalog", catalog)
                 .toString();
     }
 }

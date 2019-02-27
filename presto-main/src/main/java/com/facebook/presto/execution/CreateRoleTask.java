@@ -48,7 +48,7 @@ public class CreateRoleTask
     public ListenableFuture<?> execute(CreateRole statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
-        String catalog = createCatalogName(session, statement, statement.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)));
+        String catalog = createCatalogName(session, statement);
         String role = statement.getName().getValue().toLowerCase(ENGLISH);
         Optional<PrestoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
         accessControl.checkCanCreateRole(session.getRequiredTransactionId(), session.getIdentity(), role, grantor, catalog);

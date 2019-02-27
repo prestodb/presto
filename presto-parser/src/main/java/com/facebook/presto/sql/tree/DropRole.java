@@ -26,33 +26,26 @@ public class DropRole
         extends Statement
 {
     private final Identifier name;
-    private final Optional<Identifier> catalog;
 
-    public DropRole(Identifier name, Optional<Identifier> catalog)
+    public DropRole(Identifier name)
     {
-        this(Optional.empty(), name, catalog);
+        this(Optional.empty(), name);
     }
 
-    public DropRole(NodeLocation location, Identifier name, Optional<Identifier> catalog)
+    public DropRole(NodeLocation location, Identifier name)
     {
-        this(Optional.of(location), name, catalog);
+        this(Optional.of(location), name);
     }
 
-    private DropRole(Optional<NodeLocation> location, Identifier name, Optional<Identifier> catalog)
+    private DropRole(Optional<NodeLocation> location, Identifier name)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
-        this.catalog = requireNonNull(catalog, "catalog is null");
     }
 
     public Identifier getName()
     {
         return name;
-    }
-
-    public Optional<Identifier> getCatalog()
-    {
-        return catalog;
     }
 
     @Override
@@ -65,14 +58,13 @@ public class DropRole
             return false;
         }
         DropRole dropRole = (DropRole) o;
-        return Objects.equals(name, dropRole.name) &&
-                Objects.equals(catalog, dropRole.catalog);
+        return Objects.equals(name, dropRole.name);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, catalog);
+        return Objects.hash(name);
     }
 
     @Override
@@ -80,7 +72,6 @@ public class DropRole
     {
         return toStringHelper(this)
                 .add("name", name)
-                .add("catalog", catalog)
                 .toString();
     }
 
