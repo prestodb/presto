@@ -233,7 +233,7 @@ public class SqlStandardAccessControl
         if (!checkTablePermission(transaction, identity, tableName, SELECT)) {
             denySelectTable(tableName.toString());
         }
-        if (!getGrantOptionForPrivilege(transaction, identity, Privilege.SELECT, tableName)) {
+        if (!hasGrantOptionForPrivilege(transaction, identity, Privilege.SELECT, tableName)) {
             denyCreateViewWithSelect(tableName.toString(), identity);
         }
     }
@@ -254,7 +254,7 @@ public class SqlStandardAccessControl
         }
 
         HivePrivilege hivePrivilege = toHivePrivilege(privilege);
-        if (hivePrivilege == null || !getGrantOptionForPrivilege(transaction, identity, privilege, tableName)) {
+        if (hivePrivilege == null || !hasGrantOptionForPrivilege(transaction, identity, privilege, tableName)) {
             denyGrantTablePrivilege(privilege.name(), tableName.toString());
         }
     }
@@ -267,7 +267,7 @@ public class SqlStandardAccessControl
         }
 
         HivePrivilege hivePrivilege = toHivePrivilege(privilege);
-        if (hivePrivilege == null || !getGrantOptionForPrivilege(transaction, identity, privilege, tableName)) {
+        if (hivePrivilege == null || !hasGrantOptionForPrivilege(transaction, identity, privilege, tableName)) {
             denyRevokeTablePrivilege(privilege.name(), tableName.toString());
         }
     }
@@ -396,7 +396,7 @@ public class SqlStandardAccessControl
         return privilegeSet.containsAll(ImmutableSet.copyOf(requiredPrivileges));
     }
 
-    private boolean getGrantOptionForPrivilege(ConnectorTransactionHandle transaction, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName)
+    private boolean hasGrantOptionForPrivilege(ConnectorTransactionHandle transaction, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName)
     {
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
         return listApplicableTablePrivileges(
