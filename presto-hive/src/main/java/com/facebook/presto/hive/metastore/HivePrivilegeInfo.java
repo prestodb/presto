@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.PrivilegeInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -43,14 +44,17 @@ public class HivePrivilegeInfo
 
     private final HivePrivilege hivePrivilege;
     private final boolean grantOption;
+    private final PrestoPrincipal grantor;
 
     @JsonCreator
     public HivePrivilegeInfo(
             @JsonProperty("hivePrivilege") HivePrivilege hivePrivilege,
-            @JsonProperty("grantOption") boolean grantOption)
+            @JsonProperty("grantOption") boolean grantOption,
+            @JsonProperty("grantor") PrestoPrincipal grantor)
     {
         this.hivePrivilege = requireNonNull(hivePrivilege, "hivePrivilege is null");
         this.grantOption = grantOption;
+        this.grantor = requireNonNull(grantor, "grantor is null");
     }
 
     @JsonProperty
@@ -63,6 +67,12 @@ public class HivePrivilegeInfo
     public boolean isGrantOption()
     {
         return grantOption;
+    }
+
+    @JsonProperty
+    public PrestoPrincipal getGrantor()
+    {
+        return grantor;
     }
 
     public static HivePrivilege toHivePrivilege(Privilege privilege)
