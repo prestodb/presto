@@ -135,6 +135,7 @@ public class TestRecordingHiveMetastore
         assertEquals(hiveMetastore.getRoles("user"), ImmutableSet.of("role1", "role2"));
         assertEquals(hiveMetastore.getDatabasePrivileges("user", "database"), ImmutableSet.of(PRIVILEGE_INFO));
         assertEquals(hiveMetastore.getTablePrivileges("user", "database", "table"), ImmutableSet.of(PRIVILEGE_INFO));
+        assertEquals(hiveMetastore.listRoles(), ImmutableSet.of("role"));
     }
 
     private static class TestingHiveMetastore
@@ -282,6 +283,12 @@ public class TestRecordingHiveMetastore
             }
 
             return ImmutableSet.of();
+        }
+
+        @Override
+        public Set<String> listRoles()
+        {
+            return ImmutableSet.of("role");
         }
     }
 }

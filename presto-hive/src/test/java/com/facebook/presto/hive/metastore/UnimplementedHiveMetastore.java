@@ -190,6 +190,24 @@ class UnimplementedHiveMetastore
     }
 
     @Override
+    public void createRole(String role, String grantor)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void dropRole(String role)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Set<String> listRoles()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Set<String> getRoles(String user)
     {
         throw new UnsupportedOperationException();
