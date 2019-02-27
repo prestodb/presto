@@ -348,6 +348,16 @@ public class SqlStandardAccessControl
         }
     }
 
+    @Override
+    public void checkCanShowCurrentRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanShowRoleGrants(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    {
+    }
+
     private boolean checkDatabasePermission(ConnectorTransactionHandle transaction, ConnectorIdentity identity, String schemaName, HivePrivilege... requiredPrivileges)
     {
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));

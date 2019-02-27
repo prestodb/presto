@@ -211,4 +211,16 @@ public abstract class ForwardingConnectorAccessControl
     {
         delegate().checkCanShowRoles(transactionHandle, identity, catalogName);
     }
+
+    @Override
+    public void checkCanShowCurrentRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    {
+        delegate().checkCanShowCurrentRoles(transactionHandle, identity, catalogName);
+    }
+
+    @Override
+    public void checkCanShowRoleGrants(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    {
+        delegate().checkCanShowRoleGrants(transactionHandle, identity, catalogName);
+    }
 }
