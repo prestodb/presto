@@ -205,4 +205,10 @@ public abstract class ForwardingConnectorAccessControl
     {
         delegate().checkCanSetRole(transactionHandle, identity, role, catalogName);
     }
+
+    @Override
+    public void checkCanShowRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    {
+        delegate().checkCanShowRoles(transactionHandle, identity, catalogName);
+    }
 }

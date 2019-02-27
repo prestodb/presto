@@ -149,4 +149,10 @@ public class ReadOnlyAccessControl
     {
         denyRevokeTablePrivilege(privilege.name(), tableName.toString());
     }
+
+    @Override
+    public void checkCanShowRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    {
+        // allow
+    }
 }
