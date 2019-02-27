@@ -16,6 +16,7 @@ package com.facebook.presto.jdbc;
 import com.facebook.presto.client.ClientException;
 import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.client.StatementClient;
+import com.facebook.presto.spi.security.SelectedRole;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 
@@ -247,6 +248,10 @@ public class PrestoStatement
             WarningsManager warningsManager = new WarningsManager();
             currentWarningsManager.set(Optional.of(warningsManager));
             resultSet = new PrestoResultSet(client, maxRows.get(), progressConsumer, warningsManager);
+
+            for (Map.Entry<String, SelectedRole> entry : client.getSetRoles().entrySet()) {
+                connection.get().setRole(entry.getKey(), entry.getValue());
+            }
 
             // check if this is a query
             if (client.currentStatusInfo().getUpdateType() == null) {
