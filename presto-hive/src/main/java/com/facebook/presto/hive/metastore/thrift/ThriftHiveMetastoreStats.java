@@ -45,6 +45,9 @@ public class ThriftHiveMetastoreStats
     private final HiveMetastoreApiStats grantTablePrivileges = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats revokeTablePrivileges = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats listRoles = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats grantRole = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats revokeRole = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats listRoleGrants = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats createRole = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats dropRole = new HiveMetastoreApiStats();
 
@@ -235,6 +238,27 @@ public class ThriftHiveMetastoreStats
     public HiveMetastoreApiStats getListRoles()
     {
         return listRoles;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getGrantRole()
+    {
+        return grantRole;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getRevokeRole()
+    {
+        return revokeRole;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getListRoleGrants()
+    {
+        return listRoleGrants;
     }
 
     @Managed

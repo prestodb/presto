@@ -76,6 +76,8 @@ import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -107,6 +109,7 @@ import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.getH
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
@@ -799,6 +802,27 @@ public class GlueHiveMetastore
     public Set<String> listRoles()
     {
         return ImmutableSet.of(PUBLIC_ROLE_NAME);
+    }
+
+    @Override
+    public void grantRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "grantRoles is not supported by Glue");
+    }
+
+    @Override
+    public void revokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "revokeRoles is not supported by Glue");
+    }
+
+    @Override
+    public Set<RoleGrant> listRoleGrants(PrestoPrincipal principal)
+    {
+        if (principal.getType() == USER) {
+            return ImmutableSet.of(new RoleGrant(principal, PUBLIC_ROLE_NAME, false));
+        }
+        return ImmutableSet.of();
     }
 
     @Override

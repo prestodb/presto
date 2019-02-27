@@ -15,6 +15,8 @@ package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.PartitionStatistics;
+import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.facebook.presto.spi.type.Type;
 
@@ -233,6 +235,24 @@ class UnimplementedHiveMetastore
 
     @Override
     public void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void grantRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void revokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Set<RoleGrant> listRoleGrants(PrestoPrincipal principal)
     {
         throw new UnsupportedOperationException();
     }
