@@ -199,4 +199,10 @@ public abstract class ForwardingConnectorAccessControl
     {
         delegate().checkCanRevokeRoles(transactionHandle, identity, roles, grantees, adminOptionFor, grantor, catalogName);
     }
+
+    @Override
+    public void checkCanSetRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String role, String catalogName)
+    {
+        delegate().checkCanSetRole(transactionHandle, identity, role, catalogName);
+    }
 }

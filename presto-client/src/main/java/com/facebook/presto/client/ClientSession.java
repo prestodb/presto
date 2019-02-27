@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -47,6 +48,7 @@ public class ClientSession
     private final Map<String, String> resourceEstimates;
     private final Map<String, String> properties;
     private final Map<String, String> preparedStatements;
+    private final Map<String, SelectedRole> roles;
     private final String transactionId;
     private final Duration clientRequestTimeout;
 
@@ -77,6 +79,7 @@ public class ClientSession
             Map<String, String> resourceEstimates,
             Map<String, String> properties,
             Map<String, String> preparedStatements,
+            Map<String, SelectedRole> roles,
             String transactionId,
             Duration clientRequestTimeout)
     {
@@ -95,6 +98,7 @@ public class ClientSession
         this.resourceEstimates = ImmutableMap.copyOf(requireNonNull(resourceEstimates, "resourceEstimates is null"));
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
         this.preparedStatements = ImmutableMap.copyOf(requireNonNull(preparedStatements, "preparedStatements is null"));
+        this.roles = ImmutableMap.copyOf(requireNonNull(roles, "roles is null"));
         this.clientRequestTimeout = clientRequestTimeout;
 
         for (String clientTag : clientTags) {
@@ -188,6 +192,14 @@ public class ClientSession
         return preparedStatements;
     }
 
+    /**
+     * Returns the map of catalog name -> selected role
+     */
+    public Map<String, SelectedRole> getRoles()
+    {
+        return roles;
+    }
+
     public String getTransactionId()
     {
         return transactionId;
@@ -239,6 +251,7 @@ public class ClientSession
         private Map<String, String> resourceEstimates;
         private Map<String, String> properties;
         private Map<String, String> preparedStatements;
+        private Map<String, SelectedRole> roles;
         private String transactionId;
         private Duration clientRequestTimeout;
 
@@ -259,6 +272,7 @@ public class ClientSession
             resourceEstimates = clientSession.getResourceEstimates();
             properties = clientSession.getProperties();
             preparedStatements = clientSession.getPreparedStatements();
+            roles = clientSession.getRoles();
             transactionId = clientSession.getTransactionId();
             clientRequestTimeout = clientSession.getClientRequestTimeout();
         }
@@ -284,6 +298,12 @@ public class ClientSession
         public Builder withProperties(Map<String, String> properties)
         {
             this.properties = requireNonNull(properties, "properties is null");
+            return this;
+        }
+
+        public Builder withRoles(Map<String, SelectedRole> roles)
+        {
+            this.roles = roles;
             return this;
         }
 
@@ -322,6 +342,7 @@ public class ClientSession
                     resourceEstimates,
                     properties,
                     preparedStatements,
+                    roles,
                     transactionId,
                     clientRequestTimeout);
         }

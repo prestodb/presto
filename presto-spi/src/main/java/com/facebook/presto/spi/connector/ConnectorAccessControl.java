@@ -43,6 +43,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeR
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectColumns;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySetRole;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowSchemas;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowTablesMetadata;
 import static java.util.Collections.emptySet;
@@ -291,5 +292,10 @@ public interface ConnectorAccessControl
     default void checkCanRevokeRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
     {
         denyRevokeRoles(roles, grantees);
+    }
+
+    default void checkCanSetRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String role, String catalogName)
+    {
+        denySetRole(role);
     }
 }

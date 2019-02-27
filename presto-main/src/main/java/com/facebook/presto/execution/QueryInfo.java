@@ -21,6 +21,7 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -62,6 +63,7 @@ public class QueryInfo
     private final Optional<String> setPath;
     private final Map<String, String> setSessionProperties;
     private final Set<String> resetSessionProperties;
+    private final Map<String, SelectedRole> setRoles;
     private final Map<String, String> addedPreparedStatements;
     private final Set<String> deallocatedPreparedStatements;
     private final Optional<TransactionId> startedTransactionId;
@@ -93,6 +95,7 @@ public class QueryInfo
             @JsonProperty("setPath") Optional<String> setPath,
             @JsonProperty("setSessionProperties") Map<String, String> setSessionProperties,
             @JsonProperty("resetSessionProperties") Set<String> resetSessionProperties,
+            @JsonProperty("setRoles") Map<String, SelectedRole> setRoles,
             @JsonProperty("addedPreparedStatements") Map<String, String> addedPreparedStatements,
             @JsonProperty("deallocatedPreparedStatements") Set<String> deallocatedPreparedStatements,
             @JsonProperty("startedTransactionId") Optional<TransactionId> startedTransactionId,
@@ -142,6 +145,7 @@ public class QueryInfo
         this.setPath = setPath;
         this.setSessionProperties = ImmutableMap.copyOf(setSessionProperties);
         this.resetSessionProperties = ImmutableSet.copyOf(resetSessionProperties);
+        this.setRoles = ImmutableMap.copyOf(setRoles);
         this.addedPreparedStatements = ImmutableMap.copyOf(addedPreparedStatements);
         this.deallocatedPreparedStatements = ImmutableSet.copyOf(deallocatedPreparedStatements);
         this.startedTransactionId = startedTransactionId;
@@ -176,6 +180,7 @@ public class QueryInfo
                 Optional.empty(),
                 ImmutableMap.of(),
                 ImmutableSet.of(),
+                ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableSet.of(),
                 Optional.empty(),
@@ -275,6 +280,12 @@ public class QueryInfo
     public Set<String> getResetSessionProperties()
     {
         return resetSessionProperties;
+    }
+
+    @JsonProperty
+    public Map<String, SelectedRole> getSetRoles()
+    {
+        return setRoles;
     }
 
     @JsonProperty

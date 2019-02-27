@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.sql.SqlPath;
@@ -43,6 +44,8 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
+import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -134,6 +137,7 @@ public final class Session
                 .map(entry -> Maps.immutableEntry(entry.getKey(), ImmutableMap.copyOf(entry.getValue())))
                 .forEach(unprocessedCatalogPropertiesBuilder::put);
         this.unprocessedCatalogProperties = unprocessedCatalogPropertiesBuilder.build();
+
         checkArgument(!transactionId.isPresent() || unprocessedCatalogProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
 
         checkArgument(catalog.isPresent() || !schema.isPresent(), "schema is set but catalog is not");
@@ -319,11 +323,36 @@ public final class Session
             connectorProperties.put(connectorId, catalogProperties);
         }
 
+        ImmutableMap.Builder<String, SelectedRole> roles = ImmutableMap.builder();
+        for (Entry<String, SelectedRole> entry : identity.getRoles().entrySet()) {
+            String catalogName = entry.getKey();
+            SelectedRole role = entry.getValue();
+
+            ConnectorId connectorId = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
+                    .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalogName))
+                    .getConnectorId();
+
+            if (role.getType() == SelectedRole.Type.ROLE) {
+                accessControl.checkCanSetRole(transactionId, identity, role.getRole().get(), catalogName);
+            }
+            roles.put(connectorId.getCatalogName(), role);
+
+            String informationSchemaCatalogName = createInformationSchemaConnectorId(connectorId).getCatalogName();
+            if (transactionManager.getCatalogNames(transactionId).containsKey(informationSchemaCatalogName)) {
+                roles.put(createInformationSchemaConnectorId(connectorId).getCatalogName(), role);
+            }
+
+            String systemTablesCatalogName = createSystemTablesConnectorId(connectorId).getCatalogName();
+            if (transactionManager.getCatalogNames(transactionId).containsKey(systemTablesCatalogName)) {
+                roles.put(createSystemTablesConnectorId(connectorId).getCatalogName(), role);
+            }
+        }
+
         return new Session(
                 queryId,
                 Optional.of(transactionId),
                 clientTransactionSupport,
-                new Identity(identity.getUser(), identity.getPrincipal()),
+                new Identity(identity.getUser(), identity.getPrincipal(), roles.build()),
                 source,
                 catalog,
                 schema,
@@ -404,6 +433,7 @@ public final class Session
     public ConnectorSession toConnectorSession(ConnectorId connectorId)
     {
         requireNonNull(connectorId, "connectorId is null");
+
         return new FullConnectorSession(
                 this,
                 identity.toConnectorIdentity(connectorId.getCatalogName()),
@@ -438,6 +468,7 @@ public final class Session
                 systemProperties,
                 connectorProperties,
                 unprocessedCatalogProperties,
+                identity.getRoles(),
                 preparedStatements);
     }
 
