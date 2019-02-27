@@ -87,6 +87,11 @@ public class FunctionManager
         return globalFunctionNamespace.getAggregateFunctionImplementation(functionHandle);
     }
 
+    public ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle)
+    {
+        return globalFunctionNamespace.getScalarFunctionImplementation(functionHandle.getSignature());
+    }
+
     public ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)
     {
         return globalFunctionNamespace.getScalarFunctionImplementation(signature);
@@ -112,13 +117,8 @@ public class FunctionManager
         return globalFunctionNamespace.isRegistered(signature);
     }
 
-    public Signature getCoercion(Type fromType, Type toType)
+    public FunctionHandle lookupCast(OperatorType castType, TypeSignature fromType, TypeSignature toType)
     {
-        return getCoercion(fromType.getTypeSignature(), toType.getTypeSignature());
-    }
-
-    public Signature getCoercion(TypeSignature fromType, TypeSignature toType)
-    {
-        return globalFunctionNamespace.getCoercion(fromType, toType);
+        return globalFunctionNamespace.lookupCast(castType, fromType, toType);
     }
 }

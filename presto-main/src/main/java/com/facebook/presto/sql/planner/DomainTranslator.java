@@ -15,8 +15,9 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.predicate.DiscreteValues;
 import com.facebook.presto.spi.predicate.Domain;
@@ -59,7 +60,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.Signature.internalOperator;
+import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
@@ -659,17 +660,19 @@ public final class DomainTranslator
                     .map((operator) -> functionInvoker.invoke(operator, session.toConnectorSession(), value));
         }
 
-        private Optional<Signature> getSaturatedFloorCastOperator(Type fromType, Type toType)
+        private Optional<FunctionHandle> getSaturatedFloorCastOperator(Type fromType, Type toType)
         {
-            if (metadata.getFunctionManager().canResolveOperator(SATURATED_FLOOR_CAST, toType, ImmutableList.of(fromType))) {
-                return Optional.of(internalOperator(SATURATED_FLOOR_CAST, toType, ImmutableList.of(fromType)));
+            try {
+                return Optional.of(metadata.getFunctionManager().lookupCast(SATURATED_FLOOR_CAST, fromType.getTypeSignature(), toType.getTypeSignature()));
             }
-            return Optional.empty();
+            catch (OperatorNotFoundException e) {
+                return Optional.empty();
+            }
         }
 
         private int compareOriginalValueToCoerced(Type originalValueType, Object originalValue, Type coercedValueType, Object coercedValue)
         {
-            Signature castToOriginalTypeOperator = metadata.getFunctionManager().getCoercion(coercedValueType, originalValueType);
+            FunctionHandle castToOriginalTypeOperator = metadata.getFunctionManager().lookupCast(CAST, coercedValueType.getTypeSignature(), originalValueType.getTypeSignature());
             Object coercedValueInOriginalType = functionInvoker.invoke(castToOriginalTypeOperator, session.toConnectorSession(), coercedValue);
             Block originalValueBlock = Utils.nativeValueToBlock(originalValueType, originalValue);
             Block coercedValueBlock = Utils.nativeValueToBlock(originalValueType, coercedValueInOriginalType);

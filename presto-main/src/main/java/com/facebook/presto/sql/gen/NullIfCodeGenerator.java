@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.OperatorType;
@@ -30,6 +31,7 @@ import io.airlift.bytecode.instruction.LabelNode;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.sql.gen.BytecodeGenerator.generateWrite;
 import static com.facebook.presto.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
@@ -99,11 +101,11 @@ public class NullIfCodeGenerator
             return argument;
         }
 
-        Signature function = generatorContext
+        FunctionHandle functionHandle = generatorContext
                 .getFunctionManager()
-                .getCoercion(actualType.getTypeSignature(), requiredType);
+                .lookupCast(CAST, actualType.getTypeSignature(), requiredType);
 
         // TODO: do we need a full function call? (nullability checks, etc)
-        return generatorContext.generateCall(function.getName(), generatorContext.getFunctionManager().getScalarFunctionImplementation(function), ImmutableList.of(argument));
+        return generatorContext.generateCall(CAST.name(), generatorContext.getFunctionManager().getScalarFunctionImplementation(functionHandle), ImmutableList.of(argument));
     }
 }

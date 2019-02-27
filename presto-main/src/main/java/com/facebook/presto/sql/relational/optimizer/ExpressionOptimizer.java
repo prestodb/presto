@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.relational.CallExpression;
@@ -255,7 +256,7 @@ public class ExpressionOptimizer
             }
 
             return call(
-                    functionManager.getCoercion(call.getArguments().get(0).getType(), call.getType()),
+                    functionManager.lookupCast(OperatorType.CAST, call.getArguments().get(0).getType().getTypeSignature(), call.getType().getTypeSignature()).getSignature(),
                     call.getType(),
                     call.getArguments());
         }

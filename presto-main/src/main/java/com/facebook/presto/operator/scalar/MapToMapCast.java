@@ -106,7 +106,7 @@ public final class MapToMapCast
         MethodHandle getter = nativeValueGetter(fromType);
 
         // Adapt cast that takes ([ConnectorSession,] ?) to one that takes (?, ConnectorSession), where ? is the return type of getter.
-        ScalarFunctionImplementation castImplementation = functionManager.getScalarFunctionImplementation(functionManager.getCoercion(fromType, toType));
+        ScalarFunctionImplementation castImplementation = functionManager.getScalarFunctionImplementation(functionManager.lookupCast(CAST, fromType.getTypeSignature(), toType.getTypeSignature()));
         MethodHandle cast = castImplementation.getMethodHandle();
         if (cast.type().parameterArray()[0] != ConnectorSession.class) {
             cast = MethodHandles.dropArguments(cast, 0, ConnectorSession.class);

@@ -14,9 +14,9 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
@@ -32,6 +32,7 @@ import com.facebook.presto.sql.InterpretedFunctionInvoker;
 
 import java.util.OptionalDouble;
 
+import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static java.util.Collections.singletonList;
 
 final class StatsUtil
@@ -47,9 +48,9 @@ final class StatsUtil
     {
         if (convertibleToDoubleWithCast(type)) {
             InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(functionManager);
-            Signature castSignature = functionManager.getCoercion(type, DoubleType.DOUBLE);
+            FunctionHandle cast = functionManager.lookupCast(CAST, type.getTypeSignature(), DoubleType.DOUBLE.getTypeSignature());
 
-            return OptionalDouble.of((double) functionInvoker.invoke(castSignature, session, singletonList(value)));
+            return OptionalDouble.of((double) functionInvoker.invoke(cast, session, singletonList(value)));
         }
 
         if (DateType.DATE.equals(type)) {

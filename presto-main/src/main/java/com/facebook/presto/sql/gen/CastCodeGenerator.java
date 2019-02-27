@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -24,6 +25,7 @@ import io.airlift.bytecode.Variable;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.sql.gen.BytecodeGenerator.generateWrite;
 
 public class CastCodeGenerator
@@ -34,13 +36,13 @@ public class CastCodeGenerator
     {
         RowExpression argument = arguments.get(0);
 
-        Signature function = generatorContext
+        FunctionHandle function = generatorContext
                 .getFunctionManager()
-                .getCoercion(argument.getType(), returnType);
+                .lookupCast(CAST, argument.getType().getTypeSignature(), returnType.getTypeSignature());
 
         BytecodeBlock block = new BytecodeBlock()
                 .append(generatorContext.generateCall(
-                        function.getName(),
+                        CAST.name(),
                         generatorContext.getFunctionManager().getScalarFunctionImplementation(function),
                         ImmutableList.of(generatorContext.generate(argument, Optional.empty()))));
         outputBlockVariable.ifPresent(output -> block.append(generateWrite(generatorContext, returnType, output)));

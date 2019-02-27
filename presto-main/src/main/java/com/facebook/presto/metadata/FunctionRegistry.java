@@ -1094,24 +1094,20 @@ class FunctionRegistry
         }
     }
 
-    public Signature getCoercion(Type fromType, Type toType)
+    public FunctionHandle lookupCast(OperatorType castType, TypeSignature fromType, TypeSignature toType)
     {
-        return getCoercion(fromType.getTypeSignature(), toType.getTypeSignature());
-    }
-
-    public Signature getCoercion(TypeSignature fromType, TypeSignature toType)
-    {
-        Signature signature = internalOperator(OperatorType.CAST.name(), toType, ImmutableList.of(fromType));
+        checkArgument(castType == OperatorType.CAST || castType == OperatorType.SATURATED_FLOOR_CAST, format("%s is not a cast type", castType.name()));
+        Signature signature = internalOperator(castType.name(), toType, ImmutableList.of(fromType));
         try {
             getScalarFunctionImplementation(signature);
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
-                throw new OperatorNotFoundException(OperatorType.CAST, ImmutableList.of(fromType), toType);
+                throw new OperatorNotFoundException(castType, ImmutableList.of(fromType), toType);
             }
             throw e;
         }
-        return signature;
+        return new FunctionHandle(signature);
     }
 
     private static Optional<List<Type>> toTypes(List<TypeSignatureProvider> typeSignatureProviders, TypeManager typeManager)
