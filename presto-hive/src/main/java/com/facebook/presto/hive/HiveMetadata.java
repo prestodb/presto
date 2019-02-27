@@ -1951,13 +1951,15 @@ public class HiveMetadata
     @Override
     public Set<RoleGrant> listApplicableRoles(ConnectorSession session, PrestoPrincipal principal)
     {
-        return ThriftMetastoreUtil.listApplicableRoles(principal, metastore::listRoleGrants);
+        return ThriftMetastoreUtil.listApplicableRoles(principal, metastore::listRoleGrants)
+                .collect(toImmutableSet());
     }
 
     @Override
     public Set<String> listEnabledRoles(ConnectorSession session)
     {
-        return ThriftMetastoreUtil.listEnabledRoles(session.getIdentity(), metastore::listRoleGrants);
+        return ThriftMetastoreUtil.listEnabledRoles(session.getIdentity(), metastore::listRoleGrants)
+                .collect(toImmutableSet());
     }
 
     @Override
