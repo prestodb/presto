@@ -343,17 +343,18 @@ public class TupleDomainOrcPredicate<C>
             if (values instanceof SortedRangeSet) {
                 List<Range> ranges = ((SortedRangeSet) values).getOrderedRanges();
                 Type type = predicateDomain.getType();
+                boolean nullAllowed = predicateDomain.isNullAllowed();
 
-                Filter filter = null;
-                if (ranges.isEmpty() && predicateDomain.isNullAllowed()) {
-                    filter = new Filters.IsNull();
+                Filter filter;
+                if (ranges.isEmpty() && nullAllowed) {
+                    filter = Filters.isNull();
                 }
                 else if (ranges.size() == 1) {
-                    filter = createRangeFilter(type, ranges.get(0), predicateDomain.isNullAllowed());
+                    filter = createRangeFilter(type, ranges.get(0), nullAllowed);
                 }
                 else {
                     List<Filter> rangeFilters = ranges.stream().map(r -> createRangeFilter(type, r, false)).collect(toList());
-                    filter = Filters.createMultiRange(rangeFilters, predicateDomain.isNullAllowed());
+                    filter = Filters.createMultiRange(rangeFilters, nullAllowed);
                 }
                 if (filter == null) {
                     // The domain cannot be converted to a filter. Pushdown fails.
@@ -370,14 +371,22 @@ public class TupleDomainOrcPredicate<C>
 
     private static Filter createRangeFilter(Type type, Range range, boolean nullAllowed)
     {
+        if (range.isAll()) {
+            return nullAllowed ? null : Filters.isNotNull();
+        }
+
         if (isVarcharType(type)) {
-            return VarcharRangeToFilter(range, nullAllowed);
+            return varcharRangeToFilter(range, nullAllowed);
         }
         if (type == BIGINT) {
-            return BigintRangeToFilter(range, nullAllowed);
+            return bigintRangeToFilter(range, nullAllowed);
         }
         if (type == DOUBLE) {
             return doubleRangeToFilter(range, nullAllowed);
+        }
+        if (type == BOOLEAN) {
+            boolean booleanValue = ((Boolean) range.getSingleValue()).booleanValue();
+            return range.isSingleValue() ? new Filters.BooleanValue(booleanValue, nullAllowed) : null;
         }
         return null;
     }
@@ -416,7 +425,7 @@ public class TupleDomainOrcPredicate<C>
         }
     }
 
-    private static Filter BigintRangeToFilter(Range range, boolean nullAllowed)
+    private static Filter bigintRangeToFilter(Range range, boolean nullAllowed)
     {
         Marker low = range.getLow();
         Marker high = range.getHigh();
@@ -446,7 +455,7 @@ public class TupleDomainOrcPredicate<C>
                 high.getBound() == Marker.Bound.BELOW, nullAllowed);
     }
 
-    private static Filter VarcharRangeToFilter(Range range, boolean nullAllowed)
+    private static Filter varcharRangeToFilter(Range range, boolean nullAllowed)
     {
         Marker low = range.getLow();
         Marker high = range.getHigh();

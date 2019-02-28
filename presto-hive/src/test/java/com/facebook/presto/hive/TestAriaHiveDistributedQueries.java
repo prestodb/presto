@@ -240,6 +240,13 @@ public class TestAriaHiveDistributedQueries
                 "FROM lineitem\n" +
                 "WHERE\n" +
                 "    shipinstruct = 'TAKE BACK RETURN' AND orderkey < 10");
+
+        // BooleanStreamReader
+        assertQuery(ariaSession(), "SELECT linenumber FROM lineitem_aria WHERE is_returned = TRUE",
+                "SELECT linenumber FROM lineitem WHERE returnflag = 'R'");
+
+        assertQuery(ariaSession(), "SELECT linenumber, is_returned FROM lineitem_aria WHERE is_returned = TRUE",
+                "SELECT linenumber, true FROM lineitem WHERE returnflag = 'R'");
     }
 
     // nulls1.sql

@@ -120,7 +120,7 @@ public interface StreamReader
 
     default void compactValues(int[] surviving, int base, int numSurviving)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("compactValues is not supported by " + this.getClass().getSimpleName());
     }
 
     default int getPosition()
