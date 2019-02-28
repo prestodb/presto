@@ -24,6 +24,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -160,8 +161,11 @@ public class TupleDomainParquetPredicate
             if (hasFalseValues) {
                 return Domain.create(ValueSet.of(type, false), hasNullValue);
             }
+            // All nulls case is handled earlier
+            throw new VerifyException("Impossible boolean statistics");
         }
-        else if ((type.equals(BIGINT) || type.equals(TINYINT) || type.equals(SMALLINT) || type.equals(INTEGER)) && (statistics instanceof LongStatistics || statistics instanceof IntStatistics)) {
+
+        if ((type.equals(BIGINT) || type.equals(TINYINT) || type.equals(SMALLINT) || type.equals(INTEGER)) && (statistics instanceof LongStatistics || statistics instanceof IntStatistics)) {
             ParquetIntegerStatistics parquetIntegerStatistics;
             if (statistics instanceof LongStatistics) {
                 LongStatistics longStatistics = (LongStatistics) statistics;
@@ -184,7 +188,8 @@ public class TupleDomainParquetPredicate
             }
             return createDomain(type, hasNullValue, parquetIntegerStatistics);
         }
-        else if (type.equals(REAL) && statistics instanceof FloatStatistics) {
+
+        if (type.equals(REAL) && statistics instanceof FloatStatistics) {
             FloatStatistics floatStatistics = (FloatStatistics) statistics;
             if (floatStatistics.genericGetMin() > floatStatistics.genericGetMax()) {
                 failWithCorruptionException(failOnCorruptedParquetStatistics, column, id, floatStatistics);
@@ -197,7 +202,8 @@ public class TupleDomainParquetPredicate
 
             return createDomain(type, hasNullValue, parquetStatistics);
         }
-        else if (type.equals(DOUBLE) && statistics instanceof DoubleStatistics) {
+
+        if (type.equals(DOUBLE) && statistics instanceof DoubleStatistics) {
             DoubleStatistics doubleStatistics = (DoubleStatistics) statistics;
             if (doubleStatistics.genericGetMin() > doubleStatistics.genericGetMax()) {
                 failWithCorruptionException(failOnCorruptedParquetStatistics, column, id, doubleStatistics);
@@ -206,7 +212,8 @@ public class TupleDomainParquetPredicate
             ParquetDoubleStatistics parquetDoubleStatistics = new ParquetDoubleStatistics(doubleStatistics.genericGetMin(), doubleStatistics.genericGetMax());
             return createDomain(type, hasNullValue, parquetDoubleStatistics);
         }
-        else if (isVarcharType(type) && statistics instanceof BinaryStatistics) {
+
+        if (isVarcharType(type) && statistics instanceof BinaryStatistics) {
             BinaryStatistics binaryStatistics = (BinaryStatistics) statistics;
             Slice minSlice = Slices.wrappedBuffer(binaryStatistics.genericGetMin().getBytes());
             Slice maxSlice = Slices.wrappedBuffer(binaryStatistics.genericGetMax().getBytes());
@@ -217,7 +224,8 @@ public class TupleDomainParquetPredicate
             ParquetStringStatistics parquetStringStatistics = new ParquetStringStatistics(minSlice, maxSlice);
             return createDomain(type, hasNullValue, parquetStringStatistics);
         }
-        else if (type.equals(DATE) && statistics instanceof IntStatistics) {
+
+        if (type.equals(DATE) && statistics instanceof IntStatistics) {
             IntStatistics intStatistics = (IntStatistics) statistics;
             if (intStatistics.genericGetMin() > intStatistics.genericGetMax()) {
                 failWithCorruptionException(failOnCorruptedParquetStatistics, column, id, intStatistics);
@@ -226,6 +234,7 @@ public class TupleDomainParquetPredicate
             ParquetIntegerStatistics parquetIntegerStatistics = new ParquetIntegerStatistics((long) intStatistics.getMin(), (long) intStatistics.getMax());
             return createDomain(type, hasNullValue, parquetIntegerStatistics);
         }
+
         return Domain.create(ValueSet.all(type), hasNullValue);
     }
 
@@ -262,7 +271,8 @@ public class TupleDomainParquetPredicate
             domains.add(Domain.onlyNull(type));
             return Domain.union(domains);
         }
-        else if ((type.equals(BIGINT) || type.equals(DATE)) && columnDescriptor.getType() == PrimitiveTypeName.INT32) {
+
+        if ((type.equals(BIGINT) || type.equals(DATE)) && columnDescriptor.getType() == PrimitiveTypeName.INT32) {
             List<Domain> domains = new ArrayList<>();
             for (int i = 0; i < dictionarySize; i++) {
                 domains.add(Domain.singleValue(type, (long) dictionary.decodeToInt(i)));
@@ -270,7 +280,8 @@ public class TupleDomainParquetPredicate
             domains.add(Domain.onlyNull(type));
             return Domain.union(domains);
         }
-        else if (type.equals(DOUBLE) && columnDescriptor.getType() == PrimitiveTypeName.DOUBLE) {
+
+        if (type.equals(DOUBLE) && columnDescriptor.getType() == PrimitiveTypeName.DOUBLE) {
             List<Domain> domains = new ArrayList<>();
             for (int i = 0; i < dictionarySize; i++) {
                 domains.add(Domain.singleValue(type, dictionary.decodeToDouble(i)));
@@ -278,7 +289,8 @@ public class TupleDomainParquetPredicate
             domains.add(Domain.onlyNull(type));
             return Domain.union(domains);
         }
-        else if (type.equals(DOUBLE) && columnDescriptor.getType() == PrimitiveTypeName.FLOAT) {
+
+        if (type.equals(DOUBLE) && columnDescriptor.getType() == PrimitiveTypeName.FLOAT) {
             List<Domain> domains = new ArrayList<>();
             for (int i = 0; i < dictionarySize; i++) {
                 domains.add(Domain.singleValue(type, (double) dictionary.decodeToFloat(i)));
@@ -286,7 +298,8 @@ public class TupleDomainParquetPredicate
             domains.add(Domain.onlyNull(type));
             return Domain.union(domains);
         }
-        else if (isVarcharType(type) && columnDescriptor.getType() == PrimitiveTypeName.BINARY) {
+
+        if (isVarcharType(type) && columnDescriptor.getType() == PrimitiveTypeName.BINARY) {
             List<Domain> domains = new ArrayList<>();
             for (int i = 0; i < dictionarySize; i++) {
                 domains.add(Domain.singleValue(type, Slices.wrappedBuffer(dictionary.decodeToBinary(i).getBytes())));
@@ -294,6 +307,7 @@ public class TupleDomainParquetPredicate
             domains.add(Domain.onlyNull(type));
             return Domain.union(domains);
         }
+
         return Domain.all(type);
     }
 
