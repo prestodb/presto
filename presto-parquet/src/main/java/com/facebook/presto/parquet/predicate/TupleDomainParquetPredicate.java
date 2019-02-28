@@ -78,42 +78,63 @@ public class TupleDomainParquetPredicate
         if (numberOfRows == 0) {
             return false;
         }
-        ImmutableMap.Builder<ColumnDescriptor, Domain> domains = ImmutableMap.builder();
+
+        if (effectivePredicate.isNone()) {
+            return false;
+        }
+
+        Map<ColumnDescriptor, Domain> effectivePredicateDomains = effectivePredicate.getDomains()
+                .orElseThrow(() -> new IllegalStateException("Effective predicate other than none should have domains"));
 
         for (RichColumnDescriptor column : columns) {
             Statistics<?> columnStatistics = statistics.get(column);
 
-            Domain domain;
             Type type = getPrestoType(effectivePredicate, column);
             if (columnStatistics == null || columnStatistics.isEmpty()) {
                 // no stats for column
-                domain = Domain.all(type);
             }
             else {
-                domain = getDomain(type, numberOfRows, columnStatistics, id, column.toString(), failOnCorruptedParquetStatistics);
+                Domain domain = getDomain(type, numberOfRows, columnStatistics, id, column.toString(), failOnCorruptedParquetStatistics);
+                if (domain.isNone()) {
+                    return false;
+                }
+                Domain effectivePredicateDomain = effectivePredicateDomains.get(column);
+                if (effectivePredicateDomain != null) {
+                    if (effectivePredicateDomain.intersect(domain).isNone()) {
+                        return false;
+                    }
+                }
             }
-            domains.put(column, domain);
         }
-        TupleDomain<ColumnDescriptor> stripeDomain = TupleDomain.withColumnDomains(domains.build());
-
-        return effectivePredicate.overlaps(stripeDomain);
+        return true;
     }
 
     @Override
     public boolean matches(Map<ColumnDescriptor, DictionaryDescriptor> dictionaries)
     {
-        ImmutableMap.Builder<ColumnDescriptor, Domain> domains = ImmutableMap.builder();
+        if (effectivePredicate.isNone()) {
+            return false;
+        }
+
+        Map<ColumnDescriptor, Domain> effectivePredicateDomains = effectivePredicate.getDomains()
+                .orElseThrow(() -> new IllegalStateException("Effective predicate other than none should have domains"));
 
         for (RichColumnDescriptor column : columns) {
             DictionaryDescriptor dictionaryDescriptor = dictionaries.get(column);
             Domain domain = getDomain(getPrestoType(effectivePredicate, column), dictionaryDescriptor);
             if (domain != null) {
-                domains.put(column, domain);
+                if (domain.isNone()) {
+                    return false;
+                }
+                Domain effectivePredicateDomain = effectivePredicateDomains.get(column);
+                if (effectivePredicateDomain != null) {
+                    if (effectivePredicateDomain.intersect(domain).isNone()) {
+                        return false;
+                    }
+                }
             }
         }
-        TupleDomain<ColumnDescriptor> stripeDomain = TupleDomain.withColumnDomains(domains.build());
-
-        return effectivePredicate.overlaps(stripeDomain);
+        return true;
     }
 
     @VisibleForTesting
