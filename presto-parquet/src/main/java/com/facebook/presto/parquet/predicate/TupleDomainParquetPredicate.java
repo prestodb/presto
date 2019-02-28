@@ -121,10 +121,8 @@ public class TupleDomainParquetPredicate
             }
             DictionaryDescriptor dictionaryDescriptor = dictionaries.get(column);
             Domain domain = getDomain(effectivePredicateDomain.getType(), dictionaryDescriptor);
-            if (domain != null) {
-                if (effectivePredicateDomain.intersect(domain).isNone()) {
-                    return false;
-                }
+            if (effectivePredicateDomain.intersect(domain).isNone()) {
+                return false;
             }
         }
         return true;
@@ -235,13 +233,13 @@ public class TupleDomainParquetPredicate
     public static Domain getDomain(Type type, DictionaryDescriptor dictionaryDescriptor)
     {
         if (dictionaryDescriptor == null) {
-            return null;
+            return Domain.all(type);
         }
 
         ColumnDescriptor columnDescriptor = dictionaryDescriptor.getColumnDescriptor();
         Optional<DictionaryPage> dictionaryPage = dictionaryDescriptor.getDictionaryPage();
         if (!dictionaryPage.isPresent()) {
-            return null;
+            return Domain.all(type);
         }
 
         Dictionary dictionary;
@@ -251,7 +249,8 @@ public class TupleDomainParquetPredicate
         catch (Exception e) {
             // In case of exception, just continue reading the data, not using dictionary page at all
             // OK to ignore exception when reading dictionaries
-            return null;
+            // TODO take failOnCorruptedParquetStatistics parameter and handle appropriately
+            return Domain.all(type);
         }
 
         int dictionarySize = dictionaryPage.get().getDictionarySize();
@@ -295,7 +294,7 @@ public class TupleDomainParquetPredicate
             domains.add(Domain.onlyNull(type));
             return Domain.union(domains);
         }
-        return null;
+        return Domain.all(type);
     }
 
     private static void failWithCorruptionException(boolean failOnCorruptedParquetStatistics, String column, ParquetDataSourceId id, Statistics statistics)
