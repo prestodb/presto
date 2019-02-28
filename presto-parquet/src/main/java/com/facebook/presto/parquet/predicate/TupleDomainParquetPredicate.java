@@ -87,22 +87,20 @@ public class TupleDomainParquetPredicate
                 .orElseThrow(() -> new IllegalStateException("Effective predicate other than none should have domains"));
 
         for (RichColumnDescriptor column : columns) {
-            Statistics<?> columnStatistics = statistics.get(column);
+            Domain effectivePredicateDomain = effectivePredicateDomains.get(column);
+            if (effectivePredicateDomain == null) {
+                continue;
+            }
 
+            Statistics<?> columnStatistics = statistics.get(column);
             Type type = getPrestoType(effectivePredicate, column);
             if (columnStatistics == null || columnStatistics.isEmpty()) {
                 // no stats for column
             }
             else {
                 Domain domain = getDomain(type, numberOfRows, columnStatistics, id, column.toString(), failOnCorruptedParquetStatistics);
-                if (domain.isNone()) {
+                if (effectivePredicateDomain.intersect(domain).isNone()) {
                     return false;
-                }
-                Domain effectivePredicateDomain = effectivePredicateDomains.get(column);
-                if (effectivePredicateDomain != null) {
-                    if (effectivePredicateDomain.intersect(domain).isNone()) {
-                        return false;
-                    }
                 }
             }
         }
@@ -120,17 +118,15 @@ public class TupleDomainParquetPredicate
                 .orElseThrow(() -> new IllegalStateException("Effective predicate other than none should have domains"));
 
         for (RichColumnDescriptor column : columns) {
+            Domain effectivePredicateDomain = effectivePredicateDomains.get(column);
+            if (effectivePredicateDomain == null) {
+                continue;
+            }
             DictionaryDescriptor dictionaryDescriptor = dictionaries.get(column);
             Domain domain = getDomain(getPrestoType(effectivePredicate, column), dictionaryDescriptor);
             if (domain != null) {
-                if (domain.isNone()) {
+                if (effectivePredicateDomain.intersect(domain).isNone()) {
                     return false;
-                }
-                Domain effectivePredicateDomain = effectivePredicateDomains.get(column);
-                if (effectivePredicateDomain != null) {
-                    if (effectivePredicateDomain.intersect(domain).isNone()) {
-                        return false;
-                    }
                 }
             }
         }
