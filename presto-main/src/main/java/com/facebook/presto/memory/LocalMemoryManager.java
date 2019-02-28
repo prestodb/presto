@@ -45,8 +45,14 @@ public final class LocalMemoryManager
     @Inject
     public LocalMemoryManager(NodeMemoryConfig config)
     {
+        this(config, Runtime.getRuntime().maxMemory());
+    }
+
+    @VisibleForTesting
+    public LocalMemoryManager(NodeMemoryConfig config, long availableMemory)
+    {
         requireNonNull(config, "config is null");
-        configureMemoryPools(config, Runtime.getRuntime().maxMemory());
+        configureMemoryPools(config, availableMemory);
     }
 
     private void configureMemoryPools(NodeMemoryConfig config, long availableMemory)
