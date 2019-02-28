@@ -145,6 +145,7 @@ public final class HiveQueryRunner
     {
         Logging logging = Logging.initialize();
         logging.setLevel("org.apache.parquet.hadoop", WARN);
+        logging.setLevel("parquet.hadoop", WARN);
     }
 
     private static Database createDatabaseMetastoreObject(String name)
