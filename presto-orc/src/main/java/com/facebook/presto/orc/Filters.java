@@ -18,25 +18,112 @@ import com.facebook.presto.spi.SubfieldPath;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 
 import static com.facebook.presto.spi.block.ByteArrayUtils.memcmp;
 
 public class Filters
 {
+    private static final Filter IS_NULL = new IsNull();
+    private static final Filter IS_NOT_NULL = new IsNotNull();
+
     private Filters() {}
 
-    public static class IsNull
+    private static class IsNull
             extends Filter
     {
-        IsNull()
+        public IsNull()
         {
             super(true);
         }
+    }
 
-        @Override
-        public boolean testNull()
+    private static class IsNotNull
+            extends Filter
+    {
+        public IsNotNull()
+        {
+            super(false);
+        }
+
+        public boolean testLong(long value)
         {
             return true;
+        }
+
+        public boolean testDouble(double value)
+        {
+            return true;
+        }
+
+        public boolean testBoolean(boolean value)
+        {
+            return true;
+        }
+
+        public boolean testBytes(byte[] buffer, int offset, int length)
+        {
+            return true;
+        }
+    }
+
+    public static Filter isNull()
+    {
+        return IS_NULL;
+    }
+
+    public static Filter isNotNull()
+    {
+        return IS_NOT_NULL;
+    }
+
+    public static class BooleanValue
+            extends Filter
+    {
+        private final boolean value;
+
+        public BooleanValue(boolean value, boolean nullAllowed)
+        {
+            super(nullAllowed);
+            this.value = value;
+        }
+
+        @Override
+        public boolean testBoolean(boolean value)
+        {
+            return this.value == value;
+        }
+
+        @Override
+        public int staticScore()
+        {
+            return 1;
+        }
+
+        @Override
+        public boolean isEquality()
+        {
+            return true;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(value, nullAllowed);
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            BooleanValue other = (BooleanValue) obj;
+            return this.value == other.value &&
+                    this.nullAllowed == other.nullAllowed;
         }
     }
 

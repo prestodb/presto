@@ -26,10 +26,6 @@ public class TestAriaOrcReader
 
     @Test
     @Override
-    public void testBooleanSequence() {}
-
-    @Test
-    @Override
     public void testLongSequence() {}
 
     @Test

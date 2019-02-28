@@ -68,11 +68,7 @@ public final class StreamReaders
         for (int i = 0; i < numPositions; i++) {
             values[base + i] = values[base + positions[i]];
         }
-        if (valueIsNull != null) {
-            for (int i = 0; i < numPositions; i++) {
-                valueIsNull[base + i] = valueIsNull[base + positions[i]];
-            }
-        }
+        compactArray(positions, base, numPositions, valueIsNull);
     }
 
     public static void compactArrays(int[] positions, int base, int numPositions, int[] values, boolean[] valueIsNull)
@@ -80,9 +76,22 @@ public final class StreamReaders
         for (int i = 0; i < numPositions; i++) {
             values[base + i] = values[base + positions[i]];
         }
-        if (valueIsNull != null) {
+        compactArray(positions, base, numPositions, valueIsNull);
+    }
+
+    public static void compactArrays(int[] positions, int base, int numPositions, byte[] values, boolean[] valueIsNull)
+    {
+        for (int i = 0; i < numPositions; i++) {
+            values[base + i] = values[base + positions[i]];
+        }
+        compactArray(positions, base, numPositions, valueIsNull);
+    }
+
+    private static void compactArray(int[] positions, int base, int numPositions, boolean[] values)
+    {
+        if (values != null) {
             for (int i = 0; i < numPositions; i++) {
-                valueIsNull[base + i] = valueIsNull[base + positions[i]];
+                values[base + i] = values[base + positions[i]];
             }
         }
     }
