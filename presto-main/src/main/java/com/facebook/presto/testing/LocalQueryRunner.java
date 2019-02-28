@@ -20,6 +20,7 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.connector.system.AnalyzePropertiesSystemTable;
 import com.facebook.presto.connector.system.CatalogSystemTable;
 import com.facebook.presto.connector.system.ColumnPropertiesSystemTable;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
@@ -345,6 +346,7 @@ public class LocalQueryRunner
                 new SchemaPropertiesSystemTable(transactionManager, metadata),
                 new TablePropertiesSystemTable(transactionManager, metadata),
                 new ColumnPropertiesSystemTable(transactionManager, metadata),
+                new AnalyzePropertiesSystemTable(transactionManager, metadata),
                 new TransactionsSystemTable(typeRegistry, transactionManager)),
                 ImmutableSet.of());
 
