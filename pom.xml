@@ -602,7 +602,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>joni</artifactId>
-                <version>2.1.5.1</version>
+                <version>2.1.5.2</version>
             </dependency>
 
             <dependency>

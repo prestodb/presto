@@ -211,6 +211,7 @@ public class TestRegexpFunctions
         assertFunction("REGEXP_EXTRACT('Hello world bye', '\\b[a-z]([a-z]*)', 1)", createVarcharType(15), "orld");
         assertFunction("REGEXP_EXTRACT('rat cat\nbat dog', 'ra(.)|blah(.)(.)', 2)", createVarcharType(15), null);
         assertFunction("REGEXP_EXTRACT('12345', 'x')", createVarcharType(5), null);
+        assertFunction("REGEXP_EXTRACT('Baby X', 'by ([A-Z].*)\\b[a-z]')", createVarcharType(6), null);
 
         assertInvalidFunction("REGEXP_EXTRACT('Hello world bye', '\\b[a-z]([a-z]*)', -1)", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("REGEXP_EXTRACT('Hello world bye', '\\b[a-z]([a-z]*)', 2)", INVALID_FUNCTION_ARGUMENT);
