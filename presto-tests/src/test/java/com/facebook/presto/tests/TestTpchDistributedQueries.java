@@ -37,6 +37,12 @@ public class TestTpchDistributedQueries
     }
 
     @Test
+    public void testAnalyzePropertiesSystemTable()
+    {
+        assertQuery("SELECT COUNT(*) FROM system.metadata.analyze_properties WHERE catalog_name = 'tpch'", "SELECT 0");
+    }
+
+    @Test
     public void testAnalyze()
     {
         assertUpdate("ANALYZE orders", 15000);

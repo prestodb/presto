@@ -3084,6 +3084,13 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testAnalyzePropertiesSystemTable()
+    {
+        assertQuery("SELECT * FROM system.metadata.analyze_properties WHERE catalog_name = 'hive'",
+                "SELECT 'hive', 'partitions', '', 'array(array(varchar))', 'Partitions to be analyzed'");
+    }
+
+    @Test
     public void testAnalyzeEmptyTable()
     {
         String tableName = "test_analyze_empty_table";

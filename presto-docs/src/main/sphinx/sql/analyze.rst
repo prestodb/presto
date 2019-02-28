@@ -15,7 +15,9 @@ Description
 Collects table and column statistics for a given table.
 
 The optional ``WITH`` clause can be used to provide
-connector-specific properties.
+connector-specific properties. To list all available properties, run the following query::
+
+    SELECT * FROM system.metadata.analyze_properties
 
 Currently, this statement is only supported by the
 :ref:`Hive connector <hive_analyze>`.
