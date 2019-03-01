@@ -41,7 +41,7 @@ public final class OutputHandler
         this.printer = requireNonNull(printer, "printer is null");
     }
 
-    public void processRow(List<?> row)
+    public void processRow(List<?> row, long total, long cur)
             throws IOException
     {
         if (rowBuffer.isEmpty()) {
@@ -49,7 +49,7 @@ public final class OutputHandler
         }
 
         rowBuffer.add(row);
-        flush(false);
+        flush(false, total, cur);
     }
 
     @Override
@@ -57,7 +57,7 @@ public final class OutputHandler
             throws IOException
     {
         if (!closed.getAndSet(true)) {
-            flush(true);
+            flush(true, 1, 1);
             printer.finish();
         }
     }
@@ -73,8 +73,13 @@ public final class OutputHandler
                 List<List<Object>> datalist = Lists.newArrayList(data);
                 console.setLines(previousLine);
                 console.resetScreen();
+
+                long total = 0;
                 for (List<Object> row : datalist) {
-                    processRow(unmodifiableList(row));
+                    total += (long) row.get(row.size() - 1);
+                }
+                for (List<Object> row : datalist) {
+                    processRow(unmodifiableList(row), total, (long) row.get(row.size() - 1));
                 }
                 previousLine = datalist.size();
             }
@@ -82,11 +87,11 @@ public final class OutputHandler
         }
     }
 
-    private void flush(boolean complete)
+    private void flush(boolean complete, long total, long cur)
             throws IOException
     {
         if (!rowBuffer.isEmpty()) {
-            printer.printRows(unmodifiableList(rowBuffer), complete);
+            printer.printRows(unmodifiableList(rowBuffer), complete, total, cur);
             rowBuffer.clear();
         }
     }

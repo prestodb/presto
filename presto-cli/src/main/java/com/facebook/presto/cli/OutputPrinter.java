@@ -21,6 +21,12 @@ public interface OutputPrinter
     void printRows(List<List<?>> rows, boolean complete)
             throws IOException;
 
+    default void printRows(List<List<?>> rows, boolean complete, long total, long cur)
+            throws IOException
+    {
+        printRows(rows, complete);
+    }
+
     void finish()
             throws IOException;
 }
