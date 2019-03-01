@@ -50,7 +50,7 @@ public class TestAriaHiveDistributedQueries
 
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, noAria, getTables());
 
-        createTable(queryRunner, "lineitem_aria", "CREATE TABLE lineitem_aria AS\n" +
+        createTable(queryRunner, noAria, "lineitem_aria", "CREATE TABLE lineitem_aria AS\n" +
                 "SELECT\n" +
                 "    orderkey,\n" +
                 "    partkey,\n" +
@@ -59,9 +59,12 @@ public class TestAriaHiveDistributedQueries
                 "    quantity,\n" +
                 "    extendedprice,\n" +
                 "    shipmode,\n" +
+                "    shipdate,\n" +
                 "    comment,\n" +
                 "    returnflag = 'R' AS is_returned,\n" +
                 "    CAST(quantity + 1 AS REAL) AS float_quantity,\n" +
+                "    CAST(array_position(array['SHIP','REG AIR','AIR','FOB','MAIL','RAIL','TRUCK'], shipmode) AS tinyint) AS tinyint_shipmode,\n" +
+                "    date_add('second', suppkey, cast(shipdate as timestamp)) AS timestamp_shipdate,\n" +
                 "    MAP(\n" +
                 "        ARRAY[1, 2, 3],\n" +
                 "        ARRAY[orderkey, partkey, suppkey]\n" +
@@ -69,7 +72,7 @@ public class TestAriaHiveDistributedQueries
                 "    ARRAY[ARRAY[orderkey, partkey, suppkey]] AS order_part_supp_array\n" +
                 "FROM tpch.tiny.lineitem");
 
-        createTable(queryRunner, "lineitem_aria_nulls", "CREATE TABLE lineitem_aria_nulls AS\n" +
+        createTable(queryRunner, noAria, "lineitem_aria_nulls", "CREATE TABLE lineitem_aria_nulls AS\n" +
                 "SELECT *,\n" +
                 "   IF(have_complex_nulls, null, map(array[1, 2, 3], array[orderkey, partkey, suppkey])) as order_part_supp_map,\n" +
                 "   IF(have_complex_nulls, null, array[orderkey, partkey, suppkey]) as order_part_supp_array\n" +
@@ -88,7 +91,7 @@ public class TestAriaHiveDistributedQueries
                 "       IF(have_simple_nulls and mod(orderkey + linenumber, 37) = 0, null, CAST(quantity + 1 as real)) as float_quantity\n" +
                 "   FROM (SELECT mod(orderkey, 198000) > 99000 as have_simple_nulls, * from tpch.tiny.lineitem))\n");
 
-        createTable(queryRunner, "lineitem_aria_strings", "CREATE TABLE lineitem_aria_strings AS\n" +
+        createTable(queryRunner, noAria, "lineitem_aria_strings", "CREATE TABLE lineitem_aria_strings AS\n" +
                 "SELECT\n" +
                 "    orderkey,\n" +
                 "    partkey,\n" +
@@ -101,7 +104,7 @@ public class TestAriaHiveDistributedQueries
                 "FROM tpch.tiny.lineitem\n" +
                 "WHERE orderkey < 100000");
 
-        createTable(queryRunner, "lineitem_aria_string_structs", "CREATE TABLE lineitem_aria_string_structs AS\n" +
+        createTable(queryRunner, noAria, "lineitem_aria_string_structs", "CREATE TABLE lineitem_aria_string_structs AS\n" +
                 "SELECT\n" +
                 "    orderkey,\n" +
                 "    partkey,\n" +
@@ -128,7 +131,7 @@ public class TestAriaHiveDistributedQueries
                 "FROM tpch.tiny.lineitem\n" +
                 "WHERE orderkey < 100000");
 
-        createTable(queryRunner, "", "CREATE TABLE lineitem_aria_string_structs_with_nulls AS\n" +
+        createTable(queryRunner, noAria, "lineitem_aria_string_structs_with_nulls", "CREATE TABLE lineitem_aria_string_structs_with_nulls AS\n" +
                 "SELECT\n" +
                 "    orderkey,\n" +
                 "    partkey,\n" +
@@ -166,11 +169,11 @@ public class TestAriaHiveDistributedQueries
         return queryRunner;
     }
 
-    private static void createTable(QueryRunner queryRunner, String tableName, String sql)
+    private static void createTable(QueryRunner queryRunner, Session session, String tableName, String sql)
     {
         log.info("Creating %s table", tableName);
         long start = System.nanoTime();
-        long rows = (Long) queryRunner.execute(sql).getMaterializedRows().get(0).getField(0);
+        long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
         log.info("Created %s rows for %s in %s", rows, tableName, nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
@@ -247,6 +250,31 @@ public class TestAriaHiveDistributedQueries
 
         assertQuery(ariaSession(), "SELECT linenumber, is_returned FROM lineitem_aria WHERE is_returned = TRUE",
                 "SELECT linenumber, true FROM lineitem WHERE returnflag = 'R'");
+
+        // Filter on a float column
+        assertQuery(ariaSession(),
+                "SELECT float_quantity FROM lineitem_aria WHERE float_quantity < 5",
+                "SELECT quantity + 1 FROM lineitem WHERE quantity < 4");
+
+        assertQuery(ariaSession(),
+                "SELECT orderkey, float_quantity FROM lineitem_aria WHERE float_quantity = 4",
+                "SELECT orderkey, quantity + 1 FROM lineitem WHERE quantity = 3");
+
+        // Filter on a tinyint column
+        assertQuery(ariaSession(),
+                "SELECT linenumber, shipmode, tinyint_shipmode FROM lineitem_aria WHERE tinyint_shipmode in (3, 5, 6)",
+                "SELECT linenumber, shipmode, CASE shipmode WHEN 'AIR' THEN 3 WHEN 'MAIL' THEN 5 WHEN 'RAIL' THEN 6 END FROM lineitem WHERE shipmode in ('AIR','MAIL','RAIL')");
+
+        assertQuery(ariaSession(),
+                "SELECT linenumber, shipmode FROM lineitem_aria WHERE tinyint_shipmode in (3, 5, 6)",
+                "SELECT linenumber, shipmode FROM lineitem WHERE shipmode in ('AIR','MAIL','RAIL')");
+
+        // Filter on a timestamp column
+        assertQuery(ariaSession(), "SELECT shipdate, timestamp_shipdate FROM lineitem_aria WHERE timestamp_shipdate < date '1997-11-29'",
+                "SELECT shipdate, dateadd('second', suppkey, shipdate) FROM lineitem where shipdate < date '1997-11-29'");
+
+        assertQuery(ariaSession(), "SELECT shipdate FROM lineitem_aria WHERE timestamp_shipdate < date '1997-11-29'",
+                "SELECT shipdate FROM lineitem where shipdate < date '1997-11-29'");
     }
 
     // nulls1.sql

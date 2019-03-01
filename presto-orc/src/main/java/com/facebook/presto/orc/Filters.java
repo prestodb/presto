@@ -46,21 +46,31 @@ public class Filters
             super(false);
         }
 
+        @Override
         public boolean testLong(long value)
         {
             return true;
         }
 
+        @Override
         public boolean testDouble(double value)
         {
             return true;
         }
 
+        @Override
+        public boolean testFloat(float value)
+        {
+            return true;
+        }
+
+        @Override
         public boolean testBoolean(boolean value)
         {
             return true;
         }
 
+        @Override
         public boolean testBytes(byte[] buffer, int offset, int length)
         {
             return true;
@@ -224,6 +234,60 @@ public class Filters
                 return 1;
             }
             return upper != Long.MAX_VALUE && lower != Long.MIN_VALUE ? 2 : 3;
+        }
+    }
+
+    public static class FloatRange
+            extends Filter
+    {
+        private final float lower;
+        private final boolean lowerUnbounded;
+        private final boolean lowerExclusive;
+        private final float upper;
+        private final boolean upperUnbounded;
+        private final boolean upperExclusive;
+
+        FloatRange(float lower, boolean lowerUnbounded, boolean lowerExclusive, float upper, boolean upperUnbounded, boolean upperExclusive, boolean nullAllowed)
+        {
+            super(nullAllowed);
+            this.lower = lower;
+            this.lowerUnbounded = lowerUnbounded;
+            this.lowerExclusive = lowerExclusive;
+            this.upper = upper;
+            this.upperUnbounded = upperUnbounded;
+            this.upperExclusive = upperExclusive;
+        }
+
+        @Override
+        public boolean testFloat(float value)
+        {
+            if (!lowerUnbounded) {
+                if (value < lower) {
+                    return false;
+                }
+                if (lowerExclusive && lower == value) {
+                    return false;
+                }
+            }
+            if (!upperUnbounded) {
+                if (value > upper) {
+                    return false;
+                }
+                if (upperExclusive && value == upper) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        @Override
+        int staticScore()
+        {
+            // Equality is better than range with both ends, which is better than a range with one end.
+            if (upper == lower) {
+                return 1;
+            }
+            return !lowerUnbounded && !upperUnbounded ? 2 : 3;
         }
     }
 
