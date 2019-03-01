@@ -32,6 +32,7 @@ import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import org.apache.hive.common.util.BloomFilter;
 
@@ -306,16 +307,18 @@ public class TupleDomainOrcPredicate<C>
         }
     }
 
-    public Map<Integer, Filter> getFilters(Map<Integer, ?> columnIndices)
+    @Override
+    public Map<Integer, Filter> getFilters()
     {
         Optional<Map<C, Domain>> optionalEffectivePredicateDomains = effectivePredicate.getDomains();
-        HashMap<Integer, Filter> filters = new HashMap();
         if (!optionalEffectivePredicateDomains.isPresent()) {
             // No filters
-            return filters;
+            return ImmutableMap.of();
         }
+
         Map<C, Domain> effectivePredicateDomains = optionalEffectivePredicateDomains.get();
 
+        Map<Integer, Filter> filters = new HashMap();
         for (Map.Entry<C, Domain> entry : effectivePredicateDomains.entrySet()) {
             Domain predicateDomain = entry.getValue();
             C column = entry.getKey();
