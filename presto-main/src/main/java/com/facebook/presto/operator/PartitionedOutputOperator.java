@@ -426,6 +426,7 @@ public class PartitionedOutputOperator
 
         public void flush(boolean force)
         {
+            force = true;
             // add all full pages to output buffer
             for (int partition = 0; partition < pageBuilders.length; partition++) {
                 PageBuilder partitionPageBuilder = pageBuilders[partition];

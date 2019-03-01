@@ -56,7 +56,7 @@ import static java.util.Objects.requireNonNull;
 public class MergingPageOutput
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MergingPageOutput.class).instanceSize();
-    private static final int MAX_MIN_PAGE_SIZE = 1024 * 1024;
+    private static final int MAX_MIN_PAGE_SIZE = 1;
 
     private final List<Type> types;
     private final PageBuilder pageBuilder;
@@ -81,9 +81,8 @@ public class MergingPageOutput
         checkArgument(minRowCount >= 0, "minRowCount must be greater or equal than zero");
         checkArgument(maxPageSizeInBytes > 0, "maxPageSizeInBytes must be greater than zero");
         checkArgument(maxPageSizeInBytes >= minPageSizeInBytes, "maxPageSizeInBytes must be greater or equal than minPageSizeInBytes");
-        checkArgument(minPageSizeInBytes <= MAX_MIN_PAGE_SIZE, "minPageSizeInBytes must be less or equal than %d", MAX_MIN_PAGE_SIZE);
-        this.minPageSizeInBytes = minPageSizeInBytes;
-        this.minRowCount = minRowCount;
+        this.minPageSizeInBytes = 1;
+        this.minRowCount = 1;
         pageBuilder = PageBuilder.withMaxPageSize(maxPageSizeInBytes, this.types);
     }
 

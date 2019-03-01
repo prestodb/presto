@@ -277,6 +277,8 @@ public class HashAggregationOperator
     private boolean finishing;
     private boolean finished;
 
+    private final Timer timer;
+
     // for yield when memory is not available
     private Work<?> unfinishedWork;
 
@@ -323,6 +325,7 @@ public class HashAggregationOperator
         this.hashCollisionsCounter = new HashCollisionsCounter(operatorContext);
         operatorContext.setInfoSupplier(hashCollisionsCounter);
         this.useSystemMemory = useSystemMemory;
+        this.timer = new Timer();
     }
 
     @Override
@@ -346,15 +349,7 @@ public class HashAggregationOperator
     @Override
     public boolean needsInput()
     {
-        if (finishing || outputPages != null) {
-            return false;
-        }
-        else if (aggregationBuilder != null && aggregationBuilder.isFull()) {
-            return false;
-        }
-        else {
-            return unfinishedWork == null;
-        }
+        return true;
     }
 
     @Override
@@ -441,7 +436,7 @@ public class HashAggregationOperator
     @Override
     public Page getOutput()
     {
-        if (finished) {
+        if (!timer.shouldEmit()) {
             return null;
         }
 
@@ -449,33 +444,18 @@ public class HashAggregationOperator
         if (unfinishedWork != null) {
             boolean workDone = unfinishedWork.process();
             aggregationBuilder.updateMemory();
-            if (!workDone) {
-                return null;
+            while (!workDone) {
+                workDone = unfinishedWork.process();
             }
             unfinishedWork = null;
         }
 
-        if (outputPages == null) {
-            if (finishing) {
-                if (!inputProcessed && produceDefaultOutput) {
-                    // global aggregations always generate an output row with the default aggregation output (e.g. 0 for COUNT, NULL for SUM)
-                    finished = true;
-                    return getGlobalAggregationOutput();
-                }
-
-                if (aggregationBuilder == null) {
-                    finished = true;
-                    return null;
-                }
-            }
-
-            // only flush if we are finishing or the aggregation builder is full
-            if (!finishing && (aggregationBuilder == null || !aggregationBuilder.isFull())) {
-                return null;
-            }
-
-            outputPages = aggregationBuilder.buildResult();
+        // only flush if we are finishing or the aggregation builder is full
+        if (!finishing && aggregationBuilder == null) {
+            return null;
         }
+
+        outputPages = aggregationBuilder.buildResult();
 
         if (!outputPages.process()) {
             return null;
@@ -572,5 +552,22 @@ public class HashAggregationOperator
             }
         }
         return result;
+    }
+
+    private static final class Timer
+    {
+        private static final long INTERVAL_NANOS = 1_000_000_000L;
+
+        private long lastEmitNanos;
+
+        boolean shouldEmit()
+        {
+            long currentNanos = System.nanoTime();
+            if (currentNanos > lastEmitNanos + INTERVAL_NANOS) {
+                lastEmitNanos = currentNanos;
+                return true;
+            }
+            return false;
+        }
     }
 }

@@ -84,6 +84,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -365,6 +366,7 @@ class Query
 
     public synchronized QueryResults getNextResult(OptionalLong token, UriInfo uriInfo, String scheme, DataSize targetResultSize)
     {
+        targetResultSize = new DataSize(1, BYTE);
         // check if the result for the token have already been created
         if (token.isPresent()) {
             Optional<QueryResults> cachedResult = getCachedResult(token.getAsLong(), uriInfo);
