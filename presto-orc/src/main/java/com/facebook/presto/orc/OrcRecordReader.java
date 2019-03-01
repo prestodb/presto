@@ -745,7 +745,7 @@ public class OrcRecordReader
         if ((options.getAriaFlags() & AriaFlags.orcBufferReuse) != 0) {
             orcDataSource.setCache(Caches.getByteArrayPoolCacheAdapter());
         }
-        Map<Integer, Filter> filters = predicate.getFilters(includedColumns);
+        Map<Integer, Filter> filters = predicate.getFilters();
         if (filters == null) {
             // Null means filters are not supported for pushdown, empty map means no filters.
             return false;
