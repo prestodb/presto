@@ -55,12 +55,15 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -374,21 +377,24 @@ public class TupleDomainOrcPredicate<C>
         if (range.isAll()) {
             return nullAllowed ? null : Filters.isNotNull();
         }
-
         if (isVarcharType(type)) {
             return varcharRangeToFilter(range, nullAllowed);
         }
-        if (type == BIGINT) {
+        if (type == TINYINT || type == SMALLINT || type == INTEGER || type == BIGINT || type == TIMESTAMP) {
             return bigintRangeToFilter(range, nullAllowed);
         }
         if (type == DOUBLE) {
             return doubleRangeToFilter(range, nullAllowed);
         }
+        if (type == REAL) {
+            return floatRangeToFilter(range, nullAllowed);
+        }
         if (type == BOOLEAN) {
             boolean booleanValue = ((Boolean) range.getSingleValue()).booleanValue();
             return range.isSingleValue() ? new Filters.BooleanValue(booleanValue, nullAllowed) : null;
         }
-        return null;
+
+        throw new UnsupportedOperationException("Unsupported type: " + type.getDisplayName());
     }
 
     private static void addFilter(Integer ordinal, SubfieldPath subfield, Filter filter, Map<Integer, Filter> filters)
@@ -429,8 +435,8 @@ public class TupleDomainOrcPredicate<C>
     {
         Marker low = range.getLow();
         Marker high = range.getHigh();
-        long lowerLong = low.isLowerUnbounded() ? Long.MIN_VALUE : ((Long) low.getValue()).longValue();
-        long upperLong = high.isUpperUnbounded() ? Long.MAX_VALUE : ((Long) high.getValue()).longValue();
+        long lowerLong = low.isLowerUnbounded() ? Long.MIN_VALUE : (long) low.getValue();
+        long upperLong = high.isUpperUnbounded() ? Long.MAX_VALUE : (long) high.getValue();
         if (high.getBound() == Marker.Bound.BELOW) {
             --upperLong;
         }
@@ -452,7 +458,24 @@ public class TupleDomainOrcPredicate<C>
                 low.getBound() == Marker.Bound.ABOVE,
                 upperDouble,
                 high.isUpperUnbounded(),
-                high.getBound() == Marker.Bound.BELOW, nullAllowed);
+                high.getBound() == Marker.Bound.BELOW,
+                nullAllowed);
+    }
+
+    private static Filter floatRangeToFilter(Range range, boolean nullAllowed)
+    {
+        Marker low = range.getLow();
+        Marker high = range.getHigh();
+        float lowerFloat = low.isLowerUnbounded() ? Float.MIN_VALUE : intBitsToFloat(toIntExact((long) low.getValue()));
+        float upperFloat = high.isUpperUnbounded() ? Float.MAX_VALUE : intBitsToFloat(toIntExact((long) high.getValue()));
+        return new Filters.FloatRange(
+                lowerFloat,
+                low.isLowerUnbounded(),
+                low.getBound() == Marker.Bound.ABOVE,
+                upperFloat,
+                high.isUpperUnbounded(),
+                high.getBound() == Marker.Bound.BELOW,
+                nullAllowed);
     }
 
     private static Filter varcharRangeToFilter(Range range, boolean nullAllowed)

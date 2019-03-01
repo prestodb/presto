@@ -44,6 +44,11 @@ public class Filter
         return false;
     }
 
+    public boolean testFloat(float value)
+    {
+        return false;
+    }
+
     public boolean testBoolean(boolean value)
     {
         return false;
