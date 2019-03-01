@@ -58,7 +58,7 @@ public class GroupedTopNBuilder
     private final GroupByHash groupByHash;
 
     // a map of heaps, each of which records the top N rows
-    private final ObjectBigArray<RowHeap> groupedRows = new ObjectBigArray<>();
+    private ObjectBigArray<RowHeap> groupedRows = new ObjectBigArray<>();
     // a list of input pages, each of which has information of which row in which heap references which position
     private final ObjectBigArray<PageReference> pageReferences = new ObjectBigArray<>();
     // for heap element comparison
@@ -115,6 +115,11 @@ public class GroupedTopNBuilder
                 groupedRows.sizeOf() +
                 pageReferences.sizeOf() +
                 emptyPageReferenceSlots.getEstimatedSizeInBytes();
+    }
+
+    public void reset()
+    {
+        groupedRows = new ObjectBigArray<>();
     }
 
     @VisibleForTesting
@@ -446,7 +451,10 @@ public class GroupedTopNBuilder
         {
             if (currentGroupNumber < groupCount) {
                 RowHeap rows = groupedRows.get(currentGroupNumber);
-                verify(rows != null && !rows.isEmpty(), "impossible to have inserted a group without a witness row");
+                // verify(rows != null && !rows.isEmpty(), "impossible to have inserted a group without a witness row");
+                if (rows == null) {
+                    return new ObjectBigArray<>();
+                }
                 groupedRows.set(currentGroupNumber, null);
                 currentGroupSizeInBytes = rows.getEstimatedSizeInBytes();
                 currentGroupNumber++;
