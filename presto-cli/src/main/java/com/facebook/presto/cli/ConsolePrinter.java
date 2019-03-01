@@ -28,6 +28,17 @@ public class ConsolePrinter
     public static final boolean REAL_TERMINAL = detectRealTerminal();
 
     private final PrintStream out;
+
+    public int getLines()
+    {
+        return lines;
+    }
+
+    public void setLines(int lines)
+    {
+        this.lines = lines;
+    }
+
     private int lines;
 
     public ConsolePrinter(PrintStream out)

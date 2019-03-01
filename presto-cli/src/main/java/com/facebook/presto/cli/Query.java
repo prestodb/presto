@@ -224,7 +224,7 @@ public class Query
     private void discardResults()
     {
         try (OutputHandler handler = new OutputHandler(new NullPrinter())) {
-            handler.processRows(client);
+            handler.processRows(client, new PrintStream(""));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -250,14 +250,14 @@ public class Query
     {
         List<String> fieldNames = Lists.transform(columns, Column::getName);
         if (interactive) {
-            pageOutput(format, fieldNames);
+            pageOutput(format, fieldNames, out);
         }
         else {
             sendOutput(out, format, fieldNames);
         }
     }
 
-    private void pageOutput(OutputFormat format, List<String> fieldNames)
+    private void pageOutput(OutputFormat format, List<String> fieldNames, PrintStream out)
             throws IOException
     {
         try (Pager pager = Pager.create();
@@ -273,7 +273,7 @@ public class Query
                     clientThread.interrupt();
                 });
             }
-            handler.processRows(client);
+            handler.processRows(client, out);
         }
         catch (RuntimeException | IOException e) {
             if (client.isClientAborted() && !(e instanceof QueryAbortedException)) {
@@ -287,7 +287,7 @@ public class Query
             throws IOException
     {
         try (OutputHandler handler = createOutputHandler(format, createWriter(out), fieldNames)) {
-            handler.processRows(client);
+            handler.processRows(client, out);
         }
     }
 
