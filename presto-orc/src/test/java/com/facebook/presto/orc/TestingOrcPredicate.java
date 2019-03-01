@@ -205,7 +205,7 @@ public final class TestingOrcPredicate
         }
 
         @Override
-        public Map<Integer, Filter> getFilters(Map<Integer, ?> columnIndices)
+        public Map<Integer, Filter> getFilters()
         {
             return ImmutableMap.of();
         }
