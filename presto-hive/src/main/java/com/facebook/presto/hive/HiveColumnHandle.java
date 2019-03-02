@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.NestedField;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -60,6 +61,7 @@ public class HiveColumnHandle
     private final int hiveColumnIndex;
     private final ColumnType columnType;
     private final Optional<String> comment;
+    private final Optional<NestedField> nestedField;
 
     @JsonCreator
     public HiveColumnHandle(
@@ -68,7 +70,8 @@ public class HiveColumnHandle
             @JsonProperty("typeSignature") TypeSignature typeSignature,
             @JsonProperty("hiveColumnIndex") int hiveColumnIndex,
             @JsonProperty("columnType") ColumnType columnType,
-            @JsonProperty("comment") Optional<String> comment)
+            @JsonProperty("comment") Optional<String> comment,
+            @JsonProperty("nestedField") Optional<NestedField> nestedField)
     {
         this.name = requireNonNull(name, "name is null");
         checkArgument(hiveColumnIndex >= 0 || columnType == PARTITION_KEY || columnType == SYNTHESIZED, "hiveColumnIndex is negative");
@@ -77,6 +80,7 @@ public class HiveColumnHandle
         this.typeName = requireNonNull(typeSignature, "type is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.comment = requireNonNull(comment, "comment is null");
+        this.nestedField = requireNonNull(nestedField, "nestedField is null");
     }
 
     @JsonProperty
@@ -119,6 +123,12 @@ public class HiveColumnHandle
     }
 
     @JsonProperty
+    public Optional<NestedField> getNestedField()
+    {
+        return nestedField;
+    }
+
+    @JsonProperty
     public TypeSignature getTypeSignature()
     {
         return typeName;
@@ -133,7 +143,7 @@ public class HiveColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, hiveColumnIndex, hiveType, columnType, comment);
+        return Objects.hash(name, hiveColumnIndex, hiveType, columnType, comment, nestedField);
     }
 
     @Override
@@ -150,13 +160,14 @@ public class HiveColumnHandle
                 Objects.equals(this.hiveColumnIndex, other.hiveColumnIndex) &&
                 Objects.equals(this.hiveType, other.hiveType) &&
                 Objects.equals(this.columnType, other.columnType) &&
+                Objects.equals(this.nestedField, other.nestedField) &&
                 Objects.equals(this.comment, other.comment);
     }
 
     @Override
     public String toString()
     {
-        return name + ":" + hiveType + ":" + hiveColumnIndex + ":" + columnType;
+        return name + ":" + hiveType + ":" + hiveColumnIndex + ":" + columnType + ":" + nestedField;
     }
 
     public static HiveColumnHandle updateRowIdHandle()
@@ -167,12 +178,12 @@ public class HiveColumnHandle
         // plan-time support for row-by-row delete so that planning doesn't fail. This is why we need
         // rowid handle. Note that in Hive connector, rowid handle is not implemented beyond plan-time.
 
-        return new HiveColumnHandle(UPDATE_ROW_ID_COLUMN_NAME, HIVE_LONG, BIGINT.getTypeSignature(), -1, SYNTHESIZED, Optional.empty());
+        return new HiveColumnHandle(UPDATE_ROW_ID_COLUMN_NAME, HIVE_LONG, BIGINT.getTypeSignature(), -1, SYNTHESIZED, Optional.empty(), Optional.empty());
     }
 
     public static HiveColumnHandle pathColumnHandle()
     {
-        return new HiveColumnHandle(PATH_COLUMN_NAME, PATH_HIVE_TYPE, PATH_TYPE_SIGNATURE, PATH_COLUMN_INDEX, SYNTHESIZED, Optional.empty());
+        return new HiveColumnHandle(PATH_COLUMN_NAME, PATH_HIVE_TYPE, PATH_TYPE_SIGNATURE, PATH_COLUMN_INDEX, SYNTHESIZED, Optional.empty(), Optional.empty());
     }
 
     /**
@@ -182,7 +193,7 @@ public class HiveColumnHandle
      */
     public static HiveColumnHandle bucketColumnHandle()
     {
-        return new HiveColumnHandle(BUCKET_COLUMN_NAME, BUCKET_HIVE_TYPE, BUCKET_TYPE_SIGNATURE, BUCKET_COLUMN_INDEX, SYNTHESIZED, Optional.empty());
+        return new HiveColumnHandle(BUCKET_COLUMN_NAME, BUCKET_HIVE_TYPE, BUCKET_TYPE_SIGNATURE, BUCKET_COLUMN_INDEX, SYNTHESIZED, Optional.empty(), Optional.empty());
     }
 
     public static boolean isPathColumnHandle(HiveColumnHandle column)

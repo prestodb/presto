@@ -2174,7 +2174,8 @@ public class HiveMetadata
                     column.getType().getTypeSignature(),
                     ordinal,
                     columnType,
-                    Optional.ofNullable(column.getComment())));
+                    Optional.ofNullable(column.getComment()),
+                    Optional.empty()));
             ordinal++;
         }
 
