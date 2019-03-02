@@ -48,9 +48,9 @@ public class LongInputStreamV2
     private int currentRunOffset;
     // Positions to visit in scan(), offset from last checkpoint.
     private int[] offsets;
+    private int beginOffset;
     private int numOffsets;
     private int offsetIdx;
-    // Copies of arguments to scan().
     private ResultsConsumer resultsConsumer;
     // Offset of first row not covered by the current call to scan().
     private int endOffset;
@@ -114,6 +114,7 @@ public class LongInputStreamV2
             throws IOException
     {
         this.offsets = offsets;
+        this.beginOffset = beginOffset;
         this.numOffsets = numOffsets;
         this.endOffset = endOffset;
         this.resultsConsumer = resultsConsumer;
@@ -122,7 +123,7 @@ public class LongInputStreamV2
         if (numLiterals > 0) {
             scanLiterals();
         }
-        while (offsetIdx < numOffsets) {
+        while (offsetIdx < beginOffset + numOffsets) {
             if (offsetIdx >= 100_000) {
                 System.out.println("***");
             }
@@ -134,6 +135,7 @@ public class LongInputStreamV2
                 scanLiterals();
             }
         }
+        skip(endOffset - offsets[beginOffset + numOffsets - 1] - 1);
         this.offsets = null;
         return numResults;
     }
@@ -143,7 +145,7 @@ public class LongInputStreamV2
             throws IOException
     {
         for (; ; ) {
-            if (offsetIdx >= numOffsets) {
+            if (offsetIdx >= beginOffset + numOffsets) {
                 return;
             }
             int offset = offsets[offsetIdx];
@@ -426,6 +428,7 @@ public class LongInputStreamV2
     }
 
     private int numOffsetsWithin(int length)
+            throws IOException
     {
         int i;
         int limit = currentRunOffset + length;
@@ -433,7 +436,7 @@ public class LongInputStreamV2
             return 0;
         }
         if (limit > endOffset) {
-            return -1;
+            throw new OrcCorruptionException(input.getOrcDataSourceId(), "Read past end of streams");
         }
         // Are all the offsets consecutive for the length of the run?
         if (offsetIdx + length < numOffsets && offsets[offsetIdx + length - 1] == currentRunOffset + length - 1) {
