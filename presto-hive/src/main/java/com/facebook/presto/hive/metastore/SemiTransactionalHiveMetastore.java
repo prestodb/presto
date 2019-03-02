@@ -1679,14 +1679,19 @@ public class SemiTransactionalHiveMetastore
                 }
                 try {
                     if (fileSystem.exists(target) || !fileSystem.rename(source, target)) {
-                        throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Error moving data files from %s to final location %s", source, target));
+                        throw new PrestoException(HIVE_FILESYSTEM_ERROR, getRenameErrorMessage(source, target));
                     }
                 }
                 catch (IOException e) {
-                    throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Error moving data files from %s to final location %s", source, target), e);
+                    throw new PrestoException(HIVE_FILESYSTEM_ERROR, getRenameErrorMessage(source, target), e);
                 }
             }, executor));
         }
+    }
+
+    private static String getRenameErrorMessage(Path source, Path target)
+    {
+        return format("Error moving data files from %s to final location %s", source, target);
     }
 
     private void recursiveDeleteFilesAndLog(HdfsContext context, Path directory, List<String> filePrefixes, boolean deleteEmptyDirectories, String reason)
