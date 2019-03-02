@@ -27,6 +27,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.NestedField;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
@@ -183,6 +184,16 @@ public interface ConnectorMetadata
      * @throws RuntimeException if table handle is no longer valid
      */
     Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle);
+
+    /**
+     * Gets all nested columns on the specified table, or an empty map if the columns can not be enumerated.
+     *
+     * @throws RuntimeException if table handle is no longer valid
+     */
+    default Map<NestedField, ColumnHandle> getNestedColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<NestedField> nestedFields)
+    {
+        return emptyMap();
+    }
 
     /**
      * Gets the metadata for the specified table column.
