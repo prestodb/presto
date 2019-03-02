@@ -319,8 +319,14 @@ public class HivePageSourceProvider
             for (HiveColumnHandle column : columns) {
                 Optional<HiveType> coercionFrom = Optional.ofNullable(columnCoercions.get(column.getHiveColumnIndex()));
                 if (column.getColumnType() == REGULAR) {
-                    checkArgument(regularColumnIndices.add(column.getHiveColumnIndex()), "duplicate hiveColumnIndex in columns list");
-                    columnMappings.add(regular(column, regularIndex, coercionFrom));
+                    if (column.getNestedField().isPresent()) {
+                        Optional<HiveType> hiveType = coercionFrom.flatMap(type -> type.getFieldType(column.getNestedField().get()));
+                        columnMappings.add(regular(column, regularIndex, hiveType));
+                    }
+                    else {
+                        checkArgument(regularColumnIndices.add(column.getHiveColumnIndex()), "duplicate hiveColumnIndex in columns list");
+                        columnMappings.add(regular(column, regularIndex, coercionFrom));
+                    }
                     regularIndex++;
                 }
                 else {

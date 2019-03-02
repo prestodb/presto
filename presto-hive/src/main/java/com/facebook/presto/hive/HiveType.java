@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.NestedField;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.RowFieldName;
@@ -154,6 +155,24 @@ public final class HiveType
     public boolean isSupportedType()
     {
         return isSupportedType(getTypeInfo());
+    }
+
+    public Optional<HiveType> getFieldType(NestedField nestedField)
+    {
+        TypeInfo typeInfo = getTypeInfo();
+        for (String field : nestedField.getRemaining()) {
+            if (!(typeInfo instanceof StructTypeInfo)) {
+                throw new IllegalArgumentException("Invalid type: " + typeInfo + ". expecting RowType");
+            }
+            StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
+            try {
+                typeInfo = structTypeInfo.getStructFieldTypeInfo(field);
+            }
+            catch (RuntimeException e) {
+                return Optional.empty();
+            }
+        }
+        return Optional.of(toHiveType(typeInfo));
     }
 
     public static boolean isSupportedType(TypeInfo typeInfo)

@@ -45,6 +45,7 @@ import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.InMemoryRecordSet;
+import com.facebook.presto.spi.NestedField;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
@@ -143,6 +144,8 @@ import static com.facebook.presto.hive.HiveSessionProperties.isRespectTableForma
 import static com.facebook.presto.hive.HiveSessionProperties.isSortedWritingEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isWritingStagingFilesEnabled;
+import static com.facebook.presto.hive.HiveStorageFormat.ORC;
+import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.HiveTableProperties.AVRO_SCHEMA_URL;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
@@ -166,6 +169,7 @@ import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
 import static com.facebook.presto.hive.HiveUtil.encodeViewData;
 import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
+import static com.facebook.presto.hive.HiveUtil.getRegularColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.hiveColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.schemaTableName;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
@@ -542,6 +546,32 @@ public class HiveMetadata
             columnHandles.put(columnHandle.getName(), columnHandle);
         }
         return columnHandles.build();
+    }
+
+    @Override
+    public Map<NestedField, ColumnHandle> getNestedColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<NestedField> nestedFields)
+    {
+        SchemaTableName tableName = schemaTableName(tableHandle);
+        Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+        if (!table.isPresent()) {
+            throw new TableNotFoundException(tableName);
+        }
+
+        if (extractHiveStorageFormat(table.get()).equals(ORC) || extractHiveStorageFormat(table.get()).equals(PARQUET)) {
+            List<HiveColumnHandle> regularColumnHandles = getRegularColumnHandles(table.get());
+            Map<String, HiveColumnHandle> regularHiveColumnHandles = regularColumnHandles.stream()
+                    .collect(Collectors.toMap(HiveColumnHandle::getName, identity()));
+            ImmutableMap.Builder<NestedField, ColumnHandle> nestedColumnHandles = ImmutableMap.builder();
+            for (NestedField field : nestedFields) {
+                HiveColumnHandle hiveColumnHandle = regularHiveColumnHandles.get(field.getBase());
+                Optional<HiveType> type = hiveColumnHandle.getHiveType().getFieldType(field);
+                if (hiveColumnHandle != null) {
+                    nestedColumnHandles.put(field, new HiveColumnHandle(field.getName(), type.get(), type.get().getTypeSignature(), hiveColumnHandle.getHiveColumnIndex(), hiveColumnHandle.getColumnType(), hiveColumnHandle.getComment(), Optional.of(field)));
+                }
+            }
+            return nestedColumnHandles.build();
+        }
+        return ImmutableMap.of();
     }
 
     @SuppressWarnings("TryWithIdenticalCatches")
