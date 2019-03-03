@@ -36,6 +36,9 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_PAS
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static com.facebook.presto.util.MoreLists.listOfListsCopy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -98,7 +101,7 @@ public class ExchangeNode
         checkArgument(scope != LOCAL || partitioningScheme.getPartitioning().getArguments().stream().allMatch(ArgumentBinding::isSymbolReference),
                 "local exchanges do not support constant partition function arguments");
 
-        checkArgument(scope != REMOTE || type == Type.REPARTITION || !partitioningScheme.isReplicateNullsAndAny(), "Only REPARTITION can replicate remotely");
+        checkArgument(scope != REMOTE || type == REPARTITION || !partitioningScheme.isReplicateNullsAndAny(), "Only REPARTITION can replicate remotely");
 
         orderingScheme.ifPresent(ordering -> {
             PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
@@ -156,7 +159,7 @@ public class ExchangeNode
         }
         return new ExchangeNode(
                 id,
-                ExchangeNode.Type.REPARTITION,
+                REPARTITION,
                 scope,
                 partitioningScheme,
                 ImmutableList.of(child),
@@ -168,7 +171,7 @@ public class ExchangeNode
     {
         return new ExchangeNode(
                 id,
-                ExchangeNode.Type.REPLICATE,
+                REPLICATE,
                 scope,
                 new PartitioningScheme(Partitioning.create(FIXED_BROADCAST_DISTRIBUTION, ImmutableList.of()), child.getOutputSymbols()),
                 ImmutableList.of(child),
@@ -180,7 +183,7 @@ public class ExchangeNode
     {
         return new ExchangeNode(
                 id,
-                ExchangeNode.Type.GATHER,
+                GATHER,
                 scope,
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), child.getOutputSymbols()),
                 ImmutableList.of(child),
@@ -202,7 +205,7 @@ public class ExchangeNode
         PartitioningHandle partitioningHandle = scope == LOCAL ? FIXED_PASSTHROUGH_DISTRIBUTION : SINGLE_DISTRIBUTION;
         return new ExchangeNode(
                 id,
-                Type.GATHER,
+                GATHER,
                 scope,
                 new PartitioningScheme(Partitioning.create(partitioningHandle, ImmutableList.of()), child.getOutputSymbols()),
                 ImmutableList.of(child),
