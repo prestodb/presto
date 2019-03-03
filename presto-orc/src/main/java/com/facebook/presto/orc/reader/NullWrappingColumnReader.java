@@ -26,15 +26,15 @@ import static com.google.common.base.Verify.verify;
 abstract class NullWrappingColumnReader
         extends ColumnReader
 {
-    QualifyingSet innerQualifyingSet;
-    boolean hasNulls;
-    int innerPosInRowGroup;
-    int numInnerRows;
-    int[] nullsToAdd;
-    int[] nullsToAddIndexes;
-    int numNullsToAdd;
+    protected QualifyingSet innerQualifyingSet;
+    protected boolean hasNulls;
+    protected int innerPosInRowGroup;
+    protected int numInnerRows;
+    protected int[] nullsToAdd;
+    protected int[] nullsToAddIndexes;
+    protected int numNullsToAdd;
     // Number of elements retrieved from inner reader.
-    int numInnerResults;
+    protected int numInnerResults;
 
     protected NullWrappingColumnReader(OptionalInt fixedValueSize)
     {
