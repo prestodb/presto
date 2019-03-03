@@ -77,5 +77,12 @@ public class DeterminismEvaluator
         {
             return true;
         }
+
+        @Override
+        public Boolean visitSpecialForm(SpecialFormExpression specialForm, Void context)
+        {
+            return specialForm.getArguments().stream()
+                    .allMatch(expression -> expression.accept(this, context));
+        }
     }
 }

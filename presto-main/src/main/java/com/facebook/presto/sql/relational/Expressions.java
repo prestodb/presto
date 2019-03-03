@@ -15,6 +15,7 @@ package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.relational.SpecialFormExpression.Form;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Arrays;
@@ -49,6 +50,16 @@ public final class Expressions
     public static InputReferenceExpression field(int field, Type type)
     {
         return new InputReferenceExpression(field, type);
+    }
+
+    public static SpecialFormExpression specialForm(Form form, Type returnType, RowExpression... arguments)
+    {
+        return new SpecialFormExpression(form, returnType, arguments);
+    }
+
+    public static SpecialFormExpression specialForm(Form form, Type returnType, List<RowExpression> arguments)
+    {
+        return new SpecialFormExpression(form, returnType, arguments);
     }
 
     public static List<RowExpression> subExpressions(Iterable<RowExpression> expressions)
@@ -94,6 +105,16 @@ public final class Expressions
                 public Void visitVariableReference(VariableReferenceExpression reference, Void context)
                 {
                     builder.add(reference);
+                    return null;
+                }
+
+                @Override
+                public Void visitSpecialForm(SpecialFormExpression specialForm, Void context)
+                {
+                    builder.add(specialForm);
+                    for (RowExpression argument : specialForm.getArguments()) {
+                        argument.accept(this, context);
+                    }
                     return null;
                 }
             }, null);
