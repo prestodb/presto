@@ -16,7 +16,6 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -32,6 +31,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.function.OperatorType.CAST;
+import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.sql.gen.BytecodeGenerator.generateWrite;
 import static com.facebook.presto.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
@@ -62,14 +62,14 @@ public class NullIfCodeGenerator
         Type secondType = second.getType();
 
         // if (equal(cast(first as <common type>), cast(second as <common type>))
-        Signature equalsSignature = generatorContext.getFunctionManager().resolveOperator(OperatorType.EQUAL, ImmutableList.of(firstType, secondType));
-        ScalarFunctionImplementation equalsFunction = generatorContext.getFunctionManager().getScalarFunctionImplementation(equalsSignature);
+        FunctionHandle equalFunction = generatorContext.getFunctionManager().resolveOperator(EQUAL, ImmutableList.of(firstType, secondType));
+        ScalarFunctionImplementation equalsFunction = generatorContext.getFunctionManager().getScalarFunctionImplementation(equalFunction);
         BytecodeNode equalsCall = generatorContext.generateCall(
-                equalsSignature.getName(),
+                EQUAL.name(),
                 equalsFunction,
                 ImmutableList.of(
-                        cast(generatorContext, firstValue, firstType, equalsSignature.getArgumentTypes().get(0)),
-                        cast(generatorContext, generatorContext.generate(second, Optional.empty()), secondType, equalsSignature.getArgumentTypes().get(1))));
+                        cast(generatorContext, firstValue, firstType, equalFunction.getSignature().getArgumentTypes().get(0)),
+                        cast(generatorContext, generatorContext.generate(second, Optional.empty()), secondType, equalFunction.getSignature().getArgumentTypes().get(1))));
 
         BytecodeBlock conditionBlock = new BytecodeBlock()
                 .append(equalsCall)

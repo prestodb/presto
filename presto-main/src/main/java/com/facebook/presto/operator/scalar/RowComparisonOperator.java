@@ -13,8 +13,8 @@ package com.facebook.presto.operator.scalar;
  * limitations under the License.
  */
 
+import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.OperatorType;
@@ -48,8 +48,8 @@ public abstract class RowComparisonOperator
     {
         ImmutableList.Builder<MethodHandle> argumentMethods = ImmutableList.builder();
         for (Type parameterType : type.getTypeParameters()) {
-            Signature signature = functionManager.resolveOperator(operatorType, ImmutableList.of(parameterType, parameterType));
-            argumentMethods.add(functionManager.getScalarFunctionImplementation(signature).getMethodHandle());
+            FunctionHandle operatorHandle = functionManager.resolveOperator(operatorType, ImmutableList.of(parameterType, parameterType));
+            argumentMethods.add(functionManager.getScalarFunctionImplementation(operatorHandle).getMethodHandle());
         }
         return argumentMethods.build();
     }

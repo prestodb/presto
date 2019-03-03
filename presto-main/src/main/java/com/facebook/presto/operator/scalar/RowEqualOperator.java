@@ -14,8 +14,8 @@ package com.facebook.presto.operator.scalar;
  */
 
 import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.RowType;
@@ -76,7 +76,7 @@ public class RowEqualOperator
 
     private static MethodHandle resolveEqualOperator(Type type, FunctionManager functionManager)
     {
-        Signature operator = functionManager.resolveOperator(EQUAL, ImmutableList.of(type, type));
+        FunctionHandle operator = functionManager.resolveOperator(EQUAL, ImmutableList.of(type, type));
         ScalarFunctionImplementation implementation = functionManager.getScalarFunctionImplementation(operator);
         return implementation.getMethodHandle();
     }

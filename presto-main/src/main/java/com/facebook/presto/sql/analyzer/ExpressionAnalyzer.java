@@ -1244,7 +1244,7 @@ public class ExpressionAnalyzer
 
             Signature operatorSignature;
             try {
-                operatorSignature = functionManager.resolveOperator(operatorType, argumentTypes.build());
+                operatorSignature = functionManager.resolveOperator(operatorType, argumentTypes.build()).getSignature();
             }
             catch (OperatorNotFoundException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "%s", e.getMessage());

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention;
@@ -417,11 +416,6 @@ public final class BytecodeUtils
     public static BytecodeExpression invoke(Binding binding, String name)
     {
         return invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(binding.getBindingId()), name, binding.getType());
-    }
-
-    public static BytecodeExpression invoke(Binding binding, Signature signature)
-    {
-        return invoke(binding, signature.getName());
     }
 
     public static BytecodeNode generateWrite(

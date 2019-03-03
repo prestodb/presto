@@ -41,7 +41,7 @@ public class FunctionManager
     {
         FunctionRegistry functionRegistry = new FunctionRegistry(typeManager, blockEncodingSerde, featuresConfig, this);
         this.globalFunctionNamespace = new FunctionNamespace(functionRegistry);
-        this.functionInvokerProvider = new FunctionInvokerProvider(functionRegistry);
+        this.functionInvokerProvider = new FunctionInvokerProvider(this);
         if (typeManager instanceof TypeRegistry) {
             ((TypeRegistry) typeManager).setFunctionManager(this);
         }
@@ -102,9 +102,9 @@ public class FunctionManager
         return globalFunctionNamespace.isAggregationFunction(name);
     }
 
-    public Signature resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    public FunctionHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
     {
-        return globalFunctionNamespace.resolveOperator(operatorType, argumentTypes).getSignature();
+        return globalFunctionNamespace.resolveOperator(operatorType, argumentTypes);
     }
 
     public boolean isRegistered(Signature signature)

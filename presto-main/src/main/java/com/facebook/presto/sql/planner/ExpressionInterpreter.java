@@ -709,8 +709,8 @@ public class ExpressionInterpreter
                 case PLUS:
                     return value;
                 case MINUS:
-                    Signature operatorSignature = metadata.getFunctionManager().resolveOperator(OperatorType.NEGATION, types(node.getValue()));
-                    MethodHandle handle = metadata.getFunctionManager().getScalarFunctionImplementation(operatorSignature).getMethodHandle();
+                    FunctionHandle operatorHandle = metadata.getFunctionManager().resolveOperator(OperatorType.NEGATION, types(node.getValue()));
+                    MethodHandle handle = metadata.getFunctionManager().getScalarFunctionImplementation(operatorHandle).getMethodHandle();
 
                     if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
                         handle = handle.bindTo(session);
@@ -1263,8 +1263,8 @@ public class ExpressionInterpreter
 
         private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)
         {
-            Signature operatorSignature = metadata.getFunctionManager().resolveOperator(operatorType, argumentTypes);
-            return functionInvoker.invoke(operatorSignature, session, argumentValues);
+            FunctionHandle operatorHandle = metadata.getFunctionManager().resolveOperator(operatorType, argumentTypes);
+            return functionInvoker.invoke(operatorHandle, session, argumentValues);
         }
 
         private Expression toExpression(Object base, Type type)

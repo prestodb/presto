@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -32,6 +32,7 @@ import io.airlift.bytecode.instruction.VariableInstruction;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.sql.gen.BytecodeGenerator.generateWrite;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
@@ -115,7 +116,7 @@ public class SwitchCodeGenerator
             RowExpression result = ((CallExpression) clause).getArguments().get(1);
 
             // call equals(value, operand)
-            Signature equalsFunction = generatorContext.getFunctionManager().resolveOperator(OperatorType.EQUAL, ImmutableList.of(value.getType(), operand.getType()));
+            FunctionHandle equalsFunction = generatorContext.getFunctionManager().resolveOperator(EQUAL, ImmutableList.of(value.getType(), operand.getType()));
 
             // TODO: what if operand is null? It seems that the call will return "null" (which is cleared below)
             // and the code only does the right thing because the value in the stack for that scenario is
@@ -123,7 +124,7 @@ public class SwitchCodeGenerator
             // This code should probably be checking for wasNull after the call and "failing" the equality
             // check if wasNull is true
             BytecodeNode equalsCall = generatorContext.generateCall(
-                    equalsFunction.getName(),
+                    EQUAL.name(),
                     generatorContext.getFunctionManager().getScalarFunctionImplementation(equalsFunction),
                     ImmutableList.of(generatorContext.generate(operand, Optional.empty()), getTempVariableNode));
 
