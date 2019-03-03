@@ -1053,12 +1053,6 @@ class FunctionRegistry
                 .collect(toImmutableList());
     }
 
-    public boolean canResolveOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
-    {
-        Signature signature = internalOperator(operatorType, returnType, argumentTypes);
-        return isRegistered(signature);
-    }
-
     public boolean isRegistered(Signature signature)
     {
         try {

@@ -102,11 +102,6 @@ public class FunctionManager
         return globalFunctionNamespace.isAggregationFunction(name);
     }
 
-    public boolean canResolveOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
-    {
-        return globalFunctionNamespace.canResolveOperator(operatorType, returnType, argumentTypes);
-    }
-
     public Signature resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
     {
         return globalFunctionNamespace.resolveOperator(operatorType, argumentTypes).getSignature();

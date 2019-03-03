@@ -73,11 +73,6 @@ class FunctionNamespace
         return registry.isAggregationFunction(name);
     }
 
-    public boolean canResolveOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
-    {
-        return registry.canResolveOperator(operatorType, returnType, argumentTypes);
-    }
-
     public FunctionHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
