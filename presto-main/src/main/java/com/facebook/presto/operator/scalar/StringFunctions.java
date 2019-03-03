@@ -326,7 +326,6 @@ public final class StringFunctions
     {
         checkCondition(limit > 0, INVALID_FUNCTION_ARGUMENT, "Limit must be positive");
         checkCondition(limit <= Integer.MAX_VALUE, INVALID_FUNCTION_ARGUMENT, "Limit is too large");
-        checkCondition(delimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "The delimiter may not be the empty string");
         BlockBuilder parts = VARCHAR.createBlockBuilder(null, 1, string.length());
         // If limit is one, the last and only element is the complete string
         if (limit == 1) {
@@ -340,6 +339,10 @@ public final class StringFunctions
             // Found split?
             if (splitIndex < 0) {
                 break;
+            }
+            if (delimiter.length() == 0) {
+                // For zero-length delimiter, create 1-length splits.
+                splitIndex++;
             }
             // Add the part from current index to found split
             VARCHAR.writeSlice(parts, string, index, splitIndex - index);
