@@ -83,7 +83,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.mergingExchange;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.roundRobinExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.systemPartitionedExchange;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -698,13 +698,9 @@ public class AddLocalExchanges
             Optional<List<Symbol>> requiredPartitionColumns = requiredProperties.getPartitioningColumns();
             if (!requiredPartitionColumns.isPresent()) {
                 // unpartitioned parallel streams required
-                ExchangeNode exchangeNode = partitionedExchange(
-                        idAllocator.getNextId(),
-                        LOCAL,
-                        planWithProperties.getNode(),
-                        new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), planWithProperties.getNode().getOutputSymbols()));
-
-                return deriveProperties(exchangeNode, planWithProperties.getProperties());
+                return deriveProperties(
+                        roundRobinExchange(idAllocator.getNextId(), LOCAL, planWithProperties.getNode()),
+                        planWithProperties.getProperties());
             }
 
             if (requiredProperties.isParallelPreferred()) {

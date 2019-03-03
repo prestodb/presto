@@ -16,8 +16,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.Session;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.sql.planner.Partitioning;
-import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
@@ -39,13 +37,12 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.isEnableIntermediateAggregations;
 import static com.facebook.presto.matching.Pattern.empty;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.INTERMEDIATE;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.roundRobinExchange;
 import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.groupingColumns;
 import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.step;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
@@ -114,11 +111,7 @@ public class AddIntermediateAggregations
         PlanNode source = rewrittenSource.get();
 
         if (getTaskConcurrency(session) > 1) {
-            source = partitionedExchange(
-                    idAllocator.getNextId(),
-                    LOCAL,
-                    source,
-                    new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), source.getOutputSymbols()));
+            source = roundRobinExchange(idAllocator.getNextId(), LOCAL, source);
             source = new AggregationNode(
                     idAllocator.getNextId(),
                     source,
