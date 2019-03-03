@@ -24,4 +24,6 @@ public interface RowExpressionVisitor<R, C>
     R visitLambda(LambdaDefinitionExpression lambda, C context);
 
     R visitVariableReference(VariableReferenceExpression reference, C context);
+
+    R visitSpecialForm(SpecialFormExpression specialForm, C context);
 }
