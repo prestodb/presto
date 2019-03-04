@@ -115,6 +115,7 @@ public final class SystemSessionProperties
     public static final String STATISTICS_CPU_TIMER_ENABLED = "statistics_cpu_timer_enabled";
     public static final String ENABLE_STATS_CALCULATOR = "enable_stats_calculator";
     public static final String IGNORE_STATS_CALCULATOR_FAILURES = "ignore_stats_calculator_failures";
+    public static final String PRINT_STATS_FOR_NON_JOIN_QUERY = "print_stats_for_non_join_query";
     public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
     public static final String MAX_TASKS_PER_STAGE = "max_tasks_per_stage";
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
@@ -552,6 +553,11 @@ public final class SystemSessionProperties
                         featuresConfig.isIgnoreStatsCalculatorFailures(),
                         false),
                 booleanProperty(
+                        PRINT_STATS_FOR_NON_JOIN_QUERY,
+                        "Print stats and cost for non-join-query in plan",
+                        featuresConfig.isPrintStatsForNonJoinQuery(),
+                        false),
+                booleanProperty(
                         DEFAULT_FILTER_FACTOR_ENABLED,
                         "use a default filter factor for unknown filters in a filter node",
                         featuresConfig.isDefaultFilterFactorEnabled(),
@@ -941,6 +947,11 @@ public final class SystemSessionProperties
     public static boolean isIgnoreStatsCalculatorFailures(Session session)
     {
         return session.getSystemProperty(IGNORE_STATS_CALCULATOR_FAILURES, Boolean.class);
+    }
+
+    public static boolean isPrintStatsForNonJoinQuery(Session session)
+    {
+        return session.getSystemProperty(PRINT_STATS_FOR_NON_JOIN_QUERY, Boolean.class);
     }
 
     public static boolean isDefaultFilterFactorEnabled(Session session)

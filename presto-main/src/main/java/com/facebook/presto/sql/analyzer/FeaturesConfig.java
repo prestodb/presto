@@ -109,6 +109,7 @@ public class FeaturesConfig
     private boolean iterativeOptimizerEnabled = true;
     private boolean enableStatsCalculator = true;
     private boolean ignoreStatsCalculatorFailures = true;
+    private boolean printStatsForNonJoinQuery;
     private boolean defaultFilterFactorEnabled;
     private boolean pushAggregationThroughJoin = true;
     private double memoryRevokingTarget = 0.5;
@@ -632,6 +633,18 @@ public class FeaturesConfig
     public FeaturesConfig setIgnoreStatsCalculatorFailures(boolean ignoreStatsCalculatorFailures)
     {
         this.ignoreStatsCalculatorFailures = ignoreStatsCalculatorFailures;
+        return this;
+    }
+
+    public boolean isPrintStatsForNonJoinQuery()
+    {
+        return printStatsForNonJoinQuery;
+    }
+
+    @Config("print-stats-for-non-join-query")
+    public FeaturesConfig setPrintStatsForNonJoinQuery(boolean printStatsForNonJoinQuery)
+    {
+        this.printStatsForNonJoinQuery = printStatsForNonJoinQuery;
         return this;
     }
 
