@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.block.ByteArrayAllocator;
 import com.facebook.presto.spi.block.ConcatenatedByteArrayInputStream;
 import com.facebook.presto.spi.memory.ByteArrayPool;
 
 public class ExchangeClientByteArrayAllocator
-        implements io.airlift.http.client.ByteArrayAllocator
+        implements ByteArrayAllocator
 {
     private ByteArrayPool pool;
 
