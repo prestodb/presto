@@ -134,6 +134,12 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>jmx</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.sun</groupId>
+                    <artifactId>tools</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>

@@ -44,10 +44,8 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.io.BufferedReader;
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
@@ -306,11 +304,23 @@ public final class HttpPageBufferClient
     private synchronized void sendGetResults()
     {
         URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(token)).build();
-        HttpResponseFuture<PagesResponse> resultFuture = httpClient.executeAsync(
-                prepareGet()
-                        .setHeader(PRESTO_MAX_SIZE, maxResponseSize.toString())
-                        .setUri(uri).build(),
-                new PageResponseHandler(allocator), allocator);
+        HttpResponseFuture<PagesResponse> resultFuture;
+        if (allocator != null) {
+            BufferingResponseListener responseListener = new BufferingResponseListener(allocator);
+            resultFuture = httpClient.executeAsync(
+                    prepareGet()
+                            .setHeader(PRESTO_MAX_SIZE, maxResponseSize.toString())
+                            .setUri(uri).build(),
+                    new PageResponseHandler(responseListener),
+                    responseListener);
+        }
+        else {
+            resultFuture = httpClient.executeAsync(
+                    prepareGet()
+                            .setHeader(PRESTO_MAX_SIZE, maxResponseSize.toString())
+                            .setUri(uri).build(),
+                    new PageResponseHandler(null));
+        }
 
         future = resultFuture;
         Futures.addCallback(resultFuture, new FutureCallback<PagesResponse>()
@@ -548,11 +558,11 @@ public final class HttpPageBufferClient
     public static class PageResponseHandler
             implements ResponseHandler<PagesResponse, RuntimeException>
     {
-        private final ExchangeClientByteArrayAllocator allocator;
+        private final BufferingResponseListener responseListener;
 
-        PageResponseHandler(ExchangeClientByteArrayAllocator allocator)
+        PageResponseHandler(BufferingResponseListener responseListener)
         {
-            this.allocator = allocator;
+            this.responseListener = responseListener;
         }
 
         @Override
@@ -605,18 +615,16 @@ public final class HttpPageBufferClient
                 long nextToken = getNextToken(response);
                 boolean complete = getComplete(response);
                 try {
-                    InputStream responseStream = response.getInputStream();
                     SliceInput input;
-                    if (allocator != null && response.supportsGetBuffers()) {
-                        input = makeConcatenatedInputStream(response.getBuffers(), response.getTotalBytes(), allocator);
+                    if (responseListener != null) {
+                        input = responseListener.getInputStream();
                     }
                     else {
-                        input = new InputStreamSliceInput(responseStream);
+                        input = new InputStreamSliceInput(response.getInputStream());
                     }
                     List<SerializedPage> pages = ImmutableList.copyOf(readSerializedPages(input));
                     if (input instanceof ConcatenatedByteArrayInputStream) {
-                        ConcatenatedByteArrayInputStream stream = (ConcatenatedByteArrayInputStream) input;
-                        stream.setFreeAfterSubstreamsFinish();
+                        ((ConcatenatedByteArrayInputStream) input).setFreeAfterSubstreamsFinish();
                     }
                     return createPagesResponse(taskInstanceId, token, nextToken, pages, complete);
                 }
@@ -627,15 +635,6 @@ public final class HttpPageBufferClient
             catch (PageTransportErrorException e) {
                 throw new PageTransportErrorException(format("Error fetching %s: %s", request.getUri().toASCIIString(), e.getMessage()), e);
             }
-        }
-
-        ConcatenatedByteArrayInputStream makeConcatenatedInputStream(List<byte[]> buffers, long totalBytes, ExchangeClientByteArrayAllocator allocator)
-        {
-            ArrayList<byte[]> pieces = new ArrayList();
-            for (byte[] piece : buffers) {
-                pieces.add(piece);
-            }
-            return new ConcatenatedByteArrayInputStream(pieces, totalBytes, allocator.toPrestoAllocator());
         }
 
         private static String getTaskInstanceId(Response response)
