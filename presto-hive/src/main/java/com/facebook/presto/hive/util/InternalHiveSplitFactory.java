@@ -92,15 +92,15 @@ public class InternalHiveSplitFactory
 
     public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, boolean splittable)
     {
-        return createInternalHiveSplit(status, OptionalInt.empty(), splittable);
+        return createInternalHiveSplit(status, OptionalInt.empty(), OptionalInt.empty(), splittable);
     }
 
-    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, int bucketNumber)
+    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, int readBucketNumber, int tableBucketNumber)
     {
-        return createInternalHiveSplit(status, OptionalInt.of(bucketNumber), false);
+        return createInternalHiveSplit(status, OptionalInt.of(readBucketNumber), OptionalInt.of(tableBucketNumber), false);
     }
 
-    private Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, OptionalInt bucketNumber, boolean splittable)
+    private Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, OptionalInt readBucketNumber, OptionalInt tableBucketNumber, boolean splittable)
     {
         splittable = splittable && isSplittable(inputFormat, fileSystem, status.getPath());
         return createInternalHiveSplit(
@@ -109,7 +109,8 @@ public class InternalHiveSplitFactory
                 0,
                 status.getLen(),
                 status.getLen(),
-                bucketNumber,
+                readBucketNumber,
+                tableBucketNumber,
                 splittable);
     }
 
@@ -124,6 +125,7 @@ public class InternalHiveSplitFactory
                 split.getLength(),
                 file.getLen(),
                 OptionalInt.empty(),
+                OptionalInt.empty(),
                 false);
     }
 
@@ -133,7 +135,8 @@ public class InternalHiveSplitFactory
             long start,
             long length,
             long fileSize,
-            OptionalInt bucketNumber,
+            OptionalInt readBucketNumber,
+            OptionalInt tableBucketNumber,
             boolean splittable)
     {
         String pathString = path.toString();
@@ -184,7 +187,8 @@ public class InternalHiveSplitFactory
                 schema,
                 partitionKeys,
                 blocks,
-                bucketNumber,
+                readBucketNumber,
+                tableBucketNumber,
                 splittable,
                 forceLocalScheduling && allBlocksHaveRealAddress(blocks),
                 columnCoercions,

@@ -1564,6 +1564,100 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
+    public void testBucketedTableEvolutionWithDifferentReadBucketCount()
+            throws Exception
+    {
+        for (HiveStorageFormat storageFormat : createTableFormats) {
+            SchemaTableName temporaryBucketEvolutionTable = temporaryTable("bucket_evolution");
+            try {
+                doTestBucketedTableEvolutionWithDifferentReadCount(storageFormat, temporaryBucketEvolutionTable);
+            }
+            finally {
+                dropTable(temporaryBucketEvolutionTable);
+            }
+        }
+    }
+
+    private void doTestBucketedTableEvolutionWithDifferentReadCount(HiveStorageFormat storageFormat, SchemaTableName tableName)
+            throws Exception
+    {
+        int rowCount = 100;
+        int bucketCount = 16;
+
+        // Produce a table with a partition with bucket count different but compatible with the table bucket count
+        createEmptyTable(
+                tableName,
+                storageFormat,
+                ImmutableList.of(
+                        new Column("id", HIVE_LONG, Optional.empty()),
+                        new Column("name", HIVE_STRING, Optional.empty())),
+                ImmutableList.of(new Column("pk", HIVE_STRING, Optional.empty())),
+                Optional.of(new HiveBucketProperty(ImmutableList.of("id"), 4, ImmutableList.of())));
+        // write a 4-bucket partition
+        MaterializedResult.Builder bucket8Builder = MaterializedResult.resultBuilder(SESSION, BIGINT, VARCHAR, VARCHAR);
+        IntStream.range(0, rowCount).forEach(i -> bucket8Builder.row((long) i, String.valueOf(i), "four"));
+        insertData(tableName, bucket8Builder.build());
+
+        // Alter the bucket count to 16
+        alterBucketProperty(tableName, Optional.of(new HiveBucketProperty(ImmutableList.of("id"), bucketCount, ImmutableList.of())));
+
+        MaterializedResult result;
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession();
+
+            ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+
+            // read entire table
+            List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>builder()
+                    .addAll(metadata.getColumnHandles(session, tableHandle).values())
+                    .build();
+
+            List<ConnectorTableLayoutResult> tableLayoutResults = transaction.getMetadata().getTableLayouts(
+                    session,
+                    tableHandle,
+                    new Constraint<>(TupleDomain.all()),
+                    Optional.empty());
+
+            HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
+            HiveBucketHandle bucketHandle = layoutHandle.getBucketHandle().get();
+
+            HiveTableLayoutHandle modifiedReadBucketCountLayoutHandle = new HiveTableLayoutHandle(
+                    layoutHandle.getSchemaTableName(),
+                    layoutHandle.getPartitionColumns(),
+                    layoutHandle.getPartitions().get(),
+                    layoutHandle.getCompactEffectivePredicate(),
+                    layoutHandle.getPromisedPredicate(),
+                    Optional.of(new HiveBucketHandle(bucketHandle.getColumns(), bucketHandle.getTableBucketCount(), 2)),
+                    layoutHandle.getBucketFilter());
+
+            List<ConnectorSplit> splits = getAllSplits(splitManager.getSplits(transaction.getTransactionHandle(), session, modifiedReadBucketCountLayoutHandle, UNGROUPED_SCHEDULING));
+            assertEquals(splits.size(), 16);
+
+            ImmutableList.Builder<MaterializedRow> allRows = ImmutableList.builder();
+            for (ConnectorSplit split : splits) {
+                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, columnHandles)) {
+                    MaterializedResult intermediateResult = materializeSourceDataStream(session, pageSource, getTypes(columnHandles));
+                    allRows.addAll(intermediateResult.getMaterializedRows());
+                }
+            }
+            result = new MaterializedResult(allRows.build(), getTypes(columnHandles));
+
+            assertEquals(result.getRowCount(), rowCount);
+
+            Map<String, Integer> columnIndex = indexColumns(columnHandles);
+            int nameColumnIndex = columnIndex.get("name");
+            int bucketColumnIndex = columnIndex.get(BUCKET_COLUMN_NAME);
+            for (MaterializedRow row : result.getMaterializedRows()) {
+                String name = (String) row.getField(nameColumnIndex);
+                int bucket = (int) row.getField(bucketColumnIndex);
+
+                assertEquals(bucket, Integer.parseInt(name) % bucketCount);
+            }
+        }
+    }
+
+    @Test
     public void testBucketedTableEvolution()
             throws Exception
     {

@@ -327,13 +327,13 @@ public class BackgroundHiveSplitLoader
         if (partition.getPartition().isPresent()) {
             Optional<HiveBucketProperty> partitionBucketProperty = partition.getPartition().get().getStorage().getBucketProperty();
             if (tableBucketInfo.isPresent() && partitionBucketProperty.isPresent()) {
-                int readBucketCount = tableBucketInfo.get().getReadBucketCount();
+                int tableBucketCount = tableBucketInfo.get().getTableBucketCount();
                 int partitionBucketCount = partitionBucketProperty.get().getBucketCount();
                 // Validation was done in HiveSplitManager#getPartitionMetadata.
                 // Here, it's just trying to see if its needs the BucketConversion.
-                if (readBucketCount != partitionBucketCount) {
-                    bucketConversion = Optional.of(new BucketConversion(readBucketCount, partitionBucketCount, tableBucketInfo.get().getBucketColumns()));
-                    if (readBucketCount > partitionBucketCount) {
+                if (tableBucketCount != partitionBucketCount) {
+                    bucketConversion = Optional.of(new BucketConversion(tableBucketCount, partitionBucketCount, tableBucketInfo.get().getBucketColumns()));
+                    if (tableBucketCount > partitionBucketCount) {
                         bucketConversionRequiresWorkerParticipation = true;
                     }
                 }
@@ -415,6 +415,8 @@ public class BackgroundHiveSplitLoader
         int tableBucketCount = bucketSplitInfo.getTableBucketCount();
         int partitionBucketCount = bucketConversion.isPresent() ? bucketConversion.get().getPartitionBucketCount() : tableBucketCount;
 
+        checkState(readBucketCount <= tableBucketCount, "readBucketCount(%s) should be less than or equal to tableBucketCount(%s)", readBucketCount, tableBucketCount);
+
         // list all files in the partition
         ArrayList<LocatedFileStatus> files = new ArrayList<>(partitionBucketCount);
         try {
@@ -451,19 +453,19 @@ public class BackgroundHiveSplitLoader
             // Logical bucket #. Each logical bucket corresponds to a "bucket" from engine's perspective.
             int readBucketNumber = bucketNumber % readBucketCount;
 
-            boolean containsEligibleTableBucket = false;
             boolean containsIneligibleTableBucket = false;
+            List<Integer> eligibleTableBucketNumbers = new ArrayList<>();
             for (int tableBucketNumber = bucketNumber % tableBucketCount; tableBucketNumber < tableBucketCount; tableBucketNumber += Math.max(readBucketCount, partitionBucketCount)) {
                 // table bucket number: this is used for evaluating "$bucket" filters.
                 if (bucketSplitInfo.isTableBucketEnabled(tableBucketNumber)) {
-                    containsEligibleTableBucket = true;
+                    eligibleTableBucketNumbers.add(tableBucketNumber);
                 }
                 else {
                     containsIneligibleTableBucket = true;
                 }
             }
 
-            if (containsEligibleTableBucket && containsIneligibleTableBucket) {
+            if (!eligibleTableBucketNumbers.isEmpty() && containsIneligibleTableBucket) {
                 throw new PrestoException(
                         NOT_SUPPORTED,
                         "The bucket filter cannot be satisfied. There are restrictions on the bucket filter when all the following is true: " +
@@ -473,10 +475,11 @@ public class BackgroundHiveSplitLoader
                                 "(table name: " + table.getTableName() + ", table bucket count: " + tableBucketCount + ", " +
                                 "partition bucket count: " + partitionBucketCount + ", effective reading bucket count: " + readBucketCount + ")");
             }
-            if (containsEligibleTableBucket) {
+            if (!eligibleTableBucketNumbers.isEmpty()) {
                 LocatedFileStatus file = files.get(partitionBucketNumber);
-                splitFactory.createInternalHiveSplit(file, readBucketNumber)
-                        .ifPresent(splitList::add);
+                eligibleTableBucketNumbers.stream()
+                        .map(tableBucketNumber -> splitFactory.createInternalHiveSplit(file, readBucketNumber, tableBucketNumber))
+                        .forEach(optionalSplit -> optionalSplit.ifPresent(splitList::add));
             }
         }
         return splitList;
@@ -551,14 +554,6 @@ public class BackgroundHiveSplitLoader
 
             int tableBucketCount = bucketHandle.get().getTableBucketCount();
             int readBucketCount = bucketHandle.get().getReadBucketCount();
-
-            if (tableBucketCount != readBucketCount && bucketFilter.isPresent()) {
-                // TODO: support this once we fix the "$bucket" column for compatible bucketing read
-                throw new PrestoException(
-                        NOT_SUPPORTED,
-                        "Bucket filter (most likely using a filter on \"$bucket\") is not supported in this query. " +
-                                "Since the table has a different but compatible bucket number with another table in the query.");
-            }
 
             List<HiveColumnHandle> bucketColumns = bucketHandle.get().getColumns();
             IntPredicate predicate = bucketFilter

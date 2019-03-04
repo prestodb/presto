@@ -46,7 +46,8 @@ public class HiveSplit
     private final String table;
     private final String partitionName;
     private final TupleDomain<HiveColumnHandle> effectivePredicate;
-    private final OptionalInt bucketNumber;
+    private final OptionalInt readBucketNumber;
+    private final OptionalInt tableBucketNumber;
     private final boolean forceLocalScheduling;
     private final Map<Integer, HiveType> columnCoercions; // key: hiveColumnIndex
     private final Optional<BucketConversion> bucketConversion;
@@ -64,7 +65,8 @@ public class HiveSplit
             @JsonProperty("schema") Properties schema,
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
             @JsonProperty("addresses") List<HostAddress> addresses,
-            @JsonProperty("bucketNumber") OptionalInt bucketNumber,
+            @JsonProperty("readBucketNumber") OptionalInt readBucketNumber,
+            @JsonProperty("tableBucketNumber") OptionalInt tableBucketNumber,
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
             @JsonProperty("effectivePredicate") TupleDomain<HiveColumnHandle> effectivePredicate,
             @JsonProperty("columnCoercions") Map<Integer, HiveType> columnCoercions,
@@ -81,7 +83,8 @@ public class HiveSplit
         requireNonNull(schema, "schema is null");
         requireNonNull(partitionKeys, "partitionKeys is null");
         requireNonNull(addresses, "addresses is null");
-        requireNonNull(bucketNumber, "bucketNumber is null");
+        requireNonNull(readBucketNumber, "readBucketNumber is null");
+        requireNonNull(tableBucketNumber, "tableBucketNumber is null");
         requireNonNull(effectivePredicate, "tupleDomain is null");
         requireNonNull(columnCoercions, "columnCoercions is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
@@ -96,7 +99,8 @@ public class HiveSplit
         this.schema = schema;
         this.partitionKeys = ImmutableList.copyOf(partitionKeys);
         this.addresses = ImmutableList.copyOf(addresses);
-        this.bucketNumber = bucketNumber;
+        this.readBucketNumber = readBucketNumber;
+        this.tableBucketNumber = tableBucketNumber;
         this.forceLocalScheduling = forceLocalScheduling;
         this.effectivePredicate = effectivePredicate;
         this.columnCoercions = columnCoercions;
@@ -166,9 +170,15 @@ public class HiveSplit
     }
 
     @JsonProperty
-    public OptionalInt getBucketNumber()
+    public OptionalInt getReadBucketNumber()
     {
-        return bucketNumber;
+        return readBucketNumber;
+    }
+
+    @JsonProperty
+    public OptionalInt getTableBucketNumber()
+    {
+        return tableBucketNumber;
     }
 
     @JsonProperty
@@ -242,7 +252,7 @@ public class HiveSplit
         private final int tableBucketCount;
         private final int partitionBucketCount;
         private final List<HiveColumnHandle> bucketColumnNames;
-        // bucketNumber is needed, but can be found in bucketNumber field of HiveSplit.
+        // tableBucketNumber is needed, but can be found in tableBucketNumber field of HiveSplit.
 
         @JsonCreator
         public BucketConversion(
