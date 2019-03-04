@@ -14,9 +14,9 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.OperatorNotFoundException;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -253,7 +253,7 @@ public class TestTypeRegistry
             for (Type resultType : types) {
                 if (typeRegistry.canCoerce(sourceType, resultType) && sourceType != UNKNOWN && resultType != UNKNOWN) {
                     try {
-                        functionManager.lookupCast(OperatorType.CAST, sourceType.getTypeSignature(), resultType.getTypeSignature());
+                        functionManager.lookupCast(CastType.CAST, sourceType.getTypeSignature(), resultType.getTypeSignature());
                     }
                     catch (OperatorNotFoundException e) {
                         fail(format("'%s' -> '%s' coercion exists but there is no cast operator", sourceType, resultType));

@@ -43,6 +43,7 @@ import io.airlift.bytecode.expression.BytecodeExpression;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
+import static com.facebook.presto.metadata.CastType.fromOperatorType;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.OperatorType.CAST;
@@ -141,7 +142,7 @@ public class RowToRowCast
 
         // loop through to append member blocks
         for (int i = 0; i < toTypes.size(); i++) {
-            FunctionHandle functionHandle = functionManager.lookupCast(CAST, fromTypes.get(i).getTypeSignature(), toTypes.get(i).getTypeSignature());
+            FunctionHandle functionHandle = functionManager.lookupCast(fromOperatorType(CAST), fromTypes.get(i).getTypeSignature(), toTypes.get(i).getTypeSignature());
             ScalarFunctionImplementation function = functionManager.getScalarFunctionImplementation(functionHandle);
             Type currentFromType = fromTypes.get(i);
             if (currentFromType.equals(UNKNOWN)) {

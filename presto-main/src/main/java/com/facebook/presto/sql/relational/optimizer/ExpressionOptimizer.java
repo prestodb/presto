@@ -14,10 +14,10 @@
 package com.facebook.presto.sql.relational.optimizer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -37,11 +37,11 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.metadata.InternalSignatureUtils.internalScalarFunction;
-import static com.facebook.presto.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
-import static com.facebook.presto.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
-import static com.facebook.presto.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NAME;
+import static com.facebook.presto.metadata.CastType.JSON_TO_ARRAY_CAST;
+import static com.facebook.presto.metadata.CastType.JSON_TO_MAP_CAST;
+import static com.facebook.presto.metadata.CastType.JSON_TO_ROW_CAST;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.operator.scalar.TryCastFunction.TRY_CAST_NAME;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
@@ -52,7 +52,6 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
 import static com.facebook.presto.sql.relational.Signatures.CAST;
-import static com.facebook.presto.sql.relational.Signatures.TRY_CAST;
 import static com.facebook.presto.sql.relational.SpecialFormExpression.Form.BIND;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -97,7 +96,7 @@ public class ExpressionOptimizer
         public RowExpression visitCall(CallExpression call, Void context)
         {
             Signature signature = call.getSignature();
-            if (signature.getName().equals(TRY_CAST)) {
+            if (signature.getName().equals(TRY_CAST_NAME)) {
                 List<RowExpression> arguments = call.getArguments().stream()
                         .map(argument -> argument.accept(this, null))
                         .collect(toImmutableList());
@@ -235,28 +234,28 @@ public class ExpressionOptimizer
                     TypeSignature returnType = call.getSignature().getReturnType();
                     if (returnType.getBase().equals(ARRAY)) {
                         return call(
-                                internalScalarFunction(
-                                        JSON_STRING_TO_ARRAY_NAME,
-                                        returnType,
-                                        ImmutableList.of(parseTypeSignature(VARCHAR))),
+                                functionManager.lookupCast(
+                                        JSON_TO_ARRAY_CAST,
+                                        parseTypeSignature(VARCHAR),
+                                        returnType).getSignature(),
                                 call.getType(),
                                 innerCall.getArguments());
                     }
                     if (returnType.getBase().equals(MAP)) {
                         return call(
-                                internalScalarFunction(
-                                        JSON_STRING_TO_MAP_NAME,
-                                        returnType,
-                                        ImmutableList.of(parseTypeSignature(VARCHAR))),
+                                functionManager.lookupCast(
+                                        JSON_TO_MAP_CAST,
+                                        parseTypeSignature(VARCHAR),
+                                        returnType).getSignature(),
                                 call.getType(),
                                 innerCall.getArguments());
                     }
                     if (returnType.getBase().equals(ROW)) {
                         return call(
-                                internalScalarFunction(
-                                        JSON_STRING_TO_ROW_NAME,
-                                        returnType,
-                                        ImmutableList.of(parseTypeSignature(VARCHAR))),
+                                functionManager.lookupCast(
+                                        JSON_TO_ROW_CAST,
+                                        parseTypeSignature(VARCHAR),
+                                        returnType).getSignature(),
                                 call.getType(),
                                 innerCall.getArguments());
                     }
@@ -264,7 +263,10 @@ public class ExpressionOptimizer
             }
 
             return call(
-                    functionManager.lookupCast(OperatorType.CAST, call.getArguments().get(0).getType().getTypeSignature(), call.getType().getTypeSignature()).getSignature(),
+                    functionManager.lookupCast(
+                            CastType.CAST,
+                            call.getArguments().get(0).getType().getTypeSignature(),
+                            call.getType().getTypeSignature()).getSignature(),
                     call.getType(),
                     call.getArguments());
         }

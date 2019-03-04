@@ -24,6 +24,7 @@ import io.airlift.bytecode.Variable;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.metadata.CastType.fromOperatorType;
 import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.sql.gen.SpecialFormBytecodeGenerator.generateWrite;
 
@@ -37,7 +38,7 @@ public class CastCodeGenerator
 
         FunctionHandle function = generatorContext
                 .getFunctionManager()
-                .lookupCast(CAST, argument.getType().getTypeSignature(), returnType.getTypeSignature());
+                .lookupCast(fromOperatorType(CAST), argument.getType().getTypeSignature(), returnType.getTypeSignature());
 
         BytecodeBlock block = new BytecodeBlock()
                 .append(generatorContext.generateCall(

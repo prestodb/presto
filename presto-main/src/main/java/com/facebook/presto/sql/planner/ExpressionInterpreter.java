@@ -114,9 +114,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
+import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
