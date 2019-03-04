@@ -28,7 +28,7 @@ import com.google.common.primitives.Primitives;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
-import static com.facebook.presto.spi.function.OperatorType.CAST;
+import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.invoke.MethodHandles.catchException;
@@ -40,11 +40,12 @@ public class TryCastFunction
         extends SqlScalarFunction
 {
     public static final TryCastFunction TRY_CAST = new TryCastFunction();
+    public static final String TRY_CAST_NAME = "TRY_CAST";
 
     public TryCastFunction()
     {
         super(new Signature(
-                "TRY_CAST",
+                TRY_CAST_NAME,
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("F"), typeVariable("T")),
                 ImmutableList.of(),

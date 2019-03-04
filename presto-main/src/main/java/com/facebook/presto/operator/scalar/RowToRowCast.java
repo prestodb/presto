@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.ConnectorSession;
@@ -141,7 +142,7 @@ public class RowToRowCast
 
         // loop through to append member blocks
         for (int i = 0; i < toTypes.size(); i++) {
-            FunctionHandle functionHandle = functionManager.lookupCast(CAST, fromTypes.get(i).getTypeSignature(), toTypes.get(i).getTypeSignature());
+            FunctionHandle functionHandle = functionManager.lookupCast(CastType.CAST, fromTypes.get(i).getTypeSignature(), toTypes.get(i).getTypeSignature());
             ScalarFunctionImplementation function = functionManager.getScalarFunctionImplementation(functionHandle);
             Type currentFromType = fromTypes.get(i);
             if (currentFromType.equals(UNKNOWN)) {
