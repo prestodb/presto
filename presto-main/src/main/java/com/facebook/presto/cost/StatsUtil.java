@@ -32,7 +32,7 @@ import com.facebook.presto.sql.InterpretedFunctionInvoker;
 
 import java.util.OptionalDouble;
 
-import static com.facebook.presto.spi.function.OperatorType.CAST;
+import static com.facebook.presto.metadata.CastType.CAST;
 import static java.util.Collections.singletonList;
 
 final class StatsUtil

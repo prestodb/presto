@@ -29,6 +29,7 @@ import io.airlift.bytecode.instruction.LabelNode;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.metadata.CastType.fromOperatorType;
 import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
@@ -102,7 +103,7 @@ public class NullIfCodeGenerator
 
         FunctionHandle functionHandle = generatorContext
                 .getFunctionManager()
-                .lookupCast(CAST, actualType.getTypeSignature(), requiredType);
+                .lookupCast(fromOperatorType(CAST), actualType.getTypeSignature(), requiredType);
 
         // TODO: do we need a full function call? (nullability checks, etc)
         return generatorContext.generateCall(CAST.name(), generatorContext.getFunctionManager().getScalarFunctionImplementation(functionHandle), ImmutableList.of(argument));
