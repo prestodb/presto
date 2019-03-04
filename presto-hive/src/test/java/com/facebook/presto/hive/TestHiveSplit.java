@@ -55,6 +55,7 @@ public class TestHiveSplit
                 partitionKeys,
                 addresses,
                 OptionalInt.empty(),
+                OptionalInt.empty(),
                 true,
                 TupleDomain.all(),
                 ImmutableMap.of(1, HIVE_STRING),

@@ -225,6 +225,7 @@ public class TestHivePageSink
                 ImmutableList.of(),
                 ImmutableList.of(),
                 OptionalInt.empty(),
+                OptionalInt.empty(),
                 false,
                 TupleDomain.all(),
                 ImmutableMap.of(),

@@ -2310,6 +2310,48 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testMismatchedBucketWithBucketPredicate()
+    {
+        try {
+            assertUpdate(
+                    "CREATE TABLE test_mismatch_bucketing8\n" +
+                            "WITH (bucket_count = 8, bucketed_by = ARRAY['key8']) AS\n" +
+                            "SELECT custkey key8, comment value8 FROM orders",
+                    15000);
+            assertUpdate(
+                    "CREATE TABLE test_mismatch_bucketing32\n" +
+                            "WITH (bucket_count = 32, bucketed_by = ARRAY['key32']) AS\n" +
+                            "SELECT custkey key32, comment value32 FROM orders",
+                    15000);
+
+            Session withMismatchOptimization = Session.builder(getSession())
+                    .setSystemProperty(COLOCATED_JOIN, "true")
+                    .setCatalogSessionProperty(catalog, "optimize_mismatched_bucket_count", "true")
+                    .build();
+            Session withoutMismatchOptimization = Session.builder(getSession())
+                    .setSystemProperty(COLOCATED_JOIN, "true")
+                    .setCatalogSessionProperty(catalog, "optimize_mismatched_bucket_count", "false")
+                    .build();
+
+            @Language("SQL") String query = "SELECT count(*) AS count\n" +
+                    "FROM (\n" +
+                    "  SELECT key32\n" +
+                    "  FROM test_mismatch_bucketing32\n" +
+                    "  WHERE \"$bucket\" between 16 AND 31\n" +
+                    ") a\n" +
+                    "JOIN test_mismatch_bucketing8 b\n" +
+                    "ON a.key32 = b.key8";
+
+            assertQuery(withMismatchOptimization, query, "SELECT 130361");
+            assertQuery(withoutMismatchOptimization, query, "SELECT 130361");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing8");
+            assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing32");
+        }
+    }
+
+    @Test
     public void testMismatchedBucketing()
     {
         try {
