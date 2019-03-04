@@ -72,7 +72,7 @@ public final class ConcatenatedByteArrayInputStream
         }
         totalSize = size;
         this.allocator = allocator;
-        if (totalSize <= buffersSize - buffers.get(buffers.size()  - 1).length || totalSize > buffersSize) {
+        if (!buffers.isEmpty() && (totalSize <= buffersSize - buffers.get(buffers.size()  - 1).length || totalSize > buffersSize)) {
             throw new IllegalArgumentException("totalSize does not fall within the last buffer");
         }
         position = 0;
