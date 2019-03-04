@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.ConnectorSession;
@@ -75,7 +76,7 @@ public class ArrayToArrayCast
         Type fromType = boundVariables.getTypeVariable("F");
         Type toType = boundVariables.getTypeVariable("T");
 
-        FunctionHandle functionHandle = functionManager.lookupCast(CAST, fromType.getTypeSignature(), toType.getTypeSignature());
+        FunctionHandle functionHandle = functionManager.lookupCast(CastType.CAST, fromType.getTypeSignature(), toType.getTypeSignature());
         ScalarFunctionImplementation function = functionManager.getScalarFunctionImplementation(functionHandle);
         Class<?> castOperatorClass = generateArrayCast(typeManager, functionHandle.getSignature(), function);
         MethodHandle methodHandle = methodHandle(castOperatorClass, "castArray", ConnectorSession.class, Block.class);

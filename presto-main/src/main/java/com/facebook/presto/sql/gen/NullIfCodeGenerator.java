@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.type.Type;
@@ -102,7 +103,7 @@ public class NullIfCodeGenerator
 
         FunctionHandle functionHandle = generatorContext
                 .getFunctionManager()
-                .lookupCast(CAST, actualType.getTypeSignature(), requiredType);
+                .lookupCast(CastType.CAST, actualType.getTypeSignature(), requiredType);
 
         // TODO: do we need a full function call? (nullability checks, etc)
         return generatorContext.generateCall(CAST.name(), generatorContext.getFunctionManager().getScalarFunctionImplementation(functionHandle), ImmutableList.of(argument));

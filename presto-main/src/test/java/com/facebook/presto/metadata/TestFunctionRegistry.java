@@ -67,7 +67,7 @@ public class TestFunctionRegistry
     {
         TypeRegistry typeManager = new TypeRegistry();
         FunctionRegistry registry = createFunctionRegistry(typeManager);
-        FunctionHandle exactOperator = registry.lookupCast(CAST, HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature());
+        FunctionHandle exactOperator = registry.lookupCast(CastType.CAST, HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature());
         assertEquals(exactOperator, new FunctionHandle(new Signature(mangleOperatorName(CAST.name()), SCALAR, HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature())));
     }
 

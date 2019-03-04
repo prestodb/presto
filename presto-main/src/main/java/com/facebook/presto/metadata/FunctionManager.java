@@ -114,7 +114,7 @@ public class FunctionManager
         return globalFunctionNamespace.isRegistered(signature);
     }
 
-    public FunctionHandle lookupCast(OperatorType castType, TypeSignature fromType, TypeSignature toType)
+    public FunctionHandle lookupCast(CastType castType, TypeSignature fromType, TypeSignature toType)
     {
         return globalFunctionNamespace.lookupCast(castType, fromType, toType);
     }

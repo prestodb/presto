@@ -30,6 +30,7 @@ import java.util.List;
 import static com.facebook.presto.metadata.InternalSignatureUtils.internalOperator;
 import static com.facebook.presto.metadata.InternalSignatureUtils.internalScalarFunction;
 import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
+import static com.facebook.presto.operator.scalar.TryCastFunction.TRY_CAST_NAME;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -39,7 +40,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 public final class Signatures
 {
     public static final String CAST = mangleOperatorName("CAST");
-    public static final String TRY_CAST = "TRY_CAST";
     public static final String COALESCE = "COALESCE";
     public static final String IN = "IN";
     public static final String TRY = "TRY";
@@ -83,7 +83,7 @@ public final class Signatures
 
     public static Signature tryCastSignature(Type returnType, Type valueType)
     {
-        return internalScalarFunction(TRY_CAST, returnType.getTypeSignature(), valueType.getTypeSignature());
+        return internalScalarFunction(TRY_CAST_NAME, returnType.getTypeSignature(), valueType.getTypeSignature());
     }
 
     public static Signature arithmeticNegationSignature(Type returnType, Type valueType)

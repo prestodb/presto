@@ -113,7 +113,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.execution.StageInfo.getAllStages;
-import static com.facebook.presto.spi.function.OperatorType.CAST;
+import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.planPrinter.PlanNodeStatsSummarizer.aggregateStageStats;
