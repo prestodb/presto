@@ -21,6 +21,7 @@ public interface PartitionFunction
     int getPartitionCount();
 
     int getPartition(Page page, int position);
+
     default void getPartitions(int partitionCount, Page page, BlockDecoder decoder, int[] partitionsOut)
     {
         throw new UnsupportedOperationException();
