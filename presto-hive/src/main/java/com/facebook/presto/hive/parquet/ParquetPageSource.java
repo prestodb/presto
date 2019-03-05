@@ -18,13 +18,17 @@ import com.facebook.presto.parquet.Field;
 import com.facebook.presto.parquet.ParquetCorruptionException;
 import com.facebook.presto.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.NestedField;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.ColumnarRow;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -33,6 +37,7 @@ import org.apache.parquet.schema.MessageType;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
@@ -40,9 +45,10 @@ import java.util.Properties;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
-import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.getParquetType;
-import static com.facebook.presto.parquet.ParquetTypeUtils.getFieldIndex;
+import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.getColumnType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
+import static com.facebook.presto.spi.block.ColumnarRow.toColumnarRow;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.io.ColumnIOConverter.constructField;
@@ -58,6 +64,7 @@ public class ParquetPageSource
     private final List<String> columnNames;
     private final List<Type> types;
     private final List<Optional<Field>> fields;
+    private final List<Optional<NestedField>> nestedFields;
 
     private final Block[] constantBlocks;
     private final int[] hiveColumnIndexes;
@@ -86,6 +93,7 @@ public class ParquetPageSource
         int size = columns.size();
         this.constantBlocks = new Block[size];
         this.hiveColumnIndexes = new int[size];
+        this.nestedFields = new ArrayList<>(size);
 
         ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
@@ -99,15 +107,22 @@ public class ParquetPageSource
 
             namesBuilder.add(name);
             typesBuilder.add(type);
+            nestedFields.add(column.getNestedField());
             hiveColumnIndexes[columnIndex] = column.getHiveColumnIndex();
 
-            if (getParquetType(column, fileSchema, useParquetColumnNames) == null) {
+            if (getColumnType(column, fileSchema, useParquetColumnNames) == null) {
                 constantBlocks[columnIndex] = RunLengthEncodedBlock.create(type, null, MAX_VECTOR_LENGTH);
                 fieldsBuilder.add(Optional.empty());
             }
             else {
-                String columnName = useParquetColumnNames ? name : fileSchema.getFields().get(column.getHiveColumnIndex()).getName();
-                fieldsBuilder.add(constructField(type, lookupColumnByName(messageColumnIO, columnName)));
+                if (column.getNestedField().isPresent()) {
+                    NestedField nestedField = column.getNestedField().get();
+                    fieldsBuilder.add(constructField(getNestedType(nestedField, type), lookupColumnByName(messageColumnIO, nestedField.getBase())));
+                }
+                else {
+                    String columnName = useParquetColumnNames ? name : fileSchema.getFields().get(column.getHiveColumnIndex()).getName();
+                    fieldsBuilder.add(constructField(type, lookupColumnByName(messageColumnIO, columnName)));
+                }
             }
         }
         types = typesBuilder.build();
@@ -157,19 +172,17 @@ public class ParquetPageSource
                     blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
                 }
                 else {
-                    Type type = types.get(fieldId);
                     Optional<Field> field = fields.get(fieldId);
-                    int fieldIndex;
-                    if (useParquetColumnNames) {
-                        fieldIndex = getFieldIndex(fileSchema, columnNames.get(fieldId));
+                    if (field.isPresent()) {
+                        if (nestedFields.get(fieldId).isPresent()) {
+                            blocks[fieldId] = new LazyBlock(batchSize, new ParquetNestedBlockLoader(field.get(), types.get(fieldId)));
+                        }
+                        else {
+                            blocks[fieldId] = new LazyBlock(batchSize, new ParquetBlockLoader(field.get()));
+                        }
                     }
                     else {
-                        fieldIndex = hiveColumnIndexes[fieldId];
-                    }
-                    if (fieldIndex != -1 && field.isPresent()) {
-                        blocks[fieldId] = new LazyBlock(batchSize, new ParquetBlockLoader(field.get()));
-                    }
-                    else {
+                        Type type = types.get(fieldId);
                         blocks[fieldId] = RunLengthEncodedBlock.create(type, null, batchSize);
                     }
                 }
@@ -249,5 +262,91 @@ public class ParquetPageSource
             }
             loaded = true;
         }
+    }
+
+    private final class ParquetNestedBlockLoader
+            implements LazyBlockLoader<LazyBlock>
+    {
+        private final int expectedBatchId = batchId;
+        private final Field field;
+        private final Type leafType;
+        private boolean loaded;
+
+        public ParquetNestedBlockLoader(Field field, Type leafType)
+        {
+            this.field = requireNonNull(field, "field is null");
+            this.leafType = requireNonNull(leafType, "leafType is null");
+        }
+
+        private int getDepth(Type rootType, Type leafType)
+        {
+            int depth = 0;
+            Type type = rootType;
+            while (!type.equals(leafType)) {
+                type = type.getTypeParameters().get(0);
+                ++depth;
+            }
+            return depth;
+        }
+
+        @Override
+        public final void load(LazyBlock lazyBlock)
+        {
+            if (loaded) {
+                return;
+            }
+
+            checkState(batchId == expectedBatchId);
+
+            try {
+                Block block = parquetReader.readBlock(field);
+
+                int size = block.getPositionCount();
+                boolean[] isNulls = new boolean[size];
+
+                for (int level = 0; level < getDepth(field.getType(), leafType); ++level) {
+                    ColumnarRow rowBlock = toColumnarRow(block);
+                    int index = 0;
+                    for (int j = 0; j < size; ++j) {
+                        if (!isNulls[j]) {
+                            isNulls[j] = rowBlock.isNull(index);
+                            ++index;
+                        }
+                    }
+                    block = rowBlock.getField(0);
+                }
+
+                BlockBuilder blockBuilder = leafType.createBlockBuilder(null, size);
+                int position = 0;
+                for (int i = 0; i < size; ++i) {
+                    if (isNulls[i]) {
+                        blockBuilder.appendNull();
+                    }
+                    else {
+                        checkArgument(position < block.getPositionCount(), "current position cannot exceed total position count");
+                        leafType.appendTo(block, position, blockBuilder);
+                        position++;
+                    }
+                }
+                lazyBlock.setBlock(blockBuilder.build());
+            }
+            catch (ParquetCorruptionException e) {
+                throw new PrestoException(HIVE_BAD_DATA, e);
+            }
+            catch (IOException e) {
+                throw new PrestoException(HIVE_CURSOR_ERROR, e);
+            }
+            loaded = true;
+        }
+    }
+
+    private Type getNestedType(NestedField nestedField, Type leafType)
+    {
+        Type type = leafType;
+        List<String> names = nestedField.getRemaining();
+        for (int i = names.size() - 1; i >= 0; --i) {
+            type = RowType.from(ImmutableList.of(RowType.field(names.get(i), type)));
+        }
+        return type;
     }
 }
