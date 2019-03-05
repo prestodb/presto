@@ -81,8 +81,8 @@ public class SliceDirectStreamReader
     private int[] resultOffsets;
     // Temp space for extracting values to filter when a value straddles buffers.
     private byte[] tempBytes;
-    long totalBytes;
-    long totalRows;
+    private long totalBytes;
+    private long totalRows;
 
     public SliceDirectStreamReader(StreamDescriptor streamDescriptor)
     {

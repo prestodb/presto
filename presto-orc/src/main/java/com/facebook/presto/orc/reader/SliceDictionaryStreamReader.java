@@ -108,6 +108,7 @@ public class SliceDictionaryStreamReader
 
     private int[] values;
     private ResultsProcessor resultsProcessor = new ResultsProcessor();
+    private int averageResultSize = SIZE_OF_DOUBLE;
 
     public SliceDictionaryStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
     {
@@ -469,6 +470,14 @@ public class SliceDictionaryStreamReader
         if (filter != null) {
             outputQualifyingSet.setEnd(inputQualifyingSet.getEnd());
         }
+        if (outputChannel != -1) {
+            if (numValues > 0) {
+                averageResultSize = SIZE_OF_DOUBLE + toIntExact(dictionaryBlock.getSizeInBytes() / numValues);
+            }
+            else {
+                averageResultSize = SIZE_OF_DOUBLE;
+            }
+        }
         endScan(presentStream);
     }
 
@@ -589,6 +598,12 @@ public class SliceDictionaryStreamReader
     public int getResultSizeInBytes()
     {
         return numValues * SIZE_OF_DOUBLE + toIntExact(dictionaryBlock.getSizeInBytes());
+    }
+
+    @Override
+    public int getAverageResultSize()
+    {
+        return averageResultSize;
     }
 
     @Override
