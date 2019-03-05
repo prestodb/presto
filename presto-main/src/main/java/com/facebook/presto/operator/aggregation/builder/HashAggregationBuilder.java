@@ -24,6 +24,8 @@ public interface HashAggregationBuilder
 {
     Work<?> processPage(Page page);
 
+    default void removePage(Page page) {}
+
     WorkProcessor<Page> buildResult();
 
     boolean isFull();

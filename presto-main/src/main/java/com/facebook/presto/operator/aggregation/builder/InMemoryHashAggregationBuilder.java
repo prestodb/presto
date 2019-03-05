@@ -176,6 +176,22 @@ public class InMemoryHashAggregationBuilder
     }
 
     @Override
+    public void removePage(Page page)
+    {
+        if (aggregators.isEmpty()) {
+            return;
+        }
+        Work<GroupByIdBlock> work = groupByHash.getGroupIds(page);
+        while (!work.process()) {
+            // no-op
+        }
+        GroupByIdBlock groupByIdBlock = work.getResult();
+        for (Aggregator aggregator : aggregators) {
+            aggregator.removePage(groupByIdBlock, page);
+        }
+    }
+
+    @Override
     public void updateMemory()
     {
         updateMemoryWithYieldInfo();
@@ -430,6 +446,13 @@ public class InMemoryHashAggregationBuilder
             }
             else {
                 aggregation.addIntermediate(groupIds, page.getBlock(intermediateChannel));
+            }
+        }
+
+        public void removePage(GroupByIdBlock groupIds, Page page)
+        {
+            if (step.isInputRaw()) {
+                aggregation.removeInput(groupIds, page);
             }
         }
 

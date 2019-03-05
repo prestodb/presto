@@ -416,6 +416,12 @@ public class GenericAccumulatorFactory
         }
 
         @Override
+        public void removeInput(GroupByIdBlock groupIdsBlock, Page page)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public void addIntermediate(GroupByIdBlock groupIdsBlock, Block block)
         {
             throw new UnsupportedOperationException();
@@ -574,6 +580,12 @@ public class GenericAccumulatorFactory
             blocks[page.getChannelCount()] = groupIdsBlock;
             groupCount = max(groupCount, groupIdsBlock.getGroupCount());
             pagesIndex.addPage(new Page(blocks));
+        }
+
+        @Override
+        public void removeInput(GroupByIdBlock groupIdsBlock, Page page)
+        {
+            throw new UnsupportedOperationException();
         }
 
         @Override

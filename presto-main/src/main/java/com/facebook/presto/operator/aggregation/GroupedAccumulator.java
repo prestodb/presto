@@ -29,6 +29,8 @@ public interface GroupedAccumulator
 
     void addInput(GroupByIdBlock groupIdsBlock, Page page);
 
+    void removeInput(GroupByIdBlock groupIdsBlock, Page page);
+
     void addIntermediate(GroupByIdBlock groupIdsBlock, Block block);
 
     void evaluateIntermediate(int groupId, BlockBuilder output);

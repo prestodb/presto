@@ -32,8 +32,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
+import javax.validation.constraints.NotNull;
+
 import java.util.List;
 import java.util.Optional;
+import java.util.PriorityQueue;
+import java.util.Queue;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.operator.aggregation.builder.InMemoryHashAggregationBuilder.toTypes;
@@ -267,6 +271,7 @@ public class HashAggregationOperator
     private final SpillerFactory spillerFactory;
     private final JoinCompiler joinCompiler;
     private final boolean useSystemMemory;
+    private final Queue<TimedPage> queue = new PriorityQueue<>();
 
     private final List<Type> types;
     private final HashCollisionsCounter hashCollisionsCounter;
@@ -358,6 +363,7 @@ public class HashAggregationOperator
         checkState(unfinishedWork == null, "Operator has unfinished work");
         checkState(!finishing, "Operator is already finishing");
         requireNonNull(page, "page is null");
+        queue.add(new TimedPage(System.nanoTime(), page));
         inputProcessed = true;
 
         if (aggregationBuilder == null) {
@@ -438,6 +444,18 @@ public class HashAggregationOperator
     {
         if (!timer.shouldEmit()) {
             return null;
+        }
+
+        long currentNanos = System.nanoTime();
+        while (!queue.isEmpty() && aggregationBuilder != null) {
+            TimedPage timedPage = queue.peek();
+            if (currentNanos - timedPage.getCreatedNanos() >= 5_000_000_000L) {
+                aggregationBuilder.removePage(timedPage.getPage());
+                queue.poll();
+            }
+            else {
+                break;
+            }
         }
 
         // process unfinished work if one exists
@@ -568,6 +586,35 @@ public class HashAggregationOperator
                 return true;
             }
             return false;
+        }
+    }
+
+    private static class TimedPage
+            implements Comparable<TimedPage>
+    {
+        private final long createdNanos;
+        private final Page page;
+
+        public TimedPage(long createdNanos, Page page)
+        {
+            this.createdNanos = createdNanos;
+            this.page = page;
+        }
+
+        public long getCreatedNanos()
+        {
+            return createdNanos;
+        }
+
+        public Page getPage()
+        {
+            return page;
+        }
+
+        @Override
+        public int compareTo(@NotNull TimedPage other)
+        {
+            return Long.compare(createdNanos, other.createdNanos);
         }
     }
 }

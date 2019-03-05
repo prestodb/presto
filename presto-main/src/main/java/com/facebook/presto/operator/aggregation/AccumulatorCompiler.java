@@ -158,8 +158,24 @@ public class AccumulatorCompiler
                 metadata.getLambdaInterfaces(),
                 lambdaProviderFields,
                 metadata.getInputFunction(),
+                "addInput",
+                "input",
                 callSiteBinder,
                 grouped);
+        metadata.getRemoveInputFunction().ifPresent(
+                removeInputFunction -> generateAddInput(
+                        definition,
+                        stateFileds,
+                        inputChannelsField,
+                        maskChannelField,
+                        metadata.getValueInputMetadata(),
+                        metadata.getLambdaInterfaces(),
+                        lambdaProviderFields,
+                        removeInputFunction,
+                        "removeInput",
+                        "removeInput",
+                        callSiteBinder,
+                        grouped));
         generateAddOrRemoveInputWindowIndex(
                 definition,
                 stateFileds,
@@ -273,6 +289,8 @@ public class AccumulatorCompiler
             List<Class> lambdaInterfaces,
             List<FieldDefinition> lambdaProviderFields,
             MethodHandle inputFunction,
+            String functionName,
+            String accumulatorFunctionName,
             CallSiteBinder callSiteBinder,
             boolean grouped)
     {
@@ -283,7 +301,7 @@ public class AccumulatorCompiler
         Parameter page = arg("page", Page.class);
         parameters.add(page);
 
-        MethodDefinition method = definition.declareMethod(a(PUBLIC), "addInput", type(void.class), parameters.build());
+        MethodDefinition method = definition.declareMethod(a(PUBLIC), functionName, type(void.class), parameters.build());
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
         Variable thisVariable = method.getThis();
@@ -323,6 +341,7 @@ public class AccumulatorCompiler
                 stateField,
                 parameterMetadatas,
                 inputFunction,
+                accumulatorFunctionName,
                 scope,
                 parameterVariables,
                 lambdaInterfaces,
@@ -495,6 +514,7 @@ public class AccumulatorCompiler
             List<FieldDefinition> stateField,
             List<ParameterMetadata> parameterMetadatas,
             MethodHandle inputFunction,
+            String functionName,
             Scope scope,
             List<Variable> parameterVariables,
             List<Class> lambdaInterfaces,
@@ -523,6 +543,7 @@ public class AccumulatorCompiler
                 lambdaInterfaces,
                 lambdaProviderFields,
                 inputFunction,
+                functionName,
                 callSiteBinder,
                 grouped);
 
@@ -581,6 +602,7 @@ public class AccumulatorCompiler
             List<Class> lambdaInterfaces,
             List<FieldDefinition> lambdaProviderFields,
             MethodHandle inputFunction,
+            String functionName,
             CallSiteBinder callSiteBinder,
             boolean grouped)
     {
@@ -627,7 +649,7 @@ public class AccumulatorCompiler
                     .cast(lambdaInterfaces.get(i)));
         }
 
-        block.append(invoke(callSiteBinder.bind(inputFunction), "input"));
+        block.append(invoke(callSiteBinder.bind(inputFunction), functionName));
         return block;
     }
 
