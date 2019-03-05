@@ -76,7 +76,7 @@ class BufferingResponseListener
     @Override
     public synchronized InputStream onComplete()
     {
-        inputStream =  new ConcatenatedByteArrayInputStream(buffers, size, byteArrayAllocator.toPrestoAllocator());
+        inputStream = new ConcatenatedByteArrayInputStream(buffers, size, byteArrayAllocator.toPrestoAllocator());
         return inputStream;
     }
 

@@ -750,6 +750,7 @@ public class PlanBuilder
                 unnestSymbols,
                 ordinalitySymbol);
     }
+
     public static Expression expression(String sql)
     {
         return ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql));

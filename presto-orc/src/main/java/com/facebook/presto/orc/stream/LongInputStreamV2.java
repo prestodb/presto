@@ -95,7 +95,6 @@ public class LongInputStreamV2
             readDeltaValues(firstByte);
         }
     }
-    int trapOffsetIdx = 100000;
 
     // Applies filter to values at numOffsets first positions in
     // offsets. If the filter is true for the value at offsets[i],
@@ -124,7 +123,7 @@ public class LongInputStreamV2
             scanLiterals();
         }
         while (offsetIdx < numOffsets) {
-            if (offsetIdx >= trapOffsetIdx) {
+            if (offsetIdx >= 100_000) {
                 System.out.println("***");
             }
             used = 0;

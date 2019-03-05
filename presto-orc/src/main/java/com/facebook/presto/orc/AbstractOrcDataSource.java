@@ -48,7 +48,6 @@ public abstract class AbstractOrcDataSource
     private final DataSize maxBufferSize;
     private final DataSize streamBufferSize;
     private final boolean lazyReadSmallRanges;
-    private int ariaFlags;
     private long readTimeNanos;
     private long readBytes;
     private CacheAdapter cache;
@@ -299,6 +298,7 @@ public abstract class AbstractOrcDataSource
                 throw new UncheckedIOException(e);
             }
         }
+
         public void close()
         {
             if (cacheEntry != null) {
@@ -331,6 +331,7 @@ public abstract class AbstractOrcDataSource
             Slice buffer = lazyBufferLoader.loadNestedDiskRangeBuffer(diskRange);
             return new BasicSliceInput(buffer);
         }
+
         @Override
         public void close()
         {
