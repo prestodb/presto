@@ -63,6 +63,8 @@ public class TestAriaHiveDistributedQueries
                 "    comment,\n" +
                 "    returnflag = 'R' AS is_returned,\n" +
                 "    CAST(quantity + 1 AS REAL) AS float_quantity,\n" +
+                "    CAST(discount AS decimal(5, 2)) AS short_decimal_discount,\n" +
+                "    CAST(discount AS decimal(38, 2)) AS long_decimal_discount,\n" +
                 "    CAST(array_position(array['SHIP','REG AIR','AIR','FOB','MAIL','RAIL','TRUCK'], shipmode) AS tinyint) AS tinyint_shipmode,\n" +
                 "    date_add('second', suppkey, cast(shipdate as timestamp)) AS timestamp_shipdate,\n" +
                 "    MAP(\n" +
@@ -275,6 +277,19 @@ public class TestAriaHiveDistributedQueries
 
         assertQuery(ariaSession(), "SELECT shipdate FROM lineitem_aria WHERE timestamp_shipdate < date '1997-11-29'",
                 "SELECT shipdate FROM lineitem where shipdate < date '1997-11-29'");
+
+        // Filter on a decimal column
+        assertQuery(ariaSession(), "SELECT shipdate, short_decimal_discount FROM lineitem_aria WHERE short_decimal_discount < decimal '0.3'",
+                "SELECT shipdate, discount FROM lineitem where discount < 0.3");
+
+        assertQuery(ariaSession(), "SELECT shipdate FROM lineitem_aria WHERE short_decimal_discount < decimal '0.3'",
+                "SELECT shipdate FROM lineitem where discount < 0.3");
+
+        assertQuery(ariaSession(), "SELECT shipdate, long_decimal_discount FROM lineitem_aria WHERE long_decimal_discount < decimal '0.3'",
+                "SELECT shipdate, discount FROM lineitem where discount < 0.3");
+
+        assertQuery(ariaSession(), "SELECT shipdate FROM lineitem_aria WHERE long_decimal_discount < decimal '0.3'",
+                "SELECT shipdate FROM lineitem where discount < 0.3");
     }
 
     // nulls1.sql

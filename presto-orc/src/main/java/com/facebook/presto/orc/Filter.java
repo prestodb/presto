@@ -49,6 +49,11 @@ public class Filter
         return false;
     }
 
+    public boolean testDecimal(long low, long high)
+    {
+        return false;
+    }
+
     public boolean testBoolean(boolean value)
     {
         return false;
