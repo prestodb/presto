@@ -161,7 +161,7 @@ public interface StreamReader
         if (fixed != -1) {
             return fixed;
         }
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("getAverageResultSize is not supported by " + this.getClass().getSimpleName());
     }
 
     // Reconsiders filter order for embedded struct readers
