@@ -23,8 +23,4 @@ public class TestAriaOrcReader
     {
         super(OrcTester.ariaOrcTester());
     }
-
-    @Test
-    @Override
-    public void testDecimalSequence() {}
 }
