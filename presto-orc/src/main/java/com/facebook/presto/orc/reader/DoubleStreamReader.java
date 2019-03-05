@@ -208,25 +208,14 @@ public class DoubleStreamReader
         QualifyingSet output = outputQualifyingSet;
         int end = input.getEnd();
         int rowsInRange = end - posInRowGroup;
-        int valuesSize = end;
         int[] inputPositions = input.getPositions();
         if (filter != null) {
             output.reset(rowsInRange);
         }
-        if (values == null || values.length < valuesSize) {
-            values = new long[valuesSize];
-        }
+        ensureValuesCapacity(end, false);
 
         if (dataStream == null) {
-            // all values are null
-            if (filter == null || filter.testNull()) {
-                for (int i = 0; i < input.getPositionCount(); i++) {
-                    if (filter != null) {
-                        output.append(inputPositions[i], i);
-                    }
-                    addNullResult();
-                }
-            }
+            processAllNulls();
             endScan(presentStream);
             return;
         }
@@ -286,16 +275,12 @@ public class DoubleStreamReader
                     if (filter != null) {
                         if (filter.testDouble(value)) {
                             output.append(i + posInRowGroup, activeIdx);
-                            if (outputChannel != -1) {
-                                addResult(value);
-                            }
-                            numResults++;
+                            addResult(value);
                         }
                     }
                     else {
                         // No filter.
                         addResult(value);
-                        numResults++;
                     }
                 }
                 if (++activeIdx == input.getPositionCount()) {
@@ -321,39 +306,35 @@ public class DoubleStreamReader
         endScan(presentStream);
     }
 
-    void addNullResult()
+    private void addResult(double value)
     {
-        if (outputChannel != -1) {
-            if (valueIsNull == null) {
-                valueIsNull = new boolean[values.length];
-            }
-            ensureResultRows();
-            valueIsNull[numResults + numValues] = true;
+        if (outputChannel == -1) {
+            return;
         }
-        numResults++;
-    }
 
-    void addResult(double value)
-    {
         int position = numValues + numResults;
-        if (position >= values.length) {
-            ensureResultRows();
-        }
+        ensureValuesCapacity(position + 1, false);
         values[position] = doubleToLongBits(value);
         if (valueIsNull != null) {
             valueIsNull[position] = false;
         }
+        numResults++;
     }
 
-    void ensureResultRows()
+    @Override
+    protected void ensureValuesCapacity(int capacity, boolean includeNulls)
     {
-        if (values.length <= numValues + numResults) {
-            values = Arrays.copyOf(values, Math.max(numValues + numResults + 10, values.length * 2));
-            block = null;
+        if (values == null) {
+            values = new long[capacity];
         }
-        if (valueIsNull != null) {
-            valueIsNull = Arrays.copyOf(valueIsNull, values.length);
-            block = null;
+        else if (values.length < capacity) {
+            values = Arrays.copyOf(values, Math.max(capacity + 10, values.length * 2));
+            if (valueIsNull != null) {
+                valueIsNull = Arrays.copyOf(valueIsNull, values.length);
+            }
+        }
+        if (includeNulls && valueIsNull == null) {
+            valueIsNull = new boolean[values.length];
         }
     }
 
