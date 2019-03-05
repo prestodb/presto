@@ -18,7 +18,6 @@ import com.facebook.presto.orc.QualifyingSet;
 import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.LongInputStream;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 
 import javax.annotation.Nullable;
@@ -39,7 +38,6 @@ abstract class ColumnReader
 
     QualifyingSet inputQualifyingSet;
     QualifyingSet outputQualifyingSet;
-    Block block;
     int outputChannel = -1;
     Filter filter;
     protected boolean deterministicFilter;
@@ -225,6 +223,41 @@ abstract class ColumnReader
         }
         lengthStream.nextIntVector(neededLengths - numLengths, lengths, numLengths);
         numLengths = neededLengths;
+    }
+
+    protected void processAllNulls()
+    {
+        if (deterministicFilter && !filter.testNull()) {
+            return;
+        }
+
+        int[] inputPositions = inputQualifyingSet.getPositions();
+        for (int i = 0; i < inputQualifyingSet.getPositionCount(); i++) {
+            if (filter != null) {
+                if (!deterministicFilter && !filter.testNull()) {
+                    continue;
+                }
+                outputQualifyingSet.append(inputPositions[i], i);
+            }
+            addNullResult();
+        }
+    }
+
+    protected void addNullResult()
+    {
+        if (outputChannel == -1) {
+            return;
+        }
+
+        int position = numValues + numResults;
+        ensureValuesCapacity(position + 1, true);
+        valueIsNull[position] = true;
+        numResults++;
+    }
+
+    protected void ensureValuesCapacity(int capacity, boolean includeNulls)
+    {
+        throw new UnsupportedOperationException();
     }
 
     protected void endScan(BooleanInputStream presentStream)
