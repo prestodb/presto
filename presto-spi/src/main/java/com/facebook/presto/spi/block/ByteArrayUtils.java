@@ -23,26 +23,27 @@ import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 import static sun.misc.Unsafe.ARRAY_LONG_BASE_OFFSET;
 import static sun.misc.Unsafe.ARRAY_LONG_INDEX_SCALE;
 
-
 public class ByteArrayUtils
 {
-  static Unsafe unsafe;
+    static Unsafe unsafe;
 
-  static {
-    try {
-
-      Field field = Unsafe.class.getDeclaredField("theUnsafe");
-      field.setAccessible(true);
-      unsafe = (Unsafe) field.get(null);
-      if (unsafe == null) {
-        throw new RuntimeException("Unsafe access not available");
-      }
-    } catch (Exception e) {
-      throw new RuntimeException(e);
+    static {
+        try {
+            Field field = Unsafe.class.getDeclaredField("theUnsafe");
+            field.setAccessible(true);
+            unsafe = (Unsafe) field.get(null);
+            if (unsafe == null) {
+                throw new RuntimeException("Unsafe access not available");
+            }
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
-  }
 
-    public static void gather( long[] source, int[] positions, int[] rowNumberMap, int sourceOffset, byte[] target, int targetOffset, int numWords)
+    private ByteArrayUtils() {}
+
+    public static void gather(long[] source, int[] positions, int[] rowNumberMap, int sourceOffset, byte[] target, int targetOffset, int numWords)
     {
         if (target.length < targetOffset + numWords * ARRAY_LONG_INDEX_SCALE || targetOffset < 0) {
             throw new IndexOutOfBoundsException();
@@ -57,7 +58,7 @@ public class ByteArrayUtils
         }
         else {
             for (int i = sourceOffset; i < end; i++) {
-                unsafe.putLong(target, (long)targetOffset, source[rowNumberMap[positions[i]]]);
+                unsafe.putLong(target, (long) targetOffset, source[rowNumberMap[positions[i]]]);
                 targetOffset += ARRAY_LONG_INDEX_SCALE;
             }
         }

@@ -59,7 +59,7 @@ public class ByteArrayPool
         }
         ArrayList<byte[]> list = contents[idx];
         byte[] data = null;
-        synchronized(list) {
+        synchronized (list) {
             int count = list.size();
             if (count > 0) {
                 data = list.get(count - 1);
@@ -88,13 +88,6 @@ public class ByteArrayPool
                 throw new IllegalArgumentException("Wrongf size for ByteArrayPool release");
             }
             synchronized (list) {
-                /*
-                for (byte[] existing : list) {
-                    if (existing == data) {
-                        throw new IllegalArgumentException("Duplicate release in ByteArrayPool");
-                    }
-                }
-                */
                 list.add(data);
                 times[idx].add(now);
             }
@@ -115,7 +108,6 @@ public class ByteArrayPool
         long totalTime = 0;
         long now = System.nanoTime();
         while (totalSize.get() > capacity) {
-
             for (int idx = 0; idx < sizes.length; idx++) {
                 LongArrayList ages = times[idx];
                 for (int i = 0; i < ages.size(); i++) {
@@ -128,8 +120,8 @@ public class ByteArrayPool
 
     class LongArrayList
     {
-        long[] longs = new long[10];
-        int size = 0;
+        private long[] longs = new long[10];
+        private int size;
 
         void add(long value)
         {
@@ -138,7 +130,6 @@ public class ByteArrayPool
             }
             longs[size++] = value;
         }
-
 
         int size()
         {

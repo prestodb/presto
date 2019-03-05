@@ -17,13 +17,12 @@ import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
-import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
-import static com.facebook.presto.spi.block.BlockUtil.countUsedPositions;
 import static com.facebook.presto.spi.block.BlockUtil.compactArray;
+import static com.facebook.presto.spi.block.BlockUtil.countUsedPositions;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.toIntExact;
 
@@ -33,18 +32,13 @@ public class DoubleArrayBlock
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(DoubleArrayBlock.class).instanceSize();
 
     private int arrayOffset;
-    private  int positionCount;
+    private int positionCount;
     @Nullable
-    private  boolean[] valueIsNull;
-    private  double[] values;
+    private boolean[] valueIsNull;
+    private double[] values;
 
-    private  long sizeInBytes;
-    private  long retainedSizeInBytes;
-
-    public DoubleArrayBlock(int positionCount, Optional<boolean[]> valueIsNull, double[] values)
-    {
-        this(0, positionCount, valueIsNull.orElse(null), values);
-    }
+    private long sizeInBytes;
+    private long retainedSizeInBytes;
 
     DoubleArrayBlock(int arrayOffset, int positionCount, boolean[] valueIsNull, double[] values)
     {
@@ -70,7 +64,8 @@ public class DoubleArrayBlock
         sizeInBytes = (Long.BYTES + Byte.BYTES) * (long) positionCount;
         retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
     }
-  public void Reset(int arrayOffset, int positionCount, boolean[] valueIsNull, double[] values)
+
+    public void Reset(int arrayOffset, int positionCount, boolean[] valueIsNull, double[] values)
     {
         if (arrayOffset < 0) {
             throw new IllegalArgumentException("arrayOffset is negative");
@@ -94,7 +89,6 @@ public class DoubleArrayBlock
         sizeInBytes = (Long.BYTES + Byte.BYTES) * (long) positionCount;
         retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
     }
-
 
     @Override
     public long getSizeInBytes()
@@ -149,10 +143,10 @@ public class DoubleArrayBlock
         if (offset != 0) {
             throw new IllegalArgumentException("offset must be zero");
         }
-        return (long)values[position + arrayOffset];
+        return (long) values[position + arrayOffset];
     }
 
-        public double getDouble(int position, int offset)
+    public double getDouble(int position, int offset)
     {
         checkReadablePosition(position);
         if (offset != 0) {
@@ -170,7 +164,7 @@ public class DoubleArrayBlock
         if (offset != 0) {
             throw new IllegalArgumentException("offset must be zero");
         }
-        return toIntExact((long)values[position + arrayOffset]);
+        return toIntExact((long) values[position + arrayOffset]);
     }
 
     @Override
@@ -183,7 +177,7 @@ public class DoubleArrayBlock
             throw new IllegalArgumentException("offset must be zero");
         }
 
-        short value = (short) (values[position + arrayOffset]);
+        short value = (short) values[position + arrayOffset];
         if (value != values[position + arrayOffset]) {
             throw new ArithmeticException("short overflow");
         }
@@ -224,7 +218,7 @@ public class DoubleArrayBlock
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         checkReadablePosition(position);
-        blockBuilder.writeLong((long)values[position + arrayOffset]);
+        blockBuilder.writeLong((long) values[position + arrayOffset]);
         blockBuilder.closeEntry();
     }
 
@@ -306,8 +300,9 @@ public class DoubleArrayBlock
     }
 
     @Override
-    public void getContents(BlockDecoder contents) {
-	contents.doubles = values;
-	contents.valueIsNull = valueIsNull;
+    public void getContents(BlockDecoder contents)
+    {
+        contents.doubles = values;
+        contents.valueIsNull = valueIsNull;
     }
 }

@@ -97,13 +97,12 @@ public final class TestingBlockEncodingSerde
 
         // load read the encoding factory from the output stream
         if (blockEncoding.supportsReadBlockReusing()) {
-        return blockEncoding.readBlockReusing(this, input, toReuse);
+            return blockEncoding.readBlockReusing(this, input, toReuse);
         }
         else {
             return blockEncoding.readBlock(this, input);
         }
-        }
-
+    }
 
     @Override
     public void writeBlock(SliceOutput output, Block block)

@@ -14,9 +14,8 @@
 package com.facebook.presto.spi.memory;
 
 public class ByteArrayPoolCacheAdapter
-    implements CacheAdapter
+        implements CacheAdapter
 {
-
     private ByteArrayPool pool;
 
     ByteArrayPoolCacheAdapter(ByteArrayPool pool)
@@ -25,7 +24,7 @@ public class ByteArrayPoolCacheAdapter
     }
 
     public static class ByteArrayCacheEntry
-        implements CacheEntry
+            implements CacheEntry
     {
         private final byte[] data;
         private final ByteArrayPool pool;
@@ -76,4 +75,4 @@ public class ByteArrayPoolCacheAdapter
     {
         return new ByteArrayCacheEntry(pool, pool.getBytes(size));
     }
-    }
+}

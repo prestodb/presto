@@ -17,12 +17,11 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.ArrayList;
-import static java.util.Objects.requireNonNull;
 
+import static java.util.Objects.requireNonNull;
 
 public class SubfieldPath
 {
-
     public static class PathElement
     {
         // Indicates that all elements of a map/list are accessed. A
@@ -61,7 +60,7 @@ public class SubfieldPath
             return subscript;
         }
 
-                @JsonProperty("isSubscript")
+        @JsonProperty("isSubscript")
         public boolean getIsSubscript()
         {
             return isSubscript;
@@ -95,7 +94,6 @@ public class SubfieldPath
             return field != null ? field.hashCode() : (int) subscript;
         }
 
-
         @Override
         public String toString()
         {
@@ -128,7 +126,7 @@ public class SubfieldPath
         String result = "";
         for (int i = 0; i < path.size(); i++) {
             result = result + path.get(i).toString() + (i < path.size() - 1 ? "." : "");
-                }
+        }
         return result;
     }
 
@@ -150,7 +148,7 @@ public class SubfieldPath
             if (!path.get(i).equals(otherPath.path.get(i))) {
                 return false;
             }
-            }
+        }
 
         return true;
     }
@@ -164,5 +162,4 @@ public class SubfieldPath
         }
         return hashCode;
     }
-
 }
