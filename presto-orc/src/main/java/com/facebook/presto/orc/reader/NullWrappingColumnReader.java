@@ -138,7 +138,6 @@ abstract class NullWrappingColumnReader
         if (lastNull < 0) {
             lastNull = -1 - lastNull;
         }
-        int end = lastNull == numNullsToAdd ? endRow : nullsToAdd[lastNull];
         numNullsToAdd = lastNull;
         if (numNullsToAdd == 0 && valueIsNull == null) {
             numResults = numInnerResults;

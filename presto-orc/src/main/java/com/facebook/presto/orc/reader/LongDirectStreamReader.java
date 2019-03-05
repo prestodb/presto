@@ -179,6 +179,7 @@ public class LongDirectStreamReader
         }
     }
 
+    @Override
     public void compactValues(int[] positions, int base, int numPositions)
     {
         if (outputChannel != -1) {
