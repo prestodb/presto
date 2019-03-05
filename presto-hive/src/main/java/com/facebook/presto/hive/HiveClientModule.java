@@ -137,6 +137,16 @@ public class HiveClientModule
                 daemonThreadsNamed("hive-metastore-" + hiveClientId + "-%s"));
     }
 
+    @ForFileRename
+    @Singleton
+    @Provides
+    public ExecutorService createFileRanemeExecutor(HiveConnectorId hiveClientId, HiveClientConfig hiveClientConfig)
+    {
+        return newFixedThreadPool(
+                hiveClientConfig.getMaxConcurrentFileRenames(),
+                daemonThreadsNamed("hive-file-rename-" + hiveClientId + "-%s"));
+    }
+
     @Singleton
     @Provides
     public Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> createMetastoreGetter(HiveTransactionManager transactionManager)

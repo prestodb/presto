@@ -38,7 +38,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import io.airlift.concurrent.MoreFutures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.log.Logger;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -57,8 +58,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
@@ -86,6 +85,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.whenAllSucceed;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
@@ -98,7 +100,7 @@ public class SemiTransactionalHiveMetastore
 
     private final ExtendedHiveMetastore delegate;
     private final HdfsEnvironment hdfsEnvironment;
-    private final Executor renameExecutor;
+    private final ListeningExecutorService renameExecutor;
     private final boolean skipDeletionForAlter;
     private final boolean skipTargetCleanupOnRollback;
 
@@ -114,7 +116,12 @@ public class SemiTransactionalHiveMetastore
     private State state = State.EMPTY;
     private boolean throwOnCleanupFailure;
 
-    public SemiTransactionalHiveMetastore(HdfsEnvironment hdfsEnvironment, ExtendedHiveMetastore delegate, Executor renameExecutor, boolean skipDeletionForAlter, boolean skipTargetCleanupOnRollback)
+    public SemiTransactionalHiveMetastore(
+            HdfsEnvironment hdfsEnvironment,
+            ExtendedHiveMetastore delegate,
+            ListeningExecutorService renameExecutor,
+            boolean skipDeletionForAlter,
+            boolean skipTargetCleanupOnRollback)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
@@ -1033,7 +1040,7 @@ public class SemiTransactionalHiveMetastore
     private class Committer
     {
         private final AtomicBoolean fileRenameCancelled = new AtomicBoolean(false);
-        private final List<CompletableFuture<?>> fileRenameFutures = new ArrayList<>();
+        private final List<ListenableFuture<?>> fileRenameFutures = new ArrayList<>();
 
         // File system
         // For file system changes, only operations outside of writing paths (as specified in declared intentions to write)
@@ -1330,14 +1337,19 @@ public class SemiTransactionalHiveMetastore
 
         private void waitForAsyncRenames()
         {
-            for (CompletableFuture<?> fileRenameFuture : fileRenameFutures) {
-                MoreFutures.getFutureValue(fileRenameFuture, PrestoException.class);
+            ListenableFuture<?> fileRenameFutureAggregate = whenAllSucceed(fileRenameFutures).call(() -> null, directExecutor());
+            try {
+                getFutureValue(fileRenameFutureAggregate);
+            }
+            catch (RuntimeException e) {
+                fileRenameFutureAggregate.cancel(true);
+                throw e;
             }
         }
 
         private void waitForAsyncRenamesSuppressThrowables()
         {
-            for (CompletableFuture<?> future : fileRenameFutures) {
+            for (ListenableFuture<?> future : fileRenameFutures) {
                 try {
                     future.get();
                 }
@@ -1654,9 +1666,9 @@ public class SemiTransactionalHiveMetastore
 
     private static void asyncRename(
             HdfsEnvironment hdfsEnvironment,
-            Executor executor,
+            ListeningExecutorService executor,
             AtomicBoolean cancelled,
-            List<CompletableFuture<?>> fileRenameFutures,
+            List<ListenableFuture<?>> fileRenameFutures,
             HdfsContext context,
             Path currentPath,
             Path targetPath,
@@ -1667,13 +1679,13 @@ public class SemiTransactionalHiveMetastore
             fileSystem = hdfsEnvironment.getFileSystem(context, currentPath);
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Error moving data files to final location. Error listing directory %s", currentPath), e);
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Error getting file system. Path: %s", currentPath), e);
         }
 
         for (String fileName : fileNames) {
             Path source = new Path(currentPath, fileName);
             Path target = new Path(targetPath, fileName);
-            fileRenameFutures.add(CompletableFuture.runAsync(() -> {
+            fileRenameFutures.add(executor.submit(() -> {
                 if (cancelled.get()) {
                     return;
                 }
@@ -1685,7 +1697,7 @@ public class SemiTransactionalHiveMetastore
                 catch (IOException e) {
                     throw new PrestoException(HIVE_FILESYSTEM_ERROR, getRenameErrorMessage(source, target), e);
                 }
-            }, executor));
+            }));
         }
     }
 

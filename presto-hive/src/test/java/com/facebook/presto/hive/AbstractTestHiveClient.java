@@ -736,7 +736,6 @@ public abstract class AbstractTestHiveClient
                 hdfsEnvironment,
                 new HivePartitionManager(TYPE_MANAGER, hiveClientConfig),
                 timeZone,
-                10,
                 true,
                 false,
                 false,
