@@ -18,7 +18,7 @@ import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.statistics.MetastoreHiveStatisticsProvider;
 import com.facebook.presto.spi.type.TypeManager;
-import io.airlift.concurrent.BoundedExecutor;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import org.joda.time.DateTimeZone;
@@ -28,6 +28,7 @@ import javax.inject.Inject;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static java.util.Objects.requireNonNull;
 
 public class HiveMetadataFactory
@@ -50,7 +51,7 @@ public class HiveMetadataFactory
     private final LocationService locationService;
     private final TableParameterCodec tableParameterCodec;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
-    private final BoundedExecutor renameExecution;
+    private final ListeningExecutorService fileRenameExecutor;
     private final TypeTranslator typeTranslator;
     private final String prestoVersion;
 
@@ -61,7 +62,7 @@ public class HiveMetadataFactory
             ExtendedHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
-            @ForHiveClient ExecutorService executorService,
+            @ForFileRename ExecutorService executorService,
             TypeManager typeManager,
             LocationService locationService,
             TableParameterCodec tableParameterCodec,
@@ -74,7 +75,6 @@ public class HiveMetadataFactory
                 hdfsEnvironment,
                 partitionManager,
                 hiveClientConfig.getDateTimeZone(),
-                hiveClientConfig.getMaxConcurrentFileRenames(),
                 hiveClientConfig.getAllowCorruptWritesForTesting(),
                 hiveClientConfig.isSkipDeletionForAlter(),
                 hiveClientConfig.isSkipTargetCleanupOnRollback(),
@@ -96,7 +96,6 @@ public class HiveMetadataFactory
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
             DateTimeZone timeZone,
-            int maxConcurrentFileRenames,
             boolean allowCorruptWritesForTesting,
             boolean skipDeletionForAlter,
             boolean skipTargetCleanupOnRollback,
@@ -127,6 +126,7 @@ public class HiveMetadataFactory
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.tableParameterCodec = requireNonNull(tableParameterCodec, "tableParameterCodec is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
+        this.fileRenameExecutor = listeningDecorator(requireNonNull(executorService, "executorService is null"));
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
         this.maxPartitions = maxPartitions;
@@ -137,8 +137,6 @@ public class HiveMetadataFactory
                             "Add -Duser.timezone=%s to your JVM arguments",
                     timeZone.getID());
         }
-
-        renameExecution = new BoundedExecutor(executorService, maxConcurrentFileRenames);
     }
 
     @Override
@@ -147,7 +145,7 @@ public class HiveMetadataFactory
         SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(
                 hdfsEnvironment,
                 CachingHiveMetastore.memoizeMetastore(this.metastore, perTransactionCacheMaximumSize), // per-transaction cache
-                renameExecution,
+                fileRenameExecutor,
                 skipDeletionForAlter,
                 skipTargetCleanupOnRollback);
 
