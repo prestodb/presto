@@ -61,6 +61,7 @@ import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -389,6 +390,12 @@ public class TupleDomainOrcPredicate<C>
         if (type == REAL) {
             return floatRangeToFilter(range, nullAllowed);
         }
+        if (type instanceof DecimalType) {
+            if (((DecimalType) type).isShort()) {
+                return bigintRangeToFilter(range, nullAllowed);
+            }
+            return longDecimalRangeToFilter(range, nullAllowed);
+        }
         if (type == BOOLEAN) {
             boolean booleanValue = ((Boolean) range.getSingleValue()).booleanValue();
             return range.isSingleValue() ? new Filters.BooleanValue(booleanValue, nullAllowed) : null;
@@ -473,6 +480,22 @@ public class TupleDomainOrcPredicate<C>
                 low.isLowerUnbounded(),
                 low.getBound() == Marker.Bound.ABOVE,
                 upperFloat,
+                high.isUpperUnbounded(),
+                high.getBound() == Marker.Bound.BELOW,
+                nullAllowed);
+    }
+
+    private static Filter longDecimalRangeToFilter(Range range, boolean nullAllowed)
+    {
+        Marker low = range.getLow();
+        Marker high = range.getHigh();
+        return new Filters.LongDecimalRange(
+                low.isLowerUnbounded() ? 0 : ((Slice) low.getValue()).getLong(0),
+                low.isLowerUnbounded() ? 0 : ((Slice) low.getValue()).getLong(SIZE_OF_LONG),
+                low.isLowerUnbounded(),
+                low.getBound() == Marker.Bound.ABOVE,
+                high.isLowerUnbounded() ? 0 : ((Slice) high.getValue()).getLong(0),
+                high.isLowerUnbounded() ? 0 : ((Slice) high.getValue()).getLong(SIZE_OF_LONG),
                 high.isUpperUnbounded(),
                 high.getBound() == Marker.Bound.BELOW,
                 nullAllowed);

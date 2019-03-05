@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Objects;
 
 import static com.facebook.presto.spi.block.ByteArrayUtils.memcmp;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.compare;
 
 public class Filters
 {
@@ -60,6 +61,12 @@ public class Filters
 
         @Override
         public boolean testFloat(float value)
+        {
+            return true;
+        }
+
+        @Override
+        public boolean testDecimal(long low, long high)
         {
             return true;
         }
@@ -285,6 +292,66 @@ public class Filters
         {
             // Equality is better than range with both ends, which is better than a range with one end.
             if (upper == lower) {
+                return 1;
+            }
+            return !lowerUnbounded && !upperUnbounded ? 2 : 3;
+        }
+    }
+
+    public static class LongDecimalRange
+            extends Filter
+    {
+        private final long lowerLow;
+        private final long lowerHigh;
+        private final boolean lowerUnbounded;
+        private final boolean lowerExclusive;
+        private final long upperLow;
+        private final long upperHigh;
+        private final boolean upperUnbounded;
+        private final boolean upperExclusive;
+
+        public LongDecimalRange(long lowerLow, long lowerHigh, boolean lowerUnbounded, boolean lowerExclusive, long upperLow, long upperHigh, boolean upperUnbounded, boolean upperExclusive, boolean nullAllowed)
+        {
+            super(nullAllowed);
+            this.lowerLow = lowerLow;
+            this.lowerHigh = lowerHigh;
+            this.lowerUnbounded = lowerUnbounded;
+            this.lowerExclusive = lowerExclusive;
+            this.upperLow = upperLow;
+            this.upperHigh = upperHigh;
+            this.upperUnbounded = upperUnbounded;
+            this.upperExclusive = upperExclusive;
+        }
+
+        @Override
+        public boolean testDecimal(long valueLow, long valueHigh)
+        {
+            if (!lowerUnbounded) {
+                int result = compare(valueLow, valueHigh, lowerLow, lowerHigh);
+                if (result < 0) {
+                    return false;
+                }
+                if (lowerExclusive && result == 0) {
+                    return false;
+                }
+            }
+            if (!upperUnbounded) {
+                int result = compare(valueLow, valueHigh, upperLow, upperHigh);
+                if (result > 0) {
+                    return false;
+                }
+                if (upperExclusive && result == 0) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        @Override
+        int staticScore()
+        {
+            // Equality is better than range with both ends, which is better than a range with one end.
+            if (lowerLow == upperLow && lowerHigh == upperHigh) {
                 return 1;
             }
             return !lowerUnbounded && !upperUnbounded ? 2 : 3;

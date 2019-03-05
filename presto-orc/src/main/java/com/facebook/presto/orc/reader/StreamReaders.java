@@ -87,7 +87,7 @@ public final class StreamReaders
         compactArray(positions, base, numPositions, valueIsNull);
     }
 
-    private static void compactArray(int[] positions, int base, int numPositions, boolean[] values)
+    public static void compactArray(int[] positions, int base, int numPositions, boolean[] values)
     {
         if (values != null) {
             for (int i = 0; i < numPositions; i++) {
