@@ -158,8 +158,7 @@ public final class HttpPageBufferClient
             Executor pageBufferClientCallbackExecutor,
             ExchangeClientByteArrayAllocator allocator)
     {
-        this(httpClient, maxResponseSize, maxErrorDuration, acknowledgePages, location, clientCallback, scheduler, Ticker.systemTicker(), pageBufferClientCallbackExecutor,
-             allocator);
+        this(httpClient, maxResponseSize, maxErrorDuration, acknowledgePages, location, clientCallback, scheduler, Ticker.systemTicker(), pageBufferClientCallbackExecutor, allocator);
     }
 
     public HttpPageBufferClient(
