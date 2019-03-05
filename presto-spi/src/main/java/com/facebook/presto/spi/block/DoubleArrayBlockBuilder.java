@@ -64,7 +64,7 @@ public class DoubleArrayBlockBuilder
             growCapacity();
         }
 
-        values[positionCount] = (double)value;
+        values[positionCount] = (double) value;
 
         hasNonNullValue = true;
         positionCount++;
@@ -164,7 +164,7 @@ public class DoubleArrayBlockBuilder
         return (Long.BYTES + Byte.BYTES) * (long) length;
     }
 
-        @Override
+    @Override
     public long getPositionsSizeInBytes(boolean[] positions)
     {
         return (Long.BYTES + Byte.BYTES) * (long) countUsedPositions(positions);
@@ -203,7 +203,7 @@ public class DoubleArrayBlockBuilder
         if (offset != 0) {
             throw new IllegalArgumentException("offset must be zero");
         }
-        return (long)values[position];
+        return (long) values[position];
     }
 
     public double getDouble(int position, int offset)
@@ -224,7 +224,7 @@ public class DoubleArrayBlockBuilder
         if (offset != 0) {
             throw new IllegalArgumentException("offset must be zero");
         }
-        return toIntExact((long)values[position]);
+        return toIntExact((long) values[position]);
     }
 
     @Override
@@ -278,7 +278,7 @@ public class DoubleArrayBlockBuilder
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         checkReadablePosition(position);
-        blockBuilder.writeLong((long)values[position]);
+        blockBuilder.writeLong((long) values[position]);
         blockBuilder.closeEntry();
     }
 

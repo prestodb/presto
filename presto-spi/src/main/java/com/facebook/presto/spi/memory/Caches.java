@@ -18,6 +18,8 @@ public class Caches
     private static ByteArrayPool byteArrayPool;
     private static ByteArrayPoolCacheAdapter byteArrayPoolCacheAdapter;
 
+    private Caches() {}
+
     public static ByteArrayPool getByteArrayPool()
     {
         synchronized (Caches.class) {
@@ -32,10 +34,10 @@ public class Caches
     {
         ByteArrayPool pool = getByteArrayPool();
         synchronized (Caches.class) {
-        if (byteArrayPoolCacheAdapter == null) {
-            byteArrayPoolCacheAdapter = new ByteArrayPoolCacheAdapter(byteArrayPool);
+            if (byteArrayPoolCacheAdapter == null) {
+                byteArrayPoolCacheAdapter = new ByteArrayPoolCacheAdapter(byteArrayPool);
+            }
+            return byteArrayPoolCacheAdapter;
         }
-        return byteArrayPoolCacheAdapter;
-                }
     }
 }

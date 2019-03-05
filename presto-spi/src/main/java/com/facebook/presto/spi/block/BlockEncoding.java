@@ -61,7 +61,7 @@ public interface BlockEncoding
     }
 
     default void addValues(BlockDecoder contents, int[] rows, int firstRow, int numRows, EncodingState state)
-            {
+    {
         throw new UnsupportedOperationException();
     }
 
@@ -78,4 +78,3 @@ public interface BlockEncoding
         throw new UnsupportedOperationException();
     }
 }
-

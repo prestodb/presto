@@ -55,7 +55,7 @@ public class DoubleArrayBlockEncoding
         double[] values = new double[positionCount];
         for (int position = 0; position < positionCount; position++) {
             if (valueIsNull == null || !valueIsNull[position]) {
-                values[position] = (long)sliceInput.readLong();
+                values[position] = sliceInput.readLong();
             }
         }
 

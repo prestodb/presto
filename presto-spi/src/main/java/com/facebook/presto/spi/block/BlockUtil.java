@@ -180,6 +180,7 @@ final class BlockUtil
         }
         return Arrays.copyOfRange(array, index, index + length);
     }
+
     static int countUsedPositions(boolean[] positions)
     {
         int used = 0;
@@ -191,7 +192,7 @@ final class BlockUtil
         return used;
     }
 
-        static double[] compactArray(double[] array, int index, int length)
+    static double[] compactArray(double[] array, int index, int length)
     {
         if (index == 0 && length == array.length) {
             return array;

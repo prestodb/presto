@@ -34,11 +34,10 @@ public class BlockDecoder
     {
     }
 
-    public BlockDecoder(IntArrayAllocator intArrayALlocator)
+    public BlockDecoder(IntArrayAllocator intArrayAllocator)
     {
         this.intArrayAllocator = intArrayAllocator;
     }
-
 
     public boolean[] getValueIsNull()
     {
@@ -58,21 +57,6 @@ public class BlockDecoder
     public int[] getOffsets()
     {
         return offsets;
-    }
-
-    public Block getLeafBlock()
-    {
-        return leafBlock;
-    }
-
-    public int[] getRowNumberMap()
-    {
-        return rowNumberMap;
-    }
-
-    public boolean isIdentityMap()
-    {
-        return this.isIdentityMap;
     }
 
     static int[] getIdentityMap(int size, int start, IntArrayAllocator intArrayAllocator)
@@ -104,7 +88,8 @@ public class BlockDecoder
         decodeBlock(block, intArrayAllocator);
     }
 
-    public void decodeBlock(Block block, IntArrayAllocator intArrayAllocator) {
+    public void decodeBlock(Block block, IntArrayAllocator intArrayAllocator)
+    {
         int positionCount = block.getPositionCount();
         isMapOwned = false;
         isIdentityMap = true;
@@ -113,11 +98,11 @@ public class BlockDecoder
         offsets = null;
         rowNumberMap = null;
         int[] map = null;
-        for (;;) {
+        for (; ; ) {
             if (block instanceof DictionaryBlock) {
                 isIdentityMap = false;
-                int[] ids = ((DictionaryBlock)block).getIdsArray();
-                int offset = ((DictionaryBlock)block).getIdsOffset();
+                int[] ids = ((DictionaryBlock) block).getIdsArray();
+                int offset = ((DictionaryBlock) block).getIdsOffset();
                 if (map == null) {
                     map = ids;
                     if (offset != 0) {
@@ -141,20 +126,19 @@ public class BlockDecoder
                         }
                     }
                 }
-                block = ((DictionaryBlock)block).getDictionary();
+                block = ((DictionaryBlock) block).getDictionary();
             }
-            else if (block instanceof RunLengthEncodedBlock)
-                {
-                    if (map == null || !isMapOwned) {
-                        map = intArrayAllocator.getIntArray(positionCount);
-                        isMapOwned = true;
-                        isIdentityMap = false;
-                    }
-                    for (int i = 0; i < positionCount; ++i) {
-                        map[i] = 0;
-                    }
-                    block = ((RunLengthEncodedBlock)block).getValue();
+            else if (block instanceof RunLengthEncodedBlock) {
+                if (map == null || !isMapOwned) {
+                    map = intArrayAllocator.getIntArray(positionCount);
+                    isMapOwned = true;
+                    isIdentityMap = false;
                 }
+                for (int i = 0; i < positionCount; ++i) {
+                    map[i] = 0;
+                }
+                block = ((RunLengthEncodedBlock) block).getValue();
+            }
             else {
                 leafBlock = block;
                 block.getContents(this);
@@ -173,7 +157,7 @@ public class BlockDecoder
                     else {
                         int[] newMap = intArrayAllocator.getIntArray(positionCount);
                         System.arraycopy(map, 0, newMap, 0, positionCount);
-                        for (int i = 0; i  < positionCount; i++) {
+                        for (int i = 0; i < positionCount; i++) {
                             newMap[i] += arrayOffset;
                         }
                         map = newMap;
@@ -201,7 +185,8 @@ public class BlockDecoder
         release(intArrayAllocator);
     }
 
-    public void release(IntArrayAllocator intArrayAllocator) {
+    public void release(IntArrayAllocator intArrayAllocator)
+    {
         if (isMapOwned) {
             intArrayAllocator.store(rowNumberMap);
             isMapOwned = false;
