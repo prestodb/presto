@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.split;
 
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -29,17 +30,25 @@ public class RemoteSplit
         implements ConnectorSplit
 {
     private final URI location;
+    private final TaskId remoteSourceTaskId;
 
     @JsonCreator
-    public RemoteSplit(@JsonProperty("location") URI location)
+    public RemoteSplit(@JsonProperty("location") URI location, @JsonProperty("remoteSourceTaskId") TaskId remoteSourceTaskId)
     {
         this.location = requireNonNull(location, "location is null");
+        this.remoteSourceTaskId = requireNonNull(remoteSourceTaskId, "remoteSourceTaskId is null");
     }
 
     @JsonProperty
     public URI getLocation()
     {
         return location;
+    }
+
+    @JsonProperty
+    public TaskId getRemoteSourceTaskId()
+    {
+        return remoteSourceTaskId;
     }
 
     @Override
@@ -65,6 +74,7 @@ public class RemoteSplit
     {
         return toStringHelper(this)
                 .add("location", location)
+                .add("remoteSourceTaskId", remoteSourceTaskId)
                 .toString();
     }
 }
