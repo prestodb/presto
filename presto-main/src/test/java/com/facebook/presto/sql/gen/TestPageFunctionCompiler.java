@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.InternalSignatureUtils;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.project.PageProjection;
@@ -46,7 +46,7 @@ import static org.testng.Assert.fail;
 public class TestPageFunctionCompiler
 {
     private static final CallExpression ADD_10_EXPRESSION = call(
-            Signature.internalOperator(ADD, BIGINT.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature())),
+            InternalSignatureUtils.internalOperator(ADD, BIGINT.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature())),
             BIGINT,
             field(0, BIGINT),
             constant(10L, BIGINT));
