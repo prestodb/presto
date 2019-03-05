@@ -21,6 +21,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.PRINT_STATS_FOR_NON_JOIN_QUERY;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.absoluteError;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.defaultTolerance;
@@ -40,6 +41,7 @@ public class TestTpcdsLocalStats
         Session defaultSession = testSessionBuilder()
                 .setCatalog("tpcds")
                 .setSchema("sf1")
+                .setSystemProperty(PRINT_STATS_FOR_NON_JOIN_QUERY, "true")
                 .build();
 
         LocalQueryRunner queryRunner = new LocalQueryRunner(defaultSession);

@@ -112,8 +112,8 @@ public class LogicalPlanner
         CREATED, OPTIMIZED, OPTIMIZED_AND_VALIDATED
     }
 
+    private final boolean explain;
     private final PlanNodeIdAllocator idAllocator;
-
     private final Session session;
     private final List<PlanOptimizer> planOptimizers;
     private final PlanSanityChecker planSanityChecker;
@@ -125,7 +125,9 @@ public class LogicalPlanner
     private final CostCalculator costCalculator;
     private final WarningCollector warningCollector;
 
-    public LogicalPlanner(Session session,
+    public LogicalPlanner(
+            boolean explain,
+            Session session,
             List<PlanOptimizer> planOptimizers,
             PlanNodeIdAllocator idAllocator,
             Metadata metadata,
@@ -134,10 +136,12 @@ public class LogicalPlanner
             CostCalculator costCalculator,
             WarningCollector warningCollector)
     {
-        this(session, planOptimizers, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, warningCollector);
+        this(explain, session, planOptimizers, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, warningCollector);
     }
 
-    public LogicalPlanner(Session session,
+    public LogicalPlanner(
+            boolean explain,
+            Session session,
             List<PlanOptimizer> planOptimizers,
             PlanSanityChecker planSanityChecker,
             PlanNodeIdAllocator idAllocator,
@@ -147,6 +151,7 @@ public class LogicalPlanner
             CostCalculator costCalculator,
             WarningCollector warningCollector)
     {
+        this.explain = explain;
         this.session = requireNonNull(session, "session is null");
         this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
         this.planSanityChecker = requireNonNull(planSanityChecker, "planSanityChecker is null");
@@ -188,7 +193,7 @@ public class LogicalPlanner
 
     private StatsAndCosts computeStats(PlanNode root, TypeProvider types)
     {
-        if (isPrintStatsForNonJoinQuery(session) ||
+        if (explain || isPrintStatsForNonJoinQuery(session) ||
                 PlanNodeSearcher.searchFrom(root).where(node ->
                     (node instanceof JoinNode) || (node instanceof SemiJoinNode)).matches()) {
             StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
