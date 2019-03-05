@@ -66,7 +66,7 @@ public class Page
 
     public void setPositionCount(int count)
     {
-	positionCount = count;
+        positionCount = count;
     }
 
     public void setBlocks(Block[] blocks)

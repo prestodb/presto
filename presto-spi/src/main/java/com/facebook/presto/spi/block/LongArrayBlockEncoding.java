@@ -23,7 +23,6 @@ import static com.facebook.presto.spi.block.EncoderUtil.encodeNullsAsBits;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
-
 public class LongArrayBlockEncoding
         implements BlockEncoding
 {
@@ -157,12 +156,12 @@ public class LongArrayBlockEncoding
         if (!useGather) {
             if (map == null) {
                 for (int i = 0; i < numRows; i++) {
-                    state.topLevelBuffer.setLong(longsOffset + i *SIZE_OF_LONG, longs[rows[i + firstRow]]);
+                    state.topLevelBuffer.setLong(longsOffset + i * SIZE_OF_LONG, longs[rows[i + firstRow]]);
                 }
             }
             else {
                 for (int i = 0; i < numRows; i++) {
-                    state.topLevelBuffer.setLong(longsOffset + i *SIZE_OF_LONG, longs[map[rows[i + firstRow]]]);
+                    state.topLevelBuffer.setLong(longsOffset + i * SIZE_OF_LONG, longs[map[rows[i + firstRow]]]);
                 }
             }
         }
@@ -178,9 +177,10 @@ public class LongArrayBlockEncoding
         state.newStartInBuffer = newStartInBuffer;
         return finalSize(state);
     }
-    int finalSize(EncodingState state)
+
+    private int finalSize(EncodingState state)
     {
-        return         8 * state.numValues + (state.valueOffset - state.startInBuffer) + 5;
+        return 8 * state.numValues + (state.valueOffset - state.startInBuffer) + 5;
     }
 
     @Override
@@ -192,9 +192,9 @@ public class LongArrayBlockEncoding
             return;
         }
         int size = finalSize(state);
-        System.arraycopy((byte[])state.topLevelBuffer.getBase(),
+        System.arraycopy(state.topLevelBuffer.getBase(),
                          state.startInBuffer,
-                         (byte[])buffer.getBase(),
+                         buffer.getBase(),
                          state.newStartInBuffer,
                          size);
     }

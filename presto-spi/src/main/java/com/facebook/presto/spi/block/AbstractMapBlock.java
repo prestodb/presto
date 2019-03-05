@@ -193,6 +193,7 @@ public abstract class AbstractMapBlock
                 (Integer.BYTES + Byte.BYTES) * (long) usedPositionCount +
                 Integer.BYTES * HASH_MULTIPLIER * (long) usedEntryCount;
     }
+
     @Override
     public Block copyRegion(int position, int length)
     {

@@ -162,7 +162,8 @@ public interface Block
      */
     int getPositionCount();
 
-        default void setPositionCount(int newPositionCount) {
+    default void setPositionCount(int newPositionCount)
+    {
         throw new UnsupportedOperationException(getClass().getName());
     }
 
@@ -310,6 +311,7 @@ public interface Block
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
+
     default boolean isReusable()
     {
         return false;
@@ -320,10 +322,8 @@ public interface Block
      * works as if offsets were {0, 1, ... positionCount}. This adds
      * the pairwise corresponding element's size to each element in
      * sizes[].*/
-    default void addElementSizes(int offsets[], int[] sizes, IntArrayAllocator intArrayAllocator)
+    default void addElementSizes(int[] offsets, int[] sizes, IntArrayAllocator intArrayAllocator)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
 }
-
-

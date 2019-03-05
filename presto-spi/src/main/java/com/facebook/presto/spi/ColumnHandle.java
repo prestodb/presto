@@ -21,6 +21,7 @@ public interface ColumnHandle
     {
         return false;
     }
+
     default boolean supportsSubfieldTupleDomain()
     {
         return false;

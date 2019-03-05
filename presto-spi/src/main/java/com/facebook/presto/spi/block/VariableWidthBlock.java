@@ -111,7 +111,7 @@ public class VariableWidthBlock
         return positionCount;
     }
 
-        @Override
+    @Override
     public void setPositionCount(int positionCount)
     {
         this.positionCount = positionCount;
@@ -219,11 +219,12 @@ public class VariableWidthBlock
         return new VariableWidthBlock(0, length, newSlice, newOffsets, newValueIsNull);
     }
 
-        @Override
-    public void getContents(BlockDecoder contents) {
-	contents.slice = slice;
+    @Override
+    public void getContents(BlockDecoder contents)
+    {
+        contents.slice = slice;
         contents.offsets = offsets;
-	contents.valueIsNull = valueIsNull;
+        contents.valueIsNull = valueIsNull;
         contents.arrayOffset = arrayOffset;
     }
 

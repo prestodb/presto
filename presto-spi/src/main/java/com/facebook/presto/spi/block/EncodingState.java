@@ -23,15 +23,11 @@ public class EncodingState
     int numValues;
     int maxValues;
     boolean anyNulls;
-    byte[] nullBits;
     Slice topLevelBuffer;
     int startInBuffer;
     int newStartInBuffer;
     int bytesInBuffer;
     int valueOffset;
-    Slice contentBuffer;
-    long totalValues = 0;
-    long totalBytes = 0;
     String encodingName;
 
     public int getBytesInBuffer()
@@ -44,9 +40,9 @@ public class EncodingState
         numValues = 0;
         anyNulls = false;
         topLevelBuffer = buffer;
-                byte[] nameBytes = encodingName.getBytes(UTF_8);
-                buffer.setInt(startInBuffer, nameBytes.length);
-                buffer.setBytes(startInBuffer + 4, Slices.wrappedBuffer(nameBytes));
-                valueOffset = startInBuffer + 4 + nameBytes.length;
+        byte[] nameBytes = encodingName.getBytes(UTF_8);
+        buffer.setInt(startInBuffer, nameBytes.length);
+        buffer.setBytes(startInBuffer + 4, Slices.wrappedBuffer(nameBytes));
+        valueOffset = startInBuffer + 4 + nameBytes.length;
     }
 }

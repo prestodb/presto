@@ -62,7 +62,7 @@ public class PageSourceOptions
     }
 
     public static class FilterFunction
-        extends FilterStats
+            extends FilterStats
     {
         protected final int[] inputChannels;
         protected int initialCost = 1;
@@ -79,7 +79,6 @@ public class PageSourceOptions
         {
             return inputChannels;
         }
-
 
         /* Sets outputRows to be the list of positions on page for
          * which the filter is true. Returns the number of positions
@@ -193,7 +192,7 @@ public class PageSourceOptions
         requireNonNull(internalChannels, "internalChannels is null");
         if (internalChannels.length == 0) {
             throw new IllegalArgumentException("internalChannels must not be empty");
-        };
+        }
         this.internalChannels = internalChannels;
         this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
         this.reusePages = reusePages;
@@ -207,7 +206,6 @@ public class PageSourceOptions
     {
         return internalChannels;
     }
-
 
     public int[] getOutputChannels()
     {

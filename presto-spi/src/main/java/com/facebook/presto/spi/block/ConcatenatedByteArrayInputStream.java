@@ -15,8 +15,8 @@
 package com.facebook.presto.spi.block;
 
 import io.airlift.slice.ByteArrays;
-import io.airlift.slice.Slice;
 import io.airlift.slice.FixedLengthSliceInput;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -72,7 +72,7 @@ public final class ConcatenatedByteArrayInputStream
         }
         totalSize = size;
         this.allocator = allocator;
-        if (!buffers.isEmpty() && (totalSize <= buffersSize - buffers.get(buffers.size()  - 1).length || totalSize > buffersSize)) {
+        if (!buffers.isEmpty() && (totalSize <= buffersSize - buffers.get(buffers.size() - 1).length || totalSize > buffersSize)) {
             throw new IllegalArgumentException("totalSize does not fall within the last buffer");
         }
         position = 0;
@@ -130,7 +130,7 @@ public final class ConcatenatedByteArrayInputStream
             if (allocator != null && substreamCount == 0 && parent == null) {
                 allocator.free(buffers.get(currentIdx));
             }
-                buffers.set(currentIdx, null);
+            buffers.set(currentIdx, null);
         }
         previousBuffersSize += currentSize;
         currentIdx++;
