@@ -445,7 +445,8 @@ public class SliceDirectStreamReader
         endScan(presentStream);
     }
 
-    void addNullResult()
+    @Override
+    protected void addNullResult()
     {
         if (outputChannel != -1) {
             if (valueIsNull == null) {

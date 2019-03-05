@@ -435,16 +435,15 @@ public class TupleDomainOrcPredicate<C>
     {
         Marker low = range.getLow();
         Marker high = range.getHigh();
-        double lowerDouble = low.isLowerUnbounded() ? Double.MIN_VALUE
-                : ((Double) low.getValue()).doubleValue();
-        double upperDouble = high.isUpperUnbounded() ? Double.MAX_VALUE
-                : ((Double) high.getValue()).doubleValue();
-        return new Filters.DoubleRange(lowerDouble,
+        double lowerDouble = low.isLowerUnbounded() ? Double.MIN_VALUE : (double) low.getValue();
+        double upperDouble = high.isUpperUnbounded() ? Double.MAX_VALUE : (double) high.getValue();
+        return new Filters.DoubleRange(
+                lowerDouble,
                 low.isLowerUnbounded(),
                 low.getBound() == Marker.Bound.ABOVE,
                 upperDouble,
                 high.isUpperUnbounded(),
-                                       high.getBound() == Marker.Bound.BELOW, nullAllowed);
+                high.getBound() == Marker.Bound.BELOW, nullAllowed);
     }
 
     private static Filter VarcharRangeToFilter(Range range, boolean nullAllowed)
