@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.sql;
 
-import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.Signature;
 import com.google.common.base.Defaults;
 
 import java.lang.invoke.MethodHandle;

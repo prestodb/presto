@@ -15,8 +15,8 @@ package com.facebook.presto.operator.annotations;
 
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.function.InvocationConvention;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.TypeManager;
 
 import java.lang.invoke.MethodHandle;

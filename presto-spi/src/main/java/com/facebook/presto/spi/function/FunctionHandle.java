@@ -11,16 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.metadata;
+package com.facebook.presto.spi.function;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * @apiNote FunctionHandle is a unique handle to identify the function implementation from namespaces.
+ *          However, currently it is still under changes, so please don't assume it is backward compatible.
+ */
 public class FunctionHandle
 {
     private final Signature signature;
@@ -61,5 +64,12 @@ public class FunctionHandle
     public String toString()
     {
         return signature.toString();
+    }
+
+    private static void checkArgument(boolean condition, String message, Object... args)
+    {
+        if (!condition) {
+            throw new IllegalArgumentException(String.format(message, args));
+        }
     }
 }

@@ -14,9 +14,10 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
-import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.metadata.SignatureBuilder;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.google.common.collect.ImmutableList;
@@ -24,10 +25,10 @@ import io.airlift.slice.Slice;
 
 import java.math.BigInteger;
 
-import static com.facebook.presto.metadata.FunctionKind.SCALAR;
-import static com.facebook.presto.metadata.Signature.withVariadicBound;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.OperatorType.CAST;
+import static com.facebook.presto.spi.function.Signature.withVariadicBound;
 import static com.facebook.presto.spi.type.Decimals.longTenToNth;
 import static com.facebook.presto.spi.type.Decimals.overflows;
 import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
@@ -41,7 +42,7 @@ import static java.lang.String.format;
 
 public final class DecimalToDecimalCasts
 {
-    public static final Signature SIGNATURE = Signature.builder()
+    public static final Signature SIGNATURE = SignatureBuilder.builder()
             .kind(SCALAR)
             .operatorType(CAST)
             .typeVariableConstraints(withVariadicBound("F", DECIMAL), withVariadicBound("T", DECIMAL))

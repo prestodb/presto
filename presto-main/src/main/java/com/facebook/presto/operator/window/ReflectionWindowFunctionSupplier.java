@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.WindowFunction;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.Lists;
@@ -23,7 +23,7 @@ import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
 import java.util.List;
 
-import static com.facebook.presto.metadata.FunctionKind.WINDOW;
+import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static java.util.Objects.requireNonNull;
 
 public class ReflectionWindowFunctionSupplier<T extends WindowFunction>

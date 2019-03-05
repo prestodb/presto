@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.sql.tree.QualifiedName;

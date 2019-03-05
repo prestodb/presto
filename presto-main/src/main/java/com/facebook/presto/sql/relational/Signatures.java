@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.relational;
 
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.RowType;
@@ -30,10 +30,10 @@ import com.google.common.collect.Lists;
 
 import java.util.List;
 
-import static com.facebook.presto.metadata.FunctionKind.SCALAR;
+import static com.facebook.presto.metadata.InternalSignatureUtils.internalOperator;
+import static com.facebook.presto.metadata.InternalSignatureUtils.internalScalarFunction;
 import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
-import static com.facebook.presto.metadata.Signature.internalOperator;
-import static com.facebook.presto.metadata.Signature.internalScalarFunction;
+import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
