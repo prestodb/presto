@@ -73,6 +73,9 @@ import static com.facebook.presto.hive.HiveWriteUtils.createDirectory;
 import static com.facebook.presto.hive.HiveWriteUtils.pathExists;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getFileSystem;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.renameFile;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.waitForListenableFutures;
 import static com.facebook.presto.hive.util.Statistics.ReduceOperator.SUBTRACT;
 import static com.facebook.presto.hive.util.Statistics.merge;
 import static com.facebook.presto.hive.util.Statistics.reduce;
@@ -85,9 +88,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.Futures.whenAllSucceed;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
@@ -977,7 +977,7 @@ public class SemiTransactionalHiveMetastore
             }
 
             // Wait for all renames submitted for "INSERT_EXISTING" action to finish
-            committer.waitForAsyncRenames();
+            waitForListenableFutures(committer.getFileRenameFutures());
 
             // At this point, all file system operations, whether asynchronously issued or not, have completed successfully.
             // We are moving on to metastore operations now.
@@ -1058,6 +1058,11 @@ public class SemiTransactionalHiveMetastore
 
         // Flag for better error message
         private boolean deleteOnly = true;
+
+        private List<ListenableFuture<?>> getFileRenameFutures()
+        {
+            return ImmutableList.copyOf(fileRenameFutures);
+        }
 
         private void prepareDropTable(SchemaTableName schemaTableName)
         {
@@ -1332,18 +1337,6 @@ public class SemiTransactionalHiveMetastore
                 }
                 Path path = declaredIntentionToWrite.getRootPath();
                 recursiveDeleteFilesAndLog(declaredIntentionToWrite.getContext(), path, ImmutableList.of(), true, "staging directory cleanup");
-            }
-        }
-
-        private void waitForAsyncRenames()
-        {
-            ListenableFuture<?> fileRenameFutureAggregate = whenAllSucceed(fileRenameFutures).call(() -> null, directExecutor());
-            try {
-                getFutureValue(fileRenameFutureAggregate);
-            }
-            catch (RuntimeException e) {
-                fileRenameFutureAggregate.cancel(true);
-                throw e;
             }
         }
 
@@ -1674,14 +1667,7 @@ public class SemiTransactionalHiveMetastore
             Path targetPath,
             List<String> fileNames)
     {
-        FileSystem fileSystem;
-        try {
-            fileSystem = hdfsEnvironment.getFileSystem(context, currentPath);
-        }
-        catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Error getting file system. Path: %s", currentPath), e);
-        }
-
+        FileSystem fileSystem = getFileSystem(hdfsEnvironment, context, currentPath);
         for (String fileName : fileNames) {
             Path source = new Path(currentPath, fileName);
             Path target = new Path(targetPath, fileName);
@@ -1689,21 +1675,9 @@ public class SemiTransactionalHiveMetastore
                 if (cancelled.get()) {
                     return;
                 }
-                try {
-                    if (fileSystem.exists(target) || !fileSystem.rename(source, target)) {
-                        throw new PrestoException(HIVE_FILESYSTEM_ERROR, getRenameErrorMessage(source, target));
-                    }
-                }
-                catch (IOException e) {
-                    throw new PrestoException(HIVE_FILESYSTEM_ERROR, getRenameErrorMessage(source, target), e);
-                }
+                renameFile(fileSystem, source, target);
             }));
         }
-    }
-
-    private static String getRenameErrorMessage(Path source, Path target)
-    {
-        return format("Error moving data files from %s to final location %s", source, target);
     }
 
     private void recursiveDeleteFilesAndLog(HdfsContext context, Path directory, List<String> filePrefixes, boolean deleteEmptyDirectories, String reason)
