@@ -32,6 +32,7 @@ import io.airlift.slice.Slice;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -436,7 +437,7 @@ public class TestMapOperators
                         RowType.field("k2", VARCHAR)))),
                 asMap(
                         ImmutableList.of("row1", "row2", "row3", "row4", "row5"),
-                        asList(
+                        Arrays.<List<?>>asList(
                                 asList(1L, "two"),
                                 asList(3L, null),
                                 asList(1L, "two"),
