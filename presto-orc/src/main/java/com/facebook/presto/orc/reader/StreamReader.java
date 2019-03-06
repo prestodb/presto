@@ -149,19 +149,10 @@ public interface StreamReader
         throw new UnsupportedOperationException();
     }
 
-    // Returns the number of bytes per non-null row. -1 if variable.
-    default int getFixedWidth()
-    {
-        return -1;
-    }
-
+    // Returns the average number of bytes per non-null output value.
     default int getAverageResultSize()
     {
-        int fixed = getFixedWidth();
-        if (fixed != -1) {
-            return fixed;
-        }
-        throw new UnsupportedOperationException("getAverageResultSize is not supported by " + this.getClass().getSimpleName());
+        throw new UnsupportedOperationException();
     }
 
     // Reconsiders filter order for embedded struct readers

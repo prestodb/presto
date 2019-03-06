@@ -42,6 +42,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
@@ -77,12 +78,14 @@ public class DecimalStreamReader
 
     public DecimalStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
     {
+        super(OptionalInt.empty());
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
 
     private boolean shortDecimal;
     private int numLongsPerValue;
+    private int fixedValueSize;
     // One entry per value if decimal is short; two values if decimal is long
     private long[] values;
 
@@ -256,6 +259,7 @@ public class DecimalStreamReader
         checkArgument(type instanceof DecimalType, "Unsupported type: " + type.getDisplayName());
         shortDecimal = ((DecimalType) type).isShort();
         numLongsPerValue = shortDecimal ? 1 : 2;
+        fixedValueSize = numLongsPerValue * SIZE_OF_LONG;
         super.setFilterAndChannel(filter, channel, columnIndex, type);
     }
 
@@ -417,9 +421,15 @@ public class DecimalStreamReader
     }
 
     @Override
-    public int getFixedWidth()
+    public int getResultSizeInBytes()
     {
-        return SIZE_OF_LONG * numLongsPerValue;
+        return numValues * fixedValueSize;
+    }
+
+    @Override
+    public int getAverageResultSize()
+    {
+        return fixedValueSize;
     }
 
     @Override
@@ -445,14 +455,14 @@ public class DecimalStreamReader
 
         if (mayReuse) {
             return new FixedWidthBlock(
-                    getFixedWidth(),
+                    fixedValueSize,
                     numFirstRows,
                     Slices.wrappedLongArray(values),
                     Optional.ofNullable(valueIsNull).map(Slices::wrappedBooleanArray));
         }
         if (numFirstRows < numValues || values.length > (int) (numFirstRows * numLongsPerValue * 1.2)) {
             return new FixedWidthBlock(
-                    getFixedWidth(),
+                    fixedValueSize,
                     numFirstRows,
                     Slices.wrappedLongArray(Arrays.copyOf(values, numFirstRows * numLongsPerValue)),
                     Optional.ofNullable(valueIsNull)
@@ -460,7 +470,7 @@ public class DecimalStreamReader
                             .map(Slices::wrappedBooleanArray));
         }
         Block block = new FixedWidthBlock(
-                getFixedWidth(),
+                fixedValueSize,
                 numFirstRows,
                 Slices.wrappedLongArray(values),
                 Optional.ofNullable(valueIsNull).map(Slices::wrappedBooleanArray));

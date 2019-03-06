@@ -19,6 +19,7 @@ import com.facebook.presto.orc.stream.LongInputStream;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Verify.verify;
 
@@ -34,6 +35,11 @@ abstract class NullWrappingColumnReader
     int numNullsToAdd;
     // Number of elements retrieved from inner reader.
     int numInnerResults;
+
+    protected NullWrappingColumnReader(OptionalInt fixedValueSize)
+    {
+        super(fixedValueSize);
+    }
 
     protected void beginScan(BooleanInputStream presentStream, LongInputStream lengthStream)
             throws IOException

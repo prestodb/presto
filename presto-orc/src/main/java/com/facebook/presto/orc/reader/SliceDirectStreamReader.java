@@ -37,6 +37,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
@@ -86,6 +87,7 @@ public class SliceDirectStreamReader
 
     public SliceDirectStreamReader(StreamDescriptor streamDescriptor)
     {
+        super(OptionalInt.empty());
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
     }
 
@@ -299,12 +301,6 @@ public class SliceDirectStreamReader
             numValues = base + numPositions;
         }
         compactQualifyingSet(positions, numPositions);
-    }
-
-    @Override
-    public int getFixedWidth()
-    {
-        return -1;
     }
 
     @Override
