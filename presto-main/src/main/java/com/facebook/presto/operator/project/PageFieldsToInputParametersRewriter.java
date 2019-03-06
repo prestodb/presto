@@ -78,7 +78,7 @@ public final class PageFieldsToInputParametersRewriter
         public RowExpression visitCall(CallExpression call, Void context)
         {
             return new CallExpression(
-                    call.getSignature(),
+                    call.getFunctionHandle(),
                     call.getType(),
                     call.getArguments().stream()
                             .map(expression -> expression.accept(this, context))

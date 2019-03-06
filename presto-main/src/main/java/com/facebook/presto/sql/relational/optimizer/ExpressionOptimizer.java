@@ -14,11 +14,10 @@
 package com.facebook.presto.sql.relational.optimizer;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.relational.CallExpression;
@@ -37,6 +36,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_ARRAY_CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_MAP_CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_ROW_CAST;
@@ -51,7 +51,6 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
-import static com.facebook.presto.sql.relational.Signatures.CAST;
 import static com.facebook.presto.sql.relational.SpecialFormExpression.Form.BIND;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -95,20 +94,19 @@ public class ExpressionOptimizer
         @Override
         public RowExpression visitCall(CallExpression call, Void context)
         {
-            Signature signature = call.getSignature();
-            if (signature.getName().equals(TRY_CAST_NAME)) {
+            FunctionHandle functionHandle = call.getFunctionHandle();
+            if (functionHandle.getSignature().getName().equals(TRY_CAST_NAME)) {
                 List<RowExpression> arguments = call.getArguments().stream()
                         .map(argument -> argument.accept(this, null))
                         .collect(toImmutableList());
-                return call(signature, call.getType(), arguments);
+                return call(functionHandle, call.getType(), arguments);
             }
-
-            if (signature.getName().equals(CAST)) {
+            if (functionHandle.getSignature().getName().equals(CAST.getCastName())) {
                 call = rewriteCast(call);
-                signature = call.getSignature();
+                functionHandle = call.getFunctionHandle();
             }
 
-            ScalarFunctionImplementation function = functionManager.getScalarFunctionImplementation(signature);
+            ScalarFunctionImplementation function = functionManager.getScalarFunctionImplementation(functionHandle);
             List<RowExpression> arguments = call.getArguments().stream()
                     .map(argument -> argument.accept(this, context))
                     .collect(toImmutableList());
@@ -144,7 +142,7 @@ public class ExpressionOptimizer
                 }
             }
 
-            return call(signature, typeManager.getType(signature.getReturnType()), arguments);
+            return call(functionHandle, call.getType(), arguments);
         }
 
         @Override
@@ -228,16 +226,16 @@ public class ExpressionOptimizer
             if (call.getArguments().get(0) instanceof CallExpression) {
                 // Optimization for CAST(JSON_PARSE(...) AS ARRAY/MAP/ROW)
                 CallExpression innerCall = (CallExpression) call.getArguments().get(0);
-                if (innerCall.getSignature().getName().equals("json_parse")) {
+                if (innerCall.getFunctionHandle().getSignature().getName().equals("json_parse")) {
                     checkArgument(innerCall.getType().equals(JSON));
                     checkArgument(innerCall.getArguments().size() == 1);
-                    TypeSignature returnType = call.getSignature().getReturnType();
+                    TypeSignature returnType = call.getFunctionHandle().getSignature().getReturnType();
                     if (returnType.getBase().equals(ARRAY)) {
                         return call(
                                 functionManager.lookupCast(
                                         JSON_TO_ARRAY_CAST,
                                         parseTypeSignature(VARCHAR),
-                                        returnType).getSignature(),
+                                        returnType),
                                 call.getType(),
                                 innerCall.getArguments());
                     }
@@ -246,7 +244,7 @@ public class ExpressionOptimizer
                                 functionManager.lookupCast(
                                         JSON_TO_MAP_CAST,
                                         parseTypeSignature(VARCHAR),
-                                        returnType).getSignature(),
+                                        returnType),
                                 call.getType(),
                                 innerCall.getArguments());
                     }
@@ -255,7 +253,7 @@ public class ExpressionOptimizer
                                 functionManager.lookupCast(
                                         JSON_TO_ROW_CAST,
                                         parseTypeSignature(VARCHAR),
-                                        returnType).getSignature(),
+                                        returnType),
                                 call.getType(),
                                 innerCall.getArguments());
                     }
@@ -264,9 +262,9 @@ public class ExpressionOptimizer
 
             return call(
                     functionManager.lookupCast(
-                            CastType.CAST,
+                            CAST,
                             call.getArguments().get(0).getType().getTypeSignature(),
-                            call.getType().getTypeSignature()).getSignature(),
+                            call.getType().getTypeSignature()),
                     call.getType(),
                     call.getArguments());
         }

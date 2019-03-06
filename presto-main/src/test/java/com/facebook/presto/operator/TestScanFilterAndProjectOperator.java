@@ -16,7 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.SequencePageBuilder;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.InternalSignatureUtils;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Split;
@@ -37,6 +37,7 @@ import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.relational.RowExpression;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingSplit;
 import com.facebook.presto.testing.TestingTransactionHandle;
@@ -53,7 +54,6 @@ import java.util.function.Supplier;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.toValues;
-import static com.facebook.presto.metadata.InternalSignatureUtils.internalScalarFunction;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
@@ -62,6 +62,7 @@ import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
@@ -135,7 +136,7 @@ public class TestScanFilterAndProjectOperator
                 .build();
 
         RowExpression filter = call(
-                InternalSignatureUtils.internalOperator(EQUAL, BOOLEAN.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature())),
+                createTestMetadataManager().getFunctionManager().resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
                 BOOLEAN,
                 field(0, BIGINT),
                 constant(10L, BIGINT));
@@ -259,13 +260,14 @@ public class TestScanFilterAndProjectOperator
             }));
         }
         Metadata metadata = functionAssertions.getMetadata();
-        metadata.getFunctionManager().addFunctions(functions.build());
+        FunctionManager functionManager = metadata.getFunctionManager();
+        functionManager.addFunctions(functions.build());
 
         // match each column with a projection
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
         ImmutableList.Builder<RowExpression> projections = ImmutableList.builder();
         for (int i = 0; i < totalColumns; i++) {
-            projections.add(call(internalScalarFunction("generic_long_page_col" + i, BIGINT.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature())), BIGINT, field(0, BIGINT)));
+            projections.add(call(functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("generic_long_page_col" + i), fromTypes(BIGINT)), BIGINT, field(0, BIGINT)));
         }
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections.build(), "key");
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections.build(), MAX_BATCH_SIZE);
@@ -321,14 +323,15 @@ public class TestScanFilterAndProjectOperator
 
         // set up generic long function with a callback to force yield
         Metadata metadata = functionAssertions.getMetadata();
-        metadata.getFunctionManager().addFunctions(ImmutableList.of(new GenericLongFunction("record_cursor", value -> {
+        FunctionManager functionManager = metadata.getFunctionManager();
+        functionManager.addFunctions(ImmutableList.of(new GenericLongFunction("record_cursor", value -> {
             driverContext.getYieldSignal().forceYieldForTesting();
             return value;
         })));
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
 
         List<RowExpression> projections = ImmutableList.of(call(
-                InternalSignatureUtils.internalScalarFunction("generic_long_record_cursor", BIGINT.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature())),
+                functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("generic_long_record_cursor"), fromTypes(BIGINT)),
                 BIGINT,
                 field(0, BIGINT)));
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections, "key");

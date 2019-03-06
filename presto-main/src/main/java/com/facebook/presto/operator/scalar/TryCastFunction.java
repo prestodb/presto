@@ -45,7 +45,7 @@ public class TryCastFunction
     public TryCastFunction()
     {
         super(new Signature(
-                "TRY_CAST",
+                TRY_CAST_NAME,
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("F"), typeVariable("T")),
                 ImmutableList.of(),

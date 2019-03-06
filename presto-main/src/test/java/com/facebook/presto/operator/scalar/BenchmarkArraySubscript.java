@@ -21,8 +21,7 @@ import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.function.FunctionKind;
-import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
@@ -135,15 +134,10 @@ public class BenchmarkArraySubscript
 
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
 
-            Signature signature = new Signature(
-                    "$operator$" + SUBSCRIPT.name(),
-                    FunctionKind.SCALAR,
-                    arrayType.getElementType().getTypeSignature(),
-                    arrayType.getTypeSignature(),
-                    BIGINT.getTypeSignature());
+            FunctionHandle functionHandle = metadata.getFunctionManager().resolveOperator(SUBSCRIPT, ImmutableList.of(arrayType, BIGINT));
             for (int i = 0; i < arraySize; i++) {
                 projectionsBuilder.add(new CallExpression(
-                        signature,
+                        functionHandle,
                         arrayType.getElementType(),
                         ImmutableList.of(field(0, arrayType), constant((long) i + 1, BIGINT))));
             }
