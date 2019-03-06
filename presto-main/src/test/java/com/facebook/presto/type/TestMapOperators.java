@@ -552,6 +552,7 @@ public class TestMapOperators
         assertFunction("MAP(ARRAY[('a', 'b')], ARRAY[ARRAY[100, 200]])[('a', 'b')]", new ArrayType(INTEGER), ImmutableList.of(100, 200));
         assertFunction("MAP(ARRAY[1.0], ARRAY [2.2])[1.0]", createDecimalType(2, 1), decimal("2.2"));
         assertFunction("MAP(ARRAY[000000000000001.00000000000000], ARRAY [2.2])[000000000000001.00000000000000]", createDecimalType(2, 1), decimal("2.2"));
+        assertInvalidFunction("MAP(ARRAY[cast('1' as varbinary)], ARRAY[null])[cast('2' as varbinary)]", "Key not present in map");
     }
 
     @Test
