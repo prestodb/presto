@@ -36,49 +36,50 @@ abstract class ColumnReader
     @Nullable
     protected BooleanInputStream presentStream;
 
-    QualifyingSet inputQualifyingSet;
-    QualifyingSet outputQualifyingSet;
-    int outputChannel = -1;
-    Filter filter;
+    protected QualifyingSet inputQualifyingSet;
+    protected QualifyingSet outputQualifyingSet;
+    protected int outputChannel = -1;
+    protected boolean outputChannelSet;
+    protected Filter filter;
     protected boolean deterministicFilter;
-    int columnIndex;
-    Type type;
+    protected int columnIndex;
+    protected Type type;
     // First row number in row group that is not processed due to
     // reaching target size. This must occur as a position in
     // inputQualifyingSet. -1 if all inputQualifyingSet is processed.
-    int truncationRow = -1;
+    protected int truncationRow = -1;
 
-    boolean rowGroupOpen;
+    protected boolean rowGroupOpen;
 
     // position of first unprocessed row from the start of the row group.
-    int posInRowGroup;
+    protected int posInRowGroup;
 
     //Present flag for each row between posInRowGroup and end of inputQualifyingSet.
-    boolean[] present;
+    protected boolean[] present;
 
     // Number of values in 'present'.
-    int numPresent;
+    protected int numPresent;
 
     // Lengths for present rows from posInRowGroup to end of inputQualifyingSet.
-    int[] lengths;
+    protected int[] lengths;
 
     // Number of elements in lengths.
-    int numLengths;
+    protected int numLengths;
 
-    // Index of length of first unprocessed element in 'lemgths'.
-    int lengthIdx;
+    // Index of length of first unprocessed element in 'lengths'.
+    protected int lengthIdx;
 
     // Number of values in Block to be returned by getBlock.
-    int numValues;
+    protected int numValues;
 
     // Number of result rows in scan() so far.
-    int numResults;
+    protected int numResults;
 
     // Number of bytes the next scan() may add to the result.
-    long resultSizeBudget = 8 * 10000;
+    protected long resultSizeBudget = 8 * 10000;
 
     // Null flags for retrieved values. At least numValues + numResults elements.
-    boolean[] valueIsNull;
+    protected boolean[] valueIsNull;
 
     public QualifyingSet getInputQualifyingSet()
     {
@@ -114,7 +115,8 @@ abstract class ColumnReader
     {
         this.filter = filter;
         this.deterministicFilter = filter != null && filter.isDeterministic();
-        outputChannel = channel;
+        this.outputChannel = channel;
+        this.outputChannelSet = channel != -1;
         this.columnIndex = columnIndex;
         this.type = type;
     }
@@ -245,7 +247,7 @@ abstract class ColumnReader
 
     protected void addNullResult()
     {
-        if (outputChannel == -1) {
+        if (!outputChannelSet) {
             return;
         }
 
@@ -284,7 +286,7 @@ abstract class ColumnReader
         if (outputQualifyingSet != null) {
             outputQualifyingSet.setEnd(posInRowGroup);
         }
-        if (outputChannel != -1) {
+        if (outputChannelSet) {
             numValues += numResults;
         }
     }

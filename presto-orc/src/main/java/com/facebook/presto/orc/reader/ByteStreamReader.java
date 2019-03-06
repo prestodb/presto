@@ -251,7 +251,7 @@ public class ByteStreamReader
                     break;
                 }
                 nextActive = inputPositions[activeIdx];
-                if (outputChannel != -1 && numResults > resultSizeBudget) {
+                if (outputChannelSet && numResults > resultSizeBudget) {
                     truncationRow = inputQualifyingSet.truncateAndReturnTruncationRow(activeIdx);
                 }
                 continue;
@@ -271,7 +271,7 @@ public class ByteStreamReader
 
     private void addResult(byte value)
     {
-        if (outputChannel == -1) {
+        if (!outputChannelSet) {
             return;
         }
 
@@ -329,7 +329,7 @@ public class ByteStreamReader
     @Override
     public void compactValues(int[] surviving, int base, int numSurviving)
     {
-        if (outputChannel != -1) {
+        if (outputChannelSet) {
             StreamReaders.compactArrays(surviving, base, numSurviving, values, valueIsNull);
             numValues = base + numSurviving;
         }

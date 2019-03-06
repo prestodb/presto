@@ -325,7 +325,7 @@ public class StructStreamReader
             }
         }
         fieldChannels = fieldColumns;
-        if (outputChannel == -1) {
+        if (!outputChannelSet) {
             // If the struct is not projected out, none of its members is either.
             Arrays.fill(fieldChannels, -1);
         }
@@ -355,7 +355,7 @@ public class StructStreamReader
     public void erase(int end)
     {
         // Without a reader there is nothing to erase, even if the struct is all nulls.
-        if (reader == null || outputChannel == -1) {
+        if (reader == null || !outputChannelSet) {
             return;
         }
         int fieldEnd;
@@ -395,7 +395,7 @@ public class StructStreamReader
     @Override
     public void compactValues(int[] surviving, int base, int numSurviving)
     {
-        if (outputChannel != -1) {
+        if (outputChannelSet) {
             check();
             if (fieldSurviving == null || fieldSurviving.length < numSurviving) {
                 fieldSurviving = new int[numSurviving];

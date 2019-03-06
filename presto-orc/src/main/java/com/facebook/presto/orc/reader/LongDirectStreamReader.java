@@ -182,7 +182,7 @@ public class LongDirectStreamReader
     @Override
     public void compactValues(int[] positions, int base, int numPositions)
     {
-        if (outputChannel != -1) {
+        if (outputChannelSet) {
             StreamReaders.compactArrays(positions, base, numPositions, values, valueIsNull);
             numValues = base + numPositions;
         }
@@ -341,7 +341,7 @@ public class LongDirectStreamReader
 
     private void ensureValuesCapacity()
     {
-        if (outputChannel == -1) {
+        if (!outputChannelSet) {
             return;
         }
         int capacity = numValues + inputQualifyingSet.getPositionCount();

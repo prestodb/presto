@@ -183,7 +183,7 @@ public class DoubleStreamReader
     @Override
     public void compactValues(int[] surviving, int base, int numSurviving)
     {
-        if (outputChannel != -1) {
+        if (outputChannelSet) {
             StreamReaders.compactArrays(surviving, base, numSurviving, values, valueIsNull);
             numValues = base + numSurviving;
         }
@@ -288,7 +288,7 @@ public class DoubleStreamReader
                     break;
                 }
                 nextActive = inputPositions[activeIdx];
-                if (outputChannel != -1 && numResults * SIZE_OF_DOUBLE > resultSizeBudget) {
+                if (outputChannelSet && numResults * SIZE_OF_DOUBLE > resultSizeBudget) {
                     truncationRow = inputQualifyingSet.truncateAndReturnTruncationRow(activeIdx);
                 }
                 continue;
@@ -308,7 +308,7 @@ public class DoubleStreamReader
 
     private void addResult(double value)
     {
-        if (outputChannel == -1) {
+        if (!outputChannelSet) {
             return;
         }
 

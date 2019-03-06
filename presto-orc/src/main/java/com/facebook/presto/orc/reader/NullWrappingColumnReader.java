@@ -200,7 +200,7 @@ abstract class NullWrappingColumnReader
             outputQualifyingSet.insert(nullsToAdd, nullsToAddIndexes, numNullsToAdd);
         }
 
-        if (outputChannel != -1) {
+        if (outputChannelSet) {
             int sourceRow = numInnerResults - 1;
 
             for (int i = numInnerResults + numNullsToAdd - 1; i >= 0; i--) {
