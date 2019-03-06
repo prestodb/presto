@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.relational;
 
-import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.SpecialFormExpression.Form;
 import com.google.common.collect.ImmutableList;
@@ -37,14 +37,14 @@ public final class Expressions
         return new ConstantExpression(null, type);
     }
 
-    public static CallExpression call(Signature signature, Type returnType, RowExpression... arguments)
+    public static CallExpression call(FunctionHandle functionHandle, Type returnType, RowExpression... arguments)
     {
-        return new CallExpression(signature, returnType, Arrays.asList(arguments));
+        return new CallExpression(functionHandle, returnType, Arrays.asList(arguments));
     }
 
-    public static CallExpression call(Signature signature, Type returnType, List<RowExpression> arguments)
+    public static CallExpression call(FunctionHandle functionHandle, Type returnType, List<RowExpression> arguments)
     {
-        return new CallExpression(signature, returnType, arguments);
+        return new CallExpression(functionHandle, returnType, arguments);
     }
 
     public static InputReferenceExpression field(int field, Type type)
