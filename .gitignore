@@ -1,6 +1,7 @@
 *.iml
 *.ipr
 *.iws
+*.swp
 target/
 /var
 /*/var/
