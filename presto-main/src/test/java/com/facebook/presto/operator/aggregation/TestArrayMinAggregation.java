@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
+import static com.facebook.presto.testing.StructuralTestUtil.arrayBlockOf;
 
 public class TestArrayMinAggregation
         extends AbstractTestAggregationFunction

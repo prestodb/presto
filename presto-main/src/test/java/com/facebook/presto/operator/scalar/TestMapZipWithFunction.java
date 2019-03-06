@@ -24,7 +24,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
-import static com.facebook.presto.util.StructuralTestUtil.mapType;
+import static com.facebook.presto.testing.StructuralTestUtil.mapType;
 import static java.util.Arrays.asList;
 
 public class TestMapZipWithFunction

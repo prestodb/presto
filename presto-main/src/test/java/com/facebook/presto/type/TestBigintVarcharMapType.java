@@ -22,8 +22,8 @@ import java.util.Map;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
-import static com.facebook.presto.util.StructuralTestUtil.mapType;
+import static com.facebook.presto.testing.StructuralTestUtil.mapBlockOf;
+import static com.facebook.presto.testing.StructuralTestUtil.mapType;
 
 public class TestBigintVarcharMapType
         extends AbstractTestType

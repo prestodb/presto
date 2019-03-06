@@ -24,7 +24,7 @@ import java.util.function.IntUnaryOperator;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.util.StructuralTestUtil.mapType;
+import static com.facebook.presto.testing.StructuralTestUtil.mapType;
 import static org.testng.Assert.assertEquals;
 
 public class TestTypedHistogram

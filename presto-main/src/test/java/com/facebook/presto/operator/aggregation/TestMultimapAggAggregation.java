@@ -46,8 +46,12 @@ import static com.facebook.presto.operator.aggregation.multimapagg.MultimapAggre
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+<<<<<<< HEAD
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
+=======
+import static com.facebook.presto.testing.StructuralTestUtil.mapType;
+>>>>>>> (3/3) eclipse/m2e compatibility: move some classes
 import static com.google.common.base.Preconditions.checkState;
 import static org.testng.Assert.assertTrue;
 

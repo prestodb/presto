@@ -59,9 +59,9 @@ import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharTyp
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
+import static com.facebook.presto.testing.StructuralTestUtil.appendToBlockBuilder;
+import static com.facebook.presto.testing.StructuralTestUtil.mapType;
 import static com.facebook.presto.type.JsonType.JSON;
-import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
-import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;

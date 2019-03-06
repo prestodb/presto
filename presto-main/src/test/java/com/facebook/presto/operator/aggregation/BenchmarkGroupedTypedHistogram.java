@@ -51,7 +51,11 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.operator.aggregation.histogram.Histogram.NAME;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+<<<<<<< HEAD
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+=======
+import static com.facebook.presto.testing.StructuralTestUtil.mapType;
+>>>>>>> (3/3) eclipse/m2e compatibility: move some classes
 
 @OutputTimeUnit(TimeUnit.SECONDS)
 //@BenchmarkMode(Mode.AverageTime)

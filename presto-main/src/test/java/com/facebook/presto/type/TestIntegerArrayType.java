@@ -21,7 +21,7 @@ import java.util.List;
 
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
+import static com.facebook.presto.testing.StructuralTestUtil.arrayBlockOf;
 
 public class TestIntegerArrayType
         extends AbstractTestType

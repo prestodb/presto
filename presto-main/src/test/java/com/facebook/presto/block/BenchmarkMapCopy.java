@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.util.StructuralTestUtil.mapType;
+import static com.facebook.presto.testing.StructuralTestUtil.mapType;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)

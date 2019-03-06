@@ -33,8 +33,13 @@ import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getF
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getIntermediateBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+<<<<<<< HEAD
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
+=======
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.testing.StructuralTestUtil.mapType;
+>>>>>>> (3/3) eclipse/m2e compatibility: move some classes
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

@@ -64,10 +64,13 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+<<<<<<< HEAD
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+=======
+import static com.facebook.presto.testing.StructuralTestUtil.mapBlockOf;
+import static com.facebook.presto.testing.StructuralTestUtil.mapType;
+>>>>>>> (3/3) eclipse/m2e compatibility: move some classes
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
-import static com.facebook.presto.util.StructuralTestUtil.mapBlockOf;
-import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static org.testng.Assert.assertTrue;
 
 public class TestHistogram
