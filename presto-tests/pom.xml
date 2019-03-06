@@ -35,6 +35,7 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
             <type>test-jar</type>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
