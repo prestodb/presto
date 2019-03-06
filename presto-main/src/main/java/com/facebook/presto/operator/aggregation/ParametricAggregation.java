@@ -94,6 +94,13 @@ public class ParametricAggregation
                         variables,
                         typeManager,
                         functionManager));
+        Optional<MethodHandle> removeCombineHandle = concreteImplementation.getRemoveCombineFunction().map(
+                removeCombineFunction -> bindDependencies(
+                        removeCombineFunction,
+                        concreteImplementation.getRemoveCombineDependencies(),
+                        variables,
+                        typeManager,
+                        functionManager));
         MethodHandle combineHandle = bindDependencies(concreteImplementation.getCombineFunction(), concreteImplementation.getCombineDependencies(), variables, typeManager, functionManager);
         MethodHandle outputHandle = bindDependencies(concreteImplementation.getOutputFunction(), concreteImplementation.getOutputDependencies(), variables, typeManager, functionManager);
 
@@ -109,6 +116,7 @@ public class ParametricAggregation
                 parametersMetadata,
                 inputHandle,
                 removeInputHandle,
+                removeCombineHandle,
                 combineHandle,
                 outputHandle,
                 ImmutableList.of(new AccumulatorStateDescriptor(

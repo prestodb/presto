@@ -33,6 +33,8 @@ public interface GroupedAccumulator
 
     void addIntermediate(GroupByIdBlock groupIdsBlock, Block block);
 
+    void removeIntermediate(GroupByIdBlock groupIdsBlock, Block block);
+
     void evaluateIntermediate(int groupId, BlockBuilder output);
 
     void evaluateFinal(int groupId, BlockBuilder output);

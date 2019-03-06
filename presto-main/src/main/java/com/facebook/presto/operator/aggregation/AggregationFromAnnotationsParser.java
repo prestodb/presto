@@ -22,6 +22,7 @@ import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.RemoveInputFunction;
+import com.facebook.presto.spi.function.RemoveIntermediateFunction;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -75,12 +76,13 @@ public class AggregationFromAnnotationsParser
 
         for (Class<?> stateClass : getStateClasses(aggregationDefinition)) {
             Method combineFunction = getCombineFunction(aggregationDefinition, stateClass);
+            Optional<Method> removeCombineFunction = getRemoveCombineFunction(aggregationDefinition, stateClass);
             Optional<Method> aggregationStateSerializerFactory = getAggregationStateSerializerFactory(aggregationDefinition, stateClass);
             for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
                 for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
                     Optional<Method> removeInputFunction = getRemoveInputFunction(aggregationDefinition, stateClass, inputFunction);
                     for (AggregationHeader header : parseHeaders(aggregationDefinition, outputFunction)) {
-                        AggregationImplementation onlyImplementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, removeInputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
+                        AggregationImplementation onlyImplementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, removeInputFunction, removeCombineFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
                         ParametricImplementationsGroup<AggregationImplementation> implementations = ParametricImplementationsGroup.of(onlyImplementation);
                         builder.add(new ParametricAggregation(implementations.getSignature(), header, implementations));
                     }
@@ -98,11 +100,12 @@ public class AggregationFromAnnotationsParser
 
         for (Class<?> stateClass : getStateClasses(aggregationDefinition)) {
             Method combineFunction = getCombineFunction(aggregationDefinition, stateClass);
+            Optional<Method> removeCombineFunction = getRemoveCombineFunction(aggregationDefinition, stateClass);
             Optional<Method> aggregationStateSerializerFactory = getAggregationStateSerializerFactory(aggregationDefinition, stateClass);
             Method outputFunction = getOnlyElement(getOutputFunctions(aggregationDefinition, stateClass));
             for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
                 Optional<Method> removeInputFunction = getRemoveInputFunction(aggregationDefinition, stateClass, inputFunction);
-                AggregationImplementation implementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, removeInputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
+                AggregationImplementation implementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, removeInputFunction, removeCombineFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
                 implementationsBuilder.addImplementation(implementation);
             }
         }
@@ -185,6 +188,20 @@ public class AggregationFromAnnotationsParser
 
         checkArgument(combineFunctions.size() == 1, String.format("There must be exactly one @CombineFunction in class %s for the @AggregationState %s ", clazz.toGenericString(), stateClass.toGenericString()));
         return getOnlyElement(combineFunctions);
+    }
+
+    public static Optional<Method> getRemoveCombineFunction(Class<?> clazz, Class<?> stateClass)
+    {
+        // Only include methods that match this state class
+        List<Method> combineFunctions = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, RemoveIntermediateFunction.class).stream()
+                .filter(method -> method.getParameterTypes()[AggregationImplementation.Parser.findAggregationStateParamId(method, 0)] == stateClass)
+                .filter(method -> method.getParameterTypes()[AggregationImplementation.Parser.findAggregationStateParamId(method, 1)] == stateClass)
+                .collect(toImmutableList());
+
+        if (combineFunctions.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(getOnlyElement(combineFunctions));
     }
 
     private static List<Method> getOutputFunctions(Class<?> clazz, Class<?> stateClass)

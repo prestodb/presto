@@ -46,6 +46,7 @@ public class AggregationMetadata
     private final List<Class> lambdaInterfaces;
     private final MethodHandle inputFunction;
     private final Optional<MethodHandle> removeInputFunction;
+    private final Optional<MethodHandle> removeIntermediateFunction;
     private final MethodHandle combineFunction;
     private final MethodHandle outputFunction;
     private final List<AccumulatorStateDescriptor> accumulatorStateDescriptors;
@@ -66,6 +67,7 @@ public class AggregationMetadata
                 valueInputMetadata,
                 inputFunction,
                 removeInputFunction,
+                Optional.empty(),
                 combineFunction,
                 outputFunction,
                 accumulatorStateDescriptors,
@@ -78,6 +80,31 @@ public class AggregationMetadata
             List<ParameterMetadata> valueInputMetadata,
             MethodHandle inputFunction,
             Optional<MethodHandle> removeInputFunction,
+            Optional<MethodHandle> removeIntermediateFunction,
+            MethodHandle combineFunction,
+            MethodHandle outputFunction,
+            List<AccumulatorStateDescriptor> accumulatorStateDescriptors,
+            Type outputType)
+    {
+        this(
+                name,
+                valueInputMetadata,
+                inputFunction,
+                removeInputFunction,
+                removeIntermediateFunction,
+                combineFunction,
+                outputFunction,
+                accumulatorStateDescriptors,
+                outputType,
+                ImmutableList.of());
+    }
+
+    public AggregationMetadata(
+            String name,
+            List<ParameterMetadata> valueInputMetadata,
+            MethodHandle inputFunction,
+            Optional<MethodHandle> removeInputFunction,
+            Optional<MethodHandle> removeIntermediateFunction,
             MethodHandle combineFunction,
             MethodHandle outputFunction,
             List<AccumulatorStateDescriptor> accumulatorStateDescriptors,
@@ -89,6 +116,7 @@ public class AggregationMetadata
         this.name = requireNonNull(name, "name is null");
         this.inputFunction = requireNonNull(inputFunction, "inputFunction is null");
         this.removeInputFunction = requireNonNull(removeInputFunction, "removeInputFunction is null");
+        this.removeIntermediateFunction = requireNonNull(removeIntermediateFunction, "removeIntermediateFunction is null");
         this.combineFunction = requireNonNull(combineFunction, "combineFunction is null");
         this.outputFunction = requireNonNull(outputFunction, "outputFunction is null");
         this.accumulatorStateDescriptors = requireNonNull(accumulatorStateDescriptors, "accumulatorStateDescriptors is null");
@@ -127,6 +155,11 @@ public class AggregationMetadata
     public Optional<MethodHandle> getRemoveInputFunction()
     {
         return removeInputFunction;
+    }
+
+    public Optional<MethodHandle> getRemoveIntermediateFunction()
+    {
+        return removeIntermediateFunction;
     }
 
     public MethodHandle getCombineFunction()

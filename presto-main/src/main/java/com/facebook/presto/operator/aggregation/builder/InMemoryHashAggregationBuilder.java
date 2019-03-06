@@ -454,6 +454,9 @@ public class InMemoryHashAggregationBuilder
             if (step.isInputRaw()) {
                 aggregation.removeInput(groupIds, page);
             }
+            else {
+                aggregation.removeIntermediate(groupIds, page.getBlock(intermediateChannel));
+            }
         }
 
         public void prepareFinal()

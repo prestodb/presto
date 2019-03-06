@@ -94,12 +94,14 @@ public class AggregationImplementation
     private final Class<?> stateClass;
     private final MethodHandle inputFunction;
     private final Optional<MethodHandle> removeInputFunction;
+    private final Optional<MethodHandle> removeCombineFunction;
     private final MethodHandle outputFunction;
     private final MethodHandle combineFunction;
     private final Optional<MethodHandle> stateSerializerFactory;
     private final List<AggregateNativeContainerType> argumentNativeContainerTypes;
     private final List<ImplementationDependency> inputDependencies;
     private final List<ImplementationDependency> removeInputDependencies;
+    private final List<ImplementationDependency> removeCombineDependencies;
     private final List<ImplementationDependency> combineDependencies;
     private final List<ImplementationDependency> outputDependencies;
     private final List<ImplementationDependency> stateSerializerFactoryDependencies;
@@ -111,12 +113,14 @@ public class AggregationImplementation
             Class<?> stateClass,
             MethodHandle inputFunction,
             Optional<MethodHandle> removeInputFunction,
+            Optional<MethodHandle> removeCombineFunction,
             MethodHandle outputFunction,
             MethodHandle combineFunction,
             Optional<MethodHandle> stateSerializerFactory,
             List<AggregateNativeContainerType> argumentNativeContainerTypes,
             List<ImplementationDependency> inputDependencies,
             List<ImplementationDependency> removeInputDependencies,
+            List<ImplementationDependency> removeCombineDependencies,
             List<ImplementationDependency> combineDependencies,
             List<ImplementationDependency> outputDependencies,
             List<ImplementationDependency> stateSerializerFactoryDependencies,
@@ -127,12 +131,14 @@ public class AggregationImplementation
         this.stateClass = requireNonNull(stateClass, "stateClass cannot be null");
         this.inputFunction = requireNonNull(inputFunction, "inputFunction cannot be null");
         this.removeInputFunction = requireNonNull(removeInputFunction, "removeInputFunction cannot be null");
+        this.removeCombineFunction = requireNonNull(removeCombineFunction, "removeCombineFunction cannot be null");
         this.outputFunction = requireNonNull(outputFunction, "outputFunction cannot be null");
         this.combineFunction = requireNonNull(combineFunction, "combineFunction cannot be null");
         this.stateSerializerFactory = requireNonNull(stateSerializerFactory, "stateSerializerFactory cannot be null");
         this.argumentNativeContainerTypes = requireNonNull(argumentNativeContainerTypes, "argumentNativeContainerTypes cannot be null");
         this.inputDependencies = requireNonNull(inputDependencies, "inputDependencies cannot be null");
         this.removeInputDependencies = requireNonNull(removeInputDependencies, "removeInputDependencies cannot be null");
+        this.removeCombineDependencies = requireNonNull(removeCombineDependencies, "removeCombineDependencies cannot be null");
         this.outputDependencies = requireNonNull(outputDependencies, "outputDependencies cannot be null");
         this.combineDependencies = requireNonNull(combineDependencies, "combineDependencies cannot be null");
         this.stateSerializerFactoryDependencies = requireNonNull(stateSerializerFactoryDependencies, "stateSerializerFactoryDependencies cannot be null");
@@ -171,6 +177,11 @@ public class AggregationImplementation
         return removeInputFunction;
     }
 
+    public Optional<MethodHandle> getRemoveCombineFunction()
+    {
+        return removeCombineFunction;
+    }
+
     public MethodHandle getOutputFunction()
     {
         return outputFunction;
@@ -194,6 +205,11 @@ public class AggregationImplementation
     public List<ImplementationDependency> getRemoveInputDependencies()
     {
         return removeInputDependencies;
+    }
+
+    public List<ImplementationDependency> getRemoveCombineDependencies()
+    {
+        return removeCombineDependencies;
     }
 
     public List<ImplementationDependency> getOutputDependencies()
@@ -244,12 +260,14 @@ public class AggregationImplementation
         private final Class<?> stateClass;
         private final MethodHandle inputHandle;
         private final Optional<MethodHandle> removeInputHandle;
+        private final Optional<MethodHandle> removeCombineHandle;
         private final MethodHandle outputHandle;
         private final MethodHandle combineHandle;
         private final Optional<MethodHandle> stateSerializerFactoryHandle;
         private final List<AggregateNativeContainerType> argumentNativeContainerTypes;
         private final List<ImplementationDependency> inputDependencies;
         private final List<ImplementationDependency> removeInputDependencies;
+        private final List<ImplementationDependency> removeCombineDependencies;
         private final List<ImplementationDependency> combineDependencies;
         private final List<ImplementationDependency> outputDependencies;
         private final List<ImplementationDependency> stateSerializerFactoryDependencies;
@@ -270,6 +288,7 @@ public class AggregationImplementation
                 Class<?> stateClass,
                 Method inputFunction,
                 Optional<Method> removeInputFunction,
+                Optional<Method> removeCombineFunction,
                 Method outputFunction,
                 Method combineFunction,
                 Optional<Method> stateSerializerFactoryFunction)
@@ -289,6 +308,7 @@ public class AggregationImplementation
             removeInputDependencies = removeInputFunction.map(this::parseImplementationDependencies).orElse(ImmutableList.of());
             outputDependencies = parseImplementationDependencies(outputFunction);
             combineDependencies = parseImplementationDependencies(combineFunction);
+            removeCombineDependencies = removeCombineFunction.map(this::parseImplementationDependencies).orElse(ImmutableList.of());
             stateSerializerFactoryDependencies = stateSerializerFactoryFunction.map(this::parseImplementationDependencies).orElse(ImmutableList.of());
 
             // parse metadata types
@@ -300,6 +320,7 @@ public class AggregationImplementation
                     Stream.of(
                             inputDependencies.stream(),
                             removeInputDependencies.stream(),
+                            removeCombineDependencies.stream(),
                             outputDependencies.stream(),
                             combineDependencies.stream())
                     .reduce(Stream::concat)
@@ -324,6 +345,7 @@ public class AggregationImplementation
 
             inputHandle = methodHandle(inputFunction);
             removeInputHandle = removeInputFunction.map(Reflection::methodHandle);
+            removeCombineHandle = removeCombineFunction.map(Reflection::methodHandle);
             combineHandle = methodHandle(combineFunction);
             outputHandle = methodHandle(outputFunction);
         }
@@ -344,12 +366,14 @@ public class AggregationImplementation
                     stateClass,
                     inputHandle,
                     removeInputHandle,
+                    removeCombineHandle,
                     outputHandle,
                     combineHandle,
                     stateSerializerFactoryHandle,
                     argumentNativeContainerTypes,
                     inputDependencies,
                     removeInputDependencies,
+                    removeCombineDependencies,
                     combineDependencies,
                     outputDependencies,
                     stateSerializerFactoryDependencies,
@@ -362,11 +386,12 @@ public class AggregationImplementation
                 Class<?> stateClass,
                 Method inputFunction,
                 Optional<Method> removeInputFunction,
+                Optional<Method> removeCombineFunction,
                 Method outputFunction,
                 Method combineFunction,
                 Optional<Method> stateSerializerFactoryFunction)
         {
-            return new Parser(aggregationDefinition, header, stateClass, inputFunction, removeInputFunction, outputFunction, combineFunction, stateSerializerFactoryFunction).get();
+            return new Parser(aggregationDefinition, header, stateClass, inputFunction, removeInputFunction, removeCombineFunction, outputFunction, combineFunction, stateSerializerFactoryFunction).get();
         }
 
         private static List<ParameterType> parseParameterMetadataTypes(Method method)

@@ -212,8 +212,22 @@ public class AccumulatorCompiler
                 metadata.getLambdaInterfaces(),
                 lambdaProviderFields,
                 metadata.getCombineFunction(),
+                "addIntermediate",
+                "combine",
                 callSiteBinder,
                 grouped);
+
+        metadata.getRemoveIntermediateFunction().ifPresent(
+                removeCombineFunction -> generateAddIntermediateAsCombine(
+                        definition,
+                        stateFieldAndDescriptors,
+                        metadata.getLambdaInterfaces(),
+                        lambdaProviderFields,
+                        removeCombineFunction,
+                        "removeIntermediate",
+                        "removeCombine",
+                        callSiteBinder,
+                        grouped));
 
         if (grouped) {
             generateGroupedEvaluateIntermediate(definition, stateFieldAndDescriptors);
@@ -700,10 +714,12 @@ public class AccumulatorCompiler
             List<Class> lambdaInterfaces,
             List<FieldDefinition> lambdaProviderFields,
             MethodHandle combineFunction,
+            String functionName,
+            String accumulatorName,
             CallSiteBinder callSiteBinder,
             boolean grouped)
     {
-        MethodDefinition method = declareAddIntermediate(definition, grouped);
+        MethodDefinition method = declareAddIntermediate(definition, functionName, grouped);
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
         Variable thisVariable = method.getThis();
@@ -774,7 +790,7 @@ public class AccumulatorCompiler
                     .invoke("getLambda", Object.class)
                     .cast(lambdaInterfaces.get(i)));
         }
-        loopBody.append(invoke(callSiteBinder.bind(combineFunction), "combine"));
+        loopBody.append(invoke(callSiteBinder.bind(combineFunction), accumulatorName));
 
         if (grouped) {
             // skip rows with null group id
@@ -808,7 +824,7 @@ public class AccumulatorCompiler
         }
     }
 
-    private static MethodDefinition declareAddIntermediate(ClassDefinition definition, boolean grouped)
+    private static MethodDefinition declareAddIntermediate(ClassDefinition definition, String function, boolean grouped)
     {
         ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
         if (grouped) {
@@ -818,7 +834,7 @@ public class AccumulatorCompiler
 
         return definition.declareMethod(
                 a(PUBLIC),
-                "addIntermediate",
+                function,
                 type(void.class),
                 parameters.build());
     }

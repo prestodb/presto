@@ -428,6 +428,12 @@ public class GenericAccumulatorFactory
         }
 
         @Override
+        public void removeIntermediate(GroupByIdBlock groupIdsBlock, Block block)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public void evaluateIntermediate(int groupId, BlockBuilder output)
         {
             throw new UnsupportedOperationException();
@@ -590,6 +596,12 @@ public class GenericAccumulatorFactory
 
         @Override
         public void addIntermediate(GroupByIdBlock groupIdsBlock, Block block)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void removeIntermediate(GroupByIdBlock groupIdsBlock, Block block)
         {
             throw new UnsupportedOperationException();
         }
