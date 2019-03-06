@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
@@ -42,6 +43,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static java.util.Objects.requireNonNull;
 
 public class BooleanStreamReader
@@ -64,6 +66,7 @@ public class BooleanStreamReader
 
     public BooleanStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
     {
+        super(OptionalInt.of(SIZE_OF_BYTE));
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
@@ -298,12 +301,6 @@ public class BooleanStreamReader
         if (includeNulls && valueIsNull == null) {
             valueIsNull = new boolean[values.length];
         }
-    }
-
-    @Override
-    public int getFixedWidth()
-    {
-        return BOOLEAN.getFixedSize();
     }
 
     @Override

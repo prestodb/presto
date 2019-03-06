@@ -24,9 +24,11 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 abstract class ColumnReader
         implements StreamReader
@@ -80,6 +82,13 @@ abstract class ColumnReader
 
     // Null flags for retrieved values. At least numValues + numResults elements.
     protected boolean[] valueIsNull;
+
+    private final OptionalInt fixedValueSize;
+
+    protected ColumnReader(OptionalInt fixedValueSize)
+    {
+        this.fixedValueSize = requireNonNull(fixedValueSize, "fixedValueSize is null");
+    }
 
     public QualifyingSet getInputQualifyingSet()
     {
@@ -166,11 +175,21 @@ abstract class ColumnReader
     @Override
     public int getResultSizeInBytes()
     {
-        int fixedSize = getFixedWidth();
-        if (fixedSize != -1) {
-            return numValues * fixedSize;
+        if (fixedValueSize.isPresent()) {
+            return numValues * fixedValueSize.getAsInt();
         }
-        throw new UnsupportedOperationException("Variable width streams must implement getResultSizeInBytes()");
+
+        throw new UnsupportedOperationException("Variable width readers must implement getResultSizeInBytes()");
+    }
+
+    @Override
+    public int getAverageResultSize()
+    {
+        if (fixedValueSize.isPresent()) {
+            return fixedValueSize.getAsInt();
+        }
+
+        throw new UnsupportedOperationException("Variable width readers must implement getAverageResultSize()");
     }
 
     protected void compactQualifyingSet(int[] surviving, int numSurviving)

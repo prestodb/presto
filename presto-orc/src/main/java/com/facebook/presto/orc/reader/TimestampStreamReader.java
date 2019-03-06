@@ -37,12 +37,12 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -77,6 +77,7 @@ public class TimestampStreamReader
 
     public TimestampStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, LocalMemoryContext systemMemoryContext)
     {
+        super(OptionalInt.of(SIZE_OF_LONG));
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.baseTimestampInSeconds = new DateTime(2015, 1, 1, 0, 0, requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null")).getMillis() / MILLIS_PER_SECOND;
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
@@ -365,12 +366,6 @@ public class TimestampStreamReader
         if (includeNulls && valueIsNull == null) {
             valueIsNull = new boolean[values.length];
         }
-    }
-
-    @Override
-    public int getFixedWidth()
-    {
-        return BIGINT.getFixedSize();
     }
 
     @Override
