@@ -66,7 +66,6 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.createExpression;
-import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -619,7 +618,7 @@ public class BenchmarkDecimalOperators
                     .collect(toMap(Map.Entry::getValue, entry -> symbolTypes.get(entry.getKey())));
 
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, metadata, SQL_PARSER, types, inputReferenceExpression, emptyList(), WarningCollector.NOOP);
-            return SqlToRowExpressionTranslator.translate(inputReferenceExpression, SCALAR, expressionTypes, metadata.getFunctionManager(), metadata.getTypeManager(), TEST_SESSION, true);
+            return SqlToRowExpressionTranslator.translate(inputReferenceExpression, expressionTypes, metadata.getFunctionManager(), metadata.getTypeManager(), TEST_SESSION, true);
         }
 
         private Object generateRandomValue(Type type)

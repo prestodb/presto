@@ -20,8 +20,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.function.FunctionKind;
-import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
@@ -56,6 +55,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.block.BlockAssertions.createSlicesBlock;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
@@ -105,7 +105,7 @@ public class BenchmarkMapSubscript
         @Setup
         public void setup()
         {
-            MetadataManager metadata = MetadataManager.createTestMetadataManager();
+            MetadataManager metadata = createTestMetadataManager();
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
 
             List<String> keys;
@@ -146,15 +146,10 @@ public class BenchmarkMapSubscript
 
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
 
-            Signature signature = new Signature(
-                    "$operator$" + SUBSCRIPT.name(),
-                    FunctionKind.SCALAR,
-                    mapType.getValueType().getTypeSignature(),
-                    mapType.getTypeSignature(),
-                    mapType.getKeyType().getTypeSignature());
+            FunctionHandle functionHandle = metadata.getFunctionManager().resolveOperator(SUBSCRIPT, ImmutableList.of(mapType, mapType.getKeyType()));
             for (int i = 0; i < mapSize; i++) {
                 projectionsBuilder.add(new CallExpression(
-                        signature,
+                        functionHandle,
                         mapType.getValueType(),
                         ImmutableList.of(field(0, mapType), constant(utf8Slice(keys.get(i)), createUnboundedVarcharType()))));
             }

@@ -14,14 +14,14 @@
 
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.FunctionKind;
-import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
@@ -29,6 +29,7 @@ import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -54,6 +55,7 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -62,6 +64,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
@@ -108,6 +111,7 @@ public class BenchmarkTransformValue
         public void setup()
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
+            FunctionManager functionManager = metadata.getFunctionManager();
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Type elementType;
@@ -130,19 +134,16 @@ public class BenchmarkTransformValue
             }
             MapType mapType = mapType(elementType, elementType);
             MapType returnType = mapType(elementType, BOOLEAN);
-            Signature signature = new Signature(
-                    name,
-                    FunctionKind.SCALAR,
-                    returnType.getTypeSignature(),
-                    mapType.getTypeSignature(),
-                    parseTypeSignature(format("function(%s, %s, boolean)", type, type)));
-            Signature greaterThan = new Signature(
-                    "$operator$" + GREATER_THAN.name(),
-                    FunctionKind.SCALAR,
-                    BOOLEAN.getTypeSignature(),
-                    elementType.getTypeSignature(),
-                    elementType.getTypeSignature());
-            projectionsBuilder.add(call(signature, returnType, ImmutableList.of(
+            FunctionHandle functionHandle = functionManager.resolveFunction(
+                    TEST_SESSION,
+                    QualifiedName.of(name),
+                    fromTypeSignatures(
+                            mapType.getTypeSignature(),
+                            parseTypeSignature(format("function(%s, %s, boolean)", type, type))));
+            FunctionHandle greaterThan = metadata.getFunctionManager().resolveOperator(
+                    GREATER_THAN,
+                    ImmutableList.of(elementType, elementType));
+            projectionsBuilder.add(call(functionHandle, returnType, ImmutableList.of(
                     field(0, mapType),
                     new LambdaDefinitionExpression(
                             ImmutableList.of(elementType, elementType),

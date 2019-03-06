@@ -63,7 +63,6 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.createExpression;
-import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
@@ -189,7 +188,7 @@ public class PageProcessorBenchmark
         Map<Integer, Type> types = builder.build();
 
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, METADATA, SQL_PARSER, types, inputReferenceExpression, emptyList(), WarningCollector.NOOP);
-        return SqlToRowExpressionTranslator.translate(inputReferenceExpression, SCALAR, expressionTypes, METADATA.getFunctionManager(), METADATA.getTypeManager(), TEST_SESSION, true);
+        return SqlToRowExpressionTranslator.translate(inputReferenceExpression, expressionTypes, METADATA.getFunctionManager(), METADATA.getTypeManager(), TEST_SESSION, true);
     }
 
     private static Page createPage(List<? extends Type> types, boolean dictionary)

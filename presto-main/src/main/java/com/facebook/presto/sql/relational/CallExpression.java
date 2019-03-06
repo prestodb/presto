@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.relational;
 
-import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -26,24 +26,24 @@ import static java.util.Objects.requireNonNull;
 public final class CallExpression
         extends RowExpression
 {
-    private final Signature signature;
+    private final FunctionHandle functionHandle;
     private final Type returnType;
     private final List<RowExpression> arguments;
 
-    public CallExpression(Signature signature, Type returnType, List<RowExpression> arguments)
+    public CallExpression(FunctionHandle functionHandle, Type returnType, List<RowExpression> arguments)
     {
-        requireNonNull(signature, "signature is null");
+        requireNonNull(functionHandle, "functionHandle is null");
         requireNonNull(arguments, "arguments is null");
         requireNonNull(returnType, "returnType is null");
 
-        this.signature = signature;
+        this.functionHandle = functionHandle;
         this.returnType = returnType;
         this.arguments = ImmutableList.copyOf(arguments);
     }
 
-    public Signature getSignature()
+    public FunctionHandle getFunctionHandle()
     {
-        return signature;
+        return functionHandle;
     }
 
     @Override
@@ -60,13 +60,13 @@ public final class CallExpression
     @Override
     public String toString()
     {
-        return signature.getName() + "(" + Joiner.on(", ").join(arguments) + ")";
+        return functionHandle.getSignature().getName() + "(" + Joiner.on(", ").join(arguments) + ")";
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(signature, arguments);
+        return Objects.hash(functionHandle, arguments);
     }
 
     @Override
@@ -79,7 +79,7 @@ public final class CallExpression
             return false;
         }
         CallExpression other = (CallExpression) obj;
-        return Objects.equals(this.signature, other.signature) && Objects.equals(this.arguments, other.arguments);
+        return Objects.equals(this.functionHandle, other.functionHandle) && Objects.equals(this.arguments, other.arguments);
     }
 
     @Override

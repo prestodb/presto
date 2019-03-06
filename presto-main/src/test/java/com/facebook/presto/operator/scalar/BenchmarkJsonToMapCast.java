@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.FunctionKind;
-import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
@@ -52,6 +52,8 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.metadata.CastType.CAST;
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -95,7 +97,9 @@ public class BenchmarkJsonToMapCast
         @Setup
         public void setup()
         {
-            Signature signature = new Signature("$operator$CAST", FunctionKind.SCALAR, mapType(VARCHAR, BIGINT).getTypeSignature(), JSON.getTypeSignature());
+            MetadataManager metadata = createTestMetadataManager();
+            FunctionManager functionManager = metadata.getFunctionManager();
+            FunctionHandle functionHandle = functionManager.lookupCast(CAST, JSON.getTypeSignature(), mapType(VARCHAR, BIGINT).getTypeSignature());
 
             Type valueType;
             switch (valueTypeName) {
@@ -113,9 +117,8 @@ public class BenchmarkJsonToMapCast
             }
 
             List<RowExpression> projections = ImmutableList.of(
-                    new CallExpression(signature, mapType(VARCHAR, valueType), ImmutableList.of(field(0, JSON))));
+                    new CallExpression(functionHandle, mapType(VARCHAR, valueType), ImmutableList.of(field(0, JSON))));
 
-            MetadataManager metadata = MetadataManager.createTestMetadataManager();
             pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
                     .compilePageProcessor(Optional.empty(), projections)
                     .get();
