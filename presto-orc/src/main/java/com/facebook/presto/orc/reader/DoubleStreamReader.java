@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
@@ -68,6 +69,7 @@ public class DoubleStreamReader
 
     public DoubleStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
     {
+        super(OptionalInt.of(SIZE_OF_DOUBLE));
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
@@ -188,12 +190,6 @@ public class DoubleStreamReader
             numValues = base + numSurviving;
         }
         compactQualifyingSet(surviving, numSurviving);
-    }
-
-    @Override
-    public int getFixedWidth()
-    {
-        return SIZE_OF_DOUBLE;
     }
 
     @Override

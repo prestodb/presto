@@ -149,12 +149,6 @@ public class LongStreamReader
     }
 
     @Override
-    public int getFixedWidth()
-    {
-        return SIZE_OF_LONG;
-    }
-
-    @Override
     public void erase(int end)
     {
         if (currentReader == null) {
@@ -206,6 +200,11 @@ public class LongStreamReader
             throws IOException
     {
         currentReader.scan();
+    }
+
+    public int getAverageResultSize()
+    {
+        return SIZE_OF_LONG;
     }
 
     @Override

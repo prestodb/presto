@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
@@ -67,6 +68,7 @@ public class FloatStreamReader
 
     public FloatStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
     {
+        super(OptionalInt.of(SIZE_OF_INT));
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
@@ -301,12 +303,6 @@ public class FloatStreamReader
         if (includeNulls && valueIsNull == null) {
             valueIsNull = new boolean[values.length];
         }
-    }
-
-    @Override
-    public int getFixedWidth()
-    {
-        return REAL.getFixedSize();
     }
 
     @Override

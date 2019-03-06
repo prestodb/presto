@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
@@ -82,6 +83,7 @@ public class StructStreamReader
 
     StructStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
     {
+        super(OptionalInt.empty());
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.structFields = streamDescriptor.getNestedStreams().stream()
                 .collect(toImmutableMap(stream -> stream.getFieldName().toLowerCase(Locale.ENGLISH), stream -> createStreamReader(stream, hiveStorageTimeZone, systemMemoryContext)));
