@@ -316,7 +316,7 @@ public class TimestampStreamReader
                     break;
                 }
                 nextActive = inputPositions[activeIdx];
-                if (outputChannel != -1 && numResults * SIZE_OF_LONG > resultSizeBudget) {
+                if (outputChannelSet && numResults * SIZE_OF_LONG > resultSizeBudget) {
                     truncationRow = inputQualifyingSet.truncateAndReturnTruncationRow(activeIdx);
                 }
                 continue;
@@ -337,7 +337,7 @@ public class TimestampStreamReader
 
     private void addResult(long value)
     {
-        if (outputChannel == -1) {
+        if (!outputChannelSet) {
             return;
         }
 
@@ -395,7 +395,7 @@ public class TimestampStreamReader
     @Override
     public void compactValues(int[] surviving, int base, int numSurviving)
     {
-        if (outputChannel != -1) {
+        if (outputChannelSet) {
             StreamReaders.compactArrays(surviving, base, numSurviving, values, valueIsNull);
             numValues = base + numSurviving;
         }

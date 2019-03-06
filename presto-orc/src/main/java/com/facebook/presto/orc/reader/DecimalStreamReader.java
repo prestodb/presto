@@ -347,7 +347,7 @@ public class DecimalStreamReader
                     break;
                 }
                 nextActive = inputPositions[activeIdx];
-                if (outputChannel != -1 && numResults * numLongsPerValue > resultSizeBudget) {
+                if (outputChannelSet && numResults * numLongsPerValue > resultSizeBudget) {
                     truncationRow = inputQualifyingSet.truncateAndReturnTruncationRow(activeIdx);
                 }
                 continue;
@@ -368,7 +368,7 @@ public class DecimalStreamReader
 
     private void addResult(long value)
     {
-        if (outputChannel == -1) {
+        if (!outputChannelSet) {
             return;
         }
 
@@ -383,7 +383,7 @@ public class DecimalStreamReader
 
     private void addResult(Slice value)
     {
-        if (outputChannel == -1) {
+        if (!outputChannelSet) {
             return;
         }
 
@@ -473,7 +473,7 @@ public class DecimalStreamReader
     @Override
     public void compactValues(int[] surviving, int base, int numSurviving)
     {
-        if (outputChannel != -1) {
+        if (outputChannelSet) {
             if (shortDecimal) {
                 StreamReaders.compactArrays(surviving, base, numSurviving, values, valueIsNull);
             }
