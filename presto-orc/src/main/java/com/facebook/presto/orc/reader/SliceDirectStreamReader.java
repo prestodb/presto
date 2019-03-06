@@ -282,7 +282,7 @@ public class SliceDirectStreamReader
     @Override
     public void compactValues(int[] positions, int base, int numPositions)
     {
-        if (outputChannel != -1) {
+        if (outputChannelSet) {
             int toOffset = resultOffsets[base];
             for (int i = 0; i < numPositions; i++) {
                 int fromPosition = base + positions[i];
@@ -333,7 +333,7 @@ public class SliceDirectStreamReader
             openRowGroup();
         }
         beginScan(presentStream, lengthStream);
-        if (resultOffsets == null && outputChannel != -1) {
+        if (resultOffsets == null && outputChannelSet) {
             resultOffsets = new int[10_001];
             bytes = new byte[100_000];
             numValues = 0;
@@ -433,7 +433,7 @@ public class SliceDirectStreamReader
         if (toSkip > 0) {
             dataStream.skip(toSkip);
         }
-        if (outputChannel != -1) {
+        if (outputChannelSet) {
             totalRows += numResults;
             totalBytes += resultOffsets[numValues + numResults] - resultOffsets[numValues];
         }
@@ -443,7 +443,7 @@ public class SliceDirectStreamReader
     @Override
     protected void addNullResult()
     {
-        if (outputChannel == -1) {
+        if (!outputChannelSet) {
             return;
         }
 
@@ -457,7 +457,7 @@ public class SliceDirectStreamReader
 
     private void addResult(byte[] buffer, int pos, int length)
     {
-        if (outputChannel == -1) {
+        if (!outputChannelSet) {
             return;
         }
 
@@ -475,7 +475,7 @@ public class SliceDirectStreamReader
     private void addResultFromStream(int length)
             throws IOException
     {
-        if (outputChannel == -1) {
+        if (!outputChannelSet) {
             return;
         }
 

@@ -470,7 +470,7 @@ public class SliceDictionaryStreamReader
         if (filter != null) {
             outputQualifyingSet.setEnd(inputQualifyingSet.getEnd());
         }
-        if (outputChannel != -1) {
+        if (outputChannelSet) {
             if (numValues > 0) {
                 averageResultSize = SIZE_OF_DOUBLE + toIntExact(dictionaryBlock.getSizeInBytes() / numValues);
             }
@@ -643,7 +643,7 @@ public class SliceDictionaryStreamReader
     @Override
     public void compactValues(int[] surviving, int base, int numSurviving)
     {
-        if (outputChannel != -1) {
+        if (outputChannelSet) {
             StreamReaders.compactArrays(surviving, base, numSurviving, values, valueIsNull);
             numValues = base + numSurviving;
         }
@@ -652,7 +652,7 @@ public class SliceDictionaryStreamReader
 
     private void ensureValuesCapacity()
     {
-        if (outputChannel == -1) {
+        if (!outputChannelSet) {
             return;
         }
         int capacity = numValues + inputQualifyingSet.getPositionCount();
