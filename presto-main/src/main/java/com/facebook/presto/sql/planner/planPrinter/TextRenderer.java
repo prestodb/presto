@@ -100,7 +100,7 @@ public class TextRenderer
     {
         StringBuilder output = new StringBuilder();
         if (!node.getStats().isPresent() || !(plan.getTotalCpuTime().isPresent() && plan.getTotalScheduledTime().isPresent())) {
-            return "Cost: ?, Output: ? rows (?B)\n";
+            return "";
         }
 
         PlanNodeStats nodeStats = node.getStats().get();
