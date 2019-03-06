@@ -15,7 +15,6 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.SpecialFormExpression;
 import com.google.common.base.Preconditions;
@@ -83,7 +82,7 @@ public class SwitchCodeGenerator
 
         List<RowExpression> whenClauses;
         RowExpression last = arguments.get(arguments.size() - 1);
-        if (last instanceof CallExpression && ((CallExpression) last).getSignature().getName().equals("WHEN")) {
+        if (last instanceof SpecialFormExpression && ((SpecialFormExpression) last).getForm().equals(WHEN)) {
             whenClauses = arguments.subList(1, arguments.size());
             elseValue = new BytecodeBlock()
                     .append(generatorContext.wasNull().set(constantTrue()))
