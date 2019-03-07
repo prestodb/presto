@@ -33,7 +33,6 @@ import io.airlift.bytecode.Variable;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
 import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.generateLambda;
@@ -94,13 +93,7 @@ public class RowExpressionCompiler
                     cachedInstanceBinder,
                     functionManager);
 
-            // special-cased in function manager
-            if (call.getFunctionHandle().getSignature().getName().equals(CAST)) {
-                return (new CastCodeGenerator()).generateExpression(generatorContext, call.getType(), call.getArguments(), context.getOutputBlockVariable());
-            }
-            else {
-                return (new FunctionCallCodeGenerator()).generateCall(call.getFunctionHandle().getSignature(), generatorContext, call.getType(), call.getArguments(), context.getOutputBlockVariable());
-            }
+            return (new FunctionCallCodeGenerator()).generateCall(call.getFunctionHandle().getSignature(), generatorContext, call.getType(), call.getArguments(), context.getOutputBlockVariable());
         }
 
         @Override
