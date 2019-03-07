@@ -61,12 +61,12 @@ import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public class TupleDomainOrcPredicate<C>
         implements OrcPredicate
@@ -357,8 +357,16 @@ public class TupleDomainOrcPredicate<C>
                     filter = createRangeFilter(type, ranges.get(0), nullAllowed);
                 }
                 else {
-                    List<Filter> rangeFilters = ranges.stream().map(r -> createRangeFilter(type, r, false)).collect(toList());
-                    filter = Filters.createMultiRange(rangeFilters, nullAllowed);
+                    List<Filter> rangeFilters = ranges.stream()
+                            .map(r -> createRangeFilter(type, r, false))
+                            .filter(f -> f != Filters.alwaysFalse())
+                            .collect(toImmutableList());
+                    if (rangeFilters.isEmpty()) {
+                        filter = nullAllowed ? Filters.isNull() : Filters.alwaysFalse();
+                    }
+                    else {
+                        filter = Filters.createMultiRange(rangeFilters, nullAllowed);
+                    }
                 }
                 if (filter == null) {
                     // The domain cannot be converted to a filter. Pushdown fails.
@@ -444,11 +452,14 @@ public class TupleDomainOrcPredicate<C>
         Marker high = range.getHigh();
         long lowerLong = low.isLowerUnbounded() ? Long.MIN_VALUE : (long) low.getValue();
         long upperLong = high.isUpperUnbounded() ? Long.MAX_VALUE : (long) high.getValue();
-        if (high.getBound() == Marker.Bound.BELOW) {
+        if (!high.isUpperUnbounded() && high.getBound() == Marker.Bound.BELOW) {
             --upperLong;
         }
-        if (low.getBound() == Marker.Bound.ABOVE) {
+        if (!low.isLowerUnbounded() && low.getBound() == Marker.Bound.ABOVE) {
             ++lowerLong;
+        }
+        if (upperLong < lowerLong) {
+            return Filters.alwaysFalse();
         }
         return new Filters.BigintRange(lowerLong, upperLong, nullAllowed);
     }
