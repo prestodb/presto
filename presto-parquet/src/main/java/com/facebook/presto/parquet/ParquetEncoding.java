@@ -46,6 +46,7 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BOOLEAN;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 
 public enum ParquetEncoding
 {
@@ -145,7 +146,7 @@ public enum ParquetEncoding
         @Override
         public ValuesReader getValuesReader(ColumnDescriptor descriptor, ValuesType valuesType)
         {
-            checkArgument(descriptor.getPrimitiveType().getPrimitiveTypeName() == INT32, "Encoding DELTA_BINARY_PACKED is only supported for type INT32");
+            checkArgument(descriptor.getPrimitiveType().getPrimitiveTypeName() == INT32 || descriptor.getType() == INT64, "Encoding DELTA_BINARY_PACKED is only supported for type INT32");
             return new DeltaBinaryPackingValuesReader();
         }
     },
