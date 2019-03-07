@@ -2400,6 +2400,11 @@ public class TestHiveIntegrationSmokeTest
                             "SELECT orderkey key3, comment value3 FROM orders",
                     15000);
             assertUpdate(
+                    "CREATE TABLE test_grouped_join4\n" +
+                            "WITH (bucket_count = 13, bucketed_by = ARRAY['key4_bucket']) AS\n" +
+                            "SELECT orderkey key4_bucket, orderkey key4_non_bucket, comment value4 FROM orders",
+                    15000);
+            assertUpdate(
                     "CREATE TABLE test_grouped_joinN AS\n" +
                             "SELECT orderkey keyN, comment valueN FROM orders",
                     15000);
@@ -2453,6 +2458,15 @@ public class TestHiveIntegrationSmokeTest
                     .setSystemProperty(COLOCATED_JOIN, "true")
                     .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
+                    .build();
+
+            // Broadcast JOIN, 1 group per worker at a time, dynamic schedule
+            Session broadcastOneGroupAtATimeDynamic = Session.builder(getSession())
+                    .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
+                    .setSystemProperty(COLOCATED_JOIN, "true")
+                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
+                    .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
+                    .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
                     .build();
 
             //
@@ -2689,6 +2703,16 @@ public class TestHiveIntegrationSmokeTest
                             "GROUP BY keyD";
             @Language("SQL") String expectedGroupOnJoinResult = "SELECT orderkey, 2, 2 from orders";
 
+            @Language("SQL") String groupOnUngroupedJoinResult =
+                    "SELECT key4_bucket, count(value4), count(valueN)\n" +
+                            "FROM\n" +
+                            "  test_grouped_join4\n" +
+                            "JOIN\n" +
+                            "  test_grouped_joinN\n" +
+                            "ON key4_non_bucket=keyN\n" +
+                            "GROUP BY key4_bucket";
+            @Language("SQL") String expectedGroupOnUngroupedJoinResult = "SELECT orderkey, count(*), count(*) from orders group by orderkey";
+
             // Eligible GROUP BYs run in the same fragment regardless of colocated_join flag
             assertQuery(colocatedAllGroupsAtOnce, joinGroupedWithGrouped, expectedJoinGroupedWithGrouped, assertRemoteExchangesCount(1));
             assertQuery(colocatedOneGroupAtATime, joinGroupedWithGrouped, expectedJoinGroupedWithGrouped, assertRemoteExchangesCount(1));
@@ -2701,9 +2725,12 @@ public class TestHiveIntegrationSmokeTest
             assertQuery(colocatedOneGroupAtATimeDynamic, groupOnJoinResult, expectedGroupOnJoinResult, assertRemoteExchangesCount(2));
 
             assertQuery(broadcastOneGroupAtATime, groupOnJoinResult, expectedGroupOnJoinResult, assertRemoteExchangesCount(2));
+            assertQuery(broadcastOneGroupAtATime, groupOnUngroupedJoinResult, expectedGroupOnUngroupedJoinResult, assertRemoteExchangesCount(2));
+            assertQuery(broadcastOneGroupAtATimeDynamic, groupOnUngroupedJoinResult, expectedGroupOnUngroupedJoinResult, assertRemoteExchangesCount(2));
 
             // cannot be executed in a grouped manner but should still produce correct result
             assertQuery(colocatedOneGroupAtATime, joinUngroupedWithGrouped, expectedJoinUngroupedWithGrouped, assertRemoteExchangesCount(2));
+            assertQuery(colocatedOneGroupAtATime, groupOnUngroupedJoinResult, expectedGroupOnUngroupedJoinResult, assertRemoteExchangesCount(4));
 
             //
             // Outer JOIN (that involves LookupOuterOperator)
@@ -2856,6 +2883,7 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate("DROP TABLE IF EXISTS test_grouped_join1");
             assertUpdate("DROP TABLE IF EXISTS test_grouped_join2");
             assertUpdate("DROP TABLE IF EXISTS test_grouped_join3");
+            assertUpdate("DROP TABLE IF EXISTS test_grouped_join4");
             assertUpdate("DROP TABLE IF EXISTS test_grouped_joinN");
             assertUpdate("DROP TABLE IF EXISTS test_grouped_joinDual");
             assertUpdate("DROP TABLE IF EXISTS test_grouped_window");
