@@ -19,7 +19,6 @@ import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.facebook.presto.sql.relational.SpecialFormExpression;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 
@@ -104,17 +103,6 @@ public final class PageFieldsToInputParametersRewriter
         public RowExpression visitVariableReference(VariableReferenceExpression reference, Void context)
         {
             return reference;
-        }
-
-        @Override
-        public RowExpression visitSpecialForm(SpecialFormExpression specialForm, Void context)
-        {
-            return new SpecialFormExpression(
-                    specialForm.getForm(),
-                    specialForm.getType(),
-                    specialForm.getArguments().stream()
-                            .map(expression -> expression.accept(this, context))
-                            .collect(toImmutableList()));
         }
     }
 

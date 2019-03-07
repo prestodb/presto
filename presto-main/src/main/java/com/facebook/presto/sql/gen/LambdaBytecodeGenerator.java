@@ -23,7 +23,6 @@ import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.facebook.presto.sql.relational.SpecialFormExpression;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
@@ -351,12 +350,6 @@ public class LambdaBytecodeGenerator
                 return new BytecodeBlock()
                         .append(parameter)
                         .append(unboxPrimitiveIfNecessary(context, type));
-            }
-
-            @Override
-            public BytecodeNode visitSpecialForm(SpecialFormExpression specialForm, Scope context)
-            {
-                throw new UnsupportedOperationException();
             }
         };
     }

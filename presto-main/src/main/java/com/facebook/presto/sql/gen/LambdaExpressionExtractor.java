@@ -19,7 +19,6 @@ import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.facebook.presto.sql.relational.SpecialFormExpression;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 
@@ -77,15 +76,6 @@ public class LambdaExpressionExtractor
         @Override
         public Void visitVariableReference(VariableReferenceExpression reference, Context context)
         {
-            return null;
-        }
-
-        @Override
-        public Void visitSpecialForm(SpecialFormExpression specialForm, Context context)
-        {
-            for (RowExpression rowExpression : specialForm.getArguments()) {
-                rowExpression.accept(this, context);
-            }
             return null;
         }
 

@@ -28,7 +28,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.sql.relational.SpecialFormExpression.Form;
 import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
@@ -100,30 +99,25 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
 import static com.facebook.presto.sql.relational.Expressions.field;
-import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static com.facebook.presto.sql.relational.Signatures.arithmeticExpressionSignature;
 import static com.facebook.presto.sql.relational.Signatures.arithmeticNegationSignature;
 import static com.facebook.presto.sql.relational.Signatures.arrayConstructorSignature;
 import static com.facebook.presto.sql.relational.Signatures.betweenSignature;
+import static com.facebook.presto.sql.relational.Signatures.bindSignature;
 import static com.facebook.presto.sql.relational.Signatures.castSignature;
+import static com.facebook.presto.sql.relational.Signatures.coalesceSignature;
 import static com.facebook.presto.sql.relational.Signatures.comparisonExpressionSignature;
+import static com.facebook.presto.sql.relational.Signatures.dereferenceSignature;
 import static com.facebook.presto.sql.relational.Signatures.likeCharSignature;
 import static com.facebook.presto.sql.relational.Signatures.likePatternSignature;
 import static com.facebook.presto.sql.relational.Signatures.likeVarcharSignature;
+import static com.facebook.presto.sql.relational.Signatures.logicalExpressionSignature;
+import static com.facebook.presto.sql.relational.Signatures.nullIfSignature;
+import static com.facebook.presto.sql.relational.Signatures.rowConstructorSignature;
 import static com.facebook.presto.sql.relational.Signatures.subscriptSignature;
+import static com.facebook.presto.sql.relational.Signatures.switchSignature;
 import static com.facebook.presto.sql.relational.Signatures.tryCastSignature;
-import static com.facebook.presto.sql.relational.SpecialFormExpression.Form.AND;
-import static com.facebook.presto.sql.relational.SpecialFormExpression.Form.BIND;
-import static com.facebook.presto.sql.relational.SpecialFormExpression.Form.COALESCE;
-import static com.facebook.presto.sql.relational.SpecialFormExpression.Form.DEREFERENCE;
-import static com.facebook.presto.sql.relational.SpecialFormExpression.Form.IF;
-import static com.facebook.presto.sql.relational.SpecialFormExpression.Form.IN;
-import static com.facebook.presto.sql.relational.SpecialFormExpression.Form.IS_NULL;
-import static com.facebook.presto.sql.relational.SpecialFormExpression.Form.NULL_IF;
-import static com.facebook.presto.sql.relational.SpecialFormExpression.Form.OR;
-import static com.facebook.presto.sql.relational.SpecialFormExpression.Form.ROW_CONSTRUCTOR;
-import static com.facebook.presto.sql.relational.SpecialFormExpression.Form.SWITCH;
-import static com.facebook.presto.sql.relational.SpecialFormExpression.Form.WHEN;
+import static com.facebook.presto.sql.relational.Signatures.whenSignature;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
@@ -401,7 +395,10 @@ public final class SqlToRowExpressionTranslator
             RowExpression function = process(node.getFunction(), context);
             argumentsBuilder.add(function);
 
-            return specialForm(BIND, getType(node), argumentsBuilder.build());
+            return call(
+                    bindSignature(getType(node), valueTypesBuilder.build(), function.getType()),
+                    getType(node),
+                    argumentsBuilder.build());
         }
 
         @Override
@@ -438,18 +435,11 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
         {
-            Form form;
-            switch (node.getOperator()) {
-                case AND:
-                    form = AND;
-                    break;
-                case OR:
-                    form = OR;
-                    break;
-                default:
-                    throw new IllegalStateException("Unknown logical operator: " + node.getOperator());
-            }
-            return specialForm(form, BOOLEAN, process(node.getLeft(), context), process(node.getRight(), context));
+            return call(
+                    logicalExpressionSignature(node.getOperator()),
+                    BOOLEAN,
+                    process(node.getLeft(), context),
+                    process(node.getRight(), context));
         }
 
         @Override
@@ -513,12 +503,6 @@ public final class SqlToRowExpressionTranslator
             {
                 return new VariableReferenceExpression(reference.getName(), targetType);
             }
-
-            @Override
-            public RowExpression visitSpecialForm(SpecialFormExpression specialForm, Void context)
-            {
-                return specialForm(specialForm.getForm(), targetType, specialForm.getArguments());
-            }
         }
 
         @Override
@@ -528,7 +512,8 @@ public final class SqlToRowExpressionTranslator
                     .map(value -> process(value, context))
                     .collect(toImmutableList());
 
-            return specialForm(COALESCE, getType(node), arguments);
+            List<Type> argumentTypes = arguments.stream().map(RowExpression::getType).collect(toImmutableList());
+            return call(coalesceSignature(getType(node), argumentTypes), getType(node), arguments);
         }
 
         @Override
@@ -539,8 +524,7 @@ public final class SqlToRowExpressionTranslator
             arguments.add(process(node.getOperand(), context));
 
             for (WhenClause clause : node.getWhenClauses()) {
-                arguments.add(specialForm(
-                        WHEN,
+                arguments.add(call(whenSignature(getType(clause)),
                         getType(clause),
                         process(clause.getOperand(), context),
                         process(clause.getResult(), context)));
@@ -552,7 +536,7 @@ public final class SqlToRowExpressionTranslator
                     .map((value) -> process(value, context))
                     .orElse(constantNull(returnType)));
 
-            return specialForm(SWITCH, returnType, arguments.build());
+            return call(switchSignature(returnType), returnType, arguments.build());
         }
 
         @Override
@@ -583,8 +567,8 @@ public final class SqlToRowExpressionTranslator
                     .orElse(constantNull(getType(node)));
 
             for (WhenClause clause : Lists.reverse(node.getWhenClauses())) {
-                expression = specialForm(
-                        IF,
+                expression = call(
+                        Signatures.ifSignature(getType(node)),
                         getType(node),
                         process(clause.getOperand(), context),
                         process(clause.getResult(), context),
@@ -618,7 +602,7 @@ public final class SqlToRowExpressionTranslator
 
             checkState(index >= 0, "could not find field name: %s", node.getField());
             Type returnType = getType(node);
-            return specialForm(DEREFERENCE, returnType, process(node.getBase(), context), constant(index, INTEGER));
+            return call(dereferenceSignature(returnType, rowType), returnType, process(node.getBase(), context), constant(index, INTEGER));
         }
 
         @Override
@@ -636,7 +620,7 @@ public final class SqlToRowExpressionTranslator
                 arguments.add(constantNull(getType(node)));
             }
 
-            return specialForm(IF, getType(node), arguments.build());
+            return call(Signatures.ifSignature(getType(node)), getType(node), arguments.build());
         }
 
         @Override
@@ -655,7 +639,7 @@ public final class SqlToRowExpressionTranslator
                 arguments.add(process(value, context));
             }
 
-            return specialForm(IN, BOOLEAN, arguments.build());
+            return call(Signatures.inSignature(), BOOLEAN, arguments.build());
         }
 
         @Override
@@ -666,7 +650,7 @@ public final class SqlToRowExpressionTranslator
             return call(
                     Signatures.notSignature(),
                     BOOLEAN,
-                    specialForm(IS_NULL, BOOLEAN, ImmutableList.of(expression)));
+                    call(Signatures.isNullSignature(expression.getType()), BOOLEAN, ImmutableList.of(expression)));
         }
 
         @Override
@@ -674,7 +658,7 @@ public final class SqlToRowExpressionTranslator
         {
             RowExpression expression = process(node.getValue(), context);
 
-            return specialForm(IS_NULL, BOOLEAN, expression);
+            return call(Signatures.isNullSignature(expression.getType()), BOOLEAN, expression);
         }
 
         @Override
@@ -689,7 +673,11 @@ public final class SqlToRowExpressionTranslator
             RowExpression first = process(node.getFirst(), context);
             RowExpression second = process(node.getSecond(), context);
 
-            return specialForm(NULL_IF, getType(node), first, second);
+            return call(
+                    nullIfSignature(getType(node), first.getType(), second.getType()),
+                    getType(node),
+                    first,
+                    second);
         }
 
         @Override
@@ -763,7 +751,10 @@ public final class SqlToRowExpressionTranslator
                     .map(value -> process(value, context))
                     .collect(toImmutableList());
             Type returnType = getType(node);
-            return specialForm(ROW_CONSTRUCTOR, returnType, arguments);
+            List<Type> argumentTypes = node.getItems().stream()
+                    .map(this::getType)
+                    .collect(toImmutableList());
+            return call(rowConstructorSignature(returnType, argumentTypes), returnType, arguments);
         }
     }
 }
