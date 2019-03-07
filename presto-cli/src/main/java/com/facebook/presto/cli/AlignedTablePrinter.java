@@ -146,7 +146,7 @@ public class AlignedTablePrinter
         for (List<?> row : rows) {
             for (int i = 0; i < row.size(); i++) {
                 String s = formatValue(row.get(i));
-                maxWidth[i] = max(maxWidth[i], maxLineLength(s));
+                maxWidth[i] = max(max(maxWidth[i], maxLineLength(s)), 20);
             }
         }
 
@@ -155,20 +155,20 @@ public class AlignedTablePrinter
 
             for (int i = 0; i < columns; i++) {
                 if (i > 0) {
-                    writer.append('|');
+                    System.out.print('|');
                 }
                 String name = fieldNames.get(i);
-                writer.append(center(name, maxWidth[i], 1));
+                System.out.print(center(name, maxWidth[i], 1));
             }
-            writer.append('\n');
+            System.out.print('\n');
 
             for (int i = 0; i < columns; i++) {
                 if (i > 0) {
-                    writer.append('+');
+                    System.out.print('+');
                 }
-                writer.append(repeat("-", maxWidth[i] + 2));
+                System.out.print(repeat("-", maxWidth[i] + 2));
             }
-            writer.append('\n');
+            System.out.print('\n');
         }
 
         for (List<?> row : rows) {
@@ -184,30 +184,36 @@ public class AlignedTablePrinter
             for (int line = 0; line < maxLines; line++) {
                 for (int column = 0; column < columns; column++) {
                     if (column > 0) {
-                        writer.append('|');
+                        System.out.print('|');
                     }
                     List<String> lines = columnLines.get(column);
                     String s = (line < lines.size()) ? lines.get(line) : "";
                     boolean numeric = row.get(column) instanceof Number;
-                    String out = align(s, maxWidth[column], 1, numeric);
+                    String out;
+                    if (numeric) {
+                        out = align(s, 15, 1, numeric);
+                    }
+                    else {
+                        out = align(s, maxWidth[column], 1, numeric);
+                    }
                     if ((!complete || (rowCount > 1)) && ((line + 1) < lines.size())) {
                         out = out.substring(0, out.length() - 1) + "+";
                     }
                     if (column == columns - 1) {
-                        writer.append("\t");
-                        if (total > 0) {
-                            for (int i = 0; i < 100 * cur / total; i++) {
-                                writer.append("▇");
-                            }
+                        System.out.print(" ");
+                        if (total <= 0) {
+                            total = 1;
+                        }
+                        for (int i = 0; i < 100 * cur / total; i++) {
+                            System.out.print("▇");
                         }
                     }
-                    writer.append(out);
+                    System.out.print(out);
                 }
-                writer.append('\n');
+                System.out.print('\n');
             }
         }
-
-        writer.flush();
+        // writer.flush();
     }
 
     static String formatValue(Object o)
