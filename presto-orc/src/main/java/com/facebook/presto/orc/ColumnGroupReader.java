@@ -222,11 +222,13 @@ public class ColumnGroupReader
         int[] channels = function.getInputChannels();
         for (int channel : channels) {
             int idx = findChannelIdx(channel);
-            if (idx >= firstNonFilter) {
+            if (idx > firstNonFilter) {
                 // Move this to position firstNonFilter.
                 StreamReader temp = sortedStreamReaders[idx];
                 System.arraycopy(sortedStreamReaders, firstNonFilter, sortedStreamReaders, firstNonFilter + 1, idx - firstNonFilter);
                 sortedStreamReaders[firstNonFilter] = temp;
+            }
+            if (idx >= firstNonFilter) {
                 idx = firstNonFilter++;
             }
             functionIdx = Math.max(functionIdx, idx);
@@ -246,12 +248,13 @@ public class ColumnGroupReader
 
     public void maybeReorderFilters()
     {
-        double time = 0;
-        boolean reorder = false;
-        boolean reorderFunctions = false;
         if (!reorderFilters) {
             return;
         }
+
+        double time = 0;
+        boolean reorder = false;
+        boolean reorderFunctions = false;
         for (int i = 0; i < numFilters; i++) {
             Filter filter = sortedStreamReaders[i].getFilter();
             double filterTime = filter.getTimePerDroppedValue();
@@ -430,6 +433,9 @@ public class ColumnGroupReader
                 qualifyingSet.setFirstOfLevel(inputQualifyingSet);
             }
             reader.setInputQualifyingSet(qualifyingSet);
+            if (!hasFilter(streamIdx)) {
+                reader.setOutputQualifyingSet(null);
+            }
             if (reorderFilters && filter != null) {
                 startTime = System.nanoTime();
             }
@@ -460,7 +466,7 @@ public class ColumnGroupReader
         // getBlocks(numRowsInResult, true, false);
     }
 
-    QualifyingSet evaluateFilterFunction(int streamIdx, QualifyingSet qualifyingSet)
+    private QualifyingSet evaluateFilterFunction(int streamIdx, QualifyingSet qualifyingSet)
     {
         boolean isFirstFunction = true;
         for (FilterFunction function : filterFunctionOrder[streamIdx]) {
@@ -566,28 +572,20 @@ public class ColumnGroupReader
         // filter is evaluated. Hence the first filter needs no row
         // number mapping but any non-first filter will use the
         // mapping produced by the previous one.
-        if (filterFunctionOrder[operandIdx] != null &&
-                    filterFunctionOrder[operandIdx][0] == filterFunction) {
-            return false;
+        if (filterFunctionOrder[operandIdx] != null && filterFunctionOrder[operandIdx][0] != filterFunction) {
+            return true;
         }
-        return true;
+        return false;
     }
 
-    private void initMap(int base, int size, int[] map)
-    {
-        for (int i = 0; i < size; i++) {
-            map[i] = i + base;
-        }
-    }
-
-    int[] copyMap(int[][] maps, int channelIdx, int numRows, int[] map)
+    private static int[] copyMap(int[][] maps, int channelIdx, int numRows, int[] map)
     {
         int[] copy = allocRowNumberMap(maps, channelIdx, numRows);
         System.arraycopy(map, 0, copy, 0, numRows);
         return copy;
     }
 
-    int[] allocRowNumberMap(int[][] maps, int mapIdx, int size)
+    private static int[] allocRowNumberMap(int[][] maps, int mapIdx, int size)
     {
         int[] map = maps[mapIdx];
         if (map == null || map.length < size) {
