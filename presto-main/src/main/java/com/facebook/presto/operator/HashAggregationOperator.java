@@ -449,7 +449,7 @@ public class HashAggregationOperator
         long currentNanos = System.nanoTime();
         while (!queue.isEmpty() && aggregationBuilder != null) {
             TimedPage timedPage = queue.peek();
-            if (currentNanos - timedPage.getCreatedNanos() >= 5_000_000_000L) {
+            if (currentNanos - timedPage.getCreatedNanos() >= 60_000_000_000L) {
                 aggregationBuilder.removePage(timedPage.getPage());
                 queue.poll();
             }
@@ -574,7 +574,7 @@ public class HashAggregationOperator
 
     private static final class Timer
     {
-        private static final long INTERVAL_NANOS = 1_000_000_000L;
+        private static final long INTERVAL_NANOS = 5_000_000_000L;
 
         private long lastEmitNanos;
 

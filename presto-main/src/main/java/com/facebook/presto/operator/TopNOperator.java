@@ -190,7 +190,7 @@ public class TopNOperator
 
     private static final class Timer
     {
-        private static final long INTERVAL_NANOS = 1_000_000_000L;
+        private static final long INTERVAL_NANOS = 5_000_000_000L;
 
         private long lastEmitNanos = System.nanoTime();
 
