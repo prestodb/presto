@@ -87,15 +87,6 @@ public class RowExpressionCompiler
         @Override
         public BytecodeNode visitCall(CallExpression call, Context context)
         {
-            BytecodeGenerator generator;
-            // special-cased in function manager
-            if (call.getSignature().getName().equals(CAST)) {
-                generator = new CastCodeGenerator();
-            }
-            else {
-                generator = new FunctionCallCodeGenerator();
-            }
-
             BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
                     RowExpressionCompiler.this,
                     context.getScope(),
@@ -103,7 +94,13 @@ public class RowExpressionCompiler
                     cachedInstanceBinder,
                     functionManager);
 
-            return generator.generateExpression(call.getSignature(), generatorContext, call.getType(), call.getArguments(), context.getOutputBlockVariable());
+            // special-cased in function manager
+            if (call.getSignature().getName().equals(CAST)) {
+                return (new CastCodeGenerator()).generateExpression(generatorContext, call.getType(), call.getArguments(), context.getOutputBlockVariable());
+            }
+            else {
+                return (new FunctionCallCodeGenerator()).generateCall(call.getSignature(), generatorContext, call.getType(), call.getArguments(), context.getOutputBlockVariable());
+            }
         }
 
         @Override
@@ -225,7 +222,7 @@ public class RowExpressionCompiler
         @Override
         public BytecodeNode visitSpecialForm(SpecialFormExpression specialForm, Context context)
         {
-            BytecodeGenerator generator;
+            SpecialFormBytecodeGenerator generator;
             switch (specialForm.getForm()) {
                 // lazy evaluation
                 case IF:
@@ -275,7 +272,7 @@ public class RowExpressionCompiler
                     cachedInstanceBinder,
                     functionManager);
 
-            return generator.generateExpression(null, generatorContext, specialForm.getType(), specialForm.getArguments(), context.getOutputBlockVariable());
+            return generator.generateExpression(generatorContext, specialForm.getType(), specialForm.getArguments(), context.getOutputBlockVariable());
         }
     }
 

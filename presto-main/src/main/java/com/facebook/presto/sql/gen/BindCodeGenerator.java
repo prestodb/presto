@@ -14,7 +14,6 @@
 
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
@@ -30,7 +29,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 public class BindCodeGenerator
-        implements BytecodeGenerator
+        implements SpecialFormBytecodeGenerator
 {
     private final Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap;
     private final Class lambdaInterface;
@@ -42,7 +41,7 @@ public class BindCodeGenerator
     }
 
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
+    public BytecodeNode generateExpression(BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         // Bind expression is used to generate captured lambda.
         // It takes the captured values and the uncaptured lambda, and produces captured lambda as the output.
