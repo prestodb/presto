@@ -33,6 +33,7 @@ import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.LazyBlock;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.EmptySplit;
 import com.facebook.presto.split.EmptySplitPageSource;
@@ -413,6 +414,19 @@ public class ScanFilterAndProjectOperator
             pageSourceMemoryContext.setBytes(pageSource.getSystemMemoryUsage());
 
             if (page != null) {
+                if (!filterAndProjectPushedDown) {
+                    Block[] blocks = new Block[page.getChannelCount()];
+                    for (int i = 0; i < blocks.length; i++) {
+                        if (page.getBlock(i) != null) {
+                            blocks[i] = page.getBlock(i);
+                        }
+                        else {
+                            Block nullValueBlock = pageBuilder.getType(i).createBlockBuilder(null, 1) .appendNull() .build();
+                            blocks[i] = new RunLengthEncodedBlock(nullValueBlock, page.getPositionCount());
+                        }
+                    }
+                    page = new Page(page.getPositionCount(), blocks);
+                }
                 page = recordProcessedInput(page);
 
                 // update operator stats
@@ -454,7 +468,7 @@ public class ScanFilterAndProjectOperator
                     lazyBlock.setBlock(loadedBlock);
                 });
             }
-            else if (block != null) {
+            else{
                 operatorContext.recordProcessedInput(block.getSizeInBytes(), 0L);
                 blocks[i] = block;
             }
