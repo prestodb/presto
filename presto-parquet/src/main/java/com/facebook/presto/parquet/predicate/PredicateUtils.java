@@ -28,6 +28,7 @@ import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
+import org.apache.parquet.column.EncodingStats;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.format.DictionaryPageHeader;
 import org.apache.parquet.format.PageHeader;
@@ -118,7 +119,7 @@ public final class PredicateUtils
         for (ColumnChunkMetaData columnMetaData : blockMetadata.getColumns()) {
             RichColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
             if (descriptor != null) {
-                if (isOnlyDictionaryEncodingPages(columnMetaData.getEncodings()) && isColumnPredicate(descriptor, parquetTupleDomain)) {
+                if (isOnlyDictionaryEncodingPages(columnMetaData) && isColumnPredicate(descriptor, parquetTupleDomain)) {
                     int totalSize = toIntExact(columnMetaData.getTotalSize());
                     byte[] buffer = new byte[totalSize];
                     dataSource.readFully(columnMetaData.getStartingPos(), buffer);
@@ -161,9 +162,16 @@ public final class PredicateUtils
 
     @VisibleForTesting
     @SuppressWarnings("deprecation")
-    public static boolean isOnlyDictionaryEncodingPages(Set<Encoding> encodings)
+    public static boolean isOnlyDictionaryEncodingPages(ColumnChunkMetaData columnMetaData)
     {
-        // TODO: update to use EncodingStats in ColumnChunkMetaData when available
+        // Files written with newer versions of Parquet libraries (e.g. parquet-mr 1.9.0) will have EncodingStats available
+        // Otherwise, fallback to v1 logic
+        EncodingStats stats = columnMetaData.getEncodingStats();
+        if (stats != null) {
+            return stats.hasDictionaryPages() && !stats.hasNonDictionaryEncodedPages();
+        }
+
+        Set<Encoding> encodings = columnMetaData.getEncodings();
         if (encodings.contains(PLAIN_DICTIONARY)) {
             // PLAIN_DICTIONARY was present, which means at least one page was
             // dictionary-encoded and 1.0 encodings are used
@@ -171,10 +179,6 @@ public final class PredicateUtils
             return Sets.difference(encodings, ImmutableSet.of(PLAIN_DICTIONARY, RLE, BIT_PACKED)).isEmpty();
         }
 
-        // if PLAIN_DICTIONARY wasn't present, then either the column is not
-        // dictionary-encoded, or the 2.0 encoding, RLE_DICTIONARY, was used.
-        // for 2.0, this cannot determine whether a page fell back without
-        // page encoding stats
         return false;
     }
 }
