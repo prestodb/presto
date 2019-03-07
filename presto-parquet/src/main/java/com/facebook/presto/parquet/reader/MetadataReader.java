@@ -62,6 +62,7 @@ public final class MetadataReader
 {
     private static final int PARQUET_METADATA_LENGTH = 4;
     private static final byte[] MAGIC = "PAR1".getBytes(US_ASCII);
+    private static final ParquetMetadataConverter PARQUET_METADATA_CONVERTER = new ParquetMetadataConverter();
 
     private MetadataReader() {}
 
@@ -109,7 +110,6 @@ public final class MetadataReader
         MessageType messageType = readParquetSchema(schema);
         List<BlockMetaData> blocks = new ArrayList<>();
         List<RowGroup> rowGroups = fileMetaData.getRow_groups();
-        ParquetMetadataConverter metadataConverter = new ParquetMetadataConverter();
         if (rowGroups != null) {
             for (RowGroup rowGroup : rowGroups) {
                 BlockMetaData blockMetaData = new BlockMetaData();
@@ -135,7 +135,7 @@ public final class MetadataReader
                             columnPath,
                             primitiveType,
                             CompressionCodecName.fromParquet(metaData.codec),
-                            metadataConverter.convertEncodingStats(metaData.encoding_stats),
+                            PARQUET_METADATA_CONVERTER.convertEncodingStats(metaData.encoding_stats),
                             readEncodings(metaData.encodings),
                             readStats(metaData.statistics, primitiveTypeName),
                             metaData.data_page_offset,
