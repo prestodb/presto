@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
@@ -26,13 +25,13 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.function.OperatorType.CAST;
-import static com.facebook.presto.sql.gen.BytecodeGenerator.generateWrite;
+import static com.facebook.presto.sql.gen.SpecialFormBytecodeGenerator.generateWrite;
 
 public class CastCodeGenerator
-        implements BytecodeGenerator
+        implements SpecialFormBytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
+    public BytecodeNode generateExpression(BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         RowExpression argument = arguments.get(0);
 

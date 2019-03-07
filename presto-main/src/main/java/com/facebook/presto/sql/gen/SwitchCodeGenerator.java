@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -33,17 +32,17 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
-import static com.facebook.presto.sql.gen.BytecodeGenerator.generateWrite;
+import static com.facebook.presto.sql.gen.SpecialFormBytecodeGenerator.generateWrite;
 import static com.facebook.presto.sql.relational.SpecialFormExpression.Form.WHEN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 
 public class SwitchCodeGenerator
-        implements BytecodeGenerator
+        implements SpecialFormBytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
+    public BytecodeNode generateExpression(BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         // TODO: compile as
         /*

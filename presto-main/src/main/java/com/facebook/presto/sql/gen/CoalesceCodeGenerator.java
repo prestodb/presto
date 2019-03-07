@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.Lists;
@@ -26,15 +25,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.gen.BytecodeGenerator.generateWrite;
+import static com.facebook.presto.sql.gen.SpecialFormBytecodeGenerator.generateWrite;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 
 public class CoalesceCodeGenerator
-        implements BytecodeGenerator
+        implements SpecialFormBytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
+    public BytecodeNode generateExpression(BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         List<BytecodeNode> operands = new ArrayList<>();
         for (RowExpression expression : arguments) {

@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -28,16 +27,16 @@ import io.airlift.bytecode.instruction.LabelNode;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.gen.BytecodeGenerator.generateWrite;
+import static com.facebook.presto.sql.gen.SpecialFormBytecodeGenerator.generateWrite;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 
 public class DereferenceCodeGenerator
-        implements BytecodeGenerator
+        implements SpecialFormBytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generator, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
+    public BytecodeNode generateExpression(BytecodeGeneratorContext generator, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         checkArgument(arguments.size() == 2);
         CallSiteBinder callSiteBinder = generator.getCallSiteBinder();
