@@ -28,6 +28,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.CompilationException;
 import org.weakref.jmx.Managed;
@@ -37,12 +38,12 @@ import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
@@ -244,7 +245,7 @@ public class ExpressionCompiler
         }
     }
 
-    private void collectConjuncts(RowExpression expression, ArrayList<RowExpression> conjuncts)
+    private void collectConjuncts(RowExpression expression, ImmutableList.Builder<RowExpression> conjuncts)
     {
         if (expression instanceof CallExpression && ((CallExpression) expression).getSignature().getName().equals("AND")) {
             for (RowExpression argument : ((CallExpression) expression).getArguments()) {
@@ -256,7 +257,7 @@ public class ExpressionCompiler
         }
     }
 
-    private void collectInputs(RowExpression expression, HashSet<InputReferenceExpression> inputs)
+    private void collectInputs(RowExpression expression, ImmutableSet.Builder<InputReferenceExpression> inputs)
     {
         if (expression instanceof InputReferenceExpression) {
             inputs.add((InputReferenceExpression) expression);
@@ -277,43 +278,34 @@ public class ExpressionCompiler
     // left to right.
     List<Supplier<PageFilter>> makeReorderableFilters(Optional<RowExpression> filter, Optional<String> classNameSuffix)
     {
-        ArrayList<Supplier<PageFilter>> result = new ArrayList();
         if (!filter.isPresent()) {
-            return result;
+            return ImmutableList.of();
         }
-        ArrayList<RowExpression> conjuncts = new ArrayList();
-        collectConjuncts(filter.get(), conjuncts);
-        if (conjuncts.size() == 1) {
-            result.add(pageFunctionCompiler.compileFilter(filter.get(), classNameSuffix));
+
+        ImmutableList.Builder<RowExpression> conjunctBuilder = ImmutableList.builder();
+        collectConjuncts(filter.get(), conjunctBuilder);
+        List<RowExpression> allConjuncts = conjunctBuilder.build();
+
+        if (allConjuncts.size() == 1) {
+            return ImmutableList.of(pageFunctionCompiler.compileFilter(filter.get(), classNameSuffix));
         }
-        else {
-            CallExpression topAnd = (CallExpression) filter.get();
-            HashMap<HashSet<InputReferenceExpression>, ArrayList<RowExpression>> inputsToConjuncts = new HashMap();
-            for (RowExpression conjunct : conjuncts) {
-                HashSet<InputReferenceExpression> inputs = new HashSet();
-                collectInputs(conjunct, inputs);
-                ArrayList<RowExpression> list = inputsToConjuncts.get(inputs);
-                if (list == null) {
-                    list = new ArrayList();
-                    list.add(conjunct);
-                    inputsToConjuncts.put(inputs, list);
-                }
-                else {
-                    list.add(conjunct);
-                }
+
+        ImmutableList.Builder<Supplier<PageFilter>> result = ImmutableList.builder();
+        CallExpression topAnd = (CallExpression) filter.get();
+        Map<Set<InputReferenceExpression>, List<RowExpression>> inputsToConjuncts = new HashMap();
+        for (RowExpression conjunct : allConjuncts) {
+            ImmutableSet.Builder<InputReferenceExpression> inputs = ImmutableSet.builder();
+            collectInputs(conjunct, inputs);
+            inputsToConjuncts.computeIfAbsent(inputs.build(), k -> new ArrayList<>()).add(conjunct);
+        }
+
+        for (List<RowExpression> conjuncts : inputsToConjuncts.values()) {
+            RowExpression firstConjunct = conjuncts.get(0);
+            for (int i = 1; i < conjuncts.size(); i++) {
+                firstConjunct = new CallExpression(topAnd.getSignature(), topAnd.getType(), ImmutableList.of(firstConjunct, conjuncts.get(i)));
             }
-            for (Map.Entry<HashSet<InputReferenceExpression>, ArrayList<RowExpression>> entry : inputsToConjuncts.entrySet()) {
-                ArrayList<RowExpression> list = entry.getValue();
-                RowExpression conjunct = list.get(0);
-                for (int i = 1; i < list.size(); i++) {
-                    ArrayList<RowExpression> arguments = new ArrayList();
-                    arguments.add(conjunct);
-                    arguments.add(conjuncts.get(i));
-                    conjunct = new CallExpression(topAnd.getSignature(), topAnd.getType(), arguments);
-                }
-                result.add(pageFunctionCompiler.compileFilter(conjunct, classNameSuffix));
-            }
+            result.add(pageFunctionCompiler.compileFilter(firstConjunct, classNameSuffix));
         }
-        return result;
+        return result.build();
     }
 }
