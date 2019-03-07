@@ -138,7 +138,6 @@ public final class SqlToRowExpressionTranslator
 
     public static RowExpression translate(
             Expression expression,
-            FunctionKind functionKind,
             Map<NodeRef<Expression>, Type> types,
             FunctionManager functionManager,
             TypeManager typeManager,
@@ -146,7 +145,6 @@ public final class SqlToRowExpressionTranslator
             boolean optimize)
     {
         Visitor visitor = new Visitor(
-                functionKind,
                 types,
                 typeManager,
                 functionManager,
@@ -166,7 +164,6 @@ public final class SqlToRowExpressionTranslator
     private static class Visitor
             extends AstVisitor<RowExpression, Void>
     {
-        private final FunctionKind functionKind;
         private final Map<NodeRef<Expression>, Type> types;
         private final TypeManager typeManager;
         private final FunctionManager functionManager;
@@ -174,13 +171,11 @@ public final class SqlToRowExpressionTranslator
         private final StandardFunctionResolution standardFunctionResolution;
 
         private Visitor(
-                FunctionKind functionKind,
                 Map<NodeRef<Expression>, Type> types,
                 TypeManager typeManager,
                 FunctionManager functionManager,
                 Session session)
         {
-            this.functionKind = functionKind;
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
             this.typeManager = typeManager;
             this.functionManager = functionManager;
