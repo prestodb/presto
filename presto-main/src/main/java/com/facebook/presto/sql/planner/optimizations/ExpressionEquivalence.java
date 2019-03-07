@@ -28,8 +28,6 @@ import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.facebook.presto.sql.relational.SpecialFormExpression;
-import com.facebook.presto.sql.relational.SpecialFormExpression.Form;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
@@ -49,6 +47,7 @@ import java.util.Set;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
+import static com.facebook.presto.metadata.Signature.internalScalarFunction;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
@@ -58,8 +57,6 @@ import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
-import static com.facebook.presto.sql.relational.SpecialFormExpression.Form.AND;
-import static com.facebook.presto.sql.relational.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.sql.relational.SqlToRowExpressionTranslator.translate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -133,6 +130,31 @@ public class ExpressionEquivalence
 
             String callName = call.getSignature().getName();
 
+            if (callName.equals("AND") || callName.equals("OR")) {
+                // if we have nested calls (of the same type) flatten them
+                List<RowExpression> flattenedArguments = flattenNestedCallArgs(call);
+
+                // only consider distinct arguments
+                Set<RowExpression> distinctArguments = ImmutableSet.copyOf(flattenedArguments);
+                if (distinctArguments.size() == 1) {
+                    return Iterables.getOnlyElement(distinctArguments);
+                }
+
+                // canonicalize the argument order (i.e., sort them)
+                List<RowExpression> sortedArguments = ROW_EXPRESSION_ORDERING.sortedCopy(distinctArguments);
+
+                return new CallExpression(
+                        internalScalarFunction(
+                                callName,
+                                BOOLEAN.getTypeSignature(),
+                                distinctArguments.stream()
+                                        .map(RowExpression::getType)
+                                        .map(Type::getTypeSignature)
+                                        .collect(toImmutableList())),
+                        BOOLEAN,
+                        sortedArguments);
+            }
+
             if (callName.equals(mangleOperatorName(EQUAL)) || callName.equals(mangleOperatorName(NOT_EQUAL)) || callName.equals(mangleOperatorName(IS_DISTINCT_FROM))) {
                 // sort arguments
                 return new CallExpression(
@@ -159,14 +181,14 @@ public class ExpressionEquivalence
             return call;
         }
 
-        public static List<RowExpression> flattenNestedSpecialForms(SpecialFormExpression specialForm)
+        public static List<RowExpression> flattenNestedCallArgs(CallExpression call)
         {
-            Form form = specialForm.getForm();
+            String callName = call.getSignature().getName();
             ImmutableList.Builder<RowExpression> newArguments = ImmutableList.builder();
-            for (RowExpression argument : specialForm.getArguments()) {
-                if (argument instanceof SpecialFormExpression && form.equals(((SpecialFormExpression) argument).getForm())) {
-                    // same special form type, so flatten the args
-                    newArguments.addAll(flattenNestedSpecialForms((SpecialFormExpression) argument));
+            for (RowExpression argument : call.getArguments()) {
+                if (argument instanceof CallExpression && callName.equals(((CallExpression) argument).getSignature().getName())) {
+                    // same call type, so flatten the args
+                    newArguments.addAll(flattenNestedCallArgs((CallExpression) argument));
                 }
                 else {
                     newArguments.add(argument);
@@ -197,35 +219,6 @@ public class ExpressionEquivalence
         public RowExpression visitVariableReference(VariableReferenceExpression reference, Void context)
         {
             return reference;
-        }
-
-        @Override
-        public RowExpression visitSpecialForm(SpecialFormExpression specialForm, Void context)
-        {
-            specialForm = new SpecialFormExpression(
-                    specialForm.getForm(),
-                    specialForm.getType(),
-                    specialForm.getArguments().stream()
-                            .map(expression -> expression.accept(this, context))
-                            .collect(toImmutableList()));
-
-            if (specialForm.getForm() == AND || specialForm.getForm() == OR) {
-                // if we have nested calls (of the same type) flatten them
-                List<RowExpression> flattenedArguments = flattenNestedSpecialForms(specialForm);
-
-                // only consider distinct arguments
-                Set<RowExpression> distinctArguments = ImmutableSet.copyOf(flattenedArguments);
-                if (distinctArguments.size() == 1) {
-                    return Iterables.getOnlyElement(distinctArguments);
-                }
-
-                // canonicalize the argument order (i.e., sort them)
-                List<RowExpression> sortedArguments = ROW_EXPRESSION_ORDERING.sortedCopy(distinctArguments);
-
-                return new SpecialFormExpression(specialForm.getForm(), BOOLEAN, sortedArguments);
-            }
-
-            return specialForm;
         }
     }
 
@@ -323,17 +316,6 @@ public class ExpressionEquivalence
                 return ComparisonChain.start()
                         .compare(leftVariableReference.getName(), rightVariableReference.getName())
                         .compare(leftVariableReference.getType(), rightVariableReference.getType(), Comparator.comparing(Object::toString))
-                        .result();
-            }
-
-            if (left instanceof SpecialFormExpression) {
-                SpecialFormExpression leftSpecialForm = (SpecialFormExpression) left;
-                SpecialFormExpression rightSpecialForm = (SpecialFormExpression) right;
-
-                return ComparisonChain.start()
-                        .compare(leftSpecialForm.getForm(), rightSpecialForm.getForm())
-                        .compare(leftSpecialForm.getType(), rightSpecialForm.getType(), Comparator.comparing(Object::toString))
-                        .compare(leftSpecialForm.getArguments(), rightSpecialForm.getArguments(), argumentComparator)
                         .result();
             }
 

@@ -21,7 +21,6 @@ import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.facebook.presto.sql.relational.SpecialFormExpression;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
@@ -36,7 +35,16 @@ import java.util.Optional;
 import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
 import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.generateLambda;
+import static com.facebook.presto.sql.relational.Signatures.BIND;
 import static com.facebook.presto.sql.relational.Signatures.CAST;
+import static com.facebook.presto.sql.relational.Signatures.COALESCE;
+import static com.facebook.presto.sql.relational.Signatures.DEREFERENCE;
+import static com.facebook.presto.sql.relational.Signatures.IF;
+import static com.facebook.presto.sql.relational.Signatures.IN;
+import static com.facebook.presto.sql.relational.Signatures.IS_NULL;
+import static com.facebook.presto.sql.relational.Signatures.NULL_IF;
+import static com.facebook.presto.sql.relational.Signatures.ROW_CONSTRUCTOR;
+import static com.facebook.presto.sql.relational.Signatures.SWITCH;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
@@ -93,7 +101,48 @@ public class RowExpressionCompiler
                 generator = new CastCodeGenerator();
             }
             else {
-                generator = new FunctionCallCodeGenerator();
+                switch (call.getSignature().getName()) {
+                    // lazy evaluation
+                    case IF:
+                        generator = new IfCodeGenerator();
+                        break;
+                    case NULL_IF:
+                        generator = new NullIfCodeGenerator();
+                        break;
+                    case SWITCH:
+                        // (SWITCH <expr> (WHEN <expr> <expr>) (WHEN <expr> <expr>) <expr>)
+                        generator = new SwitchCodeGenerator();
+                        break;
+                    // functions that take null as input
+                    case IS_NULL:
+                        generator = new IsNullCodeGenerator();
+                        break;
+                    case COALESCE:
+                        generator = new CoalesceCodeGenerator();
+                        break;
+                    // functions that require varargs and/or complex types (e.g., lists)
+                    case IN:
+                        generator = new InCodeGenerator(functionManager);
+                        break;
+                    // optimized implementations (shortcircuiting behavior)
+                    case "AND":
+                        generator = new AndCodeGenerator();
+                        break;
+                    case "OR":
+                        generator = new OrCodeGenerator();
+                        break;
+                    case DEREFERENCE:
+                        generator = new DereferenceCodeGenerator();
+                        break;
+                    case ROW_CONSTRUCTOR:
+                        generator = new RowConstructorCodeGenerator();
+                        break;
+                    case BIND:
+                        generator = new BindCodeGenerator(compiledLambdaMap, context.getLambdaInterface().get());
+                        break;
+                    default:
+                        generator = new FunctionCallCodeGenerator();
+                }
             }
 
             BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
@@ -220,62 +269,6 @@ public class RowExpressionCompiler
                             context.getScope().getVariable("wasNull"),
                             reference.getType(),
                             context.getOutputBlockVariable().get()));
-        }
-
-        @Override
-        public BytecodeNode visitSpecialForm(SpecialFormExpression specialForm, Context context)
-        {
-            BytecodeGenerator generator;
-            switch (specialForm.getForm()) {
-                // lazy evaluation
-                case IF:
-                    generator = new IfCodeGenerator();
-                    break;
-                case NULL_IF:
-                    generator = new NullIfCodeGenerator();
-                    break;
-                case SWITCH:
-                    // (SWITCH <expr> (WHEN <expr> <expr>) (WHEN <expr> <expr>) <expr>)
-                    generator = new SwitchCodeGenerator();
-                    break;
-                // functions that take null as input
-                case IS_NULL:
-                    generator = new IsNullCodeGenerator();
-                    break;
-                case COALESCE:
-                    generator = new CoalesceCodeGenerator();
-                    break;
-                // functions that require varargs and/or complex types (e.g., lists)
-                case IN:
-                    generator = new InCodeGenerator(functionManager);
-                    break;
-                // optimized implementations (shortcircuiting behavior)
-                case AND:
-                    generator = new AndCodeGenerator();
-                    break;
-                case OR:
-                    generator = new OrCodeGenerator();
-                    break;
-                case DEREFERENCE:
-                    generator = new DereferenceCodeGenerator();
-                    break;
-                case ROW_CONSTRUCTOR:
-                    generator = new RowConstructorCodeGenerator();
-                    break;
-                case BIND:
-                    generator = new BindCodeGenerator(compiledLambdaMap, context.getLambdaInterface().get());
-                    break;
-                default:
-                    throw new IllegalStateException("Can not compile special form: " + specialForm.getForm());
-            }
-            BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
-                    RowExpressionCompiler.this,
-                    context.getScope(),
-                    callSiteBinder,
-                    cachedInstanceBinder,
-                    functionManager);
-
-            return generator.generateExpression(null, generatorContext, specialForm.getType(), specialForm.getArguments(), context.getOutputBlockVariable());
         }
     }
 

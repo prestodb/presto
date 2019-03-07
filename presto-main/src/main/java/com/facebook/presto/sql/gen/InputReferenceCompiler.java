@@ -19,7 +19,6 @@ import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.facebook.presto.sql.relational.SpecialFormExpression;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
@@ -94,12 +93,6 @@ class InputReferenceCompiler
 
     @Override
     public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Scope context)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public BytecodeNode visitSpecialForm(SpecialFormExpression specialForm, Scope context)
     {
         throw new UnsupportedOperationException();
     }
