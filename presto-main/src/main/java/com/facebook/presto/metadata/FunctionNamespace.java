@@ -85,9 +85,4 @@ class FunctionNamespace
     {
         return registry.lookupCast(castType, fromType, toType);
     }
-
-    public boolean isRegistered(Signature signature)
-    {
-        return registry.isRegistered(signature);
-    }
 }
