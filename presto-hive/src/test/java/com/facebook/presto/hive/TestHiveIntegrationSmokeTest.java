@@ -75,6 +75,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static com.facebook.presto.hive.HiveQueryRunner.createBucketedSession;
+import static com.facebook.presto.hive.HiveQueryRunner.createMaterializedExchangeSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveSessionProperties.RCFILE_OPTIMIZED_WRITER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.WRITING_STAGING_FILES_ENABLED;
@@ -99,6 +100,7 @@ import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharTyp
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -114,6 +116,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.tpch.TpchTable.CUSTOMER;
+import static io.airlift.tpch.TpchTable.LINE_ITEM;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -134,19 +137,30 @@ public class TestHiveIntegrationSmokeTest
 {
     private final String catalog;
     private final Session bucketedSession;
+    private final Session materializedExchangesSession;
     private final TypeTranslator typeTranslator;
 
     @SuppressWarnings("unused")
     public TestHiveIntegrationSmokeTest()
     {
-        this(() -> createQueryRunner(ORDERS, CUSTOMER), createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))), HIVE_CATALOG, new HiveTypeTranslator());
+        this(() -> createQueryRunner(ORDERS, CUSTOMER, LINE_ITEM),
+                createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
+                createMaterializedExchangeSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
+                HIVE_CATALOG,
+                new HiveTypeTranslator());
     }
 
-    protected TestHiveIntegrationSmokeTest(QueryRunnerSupplier queryRunnerSupplier, Session bucketedSession, String catalog, TypeTranslator typeTranslator)
+    protected TestHiveIntegrationSmokeTest(
+            QueryRunnerSupplier queryRunnerSupplier,
+            Session bucketedSession,
+            Session materializedExchangesSession,
+            String catalog,
+            TypeTranslator typeTranslator)
     {
         super(queryRunnerSupplier);
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.bucketedSession = requireNonNull(bucketedSession, "bucketSession is null");
+        this.materializedExchangesSession = requireNonNull(materializedExchangesSession, "materializedExchangesSession is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
     }
 
@@ -2312,6 +2326,17 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testMismatchedBucketing()
     {
+        testMismatchedBucketing(getSession());
+    }
+
+    @Test
+    public void testMismatchedBucketingMaterializedExchanges()
+    {
+        testMismatchedBucketing(materializedExchangesSession);
+    }
+
+    public void testMismatchedBucketing(Session session)
+    {
         try {
             assertUpdate(
                     "CREATE TABLE test_mismatch_bucketing16\n" +
@@ -2328,11 +2353,11 @@ public class TestHiveIntegrationSmokeTest
                             "SELECT orderkey keyN, comment valueN FROM orders",
                     15000);
 
-            Session withMismatchOptimization = Session.builder(getSession())
+            Session withMismatchOptimization = Session.builder(session)
                     .setSystemProperty(COLOCATED_JOIN, "true")
                     .setCatalogSessionProperty(catalog, "optimize_mismatched_bucket_count", "true")
                     .build();
-            Session withoutMismatchOptimization = Session.builder(getSession())
+            Session withoutMismatchOptimization = Session.builder(session)
                     .setSystemProperty(COLOCATED_JOIN, "true")
                     .setCatalogSessionProperty(catalog, "optimize_mismatched_bucket_count", "false")
                     .build();
@@ -2382,7 +2407,61 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testMaterializedPartitioning()
+    {
+        // Simple smoke tests for materialized partitioning
+        // Comprehensive testing is done by TestHiveMaterializedAggregations, TestHiveMaterializedQueries
+
+        // simple aggregation
+        assertQuery(materializedExchangesSession, "SELECT orderkey, COUNT(*) lines FROM lineitem GROUP BY orderkey", assertRemoteMaterializedExchangesCount(1));
+        // simple distinct
+        assertQuery(materializedExchangesSession, "SELECT distinct orderkey FROM lineitem", assertRemoteMaterializedExchangesCount(1));
+        // more complex aggregation
+        assertQuery(materializedExchangesSession, "SELECT custkey, orderstatus, COUNT(DISTINCT orderkey) FROM orders GROUP BY custkey, orderstatus", assertRemoteMaterializedExchangesCount(2));
+
+        // join
+        assertQuery(materializedExchangesSession, "SELECT * FROM (lineitem JOIN orders ON lineitem.orderkey = orders.orderkey) x", assertRemoteMaterializedExchangesCount(2));
+
+        // semi join
+        assertQuery(
+                materializedExchangesSession,
+                "SELECT linenumber, min(orderkey) " +
+                "FROM lineitem " +
+                "GROUP BY linenumber " +
+                "HAVING min(orderkey) IN (SELECT orderkey FROM orders WHERE orderkey > 1)",
+                assertRemoteMaterializedExchangesCount(2));
+    }
+
+    public static Consumer<Plan> assertRemoteMaterializedExchangesCount(int expectedRemoteExchangesCount)
+    {
+        return plan ->
+        {
+            int actualRemoteExchangesCount = searchFrom(plan.getRoot())
+                    .where(node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope() == REMOTE_MATERIALIZED)
+                    .findAll()
+                    .size();
+            if (actualRemoteExchangesCount != expectedRemoteExchangesCount) {
+                throw new AssertionError(format(
+                        "Expected [%s] materialized exchanges but found [%s] materialized exchanges.",
+                        expectedRemoteExchangesCount,
+                        actualRemoteExchangesCount));
+            }
+        };
+    }
+
+    @Test
     public void testGroupedExecution()
+    {
+        testGroupedExecution(getSession());
+    }
+
+    @Test
+    public void testGroupedExecutionMaterializedExchanges()
+    {
+        testGroupedExecution(materializedExchangesSession);
+    }
+
+    public void testGroupedExecution(Session session)
     {
         try {
             assertUpdate(
@@ -2421,40 +2500,40 @@ public class TestHiveIntegrationSmokeTest
                     10);
 
             // NOT grouped execution; default
-            Session notColocated = Session.builder(getSession())
+            Session notColocated = Session.builder(session)
                     .setSystemProperty(COLOCATED_JOIN, "false")
                     .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "false")
                     .build();
             // Co-located JOIN with all groups at once, fixed schedule
-            Session colocatedAllGroupsAtOnce = Session.builder(getSession())
+            Session colocatedAllGroupsAtOnce = Session.builder(session)
                     .setSystemProperty(COLOCATED_JOIN, "true")
                     .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "0")
                     .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "false")
                     .build();
             // Co-located JOIN, 1 group per worker at a time, fixed schedule
-            Session colocatedOneGroupAtATime = Session.builder(getSession())
+            Session colocatedOneGroupAtATime = Session.builder(session)
                     .setSystemProperty(COLOCATED_JOIN, "true")
                     .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
                     .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "false")
                     .build();
             // Co-located JOIN with all groups at once, dynamic schedule
-            Session colocatedAllGroupsAtOnceDynamic = Session.builder(getSession())
+            Session colocatedAllGroupsAtOnceDynamic = Session.builder(session)
                     .setSystemProperty(COLOCATED_JOIN, "true")
                     .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "0")
                     .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
                     .build();
             // Co-located JOIN, 1 group per worker at a time, dynamic schedule
-            Session colocatedOneGroupAtATimeDynamic = Session.builder(getSession())
+            Session colocatedOneGroupAtATimeDynamic = Session.builder(session)
                     .setSystemProperty(COLOCATED_JOIN, "true")
                     .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
                     .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
                     .build();
             // Broadcast JOIN, 1 group per worker at a time
-            Session broadcastOneGroupAtATime = Session.builder(getSession())
+            Session broadcastOneGroupAtATime = Session.builder(session)
                     .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                     .setSystemProperty(COLOCATED_JOIN, "true")
                     .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
