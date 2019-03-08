@@ -198,15 +198,20 @@ public class TestGeoFunctions
     @Test
     public void testSTCentroid()
     {
-        assertFunction("ST_AsText(ST_Centroid(ST_GeometryFromText('LINESTRING EMPTY')))", VARCHAR, "POINT EMPTY");
-        assertFunction("ST_AsText(ST_Centroid(ST_GeometryFromText('POINT (3 5)')))", VARCHAR, "POINT (3 5)");
-        assertFunction("ST_AsText(ST_Centroid(ST_GeometryFromText('MULTIPOINT (1 2, 2 4, 3 6, 4 8)')))", VARCHAR, "POINT (2.5 5)");
-        assertFunction("ST_AsText(ST_Centroid(ST_GeometryFromText('LINESTRING (1 1, 2 2, 3 3)')))", VARCHAR, "POINT (2 2)");
-        assertFunction("ST_AsText(ST_Centroid(ST_GeometryFromText('MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))')))", VARCHAR, "POINT (3 2)");
-        assertFunction("ST_AsText(ST_Centroid(ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')))", VARCHAR, "POINT (2.5 2.5)");
-        assertFunction("ST_AsText(ST_Centroid(ST_GeometryFromText('POLYGON ((1 1, 5 1, 3 4))')))", VARCHAR, "POINT (3 2)");
-        assertFunction("ST_AsText(ST_Centroid(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((2 4, 2 6, 6 6, 6 4)))')))", VARCHAR, "POINT (3.3333333333333335 4)");
-        assertFunction("ST_AsText(ST_Centroid(ST_GeometryFromText('POLYGON ((0 0, 0 5, 5 5, 5 0, 0 0), (1 1, 1 2, 2 2, 2 1, 1 1))')))", VARCHAR, "POINT (2.5416666666666665 2.5416666666666665)");
+        assertCentroid("LINESTRING EMPTY", new Point());
+        assertCentroid("POINT (3 5)", new Point(3, 5));
+        assertCentroid("MULTIPOINT (1 2, 2 4, 3 6, 4 8)", new Point(2.5, 5));
+        assertCentroid("LINESTRING (1 1, 2 2, 3 3)", new Point(2, 2));
+        assertCentroid("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", new Point(3, 2));
+        assertCentroid("POLYGON ((1 1, 1 4, 4 4, 4 1))", new Point(2.5, 2.5));
+        assertCentroid("POLYGON ((1 1, 5 1, 3 4))", new Point(3, 2));
+        assertCentroid("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((2 4, 2 6, 6 6, 6 4)))", new Point(3.3333333333333335, 4));
+        assertCentroid("POLYGON ((0 0, 0 5, 5 5, 5 0, 0 0), (1 1, 1 2, 2 2, 2 1, 1 1))", new Point(2.5416666666666665, 2.5416666666666665));
+    }
+
+    private void assertCentroid(String wkt, Point centroid)
+    {
+        assertFunction(format("ST_AsText(ST_Centroid(ST_GeometryFromText('%s')))", wkt), VARCHAR, new OGCPoint(centroid, null).asText());
     }
 
     @Test
