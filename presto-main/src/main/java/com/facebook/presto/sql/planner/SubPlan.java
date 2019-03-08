@@ -15,15 +15,17 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Multiset;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Set;
 
-import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.concat;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -68,17 +70,21 @@ public class SubPlan
 
     public void sanityCheck()
     {
-        Multiset<PlanFragmentId> exchangeIds = fragment.getRemoteSourceNodes().stream()
-                .map(RemoteSourceNode::getSourceFragmentIds)
-                .flatMap(List::stream)
-                .collect(toImmutableMultiset());
-
-        Multiset<PlanFragmentId> childrenIds = children.stream()
+        Set<PlanFragmentId> childrenIds = children.stream()
                 .map(SubPlan::getFragment)
                 .map(PlanFragment::getId)
-                .collect(toImmutableMultiset());
-
-        Preconditions.checkState(exchangeIds.equals(childrenIds), "Subplan exchange ids don't match child fragment ids (%s vs %s)", exchangeIds, childrenIds);
+                .collect(toImmutableSet());
+        Set<PlanFragmentId> exchangeIds = fragment.getRemoteSourceNodes().stream()
+                .map(RemoteSourceNode::getSourceFragmentIds)
+                .flatMap(List::stream)
+                .collect(toImmutableSet());
+        Set<PlanFragmentId> dependencies = fragment.getDependencies();
+        checkState(
+                childrenIds.equals(ImmutableSet.copyOf(concat(exchangeIds, dependencies))),
+                "Children fragments not found: %s. Remote exchange ids: %s. Dependency ids: %s",
+                childrenIds,
+                exchangeIds,
+                dependencies);
 
         for (SubPlan child : children) {
             child.sanityCheck();
