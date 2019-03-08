@@ -43,6 +43,14 @@ public final class PlanSanityChecker
                         new NoIdentifierLeftChecker(),
                         new VerifyOnlyOneOutputNode())
                 .putAll(
+                        Stage.FRAGMENT,
+                        new ValidateDependenciesChecker(),
+                        new NoDuplicatePlanNodeIdsChecker(),
+                        new TypeValidator(),
+                        new NoSubqueryExpressionLeftChecker(),
+                        new NoIdentifierLeftChecker(),
+                        new VerifyNoFilteredAggregations())
+                .putAll(
                         Stage.FINAL,
                         new ValidateDependenciesChecker(),
                         new NoDuplicatePlanNodeIdsChecker(),
@@ -66,6 +74,11 @@ public final class PlanSanityChecker
         checkers.get(Stage.INTERMEDIATE).forEach(checker -> checker.validate(planNode, session, metadata, sqlParser, types, warningCollector));
     }
 
+    public void validatePlanFragment(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+    {
+        checkers.get(Stage.FRAGMENT).forEach(checker -> checker.validate(planNode, session, metadata, sqlParser, types, warningCollector));
+    }
+
     public interface Checker
     {
         void validate(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector);
@@ -73,6 +86,6 @@ public final class PlanSanityChecker
 
     private enum Stage
     {
-        INTERMEDIATE, FINAL
+        INTERMEDIATE, FINAL, FRAGMENT
     }
 }

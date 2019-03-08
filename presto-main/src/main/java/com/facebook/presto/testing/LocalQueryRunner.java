@@ -308,7 +308,7 @@ public class LocalQueryRunner
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
                 transactionManager);
-        this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig());
+        this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig(), sqlParser);
         this.joinCompiler = new JoinCompiler(metadata, featuresConfig);
         this.pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler);
         this.statsCalculator = createNewStatsCalculator(metadata);

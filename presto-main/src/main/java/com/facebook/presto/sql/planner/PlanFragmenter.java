@@ -29,6 +29,7 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -49,6 +50,7 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.planner.sanity.PlanSanityChecker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -95,18 +97,27 @@ public class PlanFragmenter
     private final Metadata metadata;
     private final NodePartitioningManager nodePartitioningManager;
     private final QueryManagerConfig config;
+    private final SqlParser sqlParser;
 
     @Inject
-    public PlanFragmenter(Metadata metadata, NodePartitioningManager nodePartitioningManager, QueryManagerConfig queryManagerConfig)
+    public PlanFragmenter(Metadata metadata, NodePartitioningManager nodePartitioningManager, QueryManagerConfig queryManagerConfig, SqlParser sqlParser)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.config = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
+        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
     }
 
     public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, WarningCollector warningCollector)
     {
-        Fragmenter fragmenter = new Fragmenter(session, metadata, plan.getTypes(), plan.getStatsAndCosts());
+        Fragmenter fragmenter = new Fragmenter(
+                session,
+                metadata,
+                plan.getTypes(),
+                plan.getStatsAndCosts(),
+                new PlanSanityChecker(forceSingleNode),
+                warningCollector,
+                sqlParser);
 
         FragmentProperties properties = new FragmentProperties(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getRoot().getOutputSymbols()));
         if (forceSingleNode || isForceSingleNodeOutput(session)) {
@@ -217,14 +228,27 @@ public class PlanFragmenter
         private final Metadata metadata;
         private final TypeProvider types;
         private final StatsAndCosts statsAndCosts;
+        private final PlanSanityChecker planSanityChecker;
+        private final WarningCollector warningCollector;
+        private final SqlParser sqlParser;
         private int nextFragmentId = ROOT_FRAGMENT_ID + 1;
 
-        public Fragmenter(Session session, Metadata metadata, TypeProvider types, StatsAndCosts statsAndCosts)
+        public Fragmenter(
+                Session session,
+                Metadata metadata,
+                TypeProvider types,
+                StatsAndCosts statsAndCosts,
+                PlanSanityChecker planSanityChecker,
+                WarningCollector warningCollector,
+                SqlParser sqlParser)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.types = requireNonNull(types, "types is null");
             this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
+            this.planSanityChecker = requireNonNull(planSanityChecker, "planSanityChecker is null");
+            this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+            this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         }
 
         public SubPlan buildRootFragment(PlanNode root, FragmentProperties properties)
@@ -247,6 +271,7 @@ public class PlanFragmenter
                     properties.getPartitionedSources());
 
             Map<Symbol, Type> fragmentSymbolTypes = filterKeys(types.allTypes(), in(extractOutputSymbols(root)));
+            planSanityChecker.validatePlanFragment(root, session, metadata, sqlParser, TypeProvider.viewOf(fragmentSymbolTypes), warningCollector);
             PlanFragment fragment = new PlanFragment(
                     fragmentId,
                     root,
