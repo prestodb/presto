@@ -207,6 +207,9 @@ public class TestGeoFunctions
         assertCentroid("POLYGON ((1 1, 5 1, 3 4))", new Point(3, 2));
         assertCentroid("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((2 4, 2 6, 6 6, 6 4)))", new Point(3.3333333333333335, 4));
         assertCentroid("POLYGON ((0 0, 0 5, 5 5, 5 0, 0 0), (1 1, 1 2, 2 2, 2 1, 1 1))", new Point(2.5416666666666665, 2.5416666666666665));
+
+        // invalid geometry
+        assertInvalidFunction("ST_Centroid(ST_GeometryFromText('MULTIPOLYGON (((4.903234300000006 52.08474289999999, 4.903234265193165 52.084742934806826, 4.903234299999999 52.08474289999999, 4.903234300000006 52.08474289999999)))'))", "Cannot compute centroid: .* Use ST_IsValid to confirm that input geometry is valid or compute centroid for a bounding box using ST_Envelope.");
     }
 
     private void assertCentroid(String wkt, Point centroid)
