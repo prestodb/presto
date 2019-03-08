@@ -64,6 +64,7 @@ public final class OutputBuffers
         PARTITIONED,
         BROADCAST,
         ARBITRARY,
+        DISCARDING,
     }
 
     private final BufferType type;
