@@ -27,6 +27,8 @@ import javax.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.execution.QueryManagerConfig.MaterializeExchangesStrategy.NONE;
+
 @DefunctConfig({
         "query.max-pending-splits-per-node",
         "query.queue-config-file",
@@ -43,6 +45,7 @@ public class QueryManagerConfig
 
     private int hashPartitionCount = 100;
     private String partitioningProviderCatalog = GlobalSystemConnector.NAME;
+    private MaterializeExchangesStrategy materializeExchangesStrategy = NONE;
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
@@ -148,6 +151,20 @@ public class QueryManagerConfig
     public QueryManagerConfig setPartitioningProviderCatalog(String partitioningProviderCatalog)
     {
         this.partitioningProviderCatalog = partitioningProviderCatalog;
+        return this;
+    }
+
+    @NotNull
+    public MaterializeExchangesStrategy getMaterializeExchangesStrategy()
+    {
+        return materializeExchangesStrategy;
+    }
+
+    @Config("query.materialize-exchanges-strategy")
+    @ConfigDescription("Materialize exchanges strategy to use")
+    public QueryManagerConfig setMaterializeExchangesStrategy(MaterializeExchangesStrategy materializeExchangesStrategy)
+    {
+        this.materializeExchangesStrategy = materializeExchangesStrategy;
         return this;
     }
 
@@ -393,5 +410,11 @@ public class QueryManagerConfig
     {
         this.requiredWorkersMaxWait = requiredWorkersMaxWait;
         return this;
+    }
+
+    public enum MaterializeExchangesStrategy
+    {
+        NONE,
+        ALL,
     }
 }
