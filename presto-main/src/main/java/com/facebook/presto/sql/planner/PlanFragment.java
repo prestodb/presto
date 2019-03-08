@@ -54,6 +54,7 @@ public class PlanFragment
     private final StageExecutionDescriptor stageExecutionDescriptor;
     private final StatsAndCosts statsAndCosts;
     private final Optional<String> jsonRepresentation;
+    private final Set<PlanFragmentId> dependencies;
 
     @JsonCreator
     public PlanFragment(
@@ -65,7 +66,8 @@ public class PlanFragment
             @JsonProperty("partitioningScheme") PartitioningScheme partitioningScheme,
             @JsonProperty("stageExecutionDescriptor") StageExecutionDescriptor stageExecutionDescriptor,
             @JsonProperty("statsAndCosts") StatsAndCosts statsAndCosts,
-            @JsonProperty("jsonRepresentation") Optional<String> jsonRepresentation)
+            @JsonProperty("jsonRepresentation") Optional<String> jsonRepresentation,
+            @JsonProperty("dependencies") Set<PlanFragmentId> dependencies)
     {
         this.id = requireNonNull(id, "id is null");
         this.root = requireNonNull(root, "root is null");
@@ -92,6 +94,7 @@ public class PlanFragment
         this.remoteSourceNodes = remoteSourceNodes.build();
 
         this.partitioningScheme = requireNonNull(partitioningScheme, "partitioningScheme is null");
+        this.dependencies = ImmutableSet.copyOf(requireNonNull(dependencies, "dependencies is null"));
     }
 
     @JsonProperty
@@ -155,6 +158,12 @@ public class PlanFragment
         return jsonRepresentation;
     }
 
+    @JsonProperty
+    public Set<PlanFragmentId> getDependencies()
+    {
+        return dependencies;
+    }
+
     public List<Type> getTypes()
     {
         return types;
@@ -206,17 +215,17 @@ public class PlanFragment
 
     public PlanFragment withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme.withBucketToPartition(bucketToPartition), stageExecutionDescriptor, statsAndCosts, jsonRepresentation);
+        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme.withBucketToPartition(bucketToPartition), stageExecutionDescriptor, statsAndCosts, jsonRepresentation, dependencies);
     }
 
     public PlanFragment withFixedLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes)
     {
-        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme, StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(capableTableScanNodes), statsAndCosts, jsonRepresentation);
+        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme, StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(capableTableScanNodes), statsAndCosts, jsonRepresentation, dependencies);
     }
 
     public PlanFragment withDynamicLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes)
     {
-        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme, StageExecutionDescriptor.dynamicLifespanScheduleGroupedExecution(capableTableScanNodes), statsAndCosts, jsonRepresentation);
+        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme, StageExecutionDescriptor.dynamicLifespanScheduleGroupedExecution(capableTableScanNodes), statsAndCosts, jsonRepresentation, dependencies);
     }
 
     @Override
@@ -227,6 +236,7 @@ public class PlanFragment
                 .add("partitioning", partitioning)
                 .add("partitionedSource", partitionedSources)
                 .add("partitionFunction", partitioningScheme)
+                .add("dependencies", dependencies)
                 .toString();
     }
 }

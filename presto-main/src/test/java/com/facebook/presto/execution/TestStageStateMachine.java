@@ -26,6 +26,7 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -334,7 +335,8 @@ public class TestStageStateMachine
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
                 StageExecutionDescriptor.ungroupedExecution(),
                 StatsAndCosts.empty(),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableSet.of());
 
         return planFragment;
     }

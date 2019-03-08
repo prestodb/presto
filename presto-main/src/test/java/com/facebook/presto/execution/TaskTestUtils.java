@@ -60,6 +60,7 @@ import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
 
 import java.util.List;
@@ -104,7 +105,8 @@ public final class TaskTestUtils
                     .withBucketToPartition(Optional.of(new int[1])),
             StageExecutionDescriptor.ungroupedExecution(),
             StatsAndCosts.empty(),
-            Optional.empty());
+            Optional.empty(),
+            ImmutableSet.of());
 
     public static LocalExecutionPlanner createTestingPlanner()
     {
