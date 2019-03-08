@@ -16,6 +16,7 @@ package com.facebook.presto.spi;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 
 import java.util.List;
+import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
@@ -38,5 +39,25 @@ public class ConnectorNewTableLayout
     public List<String> getPartitionColumns()
     {
         return partitionColumns;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        ConnectorNewTableLayout that = (ConnectorNewTableLayout) o;
+        return Objects.equals(partitioning, that.partitioning) &&
+                Objects.equals(partitionColumns, that.partitionColumns);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(partitioning, partitionColumns);
     }
 }
