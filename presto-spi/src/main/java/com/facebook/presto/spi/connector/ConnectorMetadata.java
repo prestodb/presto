@@ -241,6 +241,15 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Creates a temporary table with optionally partitioning requirements can be specified.
+     * Temporary table gets automatically removed when the current transaction ends.
+     */
+    default ConnectorTableHandle createTemporaryTable(ConnectorSession session, List<ColumnMetadata> columns, Optional<ConnectorPartitioningMetadata> partitioning)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating temporary tables");
+    }
+
+    /**
      * Drops the specified table
      *
      * @throws RuntimeException if the table can not be dropped or table handle is no longer valid

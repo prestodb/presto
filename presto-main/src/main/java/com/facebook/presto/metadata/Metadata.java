@@ -158,6 +158,12 @@ public interface Metadata
     void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting);
 
     /**
+     * Creates a temporary table with optionally partitioning requirements can be specified.
+     * Temporary table gets automatically removed when the current transaction ends.
+     */
+    TableHandle createTemporaryTable(Session session, String catalogName, List<ColumnMetadata> columns, Optional<PartitioningMetadata> partitioning);
+
+    /**
      * Rename the specified table.
      */
     void renameTable(Session session, TableHandle tableHandle, QualifiedObjectName newTableName);

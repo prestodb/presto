@@ -332,6 +332,12 @@ public class HiveWriterFactory
                     updateMode = UpdateMode.NEW;
                     writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get());
                 }
+                else if (table.isTemporary()) {
+                    // this assumes that temporary table is always empty at this step
+                    // multiple inserts into temporary table are not allowed on the metadata level
+                    updateMode = UpdateMode.APPEND;
+                    writeInfo = locationService.getTableWriteInfo(locationHandle);
+                }
                 else {
                     if (bucketNumber.isPresent()) {
                         throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into bucketed unpartitioned Hive table");

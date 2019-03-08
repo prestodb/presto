@@ -45,6 +45,7 @@ public class Table
     private final Map<String, String> parameters;
     private final Optional<String> viewOriginalText;
     private final Optional<String> viewExpandedText;
+    private final boolean temporary;
 
     @JsonCreator
     public Table(
@@ -57,7 +58,8 @@ public class Table
             @JsonProperty("partitionColumns") List<Column> partitionColumns,
             @JsonProperty("parameters") Map<String, String> parameters,
             @JsonProperty("viewOriginalText") Optional<String> viewOriginalText,
-            @JsonProperty("viewExpandedText") Optional<String> viewExpandedText)
+            @JsonProperty("viewExpandedText") Optional<String> viewExpandedText,
+            @JsonProperty("temporary") boolean temporary)
     {
         this.databaseName = requireNonNull(databaseName, "databaseName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -69,6 +71,7 @@ public class Table
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
         this.viewOriginalText = requireNonNull(viewOriginalText, "viewOriginalText is null");
         this.viewExpandedText = requireNonNull(viewExpandedText, "viewExpandedText is null");
+        this.temporary = temporary;
     }
 
     @JsonProperty
@@ -138,6 +141,12 @@ public class Table
         return viewExpandedText;
     }
 
+    @JsonProperty
+    public boolean isTemporary()
+    {
+        return temporary;
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -162,6 +171,7 @@ public class Table
                 .add("parameters", parameters)
                 .add("viewOriginalText", viewOriginalText)
                 .add("viewExpandedText", viewExpandedText)
+                .add("temporary", temporary)
                 .toString();
     }
 
@@ -185,7 +195,8 @@ public class Table
                 Objects.equals(storage, table.storage) &&
                 Objects.equals(parameters, table.parameters) &&
                 Objects.equals(viewOriginalText, table.viewOriginalText) &&
-                Objects.equals(viewExpandedText, table.viewExpandedText);
+                Objects.equals(viewExpandedText, table.viewExpandedText) &&
+                Objects.equals(temporary, table.temporary);
     }
 
     @Override
@@ -201,7 +212,8 @@ public class Table
                 storage,
                 parameters,
                 viewOriginalText,
-                viewExpandedText);
+                viewExpandedText,
+                temporary);
     }
 
     public static class Builder
@@ -216,6 +228,7 @@ public class Table
         private Map<String, String> parameters = new LinkedHashMap<>();
         private Optional<String> viewOriginalText = Optional.empty();
         private Optional<String> viewExpandedText = Optional.empty();
+        private boolean temporary;
 
         private Builder()
         {
@@ -234,6 +247,7 @@ public class Table
             parameters = new LinkedHashMap<>(table.parameters);
             viewOriginalText = table.viewOriginalText;
             viewExpandedText = table.viewExpandedText;
+            temporary = table.temporary;
         }
 
         public Builder setDatabaseName(String databaseName)
@@ -307,6 +321,12 @@ public class Table
             return this;
         }
 
+        public Builder setTemporary(boolean temporary)
+        {
+            this.temporary = temporary;
+            return this;
+        }
+
         public Table build()
         {
             return new Table(
@@ -319,7 +339,8 @@ public class Table
                     partitionColumns,
                     parameters,
                     viewOriginalText,
-                    viewExpandedText);
+                    viewExpandedText,
+                    temporary);
         }
     }
 }

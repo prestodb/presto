@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.SortingColumn;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.connector.ConnectorPartitioningMetadata;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -174,6 +175,12 @@ public class HiveTableProperties
             throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s and %s must be specified together", BUCKETED_BY_PROPERTY, BUCKET_COUNT_PROPERTY));
         }
         return Optional.of(new HiveBucketProperty(bucketedBy, bucketCount, sortedBy));
+    }
+
+    public static HiveBucketProperty getBucketProperty(ConnectorPartitioningMetadata partitioning)
+    {
+        HivePartitioningHandle partitioningHandle = (HivePartitioningHandle) partitioning.getPartitioningHandle();
+        return new HiveBucketProperty(partitioning.getPartitionColumns(), partitioningHandle.getBucketCount(), ImmutableList.of());
     }
 
     @SuppressWarnings("unchecked")

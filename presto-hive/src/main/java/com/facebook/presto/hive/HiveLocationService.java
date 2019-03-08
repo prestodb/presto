@@ -59,7 +59,7 @@ public class HiveLocationService
         if (pathExists(context, hdfsEnvironment, targetPath)) {
             throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for table '%s.%s' already exists: %s", schemaName, tableName, targetPath));
         }
-        return createLocationHandle(context, session, targetPath, false);
+        return createLocationHandle(context, session, targetPath, false, false);
     }
 
     @Override
@@ -67,11 +67,14 @@ public class HiveLocationService
     {
         HdfsContext context = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
         Path targetPath = new Path(table.getStorage().getLocation());
-        return createLocationHandle(context, session, targetPath, true);
+        return createLocationHandle(context, session, targetPath, true, table.isTemporary());
     }
 
-    private LocationHandle createLocationHandle(HdfsContext context, ConnectorSession session, Path targetPath, boolean isExistingTable)
+    private LocationHandle createLocationHandle(HdfsContext context, ConnectorSession session, Path targetPath, boolean isExistingTable, boolean isTemporaryTable)
     {
+        if (isTemporaryTable) {
+            return new LocationHandle(targetPath, targetPath, true, DIRECT_TO_TARGET_EXISTING_DIRECTORY);
+        }
         if (shouldUseTemporaryDirectory(session, context, targetPath)) {
             Path writePath = createTemporaryPath(session, context, hdfsEnvironment, targetPath);
             return new LocationHandle(targetPath, writePath, isExistingTable, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);

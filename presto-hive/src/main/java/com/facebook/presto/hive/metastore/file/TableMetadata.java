@@ -279,6 +279,7 @@ public class TableMetadata
                 partitionColumns,
                 parameters,
                 viewOriginalText,
-                viewExpandedText);
+                viewExpandedText,
+                false);
     }
 }

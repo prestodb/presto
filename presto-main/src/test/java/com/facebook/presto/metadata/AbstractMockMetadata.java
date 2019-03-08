@@ -211,6 +211,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public TableHandle createTemporaryTable(Session session, String catalogName, List<ColumnMetadata> columns, Optional<PartitioningMetadata> partitioning)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void renameTable(Session session, TableHandle tableHandle, QualifiedObjectName newTableName)
     {
         throw new UnsupportedOperationException();

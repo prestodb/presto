@@ -40,6 +40,7 @@ import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.connector.ConnectorPartitioningMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -61,6 +62,7 @@ import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -600,6 +602,27 @@ public class MetadataManager
         ConnectorId connectorId = catalogMetadata.getConnectorId();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
         metadata.createTable(session.toConnectorSession(connectorId), tableMetadata, ignoreExisting);
+    }
+
+    @Override
+    public TableHandle createTemporaryTable(Session session, String catalogName, List<ColumnMetadata> columns, Optional<PartitioningMetadata> partitioningMetadata)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
+        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorTableHandle connectorTableHandle = metadata.createTemporaryTable(
+                session.toConnectorSession(connectorId),
+                columns,
+                partitioningMetadata.map(partitioning -> createConnectorPartitioningMetadata(connectorId, partitioning)));
+        return new TableHandle(connectorId, connectorTableHandle);
+    }
+
+    private static ConnectorPartitioningMetadata createConnectorPartitioningMetadata(ConnectorId connectorId, PartitioningMetadata partitioningMetadata)
+    {
+        ConnectorId partitioningConnectorId = partitioningMetadata.getPartitioningHandle().getConnectorId()
+                .orElseThrow(() -> new VerifyException("connectorId is expected to be present in the connector partitioning handle"));
+        checkArgument(connectorId.equals(partitioningConnectorId), "Unexpected partitioning handle connector: %s", partitioningConnectorId);
+        return new ConnectorPartitioningMetadata(partitioningMetadata.getPartitioningHandle().getConnectorHandle(), partitioningMetadata.getPartitionColumns());
     }
 
     @Override

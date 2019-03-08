@@ -446,8 +446,8 @@ public class SemiTransactionalHiveMetastore
         setShared();
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Action<TableAndMore> oldTableAction = tableActions.get(schemaTableName);
-        if (oldTableAction == null) {
-            Table table = delegate.getTable(databaseName, tableName)
+        if (oldTableAction == null || oldTableAction.getData().getTable().isTemporary()) {
+            Table table = getTable(databaseName, tableName)
                     .orElseThrow(() -> new TableNotFoundException(schemaTableName));
             PartitionStatistics currentStatistics = getTableStatistics(databaseName, tableName);
             HdfsContext context = new HdfsContext(session, databaseName, tableName);
@@ -935,6 +935,7 @@ public class SemiTransactionalHiveMetastore
             for (Map.Entry<SchemaTableName, Action<TableAndMore>> entry : tableActions.entrySet()) {
                 SchemaTableName schemaTableName = entry.getKey();
                 Action<TableAndMore> action = entry.getValue();
+
                 switch (action.getType()) {
                     case DROP:
                         committer.prepareDropTable(schemaTableName);
@@ -1083,6 +1084,11 @@ public class SemiTransactionalHiveMetastore
 
         private void prepareAddTable(HdfsContext context, TableAndMore tableAndMore)
         {
+            if (tableAndMore.getTable().isTemporary()) {
+                prepareDropTemporaryTable(context, tableAndMore);
+                return;
+            }
+
             deleteOnly = false;
 
             Table table = tableAndMore.getTable();
@@ -1139,6 +1145,11 @@ public class SemiTransactionalHiveMetastore
 
         private void prepareInsertExistingTable(HdfsContext context, TableAndMore tableAndMore)
         {
+            if (tableAndMore.getTable().isTemporary()) {
+                prepareDropTemporaryTable(context, tableAndMore);
+                return;
+            }
+
             deleteOnly = false;
 
             Table table = tableAndMore.getTable();
@@ -1295,6 +1306,12 @@ public class SemiTransactionalHiveMetastore
                     Optional.of(getPartitionName(partition.getDatabaseName(), partition.getTableName(), partition.getValues())),
                     partitionAndMore.getStatisticsUpdate(),
                     true));
+        }
+
+        private void prepareDropTemporaryTable(HdfsContext context, TableAndMore tableAndMore)
+        {
+            deletionTasksForFinish.add(new DirectoryDeletionTask(context, new Path(tableAndMore.getTable().getStorage().getLocation())));
+            tableAndMore.getCurrentLocation().ifPresent(currentLocation -> deletionTasksForFinish.add(new DirectoryDeletionTask(context, currentLocation)));
         }
 
         private void executeCleanupTasksForAbort(List<String> filePrefixes)
