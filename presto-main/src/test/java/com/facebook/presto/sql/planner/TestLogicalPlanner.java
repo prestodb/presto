@@ -838,7 +838,7 @@ public class TestLogicalPlanner
         Consumer<Plan> validateSingleRemoteExchange = plan -> assertEquals(
                 countOfMatchingNodes(
                         plan,
-                        node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope() == REMOTE),
+                        node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope().isRemote()),
                 1);
 
         Consumer<Plan> validateSingleStreamingAggregation = plan -> assertEquals(
@@ -897,7 +897,7 @@ public class TestLogicalPlanner
                         assertEquals(
                                 countOfMatchingNodes(
                                         plan,
-                                        node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope() == REMOTE),
+                                        node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope().isRemote()),
                                 2));
 
         // replicated join is preserved if probe side is single node

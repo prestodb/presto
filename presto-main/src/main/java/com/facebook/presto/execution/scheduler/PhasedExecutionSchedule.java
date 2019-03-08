@@ -49,7 +49,6 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.execution.StageState.RUNNING;
 import static com.facebook.presto.execution.StageState.SCHEDULED;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -269,7 +268,7 @@ public class PhasedExecutionSchedule
         @Override
         public Set<PlanFragmentId> visitExchange(ExchangeNode node, PlanFragmentId currentFragmentId)
         {
-            checkArgument(node.getScope() == LOCAL, "Only local exchanges are supported in the phased execution scheduler");
+            checkArgument(node.getScope().isLocal(), "Only local exchanges are supported in the phased execution scheduler");
             ImmutableSet.Builder<PlanFragmentId> allSources = ImmutableSet.builder();
 
             // Link the source fragments together, so we only schedule one at a time.

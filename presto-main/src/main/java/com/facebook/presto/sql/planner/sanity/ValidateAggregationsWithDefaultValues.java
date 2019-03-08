@@ -34,7 +34,6 @@ import java.util.Optional;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.INTERMEDIATE;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.util.Optionals.combine;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -144,7 +143,7 @@ public class ValidateAggregationsWithDefaultValues
             }
 
             SeenExchanges seenExchanges = seenExchangesOptional.get();
-            if (node.getScope().equals(REMOTE)) {
+            if (node.getScope().isRemote()) {
                 return Optional.of(new SeenExchanges(false, true));
             }
 

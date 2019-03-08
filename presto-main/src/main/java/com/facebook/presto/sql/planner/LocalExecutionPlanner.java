@@ -248,7 +248,6 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WR
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
@@ -2361,7 +2360,7 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitExchange(ExchangeNode node, LocalExecutionPlanContext context)
         {
-            checkArgument(node.getScope() == LOCAL, "Only local exchanges are supported in the local planner");
+            checkArgument(node.getScope().isLocal(), "Only local exchanges are supported in the local planner");
 
             if (node.getOrderingScheme().isPresent()) {
                 return createLocalMerge(node, context);

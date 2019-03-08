@@ -496,7 +496,7 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitExchange(ExchangeNode node, StreamPreferredProperties parentPreferences)
         {
-            checkArgument(node.getScope() != LOCAL, "AddLocalExchanges can not process a plan containing a local exchange");
+            checkArgument(!node.getScope().isLocal(), "AddLocalExchanges can not process a plan containing a local exchange");
             // this node changes the input organization completely, so we do not pass through parent preferences
             if (node.getOrderingScheme().isPresent()) {
                 return planAndEnforceChildren(

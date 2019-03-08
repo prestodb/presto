@@ -60,7 +60,7 @@ public final class FragmentTableScanCounter
         @Override
         public Integer visitExchange(ExchangeNode node, Void context)
         {
-            if (node.getScope() == ExchangeNode.Scope.REMOTE) {
+            if (node.getScope().isRemote()) {
                 return 0;
             }
             return visitPlan(node, context);
