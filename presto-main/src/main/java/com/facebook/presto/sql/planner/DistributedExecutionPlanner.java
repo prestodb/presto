@@ -53,6 +53,7 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
@@ -144,10 +145,12 @@ public class DistributedExecutionPlanner
         public Map<PlanNodeId, SplitSource> visitTableScan(TableScanNode node, Void context)
         {
             // get dataSource for table
-            SplitSource splitSource = splitManager.getSplits(
+            Supplier<SplitSource> splitSourceSupplier = () -> splitManager.getSplits(
                     session,
                     node.getLayout().get(),
                     stageExecutionDescriptor.isScanGroupedExecution(node.getId()) ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING);
+
+            SplitSource splitSource = node.isTemporaryTable() ? new LazySplitSource(splitSourceSupplier::get) : splitSourceSupplier.get();
 
             splitSources.add(splitSource);
 
