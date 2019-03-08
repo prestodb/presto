@@ -21,6 +21,7 @@ import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.floragunn.searchguard.ssl.SearchGuardSSLPlugin;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -37,6 +38,7 @@ import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.cluster.metadata.MappingMetaData;
 import org.elasticsearch.common.collect.ImmutableOpenMap;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.settings.Settings.Builder;
 import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.transport.client.PreBuiltTransportClient;
 
@@ -66,6 +68,15 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RowType.Field;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_ENFORCE_HOSTNAME_VERIFICATION;
+import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_KEYSTORE_FILEPATH;
+import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_KEYSTORE_PASSWORD;
+import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_PEMCERT_FILEPATH;
+import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_PEMKEY_FILEPATH;
+import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_PEMKEY_PASSWORD;
+import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_PEMTRUSTEDCAS_FILEPATH;
+import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_TRUSTSTORE_FILEPATH;
+import static com.floragunn.searchguard.ssl.util.SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_TRUSTSTORE_PASSWORD;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.cache.CacheLoader.asyncReloading;
@@ -101,9 +112,8 @@ public class ElasticsearchClient
 
         for (ElasticsearchTableDescription tableDescription : tableDescriptions.getAllTableDescriptions()) {
             if (!clients.containsKey(tableDescription.getClusterName())) {
-                Settings settings = Settings.builder().put("cluster.name", tableDescription.getClusterName()).build();
                 TransportAddress address = new TransportAddress(InetAddress.getByName(tableDescription.getHost()), tableDescription.getPort());
-                TransportClient client = new PreBuiltTransportClient(settings).addTransportAddress(address);
+                TransportClient client = createTransportClient(config, address, Optional.of(tableDescription.getClusterName()));
                 clients.put(tableDescription.getClusterName(), client);
             }
         }
@@ -453,5 +463,51 @@ public class ElasticsearchClient
             }
             return rightLength - leftLength;
         }
+    }
+    static TransportClient createTransportClient(ElasticsearchConnectorConfig config, TransportAddress address)
+    {
+        return createTransportClient(config, address, Optional.empty());
+    }
+
+    static TransportClient createTransportClient(ElasticsearchConnectorConfig config, TransportAddress address, Optional<String> clusterName)
+    {
+        Settings settings;
+        Builder builder;
+        TransportClient client;
+        if (clusterName.isPresent()) {
+            builder = Settings.builder()
+                    .put("cluster.name", clusterName.get());
+        }
+        else {
+            builder = Settings.builder()
+                    .put("client.transport.ignore_cluster_name", true);
+        }
+        switch (config.getCertificateFormat()) {
+            case PEM:
+                settings = builder
+                        .put(SEARCHGUARD_SSL_TRANSPORT_PEMCERT_FILEPATH, config.getPemcertFilepath())
+                        .put(SEARCHGUARD_SSL_TRANSPORT_PEMKEY_FILEPATH, config.getPemkeyFilepath())
+                        .put(SEARCHGUARD_SSL_TRANSPORT_PEMKEY_PASSWORD, config.getPemkeyPassword())
+                        .put(SEARCHGUARD_SSL_TRANSPORT_PEMTRUSTEDCAS_FILEPATH, config.getPemtrustedcasFilepath())
+                        .put(SEARCHGUARD_SSL_TRANSPORT_ENFORCE_HOSTNAME_VERIFICATION, false)
+                        .build();
+                client = new PreBuiltTransportClient(settings, SearchGuardSSLPlugin.class).addTransportAddress(address);
+                break;
+            case JKS:
+                settings = Settings.builder()
+                        .put(SEARCHGUARD_SSL_TRANSPORT_KEYSTORE_FILEPATH, config.getKeystoreFilepath())
+                        .put(SEARCHGUARD_SSL_TRANSPORT_TRUSTSTORE_FILEPATH, config.getTruststoreFilepath())
+                        .put(SEARCHGUARD_SSL_TRANSPORT_KEYSTORE_PASSWORD, config.getKeystorePassword())
+                        .put(SEARCHGUARD_SSL_TRANSPORT_TRUSTSTORE_PASSWORD, config.getTruststorePassword())
+                        .put(SEARCHGUARD_SSL_TRANSPORT_ENFORCE_HOSTNAME_VERIFICATION, false)
+                        .build();
+                client = new PreBuiltTransportClient(settings, SearchGuardSSLPlugin.class).addTransportAddress(address);
+                break;
+            default:
+                settings = builder.build();
+                client = new PreBuiltTransportClient(settings).addTransportAddress(address);
+                break;
+        }
+        return client;
     }
 }

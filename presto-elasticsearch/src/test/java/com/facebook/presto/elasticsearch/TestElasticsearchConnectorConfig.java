@@ -20,6 +20,8 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.util.Map;
 
+import static com.facebook.presto.elasticsearch.SearchGuardCertificateFormat.NONE;
+import static com.facebook.presto.elasticsearch.SearchGuardCertificateFormat.PEM;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
@@ -39,7 +41,16 @@ public class TestElasticsearchConnectorConfig
                 .setMaxHits(1000)
                 .setRequestTimeout(new Duration(100, MILLISECONDS))
                 .setMaxRequestRetries(5)
-                .setMaxRetryTime(new Duration(10, SECONDS)));
+                .setMaxRetryTime(new Duration(10, SECONDS))
+                .setCertificateFormat(NONE)
+                .setPemcertFilepath(new File("etc/elasticsearch/esnode.pem"))
+                .setPemkeyFilepath(new File("etc/elasticsearch/esnode-key.pem"))
+                .setPemkeyPassword("")
+                .setPemtrustedcasFilepath(new File("etc/elasticsearch/root-ca.pem"))
+                .setKeystoreFilepath(new File("etc/elasticsearch/keystore.jks"))
+                .setKeystorePassword("")
+                .setTruststoreFilepath(new File("etc/elasticsearch/truststore.jks"))
+                .setTruststorePassword(""));
     }
 
     @Test
@@ -54,6 +65,15 @@ public class TestElasticsearchConnectorConfig
                 .put("elasticsearch.request-timeout", "1s")
                 .put("elasticsearch.max-request-retries", "3")
                 .put("elasticsearch.max-request-retry-time", "5s")
+                .put("searchguard.ssl.transport.certificate_format", "PEM")
+                .put("searchguard.ssl.transport.pemcert_filepath", "etc/elasticsearch/esnode-2.pem")
+                .put("searchguard.ssl.transport.pemkey_filepath", "etc/elasticsearch/esnode-key-2.pem")
+                .put("searchguard.ssl.transport.pemkey_password", "111111")
+                .put("searchguard.ssl.transport.pemtrustedcas_filepath", "etc/elasticsearch/root-ca-2.pem")
+                .put("searchguard.ssl.transport.keystore_filepath", "etc/elasticsearch/keystore-2.jks")
+                .put("searchguard.ssl.transport.keystore_password", "222222")
+                .put("searchguard.ssl.transport.truststore_filepath", "etc/elasticsearch/truststore-2.jks")
+                .put("searchguard.ssl.transport.truststore_password", "333333")
                 .build();
 
         ElasticsearchConnectorConfig expected = new ElasticsearchConnectorConfig()
@@ -64,7 +84,16 @@ public class TestElasticsearchConnectorConfig
                 .setMaxHits(20000)
                 .setRequestTimeout(new Duration(1, SECONDS))
                 .setMaxRequestRetries(3)
-                .setMaxRetryTime(new Duration(5, SECONDS));
+                .setMaxRetryTime(new Duration(5, SECONDS))
+                .setCertificateFormat(PEM)
+                .setPemcertFilepath(new File("etc/elasticsearch/esnode-2.pem"))
+                .setPemkeyFilepath(new File("etc/elasticsearch/esnode-key-2.pem"))
+                .setPemkeyPassword("111111")
+                .setPemtrustedcasFilepath(new File("etc/elasticsearch/root-ca-2.pem"))
+                .setKeystoreFilepath(new File("etc/elasticsearch/keystore-2.jks"))
+                .setKeystorePassword("222222")
+                .setTruststoreFilepath(new File("etc/elasticsearch/truststore-2.jks"))
+                .setTruststorePassword("333333");
 
         assertFullMapping(properties, expected);
     }
