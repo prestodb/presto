@@ -1057,21 +1057,6 @@ class FunctionRegistry
                 .collect(toImmutableList());
     }
 
-    public boolean isRegistered(Signature signature)
-    {
-        try {
-            // TODO: this is hacky, but until the magic literal and row field reference hacks are cleaned up it's difficult to implement this.
-            getScalarFunctionImplementation(signature);
-            return true;
-        }
-        catch (PrestoException e) {
-            if (e.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
-                return false;
-            }
-            throw e;
-        }
-    }
-
     public FunctionHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
