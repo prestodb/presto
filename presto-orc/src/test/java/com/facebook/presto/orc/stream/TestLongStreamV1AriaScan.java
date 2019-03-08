@@ -16,13 +16,8 @@ package com.facebook.presto.orc.stream;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDecompressor;
 import io.airlift.slice.Slice;
-import org.testng.annotations.Test;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
-import java.util.Random;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
