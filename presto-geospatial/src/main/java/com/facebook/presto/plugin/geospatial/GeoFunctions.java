@@ -385,22 +385,30 @@ public final class GeoFunctions
         }
 
         Point centroid;
-        switch (geometryType) {
-            case MULTI_POINT:
-                centroid = computePointsCentroid((MultiVertexGeometry) geometry.getEsriGeometry());
-                break;
-            case LINE_STRING:
-            case MULTI_LINE_STRING:
-                centroid = computeLineCentroid((Polyline) geometry.getEsriGeometry());
-                break;
-            case POLYGON:
-                centroid = computePolygonCentroid((Polygon) geometry.getEsriGeometry());
-                break;
-            case MULTI_POLYGON:
-                centroid = computeMultiPolygonCentroid((OGCMultiPolygon) geometry);
-                break;
-            default:
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Unexpected geometry type: " + geometryType);
+        try {
+            switch (geometryType) {
+                case MULTI_POINT:
+                    centroid = computePointsCentroid((MultiVertexGeometry) geometry.getEsriGeometry());
+                    break;
+                case LINE_STRING:
+                case MULTI_LINE_STRING:
+                    centroid = computeLineCentroid((Polyline) geometry.getEsriGeometry());
+                    break;
+                case POLYGON:
+                    centroid = computePolygonCentroid((Polygon) geometry.getEsriGeometry());
+                    break;
+                case MULTI_POLYGON:
+                    centroid = computeMultiPolygonCentroid((OGCMultiPolygon) geometry);
+                    break;
+                default:
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Unexpected geometry type: " + geometryType);
+            }
+        }
+        catch (RuntimeException e) {
+            if (e instanceof PrestoException && ((PrestoException) e).getErrorCode() == INVALID_FUNCTION_ARGUMENT.toErrorCode()) {
+                throw e;
+            }
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Cannot compute centroid: %s Use ST_IsValid to confirm that input geometry is valid or compute centroid for a bounding box using ST_Envelope.", e.getMessage()), e);
         }
         return serialize(createFromEsriGeometry(centroid, geometry.getEsriSpatialReference()));
     }
