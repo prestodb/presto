@@ -25,7 +25,6 @@ import io.airlift.units.Duration;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchScrollRequestBuilder;
 import org.elasticsearch.client.transport.TransportClient;
-import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.BoolQueryBuilder;
@@ -34,7 +33,6 @@ import org.elasticsearch.index.query.MatchAllQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
-import org.elasticsearch.transport.client.PreBuiltTransportClient;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -42,6 +40,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.elasticsearch.ElasticsearchClient.createTransportClient;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_CONNECTION_ERROR;
 import static com.facebook.presto.spi.predicate.Marker.Bound.ABOVE;
 import static com.facebook.presto.spi.predicate.Marker.Bound.BELOW;
@@ -82,17 +81,14 @@ public class ElasticsearchQueryBuilder
         index = split.getIndex();
         shard = split.getShard();
         type = split.getType();
-        Settings settings = Settings.builder()
-                .put("client.transport.ignore_cluster_name", true)
-                .build();
+        InetAddress address;
         try {
-            InetAddress address = InetAddress.getByName(split.getSearchNode());
-            client = new PreBuiltTransportClient(settings)
-                    .addTransportAddress(new TransportAddress(address, split.getPort()));
+            address = InetAddress.getByName(split.getSearchNode());
         }
         catch (UnknownHostException e) {
             throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, format("Error connecting to search node (%s:%d)", split.getSearchNode(), split.getPort()), e);
         }
+        client = createTransportClient(config, new TransportAddress(address, split.getPort()));
         scrollTimeout = config.getScrollTimeout();
         scrollSize = config.getScrollSize();
     }
