@@ -14,6 +14,8 @@
 
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.memory.ArrayPool;
+import com.facebook.presto.spi.memory.Caches;
 import com.facebook.presto.spi.type.Type;
 
 import javax.annotation.Nullable;
@@ -35,6 +37,8 @@ public abstract class AbstractMapBlock
 {
     // inverse of hash fill ratio, must be integer
     static final int HASH_MULTIPLIER = 2;
+
+    private static ArrayPool<boolean[]> booleanArrayPool = Caches.getBooleanArrayPool();
 
     protected final Type keyType;
     protected final MethodHandle keyNativeHashCode;
@@ -174,7 +178,7 @@ public abstract class AbstractMapBlock
         // used position.
         int positionCount = getPositionCount();
         checkValidPositions(positions, positionCount);
-        boolean[] entryPositions = new boolean[getRawKeyBlock().getPositionCount()];
+        boolean[] entryPositions = booleanArrayPool.allocateAndInitialize(getRawKeyBlock().getPositionCount());
         int usedEntryCount = 0;
         int usedPositionCount = 0;
         int end = Math.min(positionCount, positions.length);
@@ -189,6 +193,7 @@ public abstract class AbstractMapBlock
                 usedEntryCount += (entriesEnd - entriesStart);
             }
         }
+        booleanArrayPool.release(entryPositions);
         return getRawKeyBlock().getPositionsSizeInBytes(entryPositions) +
                 getRawValueBlock().getPositionsSizeInBytes(entryPositions) +
                 (Integer.BYTES + Byte.BYTES) * (long) usedPositionCount +

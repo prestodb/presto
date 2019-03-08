@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.memory.ArrayPool;
+import com.facebook.presto.spi.memory.Caches;
+
 import javax.annotation.Nullable;
 
 import static com.facebook.presto.spi.block.ArrayBlock.createArrayBlockInternal;
@@ -25,6 +28,8 @@ import static com.facebook.presto.spi.block.BlockUtil.compactOffsets;
 public abstract class AbstractArrayBlock
         implements Block
 {
+    private static ArrayPool<boolean[]> booleanArrayPool = Caches.getBooleanArrayPool();
+
     protected abstract Block getRawElementBlock();
 
     protected abstract int[] getOffsets();
@@ -108,7 +113,7 @@ public abstract class AbstractArrayBlock
     public long getPositionsSizeInBytes(boolean[] positions)
     {
         checkValidPositions(positions, getPositionCount());
-        boolean[] used = new boolean[getRawElementBlock().getPositionCount()];
+        boolean[] used = booleanArrayPool.allocateAndInitialize(getRawElementBlock().getPositionCount());
         int usedPositionCount = 0;
         int end = Math.min(positions.length, getPositionCount());
         for (int i = 0; i < end; ++i) {
@@ -121,6 +126,7 @@ public abstract class AbstractArrayBlock
                 }
             }
         }
+        booleanArrayPool.release(used);
         return getRawElementBlock().getPositionsSizeInBytes(used) + ((Integer.BYTES + Byte.BYTES) * (long) usedPositionCount);
     }
 

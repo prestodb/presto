@@ -218,7 +218,12 @@ public class DictionaryBlock
                 used[position] = true;
             }
         }
-        this.sizeInBytes = dictionary.getPositionsSizeInBytes(used) + (Integer.BYTES * (long) positionCount);
+        if (dictionary instanceof LongArrayBlock) {
+            this.sizeInBytes = (Long.BYTES + Byte.BYTES) * uniqueIds;
+        }
+        else {
+            this.sizeInBytes = dictionary.getPositionsSizeInBytes(used) + (Integer.BYTES * (long) positionCount);
+        }
         this.uniqueIds = uniqueIds;
         booleanArrayPool.release(used);
     }
@@ -268,13 +273,14 @@ public class DictionaryBlock
     {
         checkValidPositions(positions, positionCount);
 
-        boolean[] used = new boolean[dictionary.getPositionCount()];
+        boolean[] used = booleanArrayPool.allocateAndInitialize(dictionary.getPositionCount());
         int end = Math.min(positions.length, positionCount);
         for (int i = 0; i < end; i++) {
             if (positions[i]) {
                 used[getId(i)] = true;
             }
         }
+        booleanArrayPool.release(used);
         return dictionary.getPositionsSizeInBytes(used) + (Integer.BYTES * (long) countUsedPositions(positions));
     }
 

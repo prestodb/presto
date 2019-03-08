@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.memory.ArrayPool;
+import com.facebook.presto.spi.memory.Caches;
+
 import static com.facebook.presto.spi.block.BlockUtil.arraySame;
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
@@ -24,6 +27,8 @@ import static com.facebook.presto.spi.block.RowBlock.createRowBlockInternal;
 public abstract class AbstractRowBlock
         implements Block
 {
+    private static ArrayPool<boolean[]> booleanArrayPool = Caches.getBooleanArrayPool();
+
     protected final int numFields;
 
     protected abstract Block[] getRawFieldBlocks();
@@ -114,7 +119,7 @@ public abstract class AbstractRowBlock
         checkValidPositions(positions, getPositionCount());
 
         int usedPositionCount = 0;
-        boolean[] fieldPositions = new boolean[getRawFieldBlocks()[0].getPositionCount()];
+        boolean[] fieldPositions = booleanArrayPool.allocateAndInitialize(getRawFieldBlocks()[0].getPositionCount());
         int end = Math.min(positions.length, getPositionCount());
         for (int i = 0; i < end; i++) {
             if (positions[i]) {
@@ -130,6 +135,7 @@ public abstract class AbstractRowBlock
         for (int j = 0; j < numFields; j++) {
             sizeInBytes += getRawFieldBlocks()[j].getPositionsSizeInBytes(fieldPositions);
         }
+        booleanArrayPool.release(fieldPositions);
         return sizeInBytes + (Integer.BYTES + Byte.BYTES) * (long) usedPositionCount;
     }
 
