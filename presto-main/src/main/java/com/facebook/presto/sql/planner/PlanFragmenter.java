@@ -107,16 +107,17 @@ public class PlanFragmenter
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
     }
 
-    public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, WarningCollector warningCollector)
+    public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         Fragmenter fragmenter = new Fragmenter(
                 session,
                 metadata,
-                plan.getTypes(),
                 plan.getStatsAndCosts(),
                 new PlanSanityChecker(forceSingleNode),
                 warningCollector,
-                sqlParser);
+                sqlParser,
+                idAllocator,
+                new SymbolAllocator(plan.getTypes().allTypes()));
 
         FragmentProperties properties = new FragmentProperties(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getRoot().getOutputSymbols()));
         if (forceSingleNode || isForceSingleNodeOutput(session)) {
@@ -225,7 +226,8 @@ public class PlanFragmenter
 
         private final Session session;
         private final Metadata metadata;
-        private final TypeProvider types;
+        private final PlanNodeIdAllocator idAllocator;
+        private final SymbolAllocator symbolAllocator;
         private final StatsAndCosts statsAndCosts;
         private final PlanSanityChecker planSanityChecker;
         private final WarningCollector warningCollector;
@@ -235,15 +237,17 @@ public class PlanFragmenter
         public Fragmenter(
                 Session session,
                 Metadata metadata,
-                TypeProvider types,
                 StatsAndCosts statsAndCosts,
                 PlanSanityChecker planSanityChecker,
                 WarningCollector warningCollector,
-                SqlParser sqlParser)
+                SqlParser sqlParser,
+                PlanNodeIdAllocator idAllocator,
+                SymbolAllocator symbolAllocator)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.types = requireNonNull(types, "types is null");
+            this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
             this.planSanityChecker = requireNonNull(planSanityChecker, "planSanityChecker is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -269,7 +273,7 @@ public class PlanFragmenter
                     schedulingOrder,
                     properties.getPartitionedSources());
 
-            Map<Symbol, Type> fragmentSymbolTypes = filterKeys(types.allTypes(), in(extractOutputSymbols(root)));
+            Map<Symbol, Type> fragmentSymbolTypes = filterKeys(symbolAllocator.getTypes().allTypes(), in(extractOutputSymbols(root)));
             planSanityChecker.validatePlanFragment(root, session, metadata, sqlParser, TypeProvider.viewOf(fragmentSymbolTypes), warningCollector);
             PlanFragment fragment = new PlanFragment(
                     fragmentId,
