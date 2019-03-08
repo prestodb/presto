@@ -132,7 +132,7 @@ final class ExplainRewrite
                     plan = queryExplainer.get().getJsonPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector);
                     break;
                 case TEXT:
-                    plan = queryExplainer.get().getPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector);
+                    plan = queryExplainer.get().getPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), node.isVerbose(), warningCollector);
                     break;
                 default:
                     throw new IllegalArgumentException("Invalid Explain Format: " + planFormat.toString());
