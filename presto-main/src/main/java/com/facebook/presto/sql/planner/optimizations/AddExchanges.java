@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
+import com.facebook.presto.execution.QueryManagerConfig.MaterializeExchangesStrategy;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.GroupingProperty;
@@ -39,6 +40,7 @@ import com.facebook.presto.sql.planner.plan.ChildReplacer;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.ExchangeNode.Scope;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
@@ -91,6 +93,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
+import static com.facebook.presto.SystemSessionProperties.getMaterializeExchangesStrategy;
 import static com.facebook.presto.SystemSessionProperties.getPartitioningProviderCatalog;
 import static com.facebook.presto.SystemSessionProperties.isColocatedJoinEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDistributedIndexJoinEnabled;
@@ -99,6 +102,7 @@ import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutpu
 import static com.facebook.presto.SystemSessionProperties.isRedistributeWrites;
 import static com.facebook.presto.SystemSessionProperties.isScaleWriters;
 import static com.facebook.presto.SystemSessionProperties.preferStreamingOperators;
+import static com.facebook.presto.execution.QueryManagerConfig.MaterializeExchangesStrategy.ALL;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.countSources;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.hasMultipleSources;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
@@ -109,6 +113,7 @@ import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Glo
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
 import static com.facebook.presto.sql.planner.optimizations.LocalProperties.grouped;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
@@ -159,6 +164,7 @@ public class AddExchanges
         private final boolean scaleWriters;
         private final String partitioningProviderCatalog;
         private final int hashPartitionCount;
+        private final MaterializeExchangesStrategy materializeExchangesStrategy;
 
         public Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
         {
@@ -172,6 +178,7 @@ public class AddExchanges
             this.preferStreamingOperators = preferStreamingOperators(session);
             this.partitioningProviderCatalog = getPartitioningProviderCatalog(session);
             this.hashPartitionCount = getHashPartitionCount(session);
+            this.materializeExchangesStrategy = getMaterializeExchangesStrategy(session);
         }
 
         @Override
@@ -244,7 +251,7 @@ public class AddExchanges
             }
             else if (!child.getProperties().isStreamPartitionedOn(partitioningRequirement) && !child.getProperties().isNodePartitionedOn(partitioningRequirement)) {
                 child = withDerivedProperties(
-                        partitionedExchange(idAllocator.getNextId(), REMOTE, child.getNode(), createPartitioning(node.getGroupingKeys()), node.getHashSymbol()),
+                        partitionedExchange(idAllocator.getNextId(), getExchangeScope(child.getNode()), child.getNode(), createPartitioning(node.getGroupingKeys()), node.getHashSymbol()),
                         child.getProperties());
             }
             return rebaseAndDeriveProperties(node, child);
@@ -285,7 +292,7 @@ public class AddExchanges
                 child = withDerivedProperties(
                         partitionedExchange(
                                 idAllocator.getNextId(),
-                                REMOTE,
+                                getExchangeScope(child.getNode()),
                                 child.getNode(),
                                 createPartitioning(node.getDistinctSymbols()),
                                 node.getHashSymbol()),
@@ -720,10 +727,10 @@ public class AddExchanges
                 }
                 else {
                     left = withDerivedProperties(
-                            partitionedExchange(idAllocator.getNextId(), REMOTE, left.getNode(), createPartitioning(leftSymbols), Optional.empty()),
+                            partitionedExchange(idAllocator.getNextId(), getExchangeScope(left.getNode()), left.getNode(), createPartitioning(leftSymbols), Optional.empty()),
                             left.getProperties());
                     right = withDerivedProperties(
-                            partitionedExchange(idAllocator.getNextId(), REMOTE, right.getNode(), createPartitioning(rightSymbols), Optional.empty()),
+                            partitionedExchange(idAllocator.getNextId(), getExchangeScope(right.getNode()), right.getNode(), createPartitioning(rightSymbols), Optional.empty()),
                             right.getProperties());
                 }
             }
@@ -863,7 +870,7 @@ public class AddExchanges
                     }
                     else {
                         source = withDerivedProperties(
-                                partitionedExchange(idAllocator.getNextId(), REMOTE, source.getNode(), createPartitioning(sourceSymbols), Optional.empty()),
+                                partitionedExchange(idAllocator.getNextId(), getExchangeScope(source.getNode()), source.getNode(), createPartitioning(sourceSymbols), Optional.empty()),
                                 source.getProperties());
                         filteringSource = withDerivedProperties(
                                 partitionedExchange(idAllocator.getNextId(), REMOTE, filteringSource.getNode(), createPartitioning(filteringSourceSymbols), Optional.empty(), true),
@@ -1250,6 +1257,15 @@ public class AddExchanges
                     .collect(toImmutableList());
             PartitioningHandle partitioningHandle = metadata.getPartitioningHandleForExchange(session, partitioningProviderCatalog, hashPartitionCount, partitioningTypes);
             return Partitioning.create(partitioningHandle, partitioningColumns);
+        }
+
+        private Scope getExchangeScope(PlanNode input)
+        {
+            if (input.getOutputSymbols().isEmpty()) {
+                // materializing 0 columns input is not supported
+                return REMOTE;
+            }
+            return materializeExchangesStrategy == ALL ? REMOTE_MATERIALIZED : REMOTE;
         }
     }
 
