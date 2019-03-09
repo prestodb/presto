@@ -41,7 +41,7 @@ public final class MapDistinctFromOperator
     @TypeParameter("V")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean isDistinctFrom(
-            @OperatorDependency(operator = IS_DISTINCT_FROM, returnType = StandardTypes.BOOLEAN, argumentTypes = {"V", "V"}, convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL))
+            @OperatorDependency(operator = IS_DISTINCT_FROM, argumentTypes = {"V", "V"}, convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL))
                     MethodHandle valueDistinctFromFunction,
             @TypeParameter("map(K, V)") Type mapType,
             @SqlType("map(K,V)") Block leftMapBlock,
@@ -67,7 +67,7 @@ public final class MapDistinctFromOperator
     @TypeParameter("V")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean isDistinctFrom(
-            @OperatorDependency(operator = IS_DISTINCT_FROM, returnType = StandardTypes.BOOLEAN, argumentTypes = {"V", "V"}, convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL))
+            @OperatorDependency(operator = IS_DISTINCT_FROM, argumentTypes = {"V", "V"}, convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL))
                     MethodHandle valueDistinctFromFunction,
             @TypeParameter("map(K, V)") Type mapType,
             @BlockPosition @SqlType(value = "map(K,V)", nativeContainerType = Block.class) Block left,

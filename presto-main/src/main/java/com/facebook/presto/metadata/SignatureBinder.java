@@ -177,6 +177,30 @@ public class SignatureBinder
         return new TypeSignature(baseType, parameters);
     }
 
+    public static List<Type> applyBoundVariables(TypeManager typeManager, List<TypeSignature> typeSignatures, BoundVariables boundVariables)
+    {
+        ImmutableList.Builder<Type> builder = ImmutableList.builder();
+        for (TypeSignature typeSignature : typeSignatures) {
+            builder.add(applyBoundVariables(typeManager, typeSignature, boundVariables));
+        }
+        return builder.build();
+    }
+
+    public static Type applyBoundVariables(TypeManager typeManager, TypeSignature typeSignature, BoundVariables boundVariables)
+    {
+        String baseType = typeSignature.getBase();
+        if (boundVariables.containsTypeVariable(baseType)) {
+            checkState(typeSignature.getParameters().isEmpty(), "Type parameters cannot have parameters");
+            return boundVariables.getTypeVariable(baseType);
+        }
+
+        List<TypeSignatureParameter> parameters = typeSignature.getParameters().stream()
+                .map(typeSignatureParameter -> applyBoundVariables(typeSignatureParameter, boundVariables))
+                .collect(toList());
+
+        return typeManager.getParameterizedType(baseType, parameters);
+    }
+
     /**
      * Example of not allowed literal variable usages across typeSignatures:
      * <p><ul>

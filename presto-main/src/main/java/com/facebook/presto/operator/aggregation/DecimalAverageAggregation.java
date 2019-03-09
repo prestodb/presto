@@ -90,7 +90,7 @@ public class DecimalAverageAggregation
     @Override
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
-        Type type = typeManager.getType(getOnlyElement(applyBoundVariables(getSignature().getArgumentTypes(), boundVariables)));
+        Type type = getOnlyElement(applyBoundVariables(typeManager, getSignature().getArgumentTypes(), boundVariables));
         return generateAggregation(type);
     }
 

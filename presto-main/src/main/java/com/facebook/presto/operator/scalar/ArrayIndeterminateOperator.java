@@ -36,7 +36,7 @@ public final class ArrayIndeterminateOperator
     @TypeParameter("T")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean indeterminate(
-            @OperatorDependency(operator = INDETERMINATE, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T"}) MethodHandle elementIndeterminateFunction,
+            @OperatorDependency(operator = INDETERMINATE, argumentTypes = {"T"}) MethodHandle elementIndeterminateFunction,
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block,
             @IsNull boolean isNull)
