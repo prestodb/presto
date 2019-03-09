@@ -38,7 +38,7 @@ public final class ArrayGreaterThanOrEqualOperator
     @TypeParameter("T")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean greaterThanOrEqual(
-            @OperatorDependency(operator = GREATER_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle greaterThanFunction,
+            @OperatorDependency(operator = GREATER_THAN, argumentTypes = {"T", "T"}) MethodHandle greaterThanFunction,
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block leftArray,
             @SqlType("array(T)") Block rightArray)

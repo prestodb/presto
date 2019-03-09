@@ -40,7 +40,7 @@ public final class ArrayPositionFunction
     @SqlType(StandardTypes.BIGINT)
     public static long arrayPosition(
             @TypeParameter("T") Type type,
-            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
+            @OperatorDependency(operator = EQUAL, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
             @SqlType("array(T)") Block array,
             @SqlType("T") boolean element)
     {
@@ -67,7 +67,7 @@ public final class ArrayPositionFunction
     @SqlType(StandardTypes.BIGINT)
     public static long arrayPosition(
             @TypeParameter("T") Type type,
-            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
+            @OperatorDependency(operator = EQUAL, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
             @SqlType("array(T)") Block array,
             @SqlType("T") long element)
     {
@@ -94,7 +94,7 @@ public final class ArrayPositionFunction
     @SqlType(StandardTypes.BIGINT)
     public static long arrayPosition(
             @TypeParameter("T") Type type,
-            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
+            @OperatorDependency(operator = EQUAL, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
             @SqlType("array(T)") Block array,
             @SqlType("T") double element)
     {
@@ -121,7 +121,7 @@ public final class ArrayPositionFunction
     @SqlType(StandardTypes.BIGINT)
     public static long arrayPosition(
             @TypeParameter("T") Type type,
-            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
+            @OperatorDependency(operator = EQUAL, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
             @SqlType("array(T)") Block array,
             @SqlType("T") Slice element)
     {
@@ -148,7 +148,7 @@ public final class ArrayPositionFunction
     @SqlType(StandardTypes.BIGINT)
     public static long arrayPosition(
             @TypeParameter("T") Type type,
-            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
+            @OperatorDependency(operator = EQUAL, argumentTypes = {"T", "T"}) MethodHandle equalMethodHandle,
             @SqlType("array(T)") Block array,
             @SqlType("T") Block element)
     {

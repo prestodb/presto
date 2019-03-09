@@ -26,8 +26,6 @@ public @interface OperatorDependency
 {
     OperatorType operator();
 
-    String returnType();
-
     String[] argumentTypes();
 
     Convention convention() default @Convention($notSpecified = true, arguments = {}, result = FAIL_ON_NULL);

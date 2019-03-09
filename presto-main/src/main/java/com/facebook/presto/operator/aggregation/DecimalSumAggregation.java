@@ -83,8 +83,8 @@ public class DecimalSumAggregation
     @Override
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
-        Type inputType = typeManager.getType(getOnlyElement(applyBoundVariables(getSignature().getArgumentTypes(), boundVariables)));
-        Type outputType = typeManager.getType(applyBoundVariables(getSignature().getReturnType(), boundVariables));
+        Type inputType = getOnlyElement(applyBoundVariables(typeManager, getSignature().getArgumentTypes(), boundVariables));
+        Type outputType = applyBoundVariables(typeManager, getSignature().getReturnType(), boundVariables);
         return generateAggregation(inputType, outputType);
     }
 

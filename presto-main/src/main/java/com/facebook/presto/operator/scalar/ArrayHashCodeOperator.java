@@ -38,7 +38,7 @@ public final class ArrayHashCodeOperator
     @TypeParameter("T")
     @SqlType(StandardTypes.BIGINT)
     public static long hash(
-            @OperatorDependency(operator = HASH_CODE, returnType = StandardTypes.BIGINT, argumentTypes = {"T"}) MethodHandle hashFunction,
+            @OperatorDependency(operator = HASH_CODE, argumentTypes = {"T"}) MethodHandle hashFunction,
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block)
     {
@@ -58,7 +58,7 @@ public final class ArrayHashCodeOperator
     @TypeParameterSpecialization(name = "T", nativeContainerType = long.class)
     @SqlType(StandardTypes.BIGINT)
     public static long hashLong(
-            @OperatorDependency(operator = HASH_CODE, returnType = StandardTypes.BIGINT, argumentTypes = {"T"}) MethodHandle hashFunction,
+            @OperatorDependency(operator = HASH_CODE, argumentTypes = {"T"}) MethodHandle hashFunction,
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block)
     {
@@ -78,7 +78,7 @@ public final class ArrayHashCodeOperator
     @TypeParameterSpecialization(name = "T", nativeContainerType = boolean.class)
     @SqlType(StandardTypes.BIGINT)
     public static long hashBoolean(
-            @OperatorDependency(operator = HASH_CODE, returnType = StandardTypes.BIGINT, argumentTypes = {"T"}) MethodHandle hashFunction,
+            @OperatorDependency(operator = HASH_CODE, argumentTypes = {"T"}) MethodHandle hashFunction,
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block)
     {
@@ -98,7 +98,7 @@ public final class ArrayHashCodeOperator
     @TypeParameterSpecialization(name = "T", nativeContainerType = Slice.class)
     @SqlType(StandardTypes.BIGINT)
     public static long hashSlice(
-            @OperatorDependency(operator = HASH_CODE, returnType = StandardTypes.BIGINT, argumentTypes = {"T"}) MethodHandle hashFunction,
+            @OperatorDependency(operator = HASH_CODE, argumentTypes = {"T"}) MethodHandle hashFunction,
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block)
     {
@@ -118,7 +118,7 @@ public final class ArrayHashCodeOperator
     @TypeParameterSpecialization(name = "T", nativeContainerType = double.class)
     @SqlType(StandardTypes.BIGINT)
     public static long hashDouble(
-            @OperatorDependency(operator = HASH_CODE, returnType = StandardTypes.BIGINT, argumentTypes = {"T"}) MethodHandle hashFunction,
+            @OperatorDependency(operator = HASH_CODE, argumentTypes = {"T"}) MethodHandle hashFunction,
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block)
     {

@@ -92,7 +92,7 @@ public class FunctionsParserHelper
                 if (operator == CAST) {
                     continue;
                 }
-                Set<String> argumentTypes = ((OperatorImplementationDependency) dependency).getSignature().getArgumentTypes().stream()
+                Set<String> argumentTypes = ((OperatorImplementationDependency) dependency).getArgumentTypes().stream()
                         .map(TypeSignature::getBase)
                         .collect(toImmutableSet());
                 checkArgument(argumentTypes.size() == 1, "Operator dependency must only have arguments of a single type");

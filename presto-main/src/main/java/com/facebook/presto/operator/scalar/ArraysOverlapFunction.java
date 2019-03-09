@@ -71,7 +71,7 @@ public final class ArraysOverlapFunction
     @SqlNullable
     @SqlType(StandardTypes.BOOLEAN)
     public Boolean arraysOverlapInt(
-            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"integer", "integer"}) MethodHandle lessThanFunction,
+            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"integer", "integer"}) MethodHandle lessThanFunction,
             @SqlType("array(integer)") Block leftArray,
             @SqlType("array(integer)") Block rightArray)
     {
@@ -81,7 +81,7 @@ public final class ArraysOverlapFunction
     @SqlNullable
     @SqlType(StandardTypes.BOOLEAN)
     public Boolean arraysOverlapBigInt(
-            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"bigint", "bigint"}) MethodHandle lessThanFunction,
+            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"bigint", "bigint"}) MethodHandle lessThanFunction,
             @SqlType("array(bigint)") Block leftArray,
             @SqlType("array(bigint)") Block rightArray)
     {
@@ -92,7 +92,7 @@ public final class ArraysOverlapFunction
     @TypeParameter("E")
     @SqlType(StandardTypes.BOOLEAN)
     public Boolean arraysOverlap(
-            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle lessThanFunction,
+            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"E", "E"}) MethodHandle lessThanFunction,
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block leftArray,
             @SqlType("array(E)") Block rightArray)
