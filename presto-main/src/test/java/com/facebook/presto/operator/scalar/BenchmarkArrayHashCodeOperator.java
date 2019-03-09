@@ -214,7 +214,7 @@ public class BenchmarkArrayHashCodeOperator
         @TypeParameter("T")
         @SqlType(StandardTypes.BIGINT)
         public static long oldHash(
-                @OperatorDependency(operator = HASH_CODE, returnType = StandardTypes.BIGINT, argumentTypes = "T") MethodHandle hashFunction,
+                @OperatorDependency(operator = HASH_CODE, argumentTypes = "T") MethodHandle hashFunction,
                 @TypeParameter("T") Type type,
                 @SqlType("array(T)") Block block)
         {
@@ -236,7 +236,7 @@ public class BenchmarkArrayHashCodeOperator
         @TypeParameter("T")
         @SqlType(StandardTypes.BIGINT)
         public static long anotherHash(
-                @OperatorDependency(operator = HASH_CODE, returnType = StandardTypes.BIGINT, argumentTypes = "T") MethodHandle hashFunction,
+                @OperatorDependency(operator = HASH_CODE, argumentTypes = "T") MethodHandle hashFunction,
                 @TypeParameter("T") Type type,
                 @SqlType("array(T)") Block block)
         {

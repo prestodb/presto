@@ -38,7 +38,7 @@ public final class TypeImplementationDependency
     @Override
     public Type resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionManager functionManager)
     {
-        return typeManager.getType(applyBoundVariables(signature, boundVariables));
+        return applyBoundVariables(typeManager, signature, boundVariables);
     }
 
     @Override

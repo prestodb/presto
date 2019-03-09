@@ -42,7 +42,7 @@ public final class ArrayContains
     @SqlNullable
     public static Boolean contains(
             @TypeParameter("T") Type elementType,
-            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equals,
+            @OperatorDependency(operator = EQUAL, argumentTypes = {"T", "T"}) MethodHandle equals,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("T") Block value)
     {
@@ -74,7 +74,7 @@ public final class ArrayContains
     @SqlNullable
     public static Boolean contains(
             @TypeParameter("T") Type elementType,
-            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equals,
+            @OperatorDependency(operator = EQUAL, argumentTypes = {"T", "T"}) MethodHandle equals,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("T") Slice value)
     {
@@ -106,7 +106,7 @@ public final class ArrayContains
     @SqlNullable
     public static Boolean contains(
             @TypeParameter("T") Type elementType,
-            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equals,
+            @OperatorDependency(operator = EQUAL, argumentTypes = {"T", "T"}) MethodHandle equals,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("T") long value)
     {
@@ -138,7 +138,7 @@ public final class ArrayContains
     @SqlNullable
     public static Boolean contains(
             @TypeParameter("T") Type elementType,
-            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equals,
+            @OperatorDependency(operator = EQUAL, argumentTypes = {"T", "T"}) MethodHandle equals,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("T") boolean value)
     {
@@ -170,7 +170,7 @@ public final class ArrayContains
     @SqlNullable
     public static Boolean contains(
             @TypeParameter("T") Type elementType,
-            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equals,
+            @OperatorDependency(operator = EQUAL, argumentTypes = {"T", "T"}) MethodHandle equals,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("T") double value)
     {

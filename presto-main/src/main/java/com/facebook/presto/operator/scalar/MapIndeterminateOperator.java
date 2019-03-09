@@ -37,7 +37,7 @@ public final class MapIndeterminateOperator
     @TypeParameter("V")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean indeterminate(
-            @OperatorDependency(operator = INDETERMINATE, returnType = StandardTypes.BOOLEAN, argumentTypes = {"V"}) MethodHandle valueIndeterminateFunction,
+            @OperatorDependency(operator = INDETERMINATE, argumentTypes = {"V"}) MethodHandle valueIndeterminateFunction,
             @TypeParameter("K") Type keyType,
             @TypeParameter("V") Type valueType,
             @SqlType("map(K,V)") Block block,

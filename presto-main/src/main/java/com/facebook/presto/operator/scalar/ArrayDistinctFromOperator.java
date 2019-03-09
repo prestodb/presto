@@ -42,7 +42,6 @@ public final class ArrayDistinctFromOperator
     public static boolean isDistinctFrom(
             @OperatorDependency(
                     operator = IS_DISTINCT_FROM,
-                    returnType = StandardTypes.BOOLEAN,
                     argumentTypes = {"E", "E"},
                     convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) MethodHandle function,
             @SqlType("array(E)") Block left,
@@ -81,7 +80,6 @@ public final class ArrayDistinctFromOperator
     public static boolean isDistinctFrom(
             @OperatorDependency(
                     operator = IS_DISTINCT_FROM,
-                    returnType = StandardTypes.BOOLEAN,
                     argumentTypes = {"E", "E"},
                     convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) MethodHandle elementIsDistinctFrom,
             @TypeParameter("array(E)") Type type,
