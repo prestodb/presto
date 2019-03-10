@@ -32,7 +32,7 @@ import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import java.util.Optional;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import java.util.function.Function;
 
 import static com.facebook.airlift.concurrent.MoreFutures.addExceptionCallback;
@@ -56,7 +56,7 @@ public class LocalDispatchQuery
 
     private final ClusterSizeMonitor clusterSizeMonitor;
 
-    private final ExecutorService queryExecutor;
+    private final Executor queryExecutor;
 
     private final Function<QueryExecution, ListenableFuture<?>> querySubmitter;
 
@@ -64,7 +64,7 @@ public class LocalDispatchQuery
             QueryStateMachine stateMachine,
             ListenableFuture<QueryExecution> queryExecutionFuture,
             ClusterSizeMonitor clusterSizeMonitor,
-            ExecutorService queryExecutor,
+            Executor queryExecutor,
             Function<QueryExecution, ListenableFuture<?>> querySubmitter)
     {
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
@@ -89,12 +89,12 @@ public class LocalDispatchQuery
         ListenableFuture<?> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers();
         // when worker requirement is met, wait for query execution to finish construction and then start the execution
         addSuccessCallback(minimumWorkerFuture, () -> addSuccessCallback(queryExecutionFuture, this::startExecution));
-        addExceptionCallback(minimumWorkerFuture, throwable -> queryExecutor.submit(() -> stateMachine.transitionToFailed(throwable)));
+        addExceptionCallback(minimumWorkerFuture, throwable -> queryExecutor.execute(() -> stateMachine.transitionToFailed(throwable)));
     }
 
     private void startExecution(QueryExecution queryExecution)
     {
-        queryExecutor.submit(() -> {
+        queryExecutor.execute(() -> {
             if (stateMachine.transitionToDispatching()) {
                 querySubmitter.apply(queryExecution);
             }
