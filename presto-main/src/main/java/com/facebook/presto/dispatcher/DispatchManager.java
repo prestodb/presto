@@ -17,10 +17,10 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManagerConfig;
+import com.facebook.presto.execution.QueryManagerStats;
 import com.facebook.presto.execution.QueryPreparer;
 import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
 import com.facebook.presto.execution.QueryTracker;
-import com.facebook.presto.execution.SqlQueryManagerStats;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
@@ -84,7 +84,7 @@ public class DispatchManager
 
     private final QueryTracker<DispatchQuery> queryTracker;
 
-    private final SqlQueryManagerStats stats = new SqlQueryManagerStats();
+    private final QueryManagerStats stats = new QueryManagerStats();
 
     @Inject
     public DispatchManager(
@@ -129,7 +129,7 @@ public class DispatchManager
 
     @Managed
     @Flatten
-    public SqlQueryManagerStats getStats()
+    public QueryManagerStats getStats()
     {
         return stats;
     }
