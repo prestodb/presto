@@ -1435,7 +1435,7 @@ public class TestPrestoDriver
         AtomicReference<Throwable> queryFailure = new AtomicReference<>();
 
         Future<?> queryFuture = executorService.submit(() -> {
-            try (Connection connection = createConnection("blackhole", "default");
+            try (Connection connection = createConnection("blackhole", "blackhole");
                     Statement statement = connection.createStatement();
                     ResultSet resultSet = statement.executeQuery("SELECT * FROM slow_test_table")) {
                 queryId.set(resultSet.unwrap(PrestoResultSet.class).getQueryId());
@@ -1478,7 +1478,7 @@ public class TestPrestoDriver
         AtomicReference<String> queryId = new AtomicReference<>();
         AtomicReference<Throwable> queryFailure = new AtomicReference<>();
 
-        try (Connection connection = createConnection("blackhole", "default");
+        try (Connection connection = createConnection("blackhole", "blackhole");
                 Statement statement = connection.createStatement()) {
             // execute the slow query on another thread
             executorService.execute(() -> {
@@ -1519,7 +1519,7 @@ public class TestPrestoDriver
         AtomicReference<Throwable> queryFailure = new AtomicReference<>();
         String queryUuid = "/* " + UUID.randomUUID().toString() + " */";
 
-        try (Connection connection = createConnection("blackhole", "default");
+        try (Connection connection = createConnection("blackhole", "blackhole");
                 Statement statement = connection.createStatement()) {
             // execute the slow update on another thread
             executorService.execute(() -> {
@@ -1573,7 +1573,7 @@ public class TestPrestoDriver
         AtomicReference<Throwable> queryFailure = new AtomicReference<>();
 
         executorService.submit(() -> {
-            try (Connection connection = createConnection("blackhole", "default");
+            try (Connection connection = createConnection("blackhole", "blackhole");
                     Statement statement = connection.createStatement()) {
                 statement.setQueryTimeout(1);
                 try (ResultSet resultSet = statement.executeQuery("SELECT * FROM test_query_timeout")) {
@@ -1606,7 +1606,7 @@ public class TestPrestoDriver
     public void testQueryPartialCancel()
             throws Exception
     {
-        try (Connection connection = createConnection("blackhole", "default");
+        try (Connection connection = createConnection("blackhole", "blackhole");
                 Statement statement = connection.createStatement();
                 ResultSet resultSet = statement.executeQuery("SELECT count(*) FROM slow_test_table")) {
             statement.unwrap(PrestoStatement.class).partialCancel();
@@ -1621,7 +1621,7 @@ public class TestPrestoDriver
     {
         CountDownLatch queryRunning = new CountDownLatch(1);
 
-        try (Connection connection = createConnection("blackhole", "default");
+        try (Connection connection = createConnection("blackhole", "blackhole");
                 Statement statement = connection.createStatement()) {
             // execute the slow update on another thread
             Future<Integer> future = executorService.submit(() ->

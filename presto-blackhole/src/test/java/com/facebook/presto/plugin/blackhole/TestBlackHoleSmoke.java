@@ -69,8 +69,14 @@ public class TestBlackHoleSmoke
     public void testCreateSchema()
     {
         assertEquals(queryRunner.execute("SHOW SCHEMAS FROM blackhole").getRowCount(), 2);
+        assertThatQueryReturnsValue("CREATE TABLE nation as SELECT * FROM tpch.tiny.nation", 25L);
+
         queryRunner.execute("CREATE SCHEMA blackhole.test");
         assertEquals(queryRunner.execute("SHOW SCHEMAS FROM blackhole").getRowCount(), 3);
+        assertThatQueryReturnsValue("CREATE TABLE test.nation as SELECT * FROM tpch.tiny.nation", 25L);
+
+        assertThatQueryReturnsValue("DROP TABLE nation", true);
+        assertThatQueryReturnsValue("DROP TABLE test.nation", true);
     }
 
     @Test
