@@ -30,7 +30,7 @@ import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-public class SqlQueryManagerStats
+public class QueryManagerStats
 {
     private final AtomicInteger queuedQueries = new AtomicInteger();
     private final AtomicInteger runningQueries = new AtomicInteger();
