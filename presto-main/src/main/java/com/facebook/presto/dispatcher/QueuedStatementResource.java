@@ -352,7 +352,7 @@ public class QueuedStatementResource
                             token + 1,
                             uriInfo,
                             xForwardedProto,
-                            new DispatchInfo(Optional.empty(), Optional.empty(), NO_DURATION, NO_DURATION));
+                            DispatchInfo.queued(NO_DURATION, NO_DURATION));
                 }
             }
 
