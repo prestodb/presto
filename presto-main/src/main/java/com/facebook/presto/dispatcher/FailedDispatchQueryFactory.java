@@ -16,7 +16,6 @@ package com.facebook.presto.dispatcher;
 import com.facebook.presto.Session;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.execution.ExecutionFailureInfo;
-import com.facebook.presto.execution.ForQueryExecution;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -36,11 +35,11 @@ public class FailedDispatchQueryFactory
     private final ExecutorService executor;
 
     @Inject
-    public FailedDispatchQueryFactory(QueryMonitor queryMonitor, LocationFactory locationFactory, @ForQueryExecution ExecutorService executor)
+    public FailedDispatchQueryFactory(QueryMonitor queryMonitor, LocationFactory locationFactory, DispatchExecutor dispatchExecutor)
     {
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
-        this.executor = requireNonNull(executor, "executor is null");
+        this.executor = requireNonNull(dispatchExecutor, "dispatchExecutor is null").getExecutor();
     }
 
     public FailedDispatchQuery createFailedDispatchQuery(Session session, String query, Optional<ResourceGroupId> resourceGroup, Throwable throwable)
