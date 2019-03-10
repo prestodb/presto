@@ -16,15 +16,19 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.DistributionStat;
 import com.facebook.airlift.stats.TimeStat;
+import com.facebook.presto.dispatcher.DispatchQuery;
+import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.server.BasicQueryInfo;
-import com.facebook.presto.spi.ErrorCode;
-import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import javax.annotation.concurrent.GuardedBy;
+
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
+import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -53,25 +57,34 @@ public class QueryManagerStats
     private final DistributionStat cpuInputByteRate = new DistributionStat();
     private final DistributionStat peakRunningTasksStat = new DistributionStat();
 
-    public void queryQueued()
+    public void trackQueryStats(DispatchQuery managedQueryExecution)
     {
         submittedQueries.update(1);
         queuedQueries.incrementAndGet();
+        managedQueryExecution.addStateChangeListener(new StatisticsListener(managedQueryExecution));
     }
 
-    public void queryStarted()
+    public void trackQueryStats(QueryExecution managedQueryExecution)
+    {
+        submittedQueries.update(1);
+        queuedQueries.incrementAndGet();
+        managedQueryExecution.addStateChangeListener(new StatisticsListener());
+        managedQueryExecution.addFinalQueryInfoListener(finalQueryInfo -> queryFinished(new BasicQueryInfo(finalQueryInfo)));
+    }
+
+    private void queryStarted()
     {
         startedQueries.update(1);
         runningQueries.incrementAndGet();
         queuedQueries.decrementAndGet();
     }
 
-    public void queryStopped()
+    private void queryStopped()
     {
         runningQueries.decrementAndGet();
     }
 
-    public void queryFinished(BasicQueryInfo info)
+    private void queryFinished(BasicQueryInfo info)
     {
         completedQueries.update(1);
 
@@ -124,36 +137,50 @@ public class QueryManagerStats
         }
     }
 
-    public void queuedQueryFailed(Duration queuedTime, Optional<ErrorCode> errorCode)
+    private class StatisticsListener
+            implements StateChangeListener<QueryState>
     {
-        completedQueries.update(1);
-        failedQueries.update(1);
+        private final Supplier<Optional<BasicQueryInfo>> finalQueryInfoSupplier;
 
-        this.queuedTime.add(queuedTime);
+        @GuardedBy("this")
+        private boolean stopped;
+        @GuardedBy("this")
+        private boolean started;
 
-        errorCode.ifPresent(error -> {
-            switch (error.getType()) {
-                case USER_ERROR:
-                    userErrorFailures.update(1);
-                    break;
-                case INTERNAL_ERROR:
-                    internalFailures.update(1);
-                    break;
-                case INSUFFICIENT_RESOURCES:
-                    insufficientResourcesFailures.update(1);
-                    break;
-                case EXTERNAL:
-                    externalFailures.update(1);
-                    break;
-            }
+        public StatisticsListener()
+        {
+            finalQueryInfoSupplier = Optional::empty;
+        }
 
-            if (error.getCode() == ABANDONED_QUERY.toErrorCode().getCode()) {
-                abandonedQueries.update(1);
+        public StatisticsListener(DispatchQuery managedQueryExecution)
+        {
+            finalQueryInfoSupplier = () -> Optional.of(managedQueryExecution.getBasicQueryInfo());
+        }
+
+        @Override
+        public void stateChanged(QueryState newValue)
+        {
+            synchronized (this) {
+                if (stopped) {
+                    return;
+                }
+
+                if (newValue.isDone()) {
+                    stopped = true;
+                    if (started) {
+                        queryStopped();
+                    }
+                    finalQueryInfoSupplier.get()
+                            .ifPresent(QueryManagerStats.this::queryFinished);
+                }
+                else if (newValue.ordinal() >= RUNNING.ordinal()) {
+                    if (!started) {
+                        started = true;
+                        queryStarted();
+                    }
+                }
             }
-            else if (error.getCode() == USER_CANCELED.toErrorCode().getCode()) {
-                canceledQueries.update(1);
-            }
-        });
+        }
     }
 
     @Managed

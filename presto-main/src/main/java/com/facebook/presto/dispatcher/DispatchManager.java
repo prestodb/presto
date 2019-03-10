@@ -217,23 +217,12 @@ public class DispatchManager
                     Optional.ofNullable(selectionContext).map(SelectionContext::getResourceGroupId),
                     e);
 
-            try {
-                queryCreated(failedDispatchQuery);
-            }
-            finally {
-                handleQueryFailure(failedDispatchQuery);
-            }
+            queryCreated(failedDispatchQuery);
             return;
         }
 
         try {
             queryCreated(dispatchQuery);
-            dispatchQuery.addStateChangeListener(newState -> {
-                if (newState.isDone()) {
-                    stats.queryFinished(dispatchQuery.getBasicQueryInfo());
-                }
-            });
-
             resourceGroupManager.submit(preparedQuery.getStatement(), dispatchQuery, selectionContext, queryManagementExecutor);
         }
         catch (RuntimeException e) {
@@ -244,21 +233,12 @@ public class DispatchManager
     private void queryCreated(DispatchQuery dispatchQuery)
     {
         queryTracker.addQuery(dispatchQuery);
-        stats.queryQueued();
-    }
-
-    private void handleQueryFailure(DispatchQuery dispatchQuery)
-    {
-        try {
-            stats.queryStarted();
-            stats.queryStopped();
-            BasicQueryInfo queryInfo = dispatchQuery.getBasicQueryInfo();
-            stats.queuedQueryFailed(queryInfo.getQueryStats().getQueuedTime(), Optional.ofNullable(queryInfo.getErrorCode()));
-        }
-        finally {
-            // execution MUST be added to the expiration queue or there will be a leak
-            queryTracker.expireQuery(dispatchQuery.getQueryId());
-        }
+        dispatchQuery.addStateChangeListener(newState -> {
+            if (newState.isDone()) {
+                queryTracker.expireQuery(dispatchQuery.getQueryId());
+            }
+        });
+        stats.trackQueryStats(dispatchQuery);
     }
 
     public ListenableFuture<?> waitForDispatched(QueryId queryId)
