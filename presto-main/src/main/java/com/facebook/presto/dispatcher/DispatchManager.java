@@ -35,7 +35,6 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
-import com.facebook.presto.sql.SqlPath;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -141,31 +140,32 @@ public class DispatchManager
 
     public ListenableFuture<?> createQuery(QueryId queryId, String slug, SessionContext sessionContext, String query)
     {
-        DispatchQueryCreationFuture queryCreationFuture = new DispatchQueryCreationFuture();
-        queryManagementExecutor.submit(() -> {
-            try {
-                createQueryInternal(queryId, slug, sessionContext, query, resourceGroupManager);
-                queryCreationFuture.set(null);
-            }
-            catch (Throwable e) {
-                queryCreationFuture.setException(e);
-            }
-        });
-        return queryCreationFuture;
-    }
-
-    private <C> void createQueryInternal(QueryId queryId, String slug, SessionContext sessionContext, String query, ResourceGroupManager<C> resourceGroupManager)
-    {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(sessionContext, "sessionFactory is null");
         requireNonNull(query, "query is null");
         checkArgument(!query.isEmpty(), "query must not be empty string");
         checkArgument(!queryTracker.tryGetQuery(queryId).isPresent(), "query %s already exists", queryId);
 
+        DispatchQueryCreationFuture queryCreationFuture = new DispatchQueryCreationFuture();
+        queryManagementExecutor.submit(() -> {
+            try {
+                createQueryInternal(queryId, slug, sessionContext, query, resourceGroupManager);
+            }
+            finally {
+                queryCreationFuture.set(null);
+            }
+        });
+        return queryCreationFuture;
+    }
+
+    /**
+     *  Creates and registers a dispatch query with the query tracker.  This method will never fail to register a query with the query
+     *  tracker.  If an error occurs while, creating a dispatch query a failed dispatch will be created and registered.
+     */
+    private <C> void createQueryInternal(QueryId queryId, String slug, SessionContext sessionContext, String query, ResourceGroupManager<C> resourceGroupManager)
+    {
         Session session = null;
-        SelectionContext<C> selectionContext = null;
         PreparedQuery preparedQuery;
-        DispatchQuery dispatchQuery;
         try {
             if (query.length() > maxQueryLength) {
                 int queryLength = query.length();
@@ -181,7 +181,7 @@ public class DispatchManager
 
             // select resource group
             Optional<QueryType> queryType = getQueryType(preparedQuery.getStatement().getClass());
-            selectionContext = resourceGroupManager.selectGroup(new SelectionCriteria(
+            SelectionContext<C> selectionContext = resourceGroupManager.selectGroup(new SelectionCriteria(
                     sessionContext.getIdentity().getPrincipal().isPresent(),
                     sessionContext.getIdentity().getUser(),
                     Optional.ofNullable(sessionContext.getSource()),
@@ -195,50 +195,57 @@ public class DispatchManager
             // mark existing transaction as active
             transactionManager.activateTransaction(session, isTransactionControlStatement(preparedQuery.getStatement()), accessControl);
 
-            dispatchQuery = dispatchQueryFactory.createDispatchQuery(session, query, preparedQuery, slug, selectionContext.getResourceGroupId(), queryType, warningCollector, queryManagementExecutor);
+            DispatchQuery dispatchQuery = dispatchQueryFactory.createDispatchQuery(
+                    session,
+                    query,
+                    preparedQuery,
+                    slug,
+                    selectionContext.getResourceGroupId(),
+                    queryType,
+                    warningCollector,
+                    queryManagementExecutor);
+
+            boolean queryAdded = queryCreated(dispatchQuery);
+            if (queryAdded && !dispatchQuery.isDone()) {
+                try {
+                    resourceGroupManager.submit(preparedQuery.getStatement(), dispatchQuery, selectionContext, queryManagementExecutor);
+                }
+                catch (Throwable e) {
+                    // dispatch query has already been registered, so just fail it directly
+                    dispatchQuery.fail(e);
+                }
+            }
         }
-        catch (RuntimeException e) {
-            // This is intentionally not a method, since after the state change listener is registered
-            // it's not safe to do any of this, and we had bugs before where people reused this code in a method
-            // if session creation failed, create a minimal session object
+        catch (Throwable throwable) {
+            // creation must never fail, so register a failed query in this case
             if (session == null) {
                 session = Session.builder(new SessionPropertyManager())
                         .setQueryId(queryId)
                         .setIdentity(sessionContext.getIdentity())
                         .setSource(sessionContext.getSource())
-                        .setPath(new SqlPath(Optional.empty()))
                         .build();
             }
-
-            // create and immediately fail the query
-            DispatchQuery failedDispatchQuery = failedDispatchQueryFactory.createFailedDispatchQuery(
-                    session,
-                    query,
-                    Optional.ofNullable(selectionContext).map(SelectionContext::getResourceGroupId),
-                    e);
-
+            DispatchQuery failedDispatchQuery = failedDispatchQueryFactory.createFailedDispatchQuery(session, query, Optional.empty(), throwable);
             queryCreated(failedDispatchQuery);
-            return;
-        }
-
-        try {
-            queryCreated(dispatchQuery);
-            resourceGroupManager.submit(preparedQuery.getStatement(), dispatchQuery, selectionContext, queryManagementExecutor);
-        }
-        catch (RuntimeException e) {
-            dispatchQuery.fail(e);
         }
     }
 
-    private void queryCreated(DispatchQuery dispatchQuery)
+    private boolean queryCreated(DispatchQuery dispatchQuery)
     {
-        queryTracker.addQuery(dispatchQuery);
-        dispatchQuery.addStateChangeListener(newState -> {
-            if (newState.isDone()) {
-                queryTracker.expireQuery(dispatchQuery.getQueryId());
-            }
-        });
-        stats.trackQueryStats(dispatchQuery);
+        boolean queryAdded = queryTracker.addQuery(dispatchQuery);
+
+        // only add state tracking if this query instance will actually be used for the execution
+        if (queryAdded) {
+            dispatchQuery.addStateChangeListener(newState -> {
+                if (newState.isDone()) {
+                    // execution MUST be added to the expiration queue or there will be a leak
+                    queryTracker.expireQuery(dispatchQuery.getQueryId());
+                }
+            });
+            stats.trackQueryStats(dispatchQuery);
+        }
+
+        return queryAdded;
     }
 
     public ListenableFuture<?> waitForDispatched(QueryId queryId)
