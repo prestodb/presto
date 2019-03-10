@@ -23,6 +23,7 @@ import com.facebook.presto.execution.QueryStateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -39,6 +40,8 @@ import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.PLANNING;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -128,15 +131,15 @@ public class LocalDispatchQuery
     public DispatchInfo getDispatchInfo()
     {
         BasicQueryInfo queryInfo = stateMachine.getBasicQueryInfo(Optional.empty());
-        Optional<CoordinatorLocation> coordinator = Optional.empty();
-        if (queryInfo.getState().ordinal() >= PLANNING.ordinal()) {
-            coordinator = Optional.of(new LocalCoordinatorLocation());
-        }
-        Optional<ExecutionFailureInfo> failureInfo = Optional.empty();
         if (queryInfo.getState() == FAILED) {
-            failureInfo = stateMachine.getFailureInfo();
+            ExecutionFailureInfo failureInfo = stateMachine.getFailureInfo()
+                    .orElseGet(() -> toFailure(new PrestoException(GENERIC_INTERNAL_ERROR, "Query failed for an unknown reason")));
+            return DispatchInfo.failed(failureInfo, queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getQueuedTime());
         }
-        return new DispatchInfo(coordinator, failureInfo, queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getQueuedTime());
+        if (queryInfo.getState().ordinal() >= PLANNING.ordinal()) {
+            return DispatchInfo.dispatched(new LocalCoordinatorLocation(), queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getQueuedTime());
+        }
+        return DispatchInfo.queued(queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getQueuedTime());
     }
 
     @Override
