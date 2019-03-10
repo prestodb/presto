@@ -110,5 +110,5 @@ public interface QueryManager
      */
     void cancelStage(StageId stageId);
 
-    SqlQueryManagerStats getStats();
+    QueryManagerStats getStats();
 }
