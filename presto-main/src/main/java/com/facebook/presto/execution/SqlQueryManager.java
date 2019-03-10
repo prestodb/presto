@@ -47,7 +47,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxCpuTime;
@@ -228,7 +227,6 @@ public class SqlQueryManager
 
         queryExecution.addFinalQueryInfoListener(finalQueryInfo -> {
             try {
-                stats.queryFinished(new BasicQueryInfo(finalQueryInfo));
                 queryMonitor.queryCompletedEvent(finalQueryInfo);
             }
             finally {
@@ -237,7 +235,7 @@ public class SqlQueryManager
             }
         });
 
-        addStatsListeners(queryExecution);
+        stats.trackQueryStats(queryExecution);
 
         embedVersion.embedVersion(queryExecution::start).run();
     }
@@ -317,28 +315,5 @@ public class SqlQueryManager
                 query.fail(new ExceededCpuLimitException(limit));
             }
         }
-    }
-
-    private void addStatsListeners(QueryExecution queryExecution)
-    {
-        Object lock = new Object();
-
-        AtomicBoolean started = new AtomicBoolean();
-        queryExecution.addStateChangeListener(newValue -> {
-            synchronized (lock) {
-                if (newValue == RUNNING && !started.getAndSet(true)) {
-                    stats.queryStarted();
-                }
-            }
-        });
-
-        AtomicBoolean stopped = new AtomicBoolean();
-        queryExecution.addStateChangeListener(newValue -> {
-            synchronized (lock) {
-                if (newValue.isDone() && !stopped.getAndSet(true) && started.get()) {
-                    stats.queryStopped();
-                }
-            }
-        });
     }
 }
