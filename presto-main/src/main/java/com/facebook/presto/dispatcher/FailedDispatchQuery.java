@@ -64,9 +64,8 @@ public class FailedDispatchQuery
         this.session = requireNonNull(session, "session is null");
         this.executor = requireNonNull(executor, "executor is null");
 
-        this.dispatchInfo = new DispatchInfo(
-                Optional.empty(),
-                Optional.of(failure),
+        this.dispatchInfo = DispatchInfo.failed(
+                failure,
                 queryInfo.getQueryStats().getElapsedTime(),
                 queryInfo.getQueryStats().getQueuedTime());
     }
