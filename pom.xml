@@ -132,6 +132,7 @@
         <module>presto-proxy</module>
         <module>presto-kudu</module>
         <module>presto-elasticsearch</module>
+        <module>presto-clickhouse</module>
     </modules>
 
     <dependencyManagement>
@@ -730,6 +731,12 @@
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
                 <version>42.2.5</version>
+            </dependency>
+
+            <dependency>
+                <groupId>ru.yandex.clickhouse</groupId>
+                <artifactId>clickhouse-jdbc</artifactId>
+                <version>0.1.50</version>
             </dependency>
 
             <dependency>
