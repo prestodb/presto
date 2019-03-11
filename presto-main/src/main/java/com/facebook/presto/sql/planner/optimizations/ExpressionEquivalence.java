@@ -58,6 +58,7 @@ import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.sql.relational.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.sql.relational.SqlToRowExpressionTranslator.translate;
@@ -154,7 +155,7 @@ public class ExpressionEquivalence
 
                 FunctionHandle functionHandle = functionManager.resolveOperator(
                         callName.equals(mangleOperatorName(GREATER_THAN)) ? LESS_THAN : LESS_THAN_OR_EQUAL,
-                        swapPair(call.getArguments().stream().map(RowExpression::getType).collect(toImmutableList())));
+                        swapPair(fromTypes(call.getArguments().stream().map(RowExpression::getType).collect(toImmutableList()))));
                 return new CallExpression(
                         functionHandle,
                         call.getType(),

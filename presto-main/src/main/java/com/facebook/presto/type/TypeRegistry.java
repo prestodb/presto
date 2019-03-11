@@ -72,6 +72,7 @@ import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.type.CodePointsType.CODE_POINTS;
 import static com.facebook.presto.type.ColorType.COLOR;
@@ -662,7 +663,7 @@ public final class TypeRegistry
     public MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
     {
         requireNonNull(functionManager, "functionManager is null");
-        return functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(operatorType, argumentTypes)).getMethodHandle();
+        return functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(operatorType, fromTypes(argumentTypes))).getMethodHandle();
     }
 
     public static class TypeCompatibility

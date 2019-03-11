@@ -54,6 +54,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.transaction.TransactionManager;
@@ -103,8 +104,7 @@ import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -220,23 +220,23 @@ public class MetadataManager
         Multimap<Type, OperatorType> missingOperators = HashMultimap.create();
         for (Type type : typeManager.getTypes()) {
             if (type.isComparable()) {
-                if (!canResolveOperator(HASH_CODE, BIGINT, ImmutableList.of(type))) {
+                if (!canResolveOperator(HASH_CODE, fromTypes(type))) {
                     missingOperators.put(type, HASH_CODE);
                 }
-                if (!canResolveOperator(EQUAL, BOOLEAN, ImmutableList.of(type, type))) {
+                if (!canResolveOperator(EQUAL, fromTypes(type, type))) {
                     missingOperators.put(type, EQUAL);
                 }
-                if (!canResolveOperator(NOT_EQUAL, BOOLEAN, ImmutableList.of(type, type))) {
+                if (!canResolveOperator(NOT_EQUAL, fromTypes(type, type))) {
                     missingOperators.put(type, NOT_EQUAL);
                 }
             }
             if (type.isOrderable()) {
                 for (OperatorType operator : ImmutableList.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL)) {
-                    if (!canResolveOperator(operator, BOOLEAN, ImmutableList.of(type, type))) {
+                    if (!canResolveOperator(operator, fromTypes(type, type))) {
                         missingOperators.put(type, operator);
                     }
                 }
-                if (!canResolveOperator(BETWEEN, BOOLEAN, ImmutableList.of(type, type, type))) {
+                if (!canResolveOperator(BETWEEN, fromTypes(type, type, type))) {
                     missingOperators.put(type, BETWEEN);
                 }
             }
@@ -1189,7 +1189,7 @@ public class MetadataManager
         return new JsonCodecFactory(provider).jsonCodec(ViewDefinition.class);
     }
 
-    private boolean canResolveOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
+    private boolean canResolveOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)
     {
         try {
             getFunctionManager().resolveOperator(operatorType, argumentTypes);

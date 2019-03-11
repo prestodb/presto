@@ -21,7 +21,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
@@ -54,6 +53,7 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.JoniRegexpType.JONI_REGEXP;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
@@ -268,16 +268,16 @@ public class TestTypeRegistry
     {
         for (Type type : typeRegistry.getTypes()) {
             if (type.isComparable()) {
-                functionManager.resolveOperator(EQUAL, ImmutableList.of(type, type));
-                functionManager.resolveOperator(NOT_EQUAL, ImmutableList.of(type, type));
-                functionManager.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(type, type));
-                functionManager.resolveOperator(HASH_CODE, ImmutableList.of(type));
+                functionManager.resolveOperator(EQUAL, fromTypes(type, type));
+                functionManager.resolveOperator(NOT_EQUAL, fromTypes(type, type));
+                functionManager.resolveOperator(IS_DISTINCT_FROM, fromTypes(type, type));
+                functionManager.resolveOperator(HASH_CODE, fromTypes(type));
             }
             if (type.isOrderable()) {
-                functionManager.resolveOperator(LESS_THAN, ImmutableList.of(type, type));
-                functionManager.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(type, type));
-                functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, ImmutableList.of(type, type));
-                functionManager.resolveOperator(GREATER_THAN, ImmutableList.of(type, type));
+                functionManager.resolveOperator(LESS_THAN, fromTypes(type, type));
+                functionManager.resolveOperator(LESS_THAN_OR_EQUAL, fromTypes(type, type));
+                functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(type, type));
+                functionManager.resolveOperator(GREATER_THAN, fromTypes(type, type));
             }
         }
     }

@@ -410,7 +410,7 @@ public final class SqlToRowExpressionTranslator
                     return expression;
                 case MINUS:
                     return call(
-                            functionManager.resolveOperator(NEGATION, ImmutableList.of(expression.getType())),
+                            functionManager.resolveOperator(NEGATION, fromTypes(expression.getType())),
                             getType(node),
                             expression);
             }
@@ -683,7 +683,7 @@ public final class SqlToRowExpressionTranslator
             RowExpression max = process(node.getMax(), context);
 
             return call(
-                    functionManager.resolveOperator(BETWEEN, ImmutableList.of(value.getType(), min.getType(), max.getType())),
+                    functionManager.resolveOperator(BETWEEN, fromTypes(value.getType(), min.getType(), max.getType())),
                     BOOLEAN,
                     value,
                     min,
@@ -721,7 +721,7 @@ public final class SqlToRowExpressionTranslator
             RowExpression index = process(node.getIndex(), context);
 
             return call(
-                    functionManager.resolveOperator(SUBSCRIPT, ImmutableList.of(base.getType(), index.getType())),
+                    functionManager.resolveOperator(SUBSCRIPT, fromTypes(base.getType(), index.getType())),
                     getType(node),
                     base,
                     index);

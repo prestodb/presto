@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.gen.SpecialFormBytecodeGenerator.generateWrite;
 import static com.facebook.presto.sql.relational.SpecialFormExpression.Form.WHEN;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
@@ -116,7 +117,7 @@ public class SwitchCodeGenerator
             RowExpression result = ((SpecialFormExpression) clause).getArguments().get(1);
 
             // call equals(value, operand)
-            FunctionHandle equalsFunction = generatorContext.getFunctionManager().resolveOperator(EQUAL, ImmutableList.of(value.getType(), operand.getType()));
+            FunctionHandle equalsFunction = generatorContext.getFunctionManager().resolveOperator(EQUAL, fromTypes(value.getType(), operand.getType()));
 
             // TODO: what if operand is null? It seems that the call will return "null" (which is cleared below)
             // and the code only does the right thing because the value in the stack for that scenario is

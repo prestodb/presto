@@ -54,6 +54,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
@@ -193,32 +194,32 @@ public class BenchmarkPageProcessor
         return specialForm(
                 AND,
                 BOOLEAN,
-                call(functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, ImmutableList.of(VARCHAR, VARCHAR)),
+                call(functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(VARCHAR, VARCHAR)),
                         BOOLEAN,
                         field(SHIP_DATE, VARCHAR),
                         constant(MIN_SHIP_DATE, VARCHAR)),
                 specialForm(
                         AND,
                         BOOLEAN,
-                        call(functionManager.resolveOperator(LESS_THAN, ImmutableList.of(VARCHAR, VARCHAR)),
+                        call(functionManager.resolveOperator(LESS_THAN, fromTypes(VARCHAR, VARCHAR)),
                                 BOOLEAN,
                                 field(SHIP_DATE, VARCHAR),
                                 constant(MAX_SHIP_DATE, VARCHAR)),
                         specialForm(
                                 AND,
                                 BOOLEAN,
-                                call(functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
+                                call(functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
                                         BOOLEAN,
                                         field(DISCOUNT, DOUBLE),
                                         constant(0.05, DOUBLE)),
                                 specialForm(
                                         AND,
                                         BOOLEAN,
-                                        call(functionManager.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
+                                        call(functionManager.resolveOperator(LESS_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
                                                 BOOLEAN,
                                                 field(DISCOUNT, DOUBLE),
                                                 constant(0.07, DOUBLE)),
-                                        call(functionManager.resolveOperator(LESS_THAN, ImmutableList.of(DOUBLE, DOUBLE)),
+                                        call(functionManager.resolveOperator(LESS_THAN, fromTypes(DOUBLE, DOUBLE)),
                                                 BOOLEAN,
                                                 field(QUANTITY, DOUBLE),
                                                 constant(24.0, DOUBLE))))));
@@ -227,7 +228,7 @@ public class BenchmarkPageProcessor
     private static final RowExpression createProjectExpression(FunctionManager functionManager)
     {
         return call(
-                functionManager.resolveOperator(MULTIPLY, ImmutableList.of(DOUBLE, DOUBLE)),
+                functionManager.resolveOperator(MULTIPLY, fromTypes(DOUBLE, DOUBLE)),
                 DOUBLE,
                 field(EXTENDED_PRICE, DOUBLE),
                 field(DISCOUNT, DOUBLE));

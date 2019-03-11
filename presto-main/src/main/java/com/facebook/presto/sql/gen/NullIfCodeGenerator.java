@@ -32,6 +32,7 @@ import java.util.Optional;
 import static com.facebook.presto.metadata.CastType.fromOperatorType;
 import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 import static com.facebook.presto.sql.gen.SpecialFormBytecodeGenerator.generateWrite;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
@@ -62,7 +63,7 @@ public class NullIfCodeGenerator
         Type secondType = second.getType();
 
         // if (equal(cast(first as <common type>), cast(second as <common type>))
-        FunctionHandle equalFunction = generatorContext.getFunctionManager().resolveOperator(EQUAL, ImmutableList.of(firstType, secondType));
+        FunctionHandle equalFunction = generatorContext.getFunctionManager().resolveOperator(EQUAL, fromTypes(firstType, secondType));
         ScalarFunctionImplementation equalsFunction = generatorContext.getFunctionManager().getScalarFunctionImplementation(equalFunction);
         BytecodeNode equalsCall = generatorContext.generateCall(
                 EQUAL.name(),

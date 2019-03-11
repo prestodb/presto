@@ -47,6 +47,7 @@ import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Failures.internalError;
 import static com.facebook.presto.util.Reflection.constructorMethodHandle;
@@ -108,8 +109,8 @@ public final class MapConstructor
         Type valueType = boundVariables.getTypeVariable("V");
 
         Type mapType = typeManager.getParameterizedType(MAP, ImmutableList.of(TypeSignatureParameter.of(keyType.getTypeSignature()), TypeSignatureParameter.of(valueType.getTypeSignature())));
-        MethodHandle keyHashCode = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(keyType))).getMethodHandle();
-        MethodHandle keyEqual = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(OperatorType.EQUAL, ImmutableList.of(keyType, keyType))).getMethodHandle();
+        MethodHandle keyHashCode = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(OperatorType.HASH_CODE, fromTypes(keyType))).getMethodHandle();
+        MethodHandle keyEqual = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(OperatorType.EQUAL, fromTypes(keyType, keyType))).getMethodHandle();
         MethodHandle keyIndeterminate = functionManager.getScalarFunctionImplementation(internalOperator(INDETERMINATE.name(), BOOLEAN.getTypeSignature(), ImmutableList.of(keyType.getTypeSignature()))).getMethodHandle();
         MethodHandle instanceFactory = constructorMethodHandle(State.class, MapType.class).bindTo(mapType);
 

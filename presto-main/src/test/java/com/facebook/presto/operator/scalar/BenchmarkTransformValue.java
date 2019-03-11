@@ -65,6 +65,7 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
@@ -142,7 +143,7 @@ public class BenchmarkTransformValue
                             parseTypeSignature(format("function(%s, %s, boolean)", type, type))));
             FunctionHandle greaterThan = metadata.getFunctionManager().resolveOperator(
                     GREATER_THAN,
-                    ImmutableList.of(elementType, elementType));
+                    fromTypes(elementType, elementType));
             projectionsBuilder.add(call(functionHandle, returnType, ImmutableList.of(
                     field(0, mapType),
                     new LambdaDefinitionExpression(

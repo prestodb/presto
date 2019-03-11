@@ -136,7 +136,7 @@ public class TestScanFilterAndProjectOperator
                 .build();
 
         RowExpression filter = call(
-                createTestMetadataManager().getFunctionManager().resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
+                createTestMetadataManager().getFunctionManager().resolveOperator(EQUAL, fromTypes(BIGINT, BIGINT)),
                 BOOLEAN,
                 field(0, BIGINT),
                 constant(10L, BIGINT));
