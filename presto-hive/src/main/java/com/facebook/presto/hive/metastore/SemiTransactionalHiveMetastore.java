@@ -75,7 +75,6 @@ import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getFileSystem;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.renameFile;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.waitForListenableFutures;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.TEMPORARY_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
@@ -91,6 +90,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.whenAllSucceed;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
@@ -979,7 +981,14 @@ public class SemiTransactionalHiveMetastore
             }
 
             // Wait for all renames submitted for "INSERT_EXISTING" action to finish
-            waitForListenableFutures(committer.getFileRenameFutures());
+            ListenableFuture<?> listenableFutureAggregate = whenAllSucceed(committer.getFileRenameFutures()).call(() -> null, directExecutor());
+            try {
+                getFutureValue(listenableFutureAggregate, PrestoException.class);
+            }
+            catch (RuntimeException e) {
+                listenableFutureAggregate.cancel(true);
+                throw e;
+            }
 
             // At this point, all file system operations, whether asynchronously issued or not, have completed successfully.
             // We are moving on to metastore operations now.
