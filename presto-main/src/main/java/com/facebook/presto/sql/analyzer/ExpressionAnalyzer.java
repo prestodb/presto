@@ -146,6 +146,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.STANDALONE_LAMBDA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.missingAttributeException;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
@@ -1244,7 +1245,7 @@ public class ExpressionAnalyzer
 
             Signature operatorSignature;
             try {
-                operatorSignature = functionManager.resolveOperator(operatorType, argumentTypes.build()).getSignature();
+                operatorSignature = functionManager.resolveOperator(operatorType, fromTypes(argumentTypes.build())).getSignature();
             }
             catch (OperatorNotFoundException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "%s", e.getMessage());

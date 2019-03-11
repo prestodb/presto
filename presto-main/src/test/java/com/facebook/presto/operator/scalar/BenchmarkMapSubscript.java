@@ -59,6 +59,7 @@ import static com.facebook.presto.metadata.MetadataManager.createTestMetadataMan
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
@@ -146,7 +147,7 @@ public class BenchmarkMapSubscript
 
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
 
-            FunctionHandle functionHandle = metadata.getFunctionManager().resolveOperator(SUBSCRIPT, ImmutableList.of(mapType, mapType.getKeyType()));
+            FunctionHandle functionHandle = metadata.getFunctionManager().resolveOperator(SUBSCRIPT, fromTypes(mapType, mapType.getKeyType()));
             for (int i = 0; i < mapSize; i++) {
                 projectionsBuilder.add(new CallExpression(
                         functionHandle,

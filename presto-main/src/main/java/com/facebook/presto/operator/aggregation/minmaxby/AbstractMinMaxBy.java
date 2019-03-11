@@ -60,6 +60,7 @@ import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.Signature.orderableTypeParameter;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static com.facebook.presto.util.CompilerUtils.defineClass;
@@ -135,7 +136,7 @@ public abstract class AbstractMinMaxBy
 
         CallSiteBinder binder = new CallSiteBinder();
         OperatorType operator = min ? LESS_THAN : GREATER_THAN;
-        MethodHandle compareMethod = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(operator, ImmutableList.of(keyType, keyType))).getMethodHandle();
+        MethodHandle compareMethod = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(operator, fromTypes(keyType, keyType))).getMethodHandle();
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),

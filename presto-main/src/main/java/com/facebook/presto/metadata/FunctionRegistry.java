@@ -298,7 +298,6 @@ import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
-import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.LiteralEncoder.MAGIC_LITERAL_FUNCTION_PREFIX;
 import static com.facebook.presto.sql.planner.LiteralEncoder.getMagicLiteralFunctionSignature;
 import static com.facebook.presto.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
@@ -1057,18 +1056,18 @@ class FunctionRegistry
                 .collect(toImmutableList());
     }
 
-    public FunctionHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    public FunctionHandle resolveOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)
             throws OperatorNotFoundException
     {
         try {
-            return new FunctionHandle(resolveFunction(QualifiedName.of(mangleOperatorName(operatorType)), fromTypes(argumentTypes)).getSignature());
+            return resolveFunction(QualifiedName.of(mangleOperatorName(operatorType)), argumentTypes);
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
                 throw new OperatorNotFoundException(
                         operatorType,
                         argumentTypes.stream()
-                                .map(Type::getTypeSignature)
+                                .map(TypeSignatureProvider::getTypeSignature)
                                 .collect(toImmutableList()));
             }
             else {

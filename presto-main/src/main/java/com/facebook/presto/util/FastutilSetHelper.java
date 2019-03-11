@@ -16,7 +16,6 @@ package com.facebook.presto.util;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.Hash;
 import it.unimi.dsi.fastutil.booleans.BooleanOpenHashSet;
 import it.unimi.dsi.fastutil.doubles.DoubleHash;
@@ -33,6 +32,7 @@ import java.util.Set;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static java.lang.Boolean.TRUE;
@@ -94,8 +94,8 @@ public final class FastutilSetHelper
 
         private LongStrategy(FunctionManager functionManager, Type type)
         {
-            hashCodeHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, ImmutableList.of(type))).getMethodHandle();
-            equalsHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(EQUAL, ImmutableList.of(type, type))).getMethodHandle();
+            hashCodeHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, fromTypes(type))).getMethodHandle();
+            equalsHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(EQUAL, fromTypes(type, type))).getMethodHandle();
         }
 
         @Override
@@ -136,8 +136,8 @@ public final class FastutilSetHelper
 
         private DoubleStrategy(FunctionManager functionManager, Type type)
         {
-            hashCodeHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, ImmutableList.of(type))).getMethodHandle();
-            equalsHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(EQUAL, ImmutableList.of(type, type))).getMethodHandle();
+            hashCodeHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, fromTypes(type))).getMethodHandle();
+            equalsHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(EQUAL, fromTypes(type, type))).getMethodHandle();
         }
 
         @Override
@@ -178,10 +178,10 @@ public final class FastutilSetHelper
 
         private ObjectStrategy(FunctionManager functionManager, Type type)
         {
-            hashCodeHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, ImmutableList.of(type)))
+            hashCodeHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, fromTypes(type)))
                     .getMethodHandle()
                     .asType(MethodType.methodType(long.class, Object.class));
-            equalsHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(EQUAL, ImmutableList.of(type, type)))
+            equalsHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(EQUAL, fromTypes(type, type)))
                     .getMethodHandle()
                     .asType(MethodType.methodType(Boolean.class, Object.class, Object.class));
         }

@@ -33,6 +33,7 @@ import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQuer
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
@@ -52,7 +53,7 @@ public class PredicateFilterBenchmark
         Metadata metadata = localQueryRunner.getMetadata();
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "totalprice");
         RowExpression filter = call(
-                metadata.getFunctionManager().resolveOperator(GREATER_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
+                metadata.getFunctionManager().resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
                 BOOLEAN,
                 field(0, DOUBLE),
                 constant(50000.0, DOUBLE));

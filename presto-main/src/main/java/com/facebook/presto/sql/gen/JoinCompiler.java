@@ -66,6 +66,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.gen.InputReferenceCompiler.generateInputReference;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static com.facebook.presto.util.CompilerUtils.defineClass;
@@ -706,8 +707,8 @@ public class JoinCompiler
                         continue;
                 }
             }
-            ScalarFunctionImplementation operator = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(OperatorType.IS_DISTINCT_FROM, ImmutableList.of(type, type)));
-            Binding binding = callSiteBinder.bind(operator.getMethodHandle());
+            ScalarFunctionImplementation operator = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(OperatorType.IS_DISTINCT_FROM, fromTypes(type, type)));
+            callSiteBinder.bind(operator.getMethodHandle());
             List<BytecodeNode> argumentsBytecode = new ArrayList<>();
             argumentsBytecode.add(generateInputReference(callSiteBinder, scope, type, leftBlock, leftBlockPosition));
             argumentsBytecode.add(generateInputReference(callSiteBinder, scope, type, rightBlock, rightPosition));
