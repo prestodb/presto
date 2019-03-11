@@ -238,6 +238,7 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.hash.Hashing.sha256;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -255,7 +256,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
@@ -767,9 +767,9 @@ public abstract class AbstractTestHiveClient
                 locationService,
                 new TableParameterCodec(),
                 partitionUpdateCodec,
-                newFixedThreadPool(2),
+                listeningDecorator(executor),
                 new HiveTypeTranslator(),
-                new HiveStagingFileCommitter(hdfsEnvironment, executor),
+                new HiveStagingFileCommitter(hdfsEnvironment, listeningDecorator(executor)),
                 TEST_SERVER_VERSION);
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
