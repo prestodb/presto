@@ -20,7 +20,6 @@ import com.facebook.presto.hive.TableOfflineException;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.FileUtils;
@@ -38,9 +37,6 @@ import static com.facebook.presto.hive.HiveSplitManager.PRESTO_OFFLINE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.util.concurrent.Futures.whenAllSucceed;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.MetaStoreUtils.typeToThriftType;
@@ -297,17 +293,5 @@ public class MetastoreUtil
     private static String getRenameErrorMessage(Path source, Path target)
     {
         return format("Error moving data files from %s to final location %s", source, target);
-    }
-
-    public static void waitForListenableFutures(List<ListenableFuture<?>> listenableFutures)
-    {
-        ListenableFuture<?> listenableFutureAggregate = whenAllSucceed(listenableFutures).call(() -> null, directExecutor());
-        try {
-            getFutureValue(listenableFutureAggregate);
-        }
-        catch (RuntimeException e) {
-            listenableFutureAggregate.cancel(true);
-            throw e;
-        }
     }
 }

@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import org.apache.hadoop.fs.FileSystem;
@@ -28,8 +29,10 @@ import java.util.List;
 
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getFileSystem;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.renameFile;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.waitForListenableFutures;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.whenAllSucceed;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.util.Objects.requireNonNull;
 
 public class HiveStagingFileCommitter
@@ -64,6 +67,13 @@ public class HiveStagingFileCommitter
             }
         }
 
-        waitForListenableFutures(commitFutures);
+        ListenableFuture<?> listenableFutureAggregate = whenAllSucceed(commitFutures).call(() -> null, directExecutor());
+        try {
+            getFutureValue(listenableFutureAggregate, PrestoException.class);
+        }
+        catch (RuntimeException e) {
+            listenableFutureAggregate.cancel(true);
+            throw e;
+        }
     }
 }
