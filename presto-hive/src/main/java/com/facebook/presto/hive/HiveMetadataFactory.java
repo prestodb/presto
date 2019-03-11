@@ -25,10 +25,8 @@ import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
-import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 
-import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static java.util.Objects.requireNonNull;
 
 public class HiveMetadataFactory
@@ -63,7 +61,7 @@ public class HiveMetadataFactory
             ExtendedHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
-            @ForFileRename ExecutorService executorService,
+            @ForFileRename ListeningExecutorService fileRenameExecutor,
             TypeManager typeManager,
             LocationService locationService,
             TableParameterCodec tableParameterCodec,
@@ -88,7 +86,7 @@ public class HiveMetadataFactory
                 locationService,
                 tableParameterCodec,
                 partitionUpdateCodec,
-                executorService,
+                fileRenameExecutor,
                 typeTranslator,
                 stagingFileCommitter,
                 nodeVersion.toString());
@@ -110,7 +108,7 @@ public class HiveMetadataFactory
             LocationService locationService,
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
-            ExecutorService executorService,
+            ListeningExecutorService fileRenameExecutor,
             TypeTranslator typeTranslator,
             StagingFileCommitter stagingFileCommitter,
             String prestoVersion)
@@ -130,7 +128,7 @@ public class HiveMetadataFactory
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.tableParameterCodec = requireNonNull(tableParameterCodec, "tableParameterCodec is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
-        this.fileRenameExecutor = listeningDecorator(requireNonNull(executorService, "executorService is null"));
+        this.fileRenameExecutor = requireNonNull(fileRenameExecutor, "fileRenameExecutor is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.stagingFileCommitter = requireNonNull(stagingFileCommitter, "stagingFileCommitter is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");

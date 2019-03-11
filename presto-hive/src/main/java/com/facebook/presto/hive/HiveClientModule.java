@@ -23,12 +23,15 @@ import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.Multibinder;
+import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.concurrent.ExecutorServiceAdapter;
 import io.airlift.event.client.EventClient;
 
 import javax.inject.Singleton;
@@ -37,6 +40,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -141,11 +145,13 @@ public class HiveClientModule
     @ForFileRename
     @Singleton
     @Provides
-    public ExecutorService createFileRanemeExecutor(HiveConnectorId hiveClientId, HiveClientConfig hiveClientConfig)
+    public ListeningExecutorService createFileRanemeExecutor(HiveConnectorId hiveClientId, HiveClientConfig hiveClientConfig)
     {
-        return newFixedThreadPool(
-                hiveClientConfig.getMaxConcurrentFileRenames(),
-                daemonThreadsNamed("hive-file-rename-" + hiveClientId + "-%s"));
+        return listeningDecorator(
+                new ExecutorServiceAdapter(
+                        new BoundedExecutor(
+                                newCachedThreadPool(daemonThreadsNamed("hive-" + hiveClientId + "-%s")),
+                                hiveClientConfig.getMaxConcurrentFileRenames())));
     }
 
     @Singleton
