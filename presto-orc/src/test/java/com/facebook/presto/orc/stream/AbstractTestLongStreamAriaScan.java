@@ -37,8 +37,8 @@ public abstract class AbstractTestLongStreamAriaScan
     static final int COMPRESSION_BLOCK_SIZE = 256 * 1024;
     static final OrcDataSourceId ORC_DATA_SOURCE_ID = new OrcDataSourceId("test");
 
-    private static final List<List<Long>> TEST_DATA = getTestData();
-    private static final List<List<Long>> TEST_RUNLENGTH_DATA = getRunlengthTestData();
+    private static List<List<Long>> TEST_DATA = getTestData();
+    private static List<List<Long>> TEST_RUNLENGTH_DATA = getRunlengthTestData();
 
     @Test
     public void testData()
@@ -107,7 +107,6 @@ public abstract class AbstractTestLongStreamAriaScan
             implements LongInputStream.ResultsConsumer
     {
         private ImmutableList.Builder<Long> results;
-
         public TestResultsConsumer(ImmutableList.Builder<Long> results)
         {
             this.results = results;
@@ -123,7 +122,10 @@ public abstract class AbstractTestLongStreamAriaScan
         @Override
         public int consumeRepeated(int offsetIndex, long value, int count)
         {
-            return 0;
+            for (int i = 0; i < count; i++) {
+                results.add(value);
+            }
+            return count;
         }
     }
 

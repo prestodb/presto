@@ -135,7 +135,7 @@ public class LongInputStreamV2
                 scanLiterals();
             }
         }
-        skip(endOffset - offsets[beginOffset + numOffsets - 1] - 1);
+        //skip(endOffset - offsets[beginOffset + numOffsets - 1] - 1);
         this.offsets = null;
         return numResults;
     }
@@ -436,7 +436,11 @@ public class LongInputStreamV2
             return 0;
         }
         if (limit > endOffset) {
-            throw new OrcCorruptionException(input.getOrcDataSourceId(), "Read past end of streams");
+            // The scanned range ends in mid-run. We revert to reading
+            // the run into literals and then process those that fall
+            // within the range of this scan(). The next scan can pick
+            // up in the middle of the literals.
+            return -1;
         }
         // Are all the offsets consecutive for the length of the run?
         if (offsetIdx + length < numOffsets && offsets[offsetIdx + length - 1] == currentRunOffset + length - 1) {
