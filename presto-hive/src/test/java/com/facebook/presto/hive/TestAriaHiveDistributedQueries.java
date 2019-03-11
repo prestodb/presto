@@ -425,4 +425,14 @@ public class TestAriaHiveDistributedQueries
                 "    AND l.suppkey = p.suppkey\n" +
                 "    AND p.availqty < 1000");
     }
+
+    @Test
+    public void testJoins()
+    {
+        assertQuery(ariaSession(), "SELECT\n" +
+                "    p.supplycost\n" +
+                "FROM lineitem l\n" +
+                "JOIN partsupp p\n" +
+                "    ON p.suppkey = l.suppkey AND p.partkey = l.partkey");
+    }
 }
