@@ -25,28 +25,26 @@ import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getFileSystem;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.renameFile;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.waitForListenableFutures;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static java.util.Objects.requireNonNull;
 
 public class HiveStagingFileCommitter
         implements StagingFileCommitter
 {
     private final HdfsEnvironment hdfsEnvironment;
-    private final ListeningExecutorService commitExecutor;
+    private final ListeningExecutorService fileRenameExecutor;
 
     @Inject
     public HiveStagingFileCommitter(
             HdfsEnvironment hdfsEnvironment,
-            @ForFileRename ExecutorService executorService)
+            @ForFileRename ListeningExecutorService fileRenameExecutor)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.commitExecutor = listeningDecorator(executorService);
+        this.fileRenameExecutor = requireNonNull(fileRenameExecutor, "fileRenameExecutor is null");
     }
 
     @Override
@@ -62,7 +60,7 @@ public class HiveStagingFileCommitter
                 checkState(!fileWriteInfo.getWriteFileName().equals(fileWriteInfo.getTargetFileName()));
                 Path source = new Path(path, fileWriteInfo.getWriteFileName());
                 Path target = new Path(path, fileWriteInfo.getTargetFileName());
-                commitFutures.add(commitExecutor.submit(() -> renameFile(fileSystem, source, target)));
+                commitFutures.add(fileRenameExecutor.submit(() -> renameFile(fileSystem, source, target)));
             }
         }
 
