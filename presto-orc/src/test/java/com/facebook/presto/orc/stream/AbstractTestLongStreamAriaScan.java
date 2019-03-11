@@ -123,7 +123,10 @@ public abstract class AbstractTestLongStreamAriaScan
         @Override
         public int consumeRepeated(int offsetIndex, long value, int count)
         {
-            return 0;
+            for (int i = 0; i < count; i++) {
+                results.add(value);
+            }
+            return count;
         }
     }
 
