@@ -44,6 +44,7 @@ import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
@@ -89,7 +90,7 @@ public class TestFilterAndProjectOperator
         MetadataManager metadata = createTestMetadataManager();
         FunctionManager functionManager = metadata.getFunctionManager();
         RowExpression filter = call(
-                functionManager.resolveOperator(BETWEEN, ImmutableList.of(BIGINT, BIGINT, BIGINT)),
+                functionManager.resolveOperator(BETWEEN, fromTypes(BIGINT, BIGINT, BIGINT)),
                 BOOLEAN,
                 field(1, BIGINT),
                 constant(10L, BIGINT),
@@ -97,7 +98,7 @@ public class TestFilterAndProjectOperator
 
         RowExpression field0 = field(0, VARCHAR);
         RowExpression add5 = call(
-                functionManager.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
+                functionManager.resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
                 BIGINT,
                 field(1, BIGINT),
                 constant(5L, BIGINT));
@@ -141,7 +142,7 @@ public class TestFilterAndProjectOperator
         MetadataManager metadata = createTestMetadataManager();
 
         RowExpression filter = call(
-                metadata.getFunctionManager().resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
+                metadata.getFunctionManager().resolveOperator(EQUAL, fromTypes(BIGINT, BIGINT)),
                 BOOLEAN,
                 field(1, BIGINT),
                 constant(10L, BIGINT));

@@ -29,6 +29,7 @@ import java.util.List;
 import static com.facebook.presto.spi.function.Signature.orderableWithVariadicBound;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
 import static com.facebook.presto.util.Failures.internalError;
 
@@ -48,7 +49,7 @@ public abstract class RowComparisonOperator
     {
         ImmutableList.Builder<MethodHandle> argumentMethods = ImmutableList.builder();
         for (Type parameterType : type.getTypeParameters()) {
-            FunctionHandle operatorHandle = functionManager.resolveOperator(operatorType, ImmutableList.of(parameterType, parameterType));
+            FunctionHandle operatorHandle = functionManager.resolveOperator(operatorType, fromTypes(parameterType, parameterType));
             argumentMethods.add(functionManager.getScalarFunctionImplementation(operatorHandle).getMethodHandle());
         }
         return argumentMethods.build();

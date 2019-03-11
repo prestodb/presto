@@ -22,7 +22,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
@@ -100,7 +99,7 @@ public final class StandardFunctionResolution
             default:
                 throw new IllegalStateException("Unknown arithmetic operator: " + operator);
         }
-        return functionManager.resolveOperator(operatorType, ImmutableList.of(leftType, rightType));
+        return functionManager.resolveOperator(operatorType, fromTypes(leftType, rightType));
     }
 
     public FunctionHandle arrayConstructor(List<? extends Type> argumentTypes)
@@ -137,7 +136,7 @@ public final class StandardFunctionResolution
                 throw new IllegalStateException("Unsupported comparison operator type: " + operator);
         }
 
-        return functionManager.resolveOperator(operatorType, ImmutableList.of(leftType, rightType));
+        return functionManager.resolveOperator(operatorType, fromTypes(leftType, rightType));
     }
 
     public FunctionHandle tryFunction(Type returnType)

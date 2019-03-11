@@ -54,6 +54,7 @@ import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimp
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
@@ -113,7 +114,7 @@ public class BenchmarkEqualsOperator
     private static RowExpression createComparison(FunctionManager functionManager, int leftField, int rightField)
     {
         return call(
-                functionManager.resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
+                functionManager.resolveOperator(EQUAL, fromTypes(BIGINT, BIGINT)),
                 BOOLEAN,
                 field(leftField, BIGINT),
                 field(rightField, BIGINT));

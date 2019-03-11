@@ -33,7 +33,7 @@ public class OperatorNotFoundException
     private final TypeSignature returnType;
     private final List<TypeSignature> argumentTypes;
 
-    public OperatorNotFoundException(OperatorType operatorType, List<? extends TypeSignature> argumentTypes)
+    public OperatorNotFoundException(OperatorType operatorType, List<TypeSignature> argumentTypes)
     {
         super(OPERATOR_NOT_FOUND, formatErrorMessage(operatorType, argumentTypes, Optional.empty()));
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
@@ -41,7 +41,7 @@ public class OperatorNotFoundException
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
     }
 
-    public OperatorNotFoundException(OperatorType operatorType, List<? extends TypeSignature> argumentTypes, TypeSignature returnType)
+    public OperatorNotFoundException(OperatorType operatorType, List<TypeSignature> argumentTypes, TypeSignature returnType)
     {
         super(OPERATOR_NOT_FOUND, formatErrorMessage(operatorType, argumentTypes, Optional.of(returnType)));
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
@@ -49,7 +49,7 @@ public class OperatorNotFoundException
         this.returnType = requireNonNull(returnType, "returnType is null");
     }
 
-    private static String formatErrorMessage(OperatorType operatorType, List<? extends TypeSignature> argumentTypes, Optional<TypeSignature> returnType)
+    private static String formatErrorMessage(OperatorType operatorType, List<TypeSignature> argumentTypes, Optional<TypeSignature> returnType)
     {
         String operatorString;
         switch (operatorType) {

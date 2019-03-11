@@ -125,7 +125,7 @@ public class TestPageProcessorCompiler
         FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
         CallExpression lengthVarchar = new CallExpression(
                 functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("length"), fromTypes(VARCHAR)), BIGINT, ImmutableList.of(field(0, VARCHAR)));
-        FunctionHandle lessThan = functionManager.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
+        FunctionHandle lessThan = functionManager.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
         CallExpression filter = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(lengthVarchar, constant(10L, BIGINT)));
 
         PageProcessor processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, VARCHAR)), MAX_BATCH_SIZE).get();
@@ -164,7 +164,7 @@ public class TestPageProcessorCompiler
     public void testSanityFilterOnRLE()
     {
         FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
-        FunctionHandle lessThan = functionManager.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
+        FunctionHandle lessThan = functionManager.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
         CallExpression filter = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(field(0, BIGINT), constant(10L, BIGINT)));
 
         PageProcessor processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, BIGINT)), MAX_BATCH_SIZE).get();
@@ -210,7 +210,7 @@ public class TestPageProcessorCompiler
     public void testNonDeterministicProject()
     {
         FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
-        FunctionHandle lessThan = functionManager.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
+        FunctionHandle lessThan = functionManager.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
         CallExpression random = new CallExpression(
                 functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("random"), fromTypes(BIGINT)), BIGINT, singletonList(constant(10L, BIGINT)));
         InputReferenceExpression col0 = field(0, BIGINT);
