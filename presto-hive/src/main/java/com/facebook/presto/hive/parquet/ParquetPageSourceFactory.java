@@ -242,7 +242,7 @@ public class ParquetPageSourceFactory
                 continue;
             }
 
-            RichColumnDescriptor descriptor = descriptorsByPath.get(ImmutableList.of(columnHandle.getName()));
+            RichColumnDescriptor descriptor = descriptorsByPath.get(columnHandle.getNameList());
             if (descriptor != null) {
                 predicate.put(descriptor, entry.getValue());
             }

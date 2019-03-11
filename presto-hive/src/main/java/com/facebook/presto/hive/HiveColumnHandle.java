@@ -21,6 +21,7 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -31,6 +32,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
 public class HiveColumnHandle
@@ -114,6 +116,11 @@ public class HiveColumnHandle
     public ColumnMetadata getColumnMetadata(TypeManager typeManager)
     {
         return new ColumnMetadata(name, typeManager.getType(typeName), null, isHidden());
+    }
+
+    public List<String> getNameList()
+    {
+        return asList(name.split("\\."));
     }
 
     @JsonProperty
