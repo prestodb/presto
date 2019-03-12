@@ -17,6 +17,7 @@ import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
@@ -62,6 +63,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketFilter;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketHandle;
+import static com.facebook.presto.hive.HiveSessionProperties.shouldIgnoreTableBucketing;
 import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
@@ -113,14 +115,14 @@ public class HivePartitionManager
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
-    public HivePartitionResult getPartitions(SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    public HivePartitionResult getPartitions(SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint, ConnectorSession session)
     {
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         TupleDomain<ColumnHandle> effectivePredicate = constraint.getSummary();
 
         SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
         Table table = getTable(metastore, tableName);
-        Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(table);
+        Optional<HiveBucketHandle> hiveBucketHandle = shouldIgnoreTableBucketing(session) ? Optional.empty() : getHiveBucketHandle(table);
 
         List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(table);
 
@@ -128,7 +130,7 @@ public class HivePartitionManager
             return new HivePartitionResult(partitionColumns, ImmutableList.of(), none(), none(), none(), hiveBucketHandle, Optional.empty());
         }
 
-        Optional<HiveBucketFilter> bucketFilter = getHiveBucketFilter(table, effectivePredicate);
+        Optional<HiveBucketFilter> bucketFilter = shouldIgnoreTableBucketing(session) ? Optional.empty() : getHiveBucketFilter(table, effectivePredicate);
         TupleDomain<HiveColumnHandle> compactEffectivePredicate = toCompactTupleDomain(effectivePredicate, domainCompactionThreshold);
 
         if (partitionColumns.isEmpty()) {
@@ -161,7 +163,7 @@ public class HivePartitionManager
         return new HivePartitionResult(partitionColumns, partitionsIterable, compactEffectivePredicate, remainingTupleDomain, enforcedTupleDomain, hiveBucketHandle, bucketFilter);
     }
 
-    public HivePartitionResult getPartitions(SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, List<List<String>> partitionValuesList)
+    public HivePartitionResult getPartitions(SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, List<List<String>> partitionValuesList, ConnectorSession session)
     {
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
@@ -179,7 +181,8 @@ public class HivePartitionManager
                 .map(partition -> partition.orElseThrow(() -> new VerifyException("partition must exist")))
                 .collect(toImmutableList());
 
-        return new HivePartitionResult(partitionColumns, partitionList, all(), all(), none(), getHiveBucketHandle(table), Optional.empty());
+        Optional<HiveBucketHandle> bucketHandle = shouldIgnoreTableBucketing(session) ? Optional.empty() : getHiveBucketHandle(table);
+        return new HivePartitionResult(partitionColumns, partitionList, all(), all(), none(), bucketHandle, Optional.empty());
     }
 
     private static TupleDomain<HiveColumnHandle> toCompactTupleDomain(TupleDomain<ColumnHandle> effectivePredicate, int threshold)

@@ -398,7 +398,7 @@ public class HiveMetadata
                 Predicate<Map<ColumnHandle, NullableValue>> targetPredicate = convertToPredicate(targetTupleDomain);
                 Constraint<ColumnHandle> targetConstraint = new Constraint<>(targetTupleDomain, targetPredicate);
                 Iterable<List<Object>> records = () ->
-                        stream(partitionManager.getPartitions(metastore, sourceTableHandle, targetConstraint).getPartitions())
+                        stream(partitionManager.getPartitions(metastore, sourceTableHandle, targetConstraint, session).getPartitions())
                                 .map(hivePartition ->
                                         (List<Object>) IntStream.range(0, partitionColumns.size())
                                                 .mapToObj(fieldIdToColumnHandle::get)
@@ -576,13 +576,13 @@ public class HiveMetadata
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         Map<String, Type> columnTypes = columns.entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> getColumnMetadata(session, tableHandle, entry.getValue()).getType()));
-        List<HivePartition> partitions = getPartitionsAsList(tableHandle, constraint);
+        List<HivePartition> partitions = getPartitionsAsList(tableHandle, constraint, session);
         return hiveStatisticsProvider.getTableStatistics(session, ((HiveTableHandle) tableHandle).getSchemaTableName(), columns, columnTypes, partitions);
     }
 
-    private List<HivePartition> getPartitionsAsList(ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    private List<HivePartition> getPartitionsAsList(ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint, ConnectorSession session)
     {
-        HivePartitionResult partitions = partitionManager.getPartitions(metastore, tableHandle, constraint);
+        HivePartitionResult partitions = partitionManager.getPartitions(metastore, tableHandle, constraint, session);
         return getPartitionsAsList(partitions);
     }
 
@@ -1647,10 +1647,10 @@ public class HiveMetadata
         HivePartitionResult hivePartitionResult;
         if (handle.getAnalyzePartitionValues().isPresent()) {
             verify(constraint.getSummary().isAll(), "There shouldn't be any constraint for ANALYZE operation");
-            hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, handle.getAnalyzePartitionValues().get());
+            hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, handle.getAnalyzePartitionValues().get(), session);
         }
         else {
-            hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, constraint);
+            hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, constraint, session);
         }
 
         return ImmutableList.of(new ConnectorTableLayoutResult(
