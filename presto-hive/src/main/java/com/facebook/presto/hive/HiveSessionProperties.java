@@ -40,6 +40,7 @@ import static java.util.Locale.ENGLISH;
 
 public final class HiveSessionProperties
 {
+    private static final String IGNORE_TABLE_BUCKETING = "ignore_table_bucketing";
     private static final String BUCKET_EXECUTION_ENABLED = "bucket_execution_enabled";
     private static final String FORCE_LOCAL_SCHEDULING = "force_local_scheduling";
     private static final String INSERT_EXISTING_PARTITIONS_BEHAVIOR = "insert_existing_partitions_behavior";
@@ -105,6 +106,11 @@ public final class HiveSessionProperties
     public HiveSessionProperties(HiveClientConfig hiveClientConfig, OrcFileWriterConfig orcFileWriterConfig, ParquetFileWriterConfig parquetFileWriterConfig)
     {
         sessionProperties = ImmutableList.of(
+                booleanProperty(
+                        IGNORE_TABLE_BUCKETING,
+                        "Ignore table bucketing to enable reading from unbucketed partitions",
+                        hiveClientConfig.isIgnoreTableBucketing(),
+                        false),
                 booleanProperty(
                         BUCKET_EXECUTION_ENABLED,
                         "Enable bucket-aware execution: only use a single worker per bucket",
@@ -331,6 +337,11 @@ public final class HiveSessionProperties
     public static boolean isBucketExecutionEnabled(ConnectorSession session)
     {
         return session.getProperty(BUCKET_EXECUTION_ENABLED, Boolean.class);
+    }
+
+    public static boolean shouldIgnoreTableBucketing(ConnectorSession session)
+    {
+        return session.getProperty(IGNORE_TABLE_BUCKETING, Boolean.class);
     }
 
     public static boolean isForceLocalScheduling(ConnectorSession session)

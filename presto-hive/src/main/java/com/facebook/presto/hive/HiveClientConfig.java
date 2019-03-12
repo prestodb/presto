@@ -131,6 +131,7 @@ public class HiveClientConfig
 
     private boolean bucketExecutionEnabled = true;
     private boolean sortedWritingEnabled = true;
+    private boolean ignoreTableBucketing;
 
     private int fileSystemMaxCacheSize = 1000;
 
@@ -1055,6 +1056,19 @@ public class HiveClientConfig
     {
         this.sortedWritingEnabled = sortedWritingEnabled;
         return this;
+    }
+
+    @Config("hive.ignore-table-bucketing")
+    @ConfigDescription("Ignore table bucketing to allow reading from unbucketed partitions")
+    public HiveClientConfig setIgnoreTableBucketing(boolean ignoreTableBucketing)
+    {
+        this.ignoreTableBucketing = ignoreTableBucketing;
+        return this;
+    }
+
+    public boolean isIgnoreTableBucketing()
+    {
+        return ignoreTableBucketing;
     }
 
     public int getFileSystemMaxCacheSize()
