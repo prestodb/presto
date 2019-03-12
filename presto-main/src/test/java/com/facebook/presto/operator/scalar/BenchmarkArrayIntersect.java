@@ -53,7 +53,6 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -125,7 +124,7 @@ public class BenchmarkArrayIntersect
             ArrayType arrayType = new ArrayType(elementType);
             MetadataManager metadata = createTestMetadataManager();
             FunctionManager functionManager = metadata.getFunctionManager();
-            FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(name), fromTypes(arrayType, arrayType));
+            FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(name), fromTypes(arrayType, arrayType));
             ImmutableList<RowExpression> projections = ImmutableList.of(
                     new CallExpression(functionHandle, arrayType, ImmutableList.of(field(0, arrayType), field(1, arrayType))));
 

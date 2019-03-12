@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
@@ -57,16 +56,14 @@ public class ScalarAggregationToJoinRewriter
     private static final QualifiedName COUNT = QualifiedName.of("count");
 
     private final FunctionManager functionManager;
-    private final Session session;
     private final SymbolAllocator symbolAllocator;
     private final PlanNodeIdAllocator idAllocator;
     private final Lookup lookup;
     private final PlanNodeDecorrelator planNodeDecorrelator;
 
-    public ScalarAggregationToJoinRewriter(FunctionManager functionManager, Session session, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
+    public ScalarAggregationToJoinRewriter(FunctionManager functionManager, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
     {
         this.functionManager = requireNonNull(functionManager, "metadata is null");
-        this.session = requireNonNull(session, "session is null");
         this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.lookup = requireNonNull(lookup, "lookup is null");
@@ -185,8 +182,7 @@ public class ScalarAggregationToJoinRewriter
                         new FunctionCall(
                                 COUNT,
                                 ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference())),
-                        functionManager.resolveFunction(
-                                session,
+                        functionManager.lookupFunction(
                                 COUNT,
                                 fromTypeSignatures(scalarAggregationSourceTypeSignatures)),
                         entry.getValue().getMask()));

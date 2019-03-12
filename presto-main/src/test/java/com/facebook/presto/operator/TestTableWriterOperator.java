@@ -202,7 +202,7 @@ public class TestTableWriterOperator
                 .addDriverContext();
         FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
         InternalAggregationFunction longMaxFunction = functionManager.getAggregateFunctionImplementation(
-                functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("max"), fromTypes(BIGINT)));
+                functionManager.lookupFunction(QualifiedName.of("max"), fromTypes(BIGINT)));
         TableWriterOperator operator = (TableWriterOperator) createTableWriterOperator(
                 pageSinkManager,
                 new AggregationOperatorFactory(

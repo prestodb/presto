@@ -39,7 +39,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.geospatial.KdbTree.buildKdbTree;
 import static com.facebook.presto.geospatial.serde.GeometrySerde.serialize;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.createGroupByIdBlock;
@@ -99,7 +98,7 @@ public class TestSpatialPartitioningInternalAggregation
     {
         FunctionManager functionManager = functionAssertions.getMetadata().getFunctionManager();
         return functionManager.getAggregateFunctionImplementation(
-                functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("spatial_partitioning"), fromTypes(GEOMETRY, INTEGER)));
+                functionManager.lookupFunction(QualifiedName.of("spatial_partitioning"), fromTypes(GEOMETRY, INTEGER)));
     }
 
     private List<OGCGeometry> makeGeometries()

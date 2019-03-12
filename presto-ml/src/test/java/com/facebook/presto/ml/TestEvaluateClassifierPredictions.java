@@ -29,7 +29,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -46,7 +45,7 @@ public class TestEvaluateClassifierPredictions
     {
         metadata.addFunctions(extractFunctions(new MLPlugin().getFunctions()));
         InternalAggregationFunction aggregation = functionManager.getAggregateFunctionImplementation(
-                functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("evaluate_classifier_predictions"), fromTypes(BIGINT, BIGINT)));
+                functionManager.lookupFunction(QualifiedName.of("evaluate_classifier_predictions"), fromTypes(BIGINT, BIGINT)));
         Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.empty()).createAccumulator();
         accumulator.addInput(getPage());
         BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(null, 1);

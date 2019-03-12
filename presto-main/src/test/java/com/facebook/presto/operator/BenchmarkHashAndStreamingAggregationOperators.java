@@ -84,9 +84,9 @@ public class BenchmarkHashAndStreamingAggregationOperators
     private static final FunctionManager functionManager = metadata.getFunctionManager();
 
     private static final InternalAggregationFunction LONG_SUM = functionManager.getAggregateFunctionImplementation(
-            functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("sum"), fromTypes(BIGINT)));
+            functionManager.lookupFunction(QualifiedName.of("sum"), fromTypes(BIGINT)));
     private static final InternalAggregationFunction COUNT = functionManager.getAggregateFunctionImplementation(
-            functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("count"), ImmutableList.of()));
+            functionManager.lookupFunction(QualifiedName.of("count"), ImmutableList.of()));
 
     @State(Thread)
     public static class Context

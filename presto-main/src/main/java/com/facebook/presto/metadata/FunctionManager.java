@@ -63,6 +63,19 @@ public class FunctionManager
         return globalFunctionNamespace.listFunctions();
     }
 
+    /**
+     * Lookup up a function with a fully qualified name and fully bound types.
+     * @throws PrestoException if function could not be found
+     */
+    public FunctionHandle lookupFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    {
+        return globalFunctionNamespace.lookupFunction(name, parameterTypes);
+    }
+
+    /**
+     * Resolves a function using the SQL path, and implicit type coercions.
+     * @throws PrestoException if there are no matches or multiple matches
+     */
     public FunctionHandle resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         // TODO Actually use session
