@@ -144,7 +144,6 @@ import static com.facebook.presto.hive.HiveSessionProperties.isRespectTableForma
 import static com.facebook.presto.hive.HiveSessionProperties.isSortedWritingEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isWritingStagingFilesEnabled;
-import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.HiveTableProperties.AVRO_SCHEMA_URL;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
@@ -557,7 +556,7 @@ public class HiveMetadata
             throw new TableNotFoundException(tableName);
         }
 
-        if (extractHiveStorageFormat(table.get()).equals(ORC) || extractHiveStorageFormat(table.get()).equals(PARQUET)) {
+        if (extractHiveStorageFormat(table.get()).equals(PARQUET)) {
             List<HiveColumnHandle> regularColumnHandles = getRegularColumnHandles(table.get());
             Map<String, HiveColumnHandle> regularHiveColumnHandles = regularColumnHandles.stream()
                     .collect(Collectors.toMap(HiveColumnHandle::getName, identity()));
