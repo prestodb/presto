@@ -54,7 +54,6 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.spi.function.OperatorType.ADD;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -127,8 +126,7 @@ public class BenchmarkTransformKey
                     throw new UnsupportedOperationException();
             }
             MapType mapType = mapType(elementType, elementType);
-            FunctionHandle functionHandle = functionManager.resolveFunction(
-                    TEST_SESSION,
+            FunctionHandle functionHandle = functionManager.lookupFunction(
                     QualifiedName.of(name),
                     fromTypeSignatures(
                             mapType.getTypeSignature(),

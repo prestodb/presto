@@ -39,7 +39,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.operator.aggregation.multimapagg.MultimapAggregationFunction.NAME;
@@ -183,7 +182,7 @@ public class TestMultimapAggAggregation
 
     private static InternalAggregationFunction getInternalAggregationFunction(Type keyType, Type valueType)
     {
-        return functionManager.getAggregateFunctionImplementation(functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(keyType, valueType)));
+        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(keyType, valueType)));
     }
 
     private static <K, V> void testMultimapAgg(InternalAggregationFunction aggFunc, Type keyType, List<K> expectedKeys, Type valueType, List<V> expectedValues)

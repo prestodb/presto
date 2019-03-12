@@ -107,7 +107,7 @@ public class RewriteSpatialPartitioningAggregation
                 aggregations.put(entry.getKey(),
                         new Aggregation(
                                 new FunctionCall(name, ImmutableList.of(envelopeSymbol.toSymbolReference(), partitionCountSymbol.toSymbolReference())),
-                                metadata.getFunctionManager().resolveFunction(context.getSession(), QualifiedName.of(NAME), fromTypes(geometryType, INTEGER)),
+                                metadata.getFunctionManager().lookupFunction(QualifiedName.of(NAME), fromTypes(geometryType, INTEGER)),
                                 aggregation.getMask()));
             }
             else {

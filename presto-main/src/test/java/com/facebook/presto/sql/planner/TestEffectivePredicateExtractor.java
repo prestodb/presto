@@ -72,7 +72,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
@@ -140,7 +139,7 @@ public class TestEffectivePredicateExtractor
     public void testAggregation()
     {
         FunctionCall functionCall = new FunctionCall(QualifiedName.of("count"), ImmutableList.of());
-        FunctionHandle functionHandle = metadata.getFunctionManager().resolveFunction(TEST_SESSION, QualifiedName.of("count"), ImmutableList.of());
+        FunctionHandle functionHandle = metadata.getFunctionManager().lookupFunction(QualifiedName.of("count"), ImmutableList.of());
         PlanNode node = new AggregationNode(newId(),
                 filter(baseTableScan,
                         and(

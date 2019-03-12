@@ -47,7 +47,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.operator.aggregation.histogram.Histogram.NAME;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -159,7 +158,7 @@ public class BenchmarkGroupedTypedHistogram
         FunctionManager functionManager = getMetadata(groupMode).getFunctionManager();
 
         return functionManager.getAggregateFunctionImplementation(
-                functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(VARCHAR)));
+                functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(VARCHAR)));
     }
 
     private static MetadataManager getMetadata(HistogramGroupImplementation groupMode)

@@ -49,6 +49,11 @@ class FunctionNamespace
         return registry.list();
     }
 
+    public FunctionHandle lookupFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    {
+        return registry.lookupFunction(name, parameterTypes);
+    }
+
     public FunctionHandle resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         return registry.resolveFunction(name, parameterTypes);

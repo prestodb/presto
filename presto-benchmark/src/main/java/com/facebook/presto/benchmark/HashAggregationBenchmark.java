@@ -32,7 +32,6 @@ import java.util.Optional;
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class HashAggregationBenchmark
@@ -46,7 +45,7 @@ public class HashAggregationBenchmark
 
         FunctionManager functionManager = localQueryRunner.getMetadata().getFunctionManager();
         doubleSum = functionManager.getAggregateFunctionImplementation(
-                functionManager.resolveFunction(testSessionBuilder().build(), QualifiedName.of("sum"), fromTypes(DOUBLE)));
+                functionManager.lookupFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)));
     }
 
     @Override

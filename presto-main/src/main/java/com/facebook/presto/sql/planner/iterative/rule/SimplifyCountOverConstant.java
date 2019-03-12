@@ -35,8 +35,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
@@ -79,7 +77,7 @@ public class SimplifyCountOverConstant
                 changed = true;
                 aggregations.put(symbol, new AggregationNode.Aggregation(
                         new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
-                        functionManager.resolveFunction(context.getSession(), QualifiedName.of("count"), fromTypes(BIGINT)),
+                        functionManager.lookupFunction(QualifiedName.of("count"), ImmutableList.of()),
                         aggregation.getMask()));
             }
         }

@@ -179,7 +179,7 @@ public final class SqlToRowExpressionTranslator
             this.typeManager = typeManager;
             this.functionManager = functionManager;
             this.session = session;
-            this.standardFunctionResolution = new StandardFunctionResolution(session, functionManager);
+            this.standardFunctionResolution = new StandardFunctionResolution(functionManager);
         }
 
         private Type getType(Expression node)
@@ -264,7 +264,7 @@ public final class SqlToRowExpressionTranslator
 
             if (JSON.equals(type)) {
                 return call(
-                        functionManager.resolveFunction(session, QualifiedName.of("json_parse"), fromTypes(VARCHAR)),
+                        functionManager.lookupFunction(QualifiedName.of("json_parse"), fromTypes(VARCHAR)),
                         getType(node),
                         constant(utf8Slice(node.getValue()), VARCHAR));
             }

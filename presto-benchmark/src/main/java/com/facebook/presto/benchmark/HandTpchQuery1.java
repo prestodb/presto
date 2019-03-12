@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.benchmark.HandTpchQuery1.TpchQuery1Operator.TpchQuery1OperatorFactory;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.DriverContext;
@@ -44,7 +43,6 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
@@ -62,15 +60,14 @@ public class HandTpchQuery1
         super(localQueryRunner, "hand_tpch_query_1", 1, 5);
 
         FunctionManager functionManager = localQueryRunner.getMetadata().getFunctionManager();
-        Session session = testSessionBuilder().setCatalog("tpch").setSchema("tiny").build();
         longAverage = functionManager.getAggregateFunctionImplementation(
-                functionManager.resolveFunction(session, QualifiedName.of("avg"), fromTypes(BIGINT)));
+                functionManager.lookupFunction(QualifiedName.of("avg"), fromTypes(BIGINT)));
         doubleAverage = functionManager.getAggregateFunctionImplementation(
-                functionManager.resolveFunction(session, QualifiedName.of("avg"), fromTypes(DOUBLE)));
+                functionManager.lookupFunction(QualifiedName.of("avg"), fromTypes(DOUBLE)));
         doubleSum = functionManager.getAggregateFunctionImplementation(
-                functionManager.resolveFunction(session, QualifiedName.of("sum"), fromTypes(DOUBLE)));
+                functionManager.lookupFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)));
         countFunction = functionManager.getAggregateFunctionImplementation(
-                functionManager.resolveFunction(session, QualifiedName.of("count"), ImmutableList.of()));
+                functionManager.lookupFunction(QualifiedName.of("count"), ImmutableList.of()));
     }
 
     @Override

@@ -32,7 +32,6 @@ import java.util.List;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
@@ -53,7 +52,7 @@ public abstract class AbstractTestGeoAggregationFunctions
         functionAssertions.getMetadata().addFunctions(extractFunctions(plugin.getFunctions()));
         FunctionManager functionManager = functionAssertions.getMetadata().getFunctionManager();
         function = functionManager.getAggregateFunctionImplementation(
-                functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(getFunctionName()), fromTypes(GEOMETRY)));
+                functionManager.lookupFunction(QualifiedName.of(getFunctionName()), fromTypes(GEOMETRY)));
     }
 
     protected void assertAggregatedGeometries(String testDescription, String expectedWkt, String... wkts)

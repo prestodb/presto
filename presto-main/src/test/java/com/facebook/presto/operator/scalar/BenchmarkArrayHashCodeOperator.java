@@ -61,7 +61,6 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
 import static com.facebook.presto.operator.scalar.CombineHashFunction.getHash;
@@ -143,7 +142,7 @@ public class BenchmarkArrayHashCodeOperator
                     throw new UnsupportedOperationException();
             }
             ArrayType arrayType = new ArrayType(elementType);
-            FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(name), fromTypes(arrayType));
+            FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(name), fromTypes(arrayType));
             projectionsBuilder.add(new CallExpression(functionHandle, BIGINT, ImmutableList.of(field(0, arrayType))));
             blocks[0] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
 

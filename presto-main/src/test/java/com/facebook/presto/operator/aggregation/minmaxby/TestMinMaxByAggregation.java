@@ -28,7 +28,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createArrayBigintBlock;
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
@@ -579,11 +578,11 @@ public class TestMinMaxByAggregation
 
     private InternalAggregationFunction getMinByAggregation(Type... arguments)
     {
-        return functionManager.getAggregateFunctionImplementation(functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("min_by"), fromTypes(arguments)));
+        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction(QualifiedName.of("min_by"), fromTypes(arguments)));
     }
 
     private InternalAggregationFunction getMaxByAggregation(Type... arguments)
     {
-        return functionManager.getAggregateFunctionImplementation(functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("max_by"), fromTypes(arguments)));
+        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction(QualifiedName.of("max_by"), fromTypes(arguments)));
     }
 }

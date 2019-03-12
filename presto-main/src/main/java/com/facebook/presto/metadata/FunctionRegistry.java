@@ -685,7 +685,7 @@ class FunctionRegistry
         return Iterables.any(functions.get(name), function -> function.getSignature().getKind() == AGGREGATE);
     }
 
-    public FunctionHandle resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    public FunctionHandle lookupFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         Collection<SqlFunction> allCandidates = functions.get(name);
         List<SqlFunction> exactCandidates = allCandidates.stream()
@@ -706,23 +706,24 @@ class FunctionRegistry
             return new FunctionHandle(match.get());
         }
 
-        match = matchFunctionWithCoercion(allCandidates, parameterTypes);
-        if (match.isPresent()) {
-            return new FunctionHandle(match.get());
+        throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(name, parameterTypes, allCandidates));
+    }
+
+    public FunctionHandle resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    {
+        try {
+            return lookupFunction(name, parameterTypes);
+        }
+        catch (PrestoException e) {
+            if (e.getErrorCode().getCode() != FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
+                throw e;
+            }
         }
 
-        List<String> expectedParameters = new ArrayList<>();
-        for (SqlFunction function : allCandidates) {
-            expectedParameters.add(format("%s(%s) %s",
-                    name,
-                    Joiner.on(", ").join(function.getSignature().getArgumentTypes()),
-                    Joiner.on(", ").join(function.getSignature().getTypeVariableConstraints())));
-        }
-        String parameters = Joiner.on(", ").join(parameterTypes);
-        String message = format("Function %s not registered", name);
-        if (!expectedParameters.isEmpty()) {
-            String expected = Joiner.on(", ").join(expectedParameters);
-            message = format("Unexpected parameters (%s) for function %s. Expected: %s", parameters, name, expected);
+        Collection<SqlFunction> allCandidates = functions.get(name);
+        Optional<Signature> match = matchFunctionWithCoercion(allCandidates, parameterTypes);
+        if (match.isPresent()) {
+            return new FunctionHandle(match.get());
         }
 
         if (name.getSuffix().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
@@ -738,7 +739,25 @@ class FunctionRegistry
             return new FunctionHandle(getMagicLiteralFunctionSignature(type));
         }
 
-        throw new PrestoException(FUNCTION_NOT_FOUND, message);
+        throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(name, parameterTypes, allCandidates));
+    }
+
+    private String constructFunctionNotFoundErrorMessage(QualifiedName name, List<TypeSignatureProvider> parameterTypes, Collection<SqlFunction> candidates)
+    {
+        List<String> expectedParameters = new ArrayList<>();
+        for (SqlFunction function : candidates) {
+            expectedParameters.add(format("%s(%s) %s",
+                    name,
+                    Joiner.on(", ").join(function.getSignature().getArgumentTypes()),
+                    Joiner.on(", ").join(function.getSignature().getTypeVariableConstraints())));
+        }
+        String parameters = Joiner.on(", ").join(parameterTypes);
+        String message = format("Function %s not registered", name);
+        if (!expectedParameters.isEmpty()) {
+            String expected = Joiner.on(", ").join(expectedParameters);
+            message = format("Unexpected parameters (%s) for function %s. Expected: %s", parameters, name, expected);
+        }
+        return message;
     }
 
     private Optional<Signature> matchFunctionExact(List<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)

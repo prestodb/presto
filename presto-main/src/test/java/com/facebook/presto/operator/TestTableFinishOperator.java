@@ -42,7 +42,6 @@ import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
@@ -67,7 +66,7 @@ public class TestTableFinishOperator
 {
     private static final FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
     private static final InternalAggregationFunction LONG_MAX = functionManager.getAggregateFunctionImplementation(
-            functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("max"), fromTypes(BIGINT)));
+            functionManager.lookupFunction(QualifiedName.of("max"), fromTypes(BIGINT)));
 
     private ScheduledExecutorService scheduledExecutor;
 

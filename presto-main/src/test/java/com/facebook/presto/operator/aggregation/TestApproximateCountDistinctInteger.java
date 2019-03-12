@@ -18,7 +18,6 @@ import com.facebook.presto.sql.tree.QualifiedName;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -30,7 +29,7 @@ public class TestApproximateCountDistinctInteger
     public InternalAggregationFunction getAggregationFunction()
     {
         return functionManager.getAggregateFunctionImplementation(
-                functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("approx_distinct"), fromTypes(INTEGER, DOUBLE)));
+                functionManager.lookupFunction(QualifiedName.of("approx_distinct"), fromTypes(INTEGER, DOUBLE)));
     }
 
     @Override

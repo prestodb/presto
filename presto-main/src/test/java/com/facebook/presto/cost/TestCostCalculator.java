@@ -72,7 +72,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -766,7 +765,7 @@ public class TestCostCalculator
     {
         AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
                 new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
-                metadata.getFunctionManager().resolveFunction(TEST_SESSION, QualifiedName.of("count"), ImmutableList.of()),
+                metadata.getFunctionManager().lookupFunction(QualifiedName.of("count"), ImmutableList.of()),
                 Optional.empty());
 
         return new AggregationNode(

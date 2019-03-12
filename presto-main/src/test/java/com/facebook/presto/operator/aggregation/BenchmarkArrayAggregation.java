@@ -45,7 +45,6 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -107,7 +106,7 @@ public class BenchmarkArrayAggregation
             }
             ArrayType arrayType = new ArrayType(elementType);
             InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(
-                    functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(name), fromTypes(elementType)));
+                    functionManager.lookupFunction(QualifiedName.of(name), fromTypes(elementType)));
             accumulator = function.bind(ImmutableList.of(0), Optional.empty()).createAccumulator();
 
             block = createChannel(ARRAY_SIZE, elementType);
