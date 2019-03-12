@@ -178,7 +178,6 @@ public class HiveSplitManager
             return new FixedSplitSource(ImmutableList.of());
         }
 
-        // get buckets from first partition (arbitrary)
         Optional<HiveBucketFilter> bucketFilter = layout.getBucketFilter();
 
         // validate bucket bucketed execution
