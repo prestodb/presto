@@ -267,7 +267,7 @@ public class TestScanFilterAndProjectOperator
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
         ImmutableList.Builder<RowExpression> projections = ImmutableList.builder();
         for (int i = 0; i < totalColumns; i++) {
-            projections.add(call(functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("generic_long_page_col" + i), fromTypes(BIGINT)), BIGINT, field(0, BIGINT)));
+            projections.add(call(functionManager.lookupFunction(QualifiedName.of("generic_long_page_col" + i), fromTypes(BIGINT)), BIGINT, field(0, BIGINT)));
         }
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections.build(), "key");
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections.build(), MAX_BATCH_SIZE);
@@ -331,7 +331,7 @@ public class TestScanFilterAndProjectOperator
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
 
         List<RowExpression> projections = ImmutableList.of(call(
-                functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("generic_long_record_cursor"), fromTypes(BIGINT)),
+                functionManager.lookupFunction(QualifiedName.of("generic_long_record_cursor"), fromTypes(BIGINT)),
                 BIGINT,
                 field(0, BIGINT)));
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections, "key");

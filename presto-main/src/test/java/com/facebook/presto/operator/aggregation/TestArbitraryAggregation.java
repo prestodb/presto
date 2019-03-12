@@ -24,7 +24,6 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.Set;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createArrayBigintBlock;
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
@@ -168,6 +167,6 @@ public class TestArbitraryAggregation
 
     private static InternalAggregationFunction getAggregation(Type... arguments)
     {
-        return functionManager.getAggregateFunctionImplementation(functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("arbitrary"), fromTypes(arguments)));
+        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction(QualifiedName.of("arbitrary"), fromTypes(arguments)));
     }
 }

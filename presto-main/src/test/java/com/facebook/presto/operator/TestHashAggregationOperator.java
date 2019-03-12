@@ -100,7 +100,7 @@ public class TestHashAggregationOperator
     private static final InternalAggregationFunction LONG_AVERAGE = getAggregation("avg", BIGINT);
     private static final InternalAggregationFunction LONG_SUM = getAggregation("sum", BIGINT);
     private static final InternalAggregationFunction COUNT = functionManager.getAggregateFunctionImplementation(
-            functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("count"), ImmutableList.of()));
+            functionManager.lookupFunction(QualifiedName.of("count"), ImmutableList.of()));
 
     private static final int MAX_BLOCK_SIZE_IN_BYTES = 64 * 1024;
 
@@ -739,7 +739,7 @@ public class TestHashAggregationOperator
 
     private static InternalAggregationFunction getAggregation(String name, Type... arguments)
     {
-        return functionManager.getAggregateFunctionImplementation(functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(name), fromTypes(arguments)));
+        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction(QualifiedName.of(name), fromTypes(arguments)));
     }
 
     private static class DummySpillerFactory

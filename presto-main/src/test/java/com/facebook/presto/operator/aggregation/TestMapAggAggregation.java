@@ -28,7 +28,6 @@ import org.testng.annotations.Test;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringArraysBlock;
@@ -190,6 +189,6 @@ public class TestMapAggAggregation
 
     private InternalAggregationFunction getAggregation(Type... arguments)
     {
-        return functionManager.getAggregateFunctionImplementation(functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(arguments)));
+        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(arguments)));
     }
 }

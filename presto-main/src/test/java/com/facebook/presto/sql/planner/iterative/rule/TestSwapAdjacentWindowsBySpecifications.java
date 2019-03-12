@@ -28,7 +28,6 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -57,7 +56,7 @@ public class TestSwapAdjacentWindowsBySpecifications
                 Optional.empty(),
                 Optional.empty());
 
-        functionHandle = createTestMetadataManager().getFunctionManager().resolveFunction(TEST_SESSION, QualifiedName.of("avg"), fromTypes(BIGINT));
+        functionHandle = createTestMetadataManager().getFunctionManager().lookupFunction(QualifiedName.of("avg"), fromTypes(BIGINT));
     }
 
     @Test

@@ -29,7 +29,6 @@ import java.util.Optional;
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public class CountAggregationBenchmark
         extends AbstractSimpleOperatorBenchmark
@@ -45,7 +44,7 @@ public class CountAggregationBenchmark
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "orderkey");
         FunctionManager functionManager = localQueryRunner.getMetadata().getFunctionManager();
         InternalAggregationFunction countFunction = functionManager.getAggregateFunctionImplementation(
-                functionManager.resolveFunction(testSessionBuilder().build(), QualifiedName.of("count"), fromTypes(BIGINT)));
+                functionManager.lookupFunction(QualifiedName.of("count"), fromTypes(BIGINT)));
         AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(1, new PlanNodeId("test"), Step.SINGLE, ImmutableList.of(countFunction.bind(ImmutableList.of(0), Optional.empty())), false);
         return ImmutableList.of(tableScanOperator, aggregationOperator);
     }

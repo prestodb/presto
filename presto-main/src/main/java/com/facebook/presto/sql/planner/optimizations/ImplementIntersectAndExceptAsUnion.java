@@ -248,7 +248,7 @@ public class ImplementIntersectAndExceptAsUnion
                 QualifiedName name = QualifiedName.of("count");
                 aggregations.put(output, new Aggregation(
                         new FunctionCall(name, ImmutableList.of(markers.get(i).toSymbolReference())),
-                        functionManager.resolveFunction(session, name, fromTypes(BIGINT)),
+                        functionManager.lookupFunction(name, fromTypes(BIGINT)),
                         Optional.empty()));
             }
 

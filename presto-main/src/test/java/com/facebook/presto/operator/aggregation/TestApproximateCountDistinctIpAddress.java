@@ -19,7 +19,6 @@ import io.airlift.slice.Slices;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.IpAddressType.IPADDRESS;
@@ -31,7 +30,7 @@ public class TestApproximateCountDistinctIpAddress
     public InternalAggregationFunction getAggregationFunction()
     {
         return functionManager.getAggregateFunctionImplementation(
-                functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("approx_distinct"), fromTypes(IPADDRESS, DOUBLE)));
+                functionManager.lookupFunction(QualifiedName.of("approx_distinct"), fromTypes(IPADDRESS, DOUBLE)));
     }
 
     @Override

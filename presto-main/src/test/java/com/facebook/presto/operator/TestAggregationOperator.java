@@ -164,6 +164,6 @@ public class TestAggregationOperator
 
     private static InternalAggregationFunction getAggregation(String name, Type... arguments)
     {
-        return functionManager.getAggregateFunctionImplementation(functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(name), fromTypes(arguments)));
+        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction(QualifiedName.of(name), fromTypes(arguments)));
     }
 }

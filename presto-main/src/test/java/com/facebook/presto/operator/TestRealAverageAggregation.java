@@ -27,7 +27,6 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createBlockOfReals;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -45,7 +44,7 @@ public class TestRealAverageAggregation
     {
         FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
         avgFunction = functionManager.getAggregateFunctionImplementation(
-                functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("avg"), fromTypes(REAL)));
+                functionManager.lookupFunction(QualifiedName.of("avg"), fromTypes(REAL)));
     }
 
     @Test
