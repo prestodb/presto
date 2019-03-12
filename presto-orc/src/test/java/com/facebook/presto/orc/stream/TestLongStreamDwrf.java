@@ -15,64 +15,29 @@ package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDecompressor;
-import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
+import com.facebook.presto.orc.metadata.CompressionKind;
 import io.airlift.slice.Slice;
-import org.testng.annotations.Test;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
-import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
-import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.LONG;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 
 public class TestLongStreamDwrf
-        extends AbstractTestValueStream<Long, LongStreamCheckpoint, LongOutputStreamDwrf, LongInputStreamDwrf>
+        extends AbstractTestLongStream
 {
-    @Test
-    public void test()
-            throws IOException
+    @Override
+    protected LongOutputStream createValueOutputStream(CompressionKind kind)
     {
-        List<List<Long>> groups = new ArrayList<>();
-        for (int groupIndex = 0; groupIndex < 3; groupIndex++) {
-            List<Long> group = new ArrayList<>();
-            for (int i = 0; i < 1000; i++) {
-                group.add((long) (groupIndex * 10_000 + i));
-            }
-            groups.add(group);
-        }
-        testWriteValue(groups);
+        return new LongOutputStreamDwrf(kind, COMPRESSION_BLOCK_SIZE, true, DATA);
     }
 
     @Override
-    protected LongOutputStreamDwrf createValueOutputStream()
+    protected LongInputStream createValueStream(Slice slice, CompressionKind kind) throws OrcCorruptionException
     {
-        return new LongOutputStreamDwrf(SNAPPY, COMPRESSION_BLOCK_SIZE, true, DATA);
-    }
-
-    @Override
-    protected void writeValue(LongOutputStreamDwrf outputStream, Long value)
-    {
-        outputStream.writeLong(value);
-    }
-
-    @Override
-    protected LongInputStreamDwrf createValueStream(Slice slice)
-            throws OrcCorruptionException
-    {
-        Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, COMPRESSION_BLOCK_SIZE);
+        Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, kind, COMPRESSION_BLOCK_SIZE);
         OrcInputStream input = new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, newSimpleAggregatedMemoryContext(), slice.getRetainedSize());
-        return new LongInputStreamDwrf(input, LONG, true, true);
-    }
-
-    @Override
-    protected Long readValue(LongInputStreamDwrf valueStream)
-            throws IOException
-    {
-        return valueStream.next();
+        return new LongInputStreamDwrf(input, true);
     }
 }

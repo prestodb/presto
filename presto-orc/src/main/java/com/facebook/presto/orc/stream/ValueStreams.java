@@ -169,7 +169,12 @@ public final class ValueStreams
             return new LongInputStreamV1(inputStream, signed);
         }
         else if (encoding == DWRF_DIRECT) {
-            return new LongInputStreamDwrf(inputStream, type, signed, usesVInt);
+            if (usesVInt) {
+                return new LongInputStreamDwrf(inputStream, signed);
+            }
+            else {
+                return new FixedLengthLongInputStreamDwrf(inputStream, type);
+            }
         }
         else {
             throw new IllegalArgumentException("Unsupported encoding for long stream: " + encoding);

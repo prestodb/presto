@@ -18,13 +18,15 @@ import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcDecompressor;
+import com.google.common.collect.PeekingIterator;
 import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.util.Arrays;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
@@ -38,20 +40,22 @@ import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
 public final class OrcInputStream
-        extends InputStream
+        extends InputStream implements PeekingIterator<OrcInputStream.Buffer>
 {
     private final OrcDataSourceId orcDataSourceId;
     private final FixedLengthSliceInput compressedSliceInput;
     private final Optional<OrcDecompressor> decompressor;
 
     private int currentCompressedBlockOffset;
-    private FixedLengthSliceInput current;
 
     private byte[] buffer;
-    private byte[] uncompressedBuffer;
-    private int uncompressedBufferOffset;
+    private int position;
+    private int length;
+
     private final LocalMemoryContext bufferMemoryUsage;
     private boolean isUncompressed;
+    private int uncompressedOffset;
+    private Buffer bufferContainer = new Buffer();
 
     public OrcInputStream(
             OrcDataSourceId orcDataSourceId,
@@ -74,12 +78,16 @@ public final class OrcInputStream
         systemMemoryContext.newLocalMemoryContext(OrcInputStream.class.getSimpleName()).setBytes(sliceInputRetainedSizeInBytes);
 
         if (!decompressor.isPresent()) {
-            this.current = sliceInput;
+            long sliceInputPosition = sliceInput.position();
+            this.buffer = new byte[toIntExact(sliceInput.remaining())];
+            this.length = buffer.length;
+            sliceInput.readFully(buffer, toIntExact(sliceInput.position()), toIntExact(sliceInput.remaining()));
+            sliceInput.setPosition(sliceInputPosition);
             this.compressedSliceInput = EMPTY_SLICE.getInput();
         }
         else {
             this.compressedSliceInput = sliceInput;
-            this.current = EMPTY_SLICE.getInput();
+            this.buffer = new byte[0];
         }
     }
 
@@ -93,10 +101,10 @@ public final class OrcInputStream
     @Override
     public int available()
     {
-        if (current == null) {
+        if (buffer == null) {
             return 0;
         }
-        return current.available();
+        return length - position;
     }
 
     @Override
@@ -110,28 +118,23 @@ public final class OrcInputStream
         if (available() < minBytes) {
             return null;
         }
-        if (isUncompressed) {
-            return uncompressedBuffer;
-        }
         return buffer;
     }
 
     public int getOffsetInBuffer()
     {
-        return (int) current.position() + uncompressedBufferOffset;
+        return (int) position;
     }
 
     @Override
     public int read()
             throws IOException
     {
-        if (current == null) {
+        if (buffer == null) {
             return -1;
         }
-
-        int result = current.read();
-        if (result != -1) {
-            return result;
+        if (available() > 0) {
+            return 0xff & buffer[position++];
         }
 
         advance();
@@ -142,18 +145,20 @@ public final class OrcInputStream
     public int read(byte[] b, int off, int length)
             throws IOException
     {
-        if (current == null) {
+        if (buffer == null) {
             return -1;
         }
 
-        if (current.remaining() == 0) {
+        if (available() == 0) {
             advance();
-            if (current == null) {
+            if (buffer == null) {
                 return -1;
             }
         }
-
-        return current.read(b, off, length);
+        length = Math.min(length, available());
+        System.arraycopy(buffer, position, b, off, length);
+        position += length;
+        return length;
     }
 
     public void skipFully(long length)
@@ -188,11 +193,11 @@ public final class OrcInputStream
     public long getCheckpoint()
     {
         // if the decompressed buffer is empty, return a checkpoint starting at the next block
-        if (current == null || (current.position() == 0 && current.remaining() == 0)) {
+        if (buffer == null || (position == 0 && available() == 0)) {
             return createInputStreamCheckpoint(toIntExact(compressedSliceInput.position()), 0);
         }
         // otherwise return a checkpoint at the last compressed block read and the current position in the buffer
-        return createInputStreamCheckpoint(currentCompressedBlockOffset, toIntExact(current.position()));
+        return createInputStreamCheckpoint(currentCompressedBlockOffset, toIntExact(position));
     }
 
     public boolean seekToCheckpoint(long checkpoint)
@@ -206,20 +211,27 @@ public final class OrcInputStream
                 throw new OrcCorruptionException(orcDataSourceId, "Reset stream has a compressed block offset but stream is not compressed");
             }
             compressedSliceInput.setPosition(compressedBlockOffset);
-            current = EMPTY_SLICE.getInput();
+            buffer = new byte[0];
+            position = 0;
+            length = 0;
+            uncompressedOffset = 0;
             discardedBuffer = true;
         }
         else {
             discardedBuffer = false;
         }
 
-        if (decompressedOffset != current.position()) {
-            current.setPosition(0);
-            if (current.remaining() < decompressedOffset) {
-                decompressedOffset -= current.remaining();
+        if (decompressedOffset != position) {
+            position = uncompressedOffset;
+            if (available() < decompressedOffset) {
+                decompressedOffset -= available();
                 advance();
             }
-            current.setPosition(decompressedOffset);
+            position += decompressedOffset;
+        }
+        else if (length == 0) {
+            advance();
+            position += decompressedOffset;
         }
         return discardedBuffer;
     }
@@ -228,18 +240,21 @@ public final class OrcInputStream
     public long skip(long n)
             throws IOException
     {
-        if (current == null || n <= 0) {
+        if (buffer == null || n <= 0) {
             return -1;
         }
 
-        long result = current.skip(n);
+        long result = Math.min(available(), n);
+        position += toIntExact(result);
         if (result != 0) {
             return result;
         }
         if (read() == -1) {
             return 0;
         }
-        return 1 + current.skip(n - 1);
+        result = Math.min(available(), n - 1);
+        position += toIntExact(result);
+        return 1 + result;
     }
 
     // This comes from the Apache Hive ORC code
@@ -247,7 +262,12 @@ public final class OrcInputStream
             throws IOException
     {
         if (compressedSliceInput == null || compressedSliceInput.remaining() == 0) {
-            current = null;
+            buffer = null;
+            position = 0;
+            length = 0;
+            // So bufferContainer.buffer can be gc'd
+            bufferContainer = null;
+            uncompressedOffset = 0;
             return;
         }
 
@@ -266,14 +286,15 @@ public final class OrcInputStream
 
         Slice chunk = compressedSliceInput.readSlice(chunkLength);
 
+        if (bufferContainer == null) {
+            bufferContainer = new Buffer();
+        }
         if (isUncompressed) {
-            current = chunk.getInput();
-            uncompressedBuffer = (byte[]) chunk.getBase();
-            uncompressedBufferOffset = (int) chunk.getAddress() - ARRAY_BYTE_BASE_OFFSET;
+            buffer = (byte[]) chunk.getBase();
+            position = toIntExact(chunk.getAddress() - ARRAY_BYTE_BASE_OFFSET);
+            length = toIntExact(position + chunk.length());
         }
         else {
-            uncompressedBuffer = null;
-            uncompressedBufferOffset = 0;
             OrcDecompressor.OutputBuffer output = new OrcDecompressor.OutputBuffer()
             {
                 @Override
@@ -282,6 +303,8 @@ public final class OrcInputStream
                     if (buffer == null || size > buffer.length) {
                         buffer = new byte[size];
                         bufferMemoryUsage.setBytes(buffer.length);
+                        position = 0;
+                        length = size;
                     }
                     return buffer;
                 }
@@ -296,10 +319,55 @@ public final class OrcInputStream
                     return buffer;
                 }
             };
-
-            int uncompressedSize = decompressor.get().decompress((byte[]) chunk.getBase(), (int) (chunk.getAddress() - ARRAY_BYTE_BASE_OFFSET), chunk.length(), output);
-            current = Slices.wrappedBuffer(buffer, 0, uncompressedSize).getInput();
+            length = decompressor.get().decompress((byte[]) chunk.getBase(), (int) (chunk.getAddress() - ARRAY_BYTE_BASE_OFFSET), chunk.length(), output);
+            position = 0;
         }
+        uncompressedOffset = position;
+    }
+
+    @Override
+    public boolean hasNext()
+    {
+        return buffer != null;
+    }
+
+    @Override
+    public Buffer next()
+    {
+        if (buffer == null) {
+            throw new NoSuchElementException();
+        }
+        try {
+            if (decompressor.isPresent()) {
+                advance();
+                if (buffer == null) {
+                    currentCompressedBlockOffset = toIntExact(compressedSliceInput.position());
+                }
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        bufferContainer.setBuffer(buffer);
+        bufferContainer.setPosition(position);
+        bufferContainer.setLength(length);
+
+        return bufferContainer;
+    }
+
+    @Override
+    public void remove()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Buffer peek()
+    {
+        bufferContainer.setBuffer(buffer);
+        bufferContainer.setPosition(position);
+        bufferContainer.setLength(length);
+        return bufferContainer;
     }
 
     @Override
@@ -308,8 +376,45 @@ public final class OrcInputStream
         return toStringHelper(this)
                 .add("source", orcDataSourceId)
                 .add("compressedOffset", compressedSliceInput.position())
-                .add("uncompressedOffset", current == null ? null : current.position())
+                .add("uncompressedOffset", buffer == null ? null : position)
                 .add("decompressor", decompressor.map(Object::toString).orElse("none"))
                 .toString();
+    }
+
+    public static class Buffer
+    {
+        private byte[] buffer;
+        private int position;
+        private int length;
+
+        public byte[] getBuffer()
+        {
+            return buffer;
+        }
+
+        public int getPosition()
+        {
+            return position;
+        }
+
+        public int getLength()
+        {
+            return length;
+        }
+
+        public void setBuffer(byte[] buffer)
+        {
+            this.buffer = buffer;
+        }
+
+        public void setPosition(int position)
+        {
+            this.position = position;
+        }
+
+        public void setLength(int length)
+        {
+            this.length = length;
+        }
     }
 }

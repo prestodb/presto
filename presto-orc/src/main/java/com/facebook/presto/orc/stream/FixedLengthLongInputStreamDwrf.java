@@ -15,22 +15,25 @@ package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamDwrfCheckpoint;
+import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 
 import java.io.IOException;
 
 import static java.lang.Math.toIntExact;
 
-public class LongInputStreamDwrf
+public class FixedLengthLongInputStreamDwrf
         implements LongInputStream
 {
     private final BufferConsumer bufferConsumer;
+    private final OrcTypeKind orcTypeKind;
 
     // Position of the first value of the run in literals from the checkpoint.
     private int currentRunOffset;
 
-    public LongInputStreamDwrf(OrcInputStream input, boolean signed)
+    public FixedLengthLongInputStreamDwrf(OrcInputStream input, OrcTypeKind type)
     {
-        this.bufferConsumer = new BufferConsumer(input, signed);
+        this.bufferConsumer = new BufferConsumer(input, false);
+        orcTypeKind = type;
     }
 
     @Override
@@ -52,7 +55,7 @@ public class LongInputStreamDwrf
     public void skip(long items)
             throws IOException
     {
-        bufferConsumer.skipVarints(items);
+        bufferConsumer.skipDwrfLong(orcTypeKind, items);
         currentRunOffset += toIntExact(items);
     }
 
@@ -64,7 +67,7 @@ public class LongInputStreamDwrf
         if (bufferConsumer.available() == 0) {
             bufferConsumer.refresh();
         }
-        long result = bufferConsumer.decodeVarint();
+        long result = bufferConsumer.readDwrfLong(orcTypeKind);
         return result;
     }
 

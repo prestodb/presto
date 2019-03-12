@@ -15,29 +15,29 @@ package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDecompressor;
+import com.facebook.presto.orc.metadata.CompressionKind;
 import io.airlift.slice.Slice;
 
 import java.util.Optional;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
-import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 
-public class TestLongStreamV1AriaScan
-        extends AbstractTestLongStreamAriaScan
+public class TestLongStreamV1Scan
+        extends AbstractTestLongStreamScan
 {
     @Override
-    public LongOutputStream createValueOutputStream()
+    public LongOutputStream createValueOutputStream(CompressionKind kind)
     {
-        return new LongOutputStreamV1(SNAPPY, COMPRESSION_BLOCK_SIZE, true, DATA);
+        return new LongOutputStreamV1(kind, COMPRESSION_BLOCK_SIZE, true, DATA);
     }
 
     @Override
-    public LongInputStream createValueStream(Slice slice)
+    public LongInputStream createValueStream(Slice slice, CompressionKind kind)
             throws OrcCorruptionException
     {
-        Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, COMPRESSION_BLOCK_SIZE);
+        Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, kind, COMPRESSION_BLOCK_SIZE);
         OrcInputStream input = new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, newSimpleAggregatedMemoryContext(), slice.getRetainedSize());
         return new LongInputStreamV1(input, true);
     }
