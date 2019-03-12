@@ -51,11 +51,6 @@ public class InterpretedFunctionInvoker
         return invoke(functionManager.getScalarFunctionImplementation(functionHandle), session, arguments);
     }
 
-    public Object invoke(Signature function, ConnectorSession session, Object... arguments)
-    {
-        return invoke(function, session, Arrays.asList(arguments));
-    }
-
     public Object invoke(Signature function, ConnectorSession session, List<Object> arguments)
     {
         return invoke(functionManager.getScalarFunctionImplementation(function), session, arguments);

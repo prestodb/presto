@@ -1411,7 +1411,7 @@ class StatementAnalyzer
 
                 List<TypeSignature> argumentTypes = Lists.transform(windowFunction.getArguments(), expression -> analysis.getType(expression).getTypeSignature());
 
-                FunctionKind kind = metadata.getFunctionManager().resolveFunction(windowFunction.getName(), fromTypeSignatures(argumentTypes)).getKind();
+                FunctionKind kind = metadata.getFunctionManager().resolveFunction(session, windowFunction.getName(), fromTypeSignatures(argumentTypes)).getSignature().getKind();
                 if (kind != AGGREGATE && kind != WINDOW) {
                     throw new SemanticException(MUST_BE_WINDOW_FUNCTION, node, "Not a window function: %s", windowFunction.getName());
                 }

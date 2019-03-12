@@ -27,7 +27,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.RowBlockBuilder;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.RowType;
@@ -145,7 +144,8 @@ public class ExpressionInterpreter
     private final Expression expression;
     private final Metadata metadata;
     private final LiteralEncoder literalEncoder;
-    private final ConnectorSession session;
+    private final Session session;
+    private final ConnectorSession connectorSession;
     private final boolean optimize;
     private final Map<NodeRef<Expression>, Type> expressionTypes;
     private final InterpretedFunctionInvoker functionInvoker;
@@ -233,7 +233,8 @@ public class ExpressionInterpreter
         this.expression = requireNonNull(expression, "expression is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
-        this.session = requireNonNull(session, "session is null").toConnectorSession();
+        this.session = requireNonNull(session, "session is null");
+        this.connectorSession = session.toConnectorSession();
         this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
         verify((expressionTypes.containsKey(NodeRef.of(expression))));
         this.optimize = optimize;
@@ -396,7 +397,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitLiteral(Literal node, Object context)
         {
-            return LiteralInterpreter.evaluate(metadata, session, node);
+            return LiteralInterpreter.evaluate(metadata, connectorSession, node);
         }
 
         @Override
@@ -832,8 +833,8 @@ public class ExpressionInterpreter
                     OperatorType.EQUAL,
                     ImmutableList.of(commonType, commonType),
                     ImmutableList.of(
-                            functionInvoker.invoke(firstCast, session, ImmutableList.of(first)),
-                            functionInvoker.invoke(secondCast, session, ImmutableList.of(second)))));
+                            functionInvoker.invoke(firstCast, connectorSession, ImmutableList.of(first)),
+                            functionInvoker.invoke(secondCast, connectorSession, ImmutableList.of(second)))));
 
             if (equal) {
                 return null;
@@ -927,8 +928,8 @@ public class ExpressionInterpreter
                 argumentValues.add(value);
                 argumentTypes.add(type);
             }
-            Signature functionSignature = metadata.getFunctionManager().resolveFunction(node.getName(), fromTypes(argumentTypes));
-            ScalarFunctionImplementation function = metadata.getFunctionManager().getScalarFunctionImplementation(functionSignature);
+            FunctionHandle functionHandle = metadata.getFunctionManager().resolveFunction(session, node.getName(), fromTypes(argumentTypes));
+            ScalarFunctionImplementation function = metadata.getFunctionManager().getScalarFunctionImplementation(functionHandle);
             for (int i = 0; i < argumentValues.size(); i++) {
                 Object value = argumentValues.get(i);
                 if (value == null && function.getArgumentProperty(i).getNullConvention() == RETURN_NULL_ON_NULL) {
@@ -940,7 +941,7 @@ public class ExpressionInterpreter
             if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues) || node.getName().equals(QualifiedName.of("fail")))) {
                 return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), toExpressions(argumentValues, argumentTypes));
             }
-            return functionInvoker.invoke(functionSignature, session, argumentValues);
+            return functionInvoker.invoke(functionHandle, connectorSession, argumentValues);
         }
 
         @Override
@@ -1135,7 +1136,7 @@ public class ExpressionInterpreter
             FunctionHandle operator = metadata.getFunctionManager().lookupCast(CAST, sourceType.getTypeSignature(), targetType.getTypeSignature());
 
             try {
-                return functionInvoker.invoke(operator, session, ImmutableList.of(value));
+                return functionInvoker.invoke(operator, connectorSession, ImmutableList.of(value));
             }
             catch (RuntimeException e) {
                 if (node.isSafe()) {
@@ -1264,7 +1265,7 @@ public class ExpressionInterpreter
         private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)
         {
             FunctionHandle operatorHandle = metadata.getFunctionManager().resolveOperator(operatorType, fromTypes(argumentTypes));
-            return functionInvoker.invoke(operatorHandle, session, argumentValues);
+            return functionInvoker.invoke(operatorHandle, connectorSession, argumentValues);
         }
 
         private Expression toExpression(Object base, Type type)

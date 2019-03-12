@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.FunctionHandle;

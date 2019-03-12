@@ -73,11 +73,6 @@ public class FunctionManager
         return globalFunctionNamespace.resolveFunction(name, parameterTypes);
     }
 
-    public Signature resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
-    {
-        return globalFunctionNamespace.resolveFunction(name, parameterTypes).getSignature();
-    }
-
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle)
     {
         return globalFunctionNamespace.getWindowFunctionImplementation(functionHandle);
