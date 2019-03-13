@@ -397,7 +397,7 @@ public final class LongBitPacker
             fromSlice = slice;
         }
         for (int i = 0; i < numOffsets; i++) {
-            buffer[offset + i] = Integer.reverseBytes(getIntUnchecked(fromSlice, 4 * (offsets[i + firstOffset] - offsetBias)));
+            buffer[offset + i] = 0xFFFF_FFFFL & Integer.reverseBytes(getIntUnchecked(fromSlice, 4 * (offsets[i + firstOffset] - offsetBias)));
         }
         if (bytes != null) {
             input.skipFully(len);
