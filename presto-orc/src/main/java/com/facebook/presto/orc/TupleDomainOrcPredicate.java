@@ -60,6 +60,7 @@ import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -72,6 +73,7 @@ public class TupleDomainOrcPredicate<C>
         implements OrcPredicate
 {
     private final TupleDomain<C> effectivePredicate;
+    private final TupleDomain<C> compactEffectivePredicate;
     private final List<ColumnReference<C>> columnReferences;
 
     private final boolean orcBloomFiltersEnabled;
@@ -79,14 +81,35 @@ public class TupleDomainOrcPredicate<C>
     public TupleDomainOrcPredicate(TupleDomain<C> effectivePredicate, List<ColumnReference<C>> columnReferences, boolean orcBloomFiltersEnabled)
     {
         this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
+        // TODO Use hiveClientConfig.getDomainCompactionThreshold()
+        this.compactEffectivePredicate = toCompactTupleDomain(effectivePredicate, 100);
         this.columnReferences = ImmutableList.copyOf(requireNonNull(columnReferences, "columnReferences is null"));
         this.orcBloomFiltersEnabled = orcBloomFiltersEnabled;
+    }
+
+    private static <C> TupleDomain<C> toCompactTupleDomain(TupleDomain<C> effectivePredicate, int threshold)
+    {
+        ImmutableMap.Builder<C, Domain> builder = ImmutableMap.builder();
+        effectivePredicate.getDomains().ifPresent(domains -> {
+            for (Map.Entry<C, Domain> entry : domains.entrySet()) {
+                C hiveColumnHandle = entry.getKey();
+
+                ValueSet values = entry.getValue().getValues();
+                ValueSet compactValueSet = values.getValuesProcessor().<Optional<ValueSet>>transform(
+                        ranges -> ranges.getRangeCount() > threshold ? Optional.of(ValueSet.ofRanges(ranges.getSpan())) : Optional.empty(),
+                        discreteValues -> discreteValues.getValues().size() > threshold ? Optional.of(ValueSet.all(values.getType())) : Optional.empty(),
+                        allOrNone -> Optional.empty())
+                        .orElse(values);
+                builder.put(hiveColumnHandle, Domain.create(compactValueSet, entry.getValue().isNullAllowed()));
+            }
+        });
+        return TupleDomain.withColumnDomains(builder.build());
     }
 
     @Override
     public boolean matches(long numberOfRows, Map<Integer, ColumnStatistics> statisticsByColumnIndex)
     {
-        Optional<Map<C, Domain>> optionalEffectivePredicateDomains = effectivePredicate.getDomains();
+        Optional<Map<C, Domain>> optionalEffectivePredicateDomains = compactEffectivePredicate.getDomains();
         if (!optionalEffectivePredicateDomains.isPresent()) {
             // effective predicate is none, so skip this section
             return false;
@@ -326,9 +349,7 @@ public class TupleDomainOrcPredicate<C>
         for (Map.Entry<C, Domain> entry : effectivePredicateDomains.entrySet()) {
             Domain predicateDomain = entry.getValue();
             C column = entry.getKey();
-            if (!(column instanceof ColumnHandle)) {
-                return null;
-            }
+            checkState(column instanceof ColumnHandle, "Unexpected column handle type: " + column.getClass().getSimpleName());
             ColumnHandle columnHandle = (ColumnHandle) column;
             SubfieldPath subfield = columnHandle.getSubfieldPath();
             ColumnHandle topLevelColumn = subfield == null ? columnHandle : columnHandle.createSubfieldColumnHandle(null);
@@ -339,44 +360,36 @@ public class TupleDomainOrcPredicate<C>
                     break;
                 }
             }
-            if (columnReference == null) {
-                // Predicate on non-existent column.
-                return null;
-            }
+            checkState(columnReference != null, "Column not found: " + topLevelColumn);
             ValueSet values = predicateDomain.getValues();
-            if (values instanceof SortedRangeSet) {
-                List<Range> ranges = ((SortedRangeSet) values).getOrderedRanges();
-                Type type = predicateDomain.getType();
-                boolean nullAllowed = predicateDomain.isNullAllowed();
+            if (!(values instanceof SortedRangeSet)) {
+                throw new UnsupportedOperationException("Unexpected TupleDomain: " + values.getClass().getSimpleName());
+            }
 
-                Filter filter;
-                if (ranges.isEmpty() && nullAllowed) {
-                    filter = Filters.isNull();
-                }
-                else if (ranges.size() == 1) {
-                    filter = createRangeFilter(type, ranges.get(0), nullAllowed);
-                }
-                else {
-                    List<Filter> rangeFilters = ranges.stream()
-                            .map(r -> createRangeFilter(type, r, false))
-                            .filter(f -> f != Filters.alwaysFalse())
-                            .collect(toImmutableList());
-                    if (rangeFilters.isEmpty()) {
-                        filter = nullAllowed ? Filters.isNull() : Filters.alwaysFalse();
-                    }
-                    else {
-                        filter = Filters.createMultiRange(rangeFilters, nullAllowed);
-                    }
-                }
-                if (filter == null) {
-                    // The domain cannot be converted to a filter. Pushdown fails.
-                    return null;
-                }
-                addFilter(columnReference.getOrdinal(), subfield, filter, filters);
+            List<Range> ranges = ((SortedRangeSet) values).getOrderedRanges();
+            Type type = predicateDomain.getType();
+            boolean nullAllowed = predicateDomain.isNullAllowed();
+
+            Filter filter;
+            if (ranges.isEmpty() && nullAllowed) {
+                filter = Filters.isNull();
+            }
+            else if (ranges.size() == 1) {
+                filter = createRangeFilter(type, ranges.get(0), nullAllowed);
             }
             else {
-                return null;
+                List<Filter> rangeFilters = ranges.stream()
+                        .map(r -> createRangeFilter(type, r, false))
+                        .filter(f -> f != Filters.alwaysFalse())
+                        .collect(toImmutableList());
+                if (rangeFilters.isEmpty()) {
+                    filter = nullAllowed ? Filters.isNull() : Filters.alwaysFalse();
+                }
+                else {
+                    filter = Filters.createMultiRange(rangeFilters, nullAllowed);
+                }
             }
+            addFilter(columnReference.getOrdinal(), subfield, filter, filters);
         }
         return filters;
     }
@@ -416,32 +429,32 @@ public class TupleDomainOrcPredicate<C>
     {
         if (subfield == null) {
             filters.put(ordinal, filter);
+            return;
         }
-        else {
-            Filter topFilter = filters.get(ordinal);
-            verify(topFilter == null || topFilter instanceof Filters.StructFilter);
-            Filters.StructFilter structFilter = (Filters.StructFilter) topFilter;
-            if (structFilter == null) {
-                structFilter = new Filters.StructFilter();
-                filters.put(ordinal, structFilter);
+
+        Filter topFilter = filters.get(ordinal);
+        verify(topFilter == null || topFilter instanceof Filters.StructFilter);
+        Filters.StructFilter structFilter = (Filters.StructFilter) topFilter;
+        if (structFilter == null) {
+            structFilter = new Filters.StructFilter();
+            filters.put(ordinal, structFilter);
+        }
+        int depth = subfield.getPath().size();
+        for (int i = 1; i < depth; i++) {
+            Filter memberFilter = structFilter.getMember(subfield.getPath().get(i));
+            if (i == depth - 1) {
+                verify(memberFilter == null);
+                structFilter.addMember(subfield.getPath().get(i), filter);
+                return;
             }
-            int depth = subfield.getPath().size();
-            for (int i = 1; i < depth; i++) {
-                Filter memberFilter = structFilter.getMember(subfield.getPath().get(i));
-                if (i == depth - 1) {
-                    verify(memberFilter == null);
-                    structFilter.addMember(subfield.getPath().get(i), filter);
-                    return;
-                }
-                if (memberFilter == null) {
-                    memberFilter = new Filters.StructFilter();
-                    structFilter.addMember(subfield.getPath().get(i), memberFilter);
-                    structFilter = (Filters.StructFilter) memberFilter;
-                }
-                else {
-                    verify(memberFilter instanceof Filters.StructFilter);
-                    structFilter = (Filters.StructFilter) memberFilter;
-                }
+            if (memberFilter == null) {
+                memberFilter = new Filters.StructFilter();
+                structFilter.addMember(subfield.getPath().get(i), memberFilter);
+                structFilter = (Filters.StructFilter) memberFilter;
+            }
+            else {
+                verify(memberFilter instanceof Filters.StructFilter);
+                structFilter = (Filters.StructFilter) memberFilter;
             }
         }
     }

@@ -470,7 +470,7 @@ public class PruneUnreferencedOutputs
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs);
 
-            return new FilterNode(node.getId(), source, node.getPredicate(), node.getPredicateWithoutTupleDomain());
+            return new FilterNode(node.getId(), source, node.getPredicate());
         }
 
         @Override

@@ -740,34 +740,28 @@ public class OrcRecordReader
         }
     }
 
-    public boolean pushdownFilterAndProjection(PageSourceOptions options, int[] channelColumns, List<Type> types)
+    public void pushdownFilterAndProjection(PageSourceOptions options, int[] channelColumns, List<Type> types)
     {
         if ((options.getAriaFlags() & AriaFlags.orcBufferReuse) != 0) {
             orcDataSource.setCache(Caches.getByteArrayPoolCacheAdapter());
         }
-        Map<Integer, Filter> filters = predicate.getFilters();
-        if (filters == null) {
-            // Null means filters are not supported for pushdown, empty map means no filters.
-            return false;
-        }
-        int[] internalChannels = options.getInternalChannels();
-        int[] outputChannels = options.getOutputChannels();
+
         reuseBlocks = options.getReusePages();
         reorderFilters = options.getReorderFilters();
-        reader = new ColumnGroupReader(streamReaders,
-                                       presentColumns,
-                                       channelColumns,
-                                       types,
-                                       internalChannels,
-                                       outputChannels,
-                                       filters,
-                                       options.getFilterFunctions(),
-                                       reuseBlocks,
-                                       reorderFilters,
-                                       options.getAriaFlags());
+        reader = new ColumnGroupReader(
+                streamReaders,
+                presentColumns,
+                channelColumns,
+                types,
+                options.getInternalChannels(),
+                options.getOutputChannels(),
+                predicate.getFilters(),
+                options.getFilterFunctions(),
+                reuseBlocks,
+                reorderFilters,
+                options.getAriaFlags());
         targetResultBytes = options.getTargetBytes();
         reader.setResultSizeBudget(targetResultBytes);
-        return true;
     }
 
     public Page getNextPage()

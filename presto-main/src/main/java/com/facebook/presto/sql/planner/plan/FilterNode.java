@@ -24,50 +24,28 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
-import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
-
 @Immutable
 public class FilterNode
         extends PlanNode
 {
     private final PlanNode source;
     private final Expression predicate;
-    private final Expression predicateWithoutTupleDomain;
 
     @JsonCreator
     public FilterNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-                      @JsonProperty("predicate") Expression predicate,
-                      @JsonProperty("predicateWithoutTupleDomain") Expression predicateWithoutTupleDomain)
+            @JsonProperty("predicate") Expression predicate)
     {
         super(id);
 
         this.source = source;
         this.predicate = predicate;
-        this.predicateWithoutTupleDomain = predicateWithoutTupleDomain;
-    }
-
-    public FilterNode(PlanNodeId id,
-                       PlanNode source,
-                       Expression predicate)
-    {
-        super(id);
-
-        this.source = source;
-        this.predicate = predicate;
-        this.predicateWithoutTupleDomain = TRUE_LITERAL;
     }
 
     @JsonProperty("predicate")
     public Expression getPredicate()
     {
         return predicate;
-    }
-
-    @JsonProperty("predicateWithoutTupleDomain")
-    public Expression getPredicateWithoutTupleDomain()
-    {
-        return predicateWithoutTupleDomain;
     }
 
     @Override
@@ -97,6 +75,6 @@ public class FilterNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new FilterNode(getId(), Iterables.getOnlyElement(newChildren), predicate, predicateWithoutTupleDomain);
+        return new FilterNode(getId(), Iterables.getOnlyElement(newChildren), predicate);
     }
 }

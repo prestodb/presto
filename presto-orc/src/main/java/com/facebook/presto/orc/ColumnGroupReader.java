@@ -457,13 +457,16 @@ public class ColumnGroupReader
                 }
             }
         }
-        int lastTruncatedStreamIdx = findLastTruncatedStreamIdx();
-        // Numbor of rows surviving all truncations/filters.
+
+        // Number of rows surviving all truncations/filters.
         int numAdded = qualifyingSet.getPositionCount();
-        alignResultsAndRemoveFromQualifyingSet(numAdded, sortedStreamReaders.length - 1);
+        if (sortedStreamReaders.length > 0) {
+            alignResultsAndRemoveFromQualifyingSet(numAdded, sortedStreamReaders.length - 1);
+        }
+        else {
+            inputQualifyingSet.eraseBelowRow(inputQualifyingSet.getEnd());
+        }
         numRowsInResult += numAdded;
-        // Check.
-        // getBlocks(numRowsInResult, true, false);
     }
 
     private QualifyingSet evaluateFilterFunction(int streamIdx, QualifyingSet qualifyingSet)
@@ -700,6 +703,7 @@ public class ColumnGroupReader
                 }
             }
         }
+
         StreamReader lastReader = sortedStreamReaders[lastStreamIdx];
         int endRow = getCurrentRow(lastReader);
         QualifyingSet lastOutput = lastReader.getOutputQualifyingSet();

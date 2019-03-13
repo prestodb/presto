@@ -336,10 +336,6 @@ public class ScanFilterAndProjectOperator
             populateChannels(channels, filters[i].getInputChannels());
         }
 
-        if (channels.length == 0) {
-            return;
-        }
-
         PageSourceOptions options = new PageSourceOptions(
                 channels,
                 projectionPushdownChannels == null ? channels : projectionPushdownChannels,

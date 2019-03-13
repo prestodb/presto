@@ -267,7 +267,7 @@ public class TableScanOperator
 
     private void setupAria()
     {
-        if (!isAriaScanEnabled(operatorContext.getSession()) || columns.isEmpty()) {
+        if (!isAriaScanEnabled(operatorContext.getSession())) {
             return;
         }
 

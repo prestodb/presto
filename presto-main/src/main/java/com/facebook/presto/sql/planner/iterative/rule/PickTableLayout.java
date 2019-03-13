@@ -344,15 +344,12 @@ public class PickTableLayout
                     //   and non-TupleDomain-expressible expressions should be retained. Changing the order can lead
                     //   to failures of previously successful queries.
                     Expression resultingPredicate = combineConjuncts(
-                                                                     domainTranslator.toPredicate(layout.getUnenforcedConstraint().transform(symbol -> { return fromColumnHandle(assignments, symbol); })),
+                            domainTranslator.toPredicate(layout.getUnenforcedConstraint().transform(symbol -> fromColumnHandle(assignments, symbol))),
                             filterNonDeterministicConjuncts(predicate),
                             decomposedPredicate.getRemainingExpression());
-                    Expression predicateWithoutTupleDomain = combineConjuncts(
-                            decomposedPredicate.getRemainingExpression(),
-                            filterNonDeterministicConjuncts(predicate));
 
                     if (!TRUE_LITERAL.equals(resultingPredicate)) {
-                        return new FilterNode(idAllocator.getNextId(), tableScan, resultingPredicate, predicateWithoutTupleDomain);
+                        return new FilterNode(idAllocator.getNextId(), tableScan, resultingPredicate);
                     }
 
                     return tableScan;
