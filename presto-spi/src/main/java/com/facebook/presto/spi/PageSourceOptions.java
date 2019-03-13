@@ -189,11 +189,7 @@ public class PageSourceOptions
                              int targetBytes,
                              int ariaFlags)
     {
-        requireNonNull(internalChannels, "internalChannels is null");
-        if (internalChannels.length == 0) {
-            throw new IllegalArgumentException("internalChannels must not be empty");
-        }
-        this.internalChannels = internalChannels;
+        this.internalChannels = requireNonNull(internalChannels, "internalChannels is null");
         this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
         this.reusePages = reusePages;
         this.filterFunctions = requireNonNull(filterFunctions, "filterFunctions is null");

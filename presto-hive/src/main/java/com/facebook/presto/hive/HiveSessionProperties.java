@@ -79,6 +79,7 @@ public final class HiveSessionProperties
     private static final String TEMPORARY_STAGING_DIRECTORY_ENABLED = "temporary_staging_directory_enabled";
     private static final String TEMPORARY_STAGING_DIRECTORY_PATH = "temporary_staging_directory_path";
     private static final String PRELOAD_SPLITS_FOR_GROUPED_EXECUTION = "preload_splits_for_grouped_execution";
+    private static final String ARIA_SCAN_ENABLED = "aria_scan_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -314,6 +315,11 @@ public final class HiveSessionProperties
                         PRELOAD_SPLITS_FOR_GROUPED_EXECUTION,
                         "Preload splits before scheduling for grouped execution",
                         hiveClientConfig.isPreloadSplitsForGroupedExecution(),
+                        false),
+                booleanProperty(
+                        ARIA_SCAN_ENABLED,
+                        "Aria scan enabled",
+                        true,
                         false));
     }
 
@@ -526,6 +532,11 @@ public final class HiveSessionProperties
     public static boolean isPreloadSplitsForGroupedExecution(ConnectorSession session)
     {
         return session.getProperty(PRELOAD_SPLITS_FOR_GROUPED_EXECUTION, Boolean.class);
+    }
+
+    public static boolean isAriaScanEnabled(ConnectorSession session)
+    {
+        return session.getProperty(ARIA_SCAN_ENABLED, Boolean.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)
