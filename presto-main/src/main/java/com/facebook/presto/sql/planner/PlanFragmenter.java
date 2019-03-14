@@ -242,7 +242,8 @@ public class PlanFragmenter
                         outputPartitioningScheme.getBucketToPartition()),
                 fragment.getStageExecutionDescriptor(),
                 fragment.getStatsAndCosts(),
-                fragment.getJsonRepresentation());
+                fragment.getJsonRepresentation(),
+                fragment.getDependencies());
 
         ImmutableList.Builder<SubPlan> childrenBuilder = ImmutableList.builder();
         for (SubPlan child : subPlan.getChildren()) {
@@ -318,7 +319,9 @@ public class PlanFragmenter
                     properties.getPartitioningScheme(),
                     StageExecutionDescriptor.ungroupedExecution(),
                     statsAndCosts.getForSubplan(root),
-                    Optional.of(jsonFragmentPlan(root, fragmentSymbolTypes, metadata.getFunctionManager(), session)));
+                    Optional.of(jsonFragmentPlan(root, fragmentSymbolTypes, metadata.getFunctionManager(), session)),
+                    // TODO
+                    ImmutableSet.of());
 
             return new SubPlan(fragment, properties.getChildren());
         }

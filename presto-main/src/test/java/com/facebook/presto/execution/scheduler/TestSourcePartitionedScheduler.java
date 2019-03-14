@@ -58,6 +58,7 @@ import com.facebook.presto.util.FinalizerService;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -485,7 +486,8 @@ public class TestSourcePartitionedScheduler
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
                 StageExecutionDescriptor.ungroupedExecution(),
                 StatsAndCosts.empty(),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableSet.of());
 
         return new StageExecutionPlan(
                 testFragment,
