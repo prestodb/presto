@@ -27,12 +27,14 @@ import static java.util.Objects.requireNonNull;
 
 // When the probe side of join is bucketed but builder side is not,
 // bucket to partition mapping has to be populated to builder side remote fragment.
-// NodePartitionMap is required in this case and cannot be replaced by BucketNodeMap.
+// NodePartitionMap is required in this case and cannot be simply replaced by BucketNodeMap.
 //
 //      Join
 //      /  \
 //   Scan  Remote
 //
+// TODO: Investigate if we can use FixedBucketNodeMap and a node to taskId map to replace NodePartitionMap
+//  in the above case, as the co-existence of BucketNodeMap and NodePartitionMap is confusing.
 public class NodePartitionMap
 {
     private final List<Node> partitionToNode;
