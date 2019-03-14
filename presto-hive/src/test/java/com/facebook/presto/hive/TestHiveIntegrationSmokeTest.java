@@ -2984,7 +2984,7 @@ public class TestHiveIntegrationSmokeTest
         return plan ->
         {
             int actualRemoteExchangesCount = searchFrom(plan.getRoot())
-                    .where(node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope() == ExchangeNode.Scope.REMOTE)
+                    .where(node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope().isRemote())
                     .findAll()
                     .size();
             if (actualRemoteExchangesCount != expectedRemoteExchangesCount) {

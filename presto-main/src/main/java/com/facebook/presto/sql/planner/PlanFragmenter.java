@@ -74,7 +74,6 @@ import static com.facebook.presto.sql.planner.SymbolsExtractor.extractOutputSymb
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonFragmentPlan;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -356,7 +355,7 @@ public class PlanFragmenter
         @Override
         public PlanNode visitExchange(ExchangeNode exchange, RewriteContext<FragmentProperties> context)
         {
-            if (exchange.getScope() != REMOTE) {
+            if (!exchange.getScope().isRemote()) {
                 return context.defaultRewrite(exchange, context.get());
             }
 
