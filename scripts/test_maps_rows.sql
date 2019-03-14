@@ -1,149 +1,304 @@
 
 
 -- custkey with map from year to an array of purchases that year.
-
-
-create table hive.tpch.cust_year_parts as select custkey, map_agg(y, parts) as year_parts, map_agg(y, total_cost) as year_cost
-  from (select c.custkey, year(shipdate) as y, array_agg(cast (row (partkey, extendedprice, quantity) as row (pk bigint, ep double, qt double))) as parts, sum (extendedprice) as total_cost
-  from hive.tpch.lineitem_s l, hive.tpch.orders o, hive.tpch.customer c where l.orderkey = o.orderkey and o.custkey = c.custkey and c.nationkey = 1 and quantity < 10
-  group by c.custkey, year(shipdate))
-  group by custkey;
-
-
-
-  
-
-create table hive.tpch.exportlineitem as
-select l.orderkey as l_orderkey, linenumber as l_linenumber,
-cast (row (
-l.partkey, l.suppkey, extendedprice, discount, quantity, shipdate, receiptdate, commitdate, l.comment)
-as row(
-l_partkey bigint, l_suppkey bigint, l_extendedprice double, l_discount double, l_quantity double, l_shipdate date, l_receiptdate date, l_commitdate date, l_comment varchar(44)
-)) as l_shipment,
-  CASE WHEN S.nationkey = C.nationkey THEN NULL ELSE 
-CAST (row(
-S.NATIONKEY, C.NATIONKEY,
-CASE WHEN (S.NATIONKEY IN (6, 7, 19) AND C.NATIONKEY IN (6,7,19)) THEN 1 ELSE 0 END,
-case when s.nationkey = 24 and c.nationkey = 10 then 1 else 0 end,
- case when p.comment like '%fur%' or p.comment like '%care%'
- then row(o.orderdate, l.shipdate, l.partkey + l.suppkey, concat(p.comment, l.comment))
-   else null end
+CREATE TABLE hive.tpch.cust_year_parts AS
+SELECT
+    custkey,
+    map_agg(y, parts) AS year_parts,
+    map_agg(y, total_cost) AS year_cost
+FROM (
+    SELECT
+        c.custkey,
+        YEAR(shipdate) AS y,
+        ARRAY_AGG(
+            CAST(ROW (partkey, extendedprice, quantity) AS ROW (pk BIGINT, ep DOUBLE, qt DOUBLE))
+        ) AS parts,
+        SUM(extendedprice) AS total_cost
+    FROM hive.tpch.lineitem_s l,
+        hive.tpch.orders o,
+        hive.tpch.customer c
+    WHERE
+        l.orderkey = o.orderkey
+        AND o.custkey = c.custkey
+        AND c.nationkey = 1
+        AND quantity < 10
+    GROUP BY
+        c.custkey,
+        YEAR(shipdate)
 )
-AS ROW (
-s_nation bigint, c_nation bigint,
-is_inside_eu int,
-is_restricted int,
-license row (applydate date, grantdate date, filing_no bigint, comment varchar)))
-end as l_export
-from hive.tpch.lineitem l, hive.tpch.orders o, hive.tpch.customer c, hive.tpch.supplier s, hive.tpch.part p
-where l.orderkey = o.orderkey and l.partkey = p.partkey and l.suppkey = s.suppkey and c.custkey = o.custkey; 
+GROUP BY
+    custkey;
+
+
+CREATE TABLE hive.tpch.exportlineitem AS
+SELECT
+    l.orderkey AS l_orderkey,
+    linenumber AS l_linenumber,
+    CAST(
+        ROW (
+            l.partkey,
+            l.suppkey,
+            extendedprice,
+            discount,
+            quantity,
+            shipdate,
+            receiptdate,
+            commitdate,
+            l.comment
+        ) AS ROW(
+            l_partkey BIGINT,
+            l_suppkey BIGINT,
+            l_extendedprice DOUBLE,
+            l_discount DOUBLE,
+            l_quantity DOUBLE,
+            l_shipdate DATE,
+            l_receiptdate DATE,
+            l_commitdate DATE,
+            l_comment VARCHAR(44)
+        )
+    ) AS l_shipment,
+    CASE
+        WHEN S.nationkey = C.nationkey THEN NULL
+        ELSE CAST(
+            ROW(
+                S.NATIONKEY,
+                C.NATIONKEY,
+                CASE
+                    WHEN (S.NATIONKEY IN (6, 7, 19) AND C.NATIONKEY IN (6, 7, 19)) THEN 1
+                    ELSE 0
+                END,
+                CASE
+                    WHEN s.nationkey = 24 AND c.nationkey = 10 THEN 1
+                    ELSE 0
+                END,
+                CASE
+                    WHEN p.comment LIKE '%fur%' OR p.comment LIKE '%care%' THEN ROW(
+                        o.orderdate,
+                        l.shipdate,
+                        l.partkey + l.suppkey,
+                        CONCAT(p.comment, l.comment)
+                    )
+                    ELSE NULL
+                END
+            ) AS ROW (
+                s_nation BIGINT,
+                c_nation BIGINT,
+                is_inside_eu int,
+                is_restricted int,
+                license ROW (applydate DATE, grantdate DATE, filing_no BIGINT, COMMENT VARCHAR)
+            )
+        )
+    END AS l_export
+FROM hive.tpch.lineitem l,
+    hive.tpch.orders o,
+    hive.tpch.customer c,
+    hive.tpch.supplier s,
+    hive.tpch.part p
+WHERE
+    l.orderkey = o.orderkey
+    AND l.partkey = p.partkey
+    AND l.suppkey = s.suppkey
+    AND c.custkey = o.custkey;
 
 
 
-select l.applydate from (select e.license as l from (select export as e from hive.tpch.exportinfo where orderkey < 5));
+SELECT
+    l.applydate
+FROM (
+    SELECT
+        e.license AS l
+    FROM (
+        SELECT
+            export AS e
+        FROM hive.tpch.exportinfo
+        WHERE
+            orderkey < 5
+    )
+);
 
-select orderkey, linenumber, s_nation, l.applydate from (select orderkey, linenumber, e.s_nation, e.license as l from (select orderkey, linenumber, export as e from hive.tpch.exportinfo where orderkey < 15));
+SELECT
+    orderkey,
+    linenumber,
+    s_nation,
+    l.applydate
+FROM (
+    SELECT
+        orderkey,
+        linenumber,
+        e.s_nation,
+        e.license AS l
+    FROM (
+        SELECT
+            orderkey,
+            linenumber,
+            export AS e
+        FROM hive.tpch.exportinfo
+        WHERE
+            orderkey < 15
+    )
+);
 
-
-
-
-create table hive.tpch.cust_order_line as
-select c_custkey, max(c_name) as c_name, max(c_address) as c_address, max(c_nationkey) as c_nationkey, max(c_phone) as c_phone, max(c_acctbal) as c_acctbal, max(c_mktsegment) as c_mktsegment, max(c_comment) as c_comment,
-array_agg(
-  cast (row (o_orderkey, o_orderstatus, o_totalprice, o_orderdate, o_orderpriority, o_shippriority,
- o_clerk, o_comment, lines)
- as row(
-o_orderkey bigint, o_orderstatus varchar, o_totalprice double, o_orderdate date, o_orderpriority varchar, o_shippriority varchar,
- o_clerk varchar, o_comment varchar,
- o_lines array (
-row (
- l_partkey  bigint   ,
- l_suppkey  bigint   ,
- l_linenumber   integer   ,
- l_quantity double   ,
- l_extendedprice  double   ,
- l_discount double   ,
- l_tax double   ,
- l_returnflag   varchar(1) ,
- l_linestatus   varchar(1) ,
- l_shipdate date ,
- l_commitdate   date ,
- l_receiptdate   date ,
- l_shipinstruct  varchar(25) ,
- l_shipmode varchar(10), 
- l_comment  varchar(44) )
+CREATE TABLE hive.tpch.cust_order_line AS
+SELECT
+    c_custkey,
+    MAX(c_name) AS c_name,
+    MAX(c_address) AS c_address,
+    MAX(c_nationkey) AS c_nationkey,
+    MAX(c_phone) AS c_phone,
+    MAX(c_acctbal) AS c_acctbal,
+    MAX(c_mktsegment) AS c_mktsegment,
+    MAX(c_comment) AS c_comment,
+    ARRAY_AGG(
+        CAST(
+            ROW (
+                o_orderkey,
+                o_orderstatus,
+                o_totalprice,
+                o_orderdate,
+                o_orderpriority,
+                o_shippriority,
+                o_clerk,
+                o_comment,
+                LINES
+            ) AS ROW(
+                o_orderkey BIGINT,
+                o_orderstatus VARCHAR,
+                o_totalprice DOUBLE,
+                o_orderdate DATE,
+                o_orderpriority VARCHAR,
+                o_shippriority VARCHAR,
+                o_clerk VARCHAR,
+                o_comment VARCHAR,
+                o_lines ARRAY (
+                    ROW (
+                        l_partkey BIGINT,
+                        l_suppkey BIGINT,
+                        l_linenumber INTEGER,
+                        l_quantity DOUBLE,
+                        l_extendedprice DOUBLE,
+                        l_discount DOUBLE,
+                        l_tax DOUBLE,
+                        l_returnflag VARCHAR(1),
+                        l_linestatus VARCHAR(1),
+                        l_shipdate DATE,
+                        l_commitdate DATE,
+                        l_receiptdate DATE,
+                        l_shipinstruct VARCHAR(25),
+                        l_shipmode VARCHAR(10),
+                        l_comment VARCHAR(44)
+                    )
+                )
+            )
+        )
+    ) AS c_orders
+FROM (
+    SELECT
+        c_custkey AS c_custkey,
+        o_orderkey,
+        MAX(c_name) AS c_name,
+        MAX(c_address) AS c_address,
+        MAX(c_nationkey) AS c_nationkey,
+        MAX(c_phone) AS c_phone,
+        MAX(c_acctbal) AS c_acctbal,
+        MAX(c_mktsegment) AS c_mktsegment,
+        MAX(c_comment) AS c_comment,
+        MAX(o_orderstatus) AS o_orderstatus,
+        MAX(o_totalprice) AS o_totalprice,
+        MAX(o_orderdate) AS o_orderdate,
+        MAX(o_orderpriority) AS o_orderpriority,
+        MAX(o_clerk) AS o_clerk,
+        MAX(o_shippriority) AS o_shippriority,
+        MAX(o_comment) AS o_comment,
+        ARRAY_AGG(
+            CAST(
+                ROW(
+                    l.partkey,
+                    l.suppkey,
+                    l.linenumber,
+                    l.quantity,
+                    l.extendedprice,
+                    l.discount,
+                    l.tax,
+                    l.returnflag,
+                    l.linestatus,
+                    l.shipdate,
+                    l.commitdate,
+                    l.receiptdate,
+                    l.shipinstruct,
+                    l.shipmode,
+                    l.comment
+                ) AS ROW (
+                    l_partkey BIGINT,
+                    l_suppkey BIGINT,
+                    l_linenumber INTEGER,
+                    l_quantity DOUBLE,
+                    l_extendedprice DOUBLE,
+                    l_discount DOUBLE,
+                    l_tax DOUBLE,
+                    l_returnflag VARCHAR(1),
+                    l_linestatus VARCHAR(1),
+                    l_shipdate DATE,
+                    l_commitdate DATE,
+                    l_receiptdate DATE,
+                    sl_hipinstruct VARCHAR(25),
+                    l_shipmode VARCHAR(10),
+                    l_comment VARCHAR(44)
+                )
+            )
+        ) AS LINES
+    FROM hive.tpch.lineitem l,
+        (
+        SELECT
+            c.custkey AS c_custkey,
+            name AS c_name,
+            address AS c_address,
+            nationkey AS c_nationkey,
+            phone AS c_phone,
+            acctbal AS c_acctbal,
+            mktsegment AS c_mktsegment,
+            c.comment AS c_comment,
+            orderkey AS o_orderkey,
+            orderstatus AS o_orderstatus,
+            totalprice AS o_totalprice,
+            orderdate AS o_orderdate,
+            orderpriority AS o_orderpriority,
+            clerk AS o_clerk,
+            shippriority AS o_shippriority,
+            o.comment AS o_comment
+        FROM hive.tpch.orders o,
+            hive.tpch.customer c
+        WHERE
+            o.custkey = c.custkey
+            AND c.custkey BETWEEN 0 AND 2000000
+    )
+    WHERE
+        o_orderkey = l.orderkey
+    GROUP BY
+        c_custkey,
+        o_orderkey
 )
-))) as c_orders
- from (
-select c_custkey as c_custkey, o_orderkey, max(c_name) as c_name, max(c_address) as c_address, max (c_nationkey) as c_nationkey, max(c_phone) as c_phone, max(c_acctbal) as c_acctbal, max(c_mktsegment) as c_mktsegment, max(c_comment) as c_comment,
-max (o_orderstatus) as o_orderstatus, max(o_totalprice) as o_totalprice,   max(o_orderdate) as o_orderdate,
-  max(o_orderpriority) as o_orderpriority, 
- max (o_clerk) as o_clerk,
- max(o_shippriority) as o_shippriority,
- max (o_comment) as o_comment, 
-  array_agg(cast (row(
- l.partkey,
- l.suppkey,
- l.linenumber,
- l.quantity,
- l.extendedprice,
- l.discount,
- l.tax,
- l.returnflag,
- l.linestatus,
- l.shipdate,
- l.commitdate,
- l.receiptdate,
- l.shipinstruct,
- l.shipmode,
- l.comment
-)
-  as row (
- l_partkey  bigint   ,
- l_suppkey  bigint   ,
- l_linenumber   integer   ,
- l_quantity double   ,
- l_extendedprice  double   ,
- l_discount double   ,
- l_tax double   ,
- l_returnflag   varchar(1) ,
- l_linestatus   varchar(1) ,
- l_shipdate date ,
- l_commitdate   date ,
- l_receiptdate   date ,
- sl_hipinstruct  varchar(25) ,
- l_shipmode varchar(10), 
- l_comment  varchar(44) ))) as lines
-from hive.tpch.lineitem l,
-  (select 
- c.custkey as c_custkey, 
- name     as c_name,
- address  as c_address,
- nationkey as c_nationkey,
- phone as c_phone,   
- acctbal as c_acctbal,  
- mktsegment as c_mktsegment, 
- c.comment as c_comment,  
- orderkey    as o_orderkey,
- orderstatus as o_orderstatus,  
- totalprice as o_totalprice,  
- orderdate as o_orderdate,   
- orderpriority as o_orderpriority, 
- clerk as o_clerk,     
- shippriority as o_shippriority, 
- o.comment as o_comment    
-from hive.tpch.orders o, hive.tpch.customer c
-where 
-o.custkey = c.custkey and c.custkey between 0 and 2000000)
-where o_orderkey = l.orderkey  
-group by c_custkey, o_orderkey)
-group by c_custkey;
+GROUP BY
+    c_custkey;
 
 
-select count (*) from    hive.tpch.cust_order_line cross join unnest (c_orders) cross join unnest (o_lines) where l_partkey = 111111;
+SELECT
+    COUNT(*)
+FROM hive.tpch.cust_order_line
+CROSS JOIN unnest (c_orders)
+CROSS JOIN unnest (o_lines)
+WHERE
+    l_partkey = 111111;
+
+SELECT
+    COUNT(*)
+FROM hive.tpch.exportlineitem
+WHERE
+    export.s_nation = 2;
 
 
-select count (*) from hive.tpch.exportlineitem where export.s_nation = 2;
-
-
-select count(*), sum (l_shipment.l_partkey) from hive.tpch.exportlineitem where l_export.license.comment between 'fur' and 'hag';
+SELECT
+    COUNT(*),
+    SUM(l_shipment.l_partkey)
+FROM hive.tpch.exportlineitem
+WHERE
+    l_export.license.comment BETWEEN 'fur' AND 'hag';
