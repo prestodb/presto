@@ -15,15 +15,24 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.collect.ImmutableList;
+import com.google.common.graph.SuccessorsFunction;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Streams.stream;
+import static com.google.common.graph.Traverser.forTree;
 import static java.util.Objects.requireNonNull;
 
 public class StageExecutionPlan
@@ -71,6 +80,25 @@ public class StageExecutionPlan
     public StageExecutionPlan withBucketToPartition(Optional<int[]> bucketToPartition)
     {
         return new StageExecutionPlan(fragment.withBucketToPartition(bucketToPartition), splitSources, subStages);
+    }
+
+    public Stream<StageExecutionPlan> geAllStages()
+    {
+        return stream(forTree(StageExecutionPlan::getSubStages).depthFirstPreOrder(this));
+    }
+
+    public Stream<StageExecutionPlan> geAllRemoteSourceLinkedStages()
+    {
+        SuccessorsFunction<StageExecutionPlan> remoteSourceLinked = node -> {
+            Set<PlanFragmentId> remoteSources = node.getFragment().getRemoteSourceNodes().stream()
+                    .map(RemoteSourceNode::getSourceFragmentIds)
+                    .flatMap(List::stream)
+                    .collect(toImmutableSet());
+            return node.getSubStages().stream()
+                    .filter(subStage -> remoteSources.contains(subStage.getFragment().getId()))
+                    .collect(toImmutableList());
+        };
+        return stream(forTree(remoteSourceLinked).depthFirstPreOrder(this));
     }
 
     @Override
