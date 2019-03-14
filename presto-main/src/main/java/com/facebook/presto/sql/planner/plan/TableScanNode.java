@@ -50,13 +50,16 @@ public class TableScanNode
 
     private final TupleDomain<ColumnHandle> enforcedConstraint;
 
+    private final boolean temporaryTable;
+
     @JsonCreator
     public TableScanNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("table") TableHandle table,
             @JsonProperty("outputSymbols") List<Symbol> outputs,
             @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
-            @JsonProperty("layout") Optional<TableLayoutHandle> tableLayout)
+            @JsonProperty("layout") Optional<TableLayoutHandle> tableLayout,
+            @JsonProperty("temporaryTable") boolean temporaryTable)
     {
         // This constructor is for JSON deserialization only. Do not use.
         super(id);
@@ -65,6 +68,7 @@ public class TableScanNode
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
         checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
         this.tableLayout = requireNonNull(tableLayout, "tableLayout is null");
+        this.temporaryTable = temporaryTable;
         this.currentConstraint = null;
         this.enforcedConstraint = null;
     }
@@ -75,7 +79,7 @@ public class TableScanNode
             List<Symbol> outputs,
             Map<Symbol, ColumnHandle> assignments)
     {
-        this(id, table, outputs, assignments, Optional.empty(), TupleDomain.all(), TupleDomain.all());
+        this(id, table, outputs, assignments, Optional.empty(), TupleDomain.all(), TupleDomain.all(), false);
     }
 
     public TableScanNode(
@@ -87,6 +91,19 @@ public class TableScanNode
             TupleDomain<ColumnHandle> currentConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint)
     {
+        this(id, table, outputs, assignments, tableLayout, currentConstraint, enforcedConstraint, false);
+    }
+
+    public TableScanNode(
+            PlanNodeId id,
+            TableHandle table,
+            List<Symbol> outputs,
+            Map<Symbol, ColumnHandle> assignments,
+            Optional<TableLayoutHandle> tableLayout,
+            TupleDomain<ColumnHandle> currentConstraint,
+            TupleDomain<ColumnHandle> enforcedConstraint,
+            boolean temporaryTable)
+    {
         super(id);
         this.table = requireNonNull(table, "table is null");
         this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
@@ -95,6 +112,7 @@ public class TableScanNode
         this.tableLayout = requireNonNull(tableLayout, "tableLayout is null");
         this.currentConstraint = requireNonNull(currentConstraint, "currentConstraint is null");
         this.enforcedConstraint = requireNonNull(enforcedConstraint, "enforcedConstraint is null");
+        this.temporaryTable = temporaryTable;
         if (!currentConstraint.isAll() || !enforcedConstraint.isAll()) {
             checkArgument(tableLayout.isPresent(), "tableLayout must be present when currentConstraint or enforcedConstraint is non-trivial");
         }
@@ -123,6 +141,12 @@ public class TableScanNode
     public Map<Symbol, ColumnHandle> getAssignments()
     {
         return assignments;
+    }
+
+    @JsonProperty
+    public boolean isTemporaryTable()
+    {
+        return temporaryTable;
     }
 
     /**
