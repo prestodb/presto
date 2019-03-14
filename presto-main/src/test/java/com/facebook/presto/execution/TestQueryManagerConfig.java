@@ -21,6 +21,9 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.execution.QueryManagerConfig.MaterializeExchangesStrategy.ALL;
+import static com.facebook.presto.execution.QueryManagerConfig.MaterializeExchangesStrategy.NONE;
+
 public class TestQueryManagerConfig
 {
     @Test
@@ -39,6 +42,7 @@ public class TestQueryManagerConfig
                 .setMaxQueuedQueries(5000)
                 .setHashPartitionCount(100)
                 .setPartitioningProviderCatalog("system")
+                .setMaterializeExchangesStrategy(NONE)
                 .setQueryManagerExecutorPoolSize(5)
                 .setRemoteTaskMinErrorDuration(new Duration(5, TimeUnit.MINUTES))
                 .setRemoteTaskMaxErrorDuration(new Duration(5, TimeUnit.MINUTES))
@@ -69,6 +73,7 @@ public class TestQueryManagerConfig
                 .put("query.max-queued-queries", "15")
                 .put("query.hash-partition-count", "16")
                 .put("query.partitioning-provider-catalog", "hive")
+                .put("query.materialize-exchanges-strategy", "ALL")
                 .put("query.manager-executor-pool-size", "11")
                 .put("query.remote-task.min-error-duration", "30s")
                 .put("query.remote-task.max-error-duration", "60s")
@@ -96,6 +101,7 @@ public class TestQueryManagerConfig
                 .setMaxQueuedQueries(15)
                 .setHashPartitionCount(16)
                 .setPartitioningProviderCatalog("hive")
+                .setMaterializeExchangesStrategy(ALL)
                 .setQueryManagerExecutorPoolSize(11)
                 .setRemoteTaskMinErrorDuration(new Duration(60, TimeUnit.SECONDS))
                 .setRemoteTaskMaxErrorDuration(new Duration(60, TimeUnit.SECONDS))

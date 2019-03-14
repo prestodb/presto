@@ -14,6 +14,7 @@
 package com.facebook.presto;
 
 import com.facebook.presto.execution.QueryManagerConfig;
+import com.facebook.presto.execution.QueryManagerConfig.MaterializeExchangesStrategy;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.spi.PrestoException;
@@ -59,6 +60,7 @@ public final class SystemSessionProperties
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
     public static final String PARTITIONING_PROVIDER_CATALOG = "partitioning_provider_catalog";
+    public static final String MATERIALIZE_EXCHANGES_STRATEGY = "materialize_exchanges_strategy";
     public static final String GROUPED_EXECUTION_FOR_AGGREGATION = "grouped_execution_for_aggregation";
     public static final String DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION = "dynamic_schedule_for_grouped_execution";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
@@ -186,6 +188,18 @@ public final class SystemSessionProperties
                         "Name of the catalog providing custom partitioning",
                         queryManagerConfig.getPartitioningProviderCatalog(),
                         false),
+                new PropertyMetadata<>(
+                        MATERIALIZE_EXCHANGES_STRATEGY,
+                        format("Materialize exchanges strategy to use. Options are %s",
+                                Stream.of(MaterializeExchangesStrategy.values())
+                                        .map(MaterializeExchangesStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        MaterializeExchangesStrategy.class,
+                        queryManagerConfig.getMaterializeExchangesStrategy(),
+                        false,
+                        value -> MaterializeExchangesStrategy.valueOf(((String) value).toUpperCase()),
+                        MaterializeExchangesStrategy::name),
                 booleanProperty(
                         GROUPED_EXECUTION_FOR_AGGREGATION,
                         "Use grouped execution for aggregation when possible",
@@ -611,6 +625,11 @@ public final class SystemSessionProperties
     public static String getPartitioningProviderCatalog(Session session)
     {
         return session.getSystemProperty(PARTITIONING_PROVIDER_CATALOG, String.class);
+    }
+
+    public static MaterializeExchangesStrategy getMaterializeExchangesStrategy(Session session)
+    {
+        return session.getSystemProperty(MATERIALIZE_EXCHANGES_STRATEGY, MaterializeExchangesStrategy.class);
     }
 
     public static boolean isGroupedExecutionForAggregationEnabled(Session session)
