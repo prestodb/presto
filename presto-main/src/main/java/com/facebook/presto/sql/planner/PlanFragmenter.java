@@ -320,8 +320,7 @@ public class PlanFragmenter
                     StageExecutionDescriptor.ungroupedExecution(),
                     statsAndCosts.getForSubplan(root),
                     Optional.of(jsonFragmentPlan(root, fragmentSymbolTypes, metadata.getFunctionManager(), session)),
-                    // TODO
-                    ImmutableSet.of());
+                    properties.getDependencies());
 
             return new SubPlan(fragment, properties.getChildren());
         }
@@ -485,8 +484,9 @@ public class PlanFragmenter
                     write.getOutputSymbols()));
             writeProperties.setCoordinatorOnlyDistribution();
 
-            List<SubPlan> children = ImmutableList.of(buildSubPlan(write, writeProperties, context));
-            context.get().addChildren(children);
+            SubPlan childFragmentPlan = buildSubPlan(write, writeProperties, context);
+            context.get().addChildren(ImmutableList.of(childFragmentPlan));
+            context.get().addDependency(childFragmentPlan.getFragment().getId());
 
             return visitTableScan(scan, context);
         }
@@ -683,6 +683,7 @@ public class PlanFragmenter
     private static class FragmentProperties
     {
         private final List<SubPlan> children = new ArrayList<>();
+        private final Set<PlanFragmentId> dependencies = new HashSet<>();
 
         private final PartitioningScheme partitioningScheme;
 
@@ -697,6 +698,11 @@ public class PlanFragmenter
         public List<SubPlan> getChildren()
         {
             return children;
+        }
+
+        public Set<PlanFragmentId> getDependencies()
+        {
+            return dependencies;
         }
 
         public FragmentProperties setSingleNodeDistribution()
@@ -798,6 +804,12 @@ public class PlanFragmenter
         {
             this.children.addAll(children);
 
+            return this;
+        }
+
+        public FragmentProperties addDependency(PlanFragmentId dependency)
+        {
+            this.dependencies.add(dependency);
             return this;
         }
 
