@@ -169,11 +169,13 @@ public class QueryExplainer
 
     public Plan getLogicalPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
     {
+        return getLogicalPlan(session, statement, parameters, warningCollector, new PlanNodeIdAllocator());
+    }
+
+    public Plan getLogicalPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector, PlanNodeIdAllocator idAllocator)
+    {
         // analyze statement
         Analysis analysis = analyze(session, statement, parameters, warningCollector);
-
-        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-
         // plan statement
         LogicalPlanner logicalPlanner = new LogicalPlanner(true, session, planOptimizers, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, warningCollector);
         return logicalPlanner.plan(analysis);
@@ -181,7 +183,8 @@ public class QueryExplainer
 
     private SubPlan getDistributedPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
     {
-        Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
-        return planFragmenter.createSubPlans(session, plan, false, warningCollector);
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+        Plan plan = getLogicalPlan(session, statement, parameters, warningCollector, idAllocator);
+        return planFragmenter.createSubPlans(session, plan, false, idAllocator, warningCollector);
     }
 }
