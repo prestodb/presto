@@ -2,28 +2,49 @@
 
 
 -- Column index of numeric/date columns to column value as long.
-create table hive.tpch.lineitem_map as
-select orderkey as l_orderkey,
-linenumber as l_linenumber,
-map(
-array[2, 3, 5, 6, 7, 8, 11, 12, 13,
-if(receiptdate > commitdate, 100, 101),
-if (returnflag = 'R', 102, 103),
-104],
-
-array[partkey, suppkey,
-cast(quantity as bigint), cast (extendedprice as bigint), 
-cast (discount * 100 as bigint), cast (tax * 100 as bigint), 
-date_diff('day', cast('1970-1-1' as date), shipdate),
-date_diff('day', cast('1970-1-1' as date), commitdate),
-date_diff('day', cast('1970-1-1' as date), receiptdate),
-date_diff('day', commitdate, receiptdate),
-cast(extendedprice as bigint),
-if (extendedprice > 5000, cast(extendedprice * discount as bigint), null)]
-) as ints,
-map(array['9', '10', '13', '14', '15'],
-array[returnflag, linestatus, shipmode, shipinstruct, comment]) as strs  
-from hive.tpch.lineitem;
+CREATE TABLE hive.tpch.lineitem_map AS
+SELECT
+    orderkey AS l_orderkey,
+    linenumber AS l_linenumber,
+    map(
+        ARRAY[2,
+        3,
+        5,
+        6,
+        7,
+        8,
+        11,
+        12,
+        13,
+        IF(receiptdate > commitdate, 100, 101),
+        IF (returnflag = 'R', 102, 103),
+        104],
+        ARRAY[partkey,
+        suppkey,
+        CAST(quantity AS BIGINT),
+        CAST(extendedprice AS BIGINT),
+        CAST(discount * 100 AS BIGINT),
+        CAST(tax * 100 AS BIGINT),
+        DATE_DIFF('day', CAST('1970-1-1' AS DATE), shipdate),
+        DATE_DIFF('day', CAST('1970-1-1' AS DATE), commitdate),
+        DATE_DIFF('day', CAST('1970-1-1' AS DATE), receiptdate),
+        DATE_DIFF('day', commitdate, receiptdate),
+        CAST(extendedprice AS BIGINT),
+        IF (extendedprice > 5000, CAST(extendedprice * discount AS BIGINT), NULL)]
+    ) AS ints,
+    map(
+        ARRAY['9',
+        '10',
+        '13',
+        '14',
+        '15'],
+        ARRAY[returnflag,
+        linestatus,
+        shipmode,
+        shipinstruct,
+        COMMENT]
+    ) AS strs
+FROM hive.tpch.lineitem;
 
 
 

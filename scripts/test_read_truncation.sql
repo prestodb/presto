@@ -1,58 +1,106 @@
 
 
-create table hive.tpch.strings as select
- orderkey, linenumber, comment as s1,
- concat (cast(partkey as varchar), comment) as s2,
-        concat(cast(suppkey as varchar), comment) as s3,
-                            concat(cast(quantity as varchar), comment) as s4
-                            from hive.tpch.lineitem_s where orderkey < 100000;
+CREATE TABLE hive.tpch.strings AS
+SELECT
+    orderkey,
+    linenumber,
+    COMMENT AS s1,
+    CONCAT(CAST(partkey AS VARCHAR), COMMENT) AS s2,
+    CONCAT(CAST(suppkey AS VARCHAR), COMMENT) AS s3,
+    CONCAT(CAST(quantity AS VARCHAR), COMMENT) AS s4
+FROM tpch.sf1.lineitem
+WHERE
+    orderkey < 100000;
+
+CREATE TABLE hive.tpch.strings_struct AS
+SELECT
+    orderkey,
+    linenumber,
+    CAST(
+        ROW(COMMENT, CONCAT(CAST(partkey AS VARCHAR), COMMENT)) AS ROW(s1 VARCHAR, s2 VARCHAR)
+    ) AS s1,
+    CAST(
+        ROW(
+            CONCAT(CAST(suppkey AS VARCHAR), COMMENT),
+            CONCAT(CAST(quantity AS VARCHAR), COMMENT)
+        ) AS ROW(s3 VARCHAR, s4 VARCHAR)
+    ) AS s3
+FROM tpch.sf1.lineitem
+WHERE
+    orderkey < 100000;
+
+CREATE TABLE hive.tpch.strings_struct_nulls AS
+SELECT
+    orderkey,
+    linenumber,
+    CAST(
+        IF (
+            mod(partkey, 5) = 0,
+            NULL,
+            ROW(
+                COMMENT,
+                IF (mod(partkey, 13) = 0, NULL, CONCAT(CAST(partkey AS VARCHAR), COMMENT))
+            )
+        ) AS ROW(s1 VARCHAR, s2 VARCHAR)
+    ) AS s1,
+    CAST(
+        IF (
+            mod (partkey, 7) = 0,
+            NULL,
+            ROW(
+                IF (mod(suppkey, 17) = 0, NULL, CONCAT(CAST(suppkey AS VARCHAR), COMMENT)),
+                CONCAT(CAST(quantity AS VARCHAR), COMMENT)
+            )
+        ) AS ROW(s3 VARCHAR, s4 VARCHAR)
+    ) AS s3
+FROM hive.tpch.lineitem_s
+WHERE
+    orderkey < 100000;
 
 
-create table hive.tpch.strings_struct as select
- orderkey, linenumber,
- cast (row(comment,
- concat (cast(partkey as varchar), comment))
-   as row(s1 varchar, s2 varchar)) as s1,
-        cast (row(concat(cast(suppkey as varchar), comment),
-                            concat(cast(quantity as varchar), comment))
-                              as row(s3 varchar, s4 varchar)) as s3
-                            from hive.tpch.lineitem_s where orderkey < 100000;
-
-
-create table hive.tpch.strings_nulls as select
- orderkey, linenumber,
- cast (if (mod(partkey, 5) = 0, null, row(comment,
- concat (cast(partkey as varchar), comment)))
-   as row(s1 varchar, s2 varchar)) as s1,
-        cast (if (mod (partkey, 7) = 0, null,
-           row(if (mod(suppkey, 17) = 0, null, concat(cast(suppkey as varchar), comment)),
-                            concat(cast(quantity as varchar), comment)))
-                              as row(s3 varchar, s4 varchar)) as s3
-                            from hive.tpch.lineitem_s where orderkey < 100000;
 
 
 
+-- queries
 
+SELECT
+    orderkey,
+    linenumber,
+    s1,
+    s2,
+    s3,
+    s4
+FROM hive.tpch.strings
+WHERE
+    s1 > 'f'
+    AND s2 > '1'
+    AND s3 > '1'
+    AND s4 > '2';
 
+SELECT
+    orderkey,
+    linenumber,
+    s1.s1,
+    s1.s2,
+    s3.s3,
+    s4.s4
+FROM hive.tpch.strings2
+WHERE
+    s1.s1 > 'f'
+    AND s1.s2 > '1'
+    AND s3.s3 > '1'
+    AND s3.s4 > '2';
 
-
-
-select orderkey, linenumber, s1, s2, s3, s4 from hive.tpch.strings where
- s1 > 'f'
- and s2 > '1'
- and s3 > '1'
- and s4 > '2';
-
-select orderkey, linenumber, s1.s1, s1.s2, s3.s3, s4.s4 from hive.tpch.strings2 where
- s1.s1 > 'f'
- and s1.s2 > '1'
- and s3.s3 > '1'
- and s3.s4 > '2';
-
-
-select orderkey, linenumber, s1.s1, s1.s2, s3.s3, s4.s4 from hive.tpch.strings2 where
- s1.s1 > 'f';
- 
+SELECT
+    orderkey,
+    linenumber,
+    s1.s1,
+    s1.s2,
+    s3.s3,
+    s4.s4
+FROM hive.tpch.strings2
+WHERE
+    s1.s1 > 'f';
 
 
 
