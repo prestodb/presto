@@ -14,19 +14,24 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.tests.AbstractTestAggregations;
-import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.Test;
 
-import java.util.Optional;
-
-import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
+import static com.facebook.presto.hive.HiveQueryRunner.createMaterializingQueryRunner;
+import static com.facebook.presto.hive.TestHiveIntegrationSmokeTest.assertRemoteMaterializedExchangesCount;
 import static io.airlift.tpch.TpchTable.getTables;
 
-public class TestHiveDistributedAggregationsHivePartitioning
+public class TestHiveMaterializedAggregations
         extends AbstractTestAggregations
 {
-    public TestHiveDistributedAggregationsHivePartitioning()
+    public TestHiveMaterializedAggregations()
     {
-        super(() -> createQueryRunner(getTables(), ImmutableMap.of("query.partitioning-provider-catalog", "hive"), Optional.empty()));
+        super(() -> createMaterializingQueryRunner(getTables()));
+    }
+
+    @Test
+    public void testMaterializedExchangesEnabled()
+    {
+        assertQuery(getSession(), "SELECT orderkey, COUNT(*) lines FROM lineitem GROUP BY orderkey", assertRemoteMaterializedExchangesCount(1));
     }
 
     @Override
@@ -39,5 +44,23 @@ public class TestHiveDistributedAggregationsHivePartitioning
     public void testGroupByRow()
     {
         // row type is not supported by the Hive hash code function
+    }
+
+    @Override
+    public void testApproximateCountDistinctGroupBy()
+    {
+        // HyperLogLog is not supported by ORC writer
+    }
+
+    @Override
+    public void testApproximateCountDistinctGroupByWithStandardError()
+    {
+        // HyperLogLog is not supported by ORC writer
+    }
+
+    @Override
+    public void testAggregationPushedBelowOuterJoin()
+    {
+        // Anonymous row type is not supported in Hive
     }
 }
