@@ -15,22 +15,37 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.NewTableLayout;
+import com.facebook.presto.metadata.PartitioningMetadata;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayout.TablePartitioning;
 import com.facebook.presto.metadata.TableLayoutHandle;
+import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.operator.StageExecutionDescriptor;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorNewTableLayout;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -40,6 +55,7 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -47,16 +63,21 @@ import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.sanity.PlanSanityChecker;
+import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -69,21 +90,32 @@ import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutpu
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static com.facebook.presto.spi.StandardWarningCode.TOO_MANY_STAGES;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static com.facebook.presto.sql.planner.SymbolsExtractor.extractOutputSymbols;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonFragmentPlan;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.filterKeys;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 /**
  * Splits a logical plan into fragments that can be shipped and executed on distributed nodes
@@ -232,6 +264,7 @@ public class PlanFragmenter
         private final PlanSanityChecker planSanityChecker;
         private final WarningCollector warningCollector;
         private final SqlParser sqlParser;
+        private final LiteralEncoder literalEncoder;
         private int nextFragmentId = ROOT_FRAGMENT_ID + 1;
 
         public Fragmenter(
@@ -252,6 +285,7 @@ public class PlanFragmenter
             this.planSanityChecker = requireNonNull(planSanityChecker, "planSanityChecker is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+            this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
         }
 
         public SubPlan buildRootFragment(PlanNode root, FragmentProperties properties)
@@ -359,10 +393,20 @@ public class PlanFragmenter
         @Override
         public PlanNode visitExchange(ExchangeNode exchange, RewriteContext<FragmentProperties> context)
         {
-            if (!exchange.getScope().isRemote()) {
-                return context.defaultRewrite(exchange, context.get());
+            switch (exchange.getScope()) {
+                case LOCAL:
+                    return context.defaultRewrite(exchange, context.get());
+                case REMOTE:
+                    return createRemoteExchange(exchange, context);
+                case REMOTE_MATERIALIZED:
+                    return createRemoteMaterializedExchange(exchange, context);
+                default:
+                    throw new IllegalArgumentException("Unexpected exchange scope: " + exchange.getScope());
             }
+        }
 
+        private PlanNode createRemoteExchange(ExchangeNode exchange, RewriteContext<FragmentProperties> context)
+        {
             PartitioningScheme partitioningScheme = exchange.getPartitioningScheme();
 
             if (exchange.getType() == ExchangeNode.Type.GATHER) {
@@ -387,6 +431,242 @@ public class PlanFragmenter
                     .collect(toImmutableList());
 
             return new RemoteSourceNode(exchange.getId(), childrenIds, exchange.getOutputSymbols(), exchange.getOrderingScheme(), exchange.getType());
+        }
+
+        private PlanNode createRemoteMaterializedExchange(ExchangeNode exchange, RewriteContext<FragmentProperties> context)
+        {
+            checkArgument(exchange.getType() == REPARTITION, "Unexpected exchange type: %s", exchange.getType());
+
+            PartitioningScheme partitioningScheme = exchange.getPartitioningScheme();
+            checkArgument(!partitioningScheme.getHashColumn().isPresent(), "precomputed hashes are not supported in materializing exchanges");
+
+            PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
+            ConnectorId connectorId = partitioningHandle.getConnectorId()
+                    .orElseThrow(() -> new IllegalArgumentException("Unsupported partitioning handle: " + partitioningHandle));
+
+            Map<Symbol, Expression> constantExpressions = new HashMap<>();
+            Partitioning partitioning = partitioningScheme.getPartitioning();
+            List<Symbol> partitioningSymbols = assignPartitioningSymbols(partitioning, constantExpressions);
+            Map<Symbol, ColumnMetadata> temporaryTableColumns = assignColumnNames(exchange.getOutputSymbols(), constantExpressions.keySet());
+            List<String> partitioningColumns = partitioningSymbols.stream()
+                    .map(symbol -> temporaryTableColumns.get(symbol).getName())
+                    .collect(toImmutableList());
+            PartitioningMetadata partitioningMetadata = new PartitioningMetadata(partitioningHandle, partitioningColumns);
+
+            TableHandle temporaryTable = metadata.createTemporaryTable(
+                    session,
+                    connectorId.getCatalogName(),
+                    ImmutableList.copyOf(temporaryTableColumns.values()),
+                    Optional.of(partitioningMetadata));
+
+            TableScanNode scan = createTemporaryTableScan(
+                    temporaryTable,
+                    exchange.getOutputSymbols(),
+                    temporaryTableColumns,
+                    partitioningMetadata);
+
+            checkArgument(
+                    !exchange.getPartitioningScheme().isReplicateNullsAndAny(),
+                    "materialized remote exchange is not supported when replicateNullsAndAny is needed");
+            TableFinishNode write = createTemporaryTableWrite(
+                    temporaryTable,
+                    temporaryTableColumns,
+                    exchange.getOutputSymbols(),
+                    exchange.getInputs(),
+                    exchange.getSources(),
+                    constantExpressions,
+                    partitioningMetadata);
+
+            FragmentProperties writeProperties = new FragmentProperties(new PartitioningScheme(
+                    Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
+                    write.getOutputSymbols()));
+            writeProperties.setCoordinatorOnlyDistribution();
+
+            List<SubPlan> children = ImmutableList.of(buildSubPlan(write, writeProperties, context));
+            context.get().addChildren(children);
+
+            return visitTableScan(scan, context);
+        }
+
+        private List<Symbol> assignPartitioningSymbols(Partitioning partitioning, Map<Symbol, Expression> constantPartitioningSymbols)
+        {
+            ImmutableList.Builder<Symbol> result = ImmutableList.builder();
+            for (ArgumentBinding argumentBinding : partitioning.getArguments()) {
+                Symbol symbol;
+                if (argumentBinding.isConstant()) {
+                    NullableValue constant = argumentBinding.getConstant();
+                    Expression expression = literalEncoder.toExpression(constant.getValue(), constant.getType());
+                    symbol = symbolAllocator.newSymbol(expression, constant.getType());
+                    constantPartitioningSymbols.put(symbol, expression);
+                }
+                else {
+                    symbol = argumentBinding.getSymbol();
+                }
+                result.add(symbol);
+            }
+            return result.build();
+        }
+
+        private Map<Symbol, ColumnMetadata> assignColumnNames(Collection<Symbol> outputSymbols, Collection<Symbol> constantPartitioningSymbols)
+        {
+            ImmutableMap.Builder<Symbol, ColumnMetadata> result = ImmutableMap.builder();
+            int column = 0;
+            for (Symbol outputSymbol : concat(outputSymbols, constantPartitioningSymbols)) {
+                String columnName = "_c" + column + "_" + outputSymbol.getName();
+                result.put(outputSymbol, new ColumnMetadata(columnName, symbolAllocator.getTypes().get(outputSymbol)));
+                column++;
+            }
+            return result.build();
+        }
+
+        private TableScanNode createTemporaryTableScan(
+                TableHandle tableHandle,
+                List<Symbol> outputSymbols,
+                Map<Symbol, ColumnMetadata> temporaryTableColumns,
+                PartitioningMetadata expectedPartitioningMetadata)
+        {
+            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+            Map<Symbol, ColumnMetadata> outputColumns = outputSymbols.stream()
+                    .collect(toImmutableMap(identity(), temporaryTableColumns::get));
+            Set<ColumnHandle> outputColumnHandles = outputColumns.values().stream()
+                    .map(ColumnMetadata::getName)
+                    .map(columnHandles::get)
+                    .collect(toImmutableSet());
+
+            List<TableLayoutResult> layouts = metadata.getLayouts(session, tableHandle, Constraint.alwaysTrue(), Optional.of(outputColumnHandles));
+            checkArgument(layouts.size() == 1, "temporary table is expected to have exactly one layout");
+            TableLayoutResult selectedLayout = getOnlyElement(layouts);
+            verify(selectedLayout.getUnenforcedConstraint().equals(TupleDomain.all()), "temporary table layout shouldn't enforce any constraints");
+            verify(!selectedLayout.getLayout().getColumns().isPresent(), "temporary table layout must provide all the columns");
+            TablePartitioning expectedPartitioning = new TablePartitioning(
+                    expectedPartitioningMetadata.getPartitioningHandle(),
+                    expectedPartitioningMetadata.getPartitionColumns().stream()
+                            .map(columnHandles::get)
+                            .collect(toImmutableList()));
+            verify(selectedLayout.getLayout().getTablePartitioning().equals(Optional.of(expectedPartitioning)), "invalid temporary table partitioning");
+
+            TableLayoutHandle layoutHandle = selectedLayout.getLayout().getHandle();
+            Map<Symbol, ColumnHandle> assignments = outputSymbols.stream()
+                    .collect(toImmutableMap(identity(), symbol -> columnHandles.get(outputColumns.get(symbol).getName())));
+
+            return new TableScanNode(
+                    idAllocator.getNextId(),
+                    tableHandle,
+                    outputSymbols,
+                    assignments,
+                    Optional.of(layoutHandle),
+                    TupleDomain.all(),
+                    TupleDomain.all());
+        }
+
+        private TableFinishNode createTemporaryTableWrite(
+                TableHandle tableHandle,
+                Map<Symbol, ColumnMetadata> temporaryTableColumns,
+                List<Symbol> outputs,
+                List<List<Symbol>> inputs,
+                List<PlanNode> sources,
+                Map<Symbol, Expression> constantExpressions,
+                PartitioningMetadata expectedPartitioningMetadata)
+        {
+            if (!constantExpressions.isEmpty()) {
+                List<Symbol> constantSymbols = ImmutableList.copyOf(constantExpressions.keySet());
+
+                // update outputs
+                outputs = ImmutableList.<Symbol>builder()
+                        .addAll(outputs)
+                        .addAll(constantSymbols)
+                        .build();
+
+                // update inputs
+                inputs = inputs.stream()
+                        .map(input -> ImmutableList.<Symbol>builder()
+                                .addAll(input)
+                                .addAll(constantSymbols)
+                                .build())
+                        .collect(toImmutableList());
+
+                // update sources
+                sources = sources.stream()
+                        .map(source -> {
+                            Assignments.Builder assignments = Assignments.builder();
+                            assignments.putIdentities(source.getOutputSymbols());
+                            constantSymbols.forEach(symbol -> assignments.put(symbol, constantExpressions.get(symbol)));
+                            return new ProjectNode(idAllocator.getNextId(), source, assignments.build());
+                        })
+                        .collect(toImmutableList());
+            }
+
+            NewTableLayout insertLayout = metadata.getInsertLayout(session, tableHandle)
+                    // Currently it is assumed that the input data has to be always
+                    // shuffled before writing a partitioned temporary table.
+                    // For example when writing a bucketed Hive table, single bucket
+                    // cannot be written by multiple nodes at once.
+                    // Eventually we would like to avoid this shuffle to allow
+                    // retryable bucket by bucket writes.
+                    .orElseThrow(() -> new IllegalArgumentException("insertLayout for the temporary table must be present"));
+
+            PartitioningHandle partitioningHandle = expectedPartitioningMetadata.getPartitioningHandle();
+            List<String> partitionColumns = expectedPartitioningMetadata.getPartitionColumns();
+            ConnectorNewTableLayout expectedNewTableLayout = new ConnectorNewTableLayout(partitioningHandle.getConnectorHandle(), partitionColumns);
+            verify(insertLayout.getLayout().equals(expectedNewTableLayout), "unexpected new table layout");
+
+            Map<String, Symbol> columnNameToSymbol = temporaryTableColumns.entrySet().stream()
+                    .collect(toImmutableMap(entry -> entry.getValue().getName(), Map.Entry::getKey));
+            List<Symbol> partitioningSymbols = partitionColumns.stream()
+                    .map(columnNameToSymbol::get)
+                    .collect(toImmutableList());
+
+            InsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle);
+            List<String> outputColumnNames = outputs.stream()
+                    .map(temporaryTableColumns::get)
+                    .map(ColumnMetadata::getName)
+                    .collect(toImmutableList());
+
+            InsertHandle insertHandle = new InsertHandle(insertTableHandle, new SchemaTableName("temporary", "table"));
+
+            return new TableFinishNode(
+                    idAllocator.getNextId(),
+                    gatheringExchange(
+                            idAllocator.getNextId(),
+                            LOCAL,
+                            gatheringExchange(
+                                    idAllocator.getNextId(),
+                                    REMOTE,
+                                    new TableWriterNode(
+                                            idAllocator.getNextId(),
+                                            gatheringExchange(
+                                                    idAllocator.getNextId(),
+                                                    LOCAL,
+                                                    new ExchangeNode(
+                                                            idAllocator.getNextId(),
+                                                            REPARTITION,
+                                                            REMOTE,
+                                                            new PartitioningScheme(
+                                                                    Partitioning.create(partitioningHandle, partitioningSymbols),
+                                                                    outputs,
+                                                                    Optional.empty(),
+                                                                    false,
+                                                                    Optional.empty()),
+                                                            sources,
+                                                            inputs,
+                                                            Optional.empty())),
+                                            insertHandle,
+                                            symbolAllocator.newSymbol("partialrows", BIGINT),
+                                            symbolAllocator.newSymbol("fragment", VARBINARY),
+                                            outputs,
+                                            outputColumnNames,
+                                            Optional.of(new PartitioningScheme(
+                                                    Partitioning.create(partitioningHandle, partitioningSymbols),
+                                                    outputs,
+                                                    Optional.empty(),
+                                                    false,
+                                                    Optional.empty())),
+                                            Optional.empty(),
+                                            Optional.empty()))),
+                    insertHandle,
+                    symbolAllocator.newSymbol("rows", BIGINT),
+                    Optional.empty(),
+                    Optional.empty());
         }
 
         private SubPlan buildSubPlan(PlanNode node, FragmentProperties properties, RewriteContext<FragmentProperties> context)
