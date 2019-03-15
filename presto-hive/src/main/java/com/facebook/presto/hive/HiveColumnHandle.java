@@ -21,7 +21,7 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -63,7 +63,7 @@ public class HiveColumnHandle
     private final ColumnType columnType;
     private final Optional<String> comment;
     private final SubfieldPath subfieldPath;
-    private final ArrayList<SubfieldPath> referencedSubfields;
+    private final List<SubfieldPath> referencedSubfields;
 
     @JsonCreator
     public HiveColumnHandle(
@@ -74,7 +74,7 @@ public class HiveColumnHandle
             @JsonProperty("columnType") ColumnType columnType,
             @JsonProperty("comment") Optional<String> comment,
             @JsonProperty("subfieldPath") SubfieldPath subfieldPath,
-            @JsonProperty("referencedSubfields") ArrayList<SubfieldPath> referencedSubfields)
+            @JsonProperty("referencedSubfields") List<SubfieldPath> referencedSubfields)
     {
         this.name = requireNonNull(name, "name is null");
         checkArgument(hiveColumnIndex >= 0 || columnType == PARTITION_KEY || columnType == SYNTHESIZED, "hiveColumnIndex is negative");
@@ -88,12 +88,12 @@ public class HiveColumnHandle
     }
 
     public HiveColumnHandle(
-                            String name,
-                            HiveType hiveType,
-                            TypeSignature typeSignature,
-                            int hiveColumnIndex,
-                            ColumnType columnType,
-                            Optional<String> comment)
+            String name,
+            HiveType hiveType,
+            TypeSignature typeSignature,
+            int hiveColumnIndex,
+            ColumnType columnType,
+            Optional<String> comment)
     {
         this(name, hiveType, typeSignature, hiveColumnIndex, columnType, comment, null, null);
     }
@@ -156,7 +156,7 @@ public class HiveColumnHandle
     }
 
     @JsonProperty
-    public ArrayList<SubfieldPath> getReferencedSubfields()
+    public List<SubfieldPath> getReferencedSubfields()
     {
         return referencedSubfields;
     }
@@ -233,19 +233,13 @@ public class HiveColumnHandle
     }
 
     @Override
-    public boolean supportsSubfieldPruning()
-    {
-        return true;
-    }
-
-    @Override
     public ColumnHandle createSubfieldColumnHandle(SubfieldPath path)
     {
         return new HiveColumnHandle(name, hiveType, typeName, hiveColumnIndex, columnType, comment, path, null);
     }
 
     @Override
-    public ColumnHandle createSubfieldPruningColumnHandle(ArrayList<SubfieldPath> referencedSubfields)
+    public ColumnHandle createSubfieldPruningColumnHandle(List<SubfieldPath> referencedSubfields)
     {
         return new HiveColumnHandle(name, hiveType, typeName, hiveColumnIndex, columnType, comment, null, referencedSubfields);
     }
