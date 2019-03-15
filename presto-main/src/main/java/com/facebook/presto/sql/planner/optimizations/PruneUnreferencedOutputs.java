@@ -14,16 +14,11 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.spi.AriaFlags;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.SubfieldPath;
-import com.facebook.presto.spi.SubfieldPath.PathElement;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.PartitioningScheme;
-import com.facebook.presto.sql.planner.SubfieldUtils;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
@@ -68,8 +63,6 @@ import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -79,7 +72,6 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Sets;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -122,27 +114,13 @@ public class PruneUnreferencedOutputs
         requireNonNull(types, "types is null");
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
-        boolean pruneSubfields = (SystemSessionProperties.ariaFlags(session) & AriaFlags.pruneSubfields) != 0;
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(pruneSubfields), plan, ImmutableSet.of());
+        return SimplePlanRewriter.rewriteWith(new Rewriter(), plan, ImmutableSet.of());
     }
 
     private static class Rewriter
             extends SimplePlanRewriter<Set<Symbol>>
     {
-        private boolean pruneSubfields;
-        private HashSet<Symbol> fullColumnUses;
-        private HashSet<SubfieldPath> subfieldPaths;
-
-        public Rewriter(boolean pruneSubfields)
-        {
-            this.pruneSubfields = pruneSubfields;
-            if (pruneSubfields) {
-                fullColumnUses = new HashSet();
-                subfieldPaths = new HashSet();
-            }
-        }
-
         @Override
         public PlanNode visitExplainAnalyze(ExplainAnalyzeNode node, RewriteContext<Set<Symbol>> context)
         {
@@ -207,7 +185,6 @@ public class PruneUnreferencedOutputs
         {
             Set<Symbol> expectedFilterInputs = new HashSet<>();
             if (node.getFilter().isPresent()) {
-                collectSubfieldPaths(node.getFilter().get());
                 expectedFilterInputs = ImmutableSet.<Symbol>builder()
                         .addAll(SymbolsExtractor.extractUnique(castToExpression(node.getFilter().get())))
                         .addAll(context.get())
@@ -229,6 +206,7 @@ public class PruneUnreferencedOutputs
             }
             rightInputsBuilder.addAll(expectedFilterInputs);
             Set<Symbol> rightInputs = rightInputsBuilder.build();
+
             PlanNode left = context.rewrite(node.getLeft(), leftInputs);
             PlanNode right = context.rewrite(node.getRight(), rightInputs);
 
@@ -371,10 +349,6 @@ public class PruneUnreferencedOutputs
 
                 if (context.get().contains(symbol)) {
                     Aggregation aggregation = entry.getValue();
-                    collectSubfieldPaths(aggregation);
-                    if (pruneSubfields && aggregation.getMask().isPresent()) {
-                        fullColumnUses.add(aggregation.getMask().get());
-                    }
                     expectedInputs.addAll(extractUnique(aggregation));
                     aggregation.getMask().ifPresent(expectedInputs::add);
                     aggregations.put(symbol, aggregation);
@@ -456,7 +430,6 @@ public class PruneUnreferencedOutputs
             Map<Symbol, ColumnHandle> newAssignments = newOutputs.stream()
                     .collect(Collectors.toMap(Function.identity(), node.getAssignments()::get));
 
-            newAssignments = annotateColumnsWithSubfields(newAssignments);
             return new TableScanNode(
                     node.getId(),
                     node.getTable(),
@@ -469,7 +442,6 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitFilter(FilterNode node, RewriteContext<Set<Symbol>> context)
         {
-            collectSubfieldPaths(node.getPredicate());
             Set<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(SymbolsExtractor.extractUnique(castToExpression(node.getPredicate())))
                     .addAll(context.get())
@@ -543,7 +515,6 @@ public class PruneUnreferencedOutputs
                 ordinalitySymbol = Optional.empty();
             }
             Map<Symbol, List<Symbol>> unnestSymbols = node.getUnnestSymbols();
-            processUnnestPaths(unnestSymbols);
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(replicateSymbols)
                     .addAll(unnestSymbols.keySet());
@@ -565,7 +536,6 @@ public class PruneUnreferencedOutputs
                 }
             });
 
-            processProjectionPaths(node.getAssignments());
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
             return new ProjectNode(node.getId(), source, builder.build());
@@ -575,9 +545,6 @@ public class PruneUnreferencedOutputs
         public PlanNode visitOutput(OutputNode node, RewriteContext<Set<Symbol>> context)
         {
             Set<Symbol> expectedInputs = ImmutableSet.copyOf(node.getOutputSymbols());
-            if (pruneSubfields) {
-                fullColumnUses.addAll(node.getOutputSymbols());
-            }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs);
             return new OutputNode(node.getId(), source, node.getColumnNames(), node.getOutputSymbols());
         }
@@ -880,177 +847,6 @@ public class PruneUnreferencedOutputs
             }
 
             return new LateralJoinNode(node.getId(), input, subquery, newCorrelation, node.getType(), node.getOriginSubqueryError());
-        }
-
-        private Map<Symbol, ColumnHandle> annotateColumnsWithSubfields(Map<Symbol, ColumnHandle> assignments)
-        {
-            if (!pruneSubfields || subfieldPaths.size() == 0) {
-                return assignments;
-            }
-            Map<Symbol, ColumnHandle> newAssignments = new HashMap();
-            for (Map.Entry<Symbol, ColumnHandle> entry : assignments.entrySet()) {
-                if (fullColumnUses.contains(entry.getKey())) {
-                    newAssignments.put(entry.getKey(), entry.getValue());
-                    continue;
-                }
-                ArrayList<SubfieldPath> subfields = new ArrayList();
-                for (SubfieldPath path : subfieldPaths) {
-                    if (path.getPath().get(0).getField().equals(entry.getKey().getName())) {
-                        subfields.add(path);
-                    }
-                }
-                if (subfields.isEmpty()) {
-                    newAssignments.put(entry.getKey(), entry.getValue());
-                    continue;
-                }
-                // Compute the leaf subfields. If we have a.b.c and
-                // a.b then a.b is the result. If a path is a prefix
-                // of another path, then the longer is discarded.
-                ArrayList<SubfieldPath> leafPaths = new ArrayList();
-                for (SubfieldPath path : subfields) {
-                    boolean hasPrefix = false;
-                    for (SubfieldPath otherPath : subfields) {
-                        if (isPrefix(otherPath, path)) {
-                            hasPrefix = true;
-                            break;
-                        }
-                    }
-                    if (!hasPrefix) {
-                        leafPaths.add(path);
-                    }
-                    newAssignments.put(entry.getKey(), entry.getValue().createSubfieldPruningColumnHandle(leafPaths));
-                }
-            }
-            return newAssignments;
-        }
-
-        private static boolean isPrefix(SubfieldPath shorter, SubfieldPath longer)
-        {
-            ArrayList<SubfieldPath.PathElement> shorterPath = shorter.getPath();
-            ArrayList<SubfieldPath.PathElement> longerPath = longer.getPath();
-            if (shorterPath.size() >= longerPath.size()) {
-                return false;
-            }
-            for (int i = 0; i < shorterPath.size(); i++) {
-                if (!shorterPath.get(i).equals(longerPath.get(i))) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        private void processProjectionPaths(Assignments assignments)
-        {
-            if (!pruneSubfields) {
-                return;
-            }
-            HashSet<SubfieldPath> newPaths = new HashSet();
-            for (Map.Entry<Symbol, Expression> entry : assignments.getMap().entrySet()) {
-                Symbol key = entry.getKey();
-                Expression value = entry.getValue();
-                if (value instanceof SymbolReference) {
-                    SymbolReference valueRef = (SymbolReference) value;
-                    if (fullColumnUses.contains(key)) {
-                        fullColumnUses.add(new Symbol(valueRef.getName()));
-                    }
-                    for (SubfieldPath path : subfieldPaths) {
-                        if (path.getPath().get(0).equals(key.getName())) {
-                            ArrayList<SubfieldPath.PathElement> newSteps = new ArrayList(path.getPath());
-                            newSteps.set(0, new SubfieldPath.PathElement(valueRef.getName(), 0));
-                            newPaths.add(new SubfieldPath(newSteps));
-                        }
-                    }
-                }
-                else if (SubfieldUtils.isSubfieldPath(value)) {
-                    Node base = SubfieldUtils.getSubfieldBase(value);
-                    if (base instanceof SymbolReference) {
-                        if (fullColumnUses.contains(key)) {
-                            subfieldPaths.add(SubfieldUtils.subfieldToSubfieldPath(value));
-                        }
-                        for (SubfieldPath path : subfieldPaths) {
-                            if (path.getPath().get(0).getField().equals(key.getName())) {
-                                SubfieldPath basePath = SubfieldUtils.subfieldToSubfieldPath(value);
-                                ArrayList<SubfieldPath.PathElement> elements = basePath.getPath();
-                                for (int i = 1; i < path.getPath().size(); i++) {
-                                    elements.add(path.getPath().get(i));
-                                }
-                                newPaths.add(basePath);
-                            }
-                        }
-                    }
-                }
-            }
-            for (SubfieldPath newPath : newPaths) {
-                subfieldPaths.add(newPath);
-            }
-        }
-
-        private void processUnnestPaths(Map<Symbol, List<Symbol>> unnestSymbols)
-        {
-            // If a result is referenced or is a start of a path, add
-            // the unnest source + any subscript as the head of the
-            // path.
-            if (!pruneSubfields) {
-                return;
-            }
-            ArrayList<SubfieldPath> newPaths = new ArrayList();
-            for (Map.Entry<Symbol, List<Symbol>> entry : unnestSymbols.entrySet()) {
-                String source = entry.getKey().getName();
-                for (Symbol member : entry.getValue()) {
-                    if (fullColumnUses.contains(member)) {
-                        SubfieldPath newPath = new SubfieldPath(new ArrayList<PathElement>(Arrays.asList(new PathElement(source, 0, false), new PathElement(null, PathElement.allSubscripts, true), new PathElement(member.getName(), 0, false))));
-                        newPaths.add(newPath);
-                    }
-                    else {
-                        for (SubfieldPath path : subfieldPaths) {
-                            if (member.getName().equals(path.getPath().get(0).getField())) {
-                                ArrayList<PathElement> newSteps = new ArrayList(Arrays.asList(new PathElement(source, 0, false), new PathElement(null, PathElement.allSubscripts, true), new PathElement(member.getName(), 0, false)));
-                                for (int i = 1; i < path.getPath().size(); i++) {
-                                    newSteps.add(path.getPath().get(i));
-                                }
-                                subfieldPaths.add(new SubfieldPath(newSteps));
-                            }
-                        }
-                    }
-                }
-            }
-            for (SubfieldPath newPath : newPaths) {
-                subfieldPaths.add(newPath);
-            }
-        }
-
-        private void collectSubfieldPaths(Aggregation expression)
-        {
-            // TODO Implement
-            throw new UnsupportedOperationException();
-        }
-
-        private void collectSubfieldPaths(RowExpression expression)
-        {
-            // TODO Implement
-            throw new UnsupportedOperationException();
-        }
-
-        private void collectSubfieldPaths(Node expression)
-        {
-            if (!pruneSubfields) {
-                return;
-            }
-            if (expression instanceof SymbolReference) {
-                SymbolReference ref = (SymbolReference) expression;
-                Symbol symbol = new Symbol(ref.getName());
-                fullColumnUses.add(symbol);
-            }
-            if (SubfieldUtils.isSubfieldPath(expression)) {
-                SubfieldPath path = SubfieldUtils.subfieldToSubfieldPath(expression);
-                if (path != null) {
-                    subfieldPaths.add(path);
-                    return;
-                }
-            }
-            for (Node child : expression.getChildren()) {
-                collectSubfieldPaths(child);
-            }
         }
     }
 }

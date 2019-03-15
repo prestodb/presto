@@ -14,78 +14,84 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.SubfieldPath;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.google.common.collect.ImmutableList;
 
-import java.util.ArrayList;
-
-import static java.util.Collections.reverse;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class SubfieldUtils
 {
     private SubfieldUtils() {}
 
-    public static boolean isSubfieldPath(Node expression)
+    public static boolean isDereferenceOrSubscriptExpression(Node expression)
     {
         return expression instanceof DereferenceExpression || expression instanceof SubscriptExpression;
     }
 
-    public static SubfieldPath subfieldToSubfieldPath(Node expr)
+    public static SubfieldPath deferenceOrSubscriptExpressionToPath(Node expression)
     {
-        ArrayList<SubfieldPath.PathElement> steps = new ArrayList();
+        ImmutableList.Builder<SubfieldPath.PathElement> elements = ImmutableList.builder();
         while (true) {
-            if (expr instanceof SymbolReference) {
-                SymbolReference symbolReference = (SymbolReference) expr;
-                steps.add(new SubfieldPath.PathElement(symbolReference.getName(), 0));
+            if (expression instanceof SymbolReference) {
+                elements.add(new SubfieldPath.NestedField(((SymbolReference) expression).getName()));
                 break;
             }
-            else if (expr instanceof DereferenceExpression) {
-                DereferenceExpression dereference = (DereferenceExpression) expr;
-                steps.add(new SubfieldPath.PathElement(dereference.getField().getValue(), 0));
-                expr = dereference.getBase();
+
+            if (expression instanceof DereferenceExpression) {
+                DereferenceExpression dereference = (DereferenceExpression) expression;
+                elements.add(new SubfieldPath.NestedField(dereference.getField().getValue()));
+                expression = dereference.getBase();
             }
-            else if (expr instanceof SubscriptExpression) {
-                SubscriptExpression subscript = (SubscriptExpression) expr;
+            else if (expression instanceof SubscriptExpression) {
+                SubscriptExpression subscript = (SubscriptExpression) expression;
                 Expression index = subscript.getIndex();
                 if (index instanceof LongLiteral) {
-                    LongLiteral literal = (LongLiteral) index;
-                    steps.add(new SubfieldPath.PathElement(null, literal.getValue(), true));
+                    elements.add(new SubfieldPath.LongSubscript(((LongLiteral) index).getValue()));
                 }
                 else if (index instanceof StringLiteral) {
-                    StringLiteral literal = (StringLiteral) index;
-                    steps.add(new SubfieldPath.PathElement(literal.getValue(), 0, true));
+                    elements.add(new SubfieldPath.StringSubscript(((StringLiteral) index).getValue()));
+                }
+                else if (index instanceof GenericLiteral) {
+                    GenericLiteral literal = (GenericLiteral) index;
+                    if (BIGINT.getTypeSignature().equals(TypeSignature.parseTypeSignature(literal.getType()))) {
+                        elements.add(new SubfieldPath.LongSubscript(Long.valueOf(literal.getValue())));
+                    }
+                    else {
+                        return null;
+                    }
                 }
                 else {
                     return null;
                 }
-                expr = subscript.getBase();
+                expression = subscript.getBase();
             }
             else {
                 return null;
             }
         }
-        reverse(steps);
-        return new SubfieldPath(steps);
+
+        return new SubfieldPath(elements.build().reverse());
     }
 
-    public static Node getSubfieldBase(Node expr)
+    public static Expression getDerefenceOrSubscriptBase(Expression expression)
     {
         while (true) {
-            if (expr instanceof DereferenceExpression) {
-                DereferenceExpression dereference = (DereferenceExpression) expr;
-                expr = dereference.getBase();
+            if (expression instanceof DereferenceExpression) {
+                expression = ((DereferenceExpression) expression).getBase();
             }
-            else if (expr instanceof SubscriptExpression) {
-                SubscriptExpression subscript = (SubscriptExpression) expr;
-                expr = subscript.getBase();
+            else if (expression instanceof SubscriptExpression) {
+                expression = ((SubscriptExpression) expression).getBase();
             }
             else {
-                return expr;
+                return expression;
             }
         }
     }
