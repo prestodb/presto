@@ -25,6 +25,7 @@ import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.SortedRangeSet;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -360,7 +361,12 @@ public class TupleDomainOrcPredicate<C>
                     break;
                 }
             }
-            checkState(columnReference != null, "Column not found: " + topLevelColumn);
+            // TODO Figure out how to remove this check.
+            // This can happen if a column is a partition column or a synthetic $bucket column
+            // Is there a way to exclude predicates on these columns at the creation time.
+            if (columnReference == null) {
+                continue;
+            }
             ValueSet values = predicateDomain.getValues();
             if (!(values instanceof SortedRangeSet)) {
                 throw new UnsupportedOperationException("Unexpected TupleDomain: " + values.getClass().getSimpleName());
@@ -399,7 +405,7 @@ public class TupleDomainOrcPredicate<C>
         if (range.isAll()) {
             return nullAllowed ? null : Filters.isNotNull();
         }
-        if (isVarcharType(type)) {
+        if (isVarcharType(type) || type instanceof CharType) {
             return varcharRangeToFilter(range, nullAllowed);
         }
         if (type == TINYINT || type == SMALLINT || type == INTEGER || type == BIGINT || type == TIMESTAMP) {
