@@ -51,6 +51,7 @@ import java.util.function.Function;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
+import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMappingKind.INTERIM;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMappingKind.REGULAR;
 import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
@@ -752,6 +753,17 @@ public class HivePageSource
     public boolean pushdownFilterAndProjection(PageSourceOptions options)
     {
         if (delegate != null) {
+            // Remove non-regular and non-interim columns from internal and output channels
+            int[] internalChannels = options.getInternalChannels();
+            int[] outputChannels = options.getOutputChannels();
+            for (int i = 0; i < internalChannels.length; i++) {
+                ColumnMapping columnMapping = columnMappings.get(i);
+                if (columnMapping.getKind() != REGULAR && columnMapping.getKind() != INTERIM) {
+                    internalChannels[i] = -1;
+                    outputChannels[i] = -1;
+                }
+            }
+
             filterAndProjectPushedDown = delegate.pushdownFilterAndProjection(options);
             return filterAndProjectPushedDown;
         }
