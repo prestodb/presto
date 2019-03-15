@@ -13,15 +13,10 @@
  */
 package com.facebook.presto.spi;
 
-import java.util.ArrayList;
+import java.util.List;
 
 public interface ColumnHandle
 {
-    default boolean supportsSubfieldPruning()
-    {
-        return false;
-    }
-
     default boolean supportsSubfieldTupleDomain()
     {
         return false;
@@ -37,7 +32,7 @@ public interface ColumnHandle
 
     /* Returns an equivalent ColumnHandle where the connector is free
      * to leave out any subfields not in the 'paths'. Such a ColumnHandle may occur in the list of projected columns for a PageSource.  */
-    default ColumnHandle createSubfieldPruningColumnHandle(ArrayList<SubfieldPath> referencedSubfields)
+    default ColumnHandle createSubfieldPruningColumnHandle(List<SubfieldPath> referencedSubfields)
     {
         return this;
     }
@@ -47,7 +42,7 @@ public interface ColumnHandle
         return null;
     }
 
-    default ArrayList<SubfieldPath> getReferencedSubfields()
+    default List<SubfieldPath> getReferencedSubfields()
     {
         return null;
     }

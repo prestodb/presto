@@ -17,6 +17,8 @@ import com.facebook.presto.spi.SubfieldPath;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Objects;
+
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -38,7 +40,7 @@ public class SymbolWithSubfieldPath
     }
 
     @JsonProperty("path")
-    public SubfieldPath getPath()
+    public SubfieldPath getSubfieldPath()
     {
         return path;
     }
@@ -64,13 +66,14 @@ public class SymbolWithSubfieldPath
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
+
         SymbolWithSubfieldPath other = (SymbolWithSubfieldPath) o;
-        return path.equals(other.getPath());
+        return Objects.equals(path, other.path);
     }
 
     @Override
     public int hashCode()
     {
-        return path.hashCode();
+        return Objects.hash(path);
     }
 }
