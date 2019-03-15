@@ -22,10 +22,14 @@ import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.SubfieldPath;
+import com.facebook.presto.spi.SubfieldPath.LongSubscript;
 import com.facebook.presto.spi.SubfieldPath.PathElement;
+import com.facebook.presto.spi.SubfieldPath.StringSubscript;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -37,8 +41,6 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -48,7 +50,9 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.StreamReaders.createStreamReader;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.spi.SubfieldPath.allSubscripts;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -90,31 +94,24 @@ public class MapDirectStreamReader
     @Override
     public void setReferencedSubfields(List<SubfieldPath> subfields, int depth)
     {
-        HashSet<Long> referencedSubscripts = new HashSet();
         boolean mayPruneKey = true;
         boolean mayPruneElement = true;
-        ArrayList<SubfieldPath> pathsForElement = new ArrayList();
+        ImmutableList.Builder<SubfieldPath> pathsForElement = ImmutableList.builder();
+        ImmutableSet.Builder<Slice> sliceSubscripts = ImmutableSet.builder();
+        ImmutableSet.Builder<Long> longSubscripts = ImmutableSet.builder();
         for (SubfieldPath subfield : subfields) {
             List<PathElement> pathElements = subfield.getPath();
             PathElement subscript = pathElements.get(depth + 1);
-            if (!subscript.getIsSubscript()) {
-                throw new IllegalArgumentException("List reader needs a PathElement with a subscript");
-            }
-            if (subscript.getSubscript() == PathElement.allSubscripts) {
+            checkArgument(subscript.isSubscript(), "Map reader needs a PathElement with a subscript");
+            if (subscript == allSubscripts()) {
                 mayPruneKey = false;
             }
             else {
-                if (subscript.getField() != null) {
-                    if (sliceSubscripts == null) {
-                        sliceSubscripts = new HashSet();
-                    }
-                    sliceSubscripts.add(Slices.copiedBuffer(subscript.getField(), UTF_8));
+                if (subscript instanceof StringSubscript) {
+                    sliceSubscripts.add(Slices.copiedBuffer(((StringSubscript) subscript).getIndex(), UTF_8));
                 }
                 else {
-                    if (longSubscripts == null) {
-                        longSubscripts = new HashSet();
-                    }
-                    longSubscripts.add(subscript.getSubscript());
+                    longSubscripts.add(((LongSubscript) subscript).getIndex());
                 }
             }
             if (pathElements.size() > depth + 1) {
@@ -125,11 +122,11 @@ public class MapDirectStreamReader
             }
         }
         if (mayPruneElement) {
-            valueStreamReader.setReferencedSubfields(pathsForElement, depth + 1);
+            valueStreamReader.setReferencedSubfields(pathsForElement.build(), depth + 1);
         }
-        if (!mayPruneKey) {
-            sliceSubscripts = null;
-            longSubscripts = null;
+        if (mayPruneKey) {
+            this.sliceSubscripts = sliceSubscripts.build();
+            this.longSubscripts = longSubscripts.build();
         }
     }
 
