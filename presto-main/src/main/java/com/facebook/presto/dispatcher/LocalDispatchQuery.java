@@ -26,6 +26,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -48,6 +49,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class LocalDispatchQuery
         implements DispatchQuery
 {
+    private static final Logger log = Logger.get(LocalDispatchQuery.class);
     private final QueryStateMachine stateMachine;
     private final ListenableFuture<QueryExecution> queryExecutionFuture;
 
@@ -101,6 +103,12 @@ public class LocalDispatchQuery
             if (stateMachine.transitionToDispatching()) {
                 try {
                     querySubmitter.accept(queryExecution);
+                }
+                catch (Throwable t) {
+                    // this should never happen but be safe
+                    stateMachine.transitionToFailed(t);
+                    log.error(t, "query submitter threw exception");
+                    throw t;
                 }
                 finally {
                     submitted.set(null);
