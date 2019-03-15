@@ -42,12 +42,14 @@ import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class LocalDispatchQuery
         implements DispatchQuery
 {
+    private static final Logger log = Logger.get(LocalDispatchQuery.class);
     private final QueryStateMachine stateMachine;
     private final ListenableFuture<QueryExecution> queryExecutionFuture;
 
@@ -101,6 +103,12 @@ public class LocalDispatchQuery
             if (stateMachine.transitionToDispatching()) {
                 try {
                     querySubmitter.accept(queryExecution);
+                }
+                catch (Throwable t) {
+                    // this should never happen but be safe
+                    stateMachine.transitionToFailed(t);
+                    log.error(t, "query submitter threw exception");
+                    throw t;
                 }
                 finally {
                     submitted.set(null);
