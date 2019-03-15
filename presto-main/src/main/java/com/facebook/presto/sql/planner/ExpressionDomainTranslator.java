@@ -18,6 +18,9 @@ import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.spi.SubfieldPath;
+import com.facebook.presto.spi.SubfieldPath.LongSubscript;
+import com.facebook.presto.spi.SubfieldPath.NestedField;
+import com.facebook.presto.spi.SubfieldPath.StringSubscript;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.predicate.DiscreteValues;
@@ -72,6 +75,8 @@ import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.combineDisjunctsWithDefault;
 import static com.facebook.presto.sql.ExpressionUtils.or;
+import static com.facebook.presto.sql.planner.SubfieldUtils.deferenceOrSubscriptExpressionToPath;
+import static com.facebook.presto.sql.planner.SubfieldUtils.isDereferenceOrSubscriptExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
@@ -115,30 +120,30 @@ public final class ExpressionDomainTranslator
                 .collect(collectingAndThen(toImmutableList(), ExpressionUtils::combineConjuncts));
     }
 
-    private Expression toSymbolExpression(Symbol symbol)
+    private static Expression toSymbolExpression(Symbol symbol)
     {
         if (symbol instanceof SymbolWithSubfieldPath) {
-            SymbolWithSubfieldPath subfieldPath = (SymbolWithSubfieldPath) symbol;
-            SubfieldPath path = subfieldPath.getPath();
-            Expression base = new SymbolReference(path.getPath().get(0).getField());
+            SubfieldPath path = ((SymbolWithSubfieldPath) symbol).getSubfieldPath();
+            Expression base = new SymbolReference(symbol.getName());
             for (int i = 1; i < path.getPath().size(); i++) {
                 SubfieldPath.PathElement element = path.getPath().get(i);
-                String field = element.getField();
-                if (element.getIsSubscript()) {
-                    base = new SubscriptExpression(base, field != null ? new StringLiteral(field) : new LongLiteral(Long.valueOf(element.getSubscript()).toString()));
+                if (element instanceof NestedField) {
+                    base = new DereferenceExpression(base, new Identifier(((NestedField) element).getName()));
                 }
-                else if (field != null) {
-                    base = new DereferenceExpression(base, new Identifier(field));
+                else if (element instanceof LongSubscript) {
+                    base = new SubscriptExpression(base, new LongLiteral(String.valueOf(((LongSubscript) element).getIndex())));
+                }
+                else if (element instanceof StringSubscript) {
+                    base = new SubscriptExpression(base, new StringLiteral(((StringSubscript) element).getIndex()));
                 }
                 else {
-                    throw new IllegalArgumentException("Bad subfield path in DomainTranslator");
+                    throw new IllegalArgumentException("Unsupported path element: " + element.getClass().getSimpleName());
                 }
             }
             return base;
         }
-        else {
-            return symbol.toSymbolReference();
-        }
+
+        return symbol.toSymbolReference();
     }
 
     private Expression toPredicate(Domain domain, Expression reference)
@@ -438,6 +443,7 @@ public final class ExpressionDomainTranslator
             if (!optionalNormalized.isPresent()) {
                 return super.visitComparisonExpression(node, complement);
             }
+
             NormalizedSimpleComparison normalized = optionalNormalized.get();
 
             Expression symbolExpression = normalized.getSymbolExpression();
@@ -447,7 +453,8 @@ public final class ExpressionDomainTranslator
                 Type type = value.getType(); // common type for symbol and value
                 return createComparisonExtractionResult(normalized.getComparisonOperator(), symbol, type, value.getValue(), complement);
             }
-            else if (symbolExpression instanceof Cast) {
+
+            if (symbolExpression instanceof Cast) {
                 Cast castExpression = (Cast) symbolExpression;
                 if (!isImplicitCoercion(castExpression)) {
                     //
@@ -483,21 +490,23 @@ public final class ExpressionDomainTranslator
 
                 return super.visitComparisonExpression(node, complement);
             }
-            else if (includeSubfields && SubfieldUtils.isSubfieldPath(symbolExpression)) {
-                SubfieldPath path = SubfieldUtils.subfieldToSubfieldPath(symbolExpression);
+
+            if (includeSubfields && isDereferenceOrSubscriptExpression(symbolExpression)) {
+                SubfieldPath path = deferenceOrSubscriptExpressionToPath(symbolExpression);
                 if (path == null) {
                     return super.visitComparisonExpression(node, complement);
                 }
-                else {
-                    Symbol symbol = new SymbolWithSubfieldPath(path);
-                    NullableValue value = normalized.getValue();
-                    Type type = value.getType(); // common type for symbol and value
-                    return createComparisonExtractionResult(normalized.getComparisonOperator(), symbol, type, value.getValue(), complement);
-                }
+
+                NullableValue value = normalized.getValue();
+                return createComparisonExtractionResult(
+                        normalized.getComparisonOperator(),
+                        new SymbolWithSubfieldPath(path),
+                        value.getType(),
+                        value.getValue(),
+                        complement);
             }
-            else {
-                return super.visitComparisonExpression(node, complement);
-            }
+
+            return super.visitComparisonExpression(node, complement);
         }
 
         /**

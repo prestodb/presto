@@ -346,14 +346,11 @@ public class PickTableLayout
     private static ColumnHandle toColumnHandle(Map<Symbol, ColumnHandle> assignments, Symbol symbol)
     {
         if (symbol instanceof SymbolWithSubfieldPath) {
-            SymbolWithSubfieldPath subfieldSymbol = (SymbolWithSubfieldPath) symbol;
-            SubfieldPath path = subfieldSymbol.getPath();
-            ColumnHandle topColumn = assignments.get(new Symbol(path.getPath().get(0).getField()));
-            return topColumn.createSubfieldColumnHandle(path);
+            SubfieldPath path = ((SymbolWithSubfieldPath) symbol).getSubfieldPath();
+            return assignments.get(new Symbol(path.getColumnName())).createSubfieldColumnHandle(path);
         }
-        else {
-            return assignments.get(symbol);
-        }
+
+        return assignments.get(symbol);
     }
 
     private static Symbol fromColumnHandle(Map<ColumnHandle, Symbol> assignments, ColumnHandle columnHandle)
