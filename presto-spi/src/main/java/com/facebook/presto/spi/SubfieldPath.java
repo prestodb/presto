@@ -15,55 +15,72 @@ package com.facebook.presto.spi;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
-import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
 public class SubfieldPath
 {
-    public static class PathElement
+    @JsonTypeInfo(
+            use = JsonTypeInfo.Id.NAME,
+            property = "@type")
+    @JsonSubTypes({
+            @JsonSubTypes.Type(value = NestedField.class, name = "nestedField"),
+            @JsonSubTypes.Type(value = LongSubscript.class, name = "longSubscript"),
+            @JsonSubTypes.Type(value = StringSubscript.class, name = "stringSubscript"),
+            @JsonSubTypes.Type(value = AllSubscripts.class, name = "allSubscripts"),
+    })
+    public abstract static class PathElement
     {
-        // Indicates that all elements of a map/list are accessed. A
-        // nexct PathElement may still prune fields in deeper nested
-        // elements.
-        public static final long allSubscripts = -1;
-        private final String field;
-        private final long subscript;
-        private final boolean isSubscript;
+        public abstract boolean isSubscript();
+    }
+
+    public static final class AllSubscripts
+            extends PathElement
+    {
+        private static final AllSubscripts ALL_SUBSCRIPTS = new AllSubscripts();
+
+        private AllSubscripts() {}
 
         @JsonCreator
-        public PathElement(
-                           @JsonProperty("field")String field,
-                           @JsonProperty("subscript") long subscript,
-                           @JsonProperty("isSubscript") boolean isSubscript)
+        public static AllSubscripts getInstance()
         {
-            this.field = field;
-            this.subscript = subscript;
-            this.isSubscript = isSubscript;
+            return ALL_SUBSCRIPTS;
         }
 
-        public PathElement(String field, long subscript)
+        @Override
+        public boolean isSubscript()
         {
-            this(field, subscript, false);
+            return true;
         }
 
-        @JsonProperty("field")
-        public String getField()
+        @Override
+        public String toString()
         {
-            return field;
+            return "[*]";
+        }
+    }
+
+    public static final class NestedField
+            extends PathElement
+    {
+        private final String name;
+
+        @JsonCreator
+        public NestedField(@JsonProperty("name") String name)
+        {
+            this.name = requireNonNull(name, "name is null");
         }
 
-        @JsonProperty("subscript")
-        public long getSubscript()
+        @JsonProperty
+        public String getName()
         {
-            return subscript;
-        }
-
-        @JsonProperty("isSubscript")
-        public boolean getIsSubscript()
-        {
-            return isSubscript;
+            return name;
         }
 
         @Override
@@ -75,59 +92,180 @@ public class SubfieldPath
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            PathElement other = (PathElement) o;
-            if (isSubscript != other.isSubscript) {
-                return false;
-            }
-            if (field == null && other.field == null) {
-                return subscript == other.subscript;
-            }
-            if (field == null || other.field == null) {
-                return false;
-            }
-            return field.equals(other.field);
+
+            NestedField that = (NestedField) o;
+            return Objects.equals(name, that.name);
         }
 
         @Override
         public int hashCode()
         {
-            return field != null ? field.hashCode() : (int) subscript;
+            return Objects.hash(name);
         }
 
         @Override
         public String toString()
         {
-            if (field != null) {
-                return field;
-            }
-            return Long.valueOf(subscript).toString();
+            return "." + name;
+        }
+
+        @Override
+        public boolean isSubscript()
+        {
+            return false;
         }
     }
 
-    private final ArrayList<PathElement> path;
+    public static final class LongSubscript
+            extends PathElement
+    {
+        private final long index;
 
+        @JsonCreator
+        public LongSubscript(@JsonProperty("index") long index)
+        {
+            this.index = index;
+        }
+
+        @JsonProperty
+        public long getIndex()
+        {
+            return index;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            LongSubscript that = (LongSubscript) o;
+            return index == that.index;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(index);
+        }
+
+        @Override
+        public String toString()
+        {
+            return "[" + index + "]";
+        }
+
+        @Override
+        public boolean isSubscript()
+        {
+            return true;
+        }
+    }
+
+    public static final class StringSubscript
+            extends PathElement
+    {
+        private final String index;
+
+        @JsonCreator
+        public StringSubscript(@JsonProperty("index") String index)
+        {
+            this.index = requireNonNull(index, "index is null");
+        }
+
+        @JsonProperty
+        public String getIndex()
+        {
+            return index;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            StringSubscript that = (StringSubscript) o;
+            return Objects.equals(index, that.index);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(index);
+        }
+
+        @Override
+        public String toString()
+        {
+            return "[" + index + "]";
+        }
+
+        @Override
+        public boolean isSubscript()
+        {
+            return true;
+        }
+    }
+
+    private final String name;
+    private final List<PathElement> path;
+
+    public static PathElement allSubscripts()
+    {
+        return AllSubscripts.getInstance();
+    }
+
+    // TODO Add column name as a separate argument and remove it from the path
     @JsonCreator
-    public SubfieldPath(
-                         @JsonProperty("path") ArrayList<PathElement> path)
+    public SubfieldPath(@JsonProperty("path") List<PathElement> path)
     {
         requireNonNull(path, "path is null");
+        checkArgument(path.size() > 1, "path must include at least 2 elements");
+        checkArgument(path.get(0) instanceof NestedField, "path must start with a name");
+        this.name = ((NestedField) path.get(0)).getName();
         this.path = path;
     }
 
+    private static void checkArgument(boolean expression, String errorMessage)
+    {
+        if (!expression) {
+            throw new IllegalArgumentException(errorMessage);
+        }
+    }
+
+    public String getColumnName()
+    {
+        return name;
+    }
+
     @JsonProperty("path")
-    public ArrayList<PathElement> getPath()
+    public List<PathElement> getPath()
     {
         return path;
+    }
+
+    public boolean isPrefix(SubfieldPath other)
+    {
+        if (path.size() < other.path.size()) {
+            return Objects.equals(path, other.path.subList(0, path.size()));
+        }
+
+        return false;
     }
 
     @Override
     public String toString()
     {
-        String result = "";
-        for (int i = 0; i < path.size(); i++) {
-            result = result + path.get(i).toString() + (i < path.size() - 1 ? "." : "");
-        }
-        return result;
+        return path.stream().map(PathElement::toString).collect(Collectors.joining());
     }
 
     @Override
@@ -136,30 +274,18 @@ public class SubfieldPath
         if (this == o) {
             return true;
         }
+
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        SubfieldPath otherPath = (SubfieldPath) o;
 
-        if (otherPath.path.size() != path.size()) {
-            return false;
-        }
-        for (int i = 0; i < path.size(); i++) {
-            if (!path.get(i).equals(otherPath.path.get(i))) {
-                return false;
-            }
-        }
-
-        return true;
+        SubfieldPath other = (SubfieldPath) o;
+        return Objects.equals(path, other.path);
     }
 
     @Override
     public int hashCode()
     {
-        int hashCode = 0;
-        for (PathElement element : path) {
-            hashCode = hashCode + hashCode * element.hashCode();
-        }
-        return hashCode;
+        return Objects.hashCode(path);
     }
 }
