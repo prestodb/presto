@@ -202,11 +202,14 @@ import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Predicates.in;
+import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Maps.filterKeys;
 import static com.google.common.collect.Streams.stream;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -572,11 +575,11 @@ public class HiveMetadata
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         Map<String, Type> columnTypes = columns.entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> getColumnMetadata(session, tableHandle, entry.getValue()).getType()));
-        List<HivePartition> partitions = getPartitionsAsList(session, tableHandle, constraint);
+        List<HivePartition> partitions = getPartitionsAsList(tableHandle, constraint);
         return hiveStatisticsProvider.getTableStatistics(session, ((HiveTableHandle) tableHandle).getSchemaTableName(), columns, columnTypes, partitions);
     }
 
-    private List<HivePartition> getPartitionsAsList(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    private List<HivePartition> getPartitionsAsList(ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
     {
         HivePartitionResult partitions = partitionManager.getPartitions(metastore, tableHandle, constraint);
         return getPartitionsAsList(partitions);
@@ -1574,6 +1577,13 @@ public class HiveMetadata
             throw new TableNotFoundException(handle.getSchemaTableName());
         }
 
+        List<ColumnHandle> partitionColumns = layoutHandle.getPartitionColumns();
+        if (!layoutHandle.getEffectivePredicate().getDomains()
+                .map(domains -> filterKeys(domains, not(in(partitionColumns))))
+                .orElse(ImmutableMap.of()).isEmpty()) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector only supports delete where one or more partitions are deleted entirely");
+        }
+
         if (table.get().getPartitionColumns().isEmpty()) {
             metastore.truncateUnpartitionedTable(session, handle.getSchemaName(), handle.getTableName());
         }
@@ -1648,7 +1658,19 @@ public class HiveMetadata
         List<ColumnHandle> partitionColumns = hiveLayoutHandle.getPartitionColumns();
         List<HivePartition> partitions = hiveLayoutHandle.getPartitions().get();
 
-        TupleDomain<ColumnHandle> predicate = createPredicate(partitionColumns, partitions);
+        TupleDomain<ColumnHandle> predicate;
+        if (partitions.isEmpty()) {
+            predicate = TupleDomain.none();
+        }
+        else {
+            ImmutableMap.Builder<ColumnHandle, Domain> predicateBuilder = ImmutableMap.builder();
+            hiveLayoutHandle.getEffectivePredicate().getDomains()
+                    .map(domains -> filterKeys(domains, not(in(partitionColumns))))
+                    .ifPresent(predicateBuilder::putAll);
+            createPredicate(partitionColumns, partitions).getDomains()
+                    .ifPresent(predicateBuilder::putAll);
+            predicate = withColumnDomains(predicateBuilder.build());
+        }
 
         Optional<DiscretePredicates> discretePredicates = Optional.empty();
         if (!partitionColumns.isEmpty()) {
