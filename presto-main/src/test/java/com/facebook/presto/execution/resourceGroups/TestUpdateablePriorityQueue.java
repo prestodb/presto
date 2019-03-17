@@ -16,6 +16,7 @@ package com.facebook.presto.execution.resourceGroups;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Iterator;
 import java.util.List;
 
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
@@ -26,19 +27,25 @@ public class TestUpdateablePriorityQueue
     @Test
     public void testFifoQueue()
     {
-        assertEquals(populateAndExtract(new FifoQueue<>()), ImmutableList.of(1, 2, 3));
+        assertEquals(populateAndExtract(new FifoQueue<>()), ImmutableList.of(2, 3, 4, 5));
     }
 
     @Test
     public void testIndexedPriorityQueue()
     {
-        assertEquals(populateAndExtract(new IndexedPriorityQueue<>()), ImmutableList.of(3, 2, 1));
+        assertEquals(populateAndExtract(new IndexedPriorityQueue<>()), ImmutableList.of(2, 3, 5, 1));
+    }
+
+    @Test
+    public void testIndexedPriorityQueueReverse()
+    {
+        assertEquals(populateAndExtract(new IndexedPriorityQueue<>(false)), ImmutableList.of(5, 3, 2, 4));
     }
 
     @Test
     public void testStochasticPriorityQueue()
     {
-        assertTrue(populateAndExtract(new StochasticPriorityQueue<>()).size() == 3);
+        assertTrue(populateAndExtract(new StochasticPriorityQueue<>()).size() == 4);
     }
 
     private static List<Integer> populateAndExtract(UpdateablePriorityQueue<Integer> queue)
@@ -46,6 +53,16 @@ public class TestUpdateablePriorityQueue
         queue.addOrUpdate(1, 1);
         queue.addOrUpdate(2, 2);
         queue.addOrUpdate(3, 3);
+        queue.addOrUpdate(4, 7);
+        queue.addOrUpdate(2, 5);  //Update priority of existing entry
+        queue.addOrUpdate(5, 2);  //duplicate priority
+
+        queue.poll();
+        Iterator x = queue.iterator();
+        System.out.println(queue.getClass());
+        while (x.hasNext())
+            System.out.print(x.next() + " ");
+        System.out.println();
         return ImmutableList.copyOf(queue);
     }
 }
