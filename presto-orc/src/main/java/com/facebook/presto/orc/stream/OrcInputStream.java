@@ -18,6 +18,7 @@ import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcDecompressor;
+import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slice;
 
@@ -287,8 +288,11 @@ public final class OrcInputStream
 
         if (isUncompressed) {
             buffer = (byte[]) chunk.getBase();
-            position = 0;
-            length = chunk.length();
+            position = toIntExact(chunk.getAddress() - ARRAY_BYTE_BASE_OFFSET);
+            length = toIntExact(chunk.length());
+            if (bufferContainer == null) {
+                bufferContainer = new Buffer();
+            }
         }
         else {
             OrcDecompressor.OutputBuffer output = new OrcDecompressor.OutputBuffer()

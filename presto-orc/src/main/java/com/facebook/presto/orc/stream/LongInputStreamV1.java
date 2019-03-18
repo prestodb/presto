@@ -206,11 +206,13 @@ public class LongInputStreamV1
 
     private long getValue()
     {
+        long result;
         if (repeat) {
-            return literals[0] + (offsets[offsetIdx] - currentRunOffset) * delta;
+            result = literals[0] + (offsets[offsetIdx] - currentRunOffset) * delta;
         }
         else {
-            return literals[offsets[offsetIdx] - currentRunOffset];
+            result = literals[offsets[offsetIdx] - currentRunOffset];
         }
+        return result;
     }
 }

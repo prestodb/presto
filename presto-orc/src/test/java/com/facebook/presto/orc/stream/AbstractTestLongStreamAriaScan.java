@@ -16,6 +16,7 @@ package com.facebook.presto.orc.stream;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
+import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableList;
@@ -39,20 +40,23 @@ public abstract class AbstractTestLongStreamAriaScan
 
     private static final List<List<Long>> TEST_DATA = getTestData();
     private static final List<List<Long>> TEST_RUNLENGTH_DATA = getRunlengthTestData();
-
+    private static final List<List<Long>> TEST_LITERAL_DATA = getLiteralTestData();
     @Test
     public void testData()
             throws IOException
     {
-        testScan(TEST_DATA);
-        testScan(TEST_RUNLENGTH_DATA);
+        for (CompressionKind kind : CompressionKind.values()) {
+            testScan(TEST_RUNLENGTH_DATA, kind);
+            testScan(TEST_DATA, kind);
+            testScan(TEST_LITERAL_DATA, kind);
+        }
     }
 
-    protected void testScan(List<List<Long>> groups)
+    protected void testScan(List<List<Long>> groups, CompressionKind kind)
             throws IOException
     {
         List<int[]> offsetGroups = getOddOffsets(groups);
-        LongOutputStream outputStream = createValueOutputStream();
+        LongOutputStream outputStream = createValueOutputStream(kind);
         for (int i = 0; i < 3; i++) {
             outputStream.reset();
             long retainedBytes = 0;
@@ -77,7 +81,7 @@ public abstract class AbstractTestLongStreamAriaScan
             assertEquals(checkpoints.size(), groups.size());
             ImmutableList.Builder<Long> builder = ImmutableList.builder();
             TestResultsConsumer resultsConsumer = new TestResultsConsumer(builder);
-            LongInputStream valueStream = createValueStream(sliceOutput.slice());
+            LongInputStream valueStream = createValueStream(sliceOutput.slice(), kind);
             for (int j = 0; j < offsetGroups.size(); j++) {
                 valueStream.seekToCheckpoint(checkpoints.get(j));
                 valueStream.scan(offsetGroups.get(j), 0, offsetGroups.get(j).length, groups.get(j).size(), resultsConsumer);
@@ -93,14 +97,14 @@ public abstract class AbstractTestLongStreamAriaScan
         }
     }
 
-    protected abstract LongOutputStream createValueOutputStream();
+    protected abstract LongOutputStream createValueOutputStream(CompressionKind kind);
 
     private void writeValue(LongOutputStream outputStream, long value)
     {
         outputStream.writeLong(value);
     }
 
-    protected abstract LongInputStream createValueStream(Slice slice)
+    protected abstract LongInputStream createValueStream(Slice slice, CompressionKind kind)
             throws OrcCorruptionException;
 
     private static class TestResultsConsumer
@@ -182,6 +186,21 @@ public abstract class AbstractTestLongStreamAriaScan
             List<Long> group = new ArrayList<>();
             for (int i = 0; i < 1000; i++) {
                 group.add((long) (groupIndex * 10_000 + i));
+            }
+            groups.add(group);
+        }
+        return groups;
+    }
+
+    private static List<List<Long>> getLiteralTestData()
+    {
+        List<List<Long>> groups = new ArrayList<>();
+        for (int groupIndex = 0; groupIndex < 3; groupIndex++) {
+            List<Long> group = new ArrayList<>();
+            long value = groupIndex * 10_000;
+            for (int i = 0; i < 40; i++) {
+                group.add(value);
+                value += 2 * i + 1;
             }
             groups.add(group);
         }
