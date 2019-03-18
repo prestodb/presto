@@ -266,7 +266,8 @@ class Query
     public synchronized ListenableFuture<QueryResults> waitForResults(long token, UriInfo uriInfo, String scheme, Duration wait, DataSize targetResultSize)
     {
         // before waiting, check if this request has already been processed and cached
-        Optional<QueryResults> cachedResult = getCachedResult(token, uriInfo);
+        String requestedPath = uriInfo.getAbsolutePath().getPath();
+        Optional<QueryResults> cachedResult = getCachedResult(token, requestedPath);
         if (cachedResult.isPresent()) {
             return immediateFuture(cachedResult.get());
         }
@@ -299,7 +300,7 @@ class Query
         }
     }
 
-    private synchronized Optional<QueryResults> getCachedResult(long token, UriInfo uriInfo)
+    private synchronized Optional<QueryResults> getCachedResult(long token, String requestedPath)
     {
         // is this the first request?
         if (lastResult == null) {
@@ -307,7 +308,6 @@ class Query
         }
 
         // is the a repeated request for the last results?
-        String requestedPath = uriInfo.getAbsolutePath().getPath();
         if (requestedPath.equals(lastResultPath)) {
             // tell query manager we are still interested in the query
             queryManager.recordHeartbeat(queryId);
@@ -330,7 +330,8 @@ class Query
     private synchronized QueryResults getNextResult(long token, UriInfo uriInfo, String scheme, DataSize targetResultSize)
     {
         // check if the result for the token have already been created
-        Optional<QueryResults> cachedResult = getCachedResult(token, uriInfo);
+        String requestedPath = uriInfo.getAbsolutePath().getPath();
+        Optional<QueryResults> cachedResult = getCachedResult(token, requestedPath);
         if (cachedResult.isPresent()) {
             return cachedResult.get();
         }
@@ -441,19 +442,13 @@ class Query
                 queryInfo.getUpdateType(),
                 updateCount);
 
-        cacheLastResults(queryResults);
+        cacheLastResults(queryResults, requestedPath);
         return queryResults;
     }
 
-    private synchronized void cacheLastResults(QueryResults queryResults)
+    private synchronized void cacheLastResults(QueryResults queryResults, String requestedPath)
     {
-        // cache the last results
-        if (lastResult != null && lastResult.getNextUri() != null) {
-            lastResultPath = lastResult.getNextUri().getPath();
-        }
-        else {
-            lastResultPath = null;
-        }
+        lastResultPath = requestedPath;
         lastResult = queryResults;
     }
 
