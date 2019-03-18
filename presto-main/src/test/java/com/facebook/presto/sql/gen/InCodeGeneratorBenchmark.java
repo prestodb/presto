@@ -18,9 +18,9 @@ import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -45,6 +45,7 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IN;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -52,7 +53,6 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
-import static com.facebook.presto.sql.relational.SpecialFormExpression.Form.IN;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 
