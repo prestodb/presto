@@ -11,23 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.type;
+package com.facebook.presto.spi.type;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
+import java.util.ArrayList;
 import java.util.List;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class FunctionType
         implements Type
@@ -42,20 +39,20 @@ public class FunctionType
     {
         this.signature = new TypeSignature(NAME, typeParameters(argumentTypes, returnType));
         this.returnType = requireNonNull(returnType, "returnType is null");
-        this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
+        this.argumentTypes = unmodifiableList(new ArrayList<>(requireNonNull(argumentTypes, "argumentTypes is null")));
     }
 
     private static List<TypeSignatureParameter> typeParameters(List<Type> argumentTypes, Type returnType)
     {
         requireNonNull(returnType, "returnType is null");
         requireNonNull(argumentTypes, "argumentTypes is null");
-        ImmutableList.Builder<TypeSignatureParameter> builder = ImmutableList.builder();
+        List<TypeSignatureParameter> parameters = new ArrayList<>(argumentTypes.size() + 1);
         argumentTypes.stream()
                 .map(Type::getTypeSignature)
                 .map(TypeSignatureParameter::of)
-                .forEach(builder::add);
-        builder.add(TypeSignatureParameter.of(returnType.getTypeSignature()));
-        return builder.build();
+                .forEach(parameters::add);
+        parameters.add(TypeSignatureParameter.of(returnType.getTypeSignature()));
+        return unmodifiableList(parameters);
     }
 
     public Type getReturnType()
@@ -71,7 +68,10 @@ public class FunctionType
     @Override
     public List<Type> getTypeParameters()
     {
-        return ImmutableList.<Type>builder().addAll(argumentTypes).add(returnType).build();
+        List<Type> parameters = new ArrayList<>(argumentTypes.size() + 1);
+        parameters.addAll(argumentTypes);
+        parameters.add(returnType);
+        return unmodifiableList(parameters);
     }
 
     @Override
@@ -83,10 +83,10 @@ public class FunctionType
     @Override
     public String getDisplayName()
     {
-        ImmutableList<String> names = getTypeParameters().stream()
+        List<String> names = getTypeParameters().stream()
                 .map(Type::getDisplayName)
-                .collect(toImmutableList());
-        return "function<" + Joiner.on(",").join(names) + ">";
+                .collect(toList());
+        return "function<" + String.join(",", names) + ">";
     }
 
     @Override

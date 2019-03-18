@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.Lists;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;

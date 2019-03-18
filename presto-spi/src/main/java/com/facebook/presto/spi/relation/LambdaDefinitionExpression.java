@@ -11,17 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.relational;
+package com.facebook.presto.spi.relation;
 
+import com.facebook.presto.spi.type.FunctionType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.FunctionType;
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 public final class LambdaDefinitionExpression
@@ -33,8 +33,8 @@ public final class LambdaDefinitionExpression
 
     public LambdaDefinitionExpression(List<Type> argumentTypes, List<String> arguments, RowExpression body)
     {
-        this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
-        this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
+        this.argumentTypes = unmodifiableList(new ArrayList<>(requireNonNull(argumentTypes, "argumentTypes is null")));
+        this.arguments = unmodifiableList(new ArrayList<>(requireNonNull(arguments, "arguments is null")));
         checkArgument(argumentTypes.size() == arguments.size(), "Number of argument types does not match number of arguments");
         this.body = requireNonNull(body, "body is null");
     }
@@ -63,7 +63,7 @@ public final class LambdaDefinitionExpression
     @Override
     public String toString()
     {
-        return "(" + Joiner.on(",").join(arguments) + ") -> " + body;
+        return "(" + String.join(",", arguments) + ") -> " + body;
     }
 
     @Override
@@ -91,5 +91,12 @@ public final class LambdaDefinitionExpression
     public <R, C> R accept(RowExpressionVisitor<R, C> visitor, C context)
     {
         return visitor.visitLambda(this, context);
+    }
+
+    private static void checkArgument(boolean condition, String message, Object... messageArgs)
+    {
+        if (!condition) {
+            throw new IllegalArgumentException(format(message, messageArgs));
+        }
     }
 }
