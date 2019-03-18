@@ -11,39 +11,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.relational;
+package com.facebook.presto.spi.relation;
 
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
-public class SpecialFormExpression
+public final class CallExpression
         extends RowExpression
 {
-    private final Form form;
+    private final FunctionHandle functionHandle;
     private final Type returnType;
     private final List<RowExpression> arguments;
 
-    public SpecialFormExpression(Form form, Type returnType, RowExpression... arguments)
+    public CallExpression(FunctionHandle functionHandle, Type returnType, List<RowExpression> arguments)
     {
-        this(form, returnType, ImmutableList.copyOf(arguments));
+        requireNonNull(functionHandle, "functionHandle is null");
+        requireNonNull(arguments, "arguments is null");
+        requireNonNull(returnType, "returnType is null");
+
+        this.functionHandle = functionHandle;
+        this.returnType = returnType;
+        this.arguments = unmodifiableList(new ArrayList<>(arguments));
     }
 
-    public SpecialFormExpression(Form form, Type returnType, List<RowExpression> arguments)
+    public FunctionHandle getFunctionHandle()
     {
-        this.form = requireNonNull(form, "form is null");
-        this.returnType = requireNonNull(returnType, "returnType is null");
-        this.arguments = requireNonNull(arguments, "arguments is null");
-    }
-
-    public Form getForm()
-    {
-        return form;
+        return functionHandle;
     }
 
     @Override
@@ -60,13 +61,13 @@ public class SpecialFormExpression
     @Override
     public String toString()
     {
-        return form.name() + "(" + Joiner.on(", ").join(arguments) + ")";
+        return functionHandle.getSignature().getName() + "(" + String.join(", ", arguments.stream().map(RowExpression::toString).collect(Collectors.toList())) + ")";
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(form, arguments);
+        return Objects.hash(functionHandle, arguments);
     }
 
     @Override
@@ -78,30 +79,13 @@ public class SpecialFormExpression
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        SpecialFormExpression other = (SpecialFormExpression) obj;
-        return this.form == other.form &&
-                Objects.equals(this.arguments, other.arguments);
+        CallExpression other = (CallExpression) obj;
+        return Objects.equals(this.functionHandle, other.functionHandle) && Objects.equals(this.arguments, other.arguments);
     }
 
     @Override
     public <R, C> R accept(RowExpressionVisitor<R, C> visitor, C context)
     {
-        return visitor.visitSpecialForm(this, context);
-    }
-
-    public enum Form
-    {
-        IF,
-        NULL_IF,
-        SWITCH,
-        WHEN,
-        IS_NULL,
-        COALESCE,
-        IN,
-        AND,
-        OR,
-        DEREFERENCE,
-        ROW_CONSTRUCTOR,
-        BIND,
+        return visitor.visitCall(this, context);
     }
 }

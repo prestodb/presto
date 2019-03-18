@@ -21,7 +21,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.sql.relational.CallExpression;
+import com.facebook.presto.spi.relation.CallExpression;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
