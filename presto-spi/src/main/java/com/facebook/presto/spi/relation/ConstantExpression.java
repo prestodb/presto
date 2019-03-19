@@ -13,12 +13,19 @@
  */
 package com.facebook.presto.spi.relation;
 
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.predicate.Utils;
 import com.facebook.presto.spi.type.Type;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public final class ConstantExpression
         extends RowExpression
 {
@@ -33,12 +40,27 @@ public final class ConstantExpression
         this.type = type;
     }
 
+    @JsonCreator
+    public static ConstantExpression createConstantExpression(
+            @JsonProperty("valueBlock") Block valueBlock,
+            @JsonProperty("type") Type type)
+    {
+        return new ConstantExpression(Utils.blockToNativeValue(type, valueBlock), type);
+    }
+
+    @JsonProperty
+    public Block getValueBlock()
+    {
+        return Utils.nativeValueToBlock(type, value);
+    }
+
     public Object getValue()
     {
         return value;
     }
 
     @Override
+    @JsonProperty
     public Type getType()
     {
         return type;

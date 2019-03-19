@@ -14,7 +14,20 @@
 package com.facebook.presto.spi.relation;
 
 import com.facebook.presto.spi.type.Type;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
+@JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        include = JsonTypeInfo.As.PROPERTY,
+        property = "@type")
+@JsonSubTypes({
+        @JsonSubTypes.Type(value = CallExpression.class, name = "call"),
+        @JsonSubTypes.Type(value = SpecialFormExpression.class, name = "special"),
+        @JsonSubTypes.Type(value = LambdaDefinitionExpression.class, name = "lambda"),
+        @JsonSubTypes.Type(value = InputReferenceExpression.class, name = "input"),
+        @JsonSubTypes.Type(value = VariableReferenceExpression.class, name = "variable"),
+        @JsonSubTypes.Type(value = ConstantExpression.class, name = "constant")})
 public abstract class RowExpression
 {
     public abstract Type getType();

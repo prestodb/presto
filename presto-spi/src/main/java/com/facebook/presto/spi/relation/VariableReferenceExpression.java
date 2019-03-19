@@ -14,29 +14,39 @@
 package com.facebook.presto.spi.relation;
 
 import com.facebook.presto.spi.type.Type;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public final class VariableReferenceExpression
         extends RowExpression
 {
     private final String name;
     private final Type type;
 
-    public VariableReferenceExpression(String name, Type type)
+    @JsonCreator
+    public VariableReferenceExpression(
+            @JsonProperty String name,
+            @JsonProperty Type type)
     {
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
     }
 
+    @JsonProperty
     public String getName()
     {
         return name;
     }
 
     @Override
+    @JsonProperty
     public Type getType()
     {
         return type;

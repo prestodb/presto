@@ -15,6 +15,10 @@ package com.facebook.presto.spi.relation;
 
 import com.facebook.presto.spi.type.FunctionType;
 import com.facebook.presto.spi.type.Type;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,6 +28,7 @@ import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public final class LambdaDefinitionExpression
         extends RowExpression
 {
@@ -31,7 +36,11 @@ public final class LambdaDefinitionExpression
     private final List<String> arguments;
     private final RowExpression body;
 
-    public LambdaDefinitionExpression(List<Type> argumentTypes, List<String> arguments, RowExpression body)
+    @JsonCreator
+    public LambdaDefinitionExpression(
+            @JsonProperty("argumentTypes") List<Type> argumentTypes,
+            @JsonProperty("arguments") List<String> arguments,
+            @JsonProperty("body") RowExpression body)
     {
         this.argumentTypes = unmodifiableList(new ArrayList<>(requireNonNull(argumentTypes, "argumentTypes is null")));
         this.arguments = unmodifiableList(new ArrayList<>(requireNonNull(arguments, "arguments is null")));
@@ -39,16 +48,19 @@ public final class LambdaDefinitionExpression
         this.body = requireNonNull(body, "body is null");
     }
 
+    @JsonProperty
     public List<Type> getArgumentTypes()
     {
         return argumentTypes;
     }
 
+    @JsonProperty
     public List<String> getArguments()
     {
         return arguments;
     }
 
+    @JsonProperty
     public RowExpression getBody()
     {
         return body;
