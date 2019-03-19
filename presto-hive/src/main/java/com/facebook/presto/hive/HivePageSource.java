@@ -752,21 +752,18 @@ public class HivePageSource
     @Override
     public boolean pushdownFilterAndProjection(PageSourceOptions options)
     {
-        if (delegate != null) {
-            // Remove non-regular and non-interim columns from internal and output channels
-            int[] internalChannels = options.getInternalChannels();
-            int[] outputChannels = options.getOutputChannels();
-            for (int i = 0; i < internalChannels.length; i++) {
-                ColumnMapping columnMapping = columnMappings.get(i);
-                if (columnMapping.getKind() != REGULAR && columnMapping.getKind() != INTERIM) {
-                    internalChannels[i] = -1;
-                    outputChannels[i] = -1;
-                }
+        // Remove non-regular and non-interim columns from internal and output channels
+        int[] internalChannels = options.getInternalChannels();
+        int[] outputChannels = options.getOutputChannels();
+        for (int i = 0; i < internalChannels.length; i++) {
+            ColumnMapping columnMapping = columnMappings.get(i);
+            if (columnMapping.getKind() != REGULAR && columnMapping.getKind() != INTERIM) {
+                internalChannels[i] = -1;
+                outputChannels[i] = -1;
             }
-
-            filterAndProjectPushedDown = delegate.pushdownFilterAndProjection(options);
-            return filterAndProjectPushedDown;
         }
-        return false;
+
+        filterAndProjectPushedDown = delegate.pushdownFilterAndProjection(options);
+        return filterAndProjectPushedDown;
     }
 }
