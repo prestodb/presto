@@ -14,6 +14,10 @@
 package com.facebook.presto.spi.relation;
 
 import com.facebook.presto.spi.type.Type;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.Arrays;
 import java.util.List;
@@ -23,6 +27,7 @@ import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
+@Immutable
 public class SpecialFormExpression
         extends RowExpression
 {
@@ -35,24 +40,31 @@ public class SpecialFormExpression
         this(form, returnType, unmodifiableList(Arrays.asList(arguments)));
     }
 
-    public SpecialFormExpression(Form form, Type returnType, List<RowExpression> arguments)
+    @JsonCreator
+    public SpecialFormExpression(
+            @JsonProperty("form") Form form,
+            @JsonProperty("returnType") Type returnType,
+            @JsonProperty("arguments") List<RowExpression> arguments)
     {
         this.form = requireNonNull(form, "form is null");
         this.returnType = requireNonNull(returnType, "returnType is null");
         this.arguments = requireNonNull(arguments, "arguments is null");
     }
 
+    @JsonProperty
     public Form getForm()
     {
         return form;
     }
 
     @Override
+    @JsonProperty("returnType")
     public Type getType()
     {
         return returnType;
     }
 
+    @JsonProperty
     public List<RowExpression> getArguments()
     {
         return arguments;
