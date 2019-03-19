@@ -213,7 +213,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.CastType.toOperatorType;
-import static com.facebook.presto.metadata.InternalSignatureUtils.internalScalarFunction;
 import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static com.facebook.presto.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
@@ -351,6 +350,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 
@@ -1097,7 +1098,8 @@ class FunctionRegistry
 
     public FunctionHandle lookupCast(CastType castType, TypeSignature fromType, TypeSignature toType)
     {
-        Signature signature = internalScalarFunction(castType.getCastName(), toType, fromType);
+        Signature signature = new Signature(castType.getCastName(), SCALAR, emptyList(), emptyList(), toType, singletonList(fromType), false);
+
         try {
             getScalarFunctionImplementation(signature);
         }
