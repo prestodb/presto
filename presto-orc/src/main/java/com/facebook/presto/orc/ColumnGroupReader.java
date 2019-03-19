@@ -44,7 +44,6 @@ public class ColumnGroupReader
     private QualifyingSet inputQualifyingSet;
     private QualifyingSet outputQualifyingSet;
 
-    private final boolean reuseBlocks;
     private final int ariaFlags;
 
     private boolean reorderFilters;
@@ -74,11 +73,9 @@ public class ColumnGroupReader
             int[] outputChannels,
             Map<Integer, Filter> filters,
             FilterFunction[] filterFunctions,
-            boolean reuseBlocks,
             boolean reorderFilters,
             int ariaFlags)
     {
-        this.reuseBlocks = reuseBlocks;
         this.reorderFilters = reorderFilters;
         this.ariaFlags = ariaFlags;
         this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
