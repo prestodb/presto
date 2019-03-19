@@ -14,19 +14,26 @@
 package com.facebook.presto.spi.relation;
 
 import com.facebook.presto.spi.type.Type;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public final class InputReferenceExpression
         extends RowExpression
 {
     private final int field;
     private final Type type;
 
-    public InputReferenceExpression(int field, Type type)
+    @JsonCreator
+    public InputReferenceExpression(
+            @JsonProperty("field") int field,
+            @JsonProperty("type") Type type)
     {
         requireNonNull(type, "type is null");
 

@@ -15,6 +15,10 @@ package com.facebook.presto.spi.relation;
 
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.type.Type;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,6 +28,7 @@ import java.util.stream.Collectors;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public final class CallExpression
         extends RowExpression
 {
@@ -31,7 +36,11 @@ public final class CallExpression
     private final Type returnType;
     private final List<RowExpression> arguments;
 
-    public CallExpression(FunctionHandle functionHandle, Type returnType, List<RowExpression> arguments)
+    @JsonCreator
+    public CallExpression(
+            @JsonProperty("functionHandle") FunctionHandle functionHandle,
+            @JsonProperty("returnType") Type returnType,
+            @JsonProperty("arguments") List<RowExpression> arguments)
     {
         requireNonNull(functionHandle, "functionHandle is null");
         requireNonNull(arguments, "arguments is null");
@@ -42,17 +51,20 @@ public final class CallExpression
         this.arguments = unmodifiableList(new ArrayList<>(arguments));
     }
 
+    @JsonProperty
     public FunctionHandle getFunctionHandle()
     {
         return functionHandle;
     }
 
     @Override
+    @JsonProperty("returnType")
     public Type getType()
     {
         return returnType;
     }
 
+    @JsonProperty
     public List<RowExpression> getArguments()
     {
         return arguments;
