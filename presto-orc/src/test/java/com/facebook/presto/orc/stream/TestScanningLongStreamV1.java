@@ -68,6 +68,37 @@ public class TestScanningLongStreamV1
         testWriteValue(groups);
     }
 
+    @Test
+    public void testRunLength()
+            throws IOException
+    {
+        List<List<Long>> groups = new ArrayList<>();
+        for (int groupIndex = 0; groupIndex < 3; groupIndex++) {
+            List<Long> group = new ArrayList<>();
+            for (int i = 0; i < 1000; i++) {
+                group.add((long) (groupIndex * 10_000 + i));
+            }
+            groups.add(group);
+        }
+        testWriteValue(groups);
+    }
+
+    @Test
+    public void testLiterals()
+            throws IOException
+    {
+        List<List<Long>> groups = new ArrayList<>();
+        for (int groupIndex = 0; groupIndex < 3; groupIndex++) {
+            List<Long> group = new ArrayList<>();
+            long value = groupIndex * 10_000;
+            for (int i = 0; i < 40; i++) {
+                group.add(value);
+                value += 2 * i + 1;
+            }
+            groups.add(group);
+        }
+        testWriteValue(groups);
+    }
     @Override
     protected LongOutputStreamV1 createValueOutputStream()
     {

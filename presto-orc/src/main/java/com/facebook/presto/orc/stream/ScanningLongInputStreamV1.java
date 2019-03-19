@@ -16,7 +16,7 @@ package com.facebook.presto.orc.stream;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamV1Checkpoint;
-import com.facebook.presto.orc.stream.OrcInputStream.Buffer;
+import com.facebook.presto.orc.stream.OrcInputStreamAria.Buffer;
 import io.airlift.slice.ByteArrays;
 
 import java.io.IOException;
@@ -145,7 +145,7 @@ public class ScanningLongInputStreamV1
         LongStreamV1Checkpoint v1Checkpoint = (LongStreamV1Checkpoint) checkpoint;
 
         // if the checkpoint is within the current buffer, just adjust the pointer
-        if (lastReadInputCheckpoint == v1Checkpoint.getInputStreamCheckpoint() && v1Checkpoint.getOffset() <= numLiterals) {
+        if (lastReadInputCheckpoint == v1Checkpoint.getInputStreamCheckpoint() && v1Checkpoint.getOffset() <= numLiterals && v1Checkpoint.getOffset() >= used) {
             skip(v1Checkpoint.getOffset() - used);
             currentRunOffset = -used;
         }
