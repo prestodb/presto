@@ -43,7 +43,7 @@ public class DynamicLifespanScheduler
         implements LifespanScheduler
 {
     private final BucketNodeMap bucketNodeMap;
-    private final List<InternalNode> allNodes;
+    private final List<InternalNode> nodeByTaskId;
     private final List<ConnectorPartitionHandle> partitionHandles;
     private final OptionalInt concurrentLifespansPerTask;
 
@@ -61,10 +61,10 @@ public class DynamicLifespanScheduler
     @GuardedBy("this")
     private int totalLifespanExecutionFinished;
 
-    public DynamicLifespanScheduler(BucketNodeMap bucketNodeMap, List<InternalNode> allNodes, List<ConnectorPartitionHandle> partitionHandles, OptionalInt concurrentLifespansPerTask)
+    public DynamicLifespanScheduler(BucketNodeMap bucketNodeMap, List<InternalNode> nodeByTaskId, List<ConnectorPartitionHandle> partitionHandles, OptionalInt concurrentLifespansPerTask)
     {
         this.bucketNodeMap = requireNonNull(bucketNodeMap, "bucketNodeMap is null");
-        this.allNodes = requireNonNull(allNodes, "allNodes is null");
+        this.nodeByTaskId = requireNonNull(nodeByTaskId, "nodeByTaskId is null");
         this.partitionHandles = unmodifiableList(new ArrayList<>(
                 requireNonNull(partitionHandles, "partitionHandles is null")));
 
@@ -84,10 +84,10 @@ public class DynamicLifespanScheduler
 
         int driverGroupsScheduledPerTask = 0;
         while (driverGroups.hasNext()) {
-            for (int i = 0; i < allNodes.size() && driverGroups.hasNext(); i++) {
+            for (int i = 0; i < nodeByTaskId.size() && driverGroups.hasNext(); i++) {
                 int driverGroupId = driverGroups.nextInt();
                 checkState(!bucketNodeMap.getAssignedNode(driverGroupId).isPresent());
-                bucketNodeMap.assignBucketToNode(driverGroupId, allNodes.get(i));
+                bucketNodeMap.assignBucketToNode(driverGroupId, nodeByTaskId.get(i));
                 scheduler.startLifespan(Lifespan.driverGroup(driverGroupId), partitionHandles.get(driverGroupId));
             }
 
