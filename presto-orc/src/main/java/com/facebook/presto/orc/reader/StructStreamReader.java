@@ -341,7 +341,6 @@ public class StructStreamReader
                                        filters,
                                        new FilterFunction[0],
                                        true,
-                                       true,
                                        0);
     }
 

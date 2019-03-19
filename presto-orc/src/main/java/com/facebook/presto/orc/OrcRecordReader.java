@@ -751,7 +751,6 @@ public class OrcRecordReader
                 options.getOutputChannels(),
                 predicate.getFilters(),
                 options.getFilterFunctions(),
-                reuseBlocks,
                 reorderFilters,
                 options.getAriaFlags());
         targetResultBytes = options.getTargetBytes();
