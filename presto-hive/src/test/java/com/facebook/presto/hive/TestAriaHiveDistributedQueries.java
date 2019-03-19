@@ -299,6 +299,9 @@ public class TestAriaHiveDistributedQueries
 
         assertQuery(ariaSession(), "SELECT shipdate FROM lineitem_aria WHERE long_decimal_discount < decimal '0.3'",
                 "SELECT shipdate FROM lineitem where discount < 0.3");
+        assertQuery(ariaSession(), "select partkey, shipmode, comment,\n" +
+                    "  long_decimal_discount, short_decimal_discount, is_returned, float_quantity, timestamp_shipdate, tinyint_shipmode\n" +
+                    "FROM lineitem_aria WHERE linenumber = 4", noAriaSession());
     }
 
     // nulls1.sql
