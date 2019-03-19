@@ -1667,6 +1667,13 @@ public class HiveMetadata
 
         // TODO Synchronize this flag with engine's aria-enabled
         boolean ariaScanEnabled = isAriaScanEnabled(session);
+        if (ariaScanEnabled) {
+            HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(getTableMetadata(session, tableHandle).getProperties());
+            if (hiveStorageFormat != HiveStorageFormat.ORC && hiveStorageFormat != HiveStorageFormat.DWRF) {
+                ariaScanEnabled = false;
+                // TODO Make HivePageSourceFactory for RC and Parquet fail if non-partition key predicates are present
+            }
+        }
 
         return ImmutableList.of(new ConnectorTableLayoutResult(
                 getTableLayout(
