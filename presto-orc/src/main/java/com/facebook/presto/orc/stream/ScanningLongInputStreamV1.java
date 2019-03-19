@@ -31,7 +31,7 @@ public class ScanningLongInputStreamV1
     private static final int MIN_REPEAT_SIZE = 3;
     private static final long VARINT_MASK = 0x8080_8080_8080_8080L;
 
-    private final OrcInputStream input;
+    private final OrcInputStreamAria input;
     private final boolean signed;
     private long literal;
     private int numLiterals;
@@ -47,7 +47,7 @@ public class ScanningLongInputStreamV1
     private int position;
     private int length;
 
-    public ScanningLongInputStreamV1(OrcInputStream input, boolean signed)
+    public ScanningLongInputStreamV1(OrcInputStreamAria input, boolean signed)
     {
         this.input = input;
         this.signed = signed;

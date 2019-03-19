@@ -41,11 +41,15 @@ public abstract class AbstractTestLongStreamAriaScan
     private static final List<List<Long>> TEST_DATA = getTestData();
     private static final List<List<Long>> TEST_RUNLENGTH_DATA = getRunlengthTestData();
     private static final List<List<Long>> TEST_LITERAL_DATA = getLiteralTestData();
+
     @Test
     public void testData()
             throws IOException
     {
         for (CompressionKind kind : CompressionKind.values()) {
+            if (kind != CompressionKind.LZ4) {
+                //continue;
+            }
             testScan(TEST_RUNLENGTH_DATA, kind);
             testScan(TEST_DATA, kind);
             testScan(TEST_LITERAL_DATA, kind);

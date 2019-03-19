@@ -226,12 +226,12 @@ public final class OrcInputStreamAria
                 decompressedOffset -= available();
                 advance();
             }
-            position = decompressedOffset;
+            position += decompressedOffset;
         }
         else if (length == 0) {
             decompressedOffset -= available();
             advance();
-            position = decompressedOffset;
+            position += decompressedOffset;
         }
         return discardedBuffer;
     }
@@ -285,13 +285,13 @@ public final class OrcInputStreamAria
 
         Slice chunk = compressedSliceInput.readSlice(chunkLength);
 
+        if (bufferContainer == null) {
+            bufferContainer = new Buffer();
+        }
         if (isUncompressed) {
             buffer = (byte[]) chunk.getBase();
             position = toIntExact(chunk.getAddress() - ARRAY_BYTE_BASE_OFFSET);
-            length = toIntExact(chunk.length());
-            if (bufferContainer == null) {
-                bufferContainer = new Buffer();
-            }
+            length = toIntExact(chunk.getAddress() - ARRAY_BYTE_BASE_OFFSET + chunk.length());
         }
         else {
             OrcDecompressor.OutputBuffer output = new OrcDecompressor.OutputBuffer()
@@ -318,9 +318,6 @@ public final class OrcInputStreamAria
                     return buffer;
                 }
             };
-            if (bufferContainer == null) {
-                bufferContainer = new Buffer();
-            }
             length = decompressor.get().decompress((byte[]) chunk.getBase(), (int) (chunk.getAddress() - ARRAY_BYTE_BASE_OFFSET), chunk.length(), output);
             position = 0;
         }
@@ -338,7 +335,7 @@ public final class OrcInputStreamAria
         if (buffer == null) {
             throw new NoSuchElementException();
         }
-        // advance may set bufferContainer to null
+        // copy current reference as the final call to advance() will set bufferContainer to null
         Buffer currentContainer = bufferContainer;
         currentContainer.buffer = buffer;
         currentContainer.position = position;

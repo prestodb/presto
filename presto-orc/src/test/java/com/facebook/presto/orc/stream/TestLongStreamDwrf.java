@@ -26,7 +26,6 @@ import java.util.Optional;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
-import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.LONG;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
@@ -52,7 +51,7 @@ public class TestLongStreamDwrf
     @Override
     protected LongOutputStreamDwrf createValueOutputStream()
     {
-        return new LongOutputStreamDwrf(LZ4, COMPRESSION_BLOCK_SIZE, true, DATA);
+        return new LongOutputStreamDwrf(SNAPPY, COMPRESSION_BLOCK_SIZE, true, DATA);
     }
 
     @Override
@@ -65,7 +64,7 @@ public class TestLongStreamDwrf
     protected LongInputStreamDwrf createValueStream(Slice slice)
             throws OrcCorruptionException
     {
-        Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, LZ4, COMPRESSION_BLOCK_SIZE);
+        Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, COMPRESSION_BLOCK_SIZE);
         OrcInputStream input = new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, newSimpleAggregatedMemoryContext(), slice.getRetainedSize());
         return new LongInputStreamDwrf(input, LONG, true, true);
     }

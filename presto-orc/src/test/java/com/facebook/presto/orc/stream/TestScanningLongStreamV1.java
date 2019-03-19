@@ -99,6 +99,7 @@ public class TestScanningLongStreamV1
         }
         testWriteValue(groups);
     }
+
     @Override
     protected LongOutputStreamV1 createValueOutputStream()
     {
@@ -116,7 +117,7 @@ public class TestScanningLongStreamV1
             throws OrcCorruptionException
     {
         Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, COMPRESSION_BLOCK_SIZE);
-        OrcInputStream input = new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, newSimpleAggregatedMemoryContext(), slice.getRetainedSize());
+        OrcInputStreamAria input = new OrcInputStreamAria(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, newSimpleAggregatedMemoryContext(), slice.getRetainedSize());
         return new ScanningLongInputStreamV1(input, true);
     }
 
