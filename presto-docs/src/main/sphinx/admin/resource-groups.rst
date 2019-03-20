@@ -211,7 +211,7 @@ For the remaining users:
                   "hardConcurrencyLimit": 10,
                   "maxQueued": 100,
                   "schedulingWeight": 10,
-                  "schedulingPolicy": "weighted_fair"
+                  "schedulingPolicy": "weighted_fair",
                   "subGroups": [
                     {
                       "name": "${USER}",
@@ -235,7 +235,7 @@ For the remaining users:
                   "name": "pipeline_${USER}",
                   "softMemoryLimit": "50%",
                   "hardConcurrencyLimit": 5,
-                  "maxQueued": 100,
+                  "maxQueued": 100
                 }
               ]
             }
