@@ -18,7 +18,7 @@ import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcDecompressor;
-import com.facebook.presto.orc.stream.OrcInputStreamAria.Buffer;
+import com.facebook.presto.orc.stream.scan.OrcBufferIterator.Buffer;
 import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -327,9 +327,9 @@ public final class OrcInputStream
         }
         // advance may set bufferContainer to null
         Buffer currentContainer = bufferContainer;
-        currentContainer.buffer = isUncompressed ? uncompressedBuffer : buffer;
-        currentContainer.position = isUncompressed ? getOffsetInBuffer() : toIntExact(current.position());
-        currentContainer.length = isUncompressed ? toIntExact(uncompressedBufferOffset + current.length()) : toIntExact(current.length());
+        currentContainer.setBuffer(isUncompressed ? uncompressedBuffer : buffer);
+        currentContainer.setPosition(isUncompressed ? getOffsetInBuffer() : toIntExact(current.position()));
+        currentContainer.setLength(isUncompressed ? toIntExact(uncompressedBufferOffset + current.length()) : toIntExact(current.length()));
         try {
             if (decompressor.isPresent()) {
                 advance();

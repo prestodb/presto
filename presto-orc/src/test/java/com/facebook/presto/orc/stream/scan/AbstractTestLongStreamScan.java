@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.stream;
+package com.facebook.presto.orc.stream.scan;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSourceId;
@@ -19,6 +19,9 @@ import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
+import com.facebook.presto.orc.stream.LongInputStream;
+import com.facebook.presto.orc.stream.LongOutputStream;
+import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -33,10 +36,10 @@ import java.util.Random;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public abstract class AbstractTestLongStreamAriaScan
+public abstract class AbstractTestLongStreamScan
 {
-    static final int COMPRESSION_BLOCK_SIZE = 256 * 1024;
-    static final OrcDataSourceId ORC_DATA_SOURCE_ID = new OrcDataSourceId("test");
+    public static final int COMPRESSION_BLOCK_SIZE = 256 * 1024;
+    public static final OrcDataSourceId ORC_DATA_SOURCE_ID = new OrcDataSourceId("test");
 
     private static final List<List<Long>> TEST_DATA = getTestData();
     private static final List<List<Long>> TEST_RUNLENGTH_DATA = getRunlengthTestData();
@@ -47,9 +50,6 @@ public abstract class AbstractTestLongStreamAriaScan
             throws IOException
     {
         for (CompressionKind kind : CompressionKind.values()) {
-            if (kind != CompressionKind.LZ4) {
-                //continue;
-            }
             testScan(TEST_RUNLENGTH_DATA, kind);
             testScan(TEST_DATA, kind);
             testScan(TEST_LITERAL_DATA, kind);

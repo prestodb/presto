@@ -18,6 +18,9 @@ import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
+import com.facebook.presto.orc.stream.StreamDataOutput;
+import com.facebook.presto.orc.stream.ValueInputStream;
+import com.facebook.presto.orc.stream.ValueOutputStream;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 
@@ -29,8 +32,8 @@ import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestValueStream<T, C extends StreamCheckpoint, W extends ValueOutputStream<C>, R extends ValueInputStream<C>>
 {
-    static final int COMPRESSION_BLOCK_SIZE = 256 * 1024;
-    static final OrcDataSourceId ORC_DATA_SOURCE_ID = new OrcDataSourceId("test");
+    public static final int COMPRESSION_BLOCK_SIZE = 256 * 1024;
+    public static final OrcDataSourceId ORC_DATA_SOURCE_ID = new OrcDataSourceId("test");
 
     protected void testWriteValue(List<List<T>> groups)
             throws IOException

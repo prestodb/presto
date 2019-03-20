@@ -11,12 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.stream;
+package com.facebook.presto.orc.stream.scan;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamV1Checkpoint;
-import com.facebook.presto.orc.stream.OrcInputStreamAria.Buffer;
+import com.facebook.presto.orc.stream.LongInputStream;
+import com.facebook.presto.orc.stream.scan.OrcBufferIterator.Buffer;
 import io.airlift.slice.ByteArrays;
 
 import java.io.IOException;
@@ -25,13 +26,13 @@ import static com.facebook.presto.orc.stream.LongDecode.zigzagDecode;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.lang.Math.toIntExact;
 
-public class ScanningLongInputStreamV1
+public class BufferBackedLongInputStreamV1
         implements LongInputStream
 {
     private static final int MIN_REPEAT_SIZE = 3;
     private static final long VARINT_MASK = 0x8080_8080_8080_8080L;
 
-    private final OrcInputStreamAria input;
+    private final OrcBufferIterator input;
     private final boolean signed;
     private long literal;
     private int numLiterals;
@@ -47,7 +48,7 @@ public class ScanningLongInputStreamV1
     private int position;
     private int length;
 
-    public ScanningLongInputStreamV1(OrcInputStreamAria input, boolean signed)
+    public BufferBackedLongInputStreamV1(OrcBufferIterator input, boolean signed)
     {
         this.input = input;
         this.signed = signed;
@@ -264,10 +265,12 @@ public class ScanningLongInputStreamV1
             }
             else {
                 skip(offsets[offsetIdx] - currentRunOffset - used);
-                if (resultsConsumer.consume(offsetIdx, getValue(offsets[offsetIdx]))) {
-                    numResults++;
+                for (int offset = offsets[offsetIdx]; offsetIdx < beginOffset + numOffsets && offset == offsets[offsetIdx] && offsets[offsetIdx] - currentRunOffset < numLiterals && used != numLiterals; offset++) {
+                    if (resultsConsumer.consume(offsetIdx, getValue(offsets[offsetIdx]))) {
+                        numResults++;
+                    }
+                    offsetIdx++;
                 }
-                offsetIdx++;
             }
         }
         skip(endOffset - offsets[beginOffset + numOffsets - 1] - 1);

@@ -11,11 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.stream;
+package com.facebook.presto.orc.stream.scan;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
+import com.facebook.presto.orc.stream.AbstractTestValueStream;
+import com.facebook.presto.orc.stream.LongOutputStreamV1;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
@@ -30,8 +32,8 @@ import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 
-public class TestScanningLongStreamV1
-        extends AbstractTestValueStream<Long, LongStreamCheckpoint, LongOutputStreamV1, ScanningLongInputStreamV1>
+public class TestBufferBackedLongStreamV1
+        extends AbstractTestValueStream<Long, LongStreamCheckpoint, LongOutputStreamV1, BufferBackedLongInputStreamV1>
 {
     @Test
     public void test()
@@ -113,16 +115,16 @@ public class TestScanningLongStreamV1
     }
 
     @Override
-    protected ScanningLongInputStreamV1 createValueStream(Slice slice)
+    protected BufferBackedLongInputStreamV1 createValueStream(Slice slice)
             throws OrcCorruptionException
     {
         Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, COMPRESSION_BLOCK_SIZE);
-        OrcInputStreamAria input = new OrcInputStreamAria(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, newSimpleAggregatedMemoryContext(), slice.getRetainedSize());
-        return new ScanningLongInputStreamV1(input, true);
+        OrcBufferIterator input = new OrcBufferIterator(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, newSimpleAggregatedMemoryContext(), slice.getRetainedSize());
+        return new BufferBackedLongInputStreamV1(input, true);
     }
 
     @Override
-    protected Long readValue(ScanningLongInputStreamV1 valueStream)
+    protected Long readValue(BufferBackedLongInputStreamV1 valueStream)
             throws IOException
     {
         return valueStream.next();

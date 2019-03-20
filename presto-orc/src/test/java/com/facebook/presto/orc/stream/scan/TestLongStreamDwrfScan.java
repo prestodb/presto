@@ -11,11 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.stream;
+package com.facebook.presto.orc.stream.scan;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.stream.LongInputStream;
+import com.facebook.presto.orc.stream.LongInputStreamDwrf;
+import com.facebook.presto.orc.stream.LongOutputStream;
+import com.facebook.presto.orc.stream.LongOutputStreamDwrf;
+import com.facebook.presto.orc.stream.OrcInputStream;
 import io.airlift.slice.Slice;
 
 import java.util.Optional;
@@ -25,8 +30,8 @@ import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.LONG;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 
-public class TestLongStreamDwrfAriaScan
-        extends AbstractTestLongStreamAriaScan
+public class TestLongStreamDwrfScan
+        extends AbstractTestLongStreamScan
 {
     @Override
     public LongOutputStream createValueOutputStream(CompressionKind kind)

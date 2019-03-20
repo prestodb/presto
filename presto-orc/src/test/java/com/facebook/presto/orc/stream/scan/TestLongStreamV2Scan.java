@@ -11,11 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.stream;
+package com.facebook.presto.orc.stream.scan;
 
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.stream.LongInputStream;
+import com.facebook.presto.orc.stream.LongInputStreamV2;
+import com.facebook.presto.orc.stream.LongOutputStream;
+import com.facebook.presto.orc.stream.LongOutputStreamV2;
+import com.facebook.presto.orc.stream.OrcInputStream;
 import io.airlift.slice.Slice;
 
 import java.util.Optional;
@@ -24,13 +29,13 @@ import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimp
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 
-public class TestScanningLongStreamV1AriaScan
-        extends AbstractTestLongStreamAriaScan
+public class TestLongStreamV2Scan
+        extends AbstractTestLongStreamScan
 {
     @Override
     public LongOutputStream createValueOutputStream(CompressionKind kind)
     {
-        return new LongOutputStreamV1(kind, COMPRESSION_BLOCK_SIZE, true, DATA);
+        return new LongOutputStreamV2(kind, COMPRESSION_BLOCK_SIZE, true, DATA);
     }
 
     @Override
@@ -38,7 +43,7 @@ public class TestScanningLongStreamV1AriaScan
             throws OrcCorruptionException
     {
         Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, kind, COMPRESSION_BLOCK_SIZE);
-        OrcInputStreamAria input = new OrcInputStreamAria(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, newSimpleAggregatedMemoryContext(), slice.getRetainedSize());
-        return new ScanningLongInputStreamV1(input, true);
+        OrcInputStream input = new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, newSimpleAggregatedMemoryContext(), slice.getRetainedSize());
+        return new LongInputStreamV2(input, true, true);
     }
 }

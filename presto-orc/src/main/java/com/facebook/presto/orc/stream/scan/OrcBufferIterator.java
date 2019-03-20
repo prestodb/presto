@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.stream;
+package com.facebook.presto.orc.stream.scan;
 
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.memory.context.LocalMemoryContext;
@@ -39,8 +39,8 @@ import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
-public final class OrcInputStreamAria
-        extends InputStream implements Iterator<OrcInputStreamAria.Buffer>
+public final class OrcBufferIterator
+        extends InputStream implements Iterator<OrcBufferIterator.Buffer>
 {
     private final OrcDataSourceId orcDataSourceId;
     private final FixedLengthSliceInput compressedSliceInput;
@@ -57,7 +57,7 @@ public final class OrcInputStreamAria
 
     private Buffer bufferContainer = new Buffer();
 
-    public OrcInputStreamAria(
+    public OrcBufferIterator(
             OrcDataSourceId orcDataSourceId,
             FixedLengthSliceInput sliceInput,
             Optional<OrcDecompressor> decompressor,
@@ -73,9 +73,9 @@ public final class OrcInputStreamAria
         // memory reserved in the systemMemoryContext is never release and instead it is
         // expected that the context itself will be destroyed at the end of the read
         requireNonNull(systemMemoryContext, "systemMemoryContext is null");
-        this.bufferMemoryUsage = systemMemoryContext.newLocalMemoryContext(OrcInputStreamAria.class.getSimpleName());
+        this.bufferMemoryUsage = systemMemoryContext.newLocalMemoryContext(OrcBufferIterator.class.getSimpleName());
         checkArgument(sliceInputRetainedSizeInBytes >= 0, "sliceInputRetainedSizeInBytes is negative");
-        systemMemoryContext.newLocalMemoryContext(OrcInputStreamAria.class.getSimpleName()).setBytes(sliceInputRetainedSizeInBytes);
+        systemMemoryContext.newLocalMemoryContext(OrcBufferIterator.class.getSimpleName()).setBytes(sliceInputRetainedSizeInBytes);
 
         if (!decompressor.isPresent()) {
             long sliceInputPosition = sliceInput.position();
@@ -337,9 +337,9 @@ public final class OrcInputStreamAria
         }
         // copy current reference as the final call to advance() will set bufferContainer to null
         Buffer currentContainer = bufferContainer;
-        currentContainer.buffer = buffer;
-        currentContainer.position = position;
-        currentContainer.length = length;
+        currentContainer.setBuffer(buffer);
+        currentContainer.setPosition(position);
+        currentContainer.setLength(length);
         try {
             if (decompressor.isPresent()) {
                 advance();
@@ -367,9 +367,9 @@ public final class OrcInputStreamAria
 
     public static class Buffer
     {
-        byte[] buffer;
-        int position;
-        int length;
+        private byte[] buffer;
+        private int position;
+        private int length;
 
         public byte[] getBuffer()
         {
@@ -384,6 +384,21 @@ public final class OrcInputStreamAria
         public int getLength()
         {
             return length;
+        }
+
+        public void setBuffer(byte[] buffer)
+        {
+            this.buffer = buffer;
+        }
+
+        public void setPosition(int position)
+        {
+            this.position = position;
+        }
+
+        public void setLength(int length)
+        {
+            this.length = length;
         }
     }
 }
