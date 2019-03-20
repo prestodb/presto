@@ -91,7 +91,7 @@ public class TestSqlToRowExpressionTranslator
 
     private RowExpression translateAndOptimize(Expression expression, Map<NodeRef<Expression>, Type> types)
     {
-        return SqlToRowExpressionTranslator.translate(expression, types, metadata.getFunctionManager(), metadata.getTypeManager(), TEST_SESSION, true);
+        return SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), TEST_SESSION, true);
     }
 
     private Expression simplifyExpression(Expression expression)

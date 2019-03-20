@@ -33,6 +33,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
@@ -146,6 +147,7 @@ public final class SqlToRowExpressionTranslator
     public static RowExpression translate(
             Expression expression,
             Map<NodeRef<Expression>, Type> types,
+            Map<Symbol, Integer> layout,
             FunctionManager functionManager,
             TypeManager typeManager,
             Session session,
@@ -153,6 +155,7 @@ public final class SqlToRowExpressionTranslator
     {
         Visitor visitor = new Visitor(
                 types,
+                layout,
                 typeManager,
                 functionManager,
                 session);
@@ -172,6 +175,7 @@ public final class SqlToRowExpressionTranslator
             extends AstVisitor<RowExpression, Void>
     {
         private final Map<NodeRef<Expression>, Type> types;
+        private final Map<Symbol, Integer> layout;
         private final TypeManager typeManager;
         private final FunctionManager functionManager;
         private final Session session;
@@ -179,11 +183,13 @@ public final class SqlToRowExpressionTranslator
 
         private Visitor(
                 Map<NodeRef<Expression>, Type> types,
+                Map<Symbol, Integer> layout,
                 TypeManager typeManager,
                 FunctionManager functionManager,
                 Session session)
         {
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
+            this.layout = layout;
             this.typeManager = typeManager;
             this.functionManager = functionManager;
             this.session = session;
@@ -360,6 +366,11 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitSymbolReference(SymbolReference node, Void context)
         {
+            Integer field = layout.get(Symbol.from(node));
+            if (field != null) {
+                return field(field, getType(node));
+            }
+
             return new VariableReferenceExpression(node.getName(), getType(node));
         }
 
