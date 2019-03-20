@@ -788,6 +788,13 @@ public class OrcRecordReader
                 }
                 if (qualifyingSet == null) {
                     qualifyingSet = new QualifyingSet();
+                    qualifyingSet.setExceptionOnTruncate(retryIfBatchTooLarge);
+                }
+                if (qualifyingSet.getExceptionOnTruncate()) {
+                    qualifyingSet.setRange(0, Math.min(ariaBatchRows, (int) currentGroupRowCount));
+                }
+                else {
+                    qualifyingSet.setRange(0, (int) currentGroupRowCount);
                 }
                 qualifyingSet.setRange(0, Math.min(ariaBatchRows, (int) currentGroupRowCount));
                 reader.setQualifyingSets(qualifyingSet, null);
@@ -799,6 +806,9 @@ public class OrcRecordReader
                 if (reorderFilters && (currentRowGroup & 0x3) != 0 && currentRowGroup != 0) {
                     // Reconsider filter order every 4 row groups.
                     reader.maybeReorderFilters();
+                }
+                if (numResults > 0 && reader.mustExtractValues(currentRowGroup == 0)) {
+                    return resultPage();
                 }
             }
             if (qualifyingSet.isEmpty()) {

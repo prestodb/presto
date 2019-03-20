@@ -286,7 +286,8 @@ public class ColumnGroupReader
         int bytesSoFar = 0;
         double selectivity = 1;
         int totalAsk = 0;
-        if ((ariaFlags & AriaFlags.noReaderBudget) != 0) {
+        boolean exceptionOnTruncate = inputQualifyingSet.getExceptionOnTruncate();
+        if (!exceptionOnTruncate && (ariaFlags & AriaFlags.noReaderBudget) != 0) {
             for (int i = firstStreamIdx; i < sortedStreamReaders.length; i++) {
                 StreamReader reader = sortedStreamReaders[i];
                 if (reader.getChannel() != -1) {
