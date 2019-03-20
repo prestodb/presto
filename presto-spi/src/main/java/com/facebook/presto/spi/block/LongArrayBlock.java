@@ -124,6 +124,7 @@ public class LongArrayBlock
         if (offset != 0) {
             throw new IllegalArgumentException("offset must be zero");
         }
+
         return values[position + arrayOffset];
     }
 
@@ -269,5 +270,40 @@ public class LongArrayBlock
         if (position < 0 || position >= getPositionCount()) {
             throw new IllegalArgumentException("position is not valid");
         }
+    }
+
+    @Override
+    public void appendPositionSizesInBytes(int[] sizesInBytes)
+    {
+        // TODO: validate sizesInBytes.length >= positionCount
+        int averageElementSize = Long.BYTES;
+        if (mayHaveNull()) {
+            // TODO: this is overestimating.
+            averageElementSize += 1;
+        }
+        //arrayOffset doesnt' matter
+        for (int i = 0; i < positionCount; i++) {
+            sizesInBytes[i] += averageElementSize;
+        }
+    }
+
+    @Override
+    public void appendRegionSizesInBytes(int[] offsets, int[] sizesInBytes)
+    {
+        // TODO: validate sizesInBytes.length >= upperLevelOffsets.length - 1
+        int averageElementSize = Long.BYTES;
+        if (mayHaveNull()) {
+            averageElementSize += 1;
+        }
+        for (int i = 0; i < offsets.length - 1; i++) {
+            sizesInBytes[i] += (offsets[i + 1] - offsets[i]) * averageElementSize;
+        }
+    }
+
+    public void writeTo(BlockEncodingBuffers blockEncodingBuffers)
+    {
+        //blockEncodingBuffers.appendLongValues(values);
+        blockEncodingBuffers.appendFixedWidthValues(values, valueIsNull, mayHaveNull(), arrayOffset);
+        blockEncodingBuffers.updateBufferedPositionCount();
     }
 }

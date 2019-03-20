@@ -215,9 +215,9 @@ public class TestingPrestoServer
                 .putAll(properties)
                 .put("coordinator", String.valueOf(coordinator))
                 .put("presto.version", "testversion")
-                .put("task.concurrency", "4")
-                .put("task.max-worker-threads", "4")
-                .put("exchange.client-threads", "4");
+                .put("task.concurrency", "1")
+                .put("task.max-worker-threads", "1")
+                .put("exchange.client-threads", "1");
 
         if (coordinator) {
             // TODO: enable failure detector

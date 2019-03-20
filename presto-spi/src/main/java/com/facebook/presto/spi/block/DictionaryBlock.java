@@ -458,4 +458,19 @@ public class DictionaryBlock
             return this;
         }
     }
+
+    public void appendPositionSizesInBytes(int[] sizesInBytes)
+    {
+        throw new UnsupportedOperationException("accumulateSizesInBytes is not supported");
+    }
+
+    public void appendRegionSizesInBytes(int[] offsets, int[] sizesInBytes)
+    {
+        throw new UnsupportedOperationException("accumulateSizesInBytes is not supported");
+    }
+
+    public void writeTo(BlockEncodingBuffers blockEncodingBuffers)
+    {
+        throw new UnsupportedOperationException("writeTo is not supported");
+    }
 }

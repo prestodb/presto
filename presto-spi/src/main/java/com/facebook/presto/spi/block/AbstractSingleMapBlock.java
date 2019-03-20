@@ -269,4 +269,22 @@ public abstract class AbstractSingleMapBlock
     {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public void appendPositionSizesInBytes(int[] sizesInBytes)
+    {
+        throw new UnsupportedOperationException("accumulateSizesInBytes is not supported");
+    }
+
+    @Override
+    public void appendRegionSizesInBytes(int[] offsets, int[] sizesInBytes)
+    {
+        throw new UnsupportedOperationException("accumulateSizesInBytes is not supported");
+    }
+
+    @Override
+    public void writeTo(BlockEncodingBuffers blockEncodingBuffers)
+    {
+        throw new UnsupportedOperationException("writeTo is not supported");
+    }
 }

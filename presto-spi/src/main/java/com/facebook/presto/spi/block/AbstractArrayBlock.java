@@ -15,6 +15,8 @@ package com.facebook.presto.spi.block;
 
 import javax.annotation.Nullable;
 
+import java.util.Arrays;
+
 import static com.facebook.presto.spi.block.ArrayBlock.createArrayBlockInternal;
 import static com.facebook.presto.spi.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
@@ -233,5 +235,57 @@ public abstract class AbstractArrayBlock
     public interface ArrayBlockFunction<T>
     {
         T apply(Block block, int startPosition, int length);
+    }
+
+    @Override
+    public void appendPositionSizesInBytes(int[] sizesInBytes)
+    {
+        // TODO: validate sizesInBytes.length >= getPositionCount()
+        // Add current level offsets and isNull arrays sizes
+        int averageElementSize = Integer.BYTES;
+        if (mayHaveNull()) {
+            averageElementSize += 1;
+        }
+
+        // offsetBase doesn't matter
+        for (int i = 0; i < getPositionCount(); i++) {
+            sizesInBytes[i] += averageElementSize;
+        }
+
+        // Top level offsets need to be copied because it may be updated by lower level nested blocks.
+        // The size of it is positionCount + 1. It's the ranges of each row of the next level
+        int[] offsets = Arrays.copyOfRange(getOffsets(), getOffsetBase(), getPositionCount() + getOffsetBase() + 1);
+        getRawElementBlock().appendRegionSizesInBytes(offsets, sizesInBytes);
+    }
+
+    @Override
+    public void appendRegionSizesInBytes(int[] offsets, int[] sizesInBytes)
+    {
+        // TODO: validate upperLevelOffsets.length <= sizesInBytes.length + 1
+        // TODO: validate offsets.length > upperLevelOffsets[upperLevelOffsets.length - 1]
+
+        // Calculate next level offsets in place in upperLevelOffsets, while adding the cost for current level block's offsets array and isNull array
+        int averageElementSize = Integer.BYTES;
+        if (mayHaveNull()) {
+            averageElementSize += 1;
+        }
+
+        int start = offsets[0];
+        for (int i = 0; i < offsets.length - 1; i++) {
+            int end = offsets[i + 1];
+            sizesInBytes[i] += averageElementSize * (end - start);
+            offsets[i + 1] = getOffsets()[end];
+            start = end;
+        }
+
+        getRawElementBlock().appendRegionSizesInBytes(offsets, sizesInBytes);
+    }
+
+    public void writeTo(BlockEncodingBuffers blockEncodingBuffers)
+    {
+        blockEncodingBuffers.appendNulls(mayHaveNull(), getValueIsNull(), getOffsetBase());
+        blockEncodingBuffers.appendOffsets(getOffsets(), getOffsetBase());  // this needs to go before appendBlock() because it sets up the positions of the rawElementBlock
+        blockEncodingBuffers.appendBlock(getRawElementBlock(), getOffsetBase());
+        blockEncodingBuffers.updateBufferedPositionCount();
     }
 }

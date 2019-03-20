@@ -46,7 +46,14 @@ public class PagesSerdeUtil
 
     static Page readRawPage(int positionCount, SliceInput input, BlockEncodingSerde blockEncodingSerde)
     {
+        long position1 = input.position();
+        // System.out.println("readRawPage " + " " + position1);
+
         int numberOfBlocks = input.readInt();
+
+        //long position2 = input.position();
+        //assert(position1 + 4 == position2);
+        // System.out.println("Read numberOfBlocks " + numberOfBlocks + " " + input.position());
         Block[] blocks = new Block[numberOfBlocks];
         for (int i = 0; i < blocks.length; i++) {
             blocks[i] = readBlock(blockEncodingSerde, input);

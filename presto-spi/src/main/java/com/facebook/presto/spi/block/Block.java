@@ -295,4 +295,12 @@ public interface Block
     {
         return this;
     }
+
+//    int[] getSizesInBytes();
+//
+//    int[] getSizesInBytes(int[] offsets, int offset, int length);
+
+    void appendPositionSizesInBytes(int[] sizesInBytes);
+    void appendRegionSizesInBytes(int[] offsets, int[] sizesInBytes);
+    void writeTo(BlockEncodingBuffers blockEncodingBuffers);
 }

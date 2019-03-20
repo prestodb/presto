@@ -57,11 +57,19 @@ public class ArrayBlockEncoding
     @Override
     public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
+        //System.out.println("Reading values at " + sliceInput.position());
         Block values = blockEncodingSerde.readBlock(sliceInput);
 
+        //System.out.println("Reading positionCount at " + sliceInput.position());
         int positionCount = sliceInput.readInt();
+        //System.out.println("positionCount " + positionCount);
+
         int[] offsets = new int[positionCount + 1];
+        //System.out.println("Reading offsets at " + sliceInput.position());
         sliceInput.readBytes(Slices.wrappedIntArray(offsets));
+        //System.out.println("Finished reading offsets at " + sliceInput.position());
+
+        //System.out.println("Reading nulls at " + sliceInput.position());
         boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElseGet(() -> new boolean[positionCount]);
         return createArrayBlockInternal(0, positionCount, valueIsNull, offsets, values);
     }

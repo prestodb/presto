@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockEncodingBuffers;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -225,5 +226,23 @@ public class GroupByIdBlock
     public Block getLoadedBlock()
     {
         return block.getLoadedBlock();
+    }
+
+    @Override
+    public void appendPositionSizesInBytes(int[] sizesInBytes)
+    {
+        throw new UnsupportedOperationException("accumulateSizesInBytes is not supported");
+    }
+
+    @Override
+    public void appendRegionSizesInBytes(int[] offsets, int[] sizesInBytes)
+    {
+        throw new UnsupportedOperationException("accumulateSizesInBytes is not supported");
+    }
+
+    @Override
+    public void writeTo(BlockEncodingBuffers blockEncodingBuffers)
+    {
+        throw new UnsupportedOperationException("writeTo is not supported");
     }
 }
