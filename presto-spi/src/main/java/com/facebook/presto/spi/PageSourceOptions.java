@@ -80,6 +80,8 @@ public class PageSourceOptions
             return inputChannels;
         }
 
+        public abstract boolean isDeterministic();
+
         /* Sets outputRows to be the list of positions on page for
          * which the filter is true. Returns the number of positions
          * written to outputRows. outputRows is expected to have at
