@@ -26,6 +26,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 public class TableLayoutResult
 {
@@ -34,8 +35,8 @@ public class TableLayoutResult
 
     public TableLayoutResult(TableLayout layout, TupleDomain<ColumnHandle> unenforcedConstraint)
     {
-        this.layout = layout;
-        this.unenforcedConstraint = unenforcedConstraint;
+        this.layout = requireNonNull(layout, "layout is null");
+        this.unenforcedConstraint = requireNonNull(unenforcedConstraint, "unenforcedConstraint is null");
     }
 
     public TableLayout getLayout()
