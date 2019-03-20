@@ -43,6 +43,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
@@ -252,7 +253,7 @@ public class TestRowExpressionSerde
 
     private RowExpression translate(Expression expression, boolean optimize)
     {
-        return SqlToRowExpressionTranslator.translate(expression, getExpressionTypes(expression), metadata.getFunctionManager(), metadata.getTypeManager(), TEST_SESSION, optimize);
+        return SqlToRowExpressionTranslator.translate(expression, getExpressionTypes(expression), ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), TEST_SESSION, optimize);
     }
 
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression)
