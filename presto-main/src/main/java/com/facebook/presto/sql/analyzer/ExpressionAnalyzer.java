@@ -111,7 +111,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -1476,30 +1475,6 @@ public class ExpressionAnalyzer
         return analyzeExpressionsWithSymbols(session, metadata, sqlParser, types, expressions, parameters, warningCollector, isDescribe).getExpressionTypes();
     }
 
-    public static Map<NodeRef<Expression>, Type> getExpressionTypesFromInput(
-            Session session,
-            Metadata metadata,
-            SqlParser sqlParser,
-            Map<Integer, Type> types,
-            Expression expression,
-            List<Expression> parameters,
-            WarningCollector warningCollector)
-    {
-        return getExpressionTypesFromInput(session, metadata, sqlParser, types, ImmutableList.of(expression), parameters, warningCollector);
-    }
-
-    public static Map<NodeRef<Expression>, Type> getExpressionTypesFromInput(
-            Session session,
-            Metadata metadata,
-            SqlParser sqlParser,
-            Map<Integer, Type> types,
-            Iterable<Expression> expressions,
-            List<Expression> parameters,
-            WarningCollector warningCollector)
-    {
-        return analyzeExpressionsWithInputs(session, metadata, sqlParser, types, expressions, parameters, warningCollector).getExpressionTypes();
-    }
-
     public static ExpressionAnalysis analyzeExpressionsWithSymbols(
             Session session,
             Metadata metadata,
@@ -1511,37 +1486,6 @@ public class ExpressionAnalyzer
             boolean isDescribe)
     {
         return analyzeExpressions(session, metadata, sqlParser, new RelationType(), types, expressions, parameters, warningCollector, isDescribe);
-    }
-
-    private static ExpressionAnalysis analyzeExpressionsWithInputs(
-            Session session,
-            Metadata metadata,
-            SqlParser sqlParser,
-            Map<Integer, Type> types,
-            Iterable<Expression> expressions,
-            List<Expression> parameters,
-            WarningCollector warningCollector)
-    {
-        Field[] fields = new Field[types.size()];
-        for (Entry<Integer, Type> entry : types.entrySet()) {
-            fields[entry.getKey()] = com.facebook.presto.sql.analyzer.Field.newUnqualified(Optional.empty(), entry.getValue());
-        }
-        RelationType tupleDescriptor = new RelationType(fields);
-
-        return analyzeExpressions(session, metadata, sqlParser, tupleDescriptor, TypeProvider.empty(), expressions, parameters, warningCollector);
-    }
-
-    public static ExpressionAnalysis analyzeExpressions(
-            Session session,
-            Metadata metadata,
-            SqlParser sqlParser,
-            RelationType tupleDescriptor,
-            TypeProvider types,
-            Iterable<? extends Expression> expressions,
-            List<Expression> parameters,
-            WarningCollector warningCollector)
-    {
-        return analyzeExpressions(session, metadata, sqlParser, tupleDescriptor, types, expressions, parameters, warningCollector, false);
     }
 
     private static ExpressionAnalysis analyzeExpressions(
