@@ -17,23 +17,17 @@ import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamV1Checkpoint;
 import com.facebook.presto.orc.stream.LongInputStream;
-import com.facebook.presto.orc.stream.scan.OrcBufferIterator.Buffer;
-import io.airlift.slice.ByteArrays;
 
 import java.io.IOException;
 
-import static com.facebook.presto.orc.stream.LongDecode.zigzagDecode;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.lang.Math.toIntExact;
 
 public class BufferBackedLongInputStreamV1
         implements LongInputStream
 {
     private static final int MIN_REPEAT_SIZE = 3;
-    private static final long VARINT_MASK = 0x8080_8080_8080_8080L;
 
-    private final OrcBufferIterator input;
-    private final boolean signed;
+    private final BufferConsumer bufferConsumer;
     private long literal;
     private int numLiterals;
     private int delta;
@@ -44,68 +38,35 @@ public class BufferBackedLongInputStreamV1
     // Position of the first value of the run in literals from the checkpoint.
     private int currentRunOffset;
 
-    private byte[] buffer;
-    private int position;
-    private int length;
-
     public BufferBackedLongInputStreamV1(OrcBufferIterator input, boolean signed)
     {
-        this.input = input;
-        this.signed = signed;
+        this.bufferConsumer = new BufferConsumer(input, signed);
         lastReadInputCheckpoint = input.getCheckpoint();
-        refresh();
-    }
-
-    private int available()
-    {
-        return length - position;
-    }
-
-    private boolean refresh()
-    {
-        if (!input.hasNext()) {
-            return false;
-        }
-        Buffer bufferContainer = input.next();
-        buffer = bufferContainer.getBuffer();
-        position = bufferContainer.getPosition();
-        length = bufferContainer.getLength();
-        return true;
-    }
-
-    private int read()
-    {
-        // If input has compressionKind == NONE then first bufferView will be empty
-        if (available() == 0) {
-            if (!refresh()) {
-                return -1;
-            }
-        }
-        return buffer[position++] & 0xff;
+        //bufferConsumer.refresh();
     }
 
     private void readHeader()
             throws IOException
     {
-        lastReadInputCheckpoint = input.getCheckpoint();
-        int control = read();
+        lastReadInputCheckpoint = bufferConsumer.getCheckpoint();
+        int control = bufferConsumer.read();
         if (control == -1) {
-            throw new OrcCorruptionException(input.getOrcDataSourceId(), "Read past end of RLE integer");
+            throw new OrcCorruptionException(bufferConsumer.getOrcDataSourceId(), "Read past end of RLE integer");
         }
 
         if (control < 0x80) {
             numLiterals = control + MIN_REPEAT_SIZE;
             used = 0;
             repeat = true;
-            delta = read();
+            delta = bufferConsumer.read();
             if (delta == -1) {
-                throw new OrcCorruptionException(input.getOrcDataSourceId(), "End of stream in RLE Integer");
+                throw new OrcCorruptionException(bufferConsumer.getOrcDataSourceId(), "End of stream in RLE Integer");
             }
 
             // convert from 0 to 255 to -128 to 127 by converting to a signed byte
             // noinspection SillyAssignment
             delta = (byte) delta;
-            literal = decodeVarint();
+            literal = bufferConsumer.decodeVarint();
         }
         else {
             numLiterals = 0x100 - control;
@@ -127,7 +88,7 @@ public class BufferBackedLongInputStreamV1
             result = literal + (used++) * delta;
         }
         else {
-            result = decodeVarint();
+            result = bufferConsumer.decodeVarint();
             used++;
         }
         return result;
@@ -152,11 +113,10 @@ public class BufferBackedLongInputStreamV1
         }
         else {
             // otherwise, discard the buffer and start over
-            input.seekToCheckpoint(v1Checkpoint.getInputStreamCheckpoint());
+            bufferConsumer.seekToCheckpoint(v1Checkpoint.getInputStreamCheckpoint());
             numLiterals = 0;
             used = 0;
             currentRunOffset = -v1Checkpoint.getOffset();
-            refresh();
             skip(v1Checkpoint.getOffset());
         }
     }
@@ -170,78 +130,19 @@ public class BufferBackedLongInputStreamV1
             }
             long consume = Math.min(items, numLiterals - used);
             used += toIntExact(consume);
-            items -= skipVarintsInBuffer(consume);
+            if (repeat) {
+                items -= consume;
+            }
+            else {
+                items -= consume; //bufferConsumer.skipVarintsInBuffer(consume);
+                bufferConsumer.skipFully(consume);
+            }
             if (items != 0) {
                 // A skip of multiple runs can take place at seeking
                 // to checkpoint. Keep track of the start of the run
                 // in literals for use by next scan().
-//                currentRunOffset += toIntExact(consume); //numLiterals;
                 currentRunOffset += numLiterals;
             }
-        }
-    }
-
-    private long skipVarintsInBuffer(long items)
-            throws IOException
-    {
-        if (items == 0) {
-            return 0;
-        }
-        if (repeat) {
-            return items;
-        }
-        if (available() == 0) {
-            if (!refresh() || available() == 0) {
-                throw new OrcCorruptionException(input.getOrcDataSourceId(), "Unexpected EOF");
-            }
-        }
-        long skipped = 0;
-        long mask = 0;
-        while (skipped < items && available() >= SIZE_OF_LONG) {
-            long value = ByteArrays.getLong(buffer, position);
-            position += SIZE_OF_LONG;
-            mask = (value & VARINT_MASK) ^ VARINT_MASK;
-            skipped += Long.bitCount(mask);
-        }
-        if (skipped > items) {
-            for (; skipped > items; skipped--) {
-                mask ^= Long.highestOneBit(mask);
-            }
-            position -= Long.numberOfLeadingZeros(mask) >> 3;
-        }
-        else if (skipped == items) {
-            position -= Long.numberOfLeadingZeros(mask) >> 3;
-        }
-        else {
-            while (skipped < items && available() > 0) {
-                if ((buffer[position++] & 0x80) == 0) {
-                    skipped++;
-                }
-            }
-        }
-        return skipped;
-    }
-
-    private long decodeVarint()
-            throws IOException
-    {
-        long result = 0;
-        int shift = 0;
-        do {
-            if (available() == 0) {
-                if (!refresh() || available() == 0) {
-                    throw new OrcCorruptionException(input.getOrcDataSourceId(), "End of stream in RLE Integer");
-                }
-            }
-            result |= (long) (buffer[position] & 0x7f) << shift;
-            shift += 7;
-        }
-        while ((buffer[position++] & 0x80) != 0);
-        if (signed) {
-            return zigzagDecode(result);
-        }
-        else {
-            return result;
         }
     }
 
@@ -265,12 +166,10 @@ public class BufferBackedLongInputStreamV1
             }
             else {
                 skip(offsets[offsetIdx] - currentRunOffset - used);
-                for (int offset = offsets[offsetIdx]; offsetIdx < beginOffset + numOffsets && offset == offsets[offsetIdx] && offsets[offsetIdx] - currentRunOffset < numLiterals && used != numLiterals; offset++) {
-                    if (resultsConsumer.consume(offsetIdx, getValue(offsets[offsetIdx]))) {
-                        numResults++;
-                    }
-                    offsetIdx++;
+                if (resultsConsumer.consume(offsetIdx, getValue(offsets[offsetIdx]))) {
+                    numResults++;
                 }
+                offsetIdx++;
             }
         }
         skip(endOffset - offsets[beginOffset + numOffsets - 1] - 1);
@@ -287,7 +186,7 @@ public class BufferBackedLongInputStreamV1
         }
         else {
             used++;
-            result = decodeVarint();
+            result = bufferConsumer.decodeVarint();
         }
         return result;
     }

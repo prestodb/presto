@@ -11,33 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.stream;
+package com.facebook.presto.orc.stream.scan;
 
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamDwrfCheckpoint;
-import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
+import com.facebook.presto.orc.stream.LongInputStream;
 
 import java.io.IOException;
 
-import static com.facebook.presto.orc.stream.LongDecode.readDwrfLong;
+import static java.lang.Math.toIntExact;
 
-public class LongInputStreamDwrf
+public class BufferBackedVarintLongInputStreamDwrf
         implements LongInputStream
 {
-    private final OrcInputStream input;
-    private final OrcTypeKind orcTypeKind;
-    private final boolean signed;
-    private final boolean usesVInt;
+    private final BufferConsumer bufferConsumer;
 
     // Position of the first value of the run in literals from the checkpoint.
     private int currentRunOffset;
 
-    public LongInputStreamDwrf(OrcInputStream input, OrcTypeKind type, boolean signed, boolean usesVInt)
+    public BufferBackedVarintLongInputStreamDwrf(OrcBufferIterator input, boolean signed)
     {
-        this.input = input;
-        this.orcTypeKind = type;
-        this.signed = signed;
-        this.usesVInt = usesVInt;
+        this.bufferConsumer = new BufferConsumer(input, signed);
     }
 
     @Override
@@ -51,7 +45,7 @@ public class LongInputStreamDwrf
             throws IOException
     {
         LongStreamDwrfCheckpoint dwrfCheckpoint = (LongStreamDwrfCheckpoint) checkpoint;
-        input.seekToCheckpoint(dwrfCheckpoint.getInputStreamCheckpoint());
+        bufferConsumer.seekToCheckpoint(dwrfCheckpoint.getInputStreamCheckpoint());
         currentRunOffset = 0;
     }
 
@@ -59,10 +53,8 @@ public class LongInputStreamDwrf
     public void skip(long items)
             throws IOException
     {
-        // there is no fast way to skip values
-        for (long i = 0; i < items; i++) {
-            next();
-        }
+        bufferConsumer.skipFully(items);
+        currentRunOffset += toIntExact(items);
     }
 
     @Override
@@ -70,7 +62,10 @@ public class LongInputStreamDwrf
             throws IOException
     {
         currentRunOffset++;
-        long result = readDwrfLong(input, orcTypeKind, signed, usesVInt);
+        if (bufferConsumer.available() == 0) {
+            bufferConsumer.refresh();
+        }
+        long result = bufferConsumer.decodeVarint();
         return result;
     }
 

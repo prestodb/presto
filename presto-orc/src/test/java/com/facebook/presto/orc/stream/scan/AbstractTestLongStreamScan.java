@@ -28,11 +28,18 @@ import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
+import java.util.stream.IntStream;
 
+import static com.facebook.presto.orc.stream.scan.AbstractTestLongStream.TEST_DATA;
+import static com.facebook.presto.orc.stream.scan.AbstractTestLongStream.TEST_LITERAL_DATA;
+import static com.facebook.presto.orc.stream.scan.AbstractTestLongStream.TEST_LONG_LITERAL_DATA;
+import static com.facebook.presto.orc.stream.scan.AbstractTestLongStream.TEST_RUNLENGTH_DATA;
+import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -41,25 +48,24 @@ public abstract class AbstractTestLongStreamScan
     public static final int COMPRESSION_BLOCK_SIZE = 256 * 1024;
     public static final OrcDataSourceId ORC_DATA_SOURCE_ID = new OrcDataSourceId("test");
 
-    private static final List<List<Long>> TEST_DATA = getTestData();
-    private static final List<List<Long>> TEST_RUNLENGTH_DATA = getRunlengthTestData();
-    private static final List<List<Long>> TEST_LITERAL_DATA = getLiteralTestData();
-
     @Test
     public void testData()
             throws IOException
     {
         for (CompressionKind kind : CompressionKind.values()) {
-            testScan(TEST_RUNLENGTH_DATA, kind);
-            testScan(TEST_DATA, kind);
-            testScan(TEST_LITERAL_DATA, kind);
+            for (PositionsType positionsType : PositionsType.values()) {
+                testScan(TEST_LONG_LITERAL_DATA, kind, positionsType);
+                testScan(TEST_RUNLENGTH_DATA, kind, positionsType);
+                testScan(TEST_DATA, kind, positionsType);
+                testScan(TEST_LITERAL_DATA, kind, positionsType);
+            }
         }
     }
 
-    protected void testScan(List<List<Long>> groups, CompressionKind kind)
+    protected void testScan(List<List<Long>> groups, CompressionKind kind, PositionsType positionsType)
             throws IOException
     {
-        List<int[]> offsetGroups = getOddOffsets(groups);
+        List<int[]> offsetGroups = getAllPositions(groups, positionsType);
         LongOutputStream outputStream = createValueOutputStream(kind);
         for (int i = 0; i < 3; i++) {
             outputStream.reset();
@@ -94,8 +100,15 @@ public abstract class AbstractTestLongStreamScan
             for (int j = 0; j < offsetGroups.size(); j++) {
                 List<Long> group = groups.get(j);
                 int[] offsets = offsetGroups.get(j);
+                int index = 0;
                 for (int offset : offsets) {
-                    assertEquals(resultsIterator.next(), group.get(offset));
+                    long expectedValue = group.get(offset);
+                    long actualValue = resultsIterator.next();
+                    if (expectedValue != actualValue) {
+                        System.err.println("offset=" + index);
+                        assertEquals(actualValue, expectedValue, "offset=" + index);
+                    }
+                    index++;
                 }
             }
         }
@@ -111,7 +124,7 @@ public abstract class AbstractTestLongStreamScan
     protected abstract LongInputStream createValueStream(Slice slice, CompressionKind kind)
             throws OrcCorruptionException;
 
-    private static class TestResultsConsumer
+    static class TestResultsConsumer
             implements LongInputStream.ResultsConsumer
     {
         private ImmutableList.Builder<Long> results;
@@ -138,76 +151,58 @@ public abstract class AbstractTestLongStreamScan
         }
     }
 
-    private List<int[]> getOddOffsets(List<List<Long>> groups)
+    enum PositionsType
     {
-        ImmutableList.Builder<int[]> builder = ImmutableList.builderWithExpectedSize(groups.size());
-        for (List<?> group : groups) {
-            int[] offsets = new int[group.size() >> 1];
-            for (int i = 0; i < offsets.length; i++) {
-                offsets[i] = (i << 1) + 1;
-            }
-            builder.add(offsets);
+        ALL,
+        ODD,
+        SECOND_HALF,
+        RANDOM_QUARTER
+    }
+
+    static List<int[]> getAllPositions(List<List<Long>> groups, PositionsType positionsType)
+    {
+        ImmutableList.Builder<int[]> builder = ImmutableList.builder();
+        for (List<Long> group : groups) {
+            builder.add(getPositions(group, positionsType));
         }
         return builder.build();
     }
 
-    private static List<List<Long>> getTestData()
+    private static int[] getPositions(List<Long> data, PositionsType positionsType)
     {
-        List<List<Long>> groups = new ArrayList<>();
-        List<Long> group;
-
-        group = new ArrayList<>();
-        for (int i = 0; i < 1000; i++) {
-            group.add((long) (i));
+        int size = data.size();
+        int[] positions;
+        switch (positionsType) {
+            case ALL:
+                positions = IntStream.range(0, size).toArray();
+                break;
+            case ODD:
+                int oddCount = (size & 1) == 1 ? (size - 1) >> 1 : size >> 1;
+                positions = new int[oddCount];
+                for (int i = 0; i < oddCount; i++) {
+                    positions[i] = 2 * i + 1;
+                }
+                break;
+            case SECOND_HALF:
+                int mid = size >> 1;
+                positions = new int[size - mid];
+                for (int i = mid; i < size; i++) {
+                    positions[i - mid] = i;
+                }
+                break;
+            case RANDOM_QUARTER:
+                List<Integer> all = IntStream.range(0, size).boxed().collect(toList());
+                Collections.shuffle(all, new Random(22));
+                int quarterSize = all.size() >> 2;
+                positions = new int[quarterSize];
+                for (int i = 0; i < quarterSize; i++) {
+                    positions[i] = all.get(i);
+                }
+                Arrays.sort(positions);
+                break;
+            default:
+                throw new IllegalStateException("Invalid PositionsType");
         }
-        groups.add(group);
-
-        group = new ArrayList<>();
-        for (int i = 0; i < 1000; i++) {
-            group.add((long) (10_000 + (i * 17)));
-        }
-        groups.add(group);
-
-        group = new ArrayList<>();
-        for (int i = 0; i < 1000; i++) {
-            group.add((long) (10_000 - (i * 17)));
-        }
-        groups.add(group);
-
-        group = new ArrayList<>();
-        Random random = new Random(22);
-        for (int i = 0; i < 1000; i++) {
-            group.add(-1000L + random.nextInt(17));
-        }
-        groups.add(group);
-        return groups;
-    }
-
-    private static List<List<Long>> getRunlengthTestData()
-    {
-        List<List<Long>> groups = new ArrayList<>();
-        for (int groupIndex = 0; groupIndex < 3; groupIndex++) {
-            List<Long> group = new ArrayList<>();
-            for (int i = 0; i < 1000; i++) {
-                group.add((long) (groupIndex * 10_000 + i));
-            }
-            groups.add(group);
-        }
-        return groups;
-    }
-
-    private static List<List<Long>> getLiteralTestData()
-    {
-        List<List<Long>> groups = new ArrayList<>();
-        for (int groupIndex = 0; groupIndex < 3; groupIndex++) {
-            List<Long> group = new ArrayList<>();
-            long value = groupIndex * 10_000;
-            for (int i = 0; i < 40; i++) {
-                group.add(value);
-                value += 2 * i + 1;
-            }
-            groups.add(group);
-        }
-        return groups;
+        return positions;
     }
 }

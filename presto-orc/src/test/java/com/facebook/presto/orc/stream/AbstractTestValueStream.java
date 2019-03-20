@@ -18,9 +18,6 @@ import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
-import com.facebook.presto.orc.stream.StreamDataOutput;
-import com.facebook.presto.orc.stream.ValueInputStream;
-import com.facebook.presto.orc.stream.ValueOutputStream;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 

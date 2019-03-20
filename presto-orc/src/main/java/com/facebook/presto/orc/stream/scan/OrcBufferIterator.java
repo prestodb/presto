@@ -18,6 +18,7 @@ import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcDecompressor;
+import com.google.common.collect.PeekingIterator;
 import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slice;
 
@@ -25,7 +26,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
@@ -40,7 +40,7 @@ import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
 public final class OrcBufferIterator
-        extends InputStream implements Iterator<OrcBufferIterator.Buffer>
+        extends InputStream implements PeekingIterator<OrcBufferIterator.Buffer>
 {
     private final OrcDataSourceId orcDataSourceId;
     private final FixedLengthSliceInput compressedSliceInput;
@@ -54,7 +54,7 @@ public final class OrcBufferIterator
 
     private final LocalMemoryContext bufferMemoryUsage;
     private boolean isUncompressed;
-
+    private int uncompressedOffset;
     private Buffer bufferContainer = new Buffer();
 
     public OrcBufferIterator(
@@ -221,7 +221,7 @@ public final class OrcBufferIterator
         }
 
         if (decompressedOffset != position) {
-            position = 0;
+            position = uncompressedOffset;
             if (available() < decompressedOffset) {
                 decompressedOffset -= available();
                 advance();
@@ -229,7 +229,6 @@ public final class OrcBufferIterator
             position += decompressedOffset;
         }
         else if (length == 0) {
-            decompressedOffset -= available();
             advance();
             position += decompressedOffset;
         }
@@ -267,6 +266,7 @@ public final class OrcBufferIterator
             length = 0;
             // So bufferContainer.buffer can be gc'd
             bufferContainer = null;
+            uncompressedOffset = 0;
             return;
         }
 
@@ -291,7 +291,7 @@ public final class OrcBufferIterator
         if (isUncompressed) {
             buffer = (byte[]) chunk.getBase();
             position = toIntExact(chunk.getAddress() - ARRAY_BYTE_BASE_OFFSET);
-            length = toIntExact(chunk.getAddress() - ARRAY_BYTE_BASE_OFFSET + chunk.length());
+            length = toIntExact(position + chunk.length());
         }
         else {
             OrcDecompressor.OutputBuffer output = new OrcDecompressor.OutputBuffer()
@@ -321,6 +321,7 @@ public final class OrcBufferIterator
             length = decompressor.get().decompress((byte[]) chunk.getBase(), (int) (chunk.getAddress() - ARRAY_BYTE_BASE_OFFSET), chunk.length(), output);
             position = 0;
         }
+        uncompressedOffset = position;
     }
 
     @Override
@@ -335,11 +336,6 @@ public final class OrcBufferIterator
         if (buffer == null) {
             throw new NoSuchElementException();
         }
-        // copy current reference as the final call to advance() will set bufferContainer to null
-        Buffer currentContainer = bufferContainer;
-        currentContainer.setBuffer(buffer);
-        currentContainer.setPosition(position);
-        currentContainer.setLength(length);
         try {
             if (decompressor.isPresent()) {
                 advance();
@@ -351,7 +347,26 @@ public final class OrcBufferIterator
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        return currentContainer;
+        bufferContainer.setBuffer(buffer);
+        bufferContainer.setPosition(position);
+        bufferContainer.setLength(length);
+
+        return bufferContainer;
+    }
+
+    @Override
+    public void remove()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Buffer peek()
+    {
+        bufferContainer.setBuffer(buffer);
+        bufferContainer.setPosition(position);
+        bufferContainer.setLength(length);
+        return bufferContainer;
     }
 
     @Override
