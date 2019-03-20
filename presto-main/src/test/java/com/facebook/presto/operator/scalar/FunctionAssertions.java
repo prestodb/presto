@@ -59,7 +59,6 @@ import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.SymbolToInputRewriter;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.tree.Cast;
@@ -124,7 +123,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeExpressionsWithSymbols;
-import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.SqlToRowExpressionTranslator.translate;
@@ -166,19 +165,6 @@ public final class FunctionAssertions
             createIntsBlock(1234));
 
     private static final Page ZERO_CHANNEL_PAGE = new Page(1);
-
-    private static final Map<Integer, Type> INPUT_TYPES = ImmutableMap.<Integer, Type>builder()
-            .put(0, BIGINT)
-            .put(1, VARCHAR)
-            .put(2, DOUBLE)
-            .put(3, BOOLEAN)
-            .put(4, BIGINT)
-            .put(5, VARCHAR)
-            .put(6, VARCHAR)
-            .put(7, TIMESTAMP_WITH_TIME_ZONE)
-            .put(8, VARBINARY)
-            .put(9, INTEGER)
-            .build();
 
     private static final Map<Symbol, Integer> INPUT_MAPPING = ImmutableMap.<Symbol, Integer>builder()
             .put(new Symbol("bound_long"), 0)
@@ -629,16 +615,15 @@ public final class FunctionAssertions
 
     private RowExpression toRowExpression(Session session, Expression projectionExpression)
     {
-        Expression translatedProjection = new SymbolToInputRewriter(INPUT_MAPPING).rewrite(projectionExpression);
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
                 session,
                 metadata,
                 SQL_PARSER,
-                INPUT_TYPES,
-                ImmutableList.of(translatedProjection),
+                SYMBOL_TYPES,
+                projectionExpression,
                 ImmutableList.of(),
                 WarningCollector.NOOP);
-        return toRowExpression(translatedProjection, expressionTypes);
+        return toRowExpression(projectionExpression, expressionTypes, INPUT_MAPPING);
     }
 
     private Object selectSingleValue(OperatorFactory operatorFactory, Type type, Session session)
@@ -954,9 +939,9 @@ public final class FunctionAssertions
         }
     }
 
-    private RowExpression toRowExpression(Expression projection, Map<NodeRef<Expression>, Type> expressionTypes)
+    private RowExpression toRowExpression(Expression projection, Map<NodeRef<Expression>, Type> expressionTypes, Map<Symbol, Integer> layout)
     {
-        return translate(projection, expressionTypes, metadata.getFunctionManager(), metadata.getTypeManager(), session, false);
+        return translate(projection, expressionTypes, layout, metadata.getFunctionManager(), metadata.getTypeManager(), session, false);
     }
 
     private static Page getAtMostOnePage(Operator operator, Page sourcePage)
