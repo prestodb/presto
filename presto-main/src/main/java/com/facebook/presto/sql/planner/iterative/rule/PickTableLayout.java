@@ -228,7 +228,7 @@ public class PickTableLayout
             SqlParser parser,
             DomainTranslator domainTranslator)
     {
-        return listTableLayouts(
+        return pushPredicateIntoTableScan(
                 node,
                 predicate,
                 false,
@@ -241,7 +241,7 @@ public class PickTableLayout
                 .get(0);
     }
 
-    public static List<PlanNode> listTableLayouts(
+    public static List<PlanNode> pushPredicateIntoTableScan(
             TableScanNode node,
             Expression predicate,
             boolean pruneWithPredicateExpression,
