@@ -1854,12 +1854,19 @@ public class TestSqlParser
                                 new Identifier("SOME"),
                                 new Identifier("ANY")),
                         table(QualifiedName.of("t"))));
+        assertStatement("SELECT CURRENT_ROLE, t.current_role FROM t",
+                simpleQuery(
+                        selectList(
+                                new Identifier("CURRENT_ROLE"),
+                                new DereferenceExpression(new Identifier("t"), new Identifier("current_role"))),
+                        table(QualifiedName.of("t"))));
 
         assertExpression("stats", new Identifier("stats"));
         assertExpression("nfd", new Identifier("nfd"));
         assertExpression("nfc", new Identifier("nfc"));
         assertExpression("nfkd", new Identifier("nfkd"));
         assertExpression("nfkc", new Identifier("nfkc"));
+        assertExpression("current_role", new Identifier("current_role"));
     }
 
     @Test
