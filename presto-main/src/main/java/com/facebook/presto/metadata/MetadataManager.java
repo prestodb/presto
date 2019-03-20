@@ -108,7 +108,6 @@ import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -375,11 +374,9 @@ public class MetadataManager
     }
 
     @Override
-    public List<TableLayoutResult> getLayouts(Session session, TableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    public TableLayoutResult getLayout(Session session, TableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
-        if (constraint.getSummary().isNone()) {
-            return ImmutableList.of();
-        }
+        checkArgument(!constraint.getSummary().isNone(), "Cannot get Layout if constraint is none");
 
         ConnectorId connectorId = table.getConnectorId();
         ConnectorTableHandle connectorTable = table.getConnectorHandle();
@@ -390,9 +387,11 @@ public class MetadataManager
         ConnectorSession connectorSession = session.toConnectorSession(connectorId);
         List<ConnectorTableLayoutResult> layouts = metadata.getTableLayouts(connectorSession, connectorTable, constraint, desiredColumns);
 
-        return layouts.stream()
-                .map(layout -> new TableLayoutResult(fromConnectorLayout(connectorId, transaction, layout.getTableLayout()), layout.getUnenforcedConstraint()))
-                .collect(toImmutableList());
+        if (layouts.size() != 1) {
+            throw new PrestoException(NOT_SUPPORTED, "Connector returned multiple layouts for table " + table);
+        }
+
+        return new TableLayoutResult(fromConnectorLayout(connectorId, transaction, layouts.get(0).getTableLayout()), layouts.get(0).getUnenforcedConstraint());
     }
 
     @Override

@@ -74,8 +74,16 @@ public interface Metadata
 
     Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, Map<String, Object> analyzeProperties);
 
-    List<TableLayoutResult> getLayouts(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns);
+    /**
+     * Returns a new table layout that satisfies the given constraint together with unenforced constraint.
+     * @apiNote This method is unstable and subject to change in the future.
+     */
+    TableLayoutResult getLayout(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns);
 
+    /**
+     * Returns table's layout properties for a given tableLayoutHandle.
+     * @apiNote This method is unstable and subject to change in the future.
+     */
     TableLayout getLayout(Session session, TableLayoutHandle handle);
 
     /**

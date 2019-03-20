@@ -175,8 +175,8 @@ public abstract class AbstractOperatorBenchmark
         List<ColumnHandle> columnHandles = columnHandlesBuilder.build();
 
         // get the split for this table
-        List<TableLayoutResult> layouts = metadata.getLayouts(session, tableHandle, Constraint.alwaysTrue(), Optional.empty());
-        Split split = getLocalQuerySplit(session, layouts.get(0).getLayout().getHandle());
+        TableLayoutResult layout = metadata.getLayout(session, tableHandle, Constraint.alwaysTrue(), Optional.empty());
+        Split split = getLocalQuerySplit(session, layout.getLayout().getHandle());
 
         return new OperatorFactory()
         {

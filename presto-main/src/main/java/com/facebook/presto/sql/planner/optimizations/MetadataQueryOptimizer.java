@@ -18,7 +18,6 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
-import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Constraint;
@@ -138,18 +137,15 @@ public class MetadataQueryOptimizer
 
             // Materialize the list of partitions and replace the TableScan node
             // with a Values node
-            TableLayout layout = null;
+            TableLayout layout;
             if (!tableScan.getLayout().isPresent()) {
-                List<TableLayoutResult> layouts = metadata.getLayouts(session, tableScan.getTable(), Constraint.alwaysTrue(), Optional.empty());
-                if (layouts.size() == 1) {
-                    layout = Iterables.getOnlyElement(layouts).getLayout();
-                }
+                layout = metadata.getLayout(session, tableScan.getTable(), Constraint.alwaysTrue(), Optional.empty()).getLayout();
             }
             else {
                 layout = metadata.getLayout(session, tableScan.getLayout().get());
             }
 
-            if (layout == null || !layout.getDiscretePredicates().isPresent()) {
+            if (!layout.getDiscretePredicates().isPresent()) {
                 return context.defaultRewrite(node);
             }
             DiscretePredicates predicates = layout.getDiscretePredicates().get();

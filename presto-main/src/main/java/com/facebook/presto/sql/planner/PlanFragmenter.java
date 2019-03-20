@@ -537,9 +537,7 @@ public class PlanFragmenter
                     .map(columnHandles::get)
                     .collect(toImmutableSet());
 
-            List<TableLayoutResult> layouts = metadata.getLayouts(session, tableHandle, Constraint.alwaysTrue(), Optional.of(outputColumnHandles));
-            checkArgument(layouts.size() == 1, "temporary table is expected to have exactly one layout");
-            TableLayoutResult selectedLayout = getOnlyElement(layouts);
+            TableLayoutResult selectedLayout = metadata.getLayout(session, tableHandle, Constraint.alwaysTrue(), Optional.of(outputColumnHandles));
             verify(selectedLayout.getUnenforcedConstraint().equals(TupleDomain.all()), "temporary table layout shouldn't enforce any constraints");
             verify(!selectedLayout.getLayout().getColumns().isPresent(), "temporary table layout must provide all the columns");
             TablePartitioning expectedPartitioning = new TablePartitioning(
@@ -549,7 +547,6 @@ public class PlanFragmenter
                             .collect(toImmutableList()));
             verify(selectedLayout.getLayout().getTablePartitioning().equals(Optional.of(expectedPartitioning)), "invalid temporary table partitioning");
 
-            TableLayoutHandle layoutHandle = selectedLayout.getLayout().getHandle();
             Map<Symbol, ColumnHandle> assignments = outputSymbols.stream()
                     .collect(toImmutableMap(identity(), symbol -> columnHandles.get(outputColumns.get(symbol).getName())));
 
@@ -558,7 +555,7 @@ public class PlanFragmenter
                     tableHandle,
                     outputSymbols,
                     assignments,
-                    Optional.of(layoutHandle),
+                    Optional.of(selectedLayout.getLayout().getHandle()),
                     TupleDomain.all(),
                     TupleDomain.all(),
                     true);
