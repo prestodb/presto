@@ -838,7 +838,7 @@ public class HashGenerationOptimizer
             return Optional.empty();
         }
 
-        Expression result = new LongLiteral(String.valueOf(INITIAL_HASH_VALUE));
+        Expression result = new GenericLiteral(StandardTypes.BIGINT, String.valueOf(INITIAL_HASH_VALUE));
         for (Symbol symbol : symbols) {
             Expression hashField = new FunctionCall(
                     QualifiedName.of(HASH_CODE),
