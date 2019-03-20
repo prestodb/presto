@@ -80,7 +80,6 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -511,7 +510,7 @@ public class AddExchanges
         public PlanWithProperties visitFilter(FilterNode node, PreferredProperties preferredProperties)
         {
             if (node.getSource() instanceof TableScanNode) {
-                return planTableScan((TableScanNode) node.getSource(), node.getPredicate(), preferredProperties);
+                return planTableScan((TableScanNode) node.getSource(), node.getPredicate());
             }
 
             return rebaseAndDeriveProperties(node, planChild(node, preferredProperties));
@@ -520,7 +519,7 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitTableScan(TableScanNode node, PreferredProperties preferredProperties)
         {
-            return planTableScan(node, TRUE_LITERAL, preferredProperties);
+            return planTableScan(node, TRUE_LITERAL);
         }
 
         @Override
@@ -550,28 +549,11 @@ public class AddExchanges
             return rebaseAndDeriveProperties(node, source);
         }
 
-        private PlanWithProperties planTableScan(TableScanNode node, Expression predicate, PreferredProperties preferredProperties)
+        private PlanWithProperties planTableScan(TableScanNode node, Expression predicate)
         {
-            List<PlanNode> possiblePlans = PickTableLayout.pushPredicateIntoTableScan(node, predicate, true, session, types, idAllocator, metadata, parser, domainTranslator);
-            List<PlanWithProperties> possiblePlansWithProperties = possiblePlans.stream()
-                    .map(planNode -> new PlanWithProperties(planNode, derivePropertiesRecursively(planNode)))
-                    .collect(toImmutableList());
-            return pickPlan(possiblePlansWithProperties, preferredProperties);
-        }
-
-        /**
-         * possiblePlans should be provided in layout preference order
-         */
-        private PlanWithProperties pickPlan(List<PlanWithProperties> possiblePlans, PreferredProperties preferredProperties)
-        {
-            checkArgument(!possiblePlans.isEmpty());
-
-            if (preferStreamingOperators) {
-                possiblePlans = new ArrayList<>(possiblePlans);
-                Collections.sort(possiblePlans, Comparator.comparing(PlanWithProperties::getProperties, streamingExecutionPreference(preferredProperties))); // stable sort; is Collections.min() guaranteed to be stable?
-            }
-
-            return possiblePlans.get(0);
+            PlanNode plan = PickTableLayout.pushPredicateIntoTableScan(node, predicate, true, session, types, idAllocator, metadata, parser, domainTranslator);
+            // TODO we removed support for select layout with best local property, it can cause regssion in short term but we will replace it with better mechanism later.
+            return new PlanWithProperties(plan, derivePropertiesRecursively(plan));
         }
 
         @Override
