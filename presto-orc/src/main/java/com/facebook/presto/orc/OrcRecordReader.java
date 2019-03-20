@@ -755,6 +755,7 @@ public class OrcRecordReader
     {
         reuseBlocks = options.getReusePages();
         reorderFilters = options.getReorderFilters();
+        retryIfBatchTooLarge = (options.getAriaFlags() & AriaFlags.budgetByException) != 0;
         reader = new ColumnGroupReader(
                 streamReaders,
                 presentColumns,
