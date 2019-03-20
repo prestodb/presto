@@ -41,7 +41,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -197,13 +196,13 @@ public class BeginTableWrite
                 TableScanNode scan = (TableScanNode) node;
                 TupleDomain<ColumnHandle> originalEnforcedConstraint = scan.getEnforcedConstraint();
 
-                List<TableLayoutResult> layouts = metadata.getLayouts(
+                Optional<TableLayoutResult> layout = metadata.getLayout(
                         session,
                         handle,
                         new Constraint<>(originalEnforcedConstraint),
                         Optional.of(ImmutableSet.copyOf(scan.getAssignments().values())));
-                verify(layouts.size() == 1, "Expected exactly one layout for delete");
-                TableLayoutResult layoutResult = Iterables.getOnlyElement(layouts);
+                verify(layout.isPresent(), "Expected get a tableLayout for delete");
+                TableLayoutResult layoutResult = layout.get();
 
                 return new TableScanNode(
                         scan.getId(),

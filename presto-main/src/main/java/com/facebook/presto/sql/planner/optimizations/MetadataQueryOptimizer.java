@@ -139,10 +139,7 @@ public class MetadataQueryOptimizer
             // with a Values node
             TableLayout layout = null;
             if (!tableScan.getLayout().isPresent()) {
-                List<TableLayoutResult> layouts = metadata.getLayouts(session, tableScan.getTable(), Constraint.alwaysTrue(), Optional.empty());
-                if (layouts.size() == 1) {
-                    layout = Iterables.getOnlyElement(layouts).getLayout();
-                }
+                layout = metadata.getLayout(session, tableScan.getTable(), Constraint.alwaysTrue(), Optional.empty()).map(TableLayoutResult::getLayout).get();
             }
             else {
                 layout = metadata.getLayout(session, tableScan.getLayout().get());
