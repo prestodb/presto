@@ -23,7 +23,6 @@ import java.util.Optional;
 import java.util.function.ToIntFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class DynamicBucketNodeMap
@@ -52,11 +51,10 @@ public class DynamicBucketNodeMap
     }
 
     @Override
-    public void assignBucketToNode(int bucketedId, InternalNode node)
+    public void assignOrUpdateBucketToNode(int bucketedId, InternalNode node)
     {
         checkArgument(bucketedId >= 0 && bucketedId < bucketCount);
         requireNonNull(node, "node is null");
-        checkState(!bucketToNode.containsKey(bucketedId), "bucket already assigned");
         bucketToNode.put(bucketedId, node);
     }
 
