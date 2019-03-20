@@ -454,15 +454,15 @@ qualifiedName
     ;
 
 grantor
-    : principal             #specifiedPrincipal
-    | CURRENT_USER          #currentUserGrantor
+    : CURRENT_USER          #currentUserGrantor
     | CURRENT_ROLE          #currentRoleGrantor
+    | principal             #specifiedPrincipal
     ;
 
 principal
-    : identifier            #unspecifiedPrincipal
-    | USER identifier       #userPrincipal
+    : USER identifier       #userPrincipal
     | ROLE identifier       #rolePrincipal
+    | identifier            #unspecifiedPrincipal
     ;
 
 roles
@@ -487,7 +487,7 @@ nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
     : ADD | ADMIN | ALL | ANALYZE | ANY | ARRAY | ASC | AT
     | BERNOULLI
-    | CALL | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CURRENT
+    | CALL | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CURRENT | CURRENT_ROLE
     | DATA | DATE | DAY | DESC | DISTRIBUTED
     | EXCLUDING | EXPLAIN
     | FILTER | FIRST | FOLLOWING | FORMAT | FUNCTIONS
