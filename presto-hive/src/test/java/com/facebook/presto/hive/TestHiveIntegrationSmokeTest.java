@@ -4088,6 +4088,33 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testPartitionPredicates()
+    {
+        assertUpdate("CREATE TABLE test_partition_predicates " +
+                "WITH (partitioned_by = ARRAY['p']) AS " +
+                "SELECT 123 x, 'abc' p", 1);
+
+        // Simple TupleDomain predicates
+        assertQuery("SELECT x FROM test_partition_predicates WHERE p = 'abc'", "SELECT 123");
+
+        assertQueryReturnsEmptyResult("SELECT x FROM test_partition_predicates WHERE p = 'ddd'");
+
+        // Complex predicates
+        assertQuery("SELECT x FROM test_partition_predicates WHERE p like 'ab%'", "SELECT 123");
+
+        assertQueryReturnsEmptyResult("SELECT x FROM test_partition_predicates WHERE p like 'dd%'");
+
+        assertQuery("SELECT x FROM test_partition_predicates WHERE p not like 'dd%'", "SELECT 123");
+
+        // Partition column projected out
+        assertQuery("SELECT x, p FROM test_partition_predicates WHERE p like 'ab%'", "SELECT 123, 'abc'");
+
+        assertQuery("SELECT p, x FROM test_partition_predicates WHERE p like 'ab%'", "SELECT 'abc', 123");
+
+        assertUpdate("DROP TABLE test_partition_predicates");
+    }
+
+    @Test
     public void testTemporaryStagingDirectorySessionProperties()
     {
         String tableName = "test_temporary_staging_directory_session_properties";

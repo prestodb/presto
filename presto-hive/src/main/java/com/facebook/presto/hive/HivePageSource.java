@@ -106,6 +106,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -122,6 +123,7 @@ public class HivePageSource
     private final ConnectorPageSource delegate;
     private boolean filterAndProjectPushedDown;
     private boolean filterOnPrefilledValuesFailed;
+    private int[] outputChannels;
     private Optional<Throwable> filterOnPrefilledValuesException = Optional.empty();
     private final boolean needsColumnMapping;
 
@@ -262,12 +264,20 @@ public class HivePageSource
                     return dataPage;
                 }
                 int batchSize = dataPage.getPositionCount();
-                List<Block> blocks = new ArrayList<>();
-                for (int fieldId = 0; fieldId < columnMappings.size(); fieldId++) {
+                int maxOutputChannel = -1;
+                for (int i = 0; i < outputChannels.length; i++) {
+                    maxOutputChannel = max(maxOutputChannel, outputChannels[i]);
+                }
+                Block[] blocks = new Block[maxOutputChannel + 1];
+                for (int fieldId = 0; fieldId < outputChannels.length; fieldId++) {
+                    if (outputChannels[fieldId] == -1) {
+                        continue;
+                    }
+
                     ColumnMapping columnMapping = columnMappings.get(fieldId);
                     switch (columnMapping.getKind()) {
                         case PREFILLED:
-                            blocks.add(RunLengthEncodedBlock.create(types[fieldId], prefilledValues[fieldId], batchSize));
+                            blocks[outputChannels[fieldId]] = RunLengthEncodedBlock.create(types[fieldId], prefilledValues[fieldId], batchSize);
                             break;
                         case REGULAR:
                             int index = columnMapping.getIndex();
@@ -282,7 +292,7 @@ public class HivePageSource
                             if (coercers[fieldId] != null) {
                                 throw new UnsupportedOperationException();
                             }
-                            blocks.add(block);
+                            blocks[outputChannels[fieldId]] = block;
                             break;
                         case INTERIM:
                             // interim columns don't show up in output
@@ -291,8 +301,9 @@ public class HivePageSource
                             throw new UnsupportedOperationException();
                     }
                 }
-                return new Page(batchSize, blocks.toArray(new Block[0]));
+                return new Page(batchSize, blocks);
             }
+
             if (bucketAdapter.isPresent()) {
                 IntArrayList rowsToKeep = bucketAdapter.get().computeEligibleRowIds(dataPage);
                 Block[] adaptedBlocks = new Block[dataPage.getChannelCount()];
@@ -781,6 +792,8 @@ public class HivePageSource
             return true;
         }
 
+        this.outputChannels = Arrays.copyOf(options.getOutputChannels(), options.getOutputChannels().length);
+
         filterAndProjectPushedDown = delegate.pushdownFilterAndProjection(createPageSourceOptionsForDelegate(options, remainingFilterFunctions));
         return filterAndProjectPushedDown;
     }
@@ -823,7 +836,9 @@ public class HivePageSource
             ColumnMapping columnMapping = columnMappings.get(i);
             if (columnMapping.getKind() != REGULAR && columnMapping.getKind() != INTERIM) {
                 internalChannels[i] = -1;
-                outputChannels[i] = -1;
+                if (i < outputChannels.length) {
+                    outputChannels[i] = -1;
+                }
             }
         }
 
