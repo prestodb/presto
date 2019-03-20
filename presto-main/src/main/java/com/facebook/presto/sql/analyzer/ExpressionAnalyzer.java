@@ -1485,26 +1485,12 @@ public class ExpressionAnalyzer
             WarningCollector warningCollector,
             boolean isDescribe)
     {
-        return analyzeExpressions(session, metadata, sqlParser, new RelationType(), types, expressions, parameters, warningCollector, isDescribe);
-    }
-
-    private static ExpressionAnalysis analyzeExpressions(
-            Session session,
-            Metadata metadata,
-            SqlParser sqlParser,
-            RelationType tupleDescriptor,
-            TypeProvider types,
-            Iterable<? extends Expression> expressions,
-            List<Expression> parameters,
-            WarningCollector warningCollector,
-            boolean isDescribe)
-    {
         // expressions at this point can not have sub queries so deny all access checks
         // in the future, we will need a full access controller here to verify access to functions
         Analysis analysis = new Analysis(null, parameters, isDescribe);
         ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, new DenyAllAccessControl(), types, warningCollector);
         for (Expression expression : expressions) {
-            analyzer.analyze(expression, Scope.builder().withRelationType(RelationId.anonymous(), tupleDescriptor).build());
+            analyzer.analyze(expression, Scope.builder().withRelationType(RelationId.anonymous(), new RelationType()).build());
         }
 
         return new ExpressionAnalysis(
