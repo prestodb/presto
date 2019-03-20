@@ -41,7 +41,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -49,7 +48,6 @@ import static com.facebook.presto.metadata.TableLayoutResult.computeEnforced;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static java.util.stream.Collectors.toSet;
 
 /*
@@ -197,13 +195,12 @@ public class BeginTableWrite
                 TableScanNode scan = (TableScanNode) node;
                 TupleDomain<ColumnHandle> originalEnforcedConstraint = scan.getEnforcedConstraint();
 
-                List<TableLayoutResult> layouts = metadata.getLayouts(
+                TableLayoutResult layout = metadata.getLayout(
                         session,
                         handle,
                         new Constraint<>(originalEnforcedConstraint),
                         Optional.of(ImmutableSet.copyOf(scan.getAssignments().values())));
-                verify(layouts.size() == 1, "Expected exactly one layout for delete");
-                TableLayoutResult layoutResult = Iterables.getOnlyElement(layouts);
+                TableLayoutResult layoutResult = layout;
 
                 return new TableScanNode(
                         scan.getId(),
