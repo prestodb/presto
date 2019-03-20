@@ -574,7 +574,7 @@ public class AddExchanges
 
         private PlanWithProperties planTableScan(TableScanNode node, Expression predicate, PreferredProperties preferredProperties)
         {
-            List<PlanNode> possiblePlans = PickTableLayout.listTableLayouts(node, predicate, true, session, types, idAllocator, metadata, parser, domainTranslator);
+            List<PlanNode> possiblePlans = PickTableLayout.pushPredicateIntoTableScan(node, predicate, true, session, types, idAllocator, metadata, parser, domainTranslator);
             List<PlanWithProperties> possiblePlansWithProperties = possiblePlans.stream()
                     .map(planNode -> new PlanWithProperties(planNode, derivePropertiesRecursively(planNode)))
                     .collect(toImmutableList());
