@@ -34,7 +34,7 @@ public class Filters
 
     private Filters() {}
 
-    private static class AlwaysFalse
+    public static class AlwaysFalse
             extends Filter
     {
         public AlwaysFalse()
@@ -49,7 +49,7 @@ public class Filters
         }
     }
 
-    private static class IsNull
+    public static class IsNull
             extends Filter
     {
         public IsNull()
@@ -64,7 +64,7 @@ public class Filters
         }
     }
 
-    private static class IsNotNull
+    public static class IsNotNull
             extends Filter
     {
         public IsNotNull()

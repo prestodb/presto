@@ -35,6 +35,7 @@ abstract class NullWrappingColumnReader
     protected int numNullsToAdd;
     // Number of elements retrieved from inner reader.
     protected int numInnerResults;
+    private int[] tempInt;
 
     protected NullWrappingColumnReader(OptionalInt fixedValueSize)
     {
@@ -59,6 +60,7 @@ abstract class NullWrappingColumnReader
             return;
         }
         hasNulls = true;
+        boolean nonDeterministic = filter != null && !deterministicFilter;
         if (innerQualifyingSet == null) {
             innerQualifyingSet = new QualifyingSet();
         }
@@ -66,14 +68,14 @@ abstract class NullWrappingColumnReader
         int numActive = inputQualifyingSet.getPositionCount();
 
         innerQualifyingSet.reset(numActive);
-        int prevRow = posInRowGroup;
+        int prevRow = 0;
         int prevInner = innerPosInRowGroup;
         numNullsToAdd = 0;
-        boolean keepNulls = filter == null || filter.testNull();
+        boolean keepNulls = filter == null || (!nonDeterministic && filter.testNull());
         for (int activeIdx = 0; activeIdx < numActive; activeIdx++) {
             int row = inputRows[activeIdx] - posInRowGroup;
             if (!present[row]) {
-                if (keepNulls) {
+                if (keepNulls || (nonDeterministic && testNullAt(row + posInRowGroup))) {
                     addNullToKeep(inputRows[activeIdx], activeIdx);
                 }
             }
@@ -88,7 +90,16 @@ abstract class NullWrappingColumnReader
         innerQualifyingSet.setEnd(skip + prevInner);
     }
 
-    private void addNullToKeep(int position, int inputIndex)
+    protected boolean testNullAt(int row)
+    {
+        if (tempInt == null) {
+            tempInt = new int[1];
+        }
+        tempInt[0] = row;
+        return filter.testNull();
+    }
+
+    protected void addNullToKeep(int position, int inputIndex)
     {
         if (nullsToAdd == null) {
             nullsToAdd = new int[100];
@@ -219,19 +230,6 @@ abstract class NullWrappingColumnReader
                 }
             }
         }
-    }
-
-    // Sets the truncation position of the inner QualifyingSet according to that of the outer.
-    protected void setInnerTruncation()
-    {
-        int truncationPos = inputQualifyingSet.getTruncationPosition();
-        if (truncationPos == -1) {
-            innerQualifyingSet.clearTruncationPosition();
-            return;
-        }
-        int outerRow = inputQualifyingSet.getPositions()[truncationPos];
-        int numInner = countPresent(0, outerRow - posInRowGroup);
-        innerQualifyingSet.setTruncationRow(innerPosInRowGroup + numInner);
     }
 
     @Override

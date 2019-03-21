@@ -11,13 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.orc;
 
-public class AriaFlags
+//import com.facebook.presto.spi.PrestoException;
+
+public class BatchTooLargeException
+        extends RuntimeException
 {
-    private AriaFlags() {}
-
-    public static final int noReaderBudget = 16;
-    public static final int pruneSubfields = 64;
-    public static final int budgetByException = 128;
+    public BatchTooLargeException()
+    {
+    }
 }

@@ -185,7 +185,7 @@ public class TestAriaHiveDistributedQueries
                 .setSystemProperty(ARIA_SCAN, "true")
                 .setSystemProperty(ARIA_REORDER, "true")
                 .setSystemProperty(ARIA_REUSE_PAGES, "true")
-                .setSystemProperty(ARIA_FLAGS, "127")
+                .setSystemProperty(ARIA_FLAGS, "111")
                 .build();
     }
 

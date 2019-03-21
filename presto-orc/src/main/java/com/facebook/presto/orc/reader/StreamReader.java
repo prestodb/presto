@@ -106,8 +106,7 @@ public interface StreamReader
     }
 
     // Sets the number of additional result bytes a scan() is allowed
-    // to accumulate before truncating the result. A scan, even with
-    // truncation, will add at least one row.
+    // to accumulate.
     default void setResultSizeBudget(long bytes)
     {
         throw new UnsupportedOperationException();
@@ -126,15 +125,6 @@ public interface StreamReader
     default int getPosition()
     {
         throw new UnsupportedOperationException();
-    }
-
-    // Returns the row number of the first unprocessed input in the
-    // input QualifyingSet, -1 if the whole input QualifyingSet was
-    // processed by scan(). This is set when stopping due to reaching
-    // target datasize.
-    default int getTruncationRow()
-    {
-        return -1;
     }
 
     // Returns an approximation of the size of the Block to be returned from getBlock().
