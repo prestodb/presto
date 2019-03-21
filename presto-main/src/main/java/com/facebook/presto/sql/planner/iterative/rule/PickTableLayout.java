@@ -140,7 +140,16 @@ public class PickTableLayout
         {
             TableScanNode tableScan = captures.get(TABLE_SCAN);
 
-            PlanNode rewritten = planTableScan(tableScan, filterNode.getPredicate(), context.getSession(), context.getSymbolAllocator().getTypes(), context.getIdAllocator(), metadata, parser, domainTranslator);
+            PlanNode rewritten = pushPredicateIntoTableScan(
+                    tableScan,
+                    filterNode.getPredicate(),
+                    false,
+                    context.getSession(),
+                    context.getSymbolAllocator().getTypes(),
+                    context.getIdAllocator(),
+                    metadata,
+                    parser,
+                    domainTranslator);
 
             if (arePlansSame(filterNode, tableScan, rewritten)) {
                 return Result.empty();
@@ -227,28 +236,6 @@ public class PickTableLayout
                     TupleDomain.all(),
                     TupleDomain.all()));
         }
-    }
-
-    private static PlanNode planTableScan(
-            TableScanNode node,
-            Expression predicate,
-            Session session,
-            TypeProvider types,
-            PlanNodeIdAllocator idAllocator,
-            Metadata metadata,
-            SqlParser parser,
-            DomainTranslator domainTranslator)
-    {
-        return pushPredicateIntoTableScan(
-                node,
-                predicate,
-                false,
-                session,
-                types,
-                idAllocator,
-                metadata,
-                parser,
-                domainTranslator);
     }
 
     public static PlanNode pushPredicateIntoTableScan(
