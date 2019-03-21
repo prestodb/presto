@@ -42,6 +42,13 @@ public class TestingHiveCluster
     }
 
     @Override
+    public HiveMetastoreClient createMetastoreClientWithToken(String token)
+            throws TException
+    {
+        return new HiveMetastoreClientFactory(config, new NoHiveMetastoreAuthentication()).create(address, token);
+    }
+
+    @Override
     public boolean equals(Object obj)
     {
         if (this == obj) {

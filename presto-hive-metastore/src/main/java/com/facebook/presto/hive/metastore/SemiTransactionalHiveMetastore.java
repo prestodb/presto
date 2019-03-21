@@ -53,6 +53,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -905,7 +906,13 @@ public class SemiTransactionalHiveMetastore
                 case EMPTY:
                     break;
                 case SHARED_OPERATION_BUFFERED:
-                    commitShared();
+                    Optional<String> doAsUser = getImpersonationUser();
+                    if (doAsUser.isPresent()) {
+                        hdfsEnvironment.doAs(doAsUser.get(), () -> commitShared());
+                    }
+                    else {
+                        commitShared();
+                    }
                     break;
                 case EXCLUSIVE_OPERATION_BUFFERED:
                     requireNonNull(bufferedExclusiveOperation, "bufferedExclusiveOperation is null");
@@ -941,6 +948,29 @@ public class SemiTransactionalHiveMetastore
         finally {
             state = State.FINISHED;
         }
+    }
+
+    private Optional<String> getImpersonationUser()
+    {
+        if (!tableActions.isEmpty()) {
+            return Optional.ofNullable(tableActions.values().iterator().next().context.getIdentity().getUser());
+        }
+
+        if (!partitionActions.isEmpty()) {
+            Iterator<Map<List<String>, Action<PartitionAndMore>>> partitionActionsIterator = partitionActions.values().iterator();
+            while (partitionActionsIterator.hasNext()) {
+                Map<List<String>, Action<PartitionAndMore>> partitionAction = partitionActionsIterator.next();
+                if (!partitionAction.isEmpty()) {
+                    return Optional.ofNullable(partitionAction.values().iterator().next().context.getIdentity().getUser());
+                }
+            }
+        }
+
+        if (!declaredIntentionsToWrite.isEmpty()) {
+            return Optional.ofNullable(declaredIntentionsToWrite.iterator().next().context.getIdentity().getUser());
+        }
+
+        return Optional.empty();
     }
 
     @GuardedBy("this")
