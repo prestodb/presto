@@ -45,6 +45,7 @@ public class TableWriterNode
     private final WriterTarget target;
     private final Symbol rowCountSymbol;
     private final Symbol fragmentSymbol;
+    private final Symbol tableCommitContextSymbol;
     private final List<Symbol> columns;
     private final List<String> columnNames;
     private final Optional<PartitioningScheme> partitioningScheme;
@@ -59,6 +60,7 @@ public class TableWriterNode
             @JsonProperty("target") WriterTarget target,
             @JsonProperty("rowCountSymbol") Symbol rowCountSymbol,
             @JsonProperty("fragmentSymbol") Symbol fragmentSymbol,
+            @JsonProperty("tableCommitContextSymbol") Symbol tableCommitContextSymbol,
             @JsonProperty("columns") List<Symbol> columns,
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("partitioningScheme") Optional<PartitioningScheme> partitioningScheme,
@@ -75,6 +77,7 @@ public class TableWriterNode
         this.target = requireNonNull(target, "target is null");
         this.rowCountSymbol = requireNonNull(rowCountSymbol, "rowCountSymbol is null");
         this.fragmentSymbol = requireNonNull(fragmentSymbol, "fragmentSymbol is null");
+        this.tableCommitContextSymbol = requireNonNull(tableCommitContextSymbol, "tableCommitContextSymbol is null");
         this.columns = ImmutableList.copyOf(columns);
         this.columnNames = ImmutableList.copyOf(columnNames);
         this.partitioningScheme = requireNonNull(partitioningScheme, "partitioningScheme is null");
@@ -84,7 +87,8 @@ public class TableWriterNode
 
         ImmutableList.Builder<Symbol> outputs = ImmutableList.<Symbol>builder()
                 .add(rowCountSymbol)
-                .add(fragmentSymbol);
+                .add(fragmentSymbol)
+                .add(tableCommitContextSymbol);
         statisticsAggregation.ifPresent(aggregation -> {
             outputs.addAll(aggregation.getGroupingSymbols());
             outputs.addAll(aggregation.getAggregations().keySet());
@@ -114,6 +118,12 @@ public class TableWriterNode
     public Symbol getFragmentSymbol()
     {
         return fragmentSymbol;
+    }
+
+    @JsonProperty
+    public Symbol getTableCommitContextSymbol()
+    {
+        return tableCommitContextSymbol;
     }
 
     @JsonProperty
@@ -167,7 +177,7 @@ public class TableWriterNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new TableWriterNode(getId(), Iterables.getOnlyElement(newChildren), target, rowCountSymbol, fragmentSymbol, columns, columnNames, partitioningScheme, statisticsAggregation, statisticsAggregationDescriptor);
+        return new TableWriterNode(getId(), Iterables.getOnlyElement(newChildren), target, rowCountSymbol, fragmentSymbol, tableCommitContextSymbol, columns, columnNames, partitioningScheme, statisticsAggregation, statisticsAggregationDescriptor);
     }
 
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "@type")

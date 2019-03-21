@@ -654,6 +654,7 @@ public class PlanFragmenter
                                             insertHandle,
                                             symbolAllocator.newSymbol("partialrows", BIGINT),
                                             symbolAllocator.newSymbol("fragment", VARBINARY),
+                                            symbolAllocator.newSymbol("tablecommitcontext", VARBINARY),
                                             outputs,
                                             outputColumnNames,
                                             Optional.of(new PartitioningScheme(

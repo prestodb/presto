@@ -75,6 +75,7 @@ import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PagesIndex;
+import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -316,6 +317,7 @@ public class ServerMainModule
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(OperatorStats.class);
         jsonCodecBinder(binder).bindJsonCodec(ExecutionFailureInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(TableCommitContext.class);
         smileCodecBinder(binder).bindSmileCodec(TaskStatus.class);
         smileCodecBinder(binder).bindSmileCodec(TaskInfo.class);
         jaxrsBinder(binder).bind(PagesResponseWriter.class);

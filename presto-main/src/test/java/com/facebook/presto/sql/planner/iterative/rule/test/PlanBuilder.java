@@ -688,6 +688,7 @@ public class PlanBuilder
                 new TestingWriterTarget(),
                 symbol("partialrows", BIGINT),
                 symbol("fragment", VARBINARY),
+                symbol("tablecommitcontext", VARBINARY),
                 columns,
                 columnNames,
                 Optional.empty(),
