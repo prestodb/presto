@@ -15,6 +15,7 @@ package com.facebook.presto.hive.security;
 
 import com.facebook.presto.hive.HiveTransactionManager;
 import com.facebook.presto.hive.TransactionalMetadata;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
@@ -100,7 +101,7 @@ public class LegacyAccessControl
         }
 
         TransactionalMetadata metadata = hiveTransactionManager.get(transaction);
-        Optional<Table> target = metadata.getMetastore().getTable(tableName.getSchemaName(), tableName.getTableName());
+        Optional<Table> target = metadata.getMetastore().getTable(new MetastoreContext(identity), tableName.getSchemaName(), tableName.getTableName());
 
         if (!target.isPresent()) {
             denyDropTable(tableName.toString(), "Table not found");

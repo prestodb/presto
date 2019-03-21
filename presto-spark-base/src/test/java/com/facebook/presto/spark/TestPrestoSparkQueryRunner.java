@@ -14,6 +14,7 @@
 package com.facebook.presto.spark;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -247,7 +248,7 @@ public class TestPrestoSparkQueryRunner
 
     private void dropTable(String schema, String table)
     {
-        ((PrestoSparkQueryRunner) getQueryRunner()).getMetastore().dropTable(schema, table, true);
+        ((PrestoSparkQueryRunner) getQueryRunner()).getMetastore().dropTable(new MetastoreContext("test_user"), schema, table, true);
     }
 
     @Test

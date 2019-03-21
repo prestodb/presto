@@ -19,6 +19,7 @@ import com.google.common.net.HostAndPort;
 import org.apache.thrift.TException;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -35,10 +36,10 @@ public class TestingHiveCluster
     }
 
     @Override
-    public HiveMetastoreClient createMetastoreClient()
+    public HiveMetastoreClient createMetastoreClient(Optional<String> token)
             throws TException
     {
-        return new HiveMetastoreClientFactory(metastoreClientConfig, new NoHiveMetastoreAuthentication()).create(address);
+        return new HiveMetastoreClientFactory(metastoreClientConfig, new NoHiveMetastoreAuthentication()).create(address, token);
     }
 
     @Override

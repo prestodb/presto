@@ -21,6 +21,7 @@ import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationS
 import com.facebook.presto.hive.TestHiveEventListenerPlugin.TestingHiveEventListenerPlugin;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Database;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrincipalType;
@@ -183,18 +184,18 @@ public final class HiveQueryRunner
             queryRunner.createCatalog(HIVE_CATALOG, HIVE_CATALOG, hiveProperties);
             queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, HIVE_CATALOG, hiveBucketedProperties);
 
-            if (!metastore.getDatabase(TPCH_SCHEMA).isPresent()) {
-                metastore.createDatabase(createDatabaseMetastoreObject(TPCH_SCHEMA));
+            if (!metastore.getDatabase(new MetastoreContext("test_user"), TPCH_SCHEMA).isPresent()) {
+                metastore.createDatabase(new MetastoreContext("test_user"), createDatabaseMetastoreObject(TPCH_SCHEMA));
                 copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(Optional.empty()), tables);
             }
 
-            if (!metastore.getDatabase(TPCH_BUCKETED_SCHEMA).isPresent()) {
-                metastore.createDatabase(createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA));
+            if (!metastore.getDatabase(new MetastoreContext("test_user"), TPCH_BUCKETED_SCHEMA).isPresent()) {
+                metastore.createDatabase(new MetastoreContext("test_user"), createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA));
                 copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, createBucketedSession(Optional.empty()), tables);
             }
 
-            if (!metastore.getDatabase(TEMPORARY_TABLE_SCHEMA).isPresent()) {
-                metastore.createDatabase(createDatabaseMetastoreObject(TEMPORARY_TABLE_SCHEMA));
+            if (!metastore.getDatabase(new MetastoreContext("test_user"), TEMPORARY_TABLE_SCHEMA).isPresent()) {
+                metastore.createDatabase(new MetastoreContext("test_user"), createDatabaseMetastoreObject(TEMPORARY_TABLE_SCHEMA));
             }
 
             return queryRunner;
