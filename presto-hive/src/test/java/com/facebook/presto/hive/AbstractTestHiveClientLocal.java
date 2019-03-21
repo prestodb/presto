@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -59,7 +60,7 @@ public abstract class AbstractTestHiveClientLocal
 
         ExtendedHiveMetastore metastore = createMetastore(tempDir);
 
-        metastore.createDatabase(Database.builder()
+        metastore.createDatabase(new MetastoreContext("test_user"), Database.builder()
                 .setDatabaseName(testDbName)
                 .setOwnerName("public")
                 .setOwnerType(PrincipalType.ROLE)
@@ -77,7 +78,7 @@ public abstract class AbstractTestHiveClientLocal
             throws IOException
     {
         try {
-            getMetastoreClient().dropDatabase(testDbName);
+            getMetastoreClient().dropDatabase(new MetastoreContext("test_user"), testDbName);
         }
         finally {
             deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);

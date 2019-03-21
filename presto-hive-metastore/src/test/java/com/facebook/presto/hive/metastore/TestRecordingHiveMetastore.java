@@ -125,7 +125,7 @@ public class TestRecordingHiveMetastore
 
         RecordingHiveMetastore recordingHiveMetastore = new RecordingHiveMetastore(new TestingHiveMetastore(), recordingHiveClientConfig);
         validateMetadata(recordingHiveMetastore);
-        recordingHiveMetastore.dropDatabase("other_database");
+        recordingHiveMetastore.dropDatabase(new MetastoreContext("test_user"), "other_database");
         recordingHiveMetastore.writeRecording();
 
         MetastoreClientConfig replayingHiveClientConfig = recordingHiveClientConfig
@@ -138,31 +138,31 @@ public class TestRecordingHiveMetastore
 
     private void validateMetadata(ExtendedHiveMetastore hiveMetastore)
     {
-        assertEquals(hiveMetastore.getDatabase("database"), Optional.of(DATABASE));
-        assertEquals(hiveMetastore.getAllDatabases(), ImmutableList.of("database"));
-        assertEquals(hiveMetastore.getTable("database", "table"), Optional.of(TABLE));
-        assertEquals(hiveMetastore.getSupportedColumnStatistics(createVarcharType(123)), ImmutableSet.of(MIN_VALUE, MAX_VALUE));
-        assertEquals(hiveMetastore.getTableStatistics("database", "table"), PARTITION_STATISTICS);
-        assertEquals(hiveMetastore.getPartitionStatistics("database", "table", ImmutableSet.of("value")), ImmutableMap.of("value", PARTITION_STATISTICS));
-        assertEquals(hiveMetastore.getAllTables("database"), Optional.of(ImmutableList.of("table")));
-        assertEquals(hiveMetastore.getAllViews("database"), Optional.empty());
-        assertEquals(hiveMetastore.getPartition("database", "table", ImmutableList.of("value")), Optional.of(PARTITION));
-        assertEquals(hiveMetastore.getPartitionNames("database", "table"), Optional.of(ImmutableList.of("value")));
+        assertEquals(hiveMetastore.getDatabase(new MetastoreContext("test_user"), "database"), Optional.of(DATABASE));
+        assertEquals(hiveMetastore.getAllDatabases(new MetastoreContext("test_user")), ImmutableList.of("database"));
+        assertEquals(hiveMetastore.getTable(new MetastoreContext("test_user"), "database", "table"), Optional.of(TABLE));
+        assertEquals(hiveMetastore.getSupportedColumnStatistics(new MetastoreContext("test_user"), createVarcharType(123)), ImmutableSet.of(MIN_VALUE, MAX_VALUE));
+        assertEquals(hiveMetastore.getTableStatistics(new MetastoreContext("test_user"), "database", "table"), PARTITION_STATISTICS);
+        assertEquals(hiveMetastore.getPartitionStatistics(new MetastoreContext("test_user"), "database", "table", ImmutableSet.of("value")), ImmutableMap.of("value", PARTITION_STATISTICS));
+        assertEquals(hiveMetastore.getAllTables(new MetastoreContext("test_user"), "database"), Optional.of(ImmutableList.of("table")));
+        assertEquals(hiveMetastore.getAllViews(new MetastoreContext("test_user"), "database"), Optional.empty());
+        assertEquals(hiveMetastore.getPartition(new MetastoreContext("test_user"), "database", "table", ImmutableList.of("value")), Optional.of(PARTITION));
+        assertEquals(hiveMetastore.getPartitionNames(new MetastoreContext("test_user"), "database", "table"), Optional.of(ImmutableList.of("value")));
         Map<Column, Domain> map = new HashMap<>();
         Column column = new Column("column", HiveType.HIVE_STRING, Optional.empty());
         map.put(column, Domain.singleValue(VARCHAR, utf8Slice("value")));
-        assertEquals(hiveMetastore.getPartitionNamesByFilter("database", "table", map), ImmutableList.of("value"));
-        assertEquals(hiveMetastore.getPartitionsByNames("database", "table", ImmutableList.of("value")), ImmutableMap.of("value", Optional.of(PARTITION)));
-        assertEquals(hiveMetastore.listTablePrivileges("database", "table", new PrestoPrincipal(USER, "user")), ImmutableSet.of(PRIVILEGE_INFO));
-        assertEquals(hiveMetastore.listRoles(), ImmutableSet.of("role"));
-        assertEquals(hiveMetastore.listRoleGrants(new PrestoPrincipal(USER, "user")), ImmutableSet.of(ROLE_GRANT));
+        assertEquals(hiveMetastore.getPartitionNamesByFilter(new MetastoreContext("test_user"), "database", "table", map), ImmutableList.of("value"));
+        assertEquals(hiveMetastore.getPartitionsByNames(new MetastoreContext("test_user"), "database", "table", ImmutableList.of("value")), ImmutableMap.of("value", Optional.of(PARTITION)));
+        assertEquals(hiveMetastore.listTablePrivileges(new MetastoreContext("test_user"), "database", "table", new PrestoPrincipal(USER, "user")), ImmutableSet.of(PRIVILEGE_INFO));
+        assertEquals(hiveMetastore.listRoles(new MetastoreContext("test_user")), ImmutableSet.of("role"));
+        assertEquals(hiveMetastore.listRoleGrants(new MetastoreContext("test_user"), new PrestoPrincipal(USER, "user")), ImmutableSet.of(ROLE_GRANT));
     }
 
     private static class TestingHiveMetastore
             extends UnimplementedHiveMetastore
     {
         @Override
-        public Optional<Database> getDatabase(String databaseName)
+        public Optional<Database> getDatabase(MetastoreContext metastoreContext, String databaseName)
         {
             if (databaseName.equals("database")) {
                 return Optional.of(DATABASE);
@@ -172,13 +172,13 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public List<String> getAllDatabases()
+        public List<String> getAllDatabases(MetastoreContext metastoreContext)
         {
             return ImmutableList.of("database");
         }
 
         @Override
-        public Optional<Table> getTable(String databaseName, String tableName)
+        public Optional<Table> getTable(MetastoreContext metastoreContext, String databaseName, String tableName)
         {
             if (databaseName.equals("database") && tableName.equals("table")) {
                 return Optional.of(TABLE);
@@ -188,7 +188,7 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)
+        public Set<ColumnStatisticType> getSupportedColumnStatistics(MetastoreContext metastoreContext, Type type)
         {
             if (type.equals(createVarcharType(123))) {
                 return ImmutableSet.of(MIN_VALUE, MAX_VALUE);
@@ -198,7 +198,7 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public PartitionStatistics getTableStatistics(String databaseName, String tableName)
+        public PartitionStatistics getTableStatistics(MetastoreContext metastoreContext, String databaseName, String tableName)
         {
             if (databaseName.equals("database") && tableName.equals("table")) {
                 return PARTITION_STATISTICS;
@@ -208,7 +208,7 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
+        public Map<String, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<String> partitionNames)
         {
             if (databaseName.equals("database") && tableName.equals("table") && partitionNames.contains("value")) {
                 return ImmutableMap.of("value", PARTITION_STATISTICS);
@@ -218,7 +218,7 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public Optional<List<String>> getAllTables(String databaseName)
+        public Optional<List<String>> getAllTables(MetastoreContext metastoreContext, String databaseName)
         {
             if (databaseName.equals("database")) {
                 return Optional.of(ImmutableList.of("table"));
@@ -228,19 +228,19 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public Optional<List<String>> getAllViews(String databaseName)
+        public Optional<List<String>> getAllViews(MetastoreContext metastoreContext, String databaseName)
         {
             return Optional.empty();
         }
 
         @Override
-        public void dropDatabase(String databaseName)
+        public void dropDatabase(MetastoreContext metastoreContext, String databaseName)
         {
             // noop for test purpose
         }
 
         @Override
-        public Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues)
+        public Optional<Partition> getPartition(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionValues)
         {
             if (databaseName.equals("database") && tableName.equals("table") && partitionValues.equals(ImmutableList.of("value"))) {
                 return Optional.of(PARTITION);
@@ -250,7 +250,7 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public Optional<List<String>> getPartitionNames(String databaseName, String tableName)
+        public Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
         {
             if (databaseName.equals("database") && tableName.equals("table")) {
                 return Optional.of(ImmutableList.of("value"));
@@ -261,6 +261,7 @@ public class TestRecordingHiveMetastore
 
         @Override
         public List<String> getPartitionNamesByFilter(
+                MetastoreContext metastoreContext,
                 String databaseName,
                 String tableName,
                 Map<Column, Domain> partitionPredicates)
@@ -274,7 +275,7 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public Map<String, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
+        public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames)
         {
             if (databaseName.equals("database") && tableName.equals("table") && partitionNames.contains("value")) {
                 return ImmutableMap.of("value", Optional.of(PARTITION));
@@ -284,7 +285,7 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public Set<HivePrivilegeInfo> listTablePrivileges(String database, String table, PrestoPrincipal prestoPrincipal)
+        public Set<HivePrivilegeInfo> listTablePrivileges(MetastoreContext metastoreContext, String database, String table, PrestoPrincipal prestoPrincipal)
         {
             if (database.equals("database") && table.equals("table") && prestoPrincipal.getType() == USER && prestoPrincipal.getName().equals("user")) {
                 return ImmutableSet.of(PRIVILEGE_INFO);
@@ -294,13 +295,13 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public Set<String> listRoles()
+        public Set<String> listRoles(MetastoreContext metastoreContext)
         {
             return ImmutableSet.of("role");
         }
 
         @Override
-        public Set<RoleGrant> listRoleGrants(PrestoPrincipal principal)
+        public Set<RoleGrant> listRoleGrants(MetastoreContext metastoreContext, PrestoPrincipal principal)
         {
             return ImmutableSet.of(ROLE_GRANT);
         }
