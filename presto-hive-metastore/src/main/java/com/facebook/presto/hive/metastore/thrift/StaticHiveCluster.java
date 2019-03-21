@@ -22,6 +22,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -65,13 +66,33 @@ public class StaticHiveCluster
     public HiveMetastoreClient createMetastoreClient()
             throws TException
     {
+        return createMetastoreClient(Optional.empty());
+    }
+
+    @Override
+    public HiveMetastoreClient createMetastoreClientWithToken(String token)
+            throws TException
+    {
+        return createMetastoreClient(Optional.of(token));
+    }
+
+    private HiveMetastoreClient createMetastoreClient(Optional<String> token)
+            throws TException
+    {
         List<HostAndPort> metastores = new ArrayList<>(addresses);
         Collections.shuffle(metastores.subList(1, metastores.size()));
 
         TException lastException = null;
         for (HostAndPort metastore : metastores) {
             try {
-                HiveMetastoreClient client = clientFactory.create(metastore);
+                HiveMetastoreClient client;
+                if (token.isPresent()) {
+                    client = clientFactory.create(metastore, token.get());
+                }
+                else {
+                    client = clientFactory.create(metastore);
+                }
+
                 if (!isNullOrEmpty(metastoreUsername)) {
                     client.setUGI(metastoreUsername);
                 }
