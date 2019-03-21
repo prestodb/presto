@@ -18,7 +18,6 @@ import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.Signature;
 import com.google.common.base.Defaults;
 
 import java.lang.invoke.MethodHandle;
@@ -49,11 +48,6 @@ public class InterpretedFunctionInvoker
     public Object invoke(FunctionHandle functionHandle, ConnectorSession session, List<Object> arguments)
     {
         return invoke(functionManager.getScalarFunctionImplementation(functionHandle), session, arguments);
-    }
-
-    public Object invoke(Signature function, ConnectorSession session, List<Object> arguments)
-    {
-        return invoke(functionManager.getScalarFunctionImplementation(function), session, arguments);
     }
 
     /**
