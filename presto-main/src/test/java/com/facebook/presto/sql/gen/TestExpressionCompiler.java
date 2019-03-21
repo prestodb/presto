@@ -621,6 +621,35 @@ public class TestExpressionCompiler
         Futures.allAsList(futures).get();
     }
 
+    @Test
+    public void testNestedColumnFilter()
+    {
+        assertFilter("bound_row.nested_column_0 = 1234", true);
+        assertFilter("bound_row.nested_column_0 = 1223", false);
+        assertFilter("bound_row.nested_column_1 = 34", true);
+        assertFilter("bound_row.nested_column_1 = 33", false);
+        assertFilter("bound_row.nested_column_2 = 'hello'", true);
+        assertFilter("bound_row.nested_column_2 = 'value1'", false);
+        assertFilter("bound_row.nested_column_3 = 12.34", true);
+        assertFilter("bound_row.nested_column_3 = 34.34", false);
+        assertFilter("bound_row.nested_column_4 = true", true);
+        assertFilter("bound_row.nested_column_4 = false", false);
+        assertFilter("bound_row.nested_column_6.nested_nested_column = 'innerFieldValue'", true);
+        assertFilter("bound_row.nested_column_6.nested_nested_column != 'innerFieldValue'", false);
+
+        // combination of types in one filter
+        assertFilter(
+                ImmutableList.of(
+                        "bound_row.nested_column_0 = 1234", "bound_row.nested_column_7 >= 1234",
+                        "bound_row.nested_column_1 = 34", "bound_row.nested_column_8 >= 33",
+                        "bound_row.nested_column_2 = 'hello'", "bound_row.nested_column_9 >= 'hello'",
+                        "bound_row.nested_column_3 = 12.34", "bound_row.nested_column_10 >= 12.34",
+                        "bound_row.nested_column_4 = true", "NOT (bound_row.nested_column_11 = false)",
+                        "bound_row.nested_column_6.nested_nested_column = 'innerFieldValue'", "bound_row.nested_column_13.nested_nested_column LIKE 'innerFieldValue'")
+                        .stream().collect(joining(" AND ")),
+                true);
+    }
+
     private static VarcharType varcharType(String... values)
     {
         return varcharType(Arrays.asList(values));

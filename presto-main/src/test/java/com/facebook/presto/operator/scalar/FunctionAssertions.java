@@ -53,6 +53,7 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.predicate.Utils;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSourceProvider;
@@ -94,6 +95,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -111,6 +113,7 @@ import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createIntsBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
+import static com.facebook.presto.block.BlockAssertions.createRowBlock;
 import static com.facebook.presto.block.BlockAssertions.createSlicesBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.block.BlockAssertions.createTimestampsWithTimezoneBlock;
@@ -156,6 +159,11 @@ public final class FunctionAssertions
 
     private static final SqlParser SQL_PARSER = new SqlParser();
 
+    // Increase the number of fields to generate a wide column
+    private static final int TEST_ROW_NUMBER_OF_FIELDS = 2500;
+    private static final RowType TEST_ROW_TYPE = createTestRowType(TEST_ROW_NUMBER_OF_FIELDS);
+    private static final Block TEST_ROW_DATA = createTestRowData(TEST_ROW_TYPE);
+
     private static final Page SOURCE_PAGE = new Page(
             createLongsBlock(1234L),
             createStringsBlock("hello"),
@@ -166,7 +174,8 @@ public final class FunctionAssertions
             createStringsBlock((String) null),
             createTimestampsWithTimezoneBlock(packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z"))),
             createSlicesBlock(Slices.wrappedBuffer((byte) 0xab)),
-            createIntsBlock(1234));
+            createIntsBlock(1234),
+            TEST_ROW_DATA);
 
     private static final Page ZERO_CHANNEL_PAGE = new Page(1);
 
@@ -181,6 +190,7 @@ public final class FunctionAssertions
             .put(new VariableReferenceExpression("bound_timestamp_with_timezone", TIMESTAMP_WITH_TIME_ZONE), 7)
             .put(new VariableReferenceExpression("bound_binary_literal", VARBINARY), 8)
             .put(new VariableReferenceExpression("bound_integer", INTEGER), 9)
+            .put(new VariableReferenceExpression("bound_row", TEST_ROW_TYPE), 10)
             .build();
 
     private static final TypeProvider SYMBOL_TYPES = TypeProvider.fromVariables(INPUT_MAPPING.keySet());
@@ -1033,7 +1043,7 @@ public final class FunctionAssertions
             assertInstanceOf(split.getConnectorSplit(), FunctionAssertions.TestSplit.class);
             FunctionAssertions.TestSplit testSplit = (FunctionAssertions.TestSplit) split.getConnectorSplit();
             if (testSplit.isRecordSet()) {
-                RecordSet records = InMemoryRecordSet.builder(ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BOOLEAN, BIGINT, VARCHAR, VARCHAR, TIMESTAMP_WITH_TIME_ZONE, VARBINARY, INTEGER))
+                RecordSet records = InMemoryRecordSet.builder(ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BOOLEAN, BIGINT, VARCHAR, VARCHAR, TIMESTAMP_WITH_TIME_ZONE, VARBINARY, INTEGER, TEST_ROW_TYPE))
                         .addRow(
                                 1234L,
                                 "hello",
@@ -1044,7 +1054,8 @@ public final class FunctionAssertions
                                 null,
                                 packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z")),
                                 Slices.wrappedBuffer((byte) 0xab),
-                                1234)
+                                1234,
+                                TEST_ROW_DATA.getBlock(0))
                         .build();
                 return new RecordPageSource(records);
             }
@@ -1062,6 +1073,45 @@ public final class FunctionAssertions
     private static Split createNormalSplit()
     {
         return new Split(new ConnectorId("test"), TestingTransactionHandle.create(), new TestSplit(false));
+    }
+
+    private static RowType createTestRowType(int numberOfFields)
+    {
+        Iterator<Type> types = Iterables.<Type>cycle(
+                BIGINT,
+                INTEGER,
+                VARCHAR,
+                DOUBLE,
+                BOOLEAN,
+                VARBINARY,
+                RowType.from(ImmutableList.of(RowType.field("nested_nested_column", VARCHAR)))).iterator();
+
+        List<RowType.Field> fields = new ArrayList<>();
+        for (int fieldIdx = 0; fieldIdx < numberOfFields; fieldIdx++) {
+            fields.add(new RowType.Field(Optional.of("nested_column_" + fieldIdx), types.next()));
+        }
+
+        return RowType.from(fields);
+    }
+
+    private static Block createTestRowData(RowType rowType)
+    {
+        Iterator<Object> values = Iterables.cycle(
+                1234L,
+                34,
+                "hello",
+                12.34d,
+                true,
+                Slices.wrappedBuffer((byte) 0xab),
+                createRowBlock(ImmutableList.of(VARCHAR), Collections.singleton("innerFieldValue").toArray()).getBlock(0)).iterator();
+
+        final int numFields = rowType.getFields().size();
+        Object[] rowValues = new Object[numFields];
+        for (int fieldIdx = 0; fieldIdx < numFields; fieldIdx++) {
+            rowValues[fieldIdx] = values.next();
+        }
+
+        return createRowBlock(rowType.getTypeParameters(), rowValues);
     }
 
     private static class TestSplit

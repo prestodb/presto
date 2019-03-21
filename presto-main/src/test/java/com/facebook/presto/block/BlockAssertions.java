@@ -16,6 +16,7 @@ package com.facebook.presto.block;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.DictionaryBlock;
+import com.facebook.presto.spi.block.RowBlockBuilder;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.ArrayType;
@@ -62,6 +63,7 @@ import static com.facebook.presto.testing.TestingEnvironment.TYPE_MANAGER;
 import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
@@ -348,6 +350,52 @@ public final class BlockAssertions
         }
 
         return builder.build();
+    }
+
+    public static Block createRowBlock(List<Type> fieldTypes, Object[]... rows)
+    {
+        BlockBuilder rowBlockBuilder = new RowBlockBuilder(fieldTypes, null, 1);
+        for (Object[] row : rows) {
+            if (row == null) {
+                rowBlockBuilder.appendNull();
+                continue;
+            }
+            BlockBuilder singleRowBlockWriter = rowBlockBuilder.beginBlockEntry();
+            for (Object fieldValue : row) {
+                if (fieldValue == null) {
+                    singleRowBlockWriter.appendNull();
+                    continue;
+                }
+
+                if (fieldValue instanceof String) {
+                    VARCHAR.writeSlice(singleRowBlockWriter, utf8Slice((String) fieldValue));
+                }
+                else if (fieldValue instanceof Slice) {
+                    VARBINARY.writeSlice(singleRowBlockWriter, (Slice) fieldValue);
+                }
+                else if (fieldValue instanceof Double) {
+                    DOUBLE.writeDouble(singleRowBlockWriter, ((Double) fieldValue).doubleValue());
+                }
+                else if (fieldValue instanceof Long) {
+                    BIGINT.writeLong(singleRowBlockWriter, ((Long) fieldValue).longValue());
+                }
+                else if (fieldValue instanceof Boolean) {
+                    BOOLEAN.writeBoolean(singleRowBlockWriter, ((Boolean) fieldValue).booleanValue());
+                }
+                else if (fieldValue instanceof Block) {
+                    singleRowBlockWriter.appendStructure((Block) fieldValue);
+                }
+                else if (fieldValue instanceof Integer) {
+                    INTEGER.writeLong(singleRowBlockWriter, ((Integer) fieldValue).intValue());
+                }
+                else {
+                    throw new IllegalArgumentException();
+                }
+            }
+            rowBlockBuilder.closeEntry();
+        }
+
+        return rowBlockBuilder.build();
     }
 
     public static Block createRandomIntsBlock(int positionCount, boolean allowNulls)
