@@ -30,6 +30,7 @@ import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
@@ -153,8 +154,8 @@ public class PrestoSparkQueryRunner
     {
         PrestoSparkQueryRunner queryRunner = new PrestoSparkQueryRunner("hive", additionalConfigProperties);
         ExtendedHiveMetastore metastore = queryRunner.getMetastore();
-        if (!metastore.getDatabase("tpch").isPresent()) {
-            metastore.createDatabase(createDatabaseMetastoreObject("tpch"));
+        if (!metastore.getDatabase(new MetastoreContext("test_user"), "tpch").isPresent()) {
+            metastore.createDatabase(new MetastoreContext("test_user"), createDatabaseMetastoreObject("tpch"));
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, queryRunner.getDefaultSession(), tables);
             copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, queryRunner.getDefaultSession(), tables);
         }
@@ -261,7 +262,7 @@ public class PrestoSparkQueryRunner
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
 
         this.metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
-        metastore.createDatabase(createDatabaseMetastoreObject("hive_test"));
+        metastore.createDatabase(new MetastoreContext("test_user"), createDatabaseMetastoreObject("hive_test"));
         pluginManager.installPlugin(new HivePlugin("hive", Optional.of(metastore)));
 
         connectorManager.createConnection("hive", "hive", ImmutableMap.of());

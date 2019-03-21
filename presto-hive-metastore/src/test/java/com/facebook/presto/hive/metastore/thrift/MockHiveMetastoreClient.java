@@ -15,6 +15,7 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.PartitionNameWithVersion;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -52,6 +53,8 @@ public class MockHiveMetastoreClient
     public static final String TEST_DATABASE = "testdb";
     public static final String BAD_DATABASE = "baddb";
     public static final String TEST_TABLE = "testtbl";
+    public static final String TEST_TOKEN = "token";
+    public static final MetastoreContext TEST_METASTORE_CONTEXT = new MetastoreContext("test_user");
     public static final String TEST_PARTITION1 = "key=testpartition1";
     public static final String TEST_PARTITION2 = "key=testpartition2";
     public static final List<String> TEST_PARTITION_VALUES1 = ImmutableList.of("testpartition1");
@@ -88,6 +91,12 @@ public class MockHiveMetastoreClient
             throw new IllegalStateException();
         }
         return ImmutableList.of(TEST_DATABASE);
+    }
+
+    @Override
+    public String getDelegationToken(String owner, String renewer)
+    {
+        return TEST_TOKEN;
     }
 
     @Override

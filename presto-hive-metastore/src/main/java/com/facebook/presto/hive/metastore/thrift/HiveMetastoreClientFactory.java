@@ -52,9 +52,9 @@ public class HiveMetastoreClientFactory
         this(Optional.empty(), Optional.ofNullable(metastoreClientConfig.getMetastoreSocksProxy()), metastoreClientConfig.getMetastoreTimeout(), metastoreAuthentication);
     }
 
-    public HiveMetastoreClient create(HostAndPort address)
+    public HiveMetastoreClient create(HostAndPort address, Optional<String> token)
             throws TTransportException
     {
-        return new ThriftHiveMetastoreClient(Transport.create(address, sslContext, socksProxy, timeoutMillis, metastoreAuthentication));
+        return new ThriftHiveMetastoreClient(Transport.create(address, sslContext, socksProxy, timeoutMillis, metastoreAuthentication, token));
     }
 }

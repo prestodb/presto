@@ -29,6 +29,7 @@ import com.facebook.presto.hive.metastore.DecimalStatistics;
 import com.facebook.presto.hive.metastore.DoubleStatistics;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.IntegerStatistics;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
@@ -216,7 +217,7 @@ public class HiveSplitManager
             throw new PrestoException(HIVE_TRANSACTION_NOT_FOUND, format("Transaction not found: %s", transaction));
         }
         SemiTransactionalHiveMetastore metastore = metadata.getMetastore();
-        Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
+        Table table = metastore.getTable(new MetastoreContext(session.getIdentity()), tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
         if (!isOfflineDataDebugModeEnabled(session)) {
@@ -527,13 +528,16 @@ public class HiveSplitManager
             Map<String, HiveColumnHandle> predicateColumns,
             Optional<Map<Subfield, Domain>> domains)
     {
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity());
         Map<String, Optional<Partition>> partitions = metastore.getPartitionsByNames(
+                metastoreContext,
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 Lists.transform(partitionBatch, HivePartition::getPartitionId));
         Map<String, PartitionStatistics> partitionStatistics = ImmutableMap.of();
         if (domains.isPresent() && isPartitionStatisticsBasedOptimizationEnabled(session)) {
             partitionStatistics = metastore.getPartitionStatistics(
+                    metastoreContext,
                     tableName.getSchemaName(),
                     tableName.getTableName(),
                     partitionBatch.stream()

@@ -72,6 +72,13 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
+    public String getDelegationToken(String owner, String renewer)
+            throws TException
+    {
+        return client.get_delegation_token(owner, renewer);
+    }
+
+    @Override
     public List<String> getAllDatabases()
             throws TException
     {

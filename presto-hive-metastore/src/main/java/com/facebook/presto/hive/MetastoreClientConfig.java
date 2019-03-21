@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore.MetastoreCacheScope;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
@@ -44,6 +45,7 @@ public class MetastoreClientConfig
     private Duration recordingDuration = new Duration(0, MINUTES);
     private boolean partitionVersioningEnabled;
     private MetastoreCacheScope metastoreCacheScope = MetastoreCacheScope.ALL;
+    private boolean metastoreImpersonationEnabled;
 
     public HostAndPort getMetastoreSocksProxy()
     {
@@ -220,6 +222,19 @@ public class MetastoreClientConfig
     public MetastoreClientConfig setMetastoreCacheScope(MetastoreCacheScope metastoreCacheScope)
     {
         this.metastoreCacheScope = metastoreCacheScope;
+        return this;
+    }
+
+    public boolean isMetastoreImpersonationEnabled()
+    {
+        return metastoreImpersonationEnabled;
+    }
+
+    @Config("hive.metastore-impersonation-enabled")
+    @ConfigDescription("Should Presto user be impersonated when communicating with Hive Metastore")
+    public MetastoreClientConfig setMetastoreImpersonationEnabled(boolean metastoreImpersonationEnabled)
+    {
+        this.metastoreImpersonationEnabled = metastoreImpersonationEnabled;
         return this;
     }
 }

@@ -36,6 +36,9 @@ public interface HiveMetastoreClient
     @Override
     void close();
 
+    String getDelegationToken(String owner, String renewer)
+            throws TException;
+
     List<String> getAllDatabases()
             throws TException;
 
