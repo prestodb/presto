@@ -299,7 +299,9 @@ public class ScanFilterAndProjectOperator
             }
             else {
                 pageSource = source;
-                setupAria();
+                if (!setupAria()) {
+                    return null;
+                }
             }
         }
         if (pageSource != null) {
@@ -310,10 +312,11 @@ public class ScanFilterAndProjectOperator
         }
     }
 
-    private void setupAria()
+// Sets up Aria scan. Returns false if filters are known to be always false.
+private boolean setupAria()
     {
         if (!isAriaScanEnabled(operatorContext.getSession())) {
-            return;
+            return true;
         }
 
         int[] projectionPushdownChannels = pageProcessor.getIdentityInputToOutputChannel();
@@ -325,7 +328,16 @@ public class ScanFilterAndProjectOperator
         List<PageFilter> pageFilters = pageProcessor.getFilterWithoutTupleDomain();
         FilterExpression[] filters = new FilterExpression[pageFilters.size()];
         for (int i = 0; i < pageFilters.size(); i++) {
-            filters[i] = new FilterExpression(operatorContext.getSession().toConnectorSession(), pageFilters.get(i));
+            PageFilter pageFilter = pageFilters.get(i);
+            List<Integer> inputs = pageFilter.getInputChannels().getInputChannels();
+            if (inputs.isEmpty()) {
+                // If there is a filter that depends on no column and is constant false, the scan comes out empty.
+                SelectedPositions positions = pageFilter.filter(operatorContext.getSession().toConnectorSession(), new Page(1, new Block[0]));
+                if (positions.size() == 0) {
+                    return false;
+                }
+            }
+            filters[i] = new FilterExpression(operatorContext.getSession().toConnectorSession(), pageFilter);
             maxChannel = Math.max(maxChannel, maxChannel(filters[i].getInputChannels()));
         }
 
@@ -352,6 +364,7 @@ public class ScanFilterAndProjectOperator
         else if (filterPushedDown && !projectionPushedDown) {
             pageProcessor.setFilterIsPushedDown();
         }
+        return true;
     }
 
     private static void populateChannels(int[] allChannels, int[] selectedChannels)
