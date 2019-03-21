@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
+import com.google.common.net.HostAndPort;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
@@ -24,6 +25,7 @@ import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
 import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore.Client;
 import org.apache.thrift.TException;
 
 import java.io.Closeable;
@@ -35,6 +37,10 @@ public interface HiveMetastoreClient
 {
     @Override
     void close();
+
+    HostAndPort getAddress();
+
+    Client getMetastoreClient();
 
     List<String> getAllDatabases()
             throws TException;

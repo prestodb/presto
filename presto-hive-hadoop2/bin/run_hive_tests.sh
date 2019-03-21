@@ -7,6 +7,11 @@ set -euo pipefail -x
 cleanup_docker_containers
 start_docker_containers
 
+# restart HMS to pickup memory settings
+exec_in_hadoop_master_container cp /etc/hadoop/conf/hive-env.sh /etc/hive/conf/hive-env.sh
+exec_in_hadoop_master_container supervisorctl restart hive-metastore
+retry check_hadoop
+
 # generate test data
 exec_in_hadoop_master_container su hive -s /usr/bin/hive -f /files/sql/create-test.sql
 exec_in_hadoop_master_container su hive -s /usr/bin/hive -f /files/sql/create-test-hive13.sql

@@ -18,4 +18,17 @@ import org.apache.thrift.transport.TTransport;
 public interface HiveMetastoreAuthentication
 {
     TTransport authenticate(TTransport rawTransport, String hiveMetastoreHost);
+
+    TTransport authenticateWithToken(TTransport rawTransport, String tokenString);
+
+    <R, E extends Exception> R doAs(String user, GenericExceptionAction<R, E> action)
+            throws E;
+
+    default void doAs(String user, Runnable action)
+    {
+        doAs(user, () -> {
+            action.run();
+            return null;
+        });
+    }
 }

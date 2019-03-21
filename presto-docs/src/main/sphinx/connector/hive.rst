@@ -184,6 +184,7 @@ Property Name                                      Description                  
 
 ``hive.s3select-pushdown.max-connections``         Maximum number of simultaneously open connections to S3 for  500
                                                    S3SelectPushdown.
+``hive.metastore.multiple-instance.enabled``       Enable load balancing between multiple Metastore instances
 ================================================== ============================================================ ============
 
 .. _s3selectpushdown:

@@ -23,4 +23,17 @@ public class NoHiveMetastoreAuthentication
     {
         return rawTransport;
     }
+
+    @Override
+    public TTransport authenticateWithToken(TTransport rawTransport, String tokenString)
+    {
+        return rawTransport;
+    }
+
+    @Override
+    public <R, E extends Exception> R doAs(String user, GenericExceptionAction<R, E> action)
+            throws E
+    {
+        return action.run();
+    }
 }

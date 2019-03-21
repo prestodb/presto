@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.net.HostAndPort;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
@@ -34,6 +35,7 @@ import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore.Client;
 import org.apache.thrift.TException;
 
 import java.util.List;
@@ -82,6 +84,18 @@ public class MockHiveMetastoreClient
             throw new IllegalStateException();
         }
         return ImmutableList.of(TEST_DATABASE);
+    }
+
+    @Override
+    public Client getMetastoreClient()
+    {
+        return null;
+    }
+
+    @Override
+    public HostAndPort getAddress()
+    {
+        return HostAndPort.fromHost("localhost");
     }
 
     @Override

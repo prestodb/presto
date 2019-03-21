@@ -85,6 +85,8 @@ public final class HiveTestUtils
     public static final ConnectorSession SESSION = new TestingConnectorSession(
             new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
 
+    public static final String IMPERSONATIONUSER = "presto";
+
     public static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
 
     public static final MetadataManager METADATA = MetadataManager.createTestMetadataManager();
