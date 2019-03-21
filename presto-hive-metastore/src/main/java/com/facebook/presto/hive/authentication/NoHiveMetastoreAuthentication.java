@@ -23,4 +23,10 @@ public class NoHiveMetastoreAuthentication
     {
         return rawTransport;
     }
+
+    @Override
+    public TTransport authenticateWithToken(TTransport rawTransport, String tokenStrForm)
+    {
+        return rawTransport;
+    }
 }
