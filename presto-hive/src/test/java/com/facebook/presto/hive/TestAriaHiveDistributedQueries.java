@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.facebook.presto.SystemSessionProperties.ARIA_FLAGS;
 import static com.facebook.presto.SystemSessionProperties.ARIA_REORDER;
 import static com.facebook.presto.SystemSessionProperties.ARIA_REUSE_PAGES;
@@ -46,8 +48,9 @@ public class TestAriaHiveDistributedQueries
 
         Session noAria = Session.builder(queryRunner.getDefaultSession())
                 .setSystemProperty(ARIA_SCAN, "false")
+                .setSystemProperty(ARIA_FLAGS, "0")
+                .setCatalogSessionProperty(HiveQueryRunner.HIVE_CATALOG, HiveSessionProperties.ARIA_SCAN_ENABLED, "false")
                 .build();
-
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, noAria, getTables());
 
         createTable(queryRunner, noAria, "lineitem_aria", "CREATE TABLE lineitem_aria AS\n" +
@@ -76,8 +79,12 @@ public class TestAriaHiveDistributedQueries
 
         createTable(queryRunner, noAria, "lineitem_aria_nulls", "CREATE TABLE lineitem_aria_nulls AS\n" +
                 "SELECT *,\n" +
-                "   IF(have_complex_nulls, null, map(array[1, 2, 3], array[orderkey, partkey, suppkey])) as order_part_supp_map,\n" +
-                "   IF(have_complex_nulls, null, array[orderkey, partkey, suppkey]) as order_part_supp_array\n" +
+                "   IF(have_complex_nulls, null, if (returnflag = 'N', \n" +
+                "    map(array[1, 2, 3], array[orderkey, partkey, suppkey]),\n" +
+                "    map(array[1, 2, 3, 4], array[orderkey, partkey, suppkey, if (returnflag = 'A', 1, 2)])))\n" +
+                "as order_part_supp_map,\n" +
+                "   IF(have_complex_nulls, null, if (returnflag = 'N', \n" +
+                "    array[orderkey, partkey, suppkey], array[orderkey, partkey, suppkey, if (returnflag = 'A', 1, 2)])) as order_part_supp_array\n" +
                 "FROM (\n" +
                 "   SELECT \n" +
                 "       orderkey,\n" +
@@ -90,8 +97,9 @@ public class TestAriaHiveDistributedQueries
                 "       IF(have_simple_nulls and mod (orderkey + linenumber, 23) = 0, null, shipmode) as shipmode,\n" +
                 "       IF(have_simple_nulls and mod (orderkey + linenumber, 7) = 0, null, comment) as comment,\n" +
                 "       IF(have_simple_nulls and mod(orderkey + linenumber, 31) = 0, null, returnflag = 'R') as is_returned,\n" +
+                "       IF(have_simple_nulls and mod(orderkey + linenumber, 11) = 0, null, returnflag) as returnflag,\n" +
                 "       IF(have_simple_nulls and mod(orderkey + linenumber, 37) = 0, null, CAST(quantity + 1 as real)) as float_quantity\n" +
-                "   FROM (SELECT mod(orderkey, 198000) > 99000 as have_simple_nulls, * from tpch.tiny.lineitem))\n");
+                "   FROM (SELECT mod(orderkey, 32000) > 16000 as have_simple_nulls, * from tpch.tiny.lineitem))\n");
 
         createTable(queryRunner, noAria, "lineitem_aria_strings", "CREATE TABLE lineitem_aria_strings AS\n" +
                 "SELECT\n" +
@@ -186,6 +194,15 @@ public class TestAriaHiveDistributedQueries
                 .setSystemProperty(ARIA_REORDER, "true")
                 .setSystemProperty(ARIA_REUSE_PAGES, "true")
                 .setSystemProperty(ARIA_FLAGS, "127")
+                .build();
+    }
+
+    private Session noAriaSession()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(ARIA_SCAN, "false")
+                .setSystemProperty(ARIA_FLAGS, "0")
+                .setCatalogSessionProperty(HiveQueryRunner.HIVE_CATALOG, HiveSessionProperties.ARIA_SCAN_ENABLED, "false")
                 .build();
     }
 
@@ -434,5 +451,16 @@ public class TestAriaHiveDistributedQueries
                 "FROM lineitem l\n" +
                 "JOIN partsupp p\n" +
                 "    ON p.suppkey = l.suppkey AND p.partkey = l.partkey");
+    }
+
+    @Test
+    public void testFilteredErrors()
+    {
+        // Two filters which produce errors so that when one has an error the other is false.
+        assertQuery(ariaSession(),
+                    "select count (*) from lineitem where \n" +
+                    "if (linenumber = 2, false, suppkey / (linenumber - 3) >= 0) \n" +
+                    "and if (linenumber = 3, false, partkey / (linenumber - 2) >= 0)",
+                    noAriaSession(), Optional.of("select count (*) from lineitem where linenumber > 3"));
     }
 }

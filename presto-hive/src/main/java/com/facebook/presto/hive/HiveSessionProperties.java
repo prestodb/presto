@@ -79,7 +79,7 @@ public final class HiveSessionProperties
     private static final String TEMPORARY_STAGING_DIRECTORY_ENABLED = "temporary_staging_directory_enabled";
     private static final String TEMPORARY_STAGING_DIRECTORY_PATH = "temporary_staging_directory_path";
     private static final String PRELOAD_SPLITS_FOR_GROUPED_EXECUTION = "preload_splits_for_grouped_execution";
-    private static final String ARIA_SCAN_ENABLED = "aria_scan_enabled";
+    public static final String ARIA_SCAN_ENABLED = "aria_scan_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 

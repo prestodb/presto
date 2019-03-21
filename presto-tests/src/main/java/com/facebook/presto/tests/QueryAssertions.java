@@ -204,6 +204,102 @@ public final class QueryAssertions
         }
     }
 
+    public static void assertQuery(
+                                    QueryRunner queryRunner,
+                                    Session testSession,
+                                    @Language("SQL") String testQuery,
+                                    Session referenceSession,
+                                    Optional<String> referenceQuery,
+                                    boolean ensureOrdering,
+                                    boolean compareUpdate,
+                                    Optional<Consumer<Plan>> planAssertion)
+    {
+        long start = System.nanoTime();
+        MaterializedResult actualResults = null;
+        Plan queryPlan = null;
+        if (planAssertion.isPresent()) {
+            try {
+                MaterializedResultWithPlan resultWithPlan = queryRunner.executeWithPlan(testSession, testQuery, WarningCollector.NOOP);
+                queryPlan = resultWithPlan.getQueryPlan();
+                actualResults = resultWithPlan.getMaterializedResult().toTestTypes();
+            }
+            catch (RuntimeException ex) {
+                fail("Execution of 'actual' query failed: " + testQuery, ex);
+            }
+        }
+        else {
+            try {
+                actualResults = queryRunner.execute(testSession, testQuery).toTestTypes();
+            }
+            catch (RuntimeException ex) {
+                fail("Execution of 'actual' query failed: " + testQuery, ex);
+            }
+        }
+        if (planAssertion.isPresent()) {
+            planAssertion.get().accept(queryPlan);
+        }
+        Duration actualTime = nanosSince(start);
+
+        long expectedStart = System.nanoTime();
+        MaterializedResult expectedResults = null;
+        String referenceText = referenceQuery.isPresent() ? referenceQuery.get() : testQuery;
+        try {
+            expectedResults = queryRunner.execute(referenceSession, referenceText).toTestTypes();
+        }
+        catch (RuntimeException ex) {
+            fail("Execution of 'expected' query failed: " + referenceText, ex);
+        }
+        Duration totalTime = nanosSince(start);
+        if (totalTime.compareTo(Duration.succinctDuration(1, SECONDS)) > 0) {
+            log.info("FINISHED in presto: %s, h2: %s, total: %s", actualTime, nanosSince(expectedStart), totalTime);
+        }
+
+        if (actualResults.getUpdateType().isPresent() || actualResults.getUpdateCount().isPresent()) {
+            if (!actualResults.getUpdateType().isPresent()) {
+                fail("update count present without update type for query: \n" + testQuery);
+            }
+            if (!compareUpdate) {
+                fail("update type should not be present (use assertUpdate) for query: \n" + testQuery);
+            }
+        }
+
+        List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
+        List<MaterializedRow> expectedRows = expectedResults.getMaterializedRows();
+
+        if (compareUpdate) {
+            if (!actualResults.getUpdateType().isPresent()) {
+                fail("update type not present for query: \n" + testQuery);
+            }
+            if (!actualResults.getUpdateCount().isPresent()) {
+                fail("update count not present for query: \n" + testQuery);
+            }
+            assertEquals(actualRows.size(), 1, "For query: \n " + testQuery + "\n:");
+            assertEquals(expectedRows.size(), 1, "For query: \n " + testQuery + "\n:");
+            MaterializedRow row = expectedRows.get(0);
+            assertEquals(row.getFieldCount(), 1, "For query: \n " + testQuery + "\n:");
+            assertEquals(row.getField(0), actualResults.getUpdateCount().getAsLong(), "For query: \n " + testQuery + "\n:");
+        }
+
+        if (ensureOrdering) {
+            if (!actualRows.equals(expectedRows)) {
+                assertEquals(actualRows, expectedRows, "For query: \n " + testQuery + "\n:");
+            }
+        }
+        else {
+            assertEqualsIgnoreOrder(actualRows, expectedRows, "For query: \n " + testQuery);
+        }
+    }
+
+        public static void assertQuery(
+                                    QueryRunner queryRunner,
+                                    Session testSession,
+                                    @Language("SQL") String testQuery,
+                                    Session referenceSession,
+                                    Optional<String> referenceQuery)
+    {
+        assertQuery(queryRunner, testSession, testQuery, referenceSession, referenceQuery, false, false, Optional.empty());
+    }
+
     public static void assertEqualsIgnoreOrder(Iterable<?> actual, Iterable<?> expected)
     {
         assertEqualsIgnoreOrder(actual, expected, null);
