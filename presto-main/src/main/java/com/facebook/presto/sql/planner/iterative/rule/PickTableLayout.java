@@ -101,7 +101,7 @@ public class PickTableLayout
 
     public PickTableLayoutWithoutPredicate pickTableLayoutWithoutPredicate()
     {
-        return new PickTableLayoutWithoutPredicate(metadata, parser, domainTranslator);
+        return new PickTableLayoutWithoutPredicate(metadata);
     }
 
     private static final class PickTableLayoutForPredicate
@@ -179,14 +179,10 @@ public class PickTableLayout
             implements Rule<TableScanNode>
     {
         private final Metadata metadata;
-        private final SqlParser parser;
-        private final DomainTranslator domainTranslator;
 
-        private PickTableLayoutWithoutPredicate(Metadata metadata, SqlParser parser, DomainTranslator domainTranslator)
+        private PickTableLayoutWithoutPredicate(Metadata metadata)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.parser = requireNonNull(parser, "parser is null");
-            this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
         }
 
         private static final Pattern<TableScanNode> PATTERN = tableScan();
@@ -210,7 +206,26 @@ public class PickTableLayout
                 return Result.empty();
             }
 
-            return Result.ofPlanNode(planTableScan(tableScanNode, TRUE_LITERAL, context.getSession(), context.getSymbolAllocator().getTypes(), context.getIdAllocator(), metadata, parser, domainTranslator));
+            Optional<TableLayoutResult> layout = metadata.getLayout(
+                    context.getSession(),
+                    tableScanNode.getTable(),
+                    Constraint.alwaysTrue(),
+                    Optional.of(tableScanNode.getOutputSymbols().stream()
+                            .map(tableScanNode.getAssignments()::get)
+                            .collect(toImmutableSet())));
+
+            if (!layout.isPresent() || layout.get().getLayout().getPredicate().isNone()) {
+                return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), tableScanNode.getOutputSymbols(), ImmutableList.of()));
+            }
+
+            return Result.ofPlanNode(new TableScanNode(
+                    tableScanNode.getId(),
+                    tableScanNode.getTable(),
+                    tableScanNode.getOutputSymbols(),
+                    tableScanNode.getAssignments(),
+                    Optional.of(layout.get().getLayout().getHandle()),
+                    TupleDomain.all(),
+                    TupleDomain.all()));
         }
     }
 
