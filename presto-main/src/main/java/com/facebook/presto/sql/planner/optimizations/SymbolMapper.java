@@ -176,6 +176,7 @@ public class SymbolMapper
                 node.getTarget(),
                 map(node.getRowCountSymbol()),
                 map(node.getFragmentSymbol()),
+                map(node.getTableCommitContextSymbol()),
                 columns,
                 node.getColumnNames(),
                 node.getPartitioningScheme().map(partitioningScheme -> canonicalize(partitioningScheme, source)),

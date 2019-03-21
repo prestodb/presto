@@ -69,6 +69,7 @@ import com.facebook.presto.operator.SpatialJoinOperator.SpatialJoinOperatorFacto
 import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.operator.StatisticsWriterOperator.StatisticsWriterOperatorFactory;
 import com.facebook.presto.operator.StreamingAggregationOperator.StreamingAggregationOperatorFactory;
+import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskExchangeClientManager;
@@ -193,6 +194,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.primitives.Ints;
+import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 
 import javax.inject.Inject;
@@ -229,6 +231,7 @@ import static com.facebook.presto.operator.PipelineExecutionStrategy.GROUPED_EXE
 import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.facebook.presto.operator.TableFinishOperator.TableFinishOperatorFactory;
 import static com.facebook.presto.operator.TableFinishOperator.TableFinisher;
+import static com.facebook.presto.operator.TableWriterOperator.CONTEXT_CHANNEL;
 import static com.facebook.presto.operator.TableWriterOperator.FRAGMENT_CHANNEL;
 import static com.facebook.presto.operator.TableWriterOperator.ROW_COUNT_CHANNEL;
 import static com.facebook.presto.operator.TableWriterOperator.STATS_START_CHANNEL;
@@ -305,6 +308,7 @@ public class LocalExecutionPlanner
     private final JoinCompiler joinCompiler;
     private final LookupJoinOperators lookupJoinOperators;
     private final OrderingCompiler orderingCompiler;
+    private final JsonCodec<TableCommitContext> tableCommitContextCodec;
 
     @Inject
     public LocalExecutionPlanner(
@@ -327,7 +331,8 @@ public class LocalExecutionPlanner
             PagesIndex.Factory pagesIndexFactory,
             JoinCompiler joinCompiler,
             LookupJoinOperators lookupJoinOperators,
-            OrderingCompiler orderingCompiler)
+            OrderingCompiler orderingCompiler,
+            JsonCodec<TableCommitContext> tableCommitContextCodec)
     {
         this.explainAnalyzeContext = requireNonNull(explainAnalyzeContext, "explainAnalyzeContext is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
@@ -352,6 +357,7 @@ public class LocalExecutionPlanner
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
         this.lookupJoinOperators = requireNonNull(lookupJoinOperators, "lookupJoinOperators is null");
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
+        this.tableCommitContextCodec = requireNonNull(tableCommitContextCodec, "tableCommitContextCodec is null");
     }
 
     public LocalExecutionPlan plan(
@@ -2174,8 +2180,9 @@ public class LocalExecutionPlanner
             PhysicalOperation source = node.getSource().accept(this, context);
 
             ImmutableMap.Builder<Symbol, Integer> outputMapping = ImmutableMap.builder();
-            outputMapping.put(node.getOutputSymbols().get(0), ROW_COUNT_CHANNEL);
-            outputMapping.put(node.getOutputSymbols().get(1), FRAGMENT_CHANNEL);
+            outputMapping.put(node.getOutputSymbols().get(ROW_COUNT_CHANNEL), ROW_COUNT_CHANNEL);
+            outputMapping.put(node.getOutputSymbols().get(FRAGMENT_CHANNEL), FRAGMENT_CHANNEL);
+            outputMapping.put(node.getOutputSymbols().get(CONTEXT_CHANNEL), CONTEXT_CHANNEL);
 
             OperatorFactory statisticsAggregation = node.getStatisticsAggregation().map(aggregation -> {
                 List<Symbol> groupingSymbols = aggregation.getGroupingSymbols();
@@ -2228,7 +2235,8 @@ public class LocalExecutionPlanner
                     inputChannels,
                     session,
                     statisticsAggregation,
-                    getSymbolTypes(node.getOutputSymbols(), context.getTypes()));
+                    getSymbolTypes(node.getOutputSymbols(), context.getTypes()),
+                    tableCommitContextCodec);
 
             return new PhysicalOperation(operatorFactory, outputMapping.build(), context, source);
         }
@@ -2313,7 +2321,7 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            OperatorFactory operatorFactory = new DeleteOperatorFactory(context.getNextOperatorId(), node.getId(), source.getLayout().get(node.getRowId()));
+            OperatorFactory operatorFactory = new DeleteOperatorFactory(context.getNextOperatorId(), node.getId(), source.getLayout().get(node.getRowId()), tableCommitContextCodec);
 
             Map<Symbol, Integer> layout = ImmutableMap.<Symbol, Integer>builder()
                     .put(node.getOutputSymbols().get(0), 0)

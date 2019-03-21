@@ -91,6 +91,7 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.StageExecutionDescriptor;
+import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskExchangeClientManager;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
@@ -730,7 +731,8 @@ public class LocalQueryRunner
                 new PagesIndex.TestingFactory(false),
                 joinCompiler,
                 new LookupJoinOperators(),
-                new OrderingCompiler());
+                new OrderingCompiler(),
+                jsonCodec(TableCommitContext.class));
 
         // plan query
         StageExecutionDescriptor stageExecutionDescriptor = subplan.getFragment().getStageExecutionDescriptor();

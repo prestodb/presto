@@ -16,11 +16,13 @@ package com.facebook.presto.operator;
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.DevNullOperator.DevNullOperatorFactory;
+import com.facebook.presto.operator.TableCommitContext.CommitGranularity;
 import com.facebook.presto.operator.TableWriterOperator.TableWriterInfo;
 import com.facebook.presto.operator.TableWriterOperator.TableWriterOperatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
@@ -31,6 +33,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageSinkProperties;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -39,6 +42,7 @@ import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.google.common.collect.ImmutableList;
+import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -62,6 +66,8 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -75,6 +81,7 @@ import static org.testng.Assert.assertTrue;
 public class TestTableWriterOperator
 {
     private static final ConnectorId CONNECTOR_ID = new ConnectorId("testConnectorId");
+    private static final JsonCodec<TableCommitContext> TABLE_COMMIT_CONTEXT_CODEC = jsonCodec(TableCommitContext.class);
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
 
@@ -135,10 +142,8 @@ public class TestTableWriterOperator
         // complete previously blocked future
         blockingPageSink.complete();
         // and getOutput which actually finishes the operator
-        List<Type> expectedTypes = ImmutableList.of(BIGINT, VARBINARY);
-        assertPageEquals(expectedTypes,
-                operator.getOutput(),
-                rowPagesBuilder(expectedTypes).row(2, null).build().get(0));
+        List<Type> expectedTypes = ImmutableList.of(BIGINT, VARBINARY, VARBINARY);
+        assertPageEquals(expectedTypes, operator.getOutput(), rowPagesBuilder(expectedTypes).row(2, null, getTableCommitContext(true)).build().get(0));
 
         assertTrue(operator.isBlocked().isDone());
         assertTrue(operator.isFinished());
@@ -193,7 +198,7 @@ public class TestTableWriterOperator
     {
         PageSinkManager pageSinkManager = new PageSinkManager();
         pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(new TableWriteInfoTestPageSink()));
-        ImmutableList<Type> outputTypes = ImmutableList.of(BIGINT, VARBINARY, BIGINT);
+        ImmutableList<Type> outputTypes = ImmutableList.of(BIGINT, VARBINARY, VARBINARY, BIGINT);
         Session session = testSessionBuilder()
                 .setSystemProperty("statistics_cpu_timer_enabled", "true")
                 .build();
@@ -229,11 +234,13 @@ public class TestTableWriterOperator
 
         assertPageEquals(outputTypes, operator.getOutput(),
                 rowPagesBuilder(outputTypes)
-                        .row(null, null, 43).build().get(0));
+                        .row(null, null, getTableCommitContext(false), 43).build().get(0));
 
-        assertPageEquals(outputTypes, operator.getOutput(),
-                rowPagesBuilder(outputTypes)
-                        .row(2, null, null).build().get(0));
+        BlockBuilder rowsBuilder = BIGINT.createBlockBuilder(null, 1);
+        BlockBuilder fragmentsBuilder = VARBINARY.createBlockBuilder(null, 1);
+        rowsBuilder.writeLong(1);
+        fragmentsBuilder.appendNull();
+        assertPageEquals(outputTypes, operator.getOutput(), rowPagesBuilder(outputTypes).row(2, null, getTableCommitContext(true), null).build().get(0));
 
         assertTrue(operator.isBlocked().isDone());
         assertFalse(operator.needsInput());
@@ -245,6 +252,11 @@ public class TestTableWriterOperator
         TableWriterInfo info = operator.getInfo();
         assertThat(info.getStatisticsWallTime().getValue(NANOSECONDS)).isGreaterThan(0);
         assertThat(info.getStatisticsCpuTime().getValue(NANOSECONDS)).isGreaterThan(0);
+    }
+
+    private static Slice getTableCommitContext(boolean lastPage)
+    {
+        return wrappedBuffer(TABLE_COMMIT_CONTEXT_CODEC.toJsonBytes(new TableCommitContext(Lifespan.taskWide(), 0, 0, CommitGranularity.TABLE, lastPage)));
     }
 
     private void assertMemoryIsReleased(TableWriterOperator tableWriterOperator)
@@ -269,7 +281,7 @@ public class TestTableWriterOperator
     {
         PageSinkManager pageSinkManager = new PageSinkManager();
         pageSinkManager.addConnectorPageSinkProvider(CONNECTOR_ID, new ConstantPageSinkProvider(blockingPageSink));
-        return createTableWriterOperator(pageSinkManager, new DevNullOperatorFactory(1, new PlanNodeId("test")), ImmutableList.of(BIGINT, VARBINARY));
+        return createTableWriterOperator(pageSinkManager, new DevNullOperatorFactory(1, new PlanNodeId("test")), ImmutableList.of(BIGINT, VARBINARY, VARBINARY));
     }
 
     private Operator createTableWriterOperator(PageSinkManager pageSinkManager, OperatorFactory statisticsAggregation, List<Type> outputTypes)
@@ -304,7 +316,8 @@ public class TestTableWriterOperator
                 ImmutableList.of(0),
                 session,
                 statisticsAggregation,
-                outputTypes);
+                outputTypes,
+                TABLE_COMMIT_CONTEXT_CODEC);
         return factory.createOperator(driverContext);
     }
 

@@ -30,6 +30,7 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.StageExecutionDescriptor;
+import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -70,6 +71,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static io.airlift.json.JsonCodec.jsonCodec;
 
 public final class TaskTestUtils
 {
@@ -150,7 +152,8 @@ public final class TaskTestUtils
                 new PagesIndex.TestingFactory(false),
                 new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig()),
                 new LookupJoinOperators(),
-                new OrderingCompiler());
+                new OrderingCompiler(),
+                jsonCodec(TableCommitContext.class));
     }
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<TaskSource> taskSources, OutputBuffers outputBuffers)
