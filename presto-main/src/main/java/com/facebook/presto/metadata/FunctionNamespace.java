@@ -23,70 +23,28 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.tree.QualifiedName;
 
-import javax.annotation.concurrent.ThreadSafe;
-
 import java.util.List;
 
-import static java.util.Objects.requireNonNull;
-
-@ThreadSafe
-class FunctionNamespace
+public interface FunctionNamespace
 {
-    private final FunctionRegistry registry;
+    void addFunctions(List<? extends SqlFunction> functions);
 
-    public FunctionNamespace(FunctionRegistry registry)
-    {
-        this.registry = requireNonNull(registry, "registry is null");
-    }
+    List<SqlFunction> listFunctions();
 
-    public void addFunctions(List<? extends SqlFunction> functions)
-    {
-        registry.addFunctions(functions);
-    }
+    FunctionHandle lookupFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes);
 
-    public List<SqlFunction> listFunctions()
-    {
-        return registry.list();
-    }
+    FunctionHandle resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes);
 
-    public FunctionHandle lookupFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
-    {
-        return registry.lookupFunction(name, parameterTypes);
-    }
+    WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle);
 
-    public FunctionHandle resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
-    {
-        return registry.resolveFunction(name, parameterTypes);
-    }
+    InternalAggregationFunction getAggregateFunctionImplementation(FunctionHandle functionHandle);
 
-    public WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle)
-    {
-        return registry.getWindowFunctionImplementation(functionHandle);
-    }
+    ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature);
 
-    public InternalAggregationFunction getAggregateFunctionImplementation(FunctionHandle functionHandle)
-    {
-        return registry.getAggregateFunctionImplementation(functionHandle);
-    }
+    boolean isAggregationFunction(QualifiedName name);
 
-    public ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)
-    {
-        return registry.getScalarFunctionImplementation(signature);
-    }
+    FunctionHandle resolveOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)
+            throws OperatorNotFoundException;
 
-    public boolean isAggregationFunction(QualifiedName name)
-    {
-        return registry.isAggregationFunction(name);
-    }
-
-    public FunctionHandle resolveOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)
-            throws OperatorNotFoundException
-    {
-        return registry.resolveOperator(operatorType, argumentTypes);
-    }
-
-    public FunctionHandle lookupCast(CastType castType, TypeSignature fromType, TypeSignature toType)
-    {
-        return registry.lookupCast(castType, fromType, toType);
-    }
+    FunctionHandle lookupCast(CastType castType, TypeSignature fromType, TypeSignature toType);
 }

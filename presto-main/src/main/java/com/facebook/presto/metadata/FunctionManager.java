@@ -39,8 +39,7 @@ public class FunctionManager
 
     public FunctionManager(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FeaturesConfig featuresConfig)
     {
-        FunctionRegistry functionRegistry = new FunctionRegistry(typeManager, blockEncodingSerde, featuresConfig, this);
-        this.globalFunctionNamespace = new FunctionNamespace(functionRegistry);
+        this.globalFunctionNamespace = new GlobalFunctionNamespace(typeManager, blockEncodingSerde, featuresConfig, this);
         this.functionInvokerProvider = new FunctionInvokerProvider(this);
         if (typeManager instanceof TypeRegistry) {
             ((TypeRegistry) typeManager).setFunctionManager(this);

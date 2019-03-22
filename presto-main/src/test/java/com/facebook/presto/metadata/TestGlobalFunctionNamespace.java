@@ -59,14 +59,14 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-public class TestFunctionRegistry
+public class TestGlobalFunctionNamespace
 {
     @Test
     public void testIdentityCast()
     {
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = createFunctionRegistry(typeManager);
-        FunctionHandle exactOperator = registry.lookupCast(CastType.CAST, HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature());
+        GlobalFunctionNamespace globalFucntionNamespace = createGlobalFucntionNamespace(typeManager);
+        FunctionHandle exactOperator = globalFucntionNamespace.lookupCast(CastType.CAST, HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature());
         assertEquals(exactOperator, new FunctionHandle(new Signature(mangleOperatorName(CAST.name()), SCALAR, HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature())));
     }
 
@@ -74,9 +74,9 @@ public class TestFunctionRegistry
     public void testExactMatchBeforeCoercion()
     {
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = createFunctionRegistry(typeManager);
+        GlobalFunctionNamespace globalFucntionNamespace = createGlobalFucntionNamespace(typeManager);
         boolean foundOperator = false;
-        for (SqlFunction function : registry.listOperators()) {
+        for (SqlFunction function : globalFucntionNamespace.listOperators()) {
             OperatorType operatorType = unmangleOperator(function.getSignature().getName());
             if (operatorType == CAST || operatorType == SATURATED_FLOOR_CAST) {
                 continue;
@@ -87,7 +87,7 @@ public class TestFunctionRegistry
             if (function.getSignature().getArgumentTypes().stream().anyMatch(TypeSignature::isCalculated)) {
                 continue;
             }
-            FunctionHandle exactOperator = registry.resolveOperator(operatorType, fromTypeSignatures(function.getSignature().getArgumentTypes()));
+            FunctionHandle exactOperator = globalFucntionNamespace.resolveOperator(operatorType, fromTypeSignatures(function.getSignature().getArgumentTypes()));
             assertEquals(exactOperator.getSignature(), function.getSignature());
             foundOperator = true;
         }
@@ -103,8 +103,8 @@ public class TestFunctionRegistry
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
 
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = createFunctionRegistry(typeManager);
-        FunctionHandle functionHandle = registry.resolveFunction(QualifiedName.of(signature.getName()), fromTypeSignatures(signature.getArgumentTypes()));
+        GlobalFunctionNamespace globalFucntionNamespace = createGlobalFucntionNamespace(typeManager);
+        FunctionHandle functionHandle = globalFucntionNamespace.resolveFunction(QualifiedName.of(signature.getName()), fromTypeSignatures(signature.getArgumentTypes()));
         assertEquals(functionHandle.getSignature().getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
     }
@@ -120,9 +120,9 @@ public class TestFunctionRegistry
                 .collect(toImmutableList());
 
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = createFunctionRegistry(typeManager);
-        registry.addFunctions(functions);
-        registry.addFunctions(functions);
+        GlobalFunctionNamespace globalFucntionNamespace = createGlobalFucntionNamespace(typeManager);
+        globalFucntionNamespace.addFunctions(functions);
+        globalFucntionNamespace.addFunctions(functions);
     }
 
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "'sum' is both an aggregation and a scalar function")
@@ -133,16 +133,16 @@ public class TestFunctionRegistry
                 .getFunctions();
 
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = createFunctionRegistry(typeManager);
-        registry.addFunctions(functions);
+        GlobalFunctionNamespace globalFucntionNamespace = createGlobalFucntionNamespace(typeManager);
+        globalFucntionNamespace.addFunctions(functions);
     }
 
     @Test
     public void testListingHiddenFunctions()
     {
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = createFunctionRegistry(typeManager);
-        List<SqlFunction> functions = registry.list();
+        GlobalFunctionNamespace globalFucntionNamespace = createGlobalFucntionNamespace(typeManager);
+        List<SqlFunction> functions = globalFucntionNamespace.listFunctions();
         List<String> names = transform(functions, input -> input.getSignature().getName());
 
         assertTrue(names.contains("length"), "Expected function names " + names + " to contain 'length'");
@@ -294,12 +294,12 @@ public class TestFunctionRegistry
                 .failsWithMessage("Could not choose a best candidate operator. Explicit type casts must be added.");
     }
 
-    private FunctionRegistry createFunctionRegistry(TypeRegistry typeManager)
+    private GlobalFunctionNamespace createGlobalFucntionNamespace(TypeRegistry typeManager)
     {
         BlockEncodingManager blockEncodingManager = new BlockEncodingManager(typeManager);
         FeaturesConfig featuresConfig = new FeaturesConfig();
         FunctionManager functionManager = new FunctionManager(typeManager, blockEncodingManager, featuresConfig);
-        return new FunctionRegistry(typeManager, blockEncodingManager, featuresConfig, functionManager);
+        return new GlobalFunctionNamespace(typeManager, blockEncodingManager, featuresConfig, functionManager);
     }
 
     private SignatureBuilder functionSignature(String... argumentTypes)
@@ -381,9 +381,9 @@ public class TestFunctionRegistry
         {
             FeaturesConfig featuresConfig = new FeaturesConfig();
             FunctionManager functionManager = new FunctionManager(typeRegistry, blockEncoding, featuresConfig);
-            FunctionRegistry registry = new FunctionRegistry(typeRegistry, blockEncoding, featuresConfig, functionManager);
-            registry.addFunctions(createFunctionsFromSignatures());
-            return registry.resolveFunction(QualifiedName.of(TEST_FUNCTION_NAME), fromTypeSignatures(parameterTypes));
+            GlobalFunctionNamespace globalFunctionNamespace = new GlobalFunctionNamespace(typeRegistry, blockEncoding, featuresConfig, functionManager);
+            globalFunctionNamespace.addFunctions(createFunctionsFromSignatures());
+            return globalFunctionNamespace.resolveFunction(QualifiedName.of(TEST_FUNCTION_NAME), fromTypeSignatures(parameterTypes));
         }
 
         private List<SqlFunction> createFunctionsFromSignatures()

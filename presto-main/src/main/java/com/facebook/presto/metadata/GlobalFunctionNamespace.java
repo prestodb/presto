@@ -356,7 +356,8 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
-class FunctionRegistry
+class GlobalFunctionNamespace
+        implements FunctionNamespace
 {
     private final TypeManager typeManager;
     private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
@@ -366,7 +367,7 @@ class FunctionRegistry
     private final MagicLiteralFunction magicLiteralFunction;
     private volatile FunctionMap functions = new FunctionMap();
 
-    public FunctionRegistry(
+    public GlobalFunctionNamespace(
             TypeManager typeManager,
             BlockEncodingSerde blockEncodingSerde,
             FeaturesConfig featuresConfig,
@@ -674,7 +675,7 @@ class FunctionRegistry
         this.functions = new FunctionMap(this.functions, functions);
     }
 
-    public List<SqlFunction> list()
+    public List<SqlFunction> listFunctions()
     {
         return functions.list().stream()
                 .filter(function -> !function.isHidden())
