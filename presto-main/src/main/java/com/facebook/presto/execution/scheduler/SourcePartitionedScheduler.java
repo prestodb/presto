@@ -72,12 +72,6 @@ public class SourcePartitionedScheduler
         SPLITS_ADDED,
 
         /**
-         * All splits from underlying SplitSource have been discovered.
-         * No more splits will be added to the pendingSplits set.
-         */
-        NO_MORE_SPLITS,
-
-        /**
          * All splits have been provided to caller of this scheduler.
          * Cleanup operations are done (e.g., drainCompletelyScheduledLifespans has drained all driver groups).
          */
@@ -311,23 +305,22 @@ public class SourcePartitionedScheduler
         }
 
         // * `splitSource.isFinished` invocation may fail after `splitSource.close` has been invoked.
-        //   If state is NO_MORE_SPLITS/FINISHED, splitSource.isFinished has previously returned true, and splitSource is closed now.
+        //   If state is FINISHED, splitSource.isFinished has previously returned true, and splitSource is closed now.
         // * Even if `splitSource.isFinished()` return true, it is not necessarily safe to tear down the split source.
         //   * If anyBlockedOnNextSplitBatch is true, it means we have not checked out the recently completed nextSplitBatch futures,
         //     which may contain recently published splits. We must not ignore those.
         //   * If any scheduleGroup is still in DISCOVERING_SPLITS state, it means it hasn't realized that there will be no more splits.
         //     Next time it invokes getNextBatch, it will realize that. However, the invocation will fail we tear down splitSource now.
-        if ((state == State.NO_MORE_SPLITS || state == State.FINISHED) || (noMoreScheduleGroups && scheduleGroups.isEmpty() && splitSource.isFinished())) {
+        if ((state == State.FINISHED) || (noMoreScheduleGroups && scheduleGroups.isEmpty() && splitSource.isFinished())) {
             switch (state) {
                 case INITIALIZED:
                     // We have not scheduled a single split so far.
                     // But this shouldn't be possible. See usage of EmptySplit in this method.
                     throw new IllegalStateException("At least 1 split should have been scheduled for this plan node");
                 case SPLITS_ADDED:
-                    state = State.NO_MORE_SPLITS;
+                    // TODO: don't close split source since we might need to rewind...
                     splitSource.close();
-                    // fall through
-                case NO_MORE_SPLITS:
+
                     state = State.FINISHED;
                     whenFinishedOrNewLifespanAdded.set(null);
                     // fall through
