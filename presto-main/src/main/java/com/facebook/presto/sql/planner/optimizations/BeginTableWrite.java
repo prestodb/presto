@@ -195,19 +195,17 @@ public class BeginTableWrite
                 TableScanNode scan = (TableScanNode) node;
                 TupleDomain<ColumnHandle> originalEnforcedConstraint = scan.getEnforcedConstraint();
 
-                TableLayoutResult layout = metadata.getLayout(
+                TableLayoutResult layoutResult = metadata.getLayout(
                         session,
                         handle,
                         new Constraint<>(originalEnforcedConstraint),
                         Optional.of(ImmutableSet.copyOf(scan.getAssignments().values())));
-                TableLayoutResult layoutResult = layout;
 
                 return new TableScanNode(
                         scan.getId(),
-                        handle,
+                        layoutResult.getLayout().getNewTableHandle(),
                         scan.getOutputSymbols(),
                         scan.getAssignments(),
-                        Optional.of(layoutResult.getLayout().getHandle()),
                         layoutResult.getLayout().getPredicate(),
                         computeEnforced(originalEnforcedConstraint, layoutResult.getUnenforcedConstraint()));
             }

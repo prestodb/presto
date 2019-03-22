@@ -18,7 +18,6 @@ import com.facebook.presto.execution.Column;
 import com.facebook.presto.execution.Input;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -59,10 +58,10 @@ public class InputExtractor
         return new Column(columnMetadata.getName(), columnMetadata.getType().toString());
     }
 
-    private Input createInput(TableMetadata table, Optional<TableLayoutHandle> layout, Set<Column> columns)
+    private Input createInput(TableMetadata table, TableHandle tableHandle, Set<Column> columns)
     {
         SchemaTableName schemaTable = table.getTable();
-        Optional<Object> inputMetadata = layout.flatMap(tableLayout -> metadata.getInfo(session, tableLayout));
+        Optional<Object> inputMetadata = metadata.getInfo(session, tableHandle);
         return new Input(table.getConnectorId(), schemaTable.getSchemaName(), schemaTable.getTableName(), inputMetadata, ImmutableList.copyOf(columns));
     }
 
@@ -86,7 +85,7 @@ public class InputExtractor
                 columns.add(createColumn(metadata.getColumnMetadata(session, tableHandle, columnHandle)));
             }
 
-            inputs.add(createInput(metadata.getTableMetadata(session, tableHandle), node.getLayout(), columns));
+            inputs.add(createInput(metadata.getTableMetadata(session, tableHandle), tableHandle, columns));
 
             return null;
         }
@@ -101,7 +100,7 @@ public class InputExtractor
                 columns.add(createColumn(metadata.getColumnMetadata(session, tableHandle, columnHandle)));
             }
 
-            inputs.add(createInput(metadata.getTableMetadata(session, tableHandle), node.getLayout(), columns));
+            inputs.add(createInput(metadata.getTableMetadata(session, tableHandle), tableHandle, columns));
 
             return null;
         }

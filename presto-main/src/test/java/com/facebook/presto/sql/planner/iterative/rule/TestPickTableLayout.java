@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -50,8 +49,6 @@ public class TestPickTableLayout
     private PickTableLayout pickTableLayout;
     private TableHandle nationTableHandle;
     private TableHandle ordersTableHandle;
-    private TableLayoutHandle nationTableLayoutHandle;
-    private TableLayoutHandle ordersTableLayoutHandle;
     private ConnectorId connectorId;
 
     @BeforeClass
@@ -60,21 +57,20 @@ public class TestPickTableLayout
         pickTableLayout = new PickTableLayout(tester().getMetadata(), new SqlParser());
 
         connectorId = tester().getCurrentConnectorId();
+
+        TpchTableHandle nationTpchTableHandle = new TpchTableHandle("nation", 1.0);
+        TpchTableHandle orderTpchTableHandle = new TpchTableHandle("orders", 1.0);
+
         nationTableHandle = new TableHandle(
                 connectorId,
-                new TpchTableHandle("nation", 1.0));
+                nationTpchTableHandle,
+                TestingTransactionHandle.create(),
+                Optional.of(new TpchTableLayoutHandle(nationTpchTableHandle, TupleDomain.all())));
         ordersTableHandle = new TableHandle(
                 connectorId,
-                new TpchTableHandle("orders", 1.0));
-
-        nationTableLayoutHandle = new TableLayoutHandle(
-                connectorId,
+                orderTpchTableHandle,
                 TestingTransactionHandle.create(),
-                new TpchTableLayoutHandle((TpchTableHandle) nationTableHandle.getConnectorHandle(), TupleDomain.all()));
-        ordersTableLayoutHandle = new TableLayoutHandle(
-                connectorId,
-                TestingTransactionHandle.create(),
-                new TpchTableLayoutHandle((TpchTableHandle) ordersTableHandle.getConnectorHandle(), TupleDomain.all()));
+                Optional.of(new TpchTableLayoutHandle(orderTpchTableHandle, TupleDomain.all())));
     }
 
     @Test
@@ -94,8 +90,7 @@ public class TestPickTableLayout
                 .on(p -> p.tableScan(
                         nationTableHandle,
                         ImmutableList.of(p.symbol("nationkey", BIGINT)),
-                        ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
-                        Optional.of(nationTableLayoutHandle)))
+                        ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT))))
                 .doesNotFire();
     }
 
@@ -107,8 +102,7 @@ public class TestPickTableLayout
                         p.tableScan(
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("orderstatus", createVarcharType(1))),
-                                ImmutableMap.of(p.symbol("orderstatus", createVarcharType(1)), new TpchColumnHandle("orderstatus", createVarcharType(1))),
-                                Optional.of(ordersTableLayoutHandle))))
+                                ImmutableMap.of(p.symbol("orderstatus", createVarcharType(1)), new TpchColumnHandle("orderstatus", createVarcharType(1))))))
                 .matches(values("A"));
     }
 
@@ -122,7 +116,6 @@ public class TestPickTableLayout
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
                                 ImmutableMap.of(p.symbol("nationkey", BIGINT), columnHandle),
-                                Optional.of(nationTableLayoutHandle),
                                 TupleDomain.none(),
                                 TupleDomain.none())))
                 .matches(values("A"));
@@ -137,7 +130,6 @@ public class TestPickTableLayout
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
                                 ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
-                                Optional.of(nationTableLayoutHandle),
                                 TupleDomain.all(),
                                 TupleDomain.all())))
                 .doesNotFire();
@@ -148,7 +140,11 @@ public class TestPickTableLayout
     {
         tester().assertThat(pickTableLayout.pickTableLayoutWithoutPredicate())
                 .on(p -> p.tableScan(
-                        nationTableHandle,
+                        new TableHandle(
+                                connectorId,
+                                new TpchTableHandle("nation", 1.0),
+                                TestingTransactionHandle.create(),
+                                Optional.empty()),
                         ImmutableList.of(p.symbol("nationkey", BIGINT)),
                         ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT))))
                 .matches(
@@ -179,8 +175,7 @@ public class TestPickTableLayout
                         p.tableScan(
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("orderstatus", createVarcharType(1))),
-                                ImmutableMap.of(p.symbol("orderstatus", createVarcharType(1)), new TpchColumnHandle("orderstatus", createVarcharType(1))),
-                                Optional.of(ordersTableLayoutHandle))))
+                                ImmutableMap.of(p.symbol("orderstatus", createVarcharType(1)), new TpchColumnHandle("orderstatus", createVarcharType(1))))))
                 .matches(
                         constrainedTableScanWithTableLayout(
                                 "orders",

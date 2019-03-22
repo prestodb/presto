@@ -31,6 +31,7 @@ import com.google.common.collect.Iterables;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -89,10 +90,14 @@ public class MetadataDeleteOptimizer
                 return context.defaultRewrite(node);
             }
             TableScanNode tableScanNode = tableScan.get();
-            if (!metadata.supportsMetadataDelete(session, tableScanNode.getTable(), tableScanNode.getLayout().get())) {
+            if (!metadata.supportsMetadataDelete(session, tableScanNode.getTable())) {
                 return context.defaultRewrite(node);
             }
-            return new MetadataDeleteNode(idAllocator.getNextId(), delete.get().getTarget(), Iterables.getOnlyElement(node.getOutputSymbols()), tableScanNode.getLayout().get());
+
+            return new MetadataDeleteNode(
+                    idAllocator.getNextId(),
+                    new DeleteHandle(tableScanNode.getTable(), delete.get().getTarget().getSchemaTableName()),
+                    Iterables.getOnlyElement(node.getOutputSymbols()));
         }
 
         private static <T> Optional<T> findNode(PlanNode source, Class<T> clazz)

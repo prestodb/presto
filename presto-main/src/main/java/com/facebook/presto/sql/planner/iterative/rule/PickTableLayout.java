@@ -19,6 +19,7 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.operator.scalar.TryFunction;
 import com.facebook.presto.spi.ColumnHandle;
@@ -177,7 +178,7 @@ public class PickTableLayout
 
             TableScanNode rewrittenTableScan = (TableScanNode) rewrittenFilter.getSource();
 
-            if (!tableScan.getLayout().isPresent() && rewrittenTableScan.getLayout().isPresent()) {
+            if (!tableScan.getTable().equals(rewrittenTableScan.getTable())) {
                 return false;
             }
 
@@ -213,11 +214,11 @@ public class PickTableLayout
         @Override
         public Result apply(TableScanNode tableScanNode, Captures captures, Context context)
         {
-            if (tableScanNode.getLayout().isPresent()) {
+            if (tableScanNode.getTable().getLayout().isPresent()) {
                 return Result.empty();
             }
 
-            Optional<TableLayoutResult> layout = metadata.getLayout(
+            TableLayoutResult layout = metadata.getLayout(
                     context.getSession(),
                     tableScanNode.getTable(),
                     Constraint.alwaysTrue(),
@@ -225,17 +226,20 @@ public class PickTableLayout
                             .map(tableScanNode.getAssignments()::get)
                             .collect(toImmutableSet())));
 
-            if (!layout.isPresent() || layout.get().getLayout().getPredicate().isNone()) {
+            if (layout.getLayout().getPredicate().isNone()) {
                 return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), tableScanNode.getOutputSymbols(), ImmutableList.of()));
             }
 
             return Result.ofPlanNode(new TableScanNode(
                     tableScanNode.getId(),
-                    tableScanNode.getTable(),
+                    new TableHandle(
+                            tableScanNode.getTable().getConnectorId(),
+                            tableScanNode.getTable().getConnectorHandle(),
+                            tableScanNode.getTable().getTransaction(),
+                            Optional.of(layout.getLayout().getHandle().getConnectorHandle())),
                     tableScanNode.getOutputSymbols(),
                     tableScanNode.getAssignments(),
-                    Optional.of(layout.get().getLayout().getHandle()),
-                    layout.get().getLayout().getPredicate(),
+                    layout.getLayout().getPredicate(),
                     TupleDomain.all()));
         }
     }
@@ -305,10 +309,13 @@ public class PickTableLayout
 
         TableScanNode tableScan = new TableScanNode(
                 node.getId(),
-                node.getTable(),
+                new TableHandle(
+                        node.getTable().getConnectorId(),
+                        node.getTable().getConnectorHandle(),
+                        node.getTable().getTransaction(),
+                        Optional.of(layout.getLayout().getHandle().getConnectorHandle())),
                 node.getOutputSymbols(),
                 node.getAssignments(),
-                Optional.of(layout.getLayout().getHandle()),
                 layout.getLayout().getPredicate(),
                 computeEnforced(newDomain, layout.getUnenforcedConstraint()));
 

@@ -23,11 +23,14 @@ import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -146,7 +149,9 @@ public class TestPruneCountAggregationOverScalar
                                             p.tableScan(
                                                     new TableHandle(
                                                             new ConnectorId("local"),
-                                                            new TpchTableHandle("orders", TINY_SCALE_FACTOR)),
+                                                            new TpchTableHandle("orders", TINY_SCALE_FACTOR),
+                                                            TestingTransactionHandle.create(),
+                                                            Optional.empty()),
                                                     ImmutableList.of(totalPrice),
                                                     ImmutableMap.of(totalPrice, new TpchColumnHandle(totalPrice.getName(), DOUBLE))))));
 
