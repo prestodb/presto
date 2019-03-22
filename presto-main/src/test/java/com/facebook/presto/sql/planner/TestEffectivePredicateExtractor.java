@@ -86,7 +86,18 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestEffectivePredicateExtractor
 {
-    private static final TableHandle DUAL_TABLE_HANDLE = new TableHandle(new ConnectorId("test"), new TestingTableHandle());
+    private static final TableHandle DUAL_TABLE_HANDLE = new TableHandle(
+            new ConnectorId("test"),
+            new TestingTableHandle(),
+            TestingTransactionHandle.create(),
+            Optional.empty());
+
+    private static final TableHandle DUAL_TABLE_HANDLE_WITH_LAYOUT = new TableHandle(
+            new ConnectorId("test"),
+            new TestingTableHandle(),
+            TestingTransactionHandle.create(),
+            Optional.of(TestingHandle.INSTANCE));
+
     private static final TableLayoutHandle TESTING_TABLE_LAYOUT = new TableLayoutHandle(
             new ConnectorId("x"),
             TestingTransactionHandle.create(),
@@ -332,10 +343,9 @@ public class TestEffectivePredicateExtractor
 
         node = new TableScanNode(
                 newId(),
-                DUAL_TABLE_HANDLE,
+                DUAL_TABLE_HANDLE_WITH_LAYOUT,
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
-                Optional.of(TESTING_TABLE_LAYOUT),
                 TupleDomain.none(),
                 TupleDomain.all());
         effectivePredicate = effectivePredicateExtractor.extract(node);
@@ -343,10 +353,9 @@ public class TestEffectivePredicateExtractor
 
         node = new TableScanNode(
                 newId(),
-                DUAL_TABLE_HANDLE,
+                DUAL_TABLE_HANDLE_WITH_LAYOUT,
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
-                Optional.of(TESTING_TABLE_LAYOUT),
                 TupleDomain.withColumnDomains(ImmutableMap.of(scanAssignments.get(A), Domain.singleValue(BIGINT, 1L))),
                 TupleDomain.all());
         effectivePredicate = effectivePredicateExtractor.extract(node);
@@ -354,10 +363,9 @@ public class TestEffectivePredicateExtractor
 
         node = new TableScanNode(
                 newId(),
-                DUAL_TABLE_HANDLE,
+                DUAL_TABLE_HANDLE_WITH_LAYOUT,
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
-                Optional.of(TESTING_TABLE_LAYOUT),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         scanAssignments.get(A), Domain.singleValue(BIGINT, 1L),
                         scanAssignments.get(B), Domain.singleValue(BIGINT, 2L))),
@@ -370,7 +378,6 @@ public class TestEffectivePredicateExtractor
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
-                Optional.empty(),
                 TupleDomain.all(),
                 TupleDomain.all());
         effectivePredicate = effectivePredicateExtractor.extract(node);
@@ -709,7 +716,6 @@ public class TestEffectivePredicateExtractor
                 DUAL_TABLE_HANDLE,
                 ImmutableList.copyOf(scanAssignments.keySet()),
                 scanAssignments,
-                Optional.empty(),
                 TupleDomain.all(),
                 TupleDomain.all());
     }
