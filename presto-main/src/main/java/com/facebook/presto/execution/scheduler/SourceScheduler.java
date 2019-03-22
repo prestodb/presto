@@ -32,5 +32,5 @@ public interface SourceScheduler
 
     void noMoreLifespans();
 
-    List<Lifespan> drainCompletedLifespans();
+    List<Lifespan> drainCompletelyScheduledLifespans();
 }

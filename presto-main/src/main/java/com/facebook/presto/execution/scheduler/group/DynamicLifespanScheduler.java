@@ -101,7 +101,7 @@ public class DynamicLifespanScheduler
     }
 
     @Override
-    public void onLifespanFinished(Iterable<Lifespan> newlyCompletedDriverGroups)
+    public void onLifespanExecutionFinished(Iterable<Lifespan> newlyCompletedDriverGroups)
     {
         checkState(initialScheduled);
 

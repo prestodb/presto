@@ -143,7 +143,7 @@ public class FixedSourcePartitionedScheduler
                     // Schedule the first few lifespans
                     lifespanScheduler.scheduleInitial(sourceScheduler);
                     // Schedule new lifespans for finished ones
-                    stage.addCompletedDriverGroupsChangedListener(lifespanScheduler::onLifespanFinished);
+                    stage.addCompletedDriverGroupsChangedListener(lifespanScheduler::onLifespanExecutionFinished);
                     groupedLifespanScheduler = Optional.of(lifespanScheduler);
                 }
             }
@@ -214,7 +214,7 @@ public class FixedSourcePartitionedScheduler
                 allBlocked = false;
             }
 
-            driverGroupsToStart = sourceScheduler.drainCompletedLifespans();
+            driverGroupsToStart = sourceScheduler.drainCompletelyScheduledLifespans();
 
             if (schedule.isFinished()) {
                 stage.schedulingComplete(sourceScheduler.getPlanNodeId());
@@ -343,10 +343,10 @@ public class FixedSourcePartitionedScheduler
         }
 
         @Override
-        public List<Lifespan> drainCompletedLifespans()
+        public List<Lifespan> drainCompletelyScheduledLifespans()
         {
             if (!completed) {
-                List<Lifespan> lifespans = sourceScheduler.drainCompletedLifespans();
+                List<Lifespan> lifespans = sourceScheduler.drainCompletelyScheduledLifespans();
                 if (lifespans.isEmpty()) {
                     return ImmutableList.of();
                 }
