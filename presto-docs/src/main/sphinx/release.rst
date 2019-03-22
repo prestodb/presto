@@ -5,6 +5,7 @@ Release Notes
 .. toctree::
     :maxdepth: 1
 
+    release/release-0.218
     release/release-0.217
     release/release-0.216
     release/release-0.215
