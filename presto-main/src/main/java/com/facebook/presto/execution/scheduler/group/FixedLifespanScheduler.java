@@ -56,7 +56,7 @@ public class FixedLifespanScheduler
     private SettableFuture<?> newDriverGroupReady = SettableFuture.create();
     @GuardedBy("this")
     private final List<Lifespan> recentlyCompletelyExecutedDriverGroups = new ArrayList<>();
-    private int totalDriverGroupsScheduled;
+    private int totalLifespanExecutionFinished;
 
     public FixedLifespanScheduler(BucketNodeMap bucketNodeMap, List<ConnectorPartitionHandle> partitionHandles, OptionalInt concurrentLifespansPerTask)
     {
@@ -93,17 +93,11 @@ public class FixedLifespanScheduler
                 int driverGroupId = driverGroupsIterator.nextInt();
                 scheduler.startLifespan(Lifespan.driverGroup(driverGroupId), partitionHandles.get(driverGroupId));
 
-                totalDriverGroupsScheduled++;
                 driverGroupsScheduled++;
                 if (concurrentLifespansPerTask.isPresent() && driverGroupsScheduled == concurrentLifespansPerTask.getAsInt()) {
                     break;
                 }
             }
-        }
-
-        verify(totalDriverGroupsScheduled <= driverGroupToNodeMap.size());
-        if (totalDriverGroupsScheduled == driverGroupToNodeMap.size()) {
-            scheduler.noMoreLifespans();
         }
     }
 
@@ -116,10 +110,12 @@ public class FixedLifespanScheduler
             for (Lifespan newlyCompletelyExecutedDriverGroup : newlyCompletelyExecutedDriverGroups) {
                 checkArgument(!newlyCompletelyExecutedDriverGroup.isTaskWide());
                 recentlyCompletelyExecutedDriverGroups.add(newlyCompletelyExecutedDriverGroup);
+                totalLifespanExecutionFinished++;
             }
             newDriverGroupReady = this.newDriverGroupReady;
         }
         newDriverGroupReady.set(null);
+        verify(totalLifespanExecutionFinished <= partitionHandles.size());
     }
 
     public SettableFuture schedule(SourceScheduler scheduler)
@@ -143,14 +139,14 @@ public class FixedLifespanScheduler
             }
             int driverGroupId = driverGroupsIterator.nextInt();
             scheduler.startLifespan(Lifespan.driverGroup(driverGroupId), partitionHandles.get(driverGroupId));
-            totalDriverGroupsScheduled++;
-        }
-
-        verify(totalDriverGroupsScheduled <= driverGroupToNodeMap.size());
-        if (totalDriverGroupsScheduled == driverGroupToNodeMap.size()) {
-            scheduler.noMoreLifespans();
         }
 
         return newDriverGroupReady;
+    }
+
+    @Override
+    public boolean allLifespanExecutionFinished()
+    {
+        return totalLifespanExecutionFinished == partitionHandles.size();
     }
 }

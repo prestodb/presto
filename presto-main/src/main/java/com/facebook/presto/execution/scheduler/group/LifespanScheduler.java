@@ -31,4 +31,6 @@ public interface LifespanScheduler
     void onLifespanExecutionFinished(Iterable<Lifespan> newlyCompletedDriverGroups);
 
     SettableFuture schedule(SourceScheduler scheduler);
+
+    boolean allLifespanExecutionFinished();
 }
