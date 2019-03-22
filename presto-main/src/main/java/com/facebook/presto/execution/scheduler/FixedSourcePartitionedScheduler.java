@@ -143,7 +143,7 @@ public class FixedSourcePartitionedScheduler
                     // Schedule the first few lifespans
                     lifespanScheduler.scheduleInitial(sourceScheduler);
                     // Schedule new lifespans for finished ones
-                    stage.addCompletedDriverGroupsChangedListener(lifespanScheduler::onLifespanFinished);
+                    stage.addCompletedDriverGroupsChangedListener(lifespanScheduler::onLifespanExecutionFinished);
                     groupedLifespanScheduler = Optional.of(lifespanScheduler);
                 }
             }
@@ -214,7 +214,7 @@ public class FixedSourcePartitionedScheduler
                 allBlocked = false;
             }
 
-            driverGroupsToStart = sourceScheduler.drainCompletedLifespans();
+            driverGroupsToStart = sourceScheduler.drainCompletelyScheduledLifespans();
 
             if (schedule.isFinished()) {
                 stage.schedulingComplete(sourceScheduler.getPlanNodeId());
@@ -297,7 +297,7 @@ public class FixedSourcePartitionedScheduler
     {
         private final SourceScheduler sourceScheduler;
         private boolean started;
-        private boolean completed;
+        private boolean scheduleCompleted;
         private final List<Lifespan> pendingCompleted;
 
         public AsGroupedSourceScheduler(SourceScheduler sourceScheduler)
@@ -343,15 +343,15 @@ public class FixedSourcePartitionedScheduler
         }
 
         @Override
-        public List<Lifespan> drainCompletedLifespans()
+        public List<Lifespan> drainCompletelyScheduledLifespans()
         {
-            if (!completed) {
-                List<Lifespan> lifespans = sourceScheduler.drainCompletedLifespans();
+            if (!scheduleCompleted) {
+                List<Lifespan> lifespans = sourceScheduler.drainCompletelyScheduledLifespans();
                 if (lifespans.isEmpty()) {
                     return ImmutableList.of();
                 }
                 checkState(ImmutableList.of(Lifespan.taskWide()).equals(lifespans));
-                completed = true;
+                scheduleCompleted = true;
             }
             List<Lifespan> result = ImmutableList.copyOf(pendingCompleted);
             pendingCompleted.clear();
