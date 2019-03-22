@@ -14,15 +14,21 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multiset;
+import com.google.common.collect.Streams;
+import com.google.common.graph.Traverser;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static java.util.Objects.requireNonNull;
 
@@ -78,7 +84,11 @@ public class SubPlan
                 .map(PlanFragment::getId)
                 .collect(toImmutableMultiset());
 
-        Preconditions.checkState(exchangeIds.equals(childrenIds), "Subplan exchange ids don't match child fragment ids (%s vs %s)", exchangeIds, childrenIds);
+        checkState(exchangeIds.equals(childrenIds), "Subplan exchange ids don't match child fragment ids (%s vs %s)", exchangeIds, childrenIds);
+        checkState(
+                Streams.stream(Traverser.forTree(PlanNode::getSources).depthFirstPreOrder(fragment.getRoot()))
+                        .filter(node -> node instanceof TableWriterNode)
+                        .count() <= 1, "Each fragment shouldn't have more than 1 TableWriterNode");
 
         for (SubPlan child : children) {
             child.sanityCheck();

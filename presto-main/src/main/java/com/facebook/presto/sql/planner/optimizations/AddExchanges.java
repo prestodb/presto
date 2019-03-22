@@ -1097,9 +1097,11 @@ public class AddExchanges
                 // parent does not have preference or prefers some partitioning without any explicit partitioning - just use
                 // children partitioning and don't GATHER partitioned inputs
                 // TODO: add FIXED_ARBITRARY_DISTRIBUTION support on non empty unpartitionedChildren
+                /*
                 if (!parentGlobal.isPresent() || parentGlobal.get().isDistributed()) {
                     return arbitraryDistributeUnion(node, partitionedChildren, partitionedOutputLayouts);
                 }
+                */
 
                 // add a gathering exchange above partitioned inputs
                 result = new ExchangeNode(
