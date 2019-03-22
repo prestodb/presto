@@ -79,7 +79,7 @@ public class SourcePartitionedScheduler
 
         /**
          * All splits have been provided to caller of this scheduler.
-         * Cleanup operations are done (e.g., drainCompletedLifespans has drained all driver groups).
+         * Cleanup operations are done (e.g., drainCompletelyScheduledLifespans has drained all driver groups).
          */
         FINISHED
     }
@@ -143,7 +143,7 @@ public class SourcePartitionedScheduler
             public ScheduleResult schedule()
             {
                 ScheduleResult scheduleResult = sourcePartitionedScheduler.schedule();
-                sourcePartitionedScheduler.drainCompletedLifespans();
+                sourcePartitionedScheduler.drainCompletelyScheduledLifespans();
                 return scheduleResult;
             }
 
@@ -162,7 +162,7 @@ public class SourcePartitionedScheduler
      * that is either ungrouped or grouped. However, the caller is responsible initializing
      * the driver groups in this scheduler accordingly.
      * <p>
-     * Besides, the caller is required to poll {@link #drainCompletedLifespans()}
+     * Besides, the caller is required to poll {@link #drainCompletelyScheduledLifespans()}
      * in addition to {@link #schedule()} on the returned object. Otherwise, lifecycle
      * transitioning of the object will not work properly.
      */
@@ -402,7 +402,7 @@ public class SourcePartitionedScheduler
     }
 
     @Override
-    public synchronized List<Lifespan> drainCompletedLifespans()
+    public synchronized List<Lifespan> drainCompletelyScheduledLifespans()
     {
         if (scheduleGroups.isEmpty()) {
             // Invoking splitSource.isFinished would fail if it was already closed, which is possible if scheduleGroups is empty.

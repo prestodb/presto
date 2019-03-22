@@ -20,7 +20,7 @@ import com.google.common.util.concurrent.SettableFuture;
 public interface LifespanScheduler
 {
     // Thread Safety:
-    // * Invocation of onLifespanFinished can be parallel and in any thread.
+    // * Invocation of onLifespanExecutionFinished can be parallel and in any thread.
     //   There may be multiple invocations in flight at the same time,
     //   and may overlap with any other methods.
     // * Invocation of schedule happens sequentially in a single thread.
@@ -28,7 +28,7 @@ public interface LifespanScheduler
 
     void scheduleInitial(SourceScheduler scheduler);
 
-    void onLifespanFinished(Iterable<Lifespan> newlyCompletedDriverGroups);
+    void onLifespanExecutionFinished(Iterable<Lifespan> newlyCompletelyExecutedDriverGroups);
 
     SettableFuture schedule(SourceScheduler scheduler);
 }
