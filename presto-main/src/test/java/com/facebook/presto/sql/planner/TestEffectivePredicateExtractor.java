@@ -85,7 +85,11 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestEffectivePredicateExtractor
 {
-    private static final TableHandle DUAL_TABLE_HANDLE = new TableHandle(new ConnectorId("test"), new TestingTableHandle());
+    private static final TableHandle DUAL_TABLE_HANDLE = new TableHandle(
+            new ConnectorId("test"),
+            new TestingTableHandle(),
+            TestingTransactionHandle.create(),
+            Optional.of(TestingHandle.INSTANCE));
     private static final TableLayoutHandle TESTING_TABLE_LAYOUT = new TableLayoutHandle(
             new ConnectorId("x"),
             TestingTransactionHandle.create(),

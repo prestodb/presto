@@ -52,6 +52,8 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.testing.TestingHandle;
+import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.tpch.TpchTableLayoutHandle;
@@ -745,7 +747,11 @@ public class TestCostCalculator
         TpchTableHandle tableHandle = new TpchTableHandle("orders", 1.0);
         return new TableScanNode(
                 new PlanNodeId(id),
-                new TableHandle(new ConnectorId("tpch"), new TpchTableHandle("orders", 1.0)),
+                new TableHandle(
+                        new ConnectorId("tpch"),
+                        new TpchTableHandle("orders", 1.0),
+                        TestingTransactionHandle.create(),
+                        Optional.of(TestingHandle.INSTANCE)),
                 symbolsList,
                 assignments.build(),
                 Optional.of(new TableLayoutHandle(new ConnectorId("tpch"), INSTANCE, new TpchTableLayoutHandle(tableHandle, TupleDomain.all()))),

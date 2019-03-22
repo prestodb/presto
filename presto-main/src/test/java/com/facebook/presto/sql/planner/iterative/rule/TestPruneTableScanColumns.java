@@ -19,12 +19,16 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.Assignments;
+import com.facebook.presto.testing.TestingHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
+import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -49,7 +53,9 @@ public class TestPruneTableScanColumns
                             p.tableScan(
                                     new TableHandle(
                                             new ConnectorId("local"),
-                                            new TpchTableHandle("orders", TINY_SCALE_FACTOR)),
+                                            new TpchTableHandle("orders", TINY_SCALE_FACTOR),
+                                            TestingTransactionHandle.create(),
+                                            Optional.of(TestingHandle.INSTANCE)),
                                     ImmutableList.of(orderdate, totalprice),
                                     ImmutableMap.of(
                                             orderdate, new TpchColumnHandle(orderdate.getName(), DATE),

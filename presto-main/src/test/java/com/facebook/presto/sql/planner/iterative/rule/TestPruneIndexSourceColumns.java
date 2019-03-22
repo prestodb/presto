@@ -23,6 +23,8 @@ import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.testing.TestingHandle;
+import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.base.Predicates;
@@ -31,6 +33,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.spi.predicate.NullableValue.asNull;
@@ -85,7 +88,9 @@ public class TestPruneIndexSourceColumns
                 p.indexSource(
                         new TableHandle(
                                 new ConnectorId("local"),
-                                new TpchTableHandle("orders", TINY_SCALE_FACTOR)),
+                                new TpchTableHandle("orders", TINY_SCALE_FACTOR),
+                                TestingTransactionHandle.create(),
+                                Optional.of(TestingHandle.INSTANCE)),
                         ImmutableSet.of(orderkey, custkey),
                         ImmutableList.of(orderkey, custkey, totalprice),
                         ImmutableMap.of(

@@ -74,7 +74,9 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.testing.TestingHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
+import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -368,7 +370,11 @@ public class PlanBuilder
 
     public TableScanNode tableScan(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
     {
-        TableHandle tableHandle = new TableHandle(new ConnectorId("testConnector"), new TestingTableHandle());
+        TableHandle tableHandle = new TableHandle(
+                new ConnectorId("testConnector"),
+                new TestingTableHandle(),
+                TestingTransactionHandle.create(),
+                Optional.of(TestingHandle.INSTANCE));
         return tableScan(tableHandle, symbols, assignments, Optional.empty(), TupleDomain.all(), TupleDomain.all());
     }
 
@@ -409,7 +415,9 @@ public class PlanBuilder
         TableWriterNode.DeleteHandle deleteHandle = new TableWriterNode.DeleteHandle(
                 new TableHandle(
                         new ConnectorId("testConnector"),
-                        new TestingTableHandle()),
+                        new TestingTableHandle(),
+                        TestingTransactionHandle.create(),
+                        Optional.of(TestingHandle.INSTANCE)),
                 schemaTableName);
         return new TableFinishNode(
                 idAllocator.getNextId(),
@@ -751,6 +759,7 @@ public class PlanBuilder
                 unnestSymbols,
                 ordinalitySymbol);
     }
+
     public static Expression expression(String sql)
     {
         return ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql));

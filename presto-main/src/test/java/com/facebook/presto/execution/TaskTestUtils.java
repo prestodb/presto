@@ -53,6 +53,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.testing.TestingHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.facebook.presto.testing.TestingSplit;
@@ -94,7 +95,7 @@ public final class TaskTestUtils
             new PlanFragmentId("fragment"),
             new TableScanNode(
                     TABLE_SCAN_NODE_ID,
-                    new TableHandle(CONNECTOR_ID, new TestingTableHandle()),
+                    new TableHandle(CONNECTOR_ID, new TestingTableHandle(), TestingTransactionHandle.create(), Optional.of(TestingHandle.INSTANCE)),
                     ImmutableList.of(SYMBOL),
                     ImmutableMap.of(SYMBOL, new TestingColumnHandle("column", 0, BIGINT))),
             ImmutableMap.of(SYMBOL, VARCHAR),

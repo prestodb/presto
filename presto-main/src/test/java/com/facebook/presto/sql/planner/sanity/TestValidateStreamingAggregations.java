@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.testing.TestingHandle;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
@@ -58,7 +59,9 @@ public class TestValidateStreamingAggregations
         ConnectorId connectorId = getCurrentConnectorId();
         nationTableHandle = new TableHandle(
                 connectorId,
-                new TpchTableHandle("nation", 1.0));
+                new TpchTableHandle("nation", 1.0),
+                TestingTransactionHandle.create(),
+                Optional.of(TestingHandle.INSTANCE));
 
         nationTableLayoutHandle = new TableLayoutHandle(connectorId,
                 TestingTransactionHandle.create(),

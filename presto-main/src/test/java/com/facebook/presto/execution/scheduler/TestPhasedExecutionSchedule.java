@@ -29,8 +29,10 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.testing.TestingHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
+import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -181,7 +183,11 @@ public class TestPhasedExecutionSchedule
         Symbol symbol = new Symbol("column");
         PlanNode tableScan = new TableScanNode(
                 new PlanNodeId(name),
-                new TableHandle(new ConnectorId("test"), new TestingTableHandle()),
+                new TableHandle(
+                        new ConnectorId("test"),
+                        new TestingTableHandle(),
+                        TestingTransactionHandle.create(),
+                        Optional.of(TestingHandle.INSTANCE)),
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")));
 
@@ -231,7 +237,11 @@ public class TestPhasedExecutionSchedule
         Symbol symbol = new Symbol("column");
         PlanNode planNode = new TableScanNode(
                 new PlanNodeId(name),
-                new TableHandle(new ConnectorId("test"), new TestingTableHandle()),
+                new TableHandle(
+                        new ConnectorId("test"),
+                        new TestingTableHandle(),
+                        TestingTransactionHandle.create(),
+                        Optional.of(TestingHandle.INSTANCE)),
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")));
 

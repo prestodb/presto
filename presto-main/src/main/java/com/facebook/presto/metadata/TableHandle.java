@@ -15,10 +15,13 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -26,14 +29,21 @@ public final class TableHandle
 {
     private final ConnectorId connectorId;
     private final ConnectorTableHandle connectorHandle;
+    private final ConnectorTransactionHandle transaction;
+
+    private final Optional<ConnectorTableLayoutHandle> layout;
 
     @JsonCreator
     public TableHandle(
             @JsonProperty("connectorId") ConnectorId connectorId,
-            @JsonProperty("connectorHandle") ConnectorTableHandle connectorHandle)
+            @JsonProperty("connectorHandle") ConnectorTableHandle connectorHandle,
+            @JsonProperty("transaction") ConnectorTransactionHandle transaction,
+            @JsonProperty("connectorTableLayout") Optional<ConnectorTableLayoutHandle> layout)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
+        this.transaction = requireNonNull(transaction, "transaction is null");
+        this.layout = requireNonNull(layout, "layout is null");
     }
 
     @JsonProperty
@@ -48,29 +58,48 @@ public final class TableHandle
         return connectorHandle;
     }
 
-    @Override
-    public int hashCode()
+    @JsonProperty
+    public ConnectorTransactionHandle getTransaction()
     {
-        return Objects.hash(connectorId, connectorHandle);
+        return transaction;
+    }
+
+    @JsonProperty
+    public Optional<ConnectorTableLayoutHandle> getLayout()
+    {
+        return layout;
     }
 
     @Override
-    public boolean equals(Object obj)
+    public boolean equals(Object o)
     {
-        if (this == obj) {
+        if (this == o) {
             return true;
         }
-        if (obj == null || getClass() != obj.getClass()) {
+        if (!(o instanceof TableHandle)) {
             return false;
         }
-        final TableHandle other = (TableHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId) &&
-                Objects.equals(this.connectorHandle, other.connectorHandle);
+        TableHandle that = (TableHandle) o;
+        return Objects.equals(connectorId, that.connectorId) &&
+                Objects.equals(connectorHandle, that.connectorHandle) &&
+                Objects.equals(transaction, that.transaction) &&
+                Objects.equals(layout, that.layout);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(connectorId, connectorHandle, transaction, layout);
     }
 
     @Override
     public String toString()
     {
-        return connectorId + ":" + connectorHandle;
+        return "TableHandle{" +
+                "connectorId=" + connectorId +
+                ", connectorHandle=" + connectorHandle +
+                ", transaction=" + transaction +
+                ", layout=" + layout +
+                '}';
     }
 }

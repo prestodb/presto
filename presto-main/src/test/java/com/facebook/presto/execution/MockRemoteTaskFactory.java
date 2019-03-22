@@ -39,8 +39,10 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.testing.TestingHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
+import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -110,7 +112,7 @@ public class MockRemoteTaskFactory
                 new PlanFragmentId("test"),
                 new TableScanNode(
                         sourceId,
-                        new TableHandle(new ConnectorId("test"), new TestingTableHandle()),
+                        new TableHandle(new ConnectorId("test"), new TestingTableHandle(), TestingTransactionHandle.create(), Optional.of(TestingHandle.INSTANCE)),
                         ImmutableList.of(symbol),
                         ImmutableMap.of(symbol, new TestingColumnHandle("column"))),
                 ImmutableMap.of(symbol, VARCHAR),

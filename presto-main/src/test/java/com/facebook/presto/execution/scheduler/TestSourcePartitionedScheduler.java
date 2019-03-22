@@ -50,6 +50,7 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.testing.TestingHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.facebook.presto.testing.TestingSplit;
@@ -459,7 +460,11 @@ public class TestSourcePartitionedScheduler
         PlanNodeId tableScanNodeId = new PlanNodeId("plan_id");
         TableScanNode tableScan = new TableScanNode(
                 tableScanNodeId,
-                new TableHandle(CONNECTOR_ID, new TestingTableHandle()),
+                new TableHandle(
+                        CONNECTOR_ID,
+                        new TestingTableHandle(),
+                        TestingTransactionHandle.create(),
+                        Optional.of(TestingHandle.INSTANCE)),
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")));
 

@@ -18,11 +18,15 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.plan.Assignments;
+import com.facebook.presto.testing.TestingHandle;
+import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
@@ -50,7 +54,10 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                                 ImmutableList.of(p.symbol("l_nationkey")),
                                 p.tableScan(new TableHandle(
                                                 new ConnectorId("local"),
-                                                new TpchTableHandle("nation", TINY_SCALE_FACTOR)), ImmutableList.of(p.symbol("l_nationkey")),
+                                                new TpchTableHandle("nation", TINY_SCALE_FACTOR),
+                                                TestingTransactionHandle.create(),
+                                                Optional.of(TestingHandle.INSTANCE)),
+                                        ImmutableList.of(p.symbol("l_nationkey")),
                                         ImmutableMap.of(p.symbol("l_nationkey"), new TpchColumnHandle("nationkey",
                                                 BIGINT))),
                                 p.project(

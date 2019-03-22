@@ -328,7 +328,11 @@ public class MetadataManager
 
             ConnectorTableHandle tableHandle = metadata.getTableHandle(session.toConnectorSession(connectorId), table.asSchemaTableName());
             if (tableHandle != null) {
-                return Optional.of(new TableHandle(connectorId, tableHandle));
+                return Optional.of(new TableHandle(
+                        connectorId,
+                        tableHandle,
+                        catalogMetadata.getTransactionHandleFor(connectorId),
+                        Optional.empty()));
             }
         }
         return Optional.empty();
@@ -347,7 +351,11 @@ public class MetadataManager
 
             ConnectorTableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session.toConnectorSession(connectorId), table.asSchemaTableName(), analyzeProperties);
             if (tableHandle != null) {
-                return Optional.of(new TableHandle(connectorId, tableHandle));
+                return Optional.of(new TableHandle(
+                        connectorId,
+                        tableHandle,
+                        catalogMetadata.getTransactionHandleFor(connectorId),
+                        Optional.empty()));
             }
         }
         return Optional.empty();
@@ -820,9 +828,13 @@ public class MetadataManager
     public TableHandle beginDelete(Session session, TableHandle tableHandle)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
-        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
-        ConnectorTableHandle newHandle = metadata.beginDelete(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
-        return new TableHandle(tableHandle.getConnectorId(), newHandle);
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, connectorId);
+        ConnectorTableHandle newHandle = catalogMetadata.getMetadata().beginDelete(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
+        return new TableHandle(
+                tableHandle.getConnectorId(),
+                newHandle,
+                catalogMetadata.getTransactionHandleFor(connectorId),
+                Optional.empty());
     }
 
     @Override
