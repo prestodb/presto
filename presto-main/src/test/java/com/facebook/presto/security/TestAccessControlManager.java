@@ -39,6 +39,7 @@ import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.testing.TestingConnectorContext;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
@@ -199,7 +200,7 @@ public class TestAccessControlManager
                 connectorId,
                 connector,
                 createInformationSchemaConnectorId(connectorId),
-                new InformationSchemaConnector(catalogName, nodeManager, metadata, accessControl),
+                new InformationSchemaConnector(catalogName, nodeManager, metadata, accessControl, ImmutableList.of()),
                 systemId,
                 new SystemConnector(
                         systemId,

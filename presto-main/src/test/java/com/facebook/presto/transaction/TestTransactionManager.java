@@ -211,7 +211,7 @@ public class TestTransactionManager
                 connectorId,
                 connector,
                 createInformationSchemaConnectorId(connectorId),
-                new InformationSchemaConnector(catalogName, nodeManager, metadata, new AllowAllAccessControl()),
+                new InformationSchemaConnector(catalogName, nodeManager, metadata, new AllowAllAccessControl(), ImmutableList.of()),
                 systemId,
                 new SystemConnector(
                         systemId,
