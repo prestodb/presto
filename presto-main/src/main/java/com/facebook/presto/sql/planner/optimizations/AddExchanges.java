@@ -1079,6 +1079,7 @@ public class AddExchanges
             List<PlanNode> partitionedChildren = new ArrayList<>();
             List<List<Symbol>> partitionedOutputLayouts = new ArrayList<>();
 
+            int tableWriterChildCount = 0;
             for (int i = 0; i < node.getSources().size(); i++) {
                 PlanWithProperties child = node.getSources().get(i).accept(this, PreferredProperties.any());
                 if (child.getProperties().isSingleNode()) {
@@ -1090,18 +1091,21 @@ public class AddExchanges
                     // union may drop or duplicate symbols from the input so we must provide an exact mapping
                     partitionedOutputLayouts.add(node.sourceOutputLayout(i));
                 }
+
+                if (node.getSources().get(i) instanceof TableWriterNode) {
+                    tableWriterChildCount++;
+                }
             }
 
+            checkState(tableWriterChildCount == 0 || tableWriterChildCount == node.getSources().size());
             PlanNode result;
             if (!partitionedChildren.isEmpty() && unpartitionedChildren.isEmpty()) {
                 // parent does not have preference or prefers some partitioning without any explicit partitioning - just use
                 // children partitioning and don't GATHER partitioned inputs
                 // TODO: add FIXED_ARBITRARY_DISTRIBUTION support on non empty unpartitionedChildren
-                /*
-                if (!parentGlobal.isPresent() || parentGlobal.get().isDistributed()) {
+                if ((!parentGlobal.isPresent() || parentGlobal.get().isDistributed()) && tableWriterChildCount == 0) {
                     return arbitraryDistributeUnion(node, partitionedChildren, partitionedOutputLayouts);
                 }
-                */
 
                 // add a gathering exchange above partitioned inputs
                 result = new ExchangeNode(
