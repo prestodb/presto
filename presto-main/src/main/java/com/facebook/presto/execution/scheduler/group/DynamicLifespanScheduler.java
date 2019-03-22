@@ -58,6 +58,8 @@ public class DynamicLifespanScheduler
 
     @GuardedBy("this")
     private final List<Lifespan> recentlyCompletelyExecutedDriverGroups = new ArrayList<>();
+    @GuardedBy("this")
+    private int totalLifespanExecutionFinished;
 
     public DynamicLifespanScheduler(BucketNodeMap bucketNodeMap, List<Node> allNodes, List<ConnectorPartitionHandle> partitionHandles, OptionalInt concurrentLifespansPerTask)
     {
@@ -94,10 +96,6 @@ public class DynamicLifespanScheduler
                 break;
             }
         }
-
-        if (!driverGroups.hasNext()) {
-            scheduler.noMoreLifespans();
-        }
     }
 
     @Override
@@ -110,6 +108,7 @@ public class DynamicLifespanScheduler
             for (Lifespan newlyCompletelyExecutedDriverGroup : newlyCompletelyExecutedDriverGroups) {
                 checkArgument(!newlyCompletelyExecutedDriverGroup.isTaskWide());
                 recentlyCompletelyExecutedDriverGroups.add(newlyCompletelyExecutedDriverGroup);
+                totalLifespanExecutionFinished++;
             }
             newDriverGroupReady = this.newDriverGroupReady;
         }
@@ -142,9 +141,12 @@ public class DynamicLifespanScheduler
             scheduler.startLifespan(Lifespan.driverGroup(driverGroupId), partitionHandles.get(driverGroupId));
         }
 
-        if (!driverGroups.hasNext()) {
-            scheduler.noMoreLifespans();
-        }
         return newDriverGroupReady;
+    }
+
+    @Override
+    public synchronized boolean allLifespanExecutionFinished()
+    {
+        return totalLifespanExecutionFinished == partitionHandles.size();
     }
 }
