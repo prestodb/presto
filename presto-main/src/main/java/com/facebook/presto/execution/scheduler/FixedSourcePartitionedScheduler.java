@@ -124,7 +124,6 @@ public class FixedSourcePartitionedScheduler
                 firstPlanNode = false;
                 if (!stageExecutionDescriptor.isStageGroupedExecution()) {
                     sourceScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
-                    sourceScheduler.noMoreLifespans();
                 }
                 else {
                     LifespanScheduler lifespanScheduler;
@@ -181,26 +180,29 @@ public class FixedSourcePartitionedScheduler
         BlockedReason blockedReason = BlockedReason.NO_ACTIVE_DRIVER_GROUP;
 
         if (groupedLifespanScheduler.isPresent()) {
-            // Start new driver groups on the first scheduler if necessary,
-            // i.e. when previous ones have finished execution (not finished scheduling).
-            //
-            // Invoke schedule method to get a new SettableFuture every time.
-            // Reusing previously returned SettableFuture could lead to the ListenableFuture retaining too many listeners.
-            blocked.add(groupedLifespanScheduler.get().schedule(sourceSchedulers.get(0)));
+            if (groupedLifespanScheduler.get().allLifespanExecutionFinished()) {
+                for (SourceScheduler sourceScheduler : sourceSchedulers) {
+                    sourceScheduler.notifyAllLifespansFinishedExecution();
+                }
+            }
+            else {
+                // Start new driver groups on the first scheduler if necessary,
+                // i.e. when previous ones have finished execution (not finished scheduling).
+                //
+                // Invoke schedule method to get a new SettableFuture every time.
+                // Reusing previously returned SettableFuture could lead to the ListenableFuture retaining too many listeners.
+                blocked.add(groupedLifespanScheduler.get().schedule(sourceSchedulers.get(0)));
+            }
         }
 
         int splitsScheduled = 0;
         Iterator<SourceScheduler> schedulerIterator = sourceSchedulers.iterator();
         List<Lifespan> driverGroupsToStart = ImmutableList.of();
-        boolean shouldInvokeNoMoreDriverGroups = false;
         while (schedulerIterator.hasNext()) {
             SourceScheduler sourceScheduler = schedulerIterator.next();
 
             for (Lifespan lifespan : driverGroupsToStart) {
                 sourceScheduler.startLifespan(lifespan, partitionHandleFor(lifespan));
-            }
-            if (shouldInvokeNoMoreDriverGroups) {
-                sourceScheduler.noMoreLifespans();
             }
 
             ScheduleResult schedule = sourceScheduler.schedule();
@@ -220,10 +222,6 @@ public class FixedSourcePartitionedScheduler
                 stage.schedulingComplete(sourceScheduler.getPlanNodeId());
                 schedulerIterator.remove();
                 sourceScheduler.close();
-                shouldInvokeNoMoreDriverGroups = true;
-            }
-            else {
-                shouldInvokeNoMoreDriverGroups = false;
             }
         }
 
@@ -333,13 +331,6 @@ public class FixedSourcePartitionedScheduler
             }
             started = true;
             sourceScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
-            sourceScheduler.noMoreLifespans();
-        }
-
-        @Override
-        public void noMoreLifespans()
-        {
-            checkState(started);
         }
 
         @Override
@@ -356,6 +347,13 @@ public class FixedSourcePartitionedScheduler
             List<Lifespan> result = ImmutableList.copyOf(pendingCompleted);
             pendingCompleted.clear();
             return result;
+        }
+
+        @Override
+        public void notifyAllLifespansFinishedExecution()
+        {
+            checkState(scheduleCompleted);
+            // no-op
         }
     }
 }
