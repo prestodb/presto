@@ -136,6 +136,8 @@ public class HiveWriterFactory
 
     private final OrcFileWriterFactory orcFileWriterFactory;
 
+    private final boolean partitionCommitRequired;
+
     public HiveWriterFactory(
             Set<HiveFileWriterFactory> fileWriterFactories,
             String schemaName,
@@ -162,7 +164,8 @@ public class HiveWriterFactory
             EventClient eventClient,
             HiveSessionProperties hiveSessionProperties,
             HiveWriterStats hiveWriterStats,
-            OrcFileWriterFactory orcFileWriterFactory)
+            OrcFileWriterFactory orcFileWriterFactory,
+            boolean partitionCommitRequired)
     {
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -253,6 +256,8 @@ public class HiveWriterFactory
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
 
         this.orcFileWriterFactory = requireNonNull(orcFileWriterFactory, "orcFileWriterFactory is null");
+
+        this.partitionCommitRequired = partitionCommitRequired;
     }
 
     public HiveWriter createWriter(Page partitionColumns, int position, OptionalInt bucketNumber)
@@ -429,7 +434,15 @@ public class HiveWriterFactory
             targetFileName = filePrefix + "_" + randomUUID() + extension;
         }
 
-        Path path = new Path(writeInfo.getWritePath(), targetFileName);
+        String writeFileName;
+        if (partitionCommitRequired) {
+            writeFileName = ".tmp.presto." + filePrefix + "_" + randomUUID() + extension;
+        }
+        else {
+            writeFileName = targetFileName;
+        }
+
+        Path path = new Path(writeInfo.getWritePath(), writeFileName);
 
         HiveFileWriter hiveFileWriter = null;
         for (HiveFileWriterFactory fileWriterFactory : fileWriterFactories) {
@@ -537,7 +550,7 @@ public class HiveWriterFactory
                 hiveFileWriter,
                 partitionName,
                 updateMode,
-                new FileWriteInfo(targetFileName, targetFileName),
+                new FileWriteInfo(writeFileName, targetFileName),
                 writeInfo.getWritePath().toString(),
                 writeInfo.getTargetPath().toString(),
                 onCommit,

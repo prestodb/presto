@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageSinkProperties;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.annotations.VisibleForTesting;
@@ -31,6 +32,7 @@ import javax.inject.Inject;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -55,8 +57,10 @@ public class MemoryPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, PageSinkProperties pageSinkProperties)
     {
+        checkArgument(!pageSinkProperties.isPartitionCommitRequired(), "Memory connector does not support partition commit");
+
         MemoryOutputTableHandle memoryOutputTableHandle = (MemoryOutputTableHandle) outputTableHandle;
         MemoryTableHandle tableHandle = memoryOutputTableHandle.getTable();
         long tableId = tableHandle.getTableId();
@@ -68,8 +72,10 @@ public class MemoryPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkProperties pageSinkProperties)
     {
+        checkArgument(!pageSinkProperties.isPartitionCommitRequired(), "Memory connector does not support partition commit");
+
         MemoryInsertTableHandle memoryInsertTableHandle = (MemoryInsertTableHandle) insertTableHandle;
         MemoryTableHandle tableHandle = memoryInsertTableHandle.getTable();
         long tableId = tableHandle.getTableId();

@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.PageSinkProperties;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -270,7 +271,7 @@ public class TestHivePageSink
                 new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()),
                 stats,
                 getDefaultOrcFileWriterFactory(config));
-        return provider.createPageSink(transaction, getSession(config), handle);
+        return provider.createPageSink(transaction, getSession(config), handle, PageSinkProperties.defaultProperties());
     }
 
     private static TestingConnectorSession getSession(HiveClientConfig config)

@@ -17,10 +17,11 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
+import com.facebook.presto.spi.PageSinkProperties;
 
 public interface PageSinkProvider
 {
-    ConnectorPageSink createPageSink(Session session, OutputTableHandle tableHandle);
+    ConnectorPageSink createPageSink(Session session, OutputTableHandle tableHandle, PageSinkProperties pageSinkProperties);
 
-    ConnectorPageSink createPageSink(Session session, InsertTableHandle tableHandle);
+    ConnectorPageSink createPageSink(Session session, InsertTableHandle tableHandle, PageSinkProperties pageSinkProperties);
 }

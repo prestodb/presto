@@ -17,10 +17,13 @@ import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PageSinkProperties;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class MongoPageSinkProvider
         implements ConnectorPageSinkProvider
@@ -36,15 +39,19 @@ public class MongoPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, PageSinkProperties pageSinkProperties)
     {
+        checkArgument(!pageSinkProperties.isPartitionCommitRequired(), "Mongo connector does not support partition commit");
+
         MongoOutputTableHandle handle = (MongoOutputTableHandle) outputTableHandle;
         return new MongoPageSink(config, mongoSession, session, handle.getSchemaTableName(), handle.getColumns());
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkProperties pageSinkProperties)
     {
+        checkArgument(!pageSinkProperties.isPartitionCommitRequired(), "Mongo connector does not support partition commit");
+
         MongoInsertTableHandle handle = (MongoInsertTableHandle) insertTableHandle;
         return new MongoPageSink(config, mongoSession, session, handle.getSchemaTableName(), handle.getColumns());
     }
