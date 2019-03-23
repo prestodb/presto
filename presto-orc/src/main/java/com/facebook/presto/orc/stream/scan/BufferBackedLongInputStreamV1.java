@@ -42,7 +42,6 @@ public class BufferBackedLongInputStreamV1
     {
         this.bufferConsumer = new BufferConsumer(input, signed);
         lastReadInputCheckpoint = input.getCheckpoint();
-        //bufferConsumer.refresh();
     }
 
     private void readHeader()
@@ -135,7 +134,7 @@ public class BufferBackedLongInputStreamV1
             }
             else {
                 items -= consume; //bufferConsumer.skipVarintsInBuffer(consume);
-                bufferConsumer.skipFully(consume);
+                bufferConsumer.skipVarints(consume);
             }
             if (items != 0) {
                 // A skip of multiple runs can take place at seeking
@@ -159,6 +158,16 @@ public class BufferBackedLongInputStreamV1
             if (used == numLiterals) {
                 currentRunOffset += numLiterals;
                 readHeader();
+                // If offsets are consecutive avoid the calls to skip
+                if (offsets[offsetIdx] == currentRunOffset && offsetIdx + numLiterals <= numOffsets + beginOffset && offsets[offsetIdx + numLiterals - 1] == offsets[offsetIdx] + numLiterals - 1) {
+                    int loopEnd = offsetIdx + numLiterals;
+                    for (; offsetIdx < loopEnd; offsetIdx++) {
+                        if (resultsConsumer.consume(offsets[offsetIdx], getValue(offsets[offsetIdx]))) {
+                            numResults++;
+                        }
+                    }
+                    continue;
+                }
             }
 
             if (offsets[offsetIdx] - currentRunOffset >= numLiterals) {

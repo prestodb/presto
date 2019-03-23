@@ -157,7 +157,7 @@ public class BenchmarkLongInputStream
         String encoding = "V1";
 
         @Param({"NONE", "SNAPPY", "ZSTD", "ZLIB", "LZ4"})
-        String compressionKind = "ZSTD";
+        String compressionKind = "SNAPPY";
 
         @Param({"ALL", "ODD", "SECOND_HALF", "RANDOM_QUARTER"})
         String positionsType = "RANDOM_QUARTER";
