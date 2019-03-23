@@ -19,6 +19,7 @@ import com.facebook.presto.operator.OperationTimer.OperationTiming;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.PageSinkProperties;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
@@ -109,10 +110,10 @@ public class TableWriterOperator
         private ConnectorPageSink createPageSink()
         {
             if (target instanceof CreateHandle) {
-                return pageSinkManager.createPageSink(session, ((CreateHandle) target).getHandle());
+                return pageSinkManager.createPageSink(session, ((CreateHandle) target).getHandle(), PageSinkProperties.defaultProperties());
             }
             if (target instanceof InsertHandle) {
-                return pageSinkManager.createPageSink(session, ((InsertHandle) target).getHandle());
+                return pageSinkManager.createPageSink(session, ((InsertHandle) target).getHandle(), PageSinkProperties.defaultProperties());
             }
             throw new UnsupportedOperationException("Unhandled target type: " + target.getClass().getName());
         }
