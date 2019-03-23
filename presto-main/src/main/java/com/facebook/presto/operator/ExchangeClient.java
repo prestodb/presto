@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
@@ -138,7 +139,7 @@ public class ExchangeClient
         }
     }
 
-    public synchronized void addLocation(URI location)
+    public synchronized void addLocation(URI location, TaskId remoteSourceTaskId)
     {
         requireNonNull(location, "location is null");
 

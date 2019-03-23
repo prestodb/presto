@@ -24,13 +24,13 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Plan;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
@@ -86,14 +86,14 @@ public interface QueryExecution
     {
         private final List<String> columnNames;
         private final List<Type> columnTypes;
-        private final Set<URI> bufferLocations;
+        private final Map<URI, TaskId> bufferLocations;
         private final boolean noMoreBufferLocations;
 
-        public QueryOutputInfo(List<String> columnNames, List<Type> columnTypes, Set<URI> bufferLocations, boolean noMoreBufferLocations)
+        public QueryOutputInfo(List<String> columnNames, List<Type> columnTypes, Map<URI, TaskId> bufferLocations, boolean noMoreBufferLocations)
         {
             this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
             this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
-            this.bufferLocations = ImmutableSet.copyOf(requireNonNull(bufferLocations, "bufferLocations is null"));
+            this.bufferLocations = ImmutableMap.copyOf(requireNonNull(bufferLocations, "bufferLocations is null"));
             this.noMoreBufferLocations = noMoreBufferLocations;
         }
 
@@ -107,7 +107,7 @@ public interface QueryExecution
             return columnTypes;
         }
 
-        public Set<URI> getBufferLocations()
+        public Map<URI, TaskId> getBufferLocations()
         {
             return bufferLocations;
         }

@@ -26,6 +26,7 @@ import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
@@ -276,11 +277,17 @@ public class SqlQueryScheduler
 
     private static void updateQueryOutputLocations(QueryStateMachine queryStateMachine, OutputBufferId rootBufferId, Set<RemoteTask> tasks, boolean noMoreExchangeLocations)
     {
-        Set<URI> bufferLocations = tasks.stream()
-                .map(task -> task.getTaskStatus().getSelf())
-                .map(location -> uriBuilderFrom(location).appendPath("results").appendPath(rootBufferId.toString()).build())
-                .collect(toImmutableSet());
+        Map<URI, TaskId> bufferLocations = tasks.stream()
+                .collect(toImmutableMap(
+                        task -> getBufferLocation(task, rootBufferId),
+                        RemoteTask::getTaskId));
         queryStateMachine.updateOutputLocations(bufferLocations, noMoreExchangeLocations);
+    }
+
+    private static URI getBufferLocation(RemoteTask remoteTask, OutputBufferId rootBufferId)
+    {
+        URI location = remoteTask.getTaskStatus().getSelf();
+        return uriBuilderFrom(location).appendPath("results").appendPath(rootBufferId.toString()).build();
     }
 
     private List<SqlStageExecution> createStages(
