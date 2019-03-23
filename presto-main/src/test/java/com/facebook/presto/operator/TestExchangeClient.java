@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
@@ -104,7 +105,7 @@ public class TestExchangeClient
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
 
-        exchangeClient.addLocation(location);
+        exchangeClient.addLocation(location, TaskId.valueOf("taskid"));
         exchangeClient.noMoreLocations();
 
         assertEquals(exchangeClient.isClosed(), false);
@@ -148,7 +149,7 @@ public class TestExchangeClient
         processor.addPage(location1, createPage(2));
         processor.addPage(location1, createPage(3));
         processor.setComplete(location1);
-        exchangeClient.addLocation(location1);
+        exchangeClient.addLocation(location1, TaskId.valueOf("foo"));
 
         assertEquals(exchangeClient.isClosed(), false);
         assertPageEquals(getNextPage(exchangeClient), createPage(1));
@@ -165,7 +166,7 @@ public class TestExchangeClient
         processor.addPage(location2, createPage(5));
         processor.addPage(location2, createPage(6));
         processor.setComplete(location2);
-        exchangeClient.addLocation(location2);
+        exchangeClient.addLocation(location2, TaskId.valueOf("bar"));
 
         assertEquals(exchangeClient.isClosed(), false);
         assertPageEquals(getNextPage(exchangeClient), createPage(4));
@@ -215,7 +216,7 @@ public class TestExchangeClient
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
 
-        exchangeClient.addLocation(location);
+        exchangeClient.addLocation(location, TaskId.valueOf("taskid"));
         exchangeClient.noMoreLocations();
         assertEquals(exchangeClient.isClosed(), false);
 
@@ -296,7 +297,7 @@ public class TestExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
-        exchangeClient.addLocation(location);
+        exchangeClient.addLocation(location, TaskId.valueOf("taskid"));
         exchangeClient.noMoreLocations();
 
         // fetch a page
