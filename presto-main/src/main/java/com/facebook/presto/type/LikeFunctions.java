@@ -94,7 +94,7 @@ public final class LikeFunctions
         return likePattern(pattern.toStringUtf8(), '0', false);
     }
 
-    @ScalarFunction
+    @ScalarFunction(hidden = true)
     @LiteralParameters({"x", "y"})
     @SqlType(LikePatternType.NAME)
     public static Regex likePattern(@SqlType("varchar(x)") Slice pattern, @SqlType("varchar(y)") Slice escape)
