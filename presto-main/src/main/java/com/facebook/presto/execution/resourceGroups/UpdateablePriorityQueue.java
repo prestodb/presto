@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-public interface UpdateablePriorityQueue<E>
+interface UpdateablePriorityQueue<E>
         extends Queue<E>, Iterable<E>
 {
     boolean addOrUpdate(E element, long priority);

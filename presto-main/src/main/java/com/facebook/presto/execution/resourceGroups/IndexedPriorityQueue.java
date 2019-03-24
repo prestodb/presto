@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -28,31 +27,19 @@ import static java.util.Objects.requireNonNull;
  * A priority queue with constant time contains(E) and log time remove(E)
  * Ties are broken by insertion order
  */
-public final class IndexedPriorityQueue<E>
-        implements UpdateablePriorityQueue<E>, Serializable
+final class IndexedPriorityQueue<E>
+        implements UpdateablePriorityQueue<E>
 {
-    private boolean highestPriorityfirst=true;
     private final Map<E, Entry<E>> index = new HashMap<>();
     private final Set<Entry<E>> queue = new TreeSet<>((entry1, entry2) -> {
         int priorityComparison = Long.compare(entry2.getPriority(), entry1.getPriority());
         if (priorityComparison != 0) {
-            if(highestPriorityfirst)
-                return priorityComparison;
-            else
-                return -1*priorityComparison;
+            return priorityComparison;
         }
         return Long.compare(entry1.getGeneration(), entry2.getGeneration());
     });
 
-
     private long generation;
-
-    public IndexedPriorityQueue(boolean highestPriorityfirst){
-            this.highestPriorityfirst = highestPriorityfirst;
-    }
-
-    public IndexedPriorityQueue(){
-    }
 
     @Override
     public boolean addOrUpdate(E element, long priority)
