@@ -283,6 +283,12 @@ public class ScanFilterAndProjectOperator
             }
             return numTrue;
         }
+
+        @Override
+        public boolean isDeterministic()
+        {
+            return filter.isDeterministic();
+        }
     }
 
     @Override

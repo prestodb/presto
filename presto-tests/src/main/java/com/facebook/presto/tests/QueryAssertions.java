@@ -16,6 +16,7 @@ package com.facebook.presto.tests;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
@@ -119,11 +120,64 @@ public final class QueryAssertions
         assertQuery(actualQueryRunner, session, actual, h2QueryRunner, expected, ensureOrdering, compareUpdate, Optional.of(planAssertion));
     }
 
+    private interface ExpectedQueryRunner
+    {
+        MaterializedResult execute(Session session, @Language("SQL") String query, List<? extends Type> resultTypes);
+    }
+
+    private static ExpectedQueryRunner toExpectedQueryRunner(H2QueryRunner h2QueryRunner)
+    {
+        return (session, query, types) -> h2QueryRunner.execute(session, query, types);
+    }
+
+    private static ExpectedQueryRunner toExpectedQueryRunner(QueryRunner queryRunner)
+    {
+        return (session, query, types) -> queryRunner.execute(session, query);
+    }
+
     private static void assertQuery(
             QueryRunner actualQueryRunner,
             Session session,
             @Language("SQL") String actual,
             H2QueryRunner h2QueryRunner,
+            @Language("SQL") String expected,
+            boolean ensureOrdering,
+            boolean compareUpdate,
+            Optional<Consumer<Plan>> planAssertion)
+    {
+        assertQuery(actualQueryRunner, session, actual, toExpectedQueryRunner(h2QueryRunner), session, expected, ensureOrdering,
+                    compareUpdate, planAssertion);
+    }
+
+    public static void assertQuery(
+                QueryRunner queryRunner,
+                Session session,
+                @Language("SQL") String actual,
+                Session expectedSession,
+                String expected)
+    {
+        assertQuery(queryRunner, session, actual,
+                    toExpectedQueryRunner(queryRunner), expectedSession, expected, false, false,
+                    Optional.empty());
+    }
+
+    public static void assertQuery(
+            QueryRunner queryRunner,
+            Session session,
+            @Language("SQL") String actual,
+            Session expectedSession)
+    {
+        assertQuery(queryRunner, session, actual,
+                toExpectedQueryRunner(queryRunner), expectedSession, actual, false, false,
+                Optional.empty());
+    }
+
+    private static void assertQuery(
+            QueryRunner actualQueryRunner,
+            Session session,
+            @Language("SQL") String actual,
+            ExpectedQueryRunner expectedQueryRunner,
+            Session expectedSession,
             @Language("SQL") String expected,
             boolean ensureOrdering,
             boolean compareUpdate,
@@ -158,7 +212,7 @@ public final class QueryAssertions
         long expectedStart = System.nanoTime();
         MaterializedResult expectedResults = null;
         try {
-            expectedResults = h2QueryRunner.execute(session, expected, actualResults.getTypes());
+            expectedResults = expectedQueryRunner.execute(expectedSession, expected, actualResults.getTypes());
         }
         catch (RuntimeException ex) {
             fail("Execution of 'expected' query failed: " + expected, ex);

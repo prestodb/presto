@@ -549,7 +549,7 @@ public class OrcTester
                         true,
                         512 * 1024,
                         127);
-                recordReader.pushdownFilterAndProjection(options, new int[] {0}, ImmutableList.of(type));
+                recordReader.pushdownFilterAndProjection(options, new int[] {0}, ImmutableList.of(type), new Block[1]);
 
                 assertEquals(recordReader.getReaderPosition(), 0);
                 assertEquals(recordReader.getFilePosition(), 0);

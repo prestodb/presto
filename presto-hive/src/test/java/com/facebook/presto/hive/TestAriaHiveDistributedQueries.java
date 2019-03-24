@@ -179,6 +179,15 @@ public class TestAriaHiveDistributedQueries
         log.info("Created %s rows for %s in %s", rows, tableName, nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
+    private Session noAriaSession()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+            .setSystemProperty(ARIA_SCAN, "false")
+            .setSystemProperty(ARIA_FLAGS, "0")
+            .setCatalogSessionProperty(HiveQueryRunner.HIVE_CATALOG, HiveSessionProperties.ARIA_SCAN_ENABLED, "false")
+            .build();
+    }
+
     private Session ariaSession()
     {
         return Session.builder(getQueryRunner().getDefaultSession())
@@ -424,6 +433,26 @@ public class TestAriaHiveDistributedQueries
                 "    l.partkey = p.partkey\n" +
                 "    AND l.suppkey = p.suppkey\n" +
                 "    AND p.availqty < 1000");
+    }
+
+    @Test
+    public void TestConstantColumns()
+    {
+        Session session = ariaSession();
+        Session referenceSession = noAriaSession();
+        assertUpdate("create table nation_altered as select * from nation", 25);
+        assertUpdate("ALTER TABLE nation_altered ADD COLUMN nation_plus_region bigint");
+        assertUpdate("insert into nation_altered select *, nationkey + regionkey from nation", 25);
+        assertUpdate("ALTER TABLE nation_altered ADD COLUMN nation_minus_region bigint");
+        assertUpdate("insert into nation_altered select *, nationkey + regionkey, nationkey - regionkey from nation", 25);
+        assertQuery(session, "select * from nation_altered", referenceSession);
+        assertQuery(session, "select * from nation_altered where nation_plus_region is null", referenceSession);
+        assertQuery(session, "select * from nation_altered where nation_plus_region > 10", referenceSession);
+        assertQuery(session, "select * from nation_altered where nation_plus_region  + 1 > 10", referenceSession);
+        assertQuery(session, "select * from nation_altered where nation_plus_region  + nation_minus_region > 20", referenceSession);
+        // Test data independent nondeterministic filters.
+        assertQuery(session, "select * from nation_altered where random(10) < 20 ", referenceSession);
+                assertQuery(session, "select * from nation_altered where random(10) < 0 ", referenceSession);
     }
 
     @Test

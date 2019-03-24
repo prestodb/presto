@@ -61,7 +61,7 @@ public class PageSourceOptions
         }
     }
 
-    public static class FilterFunction
+    public abstract static class FilterFunction
             extends FilterStats
     {
         protected final int[] inputChannels;
@@ -88,15 +88,14 @@ public class PageSourceOptions
          * correspond pairwise to the row numbers in rows. A row that
          * produces an error is considered as included in the
          * output. */
-        public int filter(Page page, int[] outputRows, ErrorSet errorSet)
-        {
-            return 0;
-        }
+        public abstract int filter(Page page, int[] outputRows, ErrorSet errorSet);
 
         public int[][] getChannelRowNumberMaps()
         {
             return channelRowNumberMaps;
         }
+
+        public abstract boolean isDeterministic();
     }
 
     public static class ErrorSet

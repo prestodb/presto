@@ -299,6 +299,7 @@ public class StructStreamReader
         int[] fieldColumns = new int[numFields];
         int[] channelColumns = new int[numFields];
         fieldTypes = new Type[numFields];
+        Block[] constantBlocks = new Block[numFields];
         streamReaders = new StreamReader[numFields];
         HashMap<Integer, Filter> filters = new HashMap();
         for (int i = 0; i < numFields; i++) {
@@ -308,9 +309,8 @@ public class StructStreamReader
             Type fieldType = rowType.getFields().get(i).getType();
 
             if (!fieldName.isPresent()) {
-                throw new IllegalArgumentException("Missing struct field name in type " + rowType);
+                constantBlocks[i] = getNullBlock(fieldType, 1);
             }
-
             fieldTypes[i] = fieldType;
             if (filter != null && filter instanceof Filters.StructFilter) {
                 Filters.StructFilter structFilter = (Filters.StructFilter) filter;
@@ -347,7 +347,8 @@ public class StructStreamReader
                                        filters,
                                        new FilterFunction[0],
                                        true,
-                                       0);
+                                       0,
+                                       constantBlocks);
     }
 
     @Override
