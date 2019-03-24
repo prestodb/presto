@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.operator.aggregation.heavyhitters.ConservativeAddSketch;
 import com.facebook.presto.operator.aggregation.heavyhitters.IndexedPriorityQueue;
+import com.facebook.presto.operator.aggregation.heavyhitters.IndexedPriorityQueue.Entry;
 import org.openjdk.jol.info.ClassLayout;
 import org.openjdk.jol.info.GraphLayout;
 
@@ -24,20 +25,15 @@ import java.util.*;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class TopElementsHistogram implements Serializable
+public class TopElementsHistogram<E> implements Serializable
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(TopElementsHistogram.class).instanceSize();
 
     private int rowsProcessed=0;
     private int k;
     private ConservativeAddSketch ccms;
-    private IndexedPriorityQueue topEntries = new IndexedPriorityQueue(false);
+    private IndexedPriorityQueue<E> topEntries = new IndexedPriorityQueue<E>();
 
-
-
-    //public ConservativeAddSketch getCcms(){return this.ccms;}
-
-    //public BoundedTreeSet getTopElements(){return this.topNElementsTreeSet;}
 
     /**
      * This class is to find heavy hitters and based upon the paper: http://theory.stanford.edu/~tim/s17/l/l2.pdf
@@ -55,25 +51,19 @@ public class TopElementsHistogram implements Serializable
         this.ccms=new ConservativeAddSketch(epsError, confidence, seed);
     }
 
-    private void trimTopEntries(){
-        while(topEntries.size() > k)
-            topEntries.poll();
-
-    }
-
-    public void add(String  item)
+    public void add(E  item)
     {
         this.add(item, 1);
     }
 
-    public void add(String  item, long count)
+    public void add(E  item, long count)
     {
-        Long itemCount=ccms.add(item, count);
+        Long itemCount=ccms.add(item.toString(), count);
         rowsProcessed++;
         if(itemCount >= rowsProcessed/k) {
-            topEntries.addOrUpdate(item, itemCount);
-            //Trim the size of top entries maintained to conserve memory
-            trimTopEntries();
+            boolean isAdded=topEntries.addOrUpdate(item, itemCount);
+            //if a new value was added Trim the size of top entries maintained to conserve memory
+            topEntries.removeBelowPriority((long)(rowsProcessed/k));
         }
     }
 
@@ -91,17 +81,16 @@ public class TopElementsHistogram implements Serializable
                     throw new RuntimeException(e);
                 }
                 this.rowsProcessed += histogram.rowsProcessed;
-                Iterator elements = histogram.topEntries.iterator();
+                Iterator<Entry<E>> elements = histogram.topEntries.iterator();
                 while(elements.hasNext()){
-                    String item=(String)elements.next();
+                    Entry<E> item=elements.next();
                     //Estimate the count after the merger
-                    Long itemCount=ccms.estimateCount(item);
-                    topEntries.addOrUpdate(item, itemCount);
+                    Long itemCount=ccms.estimateCount(item.getValue().toString());
+                    topEntries.addOrUpdate(item.getValue(), itemCount);
                 }
                 //Trim the size of top entries maintained to conserve memory
-                trimTopEntries();
+                topEntries.removeBelowPriority((long)(rowsProcessed/k));
             }
-
         }
     }
 

@@ -82,7 +82,7 @@ public final class IndexedPriorityQueue<E>
         return false;
     }
 
-    public E poll()
+    public Entry<E> poll()
     {
         Iterator<Entry<E>> iterator = queue.iterator();
         if (!iterator.hasNext()) {
@@ -91,17 +91,30 @@ public final class IndexedPriorityQueue<E>
         Entry<E> entry = iterator.next();
         iterator.remove();
         checkState(index.remove(entry.getValue()) != null, "Failed to remove entry from index");
-        return entry.getValue();
+        return entry;
     }
 
-    public E peek()
+    public void removeBelowPriority(long tillPriority){
+        Iterator<Entry<E>> iterator = queue.iterator();
+        while (iterator.hasNext()) {
+            Entry<E> entry = iterator.next();
+            if (entry.getPriority() < tillPriority) {
+                iterator.remove();
+                checkState(index.remove(entry.getValue()) != null, "Failed to remove entry from index");
+            } else {
+                break;
+            }
+        }
+    }
+
+    public Entry<E> peek()
     {
         Iterator<Entry<E>> iterator = queue.iterator();
         if (!iterator.hasNext()) {
             return null;
         }
         Entry<E> entry = iterator.next();
-        return entry.getValue();
+        return entry;
     }
 
     public int size()
@@ -117,7 +130,6 @@ public final class IndexedPriorityQueue<E>
     public Iterator<Entry<E>> iterator()
     {
         return (Iterator<Entry<E>>) queue.iterator();
-        //return transform(queue.iterator(), Entry::getValue);
     }
 
     public static final class Entry<E>
