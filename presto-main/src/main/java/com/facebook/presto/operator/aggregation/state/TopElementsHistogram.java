@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-import com.facebook.presto.execution.resourceGroups.IndexedPriorityQueue;
-import com.facebook.presto.execution.resourceGroups.UpdateablePriorityQueue;
 import com.facebook.presto.operator.aggregation.heavyhitters.ConservativeAddSketch;
+import com.facebook.presto.operator.aggregation.heavyhitters.IndexedPriorityQueue;
 import org.openjdk.jol.info.ClassLayout;
 import org.openjdk.jol.info.GraphLayout;
 
@@ -25,7 +24,6 @@ import java.util.*;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-
 public class TopElementsHistogram implements Serializable
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(TopElementsHistogram.class).instanceSize();
@@ -33,7 +31,7 @@ public class TopElementsHistogram implements Serializable
     private int rowsProcessed=0;
     private int k;
     private ConservativeAddSketch ccms;
-    private UpdateablePriorityQueue topEntries = new IndexedPriorityQueue(false);
+    private IndexedPriorityQueue topEntries = new IndexedPriorityQueue(false);
 
 
 

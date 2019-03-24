@@ -19,6 +19,7 @@ import com.facebook.presto.operator.aggregation.heavyhitters.IndexedPriorityQueu
 
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
@@ -52,10 +53,11 @@ public class TestUpdateablePriorityQueue
 
         queue.poll();
         Iterator x = queue.iterator();
-        System.out.println(queue.getClass());
+        //System.out.println(queue.getClass());
         while (x.hasNext())
             System.out.print(x.next() + " ");
         System.out.println();
-        return ImmutableList.copyOf(transform(queue.iterator(), Entry::getValue);
+
+        return ImmutableList.copyOf(transform(queue.iterator(), Entry::getValue));
     }
 }

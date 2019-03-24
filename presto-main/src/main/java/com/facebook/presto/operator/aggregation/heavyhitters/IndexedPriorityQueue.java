@@ -114,13 +114,12 @@ public final class IndexedPriorityQueue<E>
         return queue.isEmpty();
     }
 
-    public Iterator<E> iterator()
+    public Iterator<Entry<E>> iterator()
     {
-        return (Iterator<E>) queue.iterator();
+        return (Iterator<Entry<E>>) queue.iterator();
         //return transform(queue.iterator(), Entry::getValue);
     }
 
-    @VisibleForTesting
     public static final class Entry<E>
     {
         private final E value;
