@@ -64,8 +64,10 @@ public class RetryDriver
                 int delayMillis = (int) min(minBackoffDelay.toMillis() * pow(scaleFactor, attempt - 1), maxBackoffDelay.toMillis());
                 int jitterMillis = ThreadLocalRandom.current().nextInt(max(1, (int) (delayMillis * 0.1)));
                 log.debug(
-                        "Failed on executing %s with attempt %d. Retry after %sms. Cause: %s",
+                        "Failed on executing %s(%s, %s) with attempt %d. Retry after %sms. Cause: %s",
                         callableName,
+                        qe.getQueryOrigin().getGroup(),
+                        qe.getQueryOrigin().getStage(),
                         attempt - 1,
                         delayMillis,
                         qe.getErrorCode());
