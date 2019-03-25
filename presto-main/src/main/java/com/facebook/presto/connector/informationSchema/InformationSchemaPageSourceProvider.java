@@ -220,6 +220,7 @@ public class InformationSchemaPageSourceProvider
                         entry.getKey().getCatalogName(),
                         entry.getKey().getSchemaName(),
                         entry.getKey().getObjectName(),
+                        entry.getValue().getOwner().orElse(null),
                         entry.getValue().getOriginalSql());
             }
         }
