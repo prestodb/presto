@@ -408,13 +408,13 @@ public class MetadataManager
     }
 
     @Override
-    public TableLayout getLayout(Session session, TableLayoutHandle handle)
+    public TableLayout getLayout(Session session, TableHandle handle)
     {
         ConnectorId connectorId = handle.getConnectorId();
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
         ConnectorTransactionHandle transaction = catalogMetadata.getTransactionHandleFor(connectorId);
-        return fromConnectorLayout(connectorId, transaction, metadata.getTableLayout(session.toConnectorSession(connectorId), handle.getConnectorHandle()));
+        return fromConnectorLayout(connectorId, transaction, metadata.getTableLayout(session.toConnectorSession(connectorId), resolveTableLayout(session, handle)));
     }
 
     @Override

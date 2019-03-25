@@ -138,11 +138,11 @@ public class MetadataQueryOptimizer
             // Materialize the list of partitions and replace the TableScan node
             // with a Values node
             TableLayout layout = null;
-            if (!tableScan.getLayout().isPresent()) {
+            if (!tableScan.getTable().getLayout().isPresent()) {
                 layout = metadata.getLayout(session, tableScan.getTable(), Constraint.alwaysTrue(), Optional.empty()).map(TableLayoutResult::getLayout).get();
             }
             else {
-                layout = metadata.getLayout(session, tableScan.getLayout().get());
+                layout = metadata.getLayout(session, tableScan.getTable());
             }
 
             if (layout == null || !layout.getDiscretePredicates().isPresent()) {

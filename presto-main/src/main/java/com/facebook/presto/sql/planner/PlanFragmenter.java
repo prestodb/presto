@@ -20,7 +20,6 @@ import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayout.TablePartitioning;
 import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.operator.StageExecutionDescriptor;
@@ -327,12 +326,10 @@ public class PlanFragmenter
         @Override
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<FragmentProperties> context)
         {
-            PartitioningHandle partitioning = node.getLayout()
-                    .map(layout -> metadata.getLayout(session, layout))
-                    .flatMap(TableLayout::getTablePartitioning)
+            PartitioningHandle partitioning = metadata.getLayout(session, node.getTable())
+                    .getTablePartitioning()
                     .map(TablePartitioning::getPartitioningHandle)
                     .orElse(SOURCE_DISTRIBUTION);
-
             context.get().addSourceDistribution(node.getId(), partitioning, metadata, session);
             return context.defaultRewrite(node, context.get());
         }
@@ -668,7 +665,7 @@ public class PlanFragmenter
         @Override
         public GroupedExecutionProperties visitTableScan(TableScanNode node, Void context)
         {
-            Optional<TablePartitioning> tablePartitioning = metadata.getLayout(session, node.getLayout().get()).getTablePartitioning();
+            Optional<TablePartitioning> tablePartitioning = metadata.getLayout(session, node.getTable()).getTablePartitioning();
             if (!tablePartitioning.isPresent()) {
                 return GroupedExecutionProperties.notCapable();
             }
@@ -773,11 +770,11 @@ public class PlanFragmenter
         @Override
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<Void> context)
         {
-            PartitioningHandle partitioning = node.getLayout()
-                    .map(layout -> metadata.getLayout(session, layout))
-                    .flatMap(TableLayout::getTablePartitioning)
+            PartitioningHandle partitioning = metadata.getLayout(session, node.getTable())
+                    .getTablePartitioning()
                     .map(TablePartitioning::getPartitioningHandle)
                     .orElse(SOURCE_DISTRIBUTION);
+
             if (partitioning.equals(fragmentPartitioningHandle)) {
                 // do nothing if the current scan node's partitioning matches the fragment's
                 return node;

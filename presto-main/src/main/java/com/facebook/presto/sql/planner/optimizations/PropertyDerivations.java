@@ -709,9 +709,7 @@ public class PropertyDerivations
         @Override
         public ActualProperties visitTableScan(TableScanNode node, List<ActualProperties> inputProperties)
         {
-            checkArgument(node.getLayout().isPresent(), "table layout has not yet been chosen");
-
-            TableLayout layout = metadata.getLayout(session, node.getLayout().get());
+            TableLayout layout = metadata.getLayout(session, node.getTable());
             Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
             ActualProperties.Builder properties = ActualProperties.builder();

@@ -175,7 +175,7 @@ public class PickTableLayout
 
             TableScanNode rewrittenTableScan = (TableScanNode) rewrittenFilter.getSource();
 
-            if (!tableScan.getLayout().isPresent() && rewrittenTableScan.getLayout().isPresent()) {
+            if (!tableScan.getTable().equals(rewrittenTableScan.getTable())) {
                 return false;
             }
 
@@ -211,7 +211,7 @@ public class PickTableLayout
         @Override
         public Result apply(TableScanNode tableScanNode, Captures captures, Context context)
         {
-            if (tableScanNode.getLayout().isPresent()) {
+            if (tableScanNode.getTable().getLayout().isPresent()) {
                 return Result.empty();
             }
 
