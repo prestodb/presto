@@ -15,7 +15,7 @@
 
 package com.facebook.presto.operator.aggregation.heavyhitters;
 
-import io.airlift.slice.SizeOf;
+import io.airlift.slice.*;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.ByteArrayInputStream;
@@ -26,6 +26,8 @@ import java.io.IOException;
 
 import java.util.Arrays;
 import java.util.Random;
+
+import static io.airlift.slice.SizeOf.*;
 
 
 /**
@@ -74,7 +76,7 @@ public class CountMinSketch {
             throw new IllegalArgumentException("epsOfTotalCount and confidence should be greater than 0 and less than 1");
         }
         // e/w = eps ; w = e/eps  Where e is the natural log base.
-        // 1/2^depth <= 1-confidence ; depth >= -log2 (1-confidence)
+        // 1/2^depth <= 1-confidence ; depth >= log2(1/(1-confidence))
         this.eps = epsOfTotalCount;
         this.confidence = confidence;
         this.width = (int) Math.ceil(Math.E / epsOfTotalCount);
@@ -313,50 +315,45 @@ public class CountMinSketch {
         return this;
     }
 
-    public static byte[] serialize(CountMinSketch sketch) {
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        DataOutputStream s = new DataOutputStream(bos);
-        try {
-            s.writeLong(sketch.size);
-            s.writeInt(sketch.depth);
-            s.writeInt(sketch.width);
-            for (int i = 0; i < sketch.depth; ++i) {
-                s.writeLong(sketch.hashA[i]);
-                for (int j = 0; j < sketch.width; ++j) {
-                    s.writeLong(sketch.table[i][j]);
-                }
+    public Slice serialize() {
+        SliceOutput s = new DynamicSliceOutput(estimatedSerializedSizeInBytes());
+        s.writeLong(size);
+        s.writeInt(depth);
+        s.writeInt(width);
+        s.writeLong(size);
+        s.writeLong(estimatedInMemorySize);
+        for (int i = 0; i < depth; ++i) {
+            s.writeLong(hashA[i]);
+            for (int j = 0; j < width; ++j) {
+                s.writeLong(table[i][j]);
             }
-            return bos.toByteArray();
-        } catch (IOException e) {
-            // Shouldn't happen
-            throw new RuntimeException(e);
+        }
+        return s.slice();
+    }
+
+
+    //Constructor based upon deserialization
+    public CountMinSketch(Slice serialized) {
+        SliceInput s = new BasicSliceInput(serialized);
+        size = s.readLong();
+        depth = s.readInt();
+        width = s.readInt();
+        size = s.readLong();
+        estimatedInMemorySize = s.readLong();
+        // e/w = eps ; w = e/eps  Where e is the natural log base.
+        // 1/2^depth <= 1-confidence ; depth >= log2(1/(1-confidence))
+        eps = Math.E / width;
+        confidence = 1 - 1 / Math.pow(Math.E, depth);
+        hashA = new long[depth];
+        table = new long[depth][width];
+        for (int i = 0; i < depth; ++i) {
+            hashA[i] = s.readLong();
+            for (int j = 0; j < width; ++j) {
+                table[i][j] = s.readLong();
+            }
         }
     }
 
-    public static CountMinSketch deserialize(byte[] data) {
-        ByteArrayInputStream bis = new ByteArrayInputStream(data);
-        DataInputStream s = new DataInputStream(bis);
-        try {
-            CountMinSketch sketch = new CountMinSketch();
-            sketch.size = s.readLong();
-            sketch.depth = s.readInt();
-            sketch.width = s.readInt();
-            sketch.eps = 2.0 / sketch.width;
-            sketch.confidence = 1 - 1 / Math.pow(2, sketch.depth);
-            sketch.hashA = new long[sketch.depth];
-            sketch.table = new long[sketch.depth][sketch.width];
-            for (int i = 0; i < sketch.depth; ++i) {
-                sketch.hashA[i] = s.readLong();
-                for (int j = 0; j < sketch.width; ++j) {
-                    sketch.table[i][j] = s.readLong();
-                }
-            }
-            return sketch;
-        } catch (IOException e) {
-            // Shouldn't happen
-            throw new RuntimeException(e);
-        }
-    }
 
     @SuppressWarnings("serial")
     protected static class CMSMergeException extends Exception {
@@ -364,6 +361,21 @@ public class CountMinSketch {
         public CMSMergeException(String message) {
             super(message);
         }
+    }
+
+
+    public int estimatedSerializedSizeInBytes() {
+        //TODO is this estimation correct
+//        int depth;
+//        int width;
+//        long[][] table;
+//        long[] hashA;
+//        long size;
+//        long estimatedInMemorySize;
+//        double eps;
+//        double confidence;
+
+        return 2*SIZE_OF_INT + (2 + depth + depth*width)*SIZE_OF_LONG + 2*SIZE_OF_DOUBLE;
     }
 
     //TODO is this the best way to get size. Does this cover all the memory this data structure uses?
