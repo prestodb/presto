@@ -127,7 +127,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public TableLayoutHandle getAlternativeLayoutHandle(Session session, TableLayoutHandle tableLayoutHandle, PartitioningHandle partitioningHandle)
+    public TableHandle getAlternativeTableHandle(Session session, TableHandle tableHandle, PartitioningHandle partitioningHandle)
     {
         throw new UnsupportedOperationException();
     }
