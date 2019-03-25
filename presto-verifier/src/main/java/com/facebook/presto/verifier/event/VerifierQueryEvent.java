@@ -30,6 +30,7 @@ public class VerifierQueryEvent
     {
         SUCCEEDED,
         FAILED,
+        FAILED_RESOLVED,
         SKIPPED,
     }
 
@@ -39,6 +40,7 @@ public class VerifierQueryEvent
 
     private final String status;
     private final Boolean deterministic;
+    private final String resolveMessage;
 
     private final QueryInfo controlQueryInfo;
     private final QueryInfo testQueryInfo;
@@ -52,6 +54,7 @@ public class VerifierQueryEvent
             String name,
             EventStatus status,
             Optional<Boolean> deterministic,
+            Optional<String> resolveMessage,
             QueryInfo controlQueryInfo,
             QueryInfo testQueryInfo,
             Optional<String> errorCode,
@@ -62,6 +65,7 @@ public class VerifierQueryEvent
         this.name = requireNonNull(name, "name is null");
         this.status = status.name();
         this.deterministic = deterministic.orElse(null);
+        this.resolveMessage = resolveMessage.orElse(null);
         this.controlQueryInfo = requireNonNull(controlQueryInfo, "controlQueryInfo is null");
         this.testQueryInfo = requireNonNull(testQueryInfo, "testQueryInfo is null");
         this.errorCode = errorCode.orElse(null);
@@ -96,6 +100,12 @@ public class VerifierQueryEvent
     public Boolean getDeterministic()
     {
         return deterministic;
+    }
+
+    @EventField
+    public String getResolveMessage()
+    {
+        return resolveMessage;
     }
 
     @EventField

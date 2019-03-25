@@ -23,6 +23,7 @@ import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
 import com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup;
 import com.facebook.presto.verifier.framework.VerificationResult.MatchType;
+import com.facebook.presto.verifier.resolver.FailureResolver;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
@@ -33,6 +34,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED;
+import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED_RESOLVED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SKIPPED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SUCCEEDED;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup.CONTROL;
@@ -57,6 +59,7 @@ public abstract class AbstractVerification
     private final PrestoAction prestoAction;
     private final SourceQuery sourceQuery;
     private final QueryRewriter queryRewriter;
+    private final List<FailureResolver> failureResolvers;
 
     private final String testId;
     private final boolean runTearDownOnResultMismatch;
@@ -69,11 +72,13 @@ public abstract class AbstractVerification
             PrestoAction prestoAction,
             SourceQuery sourceQuery,
             QueryRewriter queryRewriter,
+            List<FailureResolver> failureResolvers,
             VerifierConfig config)
     {
         this.prestoAction = requireNonNull(prestoAction, "prestoAction is null");
         this.sourceQuery = requireNonNull(sourceQuery, "sourceQuery is null");
         this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
+        this.failureResolvers = requireNonNull(failureResolvers, "failureResolvers is null");
 
         this.testId = requireNonNull(config.getTestId(), "testId is null");
         this.runTearDownOnResultMismatch = config.isRunTearDownOnResultMismatch();
@@ -214,6 +219,7 @@ public abstract class AbstractVerification
         }
 
         EventStatus status;
+        Optional<String> resolveMessage = Optional.empty();
         if (succeeded) {
             status = SUCCEEDED;
         }
@@ -221,7 +227,11 @@ public abstract class AbstractVerification
             status = SKIPPED;
         }
         else {
-            status = FAILED;
+            if (controlState == QueryState.SUCCEEDED && queryException.isPresent()) {
+                checkState(controlStats.isPresent(), "control succeeded but control stats is missing");
+                resolveMessage = resolveFailure(controlStats.get(), queryException.get());
+            }
+            status = resolveMessage.isPresent() ? FAILED_RESOLVED : FAILED;
         }
 
         controlStats = queryException.isPresent() && queryException.get().getQueryOrigin().equals(new QueryOrigin(CONTROL, MAIN)) ?
@@ -243,6 +253,7 @@ public abstract class AbstractVerification
                 sourceQuery.getName(),
                 status,
                 deterministic,
+                resolveMessage,
                 buildQueryInfo(
                         sourceQuery.getControlConfiguration(),
                         sourceQuery.getControlQuery(),
@@ -259,6 +270,17 @@ public abstract class AbstractVerification
                         verificationContext.getAllFailures(TEST)),
                 errorCode,
                 Optional.ofNullable(errorMessage));
+    }
+
+    private Optional<String> resolveFailure(QueryStats controlStats, QueryException queryException)
+    {
+        for (FailureResolver failureResolver : failureResolvers) {
+            Optional<String> resolveMessage = failureResolver.resolve(controlStats, queryException);
+            if (resolveMessage.isPresent()) {
+                return resolveMessage;
+            }
+        }
+        return Optional.empty();
     }
 
     private static QueryInfo buildQueryInfo(

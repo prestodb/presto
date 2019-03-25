@@ -42,6 +42,7 @@ import java.util.function.Predicate;
 
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED;
+import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED_RESOLVED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SKIPPED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SUCCEEDED;
 import static com.facebook.presto.verifier.framework.JdbcDriverUtil.initializeDrivers;
@@ -273,9 +274,10 @@ public class VerificationManager
                 double progress = ((double) completed) / queriesSubmitted * 100;
                 if (progress - lastProgress > 0.5 || completed == queriesSubmitted) {
                     log.info(
-                            "Progress: %s succeeded, %s skipped, %s failed, %.2f%% done",
+                            "Progress: %s succeeded, %s skipped, %s resolved, %s failed, %.2f%% done",
                             statusCount.getOrDefault(SUCCEEDED, 0),
                             statusCount.getOrDefault(SKIPPED, 0),
+                            statusCount.getOrDefault(FAILED_RESOLVED, 0),
                             statusCount.getOrDefault(FAILED, 0),
                             progress);
                     lastProgress = progress;
