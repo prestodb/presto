@@ -70,4 +70,19 @@ public class TestUpdateablePriorityQueue
         return ImmutableList.copyOf(transform(queue.iterator(), Entry::getValue));
     }
 
+    @Test
+    public void testSerializationEntryString(){
+        IndexedPriorityQueue<String> testQ = new IndexedPriorityQueue<>();
+        testQ.addOrUpdate("abc",1);
+        Entry<Integer> e = new Entry<>(testQ.poll().serialize());
+        System.out.println("value:" + e.getValue() + " priority:" + e.getPriority());
+    }
+
+    @Test
+    public void testSerializationEntryInt(){
+        IndexedPriorityQueue<Integer> testQ = new IndexedPriorityQueue<>();
+        testQ.addOrUpdate(1,1);
+        Entry<Integer> e = new Entry<>(testQ.poll().serialize());
+        System.out.println("value:" + e.getValue() + " priority:" + e.getPriority());
+    }
 }

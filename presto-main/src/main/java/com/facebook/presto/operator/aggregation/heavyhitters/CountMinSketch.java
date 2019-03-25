@@ -316,7 +316,15 @@ public class CountMinSketch {
     }
 
     public Slice serialize() {
-        SliceOutput s = new DynamicSliceOutput(estimatedSerializedSizeInBytes());
+        //TODO is this estimation correct
+        int requiredBytes =
+                2 * SIZE_OF_INT +    //depth, width
+                2 * SIZE_OF_LONG + //size, estimatedInMemorySize
+                depth * SIZE_OF_LONG + // long[] hashA
+                depth * width * SIZE_OF_LONG + // long[][] table
+                2 * SIZE_OF_DOUBLE; //eps, confidence
+
+        SliceOutput s = new DynamicSliceOutput(requiredBytes);
         s.writeLong(size);
         s.writeInt(depth);
         s.writeInt(width);
@@ -364,19 +372,6 @@ public class CountMinSketch {
     }
 
 
-    public int estimatedSerializedSizeInBytes() {
-        //TODO is this estimation correct
-//        int depth;
-//        int width;
-//        long[][] table;
-//        long[] hashA;
-//        long size;
-//        long estimatedInMemorySize;
-//        double eps;
-//        double confidence;
-
-        return 2*SIZE_OF_INT + (2 + depth + depth*width)*SIZE_OF_LONG + 2*SIZE_OF_DOUBLE;
-    }
 
     //TODO is this the best way to get size. Does this cover all the memory this data structure uses?
     public long estimatedInMemorySize() {

@@ -13,13 +13,15 @@
  */
 package com.facebook.presto.operator.aggregation.heavyhitters;
 
-import io.airlift.slice.SizeOf;
+import com.google.common.annotations.VisibleForTesting;
+import io.airlift.slice.*;
 import org.openjdk.jol.info.ClassLayout;
 import org.openjdk.jol.info.GraphLayout;
 
 import java.util.*;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -29,6 +31,7 @@ import static java.util.Objects.requireNonNull;
  */
 public final class IndexedPriorityQueue<E>
 {
+    private E dummy;
     private long generation;
     private long estimatedInMemorySize;
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(IndexedPriorityQueue.class).instanceSize();
@@ -142,12 +145,77 @@ public final class IndexedPriorityQueue<E>
         }
     }
 
+    /**
+     *
+     * @param value
+     * @param itemCount  if add than +1, if removed than -1
+     * @return final memory after the change.
+     */
+    public long updateMemoryForElement(Entry<E> value, long itemCount){
+        estimatedInMemorySize += itemCount*value.estimatedInMemorySize();  //itemCount can be negative
+        if (estimatedInMemorySize < 0)
+            estimatedInMemorySize = 0;
+        return this.estimatedInMemorySize();
+    }
+
+    public long estimatedInMemorySize() {
+        return INSTANCE_SIZE + estimatedInMemorySize;
+    }
+
+
+//    public Slice serialize() {
+//        int requiredBytes = 2*SIZE_OF_LONG;   //generation, estimatedInMemorySize
+//        SliceOutput s = new DynamicSliceOutput(requiredBytes);
+//
+//        s.writeLong(generation);
+//        s.writeLong(estimatedInMemorySize);
+//        s.writeInt(queue.size());
+//        if(dummy instanceof String){
+//            foreach(Entry<E> e: queue.iterator()){
+//                s.writeBytes(Slices.utf8Slice((String)));
+//            }
+//        }
+//        foreach(int i = 0; i < depth; ++i) {
+//            s.writeLong(hashA[i]);
+//            for (int j = 0; j < width; ++j) {
+//                s.writeLong(table[i][j]);
+//            }
+//        }
+//        return s.slice();
+//    }
+
+//
+//    //Constructor based upon deserialization
+//    public CountMinSketch(Slice serialized) {
+//        SliceInput s = new BasicSliceInput(serialized);
+//        size = s.readLong();
+//        depth = s.readInt();
+//        width = s.readInt();
+//        size = s.readLong();
+//        estimatedInMemorySize = s.readLong();
+//        // e/w = eps ; w = e/eps  Where e is the natural log base.
+//        // 1/2^depth <= 1-confidence ; depth >= log2(1/(1-confidence))
+//        eps = Math.E / width;
+//        confidence = 1 - 1 / Math.pow(Math.E, depth);
+//        hashA = new long[depth];
+//        table = new long[depth][width];
+//        for (int i = 0; i < depth; ++i) {
+//            hashA[i] = s.readLong();
+//            for (int j = 0; j < width; ++j) {
+//                table[i][j] = s.readLong();
+//            }
+//        }
+//    }
+
+
     public static final class Entry<E>
     {
         private final E value;
         private final long priority;
         private final long generation;
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(Entry.class).instanceSize();
+        private static int TYPE_STRING = 0;
+        private static int TYPE_LONG = 1;
 
         private Entry(E value, long priority, long generation)
         {
@@ -174,23 +242,28 @@ public final class IndexedPriorityQueue<E>
         public long estimatedInMemorySize(){
             return INSTANCE_SIZE + GraphLayout.parseInstance(value).totalSize();
         }
-    }
 
-    /**
-     *
-     * @param value
-     * @param itemCount  if add than +1, if removed than -1
-     * @return final memory after the change.
-     */
-    public long updateMemoryForElement(Entry<E> value, long itemCount){
-        estimatedInMemorySize += itemCount*value.estimatedInMemorySize();  //itemCount can be negative
-        if (estimatedInMemorySize < 0)
-            estimatedInMemorySize = 0;
-        return this.estimatedInMemorySize();
-    }
+        public Slice serialize(){
+            SliceOutput s = new DynamicSliceOutput((int)estimatedInMemorySize());
+            s.writeLong(priority);
+            s.writeLong(generation);
 
-    public long estimatedInMemorySize() {
-        return INSTANCE_SIZE + estimatedInMemorySize;
-    }
+            Slice slc=Slices.utf8Slice(value.toString());
+            s.writeInt(slc.length());
+            s.writeBytes(slc);
 
+            return s.slice();
+        }
+
+        @VisibleForTesting
+        public Entry(Slice serialized){
+            SliceInput s = new BasicSliceInput(serialized);
+            priority = s.readLong();
+            generation = s.readLong();
+            int length = s.readInt();
+            byte[] b = new byte[length];
+            s.readBytes(b,0, length);
+            value = (E)new String(b);
+        }
+    }
 }
