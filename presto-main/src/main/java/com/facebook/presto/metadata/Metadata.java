@@ -97,7 +97,7 @@ public interface Metadata
      */
     PartitioningHandle getPartitioningHandleForExchange(Session session, String catalogName, int partitionCount, List<Type> partitionTypes);
 
-    Optional<Object> getInfo(Session session, TableLayoutHandle handle);
+    Optional<Object> getInfo(Session session, TableHandle handle);
 
     /**
      * Return the metadata for the specified table handle.

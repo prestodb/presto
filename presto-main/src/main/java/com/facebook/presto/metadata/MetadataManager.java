@@ -92,6 +92,7 @@ import java.util.concurrent.ConcurrentMap;
 import static com.facebook.presto.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static com.facebook.presto.metadata.TableLayout.fromConnectorLayout;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
+import static com.facebook.presto.spi.Constraint.alwaysTrue;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -460,11 +461,11 @@ public class MetadataManager
     }
 
     @Override
-    public Optional<Object> getInfo(Session session, TableLayoutHandle handle)
+    public Optional<Object> getInfo(Session session, TableHandle handle)
     {
         ConnectorId connectorId = handle.getConnectorId();
         ConnectorMetadata metadata = getMetadata(session, connectorId);
-        ConnectorTableLayout tableLayout = metadata.getTableLayout(session.toConnectorSession(connectorId), handle.getConnectorHandle());
+        ConnectorTableLayout tableLayout = metadata.getTableLayout(session.toConnectorSession(connectorId), getTableLayout(session, handle));
         return metadata.getInfo(tableLayout.getHandle());
     }
 
@@ -1214,6 +1215,16 @@ public class MetadataManager
         catch (OperatorNotFoundException e) {
             return false;
         }
+    }
+
+    private ConnectorTableLayoutHandle getTableLayout(Session session, TableHandle tableHandle)
+    {
+        if (tableHandle.getLayout().isPresent()) {
+            return tableHandle.getLayout().get();
+        }
+        Optional<TableLayoutResult> result = getLayout(session, tableHandle, alwaysTrue(), Optional.empty());
+        checkArgument(result.isPresent(), "Must be able to get a layout from connector %s", tableHandle);
+        return result.get().getLayout().getHandle().getConnectorHandle();
     }
 
     @VisibleForTesting
