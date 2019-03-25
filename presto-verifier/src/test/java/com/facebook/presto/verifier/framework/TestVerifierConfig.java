@@ -37,6 +37,8 @@ public class TestVerifierConfig
                 .setTestTimeout(new Duration(30, MINUTES))
                 .setMetadataTimeout(new Duration(3, MINUTES))
                 .setChecksumTimeout(new Duration(20, MINUTES))
+                .setControlTablePrefix("tmp_verifier_control")
+                .setTestTablePrefix("tmp_verifier_test")
                 .setRelativeErrorMargin(1e-4));
     }
 
@@ -50,6 +52,8 @@ public class TestVerifierConfig
                 .put("test.timeout", "2h")
                 .put("metadata.timeout", "3h")
                 .put("checksum.timeout", "4h")
+                .put("control.table-prefix", "local.control")
+                .put("test.table-prefix", "local.test")
                 .put("relative-error-margin", "2e-5")
                 .build();
         VerifierConfig expected = new VerifierConfig()
@@ -59,6 +63,8 @@ public class TestVerifierConfig
                 .setTestTimeout(new Duration(2, HOURS))
                 .setMetadataTimeout(new Duration(3, HOURS))
                 .setChecksumTimeout(new Duration(4, HOURS))
+                .setControlTablePrefix("local.control")
+                .setTestTablePrefix("local.test")
                 .setRelativeErrorMargin(2e-5);
 
         assertFullMapping(properties, expected);
