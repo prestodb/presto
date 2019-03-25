@@ -17,6 +17,7 @@ import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.inject.Module;
 
 import java.util.List;
+import java.util.Set;
 import java.util.function.Predicate;
 
 public interface VerifyCommand
@@ -25,6 +26,8 @@ public interface VerifyCommand
     List<Module> getAdditionalModules();
 
     SqlParserOptions getSqlParserOptions();
+
+    Set<String> getCustomEventClientTypes();
 
     List<Class<? extends Predicate<SourceQuery>>> getCustomQueryFilterClasses();
 
