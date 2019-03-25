@@ -1050,6 +1050,8 @@ public class AddExchanges
         public PlanWithProperties visitUnion(UnionNode node, PreferredProperties parentPreference)
         {
             Optional<PreferredProperties.Global> parentGlobal = parentPreference.getGlobalProperties();
+
+            // parent specifies distributed partitioning
             if (parentGlobal.isPresent() && parentGlobal.get().isDistributed() && parentGlobal.get().getPartitioningProperties().isPresent()) {
                 PreferredProperties.PartitioningProperties parentPartitioningPreference = parentGlobal.get().getPartitioningProperties().get();
                 boolean nullsAndAnyReplicated = parentPartitioningPreference.isNullsAndAnyReplicated();
@@ -1099,6 +1101,25 @@ public class AddExchanges
                                 .global(partitionedOn(desiredParentPartitioning, Optional.of(desiredParentPartitioning)))
                                 .build()
                                 .withReplicatedNulls(parentPartitioningPreference.isNullsAndAnyReplicated()));
+            }
+
+            // union over table writes
+            if (node.getSources().stream().anyMatch(TableWriterNode.class::isInstance)) {
+                verify(node.getSources().stream().allMatch(TableWriterNode.class::isInstance), "sources of UnionNode contain a mixed collection of TableWriterNode and non-TableWriterNode");
+                return new PlanWithProperties(
+                        new ExchangeNode(
+                                idAllocator.getNextId(),
+                                GATHER,
+                                REMOTE_STREAMING,
+                                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
+                                node.getSources(),
+                                node.getSources().stream()
+                                        .map(PlanNode::getOutputSymbols)
+                                        .collect(toImmutableList()),
+                                Optional.empty()),
+                        ActualProperties.builder()
+                                .global(singleStreamPartition())
+                                .build());
             }
 
             // first, classify children into partitioned and unpartitioned
