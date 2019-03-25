@@ -27,6 +27,7 @@ import javax.validation.constraints.NotNull;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.verifier.source.MySqlSourceQuerySupplier.MYSQL_SOURCE_QUERY_SUPPLIER;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class VerifierConfig
@@ -57,6 +58,8 @@ public class VerifierConfig
 
     private Optional<Set<String>> whitelist = Optional.empty();
     private Optional<Set<String>> blacklist = Optional.empty();
+
+    private String sourceQuerySupplier = MYSQL_SOURCE_QUERY_SUPPLIER;
 
     private Set<String> eventClients = ImmutableSet.of("human-readable");
     private Optional<String> jsonEventLogFile = Optional.empty();
@@ -363,6 +366,20 @@ public class VerifierConfig
         this.blacklist = blacklist == null ?
                 Optional.empty() :
                 Optional.of(ImmutableSet.copyOf(Splitter.on(',').trimResults().omitEmptyStrings().splitToList(blacklist)));
+        return this;
+    }
+
+    @NotNull
+    public String getSourceQuerySupplier()
+    {
+        return sourceQuerySupplier;
+    }
+
+    @ConfigDescription("The type of source query supplier")
+    @Config("source-query.supplier")
+    public VerifierConfig setSourceQuerySupplier(String sourceQuerySupplier)
+    {
+        this.sourceQuerySupplier = sourceQuerySupplier;
         return this;
     }
 

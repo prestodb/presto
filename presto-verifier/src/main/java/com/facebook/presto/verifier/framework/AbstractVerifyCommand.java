@@ -14,6 +14,7 @@
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.verifier.event.EventClientModule;
+import com.facebook.presto.verifier.source.SourceQueryModule;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
@@ -44,6 +45,7 @@ public abstract class AbstractVerifyCommand
                         getSqlParserOptions(),
                         getCustomQueryFilterClasses(),
                         getSqlExceptionClassifier()))
+                .add(new SourceQueryModule(getCustomSourceQuerySupplierTypes()))
                 .add(new EventClientModule(getCustomEventClientTypes()))
                 .addAll(getAdditionalModules())
                 .build());
