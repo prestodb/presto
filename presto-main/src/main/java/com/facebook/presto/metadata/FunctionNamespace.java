@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
@@ -52,7 +53,7 @@ class FunctionNamespace
 
     public FunctionHandle resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
-        return registry.resolveFunction(name, parameterTypes);
+        return registry.resolveFunction(name, parameterTypes, WarningCollector.NOOP);
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle)
