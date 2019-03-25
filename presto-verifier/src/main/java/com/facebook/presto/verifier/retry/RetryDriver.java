@@ -14,6 +14,7 @@
 package com.facebook.presto.verifier.retry;
 
 import com.facebook.presto.verifier.framework.QueryException;
+import com.facebook.presto.verifier.framework.VerificationContext;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
@@ -48,7 +49,7 @@ public class RetryDriver
         this.retryPredicate = requireNonNull(retryPredicate, "retryPredicate is null");
     }
 
-    public <V> V run(String callableName, RetryOperation<V> operation)
+    public <V> V run(String callableName, VerificationContext context, RetryOperation<V> operation)
     {
         int attempt = 1;
         while (true) {
@@ -56,6 +57,7 @@ public class RetryDriver
                 return operation.run();
             }
             catch (QueryException qe) {
+                context.recordFailure(qe);
                 if (attempt >= maxAttempts || !retryPredicate.test(qe)) {
                     throw qe;
                 }

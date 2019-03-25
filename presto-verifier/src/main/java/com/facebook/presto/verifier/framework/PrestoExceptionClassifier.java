@@ -38,9 +38,13 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIO
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
+import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
+import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static com.google.common.base.Functions.identity;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Arrays.asList;
@@ -59,6 +63,10 @@ public class PrestoExceptionClassifier
             REMOTE_TASK_ERROR,
             SERVER_SHUTTING_DOWN,
             SERVER_STARTING_UP,
+            TOO_MANY_REQUESTS_FAILED,
+            PAGE_TRANSPORT_ERROR,
+            PAGE_TRANSPORT_TIMEOUT,
+            REMOTE_HOST_GONE,
             // From HiveErrorCode
             HIVE_CURSOR_ERROR,
             HIVE_FILE_NOT_FOUND,

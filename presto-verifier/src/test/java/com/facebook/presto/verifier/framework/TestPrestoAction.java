@@ -17,6 +17,7 @@ import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.tests.StandaloneQueryRunner;
+import com.facebook.presto.verifier.event.FailureInfo;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -39,8 +40,10 @@ import static com.facebook.presto.verifier.VerifierTestUtil.setupPresto;
 import static com.facebook.presto.verifier.framework.QueryException.Type.PRESTO;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup.CONTROL;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.MAIN;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -79,14 +82,16 @@ public class TestPrestoAction
                 prestoAction.execute(
                         sqlParser.createStatement("SELECT 1", new ParsingOptions(AS_DECIMAL)),
                         new QueryConfiguration(CATALOG, SCHEMA, "user", Optional.empty(), ImmutableMap.of()),
-                        QUERY_ORIGIN).getState(),
+                        QUERY_ORIGIN,
+                        new VerificationContext()).getState(),
                 FINISHED.name());
 
         assertEquals(
                 prestoAction.execute(
                         sqlParser.createStatement("CREATE TABLE test_table (x int)", new ParsingOptions(AS_DECIMAL)),
                         new QueryConfiguration(CATALOG, SCHEMA, "user", Optional.empty(), ImmutableMap.of()),
-                        QUERY_ORIGIN).getState(),
+                        QUERY_ORIGIN,
+                        new VerificationContext()).getState(),
                 FINISHED.name());
     }
 
@@ -97,6 +102,7 @@ public class TestPrestoAction
                 sqlParser.createStatement("SELECT x FROM (VALUES (1), (2), (3)) t(x)", new ParsingOptions(AS_DECIMAL)),
                 new QueryConfiguration(CATALOG, SCHEMA, "user", Optional.empty(), ImmutableMap.of()),
                 QUERY_ORIGIN,
+                new VerificationContext(),
                 resultSet -> resultSet.getInt("x") * resultSet.getInt("x"));
         assertEquals(result.getQueryStats().getState(), FINISHED.name());
         assertEquals(result.getResults(), ImmutableList.of(1, 4, 9));
@@ -105,11 +111,13 @@ public class TestPrestoAction
     @Test
     public void testQueryFailed()
     {
+        VerificationContext context = new VerificationContext();
         try {
             prestoAction.execute(
                     sqlParser.createStatement("SELECT * FROM test_table", new ParsingOptions(AS_DECIMAL)),
                     new QueryConfiguration(CATALOG, SCHEMA, "user", Optional.empty(), ImmutableMap.of()),
-                    QUERY_ORIGIN);
+                    QUERY_ORIGIN,
+                    context);
             fail("Expect QueryException");
         }
         catch (QueryException qe) {
@@ -118,6 +126,11 @@ public class TestPrestoAction
             assertEquals(qe.getErrorCode(), "PRESTO(SYNTAX_ERROR)");
             assertTrue(qe.getQueryStats().isPresent());
             assertEquals(qe.getQueryStats().get().getState(), FAILED.name());
+
+            FailureInfo failureInfo = getOnlyElement(context.getAllFailures(CONTROL));
+            assertEquals(failureInfo.getQueryStage(), MAIN.name());
+            assertEquals(failureInfo.getErrorCode(), "PRESTO(SYNTAX_ERROR)");
+            assertNotNull(failureInfo.getPrestoQueryId());
         }
     }
 }

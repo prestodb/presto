@@ -82,13 +82,13 @@ public class DataVerification
         QueryBundle secondRun = null;
         QueryBundle thirdRun = null;
         try {
-            secondRun = getQueryRewriter().rewriteQuery(getSourceQuery().getControlQuery(), CONTROL, getConfiguration(CONTROL));
+            secondRun = getQueryRewriter().rewriteQuery(getSourceQuery().getControlQuery(), CONTROL, getConfiguration(CONTROL), getVerificationContext());
             setupAndRun(secondRun, CONTROL);
             if (!produceResult(columns, columns, firstChecksum, computeChecksum(secondRun, columns, CONTROL)).isMatched()) {
                 return Optional.of(false);
             }
 
-            thirdRun = getQueryRewriter().rewriteQuery(getSourceQuery().getControlQuery(), CONTROL, getConfiguration(CONTROL));
+            thirdRun = getQueryRewriter().rewriteQuery(getSourceQuery().getControlQuery(), CONTROL, getConfiguration(CONTROL), getVerificationContext());
             setupAndRun(thirdRun, CONTROL);
             if (!produceResult(columns, columns, firstChecksum, computeChecksum(thirdRun, columns, CONTROL)).isMatched()) {
                 return Optional.of(false);
@@ -112,7 +112,7 @@ public class DataVerification
     private QueryStats setupAndRun(QueryBundle control, QueryGroup group)
     {
         setup(control, group);
-        return getPrestoAction().execute(control.getQuery(), getConfiguration(group), new QueryOrigin(group, MAIN));
+        return getPrestoAction().execute(control.getQuery(), getConfiguration(group), new QueryOrigin(group, MAIN), getVerificationContext());
     }
 
     private VerificationResult produceResult(
@@ -164,6 +164,7 @@ public class DataVerification
                         new ShowColumns(tableName),
                         getConfiguration(group),
                         new QueryOrigin(group, DESCRIBE),
+                        getVerificationContext(),
                         Column::fromResultSet)
                 .getResults();
     }
@@ -178,6 +179,7 @@ public class DataVerification
                                 checksumQuery,
                                 getConfiguration(group),
                                 new QueryOrigin(group, CHECKSUM),
+                                getVerificationContext(),
                                 ChecksumResult::fromResultSet)
                         .getResults()));
     }

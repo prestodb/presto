@@ -15,6 +15,7 @@ package com.facebook.presto.verifier.retry;
 
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryOrigin;
+import com.facebook.presto.verifier.framework.VerificationContext;
 import com.facebook.presto.verifier.retry.RetryDriver.RetryOperation;
 import io.airlift.log.Logging;
 import io.airlift.units.Duration;
@@ -77,20 +78,20 @@ public class TestRetryDriver
     public void testSuccess()
     {
         assertEquals(
-                RETRY_DRIVER.run("test", new MockOperation(5, RETRYABLE_EXCEPTION)),
+                RETRY_DRIVER.run("test", new VerificationContext(), new MockOperation(5, RETRYABLE_EXCEPTION)),
                 Integer.valueOf(5));
     }
 
     @Test(expectedExceptions = QueryException.class)
     public void testMaxAttemptsExceeded()
     {
-        RETRY_DRIVER.run("test", new MockOperation(6, RETRYABLE_EXCEPTION));
+        RETRY_DRIVER.run("test", new VerificationContext(), new MockOperation(6, RETRYABLE_EXCEPTION));
     }
 
     @Test(expectedExceptions = QueryException.class)
     public void testNonRetryableFailure()
     {
-        RETRY_DRIVER.run("test", new MockOperation(3, NON_RETRYABLE_EXCEPTION));
+        RETRY_DRIVER.run("test", new VerificationContext(), new MockOperation(3, NON_RETRYABLE_EXCEPTION));
     }
 
     @Test(timeOut = 5000)
@@ -103,6 +104,6 @@ public class TestRetryDriver
                         .setMaxBackoffDelay(new Duration(100, MILLISECONDS))
                         .setScaleFactor(1000),
                 QueryException::isRetryable);
-        retryDriver.run("test", new MockOperation(5, RETRYABLE_EXCEPTION));
+        retryDriver.run("test", new VerificationContext(), new MockOperation(5, RETRYABLE_EXCEPTION));
     }
 }

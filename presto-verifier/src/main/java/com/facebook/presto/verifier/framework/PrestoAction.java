@@ -100,30 +100,35 @@ public class PrestoAction
     public QueryStats execute(
             Statement statement,
             QueryConfiguration configuration,
-            QueryOrigin queryOrigin)
+            QueryOrigin queryOrigin,
+            VerificationContext context)
     {
-        return execute(statement, configuration, queryOrigin, Optional.empty()).getQueryStats();
+        return execute(statement, configuration, queryOrigin, context, Optional.empty()).getQueryStats();
     }
 
     public <R> QueryResult<R> execute(
             Statement statement,
             QueryConfiguration configuration,
             QueryOrigin queryOrigin,
+            VerificationContext context,
             ResultSetConverter<R> converter)
     {
-        return execute(statement, configuration, queryOrigin, Optional.of(converter));
+        return execute(statement, configuration, queryOrigin, context, Optional.of(converter));
     }
 
     private <R> QueryResult<R> execute(
             Statement statement,
             QueryConfiguration configuration,
             QueryOrigin queryOrigin,
+            VerificationContext context,
             Optional<ResultSetConverter<R>> converter)
     {
         return prestoRetry.run(
                 "presto",
+                context,
                 () -> networkRetry.run(
                         "presto-cluster-connection",
+                        context,
                         () -> executeOnce(statement, configuration, queryOrigin, converter)));
     }
 

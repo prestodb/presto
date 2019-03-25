@@ -162,7 +162,7 @@ public class TestQueryRewriter
             List<String> expectedTeardownTemplates)
     {
         for (QueryGroup group : QueryGroup.values()) {
-            QueryBundle bundle = queryRewriter.rewriteQuery(query, group, CONFIGURATION);
+            QueryBundle bundle = queryRewriter.rewriteQuery(query, group, CONFIGURATION, new VerificationContext());
 
             String tableName = bundle.getTableName().toString();
             assertTrue(tableName.startsWith(prefix + "_"));
@@ -175,7 +175,7 @@ public class TestQueryRewriter
 
     private void assertTableName(QueryRewriter queryRewriter, @Language("SQL") String query, String expectedPrefix)
     {
-        QueryBundle bundle = queryRewriter.rewriteQuery(query, CONTROL, CONFIGURATION);
+        QueryBundle bundle = queryRewriter.rewriteQuery(query, CONTROL, CONFIGURATION, new VerificationContext());
         assertTrue(bundle.getTableName().toString().startsWith(expectedPrefix));
     }
 
