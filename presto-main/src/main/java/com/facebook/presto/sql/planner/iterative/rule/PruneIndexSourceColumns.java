@@ -60,7 +60,6 @@ public class PruneIndexSourceColumns
                         indexSourceNode.getId(),
                         indexSourceNode.getIndexHandle(),
                         indexSourceNode.getTableHandle(),
-                        indexSourceNode.getLayout(),
                         prunedLookupSymbols,
                         prunedOutputList,
                         prunedAssignments,
