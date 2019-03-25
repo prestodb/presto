@@ -14,6 +14,7 @@
 package com.facebook.presto.verifier.retry;
 
 import com.facebook.presto.verifier.framework.QueryException;
+import com.facebook.presto.verifier.framework.QueryOrigin;
 import com.facebook.presto.verifier.retry.RetryDriver.RetryOperation;
 import io.airlift.log.Logging;
 import io.airlift.units.Duration;
@@ -23,6 +24,8 @@ import java.net.SocketTimeoutException;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
+import static com.facebook.presto.verifier.framework.QueryOrigin.QueryGroup.CONTROL;
+import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.MAIN;
 import static io.airlift.log.Level.DEBUG;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -59,8 +62,9 @@ public class TestRetryDriver
         Logging.initialize().setLevel(RetryDriver.class.getName(), DEBUG);
     }
 
-    private static final QueryException RETRYABLE_EXCEPTION = QueryException.forClusterConnection(new SocketTimeoutException());
-    private static final QueryException NON_RETRYABLE_EXCEPTION = QueryException.forPresto(new RuntimeException(), Optional.of(REMOTE_HOST_GONE), false, Optional.empty());
+    private static final QueryOrigin QUERY_ORIGIN = new QueryOrigin(CONTROL, MAIN);
+    private static final QueryException RETRYABLE_EXCEPTION = QueryException.forClusterConnection(new SocketTimeoutException(), QUERY_ORIGIN);
+    private static final QueryException NON_RETRYABLE_EXCEPTION = QueryException.forPresto(new RuntimeException(), Optional.of(REMOTE_HOST_GONE), false, Optional.empty(), QUERY_ORIGIN);
     private static final RetryDriver RETRY_DRIVER = new RetryDriver(
             new RetryConfig()
                     .setMaxAttempts(5)

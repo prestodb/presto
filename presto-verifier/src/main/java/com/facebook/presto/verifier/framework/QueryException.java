@@ -52,34 +52,57 @@ public class QueryException
     private final Optional<ErrorCodeSupplier> prestoErrorCode;
     private final boolean retryable;
     private final Optional<QueryStats> queryStats;
+    private final QueryOrigin queryOrigin;
 
     private QueryException(
             Throwable cause,
             Type type,
             Optional<ErrorCodeSupplier> prestoErrorCode,
             boolean retryable,
-            Optional<QueryStats> queryStats)
+            Optional<QueryStats> queryStats,
+            QueryOrigin queryOrigin)
     {
         super(cause);
         this.type = requireNonNull(type, "type is null");
         this.prestoErrorCode = requireNonNull(prestoErrorCode, "errorCode is null");
         this.retryable = retryable;
         this.queryStats = requireNonNull(queryStats, "queryStats is null");
+        this.queryOrigin = requireNonNull(queryOrigin, "queryOrigin is null");
     }
 
-    public static QueryException forClusterConnection(Throwable cause)
+    public static QueryException forClusterConnection(Throwable cause, QueryOrigin queryOrigin)
     {
-        return new QueryException(cause, CLUSTER_CONNECTION, Optional.empty(), true, Optional.empty());
+        return new QueryException(cause, CLUSTER_CONNECTION, Optional.empty(), true, Optional.empty(), queryOrigin);
     }
 
-    public static QueryException forPresto(Throwable cause, Optional<ErrorCodeSupplier> prestoErrorCode, boolean retryable, Optional<QueryStats> queryStats)
+    public static QueryException forPresto(Throwable cause, Optional<ErrorCodeSupplier> prestoErrorCode, boolean retryable, Optional<QueryStats> queryStats, QueryOrigin queryOrigin)
     {
-        return new QueryException(cause, PRESTO, prestoErrorCode, retryable, queryStats);
+        return new QueryException(cause, PRESTO, prestoErrorCode, retryable, queryStats, queryOrigin);
+    }
+
+    public Type getType()
+    {
+        return type;
+    }
+
+    public Optional<ErrorCodeSupplier> getPrestoErrorCode()
+    {
+        return prestoErrorCode;
     }
 
     public boolean isRetryable()
     {
         return retryable;
+    }
+
+    public Optional<QueryStats> getQueryStats()
+    {
+        return queryStats;
+    }
+
+    public QueryOrigin getQueryOrigin()
+    {
+        return queryOrigin;
     }
 
     public String getErrorCode()
