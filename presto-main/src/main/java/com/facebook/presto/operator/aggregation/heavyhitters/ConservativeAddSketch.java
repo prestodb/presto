@@ -14,6 +14,8 @@
 
 package com.facebook.presto.operator.aggregation.heavyhitters;
 
+import org.openjdk.jol.info.ClassLayout;
+
 /**
  * Copied from: https://github.com/addthis/stream-lib
  * A more accurate (by some large, but ill-defined amount), but slower (by some
@@ -22,6 +24,8 @@ package com.facebook.presto.operator.aggregation.heavyhitters;
  * called something like a conservative adding variant.
  */
 public class ConservativeAddSketch extends CountMinSketch {
+
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ConservativeAddSketch.class).instanceSize();
 
 //    ConservativeAddSketch() {
 //        super();

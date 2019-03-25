@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.operator.aggregation.heavyhitters;
 
-import com.google.common.annotations.VisibleForTesting;
+import io.airlift.slice.SizeOf;
+import org.openjdk.jol.info.ClassLayout;
+import org.openjdk.jol.info.GraphLayout;
 
 import java.util.*;
 
@@ -27,25 +29,19 @@ import static java.util.Objects.requireNonNull;
  */
 public final class IndexedPriorityQueue<E>
 {
-    private boolean highestPriorityfirst=true;
+    private long generation;
+    private long estimatedInMemorySize;
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(IndexedPriorityQueue.class).instanceSize();
+
     private final Map<E, Entry<E>> index = new HashMap<>();
     private final TreeSet<Entry<E>> queue = new TreeSet<>((entry1, entry2) -> {
-        int priorityComparison = Long.compare(entry2.getPriority(), entry1.getPriority());
+        int priorityComparison = Long.compare(entry1.getPriority(), entry2.getPriority());
         if (priorityComparison != 0) {
-            if(highestPriorityfirst)
                 return priorityComparison;
-            else
-                return -1*priorityComparison;
         }
         return Long.compare(entry1.getGeneration(), entry2.getGeneration());
     });
 
-
-    private long generation;
-
-    public IndexedPriorityQueue(boolean highestPriorityfirst){
-            this.highestPriorityfirst = highestPriorityfirst;
-    }
 
     public IndexedPriorityQueue(){
     }
@@ -55,15 +51,18 @@ public final class IndexedPriorityQueue<E>
         Entry<E> entry = index.get(element);
         if (entry != null) {
             queue.remove(entry);
+            updateMemoryForElement(entry, -1);  //Update memory usage
             Entry<E> newEntry = new Entry<>(element, priority, entry.getGeneration());
             queue.add(newEntry);
             index.put(element, newEntry);
+            updateMemoryForElement(newEntry, 1);  //Update memory usage
             return false;
         }
         Entry<E> newEntry = new Entry<>(element, priority, generation);
         generation++;
         queue.add(newEntry);
         index.put(element, newEntry);
+        updateMemoryForElement(newEntry, 1);  //Update memory usage
         return true;
     }
 
@@ -77,6 +76,7 @@ public final class IndexedPriorityQueue<E>
         Entry<E> entry = index.remove(element);
         if (entry != null) {
             queue.remove(entry);
+            updateMemoryForElement(entry, -1);  //Update memory usage
             return true;
         }
         return false;
@@ -91,6 +91,7 @@ public final class IndexedPriorityQueue<E>
         Entry<E> entry = iterator.next();
         iterator.remove();
         checkState(index.remove(entry.getValue()) != null, "Failed to remove entry from index");
+        updateMemoryForElement(entry, -1);  //Update memory usage
         return entry;
     }
 
@@ -101,6 +102,7 @@ public final class IndexedPriorityQueue<E>
             if (entry.getPriority() < tillPriority) {
                 iterator.remove();
                 checkState(index.remove(entry.getValue()) != null, "Failed to remove entry from index");
+                updateMemoryForElement(entry, -1);  //Update memory usage
             } else {
                 break;
             }
@@ -145,6 +147,7 @@ public final class IndexedPriorityQueue<E>
         private final E value;
         private final long priority;
         private final long generation;
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(Entry.class).instanceSize();
 
         private Entry(E value, long priority, long generation)
         {
@@ -167,5 +170,27 @@ public final class IndexedPriorityQueue<E>
         {
             return generation;
         }
+
+        public long estimatedInMemorySize(){
+            return INSTANCE_SIZE + GraphLayout.parseInstance(value).totalSize();
+        }
     }
+
+    /**
+     *
+     * @param value
+     * @param itemCount  if add than +1, if removed than -1
+     * @return final memory after the change.
+     */
+    public long updateMemoryForElement(Entry<E> value, long itemCount){
+        estimatedInMemorySize += itemCount*value.estimatedInMemorySize();  //itemCount can be negative
+        if (estimatedInMemorySize < 0)
+            estimatedInMemorySize = 0;
+        return this.estimatedInMemorySize();
+    }
+
+    public long estimatedInMemorySize() {
+        return INSTANCE_SIZE + estimatedInMemorySize;
+    }
+
 }

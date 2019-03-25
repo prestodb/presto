@@ -45,6 +45,7 @@ public class CountMinSketch {
     long[][] table;
     long[] hashA;
     long size;
+    long estimatedInMemorySize;
     double eps;
     double confidence;
 
@@ -79,6 +80,8 @@ public class CountMinSketch {
         this.width = (int) Math.ceil(Math.E / epsOfTotalCount);
         this.depth = (int) Math.ceil(Math.log(1/(1-confidence)));
         initTablesWith(depth, width, seed);
+        //TODO: Is this efficient way to calculate size since the size is constant here?
+        estimatedInMemorySize=SizeOf.sizeOf(table) + SizeOf.sizeOf(hashA);
     }
 
 //    CountMinSketch(int depth, int width, long size, long[] hashA, long[][] table) {
@@ -363,7 +366,8 @@ public class CountMinSketch {
         }
     }
 
+    //TODO is this the best way to get size. Does this cover all the memory this data structure uses?
     public long estimatedInMemorySize() {
-        return INSTANCE_SIZE + SizeOf.sizeOf(table) + SizeOf.sizeOf(hashA);
+        return INSTANCE_SIZE + estimatedInMemorySize;
     }
 }

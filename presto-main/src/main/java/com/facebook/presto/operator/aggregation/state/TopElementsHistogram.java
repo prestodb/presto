@@ -32,7 +32,7 @@ public class TopElementsHistogram<E> implements Serializable
     private int rowsProcessed=0;
     private double min_percent_share=100;
     private ConservativeAddSketch ccms;
-    private IndexedPriorityQueue<E> topEntries = new IndexedPriorityQueue<E>(false);
+    private IndexedPriorityQueue<E> topEntries = new IndexedPriorityQueue<E>();
 
 
     /**
@@ -47,7 +47,7 @@ public class TopElementsHistogram<E> implements Serializable
         checkArgument((0 <= min_percent_share && min_percent_share <= 100), "min_percent_share must be between 0 and 100");
         requireNonNull(min_percent_share, "min_percent_share is null");
 
-        this.min_percent_share = min_percent_share;
+        this.min_percent_share = min_percent_share;   //k = (min_percent_share*n)/100
         this.ccms=new ConservativeAddSketch(epsError, confidence, seed);
     }
 
@@ -120,7 +120,7 @@ public class TopElementsHistogram<E> implements Serializable
 
     public long estimatedInMemorySize()
     {
-        return INSTANCE_SIZE + ccms.estimatedInMemorySize() + GraphLayout.parseInstance(this.topEntries).totalSize();
+        return INSTANCE_SIZE + ccms.estimatedInMemorySize() + this.topEntries.estimatedInMemorySize();
     }
 
 }

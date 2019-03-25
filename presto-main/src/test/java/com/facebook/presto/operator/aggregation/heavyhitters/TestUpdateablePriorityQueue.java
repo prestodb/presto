@@ -28,19 +28,10 @@ import static org.testng.Assert.assertTrue;
 
 public class TestUpdateablePriorityQueue
 {
-
-    @Test
-    public void testIndexedPriorityQueue()
-    {
-        IndexedPriorityQueue<Integer> testQ = new IndexedPriorityQueue<>();
-        populate(testQ);
-        assertEquals(extract(testQ), ImmutableList.of(5,9,4,3,2,1));
-    }
-
     @Test
     public void testIndexedPriorityQueueReverse()
     {
-        IndexedPriorityQueue<Integer> testQ = new IndexedPriorityQueue<>(false);
+        IndexedPriorityQueue<Integer> testQ = new IndexedPriorityQueue<>();
         populate(testQ);
         testQ.poll();
         Iterator x = testQ.iterator();
@@ -53,7 +44,7 @@ public class TestUpdateablePriorityQueue
     @Test
     public void testRemoveBelowPriority()
     {
-        IndexedPriorityQueue<Integer> testQ = new IndexedPriorityQueue<>(false);
+        IndexedPriorityQueue<Integer> testQ = new IndexedPriorityQueue<>();
         populate(testQ);
         testQ.removeBelowPriority(4);
         Iterator x = testQ.iterator();
