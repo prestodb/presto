@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.google.common.base.Splitter;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
@@ -32,6 +34,9 @@ public class VerifierConfig
     private Duration testTimeout = new Duration(30, MINUTES);
     private Duration metadataTimeout = new Duration(3, MINUTES);
     private Duration checksumTimeout = new Duration(20, MINUTES);
+
+    private QualifiedName controlTablePrefix = QualifiedName.of("tmp_verifier_control");
+    private QualifiedName testTablePrefix = QualifiedName.of("tmp_verifier_test");
 
     private double relativeErrorMargin = 1e-4;
 
@@ -114,6 +119,38 @@ public class VerifierConfig
     public VerifierConfig setChecksumTimeout(Duration checksumTimeout)
     {
         this.checksumTimeout = checksumTimeout;
+        return this;
+    }
+
+    @NotNull
+    public QualifiedName getControlTablePrefix()
+    {
+        return controlTablePrefix;
+    }
+
+    @ConfigDescription("The prefix to use for temporary control shadow tables. May be fully qualified like 'tmp_catalog.tmp_schema.tmp_'")
+    @Config("control.table-prefix")
+    public VerifierConfig setControlTablePrefix(String controlTablePrefix)
+    {
+        this.controlTablePrefix = controlTablePrefix == null ?
+                null :
+                QualifiedName.of(Splitter.on(".").splitToList(controlTablePrefix));
+        return this;
+    }
+
+    @NotNull
+    public QualifiedName getTestTablePrefix()
+    {
+        return testTablePrefix;
+    }
+
+    @ConfigDescription("The prefix to use for temporary test shadow tables. May be fully qualified like 'tmp_catalog.tmp_schema.tmp_'")
+    @Config("test.table-prefix")
+    public VerifierConfig setTestTablePrefix(String testTablePrefix)
+    {
+        this.testTablePrefix = testTablePrefix == null ?
+                null :
+                QualifiedName.of(Splitter.on(".").splitToList(testTablePrefix));
         return this;
     }
 
