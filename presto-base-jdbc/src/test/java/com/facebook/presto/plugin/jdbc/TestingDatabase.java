@@ -51,7 +51,7 @@ final class TestingDatabase
                 new JdbcConnectorId(CONNECTOR_ID),
                 new BaseJdbcConfig(),
                 "\"",
-                new DriverConnectionFactory(new Driver(), connectionUrl, new Properties()));
+                new DriverConnectionFactory(new Driver(), connectionUrl, Optional.empty(), Optional.empty(), new Properties()));
 
         connection = DriverManager.getConnection(connectionUrl);
         connection.createStatement().execute("CREATE SCHEMA example");
