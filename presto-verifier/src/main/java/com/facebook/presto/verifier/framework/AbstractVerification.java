@@ -17,6 +17,7 @@ import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
+import com.facebook.presto.verifier.event.FailureInfo;
 import com.facebook.presto.verifier.event.QueryInfo;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
@@ -60,6 +61,8 @@ public abstract class AbstractVerification
     private final String testId;
     private final boolean runTearDownOnResultMismatch;
 
+    private final VerificationContext verificationContext = new VerificationContext();
+
     private Map<QueryGroup, QueryStats> queryStats = new EnumMap<>(QueryGroup.class);
 
     public AbstractVerification(
@@ -80,6 +83,11 @@ public abstract class AbstractVerification
 
     protected abstract Optional<Boolean> isDeterministic(QueryBundle control, ChecksumResult firstChecksum);
 
+    protected VerificationContext getVerificationContext()
+    {
+        return verificationContext;
+    }
+
     protected void setQueryStats(QueryStats queryStats, QueryGroup group)
     {
         checkState(!this.queryStats.containsKey(group), "%sQueryStats has already been set", group.name().toLowerCase(ENGLISH));
@@ -96,8 +104,8 @@ public abstract class AbstractVerification
         Optional<Boolean> deterministic = Optional.empty();
 
         try {
-            control = queryRewriter.rewriteQuery(sourceQuery.getControlQuery(), CONTROL, getConfiguration(CONTROL));
-            test = queryRewriter.rewriteQuery(sourceQuery.getTestQuery(), TEST, getConfiguration(TEST));
+            control = queryRewriter.rewriteQuery(sourceQuery.getControlQuery(), CONTROL, getConfiguration(CONTROL), getVerificationContext());
+            test = queryRewriter.rewriteQuery(sourceQuery.getTestQuery(), TEST, getConfiguration(TEST), getVerificationContext());
             verificationResult = verify(control, test);
 
             deterministic = verificationResult.isMismatchPossiblyCausedByNonDeterminism() ?
@@ -164,7 +172,7 @@ public abstract class AbstractVerification
     protected void setup(QueryBundle control, QueryGroup group)
     {
         for (Statement setupQuery : control.getSetupQueries()) {
-            prestoAction.execute(setupQuery, getConfiguration(group), new QueryOrigin(group, SETUP));
+            prestoAction.execute(setupQuery, getConfiguration(group), new QueryOrigin(group, SETUP), getVerificationContext());
         }
     }
 
@@ -172,7 +180,7 @@ public abstract class AbstractVerification
     {
         for (Statement teardownQuery : control.getTeardownQueries()) {
             try {
-                prestoAction.execute(teardownQuery, getConfiguration(group), new QueryOrigin(group, TEARDOWN));
+                prestoAction.execute(teardownQuery, getConfiguration(group), new QueryOrigin(group, TEARDOWN), getVerificationContext());
             }
             catch (Throwable t) {
                 log.warn("Failed to teardown %s: %s", group.name().toLowerCase(ENGLISH), formatSql(teardownQuery));
@@ -240,13 +248,15 @@ public abstract class AbstractVerification
                         sourceQuery.getControlQuery(),
                         verificationResult.flatMap(VerificationResult::getControlChecksumQuery),
                         control,
-                        controlStats),
+                        controlStats,
+                        verificationContext.getAllFailures(CONTROL)),
                 buildQueryInfo(
                         sourceQuery.getTestConfiguration(),
                         sourceQuery.getTestQuery(),
                         verificationResult.flatMap(VerificationResult::getTestChecksumQuery),
                         test,
-                        testStats),
+                        testStats,
+                        verificationContext.getAllFailures(TEST)),
                 errorCode,
                 Optional.ofNullable(errorMessage));
     }
@@ -256,7 +266,8 @@ public abstract class AbstractVerification
             String originalQuery,
             Optional<String> checksumQuery,
             Optional<QueryBundle> queryBundle,
-            Optional<QueryStats> queryStats)
+            Optional<QueryStats> queryStats,
+            List<FailureInfo> allFailures)
     {
         return new QueryInfo(
                 configuration.getCatalog(),
@@ -268,7 +279,8 @@ public abstract class AbstractVerification
                 queryBundle.map(QueryBundle::getTeardownQueries).map(AbstractVerification::formatSqls),
                 checksumQuery,
                 millisToSeconds(queryStats.map(QueryStats::getCpuTimeMillis)),
-                millisToSeconds(queryStats.map(QueryStats::getWallTimeMillis)));
+                millisToSeconds(queryStats.map(QueryStats::getWallTimeMillis)),
+                allFailures);
     }
 
     protected static String formatSql(Statement statement)

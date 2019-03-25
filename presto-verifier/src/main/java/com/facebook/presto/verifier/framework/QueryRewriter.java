@@ -67,7 +67,7 @@ public class QueryRewriter
                 TEST, config.getTestTablePrefix());
     }
 
-    public QueryBundle rewriteQuery(@Language("SQL") String query, QueryGroup group, QueryConfiguration controlConfiguration)
+    public QueryBundle rewriteQuery(@Language("SQL") String query, QueryGroup group, QueryConfiguration controlConfiguration, VerificationContext context)
     {
         Statement statement = sqlParser.createStatement(query, new ParsingOptions(AS_DOUBLE));
         if (QueryType.of(statement).getCategory() != DATA_PRODUCING) {
@@ -121,7 +121,7 @@ public class QueryRewriter
                             false,
                             ImmutableList.of(),
                             true,
-                            Optional.of(generateStorageColumnAliases((Query) statement, group, controlConfiguration)),
+                            Optional.of(generateStorageColumnAliases((Query) statement, group, controlConfiguration, context)),
                             Optional.empty()),
                     ImmutableList.of(new DropTable(temporaryTableName, true)));
         }
@@ -142,12 +142,12 @@ public class QueryRewriter
         return QualifiedName.of(parts);
     }
 
-    private List<Identifier> generateStorageColumnAliases(Query query, QueryGroup group, QueryConfiguration configuration)
+    private List<Identifier> generateStorageColumnAliases(Query query, QueryGroup group, QueryConfiguration configuration, VerificationContext context)
     {
         ImmutableList.Builder<Identifier> aliases = ImmutableList.builder();
         Set<String> usedAliases = new HashSet<>();
 
-        for (String columnName : getColumnNames(query, group, configuration)) {
+        for (String columnName : getColumnNames(query, group, configuration, context)) {
             columnName = sanitizeColumnName(columnName);
             String alias = columnName;
             int postfix = 1;
@@ -161,7 +161,7 @@ public class QueryRewriter
         return aliases.build();
     }
 
-    private List<String> getColumnNames(Query query, QueryGroup group, QueryConfiguration configuration)
+    private List<String> getColumnNames(Query query, QueryGroup group, QueryConfiguration configuration, VerificationContext context)
     {
         Query zeroRowQuery;
         if (query.getQueryBody() instanceof QuerySpecification) {
@@ -182,7 +182,7 @@ public class QueryRewriter
         else {
             zeroRowQuery = new Query(query.getWith(), query.getQueryBody(), Optional.empty(), Optional.of("0"));
         }
-        return prestoAction.execute(zeroRowQuery, configuration, new QueryOrigin(group, DESCRIBE), ResultSetConverter.DEFAULT).getColumnNames();
+        return prestoAction.execute(zeroRowQuery, configuration, new QueryOrigin(group, DESCRIBE), context, ResultSetConverter.DEFAULT).getColumnNames();
     }
 
     private static String sanitizeColumnName(String columnName)
