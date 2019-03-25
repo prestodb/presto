@@ -29,7 +29,7 @@ public final class IndexedPriorityQueue<E>
 {
     private boolean highestPriorityfirst=true;
     private final Map<E, Entry<E>> index = new HashMap<>();
-    private final Set<Entry<E>> queue = new TreeSet<>((entry1, entry2) -> {
+    private final TreeSet<Entry<E>> queue = new TreeSet<>((entry1, entry2) -> {
         int priorityComparison = Long.compare(entry2.getPriority(), entry1.getPriority());
         if (priorityComparison != 0) {
             if(highestPriorityfirst)
@@ -130,6 +130,14 @@ public final class IndexedPriorityQueue<E>
     public Iterator<Entry<E>> iterator()
     {
         return (Iterator<Entry<E>>) queue.iterator();
+    }
+
+    public long getMinPriority(){
+        if(queue.size() > 0){
+            return queue.first().getPriority();
+        }else{
+            return Long.MAX_VALUE;
+        }
     }
 
     public static final class Entry<E>

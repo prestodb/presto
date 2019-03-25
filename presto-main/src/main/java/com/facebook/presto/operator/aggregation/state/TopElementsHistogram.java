@@ -30,25 +30,39 @@ public class TopElementsHistogram<E> implements Serializable
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(TopElementsHistogram.class).instanceSize();
 
     private int rowsProcessed=0;
-    private int k;
+    private double min_percent_share=100;
     private ConservativeAddSketch ccms;
-    private IndexedPriorityQueue<E> topEntries = new IndexedPriorityQueue<E>();
+    private IndexedPriorityQueue<E> topEntries = new IndexedPriorityQueue<E>(false);
 
 
     /**
      * This class is to find heavy hitters and based upon the paper: http://theory.stanford.edu/~tim/s17/l/l2.pdf
-     * @param k  User defined parameter to request only those values that occur atleast n/k times where n is the total count of values
+     * @param min_percent_share  User defined parameter to request only those values that occur atleast n/k times where n is the total count of values
      * @param epsError error bound such that counts are overestimated by at most epsError X n. Default value=1/2k
      * @param confidence probability that the count is overestimated by more than the error bound epsError X n. Default value=0.01
      * @param seed
      */
-    public TopElementsHistogram(int k, double epsError, double confidence, int seed)
+    public TopElementsHistogram(double min_percent_share, double epsError, double confidence, int seed)
     {
-        checkArgument(k >= 1, "maxEntries must be >= 1");
-        requireNonNull(k, "maxEntries is null");
+        checkArgument((0 <= min_percent_share && min_percent_share <= 100), "min_percent_share must be between 0 and 100");
+        requireNonNull(min_percent_share, "min_percent_share is null");
 
-        this.k = k;
+        this.min_percent_share = min_percent_share;
         this.ccms=new ConservativeAddSketch(epsError, confidence, seed);
+    }
+
+    public Map<E, Long> getTopElements(){
+        Iterator<Entry<E>> elements = this.topEntries.iterator();
+        Map<E, Long> topElements = new HashMap<E, Long>();
+        while(elements.hasNext()){
+            Entry<E> e = elements.next();
+            topElements.put(e.getValue(), e.getPriority());
+        }
+        return topElements;
+    }
+
+    public long getMinItemCountInTop(){
+        return topEntries.getMinPriority();
     }
 
     public void add(E  item)
@@ -59,11 +73,17 @@ public class TopElementsHistogram<E> implements Serializable
     public void add(E  item, long count)
     {
         Long itemCount=ccms.add(item.toString(), count);
-        rowsProcessed++;
-        if(itemCount >= rowsProcessed/k) {
+        rowsProcessed += count;
+        trimTopElements();
+        if(100.0*itemCount/rowsProcessed >= min_percent_share) {
             boolean isAdded=topEntries.addOrUpdate(item, itemCount);
-            //if a new value was added Trim the size of top entries maintained to conserve memory
-            topEntries.removeBelowPriority((long)(rowsProcessed/k));
+        }
+    }
+
+    public void trimTopElements(){
+        double minItemCount = Math.floor(min_percent_share*rowsProcessed/100.0);
+        if(topEntries.getMinPriority() < minItemCount) {
+            topEntries.removeBelowPriority((long) (minItemCount));
         }
     }
 
@@ -89,11 +109,14 @@ public class TopElementsHistogram<E> implements Serializable
                     topEntries.addOrUpdate(item.getValue(), itemCount);
                 }
                 //Trim the size of top entries maintained to conserve memory
-                topEntries.removeBelowPriority((long)(rowsProcessed/k));
+                trimTopElements();
             }
         }
     }
 
+    public long getRowsProcessed(){
+        return rowsProcessed;
+    }
 
     public long estimatedInMemorySize()
     {
