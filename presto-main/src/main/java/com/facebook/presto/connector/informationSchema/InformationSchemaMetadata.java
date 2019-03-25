@@ -100,6 +100,7 @@ public class InformationSchemaMetadata
                     .column("table_catalog", createUnboundedVarcharType())
                     .column("table_schema", createUnboundedVarcharType())
                     .column("table_name", createUnboundedVarcharType())
+                    .column("view_owner", createUnboundedVarcharType())
                     .column("view_definition", createUnboundedVarcharType())
                     .build())
             .table(tableMetadataBuilder(TABLE_SCHEMATA)

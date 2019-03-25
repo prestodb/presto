@@ -762,12 +762,13 @@ public abstract class AbstractTestDistributedQueries
         assertContains(actual, expected);
 
         // test INFORMATION_SCHEMA.VIEWS
+        String user = getSession().getUser();
         actual = computeActual(format(
-                "SELECT table_name, view_definition FROM information_schema.views WHERE table_schema = '%s'",
+                "SELECT table_name, view_owner, view_definition FROM information_schema.views WHERE table_schema = '%s'",
                 getSession().getSchema().get()));
 
         expected = resultBuilder(getSession(), actual.getTypes())
-                .row("meta_test_view", formatSqlText(query))
+                .row("meta_test_view", user, formatSqlText(query))
                 .build();
 
         assertContains(actual, expected);
