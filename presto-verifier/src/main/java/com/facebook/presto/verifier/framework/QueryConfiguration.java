@@ -14,6 +14,8 @@
 package com.facebook.presto.verifier.framework;
 
 import com.google.common.collect.ImmutableMap;
+import org.jdbi.v3.core.mapper.reflect.ColumnName;
+import org.jdbi.v3.core.mapper.reflect.JdbiConstructor;
 
 import java.util.Map;
 import java.util.Optional;
@@ -27,6 +29,17 @@ public class QueryConfiguration
     private final String username;
     private final Optional<String> password;
     private final Map<String, String> sessionProperties;
+
+    @JdbiConstructor
+    public QueryConfiguration(
+            @ColumnName("catalog") String catalog,
+            @ColumnName("schema") String schema,
+            @ColumnName("username") String username,
+            @ColumnName("password") Optional<String> password,
+            @ColumnName("session_properties") Optional<Map<String, String>> sessionProperties)
+    {
+        this(catalog, schema, username, password, sessionProperties.orElse(ImmutableMap.of()));
+    }
 
     public QueryConfiguration(
             String catalog,

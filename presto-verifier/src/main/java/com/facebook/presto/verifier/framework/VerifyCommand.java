@@ -27,6 +27,8 @@ public interface VerifyCommand
 
     SqlParserOptions getSqlParserOptions();
 
+    Set<String> getCustomSourceQuerySupplierTypes();
+
     Set<String> getCustomEventClientTypes();
 
     List<Class<? extends Predicate<SourceQuery>>> getCustomQueryFilterClasses();

@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import org.jdbi.v3.core.mapper.Nested;
+import org.jdbi.v3.core.mapper.reflect.ColumnName;
+import org.jdbi.v3.core.mapper.reflect.JdbiConstructor;
+
 import static java.util.Objects.requireNonNull;
 
 public class SourceQuery
@@ -24,13 +28,14 @@ public class SourceQuery
     private final QueryConfiguration controlConfiguration;
     private final QueryConfiguration testConfiguration;
 
+    @JdbiConstructor
     public SourceQuery(
-            String suite,
-            String name,
-            String controlQuery,
-            String testQuery,
-            QueryConfiguration controlConfiguration,
-            QueryConfiguration testConfiguration)
+            @ColumnName("suite") String suite,
+            @ColumnName("name") String name,
+            @ColumnName("controlQuery") String controlQuery,
+            @ColumnName("testQuery") String testQuery,
+            @Nested("control") QueryConfiguration controlConfiguration,
+            @Nested("test") QueryConfiguration testConfiguration)
     {
         this.suite = requireNonNull(suite, "suite is null");
         this.name = requireNonNull(name, "name is null");
