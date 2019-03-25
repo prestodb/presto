@@ -465,7 +465,7 @@ public class MetadataManager
     {
         ConnectorId connectorId = handle.getConnectorId();
         ConnectorMetadata metadata = getMetadata(session, connectorId);
-        ConnectorTableLayout tableLayout = metadata.getTableLayout(session.toConnectorSession(connectorId), getTableLayout(session, handle));
+        ConnectorTableLayout tableLayout = metadata.getTableLayout(session.toConnectorSession(connectorId), resolveTableLayout(session, handle));
         return metadata.getInfo(tableLayout.getHandle());
     }
 
@@ -807,22 +807,21 @@ public class MetadataManager
     }
 
     @Override
-    public boolean supportsMetadataDelete(Session session, TableHandle tableHandle, TableLayoutHandle tableLayoutHandle)
+    public boolean supportsMetadataDelete(Session session, TableHandle tableHandle)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         ConnectorMetadata metadata = getMetadata(session, connectorId);
         return metadata.supportsMetadataDelete(
                 session.toConnectorSession(connectorId),
-                tableHandle.getConnectorHandle(),
-                tableLayoutHandle.getConnectorHandle());
+                tableHandle.getConnectorHandle());
     }
 
     @Override
-    public OptionalLong metadataDelete(Session session, TableHandle tableHandle, TableLayoutHandle tableLayoutHandle)
+    public OptionalLong metadataDelete(Session session, TableHandle tableHandle)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
-        return metadata.metadataDelete(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), tableLayoutHandle.getConnectorHandle());
+        return metadata.metadataDelete(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), resolveTableLayout(session, tableHandle));
     }
 
     @Override
@@ -1217,7 +1216,7 @@ public class MetadataManager
         }
     }
 
-    private ConnectorTableLayoutHandle getTableLayout(Session session, TableHandle tableHandle)
+    private ConnectorTableLayoutHandle resolveTableLayout(Session session, TableHandle tableHandle)
     {
         if (tableHandle.getLayout().isPresent()) {
             return tableHandle.getLayout().get();

@@ -247,14 +247,14 @@ public interface Metadata
     /**
      * @return whether delete without table scan is supported
      */
-    boolean supportsMetadataDelete(Session session, TableHandle tableHandle, TableLayoutHandle tableLayoutHandle);
+    boolean supportsMetadataDelete(Session session, TableHandle tableHandle);
 
     /**
      * Delete the provide table layout
      *
      * @return number of rows deleted, or empty for unknown
      */
-    OptionalLong metadataDelete(Session session, TableHandle tableHandle, TableLayoutHandle tableLayoutHandle);
+    OptionalLong metadataDelete(Session session, TableHandle tableHandle);
 
     /**
      * Begin delete query

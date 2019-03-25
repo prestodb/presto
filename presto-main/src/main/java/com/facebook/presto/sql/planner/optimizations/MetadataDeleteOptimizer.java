@@ -89,10 +89,10 @@ public class MetadataDeleteOptimizer
                 return context.defaultRewrite(node);
             }
             TableScanNode tableScanNode = tableScan.get();
-            if (!metadata.supportsMetadataDelete(session, tableScanNode.getTable(), tableScanNode.getLayout().get())) {
+            if (!metadata.supportsMetadataDelete(session, tableScanNode.getTable())) {
                 return context.defaultRewrite(node);
             }
-            return new MetadataDeleteNode(idAllocator.getNextId(), delete.get().getTarget(), Iterables.getOnlyElement(node.getOutputSymbols()), tableScanNode.getLayout().get());
+            return new MetadataDeleteNode(idAllocator.getNextId(), delete.get().getTarget(), Iterables.getOnlyElement(node.getOutputSymbols()));
         }
 
         private static <T> Optional<T> findNode(PlanNode source, Class<T> clazz)
