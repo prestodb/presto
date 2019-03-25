@@ -24,8 +24,6 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableLayoutHandle;
-import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.FilterAndProjectOperator;
@@ -41,7 +39,6 @@ import com.facebook.presto.operator.project.PageProjection;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -174,10 +171,7 @@ public abstract class AbstractOperatorBenchmark
         }
         List<ColumnHandle> columnHandles = columnHandlesBuilder.build();
 
-        // get the split for this table
-        Optional<TableLayoutResult> layout = metadata.getLayout(session, tableHandle, Constraint.alwaysTrue(), Optional.empty());
-        checkArgument(layout.isPresent(), "no layout is returned");
-        Split split = getLocalQuerySplit(session, layout.get().getLayout().getHandle());
+        Split split = getLocalQuerySplit(session, tableHandle);
 
         return new OperatorFactory()
         {
@@ -202,7 +196,7 @@ public abstract class AbstractOperatorBenchmark
         };
     }
 
-    private Split getLocalQuerySplit(Session session, TableLayoutHandle handle)
+    private Split getLocalQuerySplit(Session session, TableHandle handle)
     {
         SplitSource splitSource = localQueryRunner.getSplitManager().getSplits(session, handle, UNGROUPED_SCHEDULING);
         List<Split> splits = new ArrayList<>();

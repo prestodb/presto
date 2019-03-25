@@ -15,6 +15,7 @@ package com.facebook.presto.spi.connector.classloader;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
@@ -32,6 +33,14 @@ public final class ClassLoaderSafeConnectorSplitManager
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
+    }
+
+    @Override
+    public ConnectorSplitSource getSplits(ConnectorTableHandle tableHandle, ConnectorTransactionHandle transactionHandle, ConnectorSession session, SplitSchedulingStrategy splitSchedulingStrategy)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getSplits(tableHandle, transactionHandle, session, splitSchedulingStrategy);
+        }
     }
 
     @Override

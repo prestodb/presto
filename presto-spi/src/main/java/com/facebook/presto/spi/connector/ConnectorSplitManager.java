@@ -15,10 +15,21 @@ package com.facebook.presto.spi.connector;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
 public interface ConnectorSplitManager
 {
+    default ConnectorSplitSource getSplits(
+            ConnectorTableHandle tableHandle,
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            SplitSchedulingStrategy splitSchedulingStrategy)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Deprecated
     ConnectorSplitSource getSplits(
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,

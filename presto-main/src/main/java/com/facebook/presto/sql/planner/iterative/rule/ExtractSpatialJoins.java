@@ -468,11 +468,13 @@ public class ExtractSpatialJoins
 
         ColumnHandle kdbTreeColumn = Iterables.getOnlyElement(visibleColumnHandles);
 
+        // TODO remove requirement of layout here
         Optional<TableLayoutResult> layout = metadata.getLayout(session, tableHandle, Constraint.alwaysTrue(), Optional.of(ImmutableSet.of(kdbTreeColumn)));
         checkSpatialPartitioningTable(layout.isPresent(), "Table is empty: %s", name);
+        TableHandle newTableHandle = tableHandle.withLayout(Optional.of(layout.get().getLayout().getHandle().getConnectorHandle()));
 
         Optional<KdbTree> kdbTree = Optional.empty();
-        try (SplitSource splitSource = splitManager.getSplits(session, layout.get().getLayout().getHandle(), UNGROUPED_SCHEDULING)) {
+        try (SplitSource splitSource = splitManager.getSplits(session, newTableHandle, UNGROUPED_SCHEDULING)) {
             while (!Thread.currentThread().isInterrupted()) {
                 SplitBatch splitBatch = getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), 1000));
                 List<Split> splits = splitBatch.getSplits();

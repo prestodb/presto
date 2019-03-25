@@ -102,4 +102,9 @@ public final class TableHandle
                 ", layout=" + layout +
                 '}';
     }
+
+    public TableHandle withLayout(Optional<ConnectorTableLayoutHandle> layout)
+    {
+        return new TableHandle(connectorId, connectorHandle, transaction, layout);
+    }
 }
