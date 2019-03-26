@@ -1652,8 +1652,8 @@ public abstract class AbstractTestHiveClient
                     layoutHandle.getSchemaTableName(),
                     layoutHandle.getPartitionColumns(),
                     layoutHandle.getPartitions().get(),
-                    layoutHandle.getCompactEffectivePredicate(),
-                    layoutHandle.getPromisedPredicate(),
+                    layoutHandle.getEffectivePredicate(),
+                    layoutHandle.getPartitionColumnPredicate(),
                     Optional.of(new HiveBucketHandle(bucketHandle.getColumns(), bucketHandle.getTableBucketCount(), 2)),
                     layoutHandle.getBucketFilter());
 

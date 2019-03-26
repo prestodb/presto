@@ -21,6 +21,7 @@ import com.facebook.presto.orc.metadata.Metadata;
 import com.facebook.presto.orc.metadata.PostScript;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.stream.OrcInputStream;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
@@ -224,11 +225,17 @@ public class OrcReader
 
     public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryUsage, int initialBatchSize)
     {
-        return createRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize);
+        return createRecordReader(includedColumns, ImmutableMap.of(), predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize);
+    }
+
+    public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, Map<Integer, ColumnHandle> includedColumnHandles, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryUsage, int initialBatchSize)
+    {
+        return createRecordReader(includedColumns, includedColumnHandles, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize);
     }
 
     public OrcRecordReader createRecordReader(
             Map<Integer, Type> includedColumns,
+            Map<Integer, ColumnHandle> includedColumnHandles,
             OrcPredicate predicate,
             long offset,
             long length,
@@ -238,6 +245,7 @@ public class OrcReader
     {
         return new OrcRecordReader(
                 requireNonNull(includedColumns, "includedColumns is null"),
+                requireNonNull(includedColumnHandles, "includedColumnHandles is null"),
                 requireNonNull(predicate, "predicate is null"),
                 footer.getNumberOfRows(),
                 footer.getStripes(),
@@ -331,7 +339,7 @@ public class OrcReader
         }
         try {
             OrcReader orcReader = new OrcReader(input, orcEncoding, new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(16, MEGABYTE), Optional.of(writeValidation));
-            try (OrcRecordReader orcRecordReader = orcReader.createRecordReader(readTypes.build(), OrcPredicate.TRUE, hiveStorageTimeZone, newSimpleAggregatedMemoryContext(), INITIAL_BATCH_SIZE)) {
+            try (OrcRecordReader orcRecordReader = orcReader.createRecordReader(readTypes.build(), ImmutableMap.of(), OrcPredicate.TRUE, hiveStorageTimeZone, newSimpleAggregatedMemoryContext(), INITIAL_BATCH_SIZE)) {
                 while (orcRecordReader.nextBatch() >= 0) {
                     // ignored
                 }

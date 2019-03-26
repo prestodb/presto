@@ -14,6 +14,8 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.Filter;
+import com.facebook.presto.orc.QualifyingSet;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
@@ -98,6 +100,125 @@ public class SliceStreamReader
             throws IOException
     {
         currentReader.startRowGroup(dataStreamSources);
+    }
+
+    @Override
+    public void setInputQualifyingSet(QualifyingSet qualifyingSet)
+    {
+        currentReader.setInputQualifyingSet(qualifyingSet);
+    }
+
+    @Override
+    public QualifyingSet getInputQualifyingSet()
+    {
+        return currentReader.getInputQualifyingSet();
+    }
+
+    @Override
+    public QualifyingSet getOutputQualifyingSet()
+    {
+        return currentReader.getOutputQualifyingSet();
+    }
+
+    @Override
+    public void setOutputQualifyingSet(QualifyingSet set)
+    {
+        currentReader.setOutputQualifyingSet(set);
+    }
+
+    @Override
+    public QualifyingSet getOrCreateOutputQualifyingSet()
+    {
+        return currentReader.getOrCreateOutputQualifyingSet();
+    }
+
+    @Override
+    public void setFilterAndChannel(Filter filter, int channel, int columnIndex, Type type)
+    {
+        directReader.setFilterAndChannel(filter, channel, columnIndex, type);
+        dictionaryReader.setFilterAndChannel(filter, channel, columnIndex, type);
+    }
+
+    @Override
+    public int getChannel()
+    {
+        return directReader.getChannel();
+    }
+
+    @Override
+    public Block getBlock(int numFirstRows, boolean mayReuse)
+    {
+        return currentReader.getBlock(numFirstRows, mayReuse);
+    }
+
+    @Override
+    public Filter getFilter()
+    {
+        return directReader.getFilter();
+    }
+
+    @Override
+    public void erase(int end)
+    {
+        if (currentReader == null) {
+            return;
+        }
+        currentReader.erase(end);
+    }
+
+    @Override
+    public void compactValues(int[] positions, int base, int numPositions)
+    {
+        currentReader.compactValues(positions, base, numPositions);
+    }
+
+    @Override
+    public int getPosition()
+    {
+        return currentReader.getPosition();
+    }
+
+    @Override
+    public int getTruncationRow()
+    {
+        return currentReader.getTruncationRow();
+    }
+
+    @Override
+    public int getResultSizeInBytes()
+    {
+        if (currentReader == null) {
+            return 0;
+        }
+        return currentReader.getResultSizeInBytes();
+    }
+
+    @Override
+    public int getAverageResultSize()
+    {
+        if (currentReader == null) {
+            return 16;
+        }
+        return currentReader.getAverageResultSize();
+    }
+
+    @Override
+        public int getNumValues()
+    {
+        return currentReader.getNumValues();
+    }
+
+    @Override
+    public void setResultSizeBudget(long bytes)
+    {
+        currentReader.setResultSizeBudget(bytes);
+    }
+
+    @Override
+    public void scan()
+            throws IOException
+    {
+        currentReader.scan();
     }
 
     @Override

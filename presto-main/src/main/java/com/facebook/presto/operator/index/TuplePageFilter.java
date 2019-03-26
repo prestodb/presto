@@ -79,6 +79,12 @@ public class TuplePageFilter
         return PageFilter.positionsArrayToSelectedPositions(selectedPositions, page.getPositionCount());
     }
 
+    @Override
+    public boolean filter(ConnectorSession session, Page page, int position)
+    {
+        return matches(page, position);
+    }
+
     private boolean matches(Page page, int position)
     {
         for (int channel = 0; channel < inputChannels.size(); channel++) {

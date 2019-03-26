@@ -84,6 +84,7 @@ public final class HiveSessionProperties
     private static final String TEMPORARY_TABLE_STORAGE_FORMAT = "temporary_table_storage_format";
     private static final String TEMPORARY_TABLE_COMPRESSION_CODEC = "temporary_table_compression_codec";
     public static final String USE_REWINDABLE_SPLIT_SOURCE = "use_rewindable_split_source";
+    private static final String ARIA_SCAN_ENABLED = "aria_scan_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -356,6 +357,11 @@ public final class HiveSessionProperties
                         USE_REWINDABLE_SPLIT_SOURCE,
                         "Use rewindable hive split source",
                         hiveClientConfig.isUseRewindableSplitSource(),
+                false),
+                booleanProperty(
+                        ARIA_SCAN_ENABLED,
+                        "Aria scan enabled",
+                        true,
                         false));
     }
 
@@ -594,6 +600,11 @@ public final class HiveSessionProperties
     public static boolean isUseRewindableSplitSource(ConnectorSession session)
     {
         return session.getProperty(USE_REWINDABLE_SPLIT_SOURCE, Boolean.class);
+    }
+
+    public static boolean isAriaScanEnabled(ConnectorSession session)
+    {
+        return session.getProperty(ARIA_SCAN_ENABLED, Boolean.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)

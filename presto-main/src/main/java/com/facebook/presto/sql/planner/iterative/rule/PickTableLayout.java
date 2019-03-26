@@ -23,6 +23,7 @@ import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.operator.scalar.TryFunction;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.SubfieldPath;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -33,6 +34,7 @@ import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.LookupSymbolResolver;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.SymbolWithSubfieldPath;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -52,6 +54,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.isAriaScanEnabled;
 import static com.facebook.presto.SystemSessionProperties.isNewOptimizerEnabled;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.metadata.TableLayoutResult.computeEnforced;
@@ -250,17 +253,28 @@ public class PickTableLayout
             SqlParser parser,
             ExpressionDomainTranslator domainTranslator)
     {
+        boolean supportsSubfieldTupleDomain = false;
+        if (isAriaScanEnabled(session)) {
+            // Subfield TupleDomain extraction is only on for Aria
+            // because even if the Aria path were not run, this
+            // extraction would alter predicate order and the non-Aria
+            // path can't have that.
+            for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
+                supportsSubfieldTupleDomain = entry.getValue().supportsSubfieldTupleDomain();
+                break;
+            }
+        }
+
         // don't include non-deterministic predicates
         Expression deterministicPredicate = filterDeterministicConjuncts(predicate);
-
         ExpressionDomainTranslator.ExtractionResult decomposedPredicate = ExpressionDomainTranslator.fromPredicate(
                 metadata,
                 session,
                 deterministicPredicate,
-                types);
+                types, supportsSubfieldTupleDomain);
 
         TupleDomain<ColumnHandle> newDomain = decomposedPredicate.getTupleDomain()
-                .transform(node.getAssignments()::get)
+                .transform(symbol -> toColumnHandle(node.getAssignments(), symbol))
                 .intersect(node.getEnforcedConstraint());
 
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
@@ -327,6 +341,28 @@ public class PickTableLayout
             return new FilterNode(idAllocator.getNextId(), tableScan, castToRowExpression(resultingPredicate));
         }
         return tableScan;
+    }
+
+    private static ColumnHandle toColumnHandle(Map<Symbol, ColumnHandle> assignments, Symbol symbol)
+    {
+        if (symbol instanceof SymbolWithSubfieldPath) {
+            SymbolWithSubfieldPath subfieldSymbol = (SymbolWithSubfieldPath) symbol;
+            SubfieldPath path = subfieldSymbol.getPath();
+            ColumnHandle topColumn = assignments.get(new Symbol(path.getPath().get(0).getField()));
+            return topColumn.createSubfieldColumnHandle(path);
+        }
+        else {
+            return assignments.get(symbol);
+        }
+    }
+
+    private static Symbol fromColumnHandle(Map<ColumnHandle, Symbol> assignments, ColumnHandle columnHandle)
+    {
+        SubfieldPath path = columnHandle.getSubfieldPath();
+        if (path != null) {
+            return new SymbolWithSubfieldPath(path);
+        }
+        return assignments.get(columnHandle);
     }
 
     private static class LayoutConstraintEvaluator

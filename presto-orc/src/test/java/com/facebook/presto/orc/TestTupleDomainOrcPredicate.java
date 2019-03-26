@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.metadata.statistics.BinaryStatistics;
 import com.facebook.presto.orc.metadata.statistics.BooleanStatistics;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
@@ -21,9 +22,14 @@ import com.facebook.presto.orc.metadata.statistics.DecimalStatistics;
 import com.facebook.presto.orc.metadata.statistics.DoubleStatistics;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
 import com.facebook.presto.orc.metadata.statistics.StringStatistics;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.testing.TestingMetadata;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
@@ -40,6 +46,7 @@ import static com.facebook.presto.spi.predicate.Domain.singleValue;
 import static com.facebook.presto.spi.predicate.Range.greaterThanOrEqual;
 import static com.facebook.presto.spi.predicate.Range.lessThanOrEqual;
 import static com.facebook.presto.spi.predicate.Range.range;
+import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.CharType.createCharType;
@@ -53,12 +60,43 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToRawIntBits;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestTupleDomainOrcPredicate
 {
     private static final Type SHORT_DECIMAL = createDecimalType(5, 2);
     private static final Type LONG_DECIMAL = createDecimalType(20, 10);
     private static final Type CHAR = createCharType(10);
+
+    private static final ColumnHandle C_BOOLEAN = new TestingMetadata.TestingColumnHandle("c_boolean");
+
+    @Test
+    public void testBooleanFilters()
+    {
+        assertFilter(C_BOOLEAN, BOOLEAN, notNull(BOOLEAN), Filters.isNotNull());
+        assertFilter(C_BOOLEAN, BOOLEAN, onlyNull(BOOLEAN), Filters.isNull());
+        assertFilter(C_BOOLEAN, BOOLEAN, singleValue(BOOLEAN, true), new Filters.BooleanValue(true, false));
+        assertFilter(C_BOOLEAN, BOOLEAN, singleValue(BOOLEAN, false), new Filters.BooleanValue(false, false));
+        assertNoFilter(C_BOOLEAN, BOOLEAN, all(BOOLEAN));
+    }
+
+    private void assertFilter(ColumnHandle columnHandle, Type type, Domain domain, Filter expectedFilter)
+    {
+        TupleDomainOrcPredicate predicate = new TupleDomainOrcPredicate(
+                withColumnDomains(ImmutableMap.of(columnHandle, domain)),
+                ImmutableList.of(new ColumnReference<>(columnHandle, 0, type)),
+                false);
+        assertEquals(ImmutableMap.of(0, expectedFilter), predicate.getFilters());
+    }
+
+    private void assertNoFilter(ColumnHandle columnHandle, Type type, Domain domain)
+    {
+        TupleDomainOrcPredicate predicate = new TupleDomainOrcPredicate(
+                withColumnDomains(ImmutableMap.of(columnHandle, domain)),
+                ImmutableList.of(new ColumnReference<>(columnHandle, 0, type)),
+                false);
+        assertTrue(predicate.getFilters().isEmpty());
+    }
 
     @Test
     public void testBoolean()

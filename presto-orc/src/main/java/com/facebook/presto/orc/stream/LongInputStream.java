@@ -78,4 +78,43 @@ public interface LongInputStream
         }
         return sum;
     }
+
+    interface ResultsConsumer
+    {
+        boolean consume(int offsetIndex, long value)
+                throws IOException;
+
+        int consumeRepeated(int offsetIndex, long value, int count)
+                throws IOException;
+    }
+
+    // Applies filter to enumerated positions in this stream. The
+    // positions are relative to the last checkpoint. The positions to
+    // look at are given in offsets. firstOffset is the first element
+    // of offsets to consider. numOffsets is the number of offsets
+    // elements after beginOffset to consider. endOffset is the
+    // position at which the stream should be left after this
+    // returns. rowNumbers is the set of numbers to write to
+    // rowNumbersOut for the elements for which the filter is true.
+    // If inputNumbers is non-null, it maps from a position in offsets
+    // to a position in rowNumbers, so that the value
+    // rowNumbers[inputNumbers[offsetIdx]] is written to rowNumbersOut
+    // instead of rowNumbers[offsetIdx]. rownUmbersOut has the row
+    // numbers of the matching elements in the stream. inputNumbersOut
+    // has either offsetIdx for the matching rows of
+    // inputNumbers[offsetIdx] if inputNumbers is non-null. If
+    // valuesOut is non-null, the values for which filter is true are
+    // written there, starting at offset valuesFill. The number of
+    // elements for which filter was true is returned. If filter is
+    // null, it is considered always true.
+    default int scan(
+            int[] offsets,
+            int beginOffset,
+            int numOffsets,
+            int endOffset,
+            ResultsConsumer resultsConsumer)
+            throws IOException
+    {
+        throw new UnsupportedOperationException("scan is not supported by " + this.getClass().getSimpleName());
+    }
 }

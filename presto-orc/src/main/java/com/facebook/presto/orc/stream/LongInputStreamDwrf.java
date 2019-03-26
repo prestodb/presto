@@ -29,6 +29,9 @@ public class LongInputStreamDwrf
     private final boolean signed;
     private final boolean usesVInt;
 
+    // Position of the first value of the run in literals from the checkpoint.
+    private int currentRunOffset;
+
     public LongInputStreamDwrf(OrcInputStream input, OrcTypeKind type, boolean signed, boolean usesVInt)
     {
         this.input = input;
@@ -49,6 +52,7 @@ public class LongInputStreamDwrf
     {
         LongStreamDwrfCheckpoint dwrfCheckpoint = (LongStreamDwrfCheckpoint) checkpoint;
         input.seekToCheckpoint(dwrfCheckpoint.getInputStreamCheckpoint());
+        currentRunOffset = 0;
     }
 
     @Override
@@ -65,6 +69,26 @@ public class LongInputStreamDwrf
     public long next()
             throws IOException
     {
+        currentRunOffset++;
         return readDwrfLong(input, orcTypeKind, signed, usesVInt);
+    }
+
+    public int scan(
+            int[] offsets,
+            int beginOffset,
+            int numOffsets,
+            int endOffset,
+            ResultsConsumer resultsConsumer)
+            throws IOException
+    {
+        int numResults = 0;
+        for (int offsetIdx = beginOffset; offsetIdx < beginOffset + numOffsets; offsetIdx++) {
+            skip(offsets[offsetIdx] - currentRunOffset);
+            if (resultsConsumer.consume(offsetIdx, next())) {
+                numResults++;
+            }
+        }
+        skip(endOffset - offsets[beginOffset + numOffsets - 1] - 1);
+        return numResults;
     }
 }

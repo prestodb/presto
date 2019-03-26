@@ -28,7 +28,9 @@ import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
 import com.facebook.presto.orc.reader.StreamReader;
 import com.facebook.presto.orc.reader.StreamReaders;
 import com.facebook.presto.orc.stream.InputStreamSources;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageSourceOptions;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
@@ -63,6 +65,7 @@ import static com.facebook.presto.orc.OrcWriteValidation.WriteChecksumBuilder.cr
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
 import static java.util.Comparator.comparingLong;
 import static java.util.Objects.requireNonNull;
@@ -113,9 +116,19 @@ public class OrcRecordReader
     private final Optional<StatisticsValidation> rowGroupStatisticsValidation;
     private final Optional<StatisticsValidation> stripeStatisticsValidation;
     private final Optional<StatisticsValidation> fileStatisticsValidation;
+    private OrcPredicate predicate;
+    // For getNextPage interface.
+    private ColumnGroupReader reader;
+    private QualifyingSet qualifyingSet;
+    private int numResults;
+    private int targetResultBytes;
+    private int targetResultRows = 30000;
+    private boolean reorderFilters;
+    private boolean reuseBlocks;
 
     public OrcRecordReader(
             Map<Integer, Type> includedColumns,
+            Map<Integer, ColumnHandle> includedColumnHandles,
             OrcPredicate predicate,
             long numberOfRows,
             List<StripeInformation> fileStripes,
@@ -139,6 +152,7 @@ public class OrcRecordReader
             int initialBatchSize)
     {
         requireNonNull(includedColumns, "includedColumns is null");
+        requireNonNull(includedColumnHandles, "includedColumns is null");
         requireNonNull(predicate, "predicate is null");
         requireNonNull(fileStripes, "fileStripes is null");
         requireNonNull(stripeStats, "stripeStats is null");
@@ -156,6 +170,7 @@ public class OrcRecordReader
         this.stripeStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(includedColumns));
         this.fileStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(includedColumns));
         this.systemMemoryUsage = systemMemoryUsage.newAggregatedMemoryContext();
+        this.predicate = predicate;
 
         // reduce the included columns to the set that is also present
         ImmutableSet.Builder<Integer> presentColumns = ImmutableSet.builder();
@@ -238,7 +253,7 @@ public class OrcRecordReader
                 metadataReader,
                 writeValidation);
 
-        streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, presentColumnsAndTypes.build(), streamReadersSystemMemoryContext);
+        streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, presentColumnsAndTypes.build(), includedColumnHandles, streamReadersSystemMemoryContext);
         maxBytesPerCell = new long[streamReaders.length];
         nextBatchSize = initialBatchSize;
     }
@@ -394,9 +409,9 @@ public class OrcRecordReader
         // single fixed width column are: 1, 16, 256, 1024, 1024,..., 1024, 256 and the 256 was because there is only
         // 256 rows left in this row group, then the nextBatchSize should be 1024 instead of 512. So we need to grow the
         // nextBatchSize before limiting the currentBatchSize by currentGroupRowCount - nextRowInGroup.
-        currentBatchSize = toIntExact(min(nextBatchSize, maxBatchSize));
-        nextBatchSize = min(currentBatchSize * BATCH_SIZE_GROWTH_FACTOR, MAX_BATCH_SIZE);
-        currentBatchSize = toIntExact(min(currentBatchSize, currentGroupRowCount - nextRowInGroup));
+        currentBatchSize = min(nextBatchSize, maxBatchSize);
+        nextBatchSize = min(multiplyExact(currentBatchSize, BATCH_SIZE_GROWTH_FACTOR), MAX_BATCH_SIZE);
+        currentBatchSize = min(currentBatchSize, toIntExact(currentGroupRowCount - nextRowInGroup));
 
         for (StreamReader column : streamReaders) {
             if (column != null) {
@@ -422,12 +437,6 @@ public class OrcRecordReader
             }
         }
         return block;
-    }
-
-    public StreamReader getStreamReader(int index)
-    {
-        checkArgument(index < streamReaders.length, "index does not exist");
-        return streamReaders[index];
     }
 
     public Map<String, Slice> getUserMetadata()
@@ -558,6 +567,7 @@ public class OrcRecordReader
             List<OrcType> types,
             DateTimeZone hiveStorageTimeZone,
             Map<Integer, Type> includedColumns,
+            Map<Integer, ColumnHandle> includedColumnHandles,
             AggregatedMemoryContext systemMemoryContext)
     {
         List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, types, orcDataSource).getNestedStreams();
@@ -568,8 +578,14 @@ public class OrcRecordReader
             if (includedColumns.containsKey(columnId)) {
                 StreamDescriptor streamDescriptor = streamDescriptors.get(columnId);
                 streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
+
+                ColumnHandle columnHandle = includedColumnHandles.get(columnId);
+                if (columnHandle != null && columnHandle.getReferencedSubfields() != null) {
+                    streamReaders[columnId].setReferencedSubfields(columnHandle.getReferencedSubfields(), 0);
+                }
             }
         }
+
         return streamReaders;
     }
 
@@ -720,5 +736,67 @@ public class OrcRecordReader
 
             return new LinearProbeRangeFinder(diskRanges);
         }
+    }
+
+    public void pushdownFilterAndProjection(PageSourceOptions options, int[] channelColumns, List<Type> types)
+    {
+        reuseBlocks = options.getReusePages();
+        reorderFilters = options.getReorderFilters();
+        reader = new ColumnGroupReader(
+                streamReaders,
+                presentColumns,
+                channelColumns,
+                types,
+                options.getInternalChannels(),
+                options.getOutputChannels(),
+                predicate.getFilters(),
+                options.getFilterFunctions(),
+                reuseBlocks,
+                reorderFilters,
+                options.getAriaFlags());
+        targetResultBytes = options.getTargetBytes();
+        reader.setResultSizeBudget(targetResultBytes);
+    }
+
+    public Page getNextPage()
+            throws IOException
+    {
+        reader.newBatch(numResults);
+        numResults = 0;
+        for (; ; ) {
+            if (currentRowGroup == -1 || qualifyingSet == null || (qualifyingSet.isEmpty() && !reader.hasUnfetchedRows())) {
+                if (currentPosition == totalRowCount) {
+                    return null;
+                }
+                if (!advanceToNextRowGroup()) {
+                    filePosition = fileRowCount;
+                    currentPosition = totalRowCount;
+                    return resultPage();
+                }
+                if (qualifyingSet == null) {
+                    qualifyingSet = new QualifyingSet();
+                }
+                qualifyingSet.setRange((int) currentGroupRowCount);
+                reader.setQualifyingSets(qualifyingSet, null);
+                if (reorderFilters && (currentRowGroup & 0x3) != 0 && currentRowGroup != 0) {
+                    // Reconsider filter order every 4 row groups.
+                    reader.maybeReorderFilters();
+                }
+            }
+            qualifyingSet.clearTruncationPosition();
+            reader.advance();
+            numResults = reader.getNumResults();
+            if (numResults > targetResultRows || reader.getResultSizeInBytes() > targetResultBytes * 8 / 10) {
+                return resultPage();
+            }
+        }
+    }
+
+    private Page resultPage()
+    {
+        if (numResults == 0) {
+            return null;
+        }
+        return new Page(numResults, reader.getBlocks(numResults, reuseBlocks, false));
     }
 }

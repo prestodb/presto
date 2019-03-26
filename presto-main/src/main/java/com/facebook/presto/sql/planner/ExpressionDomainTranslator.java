@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
+import com.facebook.presto.spi.SubfieldPath;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.predicate.DiscreteValues;
@@ -39,15 +40,20 @@ import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
+import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -105,11 +111,37 @@ public final class ExpressionDomainTranslator
         Map<Symbol, Domain> domains = tupleDomain.getDomains().get();
         return domains.entrySet().stream()
                 .sorted(comparing(entry -> entry.getKey().getName()))
-                .map(entry -> toPredicate(entry.getValue(), entry.getKey().toSymbolReference()))
+            .map(entry -> toPredicate(entry.getValue(), toSymbolExpression(entry.getKey())))
                 .collect(collectingAndThen(toImmutableList(), ExpressionUtils::combineConjuncts));
     }
 
-    private Expression toPredicate(Domain domain, SymbolReference reference)
+    private Expression toSymbolExpression(Symbol symbol)
+    {
+        if (symbol instanceof SymbolWithSubfieldPath) {
+            SymbolWithSubfieldPath subfieldPath = (SymbolWithSubfieldPath) symbol;
+            SubfieldPath path = subfieldPath.getPath();
+            Expression base = new SymbolReference(path.getPath().get(0).getField());
+            for (int i = 1; i < path.getPath().size(); i++) {
+                SubfieldPath.PathElement element = path.getPath().get(i);
+                String field = element.getField();
+                if (element.getIsSubscript()) {
+                    base = new SubscriptExpression(base, field != null ? new StringLiteral(field) : new LongLiteral(Long.valueOf(element.getSubscript()).toString()));
+                }
+                else if (field != null) {
+                    base = new DereferenceExpression(base, new Identifier(field));
+                }
+                else {
+                    throw new IllegalArgumentException("Bad subfield path in DomainTranslator");
+                }
+            }
+            return base;
+        }
+        else {
+            return symbol.toSymbolReference();
+        }
+    }
+
+    private Expression toPredicate(Domain domain, Expression reference)
     {
         if (domain.getValues().isNone()) {
             return domain.isNullAllowed() ? new IsNullPredicate(reference) : FALSE_LITERAL;
@@ -136,7 +168,7 @@ public final class ExpressionDomainTranslator
         return combineDisjunctsWithDefault(disjuncts, TRUE_LITERAL);
     }
 
-    private Expression processRange(Type type, Range range, SymbolReference reference)
+    private Expression processRange(Type type, Range range, Expression reference)
     {
         if (range.isAll()) {
             return TRUE_LITERAL;
@@ -182,7 +214,7 @@ public final class ExpressionDomainTranslator
         return combineConjuncts(rangeConjuncts);
     }
 
-    private Expression combineRangeWithExcludedPoints(Type type, SymbolReference reference, Range range, List<Expression> excludedPoints)
+    private Expression combineRangeWithExcludedPoints(Type type, Expression reference, Range range, List<Expression> excludedPoints)
     {
         if (excludedPoints.isEmpty()) {
             return processRange(type, range, reference);
@@ -196,7 +228,7 @@ public final class ExpressionDomainTranslator
         return combineConjuncts(processRange(type, range, reference), excludedPointsExpression);
     }
 
-    private List<Expression> extractDisjuncts(Type type, Ranges ranges, SymbolReference reference)
+    private List<Expression> extractDisjuncts(Type type, Ranges ranges, Expression reference)
     {
         List<Expression> disjuncts = new ArrayList<>();
         List<Expression> singleValues = new ArrayList<>();
@@ -239,7 +271,7 @@ public final class ExpressionDomainTranslator
         return disjuncts;
     }
 
-    private List<Expression> extractDisjuncts(Type type, DiscreteValues discreteValues, SymbolReference reference)
+    private List<Expression> extractDisjuncts(Type type, DiscreteValues discreteValues, Expression reference)
     {
         List<Expression> values = discreteValues.getValues().stream()
                 .map(object -> literalEncoder.toExpression(object, type))
@@ -268,6 +300,15 @@ public final class ExpressionDomainTranslator
                 && !range.getHigh().isUpperUnbounded() && range.getHigh().getBound() == Marker.Bound.EXACTLY;
     }
 
+    public static ExtractionResult fromPredicate(
+            Metadata metadata,
+            Session session,
+            Expression predicate,
+            TypeProvider types)
+    {
+        return fromPredicate(metadata, session, predicate, types, false);
+    }
+
     /**
      * Convert an Expression predicate into an ExtractionResult consisting of:
      * 1) A successfully extracted TupleDomain
@@ -278,9 +319,10 @@ public final class ExpressionDomainTranslator
             Metadata metadata,
             Session session,
             Expression predicate,
-            TypeProvider types)
+            TypeProvider types,
+            boolean includeSubfields)
     {
-        return new Visitor(metadata, session, types).process(predicate, false);
+        return new Visitor(metadata, session, types, includeSubfields).process(predicate, false);
     }
 
     private static class Visitor
@@ -291,14 +333,16 @@ public final class ExpressionDomainTranslator
         private final Session session;
         private final TypeProvider types;
         private final InterpretedFunctionInvoker functionInvoker;
+        private final boolean includeSubfields;
 
-        private Visitor(Metadata metadata, Session session, TypeProvider types)
+        private Visitor(Metadata metadata, Session session, TypeProvider types, boolean includeSubfields)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
             this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionManager());
+            this.includeSubfields = includeSubfields;
         }
 
         private Type checkedTypeLookup(Symbol symbol)
@@ -438,6 +482,18 @@ public final class ExpressionDomainTranslator
                 }
 
                 return super.visitComparisonExpression(node, complement);
+            }
+            else if (includeSubfields && SubfieldUtils.isSubfieldPath(symbolExpression)) {
+                SubfieldPath path = SubfieldUtils.subfieldToSubfieldPath(symbolExpression);
+                if (path == null) {
+                    return super.visitComparisonExpression(node, complement);
+                }
+                else {
+                    Symbol symbol = new SymbolWithSubfieldPath(path);
+                    NullableValue value = normalized.getValue();
+                    Type type = value.getType(); // common type for symbol and value
+                    return createComparisonExtractionResult(normalized.getComparisonOperator(), symbol, type, value.getValue(), complement);
+                }
             }
             else {
                 return super.visitComparisonExpression(node, complement);

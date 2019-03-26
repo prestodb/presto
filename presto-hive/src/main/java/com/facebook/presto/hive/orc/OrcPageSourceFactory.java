@@ -27,6 +27,7 @@ import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.FixedPageSource;
@@ -193,11 +194,13 @@ public class OrcPageSourceFactory
 
             List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader, path);
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
+            ImmutableMap.Builder<Integer, ColumnHandle> includedColumnHandles = ImmutableMap.builder();
             ImmutableList.Builder<ColumnReference<HiveColumnHandle>> columnReferences = ImmutableList.builder();
             for (HiveColumnHandle column : physicalColumns) {
                 if (column.getColumnType() == REGULAR) {
                     Type type = typeManager.getType(column.getTypeSignature());
                     includedColumns.put(column.getHiveColumnIndex(), type);
+                    includedColumnHandles.put(column.getHiveColumnIndex(), column);
                     columnReferences.add(new ColumnReference<>(column, column.getHiveColumnIndex(), type));
                 }
             }
@@ -206,6 +209,7 @@ public class OrcPageSourceFactory
 
             OrcRecordReader recordReader = reader.createRecordReader(
                     includedColumns.build(),
+                    includedColumnHandles.build(),
                     predicate,
                     start,
                     length,

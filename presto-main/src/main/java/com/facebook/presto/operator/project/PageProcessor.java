@@ -27,11 +27,14 @@ import com.facebook.presto.spi.block.DictionaryId;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.sql.gen.ExpressionProfiler;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.SizeOf;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -59,8 +62,10 @@ public class PageProcessor
     private final ExpressionProfiler expressionProfiler;
     private final DictionarySourceIdFunction dictionarySourceIdFunction = new DictionarySourceIdFunction();
     private final Optional<PageFilter> filter;
+    private final List<PageFilter> filterWithoutTupleDomain;
     private final List<PageProjection> projections;
-
+    private final int[] inputToOutputChannel;
+    private boolean filterPushedDown;
     private int projectBatchSize;
 
     @VisibleForTesting
@@ -72,6 +77,16 @@ public class PageProcessor
     @VisibleForTesting
     public PageProcessor(Optional<PageFilter> filter, List<? extends PageProjection> projections, OptionalInt initialBatchSize, ExpressionProfiler expressionProfiler)
     {
+        this(filter, ImmutableList.of(), projections, initialBatchSize, expressionProfiler);
+    }
+
+    public PageProcessor(Optional<PageFilter> filter, List<PageFilter> filterWithoutTupleDomain, List<? extends PageProjection> projections, OptionalInt initialBatchSize)
+    {
+        this(filter, filterWithoutTupleDomain, projections, initialBatchSize, new ExpressionProfiler());
+    }
+
+    public PageProcessor(Optional<PageFilter> filter, List<PageFilter> filterWithoutTupleDomain, List<? extends PageProjection> projections, OptionalInt initialBatchSize, ExpressionProfiler expressionProfiler)
+    {
         this.filter = requireNonNull(filter, "filter is null")
                 .map(pageFilter -> {
                     if (pageFilter.getInputChannels().size() == 1 && pageFilter.isDeterministic()) {
@@ -79,6 +94,7 @@ public class PageProcessor
                     }
                     return pageFilter;
                 });
+        this.filterWithoutTupleDomain = requireNonNull(filterWithoutTupleDomain, "filterWithoutTupleDomain is null");
         this.projections = requireNonNull(projections, "projections is null").stream()
                 .map(projection -> {
                     if (projection.getInputChannels().size() == 1 && projection.isDeterministic()) {
@@ -87,13 +103,56 @@ public class PageProcessor
                     return projection;
                 })
                 .collect(toImmutableList());
-        this.projectBatchSize = initialBatchSize.orElse(1);
+        HashMap<Integer, Integer> inputToOutput = new HashMap();
+        // If the projection only reorders columns, set
+        // inputToOutputChannel[i] to give the output channel of the
+        // ith channel in the output Page of the PageSource. If the
+        // ith channel is not projected out, use -1.
+        boolean allAreInputPageProjections = true;
+        int maxInputChannel = -1;
+        for (int i = 0; i < projections.size(); i++) {
+            PageProjection projection = projections.get(i);
+            if (!(projection instanceof InputPageProjection)) {
+                allAreInputPageProjections = false;
+                break;
+            }
+            List<Integer> inputs = projection.getInputChannels().getInputChannels();
+            if (!inputToOutput.containsKey(inputs.get(0))) {
+                inputToOutput.put(inputs.get(0), Integer.valueOf(i));
+                maxInputChannel = Math.max(maxInputChannel, inputs.get(0).intValue());
+            }
+            else {
+                allAreInputPageProjections = false;
+                break;
+            }
+        }
+        if (allAreInputPageProjections) {
+            inputToOutputChannel = new int[maxInputChannel + 1];
+            Arrays.fill(inputToOutputChannel, -1);
+            for (Map.Entry<Integer, Integer> entry : inputToOutput.entrySet()) {
+                inputToOutputChannel[entry.getKey().intValue()] = entry.getValue().intValue();
+            }
+        }
+        else {
+            inputToOutputChannel = null;
+        }
+        this.projectBatchSize = initialBatchSize.orElse(10000);
         this.expressionProfiler = requireNonNull(expressionProfiler, "expressionProfiler is null");
     }
 
     public PageProcessor(Optional<PageFilter> filter, List<? extends PageProjection> projections)
     {
         this(filter, projections, OptionalInt.of(1));
+    }
+
+    public List<PageFilter> getFilterWithoutTupleDomain()
+    {
+        return filterWithoutTupleDomain;
+    }
+
+    public void setFilterIsPushedDown()
+    {
+        filterPushedDown = true;
     }
 
     public Iterator<Optional<Page>> process(ConnectorSession session, DriverYieldSignal yieldSignal, LocalMemoryContext memoryContext, Page page)
@@ -111,7 +170,7 @@ public class PageProcessor
             return WorkProcessor.of();
         }
 
-        if (filter.isPresent()) {
+        if (!filterPushedDown && filter.isPresent()) {
             SelectedPositions selectedPositions = filter.get().filter(session, filter.get().getInputChannels().getInputChannels(page));
             if (selectedPositions.isEmpty()) {
                 return WorkProcessor.of();
@@ -126,8 +185,29 @@ public class PageProcessor
                 return WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, page, selectedPositions));
             }
         }
-
         return WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, page, positionsRange(0, page.getPositionCount())));
+    }
+
+    // Returns the channel numbers of the PageSource in the order they
+    // are in the result Page. If this is non-null the projection is
+    // pushed down into the PageSource.
+    public int[] getIdentityInputToOutputChannel()
+    {
+        return inputToOutputChannel;
+    }
+
+    // Returns the channels of the PageSource that need to have a
+    // Block for use in projection. Channels that only serve for
+    // pushed down filters are not included.
+    public int[] getOutputChannels()
+    {
+        HashSet<Integer> channels = new HashSet();
+        for (PageProjection projection : projections) {
+            for (Integer channel : projection.getInputChannels().getInputChannels()) {
+                channels.add(channel);
+            }
+        }
+        return channels.stream().mapToInt(Integer::intValue).toArray();
     }
 
     private class ProjectSelectedPositions

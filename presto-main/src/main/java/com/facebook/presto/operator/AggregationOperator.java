@@ -19,6 +19,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.google.common.collect.ImmutableList;
@@ -183,5 +184,19 @@ public class AggregationOperator
 
         state = State.FINISHED;
         return pageBuilder.build();
+    }
+
+    @Override
+    public boolean retainsInputPages()
+    {
+        // Aggregation with only fixed length types does not retain
+        // references to data accessed through the input Page */
+        for (Aggregator aggregator : aggregates) {
+            // TODO: Not quite true. maxby of int by string for example retains references
+            if (!(aggregator.getType() instanceof FixedWidthType)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

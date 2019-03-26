@@ -35,7 +35,7 @@ public class HivePartitionResult
 {
     private final List<HiveColumnHandle> partitionColumns;
     private final Iterable<HivePartition> partitions;
-    private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
+    private final TupleDomain<? extends ColumnHandle> effectivePredicate;
     private final TupleDomain<ColumnHandle> unenforcedConstraint;
     private final TupleDomain<ColumnHandle> enforcedConstraint;
     private final Optional<HiveBucketHandle> bucketHandle;
@@ -44,7 +44,7 @@ public class HivePartitionResult
     public HivePartitionResult(
             List<HiveColumnHandle> partitionColumns,
             Iterable<HivePartition> partitions,
-            TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
+            TupleDomain<? extends ColumnHandle> effectivePredicate,
             TupleDomain<ColumnHandle> unenforcedConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint,
             Optional<HiveBucketHandle> bucketHandle,
@@ -52,7 +52,7 @@ public class HivePartitionResult
     {
         this.partitionColumns = requireNonNull(partitionColumns, "partitionColumns is null");
         this.partitions = requireNonNull(partitions, "partitions is null");
-        this.compactEffectivePredicate = requireNonNull(compactEffectivePredicate, "compactEffectivePredicate is null");
+        this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
         this.unenforcedConstraint = requireNonNull(unenforcedConstraint, "unenforcedConstraint is null");
         this.enforcedConstraint = requireNonNull(enforcedConstraint, "enforcedConstraint is null");
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
@@ -69,9 +69,9 @@ public class HivePartitionResult
         return partitions.iterator();
     }
 
-    public TupleDomain<? extends ColumnHandle> getCompactEffectivePredicate()
+    public TupleDomain<? extends ColumnHandle> getEffectivePredicate()
     {
-        return compactEffectivePredicate;
+        return effectivePredicate;
     }
 
     public TupleDomain<ColumnHandle> getUnenforcedConstraint()

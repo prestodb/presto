@@ -62,4 +62,14 @@ public class ByteArrayInputStream
     {
         inputStream.skipFully(skipSize);
     }
+
+    public byte[] getBuffer(int minBytes)
+    {
+        return inputStream.getBuffer(minBytes);
+    }
+
+    public int getOffsetInBuffer()
+    {
+        return inputStream.getOffsetInBuffer();
+    }
 }
