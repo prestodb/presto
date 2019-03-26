@@ -68,6 +68,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Check if connector is providing legacy connnectorTableLayout
+     */
+    default boolean useLegacyLayout()
+    {
+        return true;
+    }
+
+    /**
      * Returns the schemas provided by this connector.
      */
     List<String> listSchemaNames(ConnectorSession session);
