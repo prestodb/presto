@@ -207,6 +207,11 @@ public class HiveSplitManager
 
         Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(metastore, table, tableName, partitions, bucketHandle.map(HiveBucketHandle::toTableBucketProperty));
 
+        Map<String, HiveColumnHandle> predicateColumns = layout.getPredicateColumns();
+        TupleDomain<HiveColumnHandle> entireColumnDomains = layout.getDomainPredicate()
+                .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
+                .transform(predicateColumns::get);
+
         HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
                 table,
                 hivePartitions,
@@ -230,7 +235,7 @@ public class HiveSplitManager
                         table.getTableName(),
                         layout.getDomainPredicate(),
                         layout.getRemainingPredicate(),
-                        layout.getPredicateColumns(),
+                        predicateColumns,
                         maxInitialSplits,
                         maxOutstandingSplits,
                         maxOutstandingSplitsSize,
@@ -245,7 +250,7 @@ public class HiveSplitManager
                         table.getTableName(),
                         layout.getDomainPredicate(),
                         layout.getRemainingPredicate(),
-                        layout.getPredicateColumns(),
+                        predicateColumns,
                         maxInitialSplits,
                         maxOutstandingSplits,
                         maxOutstandingSplitsSize,
@@ -273,6 +278,11 @@ public class HiveSplitManager
         hiveSplitLoader.start(splitSource);
 
         return splitSource;
+    }
+
+    private static boolean isEntireColumn(Subfield subfield)
+    {
+        return subfield.getPath().isEmpty();
     }
 
     private static Optional<Domain> getPathDomain(TupleDomain<Subfield> domainPredicate, Map<String, HiveColumnHandle> predicateColumns)

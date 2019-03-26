@@ -15,6 +15,7 @@ package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
+import com.facebook.presto.orc.QualifyingSet;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanInputStream;
@@ -36,7 +37,9 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
+import static com.facebook.presto.orc.ResizedArrays.newBooleanArrayForReuse;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
@@ -50,13 +53,13 @@ import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStr
 import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
-import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class SliceDictionaryStreamReader
-        implements StreamReader
+        extends NullWrappingColumnReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionaryStreamReader.class).instanceSize();
 
@@ -64,15 +67,16 @@ public class SliceDictionaryStreamReader
     // add one extra entry for null after strip/rowGroup dictionary
     private static final int[] EMPTY_DICTIONARY_OFFSETS = new int[2];
 
+    private static final byte FILTER_NOT_EVALUATED = 0;
+    private static final byte FILTER_PASSED = 1;
+    private static final byte FILTER_FAILED = 2;
+
     private final StreamDescriptor streamDescriptor;
 
     private int readOffset;
     private int nextBatchSize;
 
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
-    @Nullable
-    private BooleanInputStream presentStream;
-    private boolean[] isNullVector = new boolean[0];
 
     private InputStreamSource<ByteArrayInputStream> stripeDictionaryDataStreamSource = missingStreamSource(ByteArrayInputStream.class);
     private boolean stripeDictionaryOpen;
@@ -89,7 +93,9 @@ public class SliceDictionaryStreamReader
     private InputStreamSource<BooleanInputStream> inDictionaryStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
     private BooleanInputStream inDictionaryStream;
-    private boolean[] inDictionaryVector = new boolean[0];
+
+    // An indicator per dictionary value of whether the filter has been evaluated and what was the result
+    private byte[] filterResults;
 
     private InputStreamSource<ByteArrayInputStream> rowGroupDictionaryDataStreamSource = missingStreamSource(ByteArrayInputStream.class);
 
@@ -100,12 +106,17 @@ public class SliceDictionaryStreamReader
     @Nullable
     private LongInputStream dataStream;
 
-    private boolean rowGroupOpen;
-
     private LocalMemoryContext systemMemoryContext;
+
+    private int[] values;
+    private ResultsProcessor resultsProcessor = new ResultsProcessor();
+    private int averageResultSize = SIZE_OF_INT;
+    private boolean[] inDictionaryFlags;
+    private boolean hasRowGroupDictionaries;
 
     public SliceDictionaryStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
     {
+        super(OptionalInt.empty());
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
@@ -205,6 +216,15 @@ public class SliceDictionaryStreamReader
             isNullVector[positionCount - 1] = true;
             dictionaryOffsets[positionCount] = dictionaryOffsets[positionCount - 1];
             dictionaryBlock = new VariableWidthBlock(positionCount, wrappedBuffer(dictionaryData), dictionaryOffsets, Optional.of(isNullVector));
+            if (deterministicFilter) {
+                if (filterResults == null || filterResults.length < positionCount) {
+                    filterResults = new byte[positionCount];
+                    // the default values are zeros which means FILTER_NOT_EVALUATED
+                }
+                else {
+                    Arrays.fill(filterResults, FILTER_NOT_EVALUATED);
+                }
+            }
             currentDictionaryData = dictionaryData;
         }
     }
@@ -274,6 +294,7 @@ public class SliceDictionaryStreamReader
             ByteArrayInputStream dictionaryDataStream = rowGroupDictionaryDataStreamSource.openStream();
             readDictionary(dictionaryDataStream, rowGroupDictionarySize, rowGroupDictionaryLength, stripeDictionarySize, rowGroupDictionaryData, rowGroupDictionaryOffsetVector, type);
             setDictionaryBlockData(rowGroupDictionaryData, rowGroupDictionaryOffsetVector, stripeDictionarySize + rowGroupDictionarySize + 1);
+            hasRowGroupDictionaries = true;
         }
         else {
             // there is no row group dictionary so use the stripe dictionary
@@ -284,7 +305,7 @@ public class SliceDictionaryStreamReader
         inDictionaryStream = inDictionaryStreamSource.openStream();
         dataStream = dataStreamSource.openStream();
 
-        rowGroupOpen = true;
+        super.openRowGroup();
     }
 
     // Reads dictionary into data and offsetVector
@@ -355,6 +376,7 @@ public class SliceDictionaryStreamReader
         dataStream = null;
 
         rowGroupOpen = false;
+        hasRowGroupDictionaries = false;
     }
 
     @Override
@@ -390,13 +412,272 @@ public class SliceDictionaryStreamReader
     public void close()
     {
         systemMemoryContext.close();
-        isNullVector = null;
-        inDictionaryVector = null;
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + sizeOf(isNullVector) + sizeOf(inDictionaryVector);
+        return INSTANCE_SIZE;
+    }
+
+    @Override
+    public void scan()
+            throws IOException
+    {
+        if (!rowGroupOpen) {
+            openRowGroup(type);
+        }
+        beginScan(presentStream, null);
+        ensureValuesCapacity();
+        makeInnerQualifyingSet();
+
+        QualifyingSet input = hasNulls ? innerQualifyingSet : inputQualifyingSet;
+        int numInput = input.getPositionCount();
+        if (inDictionaryStream != null) {
+            if (inDictionaryFlags == null || inDictionaryFlags.length < numInput) {
+                inDictionaryFlags = newBooleanArrayForReuse(numInput);
+            }
+            int begin = hasNulls ? innerPosInRowGroup : posInRowGroup;
+            int end = input.getEnd();
+            inDictionaryStream.getSetBits(input.getPositions(), numInput, begin, end - begin, inDictionaryFlags);
+        }
+        if (filter != null) {
+            outputQualifyingSet.reset(numInput);
+        }
+
+        if (numInput > 0) {
+            if (filter != null) {
+                outputQualifyingSet.reset(numInput);
+                resultsProcessor.reset();
+                numInnerResults = dataStream.scan(input.getPositions(), 0, numInput, input.getEnd(), resultsProcessor);
+                outputQualifyingSet.setPositionCount(numInnerResults);
+            }
+            else {
+                resultsProcessor.reset();
+                numInnerResults = dataStream.scan(input.getPositions(), 0, numInput, input.getEnd(), resultsProcessor);
+            }
+        }
+        if (hasNulls) {
+            innerPosInRowGroup = innerQualifyingSet.getEnd();
+        }
+        addNullsAfterScan(filter != null ? outputQualifyingSet : inputQualifyingSet, inputQualifyingSet.getEnd());
+        if (filter != null) {
+            outputQualifyingSet.setEnd(inputQualifyingSet.getEnd());
+        }
+        if (outputChannelSet) {
+            if (numValues > 0) {
+                averageResultSize = SIZE_OF_INT + toIntExact(dictionaryBlock.getSizeInBytes() / numValues);
+            }
+            else {
+                averageResultSize = SIZE_OF_INT;
+            }
+        }
+        endScan(presentStream);
+    }
+
+    private final class ResultsProcessor
+            implements LongInputStream.ResultsConsumer
+    {
+        private int[] offsets;
+        private int[] rowNumbers;
+        private int[] inputNumbers;
+        private int[] rowNumbersOut;
+        private int[] inputNumbersOut;
+        private int numResults;
+
+        void reset()
+        {
+            QualifyingSet input = hasNulls ? innerQualifyingSet : inputQualifyingSet;
+            offsets = input.getPositions();
+            numResults = 0;
+            if (filter != null) {
+                rowNumbers = inputQualifyingSet.getPositions();
+                inputNumbers = hasNulls ? innerQualifyingSet.getInputNumbers() : null;
+                rowNumbersOut = outputQualifyingSet.getPositions();
+                inputNumbersOut = outputQualifyingSet.getInputNumbers();
+            }
+            else {
+                rowNumbers = null;
+                inputNumbers = null;
+                rowNumbersOut = null;
+                inputNumbersOut = null;
+            }
+        }
+
+        private int adjustValue(long value, int offsetIndex)
+        {
+            if (inDictionaryStream != null && !inDictionaryFlags[offsetIndex]) {
+                return toIntExact(value + stripeDictionarySize);
+            }
+            return toIntExact(value);
+        }
+
+        private boolean test(int dictionaryPosition)
+        {
+            if (!deterministicFilter) {
+                return evaluateFilter(dictionaryPosition);
+            }
+
+            if (filterResults[dictionaryPosition] == FILTER_NOT_EVALUATED) {
+                filterResults[dictionaryPosition] = evaluateFilter(dictionaryPosition) ? FILTER_PASSED : FILTER_FAILED;
+            }
+
+            return filterResults[dictionaryPosition] == FILTER_PASSED;
+        }
+
+        private boolean evaluateFilter(int dictionaryPosition)
+        {
+            Slice slice = dictionaryBlock.getSlice(dictionaryPosition, 0, dictionaryBlock.getSliceLength(dictionaryPosition));
+            return filter.testBytes(slice.getBytes(), 0, slice.length());
+        }
+
+        @Override
+        public boolean consume(int offsetIndex, long value)
+        {
+            int dictionaryPosition = adjustValue(value, offsetIndex);
+            if (filter != null && !test(dictionaryPosition)) {
+                return false;
+            }
+
+            addResult(offsetIndex, dictionaryPosition);
+            return true;
+        }
+
+        @Override
+        public int consumeRepeated(int offsetIndex, long value, int count)
+        {
+            if (inDictionaryStream == null && (deterministicFilter || filter == null)) {
+                // Common case: One filter and one translation
+                // from value to dictionary id is enough if there
+                // are no row group dictionaries and the filter is
+                // null or deterministic.
+                int dictionaryPosition = toIntExact(value);
+                if (filter != null && !test(dictionaryPosition)) {
+                    return 0;
+                }
+                for (int i = 0; i < count; i++) {
+                    addResult(offsetIndex + i, dictionaryPosition);
+                }
+                return count;
+            }
+            int added = 0;
+            for (int i = 0; i < count; i++) {
+                int dictionaryPosition = adjustValue(value, offsetIndex + i);
+                if (filter != null && !test(dictionaryPosition)) {
+                    continue;
+                }
+                addResult(offsetIndex + i, dictionaryPosition);
+                added++;
+            }
+            return added;
+        }
+
+        private void addResult(int offsetIndex, int value)
+        {
+            if (rowNumbersOut != null) {
+                if (inputNumbers == null) {
+                    rowNumbersOut[numResults] = offsets[offsetIndex];
+                    inputNumbersOut[numResults] = offsetIndex;
+                }
+                else {
+                    int outerIdx = inputNumbers[offsetIndex];
+                    rowNumbersOut[numResults] = rowNumbers[outerIdx];
+                    inputNumbersOut[numResults] = outerIdx;
+                }
+            }
+            if (values != null) {
+                values[numResults + numValues] = value;
+            }
+            ++numResults;
+        }
+    }
+
+    // TODO Change return type to long
+    @Override
+    public int getResultSizeInBytes()
+    {
+        return numValues * SIZE_OF_INT + toIntExact(dictionaryBlock.getSizeInBytes());
+    }
+
+    @Override
+    public int getAverageResultSize()
+    {
+        return averageResultSize;
+    }
+
+    @Override
+    public Block getBlock(int numFirstRows, boolean mayReuse)
+    {
+        checkEnoughValues(numFirstRows);
+
+        if (mayReuse) {
+            return new DictionaryBlock(numFirstRows, dictionaryBlock, values);
+        }
+        else {
+            int[] idsVector = new int[numFirstRows];
+            System.arraycopy(values, 0, idsVector, 0, numFirstRows);
+            return new DictionaryBlock(numFirstRows, dictionaryBlock, idsVector);
+        }
+    }
+
+    @Override
+    public void erase(int numFirstRows)
+    {
+        if (values == null) {
+            return;
+        }
+
+        if (numValues > numFirstRows) {
+            System.arraycopy(values, numFirstRows, values, 0, numValues - numFirstRows);
+            if (valueIsNull != null) {
+                System.arraycopy(valueIsNull, numFirstRows, valueIsNull, 0, numValues - numFirstRows);
+            }
+            numValues -= numFirstRows;
+        }
+        else {
+            numValues = 0;
+        }
+    }
+
+    @Override
+    public void compactValues(int[] surviving, int base, int numSurviving)
+    {
+        if (outputChannelSet) {
+            StreamReaders.compactArrays(surviving, base, numSurviving, values, valueIsNull);
+            numValues = base + numSurviving;
+        }
+        compactQualifyingSet(surviving, numSurviving);
+    }
+
+    private void ensureValuesCapacity()
+    {
+        if (!outputChannelSet) {
+            return;
+        }
+        int capacity = numValues + inputQualifyingSet.getPositionCount();
+        if (values == null) {
+            values = new int[capacity];
+        }
+        else if (values.length < capacity) {
+            values = Arrays.copyOf(values, capacity);
+        }
+    }
+
+    @Override
+    protected void shiftUp(int from, int to)
+    {
+        values[to] = values[from];
+    }
+
+    @Override
+    protected void writeNull(int position)
+    {
+        values[position] = dictionaryBlock.getPositionCount() - 1;
+    }
+
+    @Override
+    public boolean mustExtractValuesBeforeScan(boolean isNewStripe)
+    {
+        return outputChannelSet && (isNewStripe || hasRowGroupDictionaries);
     }
 }

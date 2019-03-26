@@ -155,6 +155,16 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertQuery(queryRunner, session, actual, h2QueryRunner, expected, false, false, planAssertion);
     }
 
+    protected void assertQuery(Session session, @Language("SQL") String actual, Session expectedSession)
+    {
+        QueryAssertions.assertQuery(queryRunner, session, actual, expectedSession);
+    }
+
+    protected void assertQuery(Session session, @Language("SQL") String actual, Session expectedSession, @Language("SQL") String expected)
+    {
+        QueryAssertions.assertQuery(queryRunner, session, actual, expectedSession, expected);
+    }
+
     public void assertQueryOrdered(@Language("SQL") String sql)
     {
         assertQueryOrdered(getSession(), sql);

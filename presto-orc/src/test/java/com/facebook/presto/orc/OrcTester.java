@@ -19,6 +19,7 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageSourceOptions;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.CharType;
@@ -243,6 +244,7 @@ public class OrcTester
     private boolean missingStructFieldsTestsEnabled;
     private boolean skipBatchTestsEnabled;
     private boolean skipStripeTestsEnabled;
+    private boolean ariaEnabled;
     private Set<Format> formats = ImmutableSet.of();
     private Set<CompressionKind> compressions = ImmutableSet.of();
 
@@ -257,6 +259,21 @@ public class OrcTester
         orcTester.skipBatchTestsEnabled = true;
         orcTester.formats = ImmutableSet.of(ORC_12, ORC_11, DWRF);
         orcTester.compressions = ImmutableSet.of(ZLIB);
+        return orcTester;
+    }
+
+    public static OrcTester ariaOrcTester()
+    {
+        OrcTester orcTester = new OrcTester();
+        orcTester.structTestsEnabled = false;
+        orcTester.mapTestsEnabled = false;
+        orcTester.listTestsEnabled = false;
+        orcTester.nullTestsEnabled = true;
+        orcTester.missingStructFieldsTestsEnabled = false;
+        orcTester.skipBatchTestsEnabled = false;
+        orcTester.formats = ImmutableSet.of(ORC_12, ORC_11, DWRF);
+        orcTester.compressions = ImmutableSet.of(ZLIB);
+        orcTester.ariaEnabled = true;
         return orcTester;
     }
 
@@ -481,7 +498,7 @@ public class OrcTester
                 if (hiveSupported) {
                     try (TempFile tempFile = new TempFile()) {
                         writeOrcColumnHive(tempFile.getFile(), format, compression, writeType, writeValues.iterator());
-                        assertFileContentsPresto(readType, tempFile, readValues, false, false, orcEncoding, format, true);
+                        assertFileContentsPresto(readType, tempFile, readValues, false, false, orcEncoding, format, true, ariaEnabled);
                     }
                 }
 
@@ -493,14 +510,14 @@ public class OrcTester
                         assertFileContentsHive(readType, tempFile, format, readValues);
                     }
 
-                    assertFileContentsPresto(readType, tempFile, readValues, false, false, orcEncoding, format, false);
+                    assertFileContentsPresto(readType, tempFile, readValues, false, false, orcEncoding, format, false, ariaEnabled);
 
                     if (skipBatchTestsEnabled) {
-                        assertFileContentsPresto(readType, tempFile, readValues, true, false, orcEncoding, format, false);
+                        assertFileContentsPresto(readType, tempFile, readValues, true, false, orcEncoding, format, false, ariaEnabled);
                     }
 
                     if (skipStripeTestsEnabled) {
-                        assertFileContentsPresto(readType, tempFile, readValues, false, true, orcEncoding, format, false);
+                        assertFileContentsPresto(readType, tempFile, readValues, false, true, orcEncoding, format, false, ariaEnabled);
                     }
                 }
             }
@@ -517,47 +534,85 @@ public class OrcTester
             boolean skipStripe,
             OrcEncoding orcEncoding,
             Format format,
-            boolean isHiveWriter)
+            boolean isHiveWriter,
+            boolean ariaEnabled)
             throws IOException
     {
-        try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, orcEncoding, createOrcPredicate(type, expectedValues, format, isHiveWriter), type, MAX_BATCH_SIZE)) {
-            assertEquals(recordReader.getReaderPosition(), 0);
-            assertEquals(recordReader.getFilePosition(), 0);
+        if (ariaEnabled) {
+            try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, orcEncoding, createOrcPredicate(type, expectedValues, format, isHiveWriter), type, MAX_BATCH_SIZE)) {
+                PageSourceOptions options = new PageSourceOptions(
+                        true,
+                        512 * 1024);
+                recordReader.pushdownFilterAndProjection(options, new int[] {0}, ImmutableList.of(type), new Block[1]);
 
-            boolean isFirst = true;
-            int rowsProcessed = 0;
-            Iterator<?> iterator = expectedValues.iterator();
-            for (int batchSize = toIntExact(recordReader.nextBatch()); batchSize >= 0; batchSize = toIntExact(recordReader.nextBatch())) {
-                if (skipStripe && rowsProcessed < 10000) {
-                    assertEquals(advance(iterator, batchSize), batchSize);
-                }
-                else if (skipFirstBatch && isFirst) {
-                    assertEquals(advance(iterator, batchSize), batchSize);
-                    isFirst = false;
-                }
-                else {
-                    Block block = recordReader.readBlock(type, 0);
+                assertEquals(recordReader.getReaderPosition(), 0);
+                assertEquals(recordReader.getFilePosition(), 0);
+
+                Iterator<?> iterator = expectedValues.iterator();
+                while (true) {
+                    Page page = recordReader.getNextPage();
+                    if (page == null) {
+                        break;
+                    }
+
+                    Block block = page.getBlock(0);
 
                     List<Object> data = new ArrayList<>(block.getPositionCount());
                     for (int position = 0; position < block.getPositionCount(); position++) {
                         data.add(type.getObjectValue(SESSION, block, position));
                     }
 
-                    for (int i = 0; i < batchSize; i++) {
+                    for (int i = 0; i < block.getPositionCount(); i++) {
                         assertTrue(iterator.hasNext());
                         Object expected = iterator.next();
                         Object actual = data.get(i);
                         assertColumnValueEquals(type, actual, expected);
                     }
                 }
+
+                assertFalse(iterator.hasNext());
+            }
+        }
+        else {
+            try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, orcEncoding, createOrcPredicate(type, expectedValues, format, isHiveWriter), type, MAX_BATCH_SIZE)) {
+                assertEquals(recordReader.getReaderPosition(), 0);
+                assertEquals(recordReader.getFilePosition(), 0);
+
+                boolean isFirst = true;
+                int rowsProcessed = 0;
+                Iterator<?> iterator = expectedValues.iterator();
+                for (int batchSize = toIntExact(recordReader.nextBatch()); batchSize >= 0; batchSize = toIntExact(recordReader.nextBatch())) {
+                    if (skipStripe && rowsProcessed < 10000) {
+                        assertEquals(advance(iterator, batchSize), batchSize);
+                    }
+                    else if (skipFirstBatch && isFirst) {
+                        assertEquals(advance(iterator, batchSize), batchSize);
+                        isFirst = false;
+                    }
+                    else {
+                        Block block = recordReader.readBlock(type, 0);
+
+                        List<Object> data = new ArrayList<>(block.getPositionCount());
+                        for (int position = 0; position < block.getPositionCount(); position++) {
+                            data.add(type.getObjectValue(SESSION, block, position));
+                        }
+
+                        for (int i = 0; i < batchSize; i++) {
+                            assertTrue(iterator.hasNext());
+                            Object expected = iterator.next();
+                            Object actual = data.get(i);
+                            assertColumnValueEquals(type, actual, expected);
+                        }
+                    }
+                    assertEquals(recordReader.getReaderPosition(), rowsProcessed);
+                    assertEquals(recordReader.getFilePosition(), rowsProcessed);
+                    rowsProcessed += batchSize;
+                }
+                assertFalse(iterator.hasNext());
+
                 assertEquals(recordReader.getReaderPosition(), rowsProcessed);
                 assertEquals(recordReader.getFilePosition(), rowsProcessed);
-                rowsProcessed += batchSize;
             }
-            assertFalse(iterator.hasNext());
-
-            assertEquals(recordReader.getReaderPosition(), rowsProcessed);
-            assertEquals(recordReader.getFilePosition(), rowsProcessed);
         }
     }
 
@@ -642,7 +697,7 @@ public class OrcTester
         assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
 
-        return orcReader.createRecordReader(ImmutableMap.of(0, type), predicate, HIVE_STORAGE_TIME_ZONE, newSimpleAggregatedMemoryContext(), initialBatchSize);
+        return orcReader.createRecordReader(ImmutableList.of(0), ImmutableMap.of(0, type), ImmutableMap.of(), predicate, ImmutableMap.of(), ImmutableList.of(), 0, orcDataSource.getSize(), HIVE_STORAGE_TIME_ZONE, newSimpleAggregatedMemoryContext(), initialBatchSize, false, false);
     }
 
     private static void writeOrcColumnPresto(File outputFile, Format format, CompressionKind compression, Type type, Iterator<?> values, OrcWriterStats stats)

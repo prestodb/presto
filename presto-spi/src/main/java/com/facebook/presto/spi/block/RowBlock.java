@@ -55,7 +55,7 @@ public class RowBlock
     /**
      * Create a row block directly without per element validations.
      */
-    static RowBlock createRowBlockInternal(int startOffset, int positionCount, @Nullable boolean[] rowIsNull, int[] fieldBlockOffsets, Block[] fieldBlocks)
+    public static RowBlock createRowBlockInternal(int startOffset, int positionCount, @Nullable boolean[] rowIsNull, int[] fieldBlockOffsets, Block[] fieldBlocks)
     {
         validateConstructorArguments(startOffset, positionCount, rowIsNull, fieldBlockOffsets, fieldBlocks);
         return new RowBlock(startOffset, positionCount, rowIsNull, fieldBlockOffsets, fieldBlocks);

@@ -21,8 +21,10 @@ import com.facebook.presto.orc.metadata.Metadata;
 import com.facebook.presto.orc.metadata.PostScript;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.stream.OrcInputStream;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -224,21 +226,36 @@ public class OrcReader
 
     public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryUsage, int initialBatchSize)
     {
-        return createRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize);
+        return createRecordReader(ImmutableList.of(), includedColumns, ImmutableMap.of(), predicate, ImmutableMap.of(), ImmutableList.of(), 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize, false, false);
+    }
+
+    public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, Map<Integer, List<Subfield>> includedSubfields, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryUsage, int initialBatchSize)
+    {
+        return createRecordReader(ImmutableList.of(), includedColumns, includedSubfields, predicate, ImmutableMap.of(), ImmutableList.of(), 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize, false, false);
     }
 
     public OrcRecordReader createRecordReader(
+            List<Integer> outputColumns,
             Map<Integer, Type> includedColumns,
+            Map<Integer, List<Subfield>> includedSubfields,
             OrcPredicate predicate,
+            Map<Integer, Filter> columnFilters,
+            List<AbstractFilterFunction> filterFunctions,
             long offset,
             long length,
             DateTimeZone hiveStorageTimeZone,
             AggregatedMemoryContext systemMemoryUsage,
-            int initialBatchSize)
+            int initialBatchSize,
+            boolean reorderFilters,
+            boolean enforceMemoryBudget)
     {
         return new OrcRecordReader(
+                requireNonNull(outputColumns, "outputColumns is null"),
                 requireNonNull(includedColumns, "includedColumns is null"),
+                requireNonNull(includedSubfields, "includedSubfields is null"),
                 requireNonNull(predicate, "predicate is null"),
+                requireNonNull(columnFilters, "columnFilters is null"),
+                requireNonNull(filterFunctions, "filterFunctions is null"),
                 footer.getNumberOfRows(),
                 footer.getStripes(),
                 footer.getFileStats(),
@@ -258,7 +275,9 @@ public class OrcReader
                 footer.getUserMetadata(),
                 systemMemoryUsage,
                 writeValidation,
-                initialBatchSize);
+                initialBatchSize,
+                reorderFilters,
+                enforceMemoryBudget);
     }
 
     private static OrcDataSource wrapWithCacheIfTiny(OrcDataSource dataSource, DataSize maxCacheSize)
@@ -331,7 +350,7 @@ public class OrcReader
         }
         try {
             OrcReader orcReader = new OrcReader(input, orcEncoding, new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(16, MEGABYTE), Optional.of(writeValidation));
-            try (OrcRecordReader orcRecordReader = orcReader.createRecordReader(readTypes.build(), OrcPredicate.TRUE, hiveStorageTimeZone, newSimpleAggregatedMemoryContext(), INITIAL_BATCH_SIZE)) {
+            try (OrcRecordReader orcRecordReader = orcReader.createRecordReader(readTypes.build(), ImmutableMap.of(), OrcPredicate.TRUE, hiveStorageTimeZone, newSimpleAggregatedMemoryContext(), INITIAL_BATCH_SIZE)) {
                 while (orcRecordReader.nextBatch() >= 0) {
                     // ignored
                 }

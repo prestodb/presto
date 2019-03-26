@@ -15,11 +15,13 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -60,6 +62,8 @@ public class HiveColumnHandle
     private final int hiveColumnIndex;
     private final ColumnType columnType;
     private final Optional<String> comment;
+    private final Subfield subfieldPath;
+    private final List<Subfield> referencedSubfields;
 
     @JsonCreator
     public HiveColumnHandle(
@@ -68,7 +72,9 @@ public class HiveColumnHandle
             @JsonProperty("typeSignature") TypeSignature typeSignature,
             @JsonProperty("hiveColumnIndex") int hiveColumnIndex,
             @JsonProperty("columnType") ColumnType columnType,
-            @JsonProperty("comment") Optional<String> comment)
+            @JsonProperty("comment") Optional<String> comment,
+            @JsonProperty("subfieldPath") Subfield subfieldPath,
+            @JsonProperty("referencedSubfields") List<Subfield> referencedSubfields)
     {
         this.name = requireNonNull(name, "name is null");
         checkArgument(hiveColumnIndex >= 0 || columnType == PARTITION_KEY || columnType == SYNTHESIZED, "hiveColumnIndex is negative");
@@ -77,6 +83,19 @@ public class HiveColumnHandle
         this.typeName = requireNonNull(typeSignature, "type is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.comment = requireNonNull(comment, "comment is null");
+        this.subfieldPath = subfieldPath;
+        this.referencedSubfields = referencedSubfields;
+    }
+
+    public HiveColumnHandle(
+            String name,
+            HiveType hiveType,
+            TypeSignature typeSignature,
+            int hiveColumnIndex,
+            ColumnType columnType,
+            Optional<String> comment)
+    {
+        this(name, hiveType, typeSignature, hiveColumnIndex, columnType, comment, null, null);
     }
 
     @JsonProperty
@@ -130,10 +149,22 @@ public class HiveColumnHandle
         return columnType;
     }
 
+    @JsonProperty
+    public Subfield getSubfieldPath()
+    {
+        return subfieldPath;
+    }
+
+    @JsonProperty
+    public List<Subfield> getReferencedSubfields()
+    {
+        return referencedSubfields;
+    }
+
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, hiveColumnIndex, hiveType, columnType, comment);
+        return Objects.hash(name, hiveColumnIndex, hiveType, columnType, comment, subfieldPath);
     }
 
     @Override
@@ -150,13 +181,13 @@ public class HiveColumnHandle
                 Objects.equals(this.hiveColumnIndex, other.hiveColumnIndex) &&
                 Objects.equals(this.hiveType, other.hiveType) &&
                 Objects.equals(this.columnType, other.columnType) &&
-                Objects.equals(this.comment, other.comment);
+            Objects.equals(this.comment, other.comment) && Objects.equals(this.subfieldPath, other.subfieldPath);
     }
 
     @Override
     public String toString()
     {
-        return name + ":" + hiveType + ":" + hiveColumnIndex + ":" + columnType;
+        return name + (subfieldPath != null ? subfieldPath.toString() : "") + ":" + hiveType + ":" + hiveColumnIndex + ":" + columnType;
     }
 
     public static HiveColumnHandle updateRowIdHandle()

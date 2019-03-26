@@ -83,6 +83,11 @@ public class DictionaryAwarePageFilter
         return filter.filter(session, new Page(block));
     }
 
+    public boolean filter(ConnectorSession session, Page page, int position)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     private Optional<boolean[]> processDictionary(ConnectorSession session, Block dictionary)
     {
         if (lastInputDictionary == dictionary) {
@@ -158,5 +163,10 @@ public class DictionaryAwarePageFilter
             }
         }
         return positionsMask;
+    }
+
+    public PageFilter getFilter()
+    {
+        return filter;
     }
 }

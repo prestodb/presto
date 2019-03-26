@@ -18,6 +18,7 @@ import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.stream.InputStreamSources;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.io.Closer;
@@ -50,6 +51,13 @@ public class MapStreamReader
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         directReader = new MapDirectStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
         flatReader = new MapFlatStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
+    }
+
+    @Override
+    public void setReferencedSubfields(List<Subfield> subfields, int depth)
+    {
+        flatReader.setReferencedSubfields(subfields, depth);
+        directReader.setReferencedSubfields(subfields, depth);
     }
 
     @Override

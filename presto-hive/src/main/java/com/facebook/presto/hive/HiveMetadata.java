@@ -223,11 +223,14 @@ import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Predicates.in;
+import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Maps.filterKeys;
 import static com.google.common.collect.Streams.stream;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -1703,6 +1706,15 @@ public class HiveMetadata
             throw new TableNotFoundException(handle.getSchemaTableName());
         }
 
+        if (isPushdownFilterEnabled(session, handle)) {
+            List<ColumnHandle> partitionColumns = layoutHandle.getPartitionColumns();
+            if (!layoutHandle.getDomainPredicate().getDomains()
+                    .map(domains -> filterKeys(domains, not(in(partitionColumns))))
+                    .orElse(ImmutableMap.of()).isEmpty()) {
+                throw new PrestoException(NOT_SUPPORTED, "This connector only supports delete where one or more partitions are deleted entirely");
+            }
+        }
+
         if (table.get().getPartitionColumns().isEmpty()) {
             metastore.truncateUnpartitionedTable(session, handle.getSchemaName(), handle.getTableName());
         }
@@ -1772,6 +1784,7 @@ public class HiveMetadata
         TupleDomain<ColumnHandle> entireColumnDomain = decomposedFilter.getTupleDomain()
                 .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
                 .transform(columnHandles::get);
+
         // TODO Extract deterministic conjuncts that apply to partition columns and specify these as Contraint#predicate
         HivePartitionResult hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, new Constraint<>(entireColumnDomain), session);
 
@@ -1831,6 +1844,33 @@ public class HiveMetadata
             builder.add(variable);
             return null;
         }
+    }
+
+    @Override
+    public Map<ColumnHandle, ColumnHandle> pushdownSubfieldPruning(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            Map<ColumnHandle, List<Subfield>> desiredSubfields)
+    {
+        if (!isPushdownFilterEnabled(session, table)) {
+            return ImmutableMap.of();
+        }
+
+        ImmutableMap.Builder<ColumnHandle, ColumnHandle> newColumnHandles = ImmutableMap.builder();
+        for (Map.Entry<ColumnHandle, List<Subfield>> entry : desiredSubfields.entrySet()) {
+            HiveColumnHandle columnHandle = (HiveColumnHandle) entry.getKey();
+            newColumnHandles.put(columnHandle, new HiveColumnHandle(
+                    columnHandle.getName(),
+                    columnHandle.getHiveType(),
+                    columnHandle.getTypeSignature(),
+                    columnHandle.getHiveColumnIndex(),
+                    columnHandle.getColumnType(),
+                    columnHandle.getComment(),
+                    null,
+                    entry.getValue()));
+        }
+
+        return newColumnHandles.build();
     }
 
     @Override
@@ -1895,7 +1935,22 @@ public class HiveMetadata
         List<ColumnHandle> partitionColumns = hiveLayoutHandle.getPartitionColumns();
         List<HivePartition> partitions = hiveLayoutHandle.getPartitions().get();
 
-        TupleDomain<ColumnHandle> predicate = createPredicate(partitionColumns, partitions);
+        TupleDomain<ColumnHandle> predicate;
+        if (partitions.isEmpty()) {
+            predicate = TupleDomain.none();
+        }
+        else {
+            ImmutableMap.Builder<ColumnHandle, Domain> predicateBuilder = ImmutableMap.builder();
+            hiveLayoutHandle.getDomainPredicate()
+                    .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
+                    .transform(hiveLayoutHandle.getPredicateColumns()::get)
+                    .getDomains()
+                    .map(domains -> filterKeys(domains, not(in(partitionColumns))))
+                    .ifPresent(predicateBuilder::putAll);
+            createPredicate(partitionColumns, partitions).getDomains()
+                    .ifPresent(predicateBuilder::putAll);
+            predicate = withColumnDomains(predicateBuilder.build());
+        }
 
         Optional<DiscretePredicates> discretePredicates = Optional.empty();
         if (!partitionColumns.isEmpty()) {

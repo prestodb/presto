@@ -14,10 +14,13 @@
 package com.facebook.presto.tpch;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
+import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
@@ -27,14 +30,22 @@ public class TpchColumnHandle
 {
     private final String columnName;
     private final Type type;
+    private final List<Subfield> subfieldPaths;
 
     @JsonCreator
     public TpchColumnHandle(
             @JsonProperty("columnName") String columnName,
-            @JsonProperty("type") Type type)
+            @JsonProperty("type") Type type,
+            @JsonProperty("subfieldPaths") List<Subfield> subfieldPaths)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.type = requireNonNull(type, "type is null");
+        this.subfieldPaths = requireNonNull(subfieldPaths, "subfieldPaths is null");
+    }
+
+    public TpchColumnHandle(String columnName, Type type)
+    {
+        this(columnName, type, ImmutableList.of());
     }
 
     @JsonProperty
@@ -49,9 +60,18 @@ public class TpchColumnHandle
         return type;
     }
 
+    @JsonProperty
+    public List<Subfield> getSubfieldPaths()
+    {
+        return subfieldPaths;
+    }
+
     @Override
     public String toString()
     {
+        if (!subfieldPaths.isEmpty()) {
+            return "tpch:" + columnName + subfieldPaths;
+        }
         return "tpch:" + columnName;
     }
 

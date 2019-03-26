@@ -29,6 +29,9 @@ import com.facebook.presto.orc.reader.StreamReader;
 import com.facebook.presto.orc.reader.StreamReaders;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageSourceOptions;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
@@ -47,6 +50,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -60,9 +64,12 @@ import static com.facebook.presto.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
 import static com.facebook.presto.orc.OrcWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
 import static java.util.Comparator.comparingLong;
 import static java.util.Objects.requireNonNull;
@@ -71,6 +78,12 @@ public class OrcRecordReader
         implements Closeable
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcRecordReader.class).instanceSize();
+    public static final long UNLIMITED_BUDGET = Long.MAX_VALUE;
+    private static final int MIN_BATCH_ROWS = 4;
+    private static final int ROW_GROUP_REVIEW_INTERVAL = 1;
+    private static final int BATCH_HARD_SHRINK_FACTOR = 16;
+    private static final int BATCH_SOFT_SHRINK_FACTOR = 16;
+    private static final int BATCH_GROW_FACTOR = 2;
 
     private final OrcDataSource orcDataSource;
 
@@ -101,7 +114,8 @@ public class OrcRecordReader
 
     private Iterator<RowGroup> rowGroups = ImmutableList.<RowGroup>of().iterator();
     private int currentRowGroup = -1;
-    private long currentGroupRowCount;
+    private RowGroup currentRowGroupObject;
+    private int currentGroupRowCount;
     private long nextRowInGroup;
 
     private final Map<String, Slice> userMetadata;
@@ -114,9 +128,35 @@ public class OrcRecordReader
     private final Optional<StatisticsValidation> stripeStatisticsValidation;
     private final Optional<StatisticsValidation> fileStatisticsValidation;
 
+    private final boolean reorderFilters;
+    private final boolean enforceMemoryBudget;
+
+    private final List<Integer> outputColumns;
+    private final OrcPredicate predicate;
+    private final Map<Integer, Filter> columnFilters;
+    private final List<AbstractFilterFunction> filterFunctions;
+    // For getNextPage interface.
+    private ColumnGroupReader reader;
+    private QualifyingSet qualifyingSet = new QualifyingSet();
+    private int numResults;
+    private int targetResultBytes;
+    private int targetResultRows = 30000;
+    private boolean reuseBlocks;
+    private int ariaBatchRows = 1000;
+    private long numAriaBytes;
+    private long numAriaRows;
+    private boolean constantFilterIsFalse;
+    private Throwable constantError;
+    private Block[] constantBlocks;
+    private List<AbstractFilterFunction> nonDeterministicConstantFilters;
+
     public OrcRecordReader(
+            List<Integer> outputColumns,
             Map<Integer, Type> includedColumns,
+            Map<Integer, List<Subfield>> includedSubfields,
             OrcPredicate predicate,
+            Map<Integer, Filter> columnFilters,
+            List<AbstractFilterFunction> filterFunctions,
             long numberOfRows,
             List<StripeInformation> fileStripes,
             List<ColumnStatistics> fileStats,
@@ -136,9 +176,12 @@ public class OrcRecordReader
             Map<String, Slice> userMetadata,
             AggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
-            int initialBatchSize)
+            int initialBatchSize,
+            boolean reorderFilters,
+            boolean enforceMemoryBudget)
     {
         requireNonNull(includedColumns, "includedColumns is null");
+        requireNonNull(includedSubfields, "includedSubfields is null");
         requireNonNull(predicate, "predicate is null");
         requireNonNull(fileStripes, "fileStripes is null");
         requireNonNull(stripeStats, "stripeStats is null");
@@ -149,6 +192,7 @@ public class OrcRecordReader
         requireNonNull(userMetadata, "userMetadata is null");
         requireNonNull(systemMemoryUsage, "systemMemoryUsage is null");
 
+        this.outputColumns = requireNonNull(outputColumns, "outputColumns is null");
         this.includedColumns = requireNonNull(includedColumns, "includedColumns is null");
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
         this.writeChecksumBuilder = writeValidation.map(validation -> createWriteChecksumBuilder(includedColumns));
@@ -156,6 +200,11 @@ public class OrcRecordReader
         this.stripeStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(includedColumns));
         this.fileStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(includedColumns));
         this.systemMemoryUsage = systemMemoryUsage.newAggregatedMemoryContext();
+        this.predicate = predicate;
+        this.columnFilters = requireNonNull(columnFilters, "columnFilters is null");
+        this.filterFunctions = requireNonNull(filterFunctions, "filterFunctions is null");
+        this.reorderFilters = reorderFilters;
+        this.enforceMemoryBudget = enforceMemoryBudget;
 
         // reduce the included columns to the set that is also present
         ImmutableSet.Builder<Integer> presentColumns = ImmutableSet.builder();
@@ -238,7 +287,7 @@ public class OrcRecordReader
                 metadataReader,
                 writeValidation);
 
-        streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, presentColumnsAndTypes.build(), streamReadersSystemMemoryContext);
+        streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, presentColumnsAndTypes.build(), includedSubfields, streamReadersSystemMemoryContext);
         maxBytesPerCell = new long[streamReaders.length];
         nextBatchSize = initialBatchSize;
     }
@@ -394,9 +443,9 @@ public class OrcRecordReader
         // single fixed width column are: 1, 16, 256, 1024, 1024,..., 1024, 256 and the 256 was because there is only
         // 256 rows left in this row group, then the nextBatchSize should be 1024 instead of 512. So we need to grow the
         // nextBatchSize before limiting the currentBatchSize by currentGroupRowCount - nextRowInGroup.
-        currentBatchSize = toIntExact(min(nextBatchSize, maxBatchSize));
-        nextBatchSize = min(currentBatchSize * BATCH_SIZE_GROWTH_FACTOR, MAX_BATCH_SIZE);
-        currentBatchSize = toIntExact(min(currentBatchSize, currentGroupRowCount - nextRowInGroup));
+        currentBatchSize = min(nextBatchSize, maxBatchSize);
+        nextBatchSize = min(multiplyExact(currentBatchSize, BATCH_SIZE_GROWTH_FACTOR), MAX_BATCH_SIZE);
+        currentBatchSize = min(currentBatchSize, toIntExact(currentGroupRowCount - nextRowInGroup));
 
         for (StreamReader column : streamReaders) {
             if (column != null) {
@@ -422,12 +471,6 @@ public class OrcRecordReader
             }
         }
         return block;
-    }
-
-    public StreamReader getStreamReader(int index)
-    {
-        checkArgument(index < streamReaders.length, "index does not exist");
-        return streamReaders[index];
     }
 
     public Map<String, Slice> getUserMetadata()
@@ -459,24 +502,29 @@ public class OrcRecordReader
         }
 
         currentRowGroup++;
-        RowGroup currentRowGroup = rowGroups.next();
-        currentGroupRowCount = currentRowGroup.getRowCount();
-        if (currentRowGroup.getMinAverageRowBytes() > 0) {
-            maxBatchSize = toIntExact(min(maxBatchSize, max(1, maxBlockBytes / currentRowGroup.getMinAverageRowBytes())));
+        currentRowGroupObject = rowGroups.next();
+        currentGroupRowCount = toIntExact(currentRowGroupObject.getRowCount());
+        if (currentRowGroupObject.getMinAverageRowBytes() > 0) {
+            maxBatchSize = toIntExact(min(maxBatchSize, max(1, maxBlockBytes / currentRowGroupObject.getMinAverageRowBytes())));
         }
 
-        currentPosition = currentStripePosition + currentRowGroup.getRowOffset();
-        filePosition = stripeFilePositions.get(currentStripe) + currentRowGroup.getRowOffset();
+        setReadersToCurrentRowGroup();
+        return true;
+    }
+
+    private void setReadersToCurrentRowGroup()
+            throws IOException
+    {
+        currentPosition = currentStripePosition + currentRowGroupObject.getRowOffset();
+        filePosition = stripeFilePositions.get(currentStripe) + currentRowGroupObject.getRowOffset();
 
         // give reader data streams from row group
-        InputStreamSources rowGroupStreamSources = currentRowGroup.getStreamSources();
+        InputStreamSources rowGroupStreamSources = currentRowGroupObject.getStreamSources();
         for (StreamReader column : streamReaders) {
             if (column != null) {
                 column.startRowGroup(rowGroupStreamSources);
             }
         }
-
-        return true;
     }
 
     private void advanceToNextStripe()
@@ -507,7 +555,7 @@ public class OrcRecordReader
         StripeInformation stripeInformation = stripes.get(currentStripe);
         validateWriteStripe(stripeInformation.getNumberOfRows());
 
-        Stripe stripe = stripeReader.readStripe(stripeInformation, currentStripeSystemMemoryContext);
+        Stripe stripe = stripeReader.readStripe(stripeInformation, currentStripeSystemMemoryContext, true);
         if (stripe != null) {
             // Give readers access to dictionary streams
             InputStreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();
@@ -558,6 +606,7 @@ public class OrcRecordReader
             List<OrcType> types,
             DateTimeZone hiveStorageTimeZone,
             Map<Integer, Type> includedColumns,
+            Map<Integer, List<Subfield>> includedSubfields,
             AggregatedMemoryContext systemMemoryContext)
     {
         List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, types, orcDataSource).getNestedStreams();
@@ -568,8 +617,14 @@ public class OrcRecordReader
             if (includedColumns.containsKey(columnId)) {
                 StreamDescriptor streamDescriptor = streamDescriptors.get(columnId);
                 streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
+
+                List<Subfield> subfieldPaths = includedSubfields.get(columnId);
+                if (subfieldPaths != null) {
+                    streamReaders[columnId].setReferencedSubfields(subfieldPaths, 0);
+                }
             }
         }
+
         return streamReaders;
     }
 
@@ -719,6 +774,235 @@ public class OrcRecordReader
             List<DiskRange> diskRanges = mergeAdjacentDiskRanges(scratchDiskRanges, maxMergeDistance, tinyStripeThreshold);
 
             return new LinearProbeRangeFinder(diskRanges);
+        }
+    }
+
+    public void pushdownFilterAndProjection(PageSourceOptions options, int[] channelColumns, List<Type> types, Block[] constantBlocks)
+    {
+        reuseBlocks = options.getReusePages();
+        this.constantBlocks = requireNonNull(constantBlocks, "constantBlocks is null");
+        verify(currentRowGroup == -1, "Should not call pushdownFilterAndProjection() after getNextPage()");
+        for (int i = 0; i < channelColumns.length; i++) {
+            if (constantBlocks[i] != null) {
+                Filter filter = columnFilters.get(channelColumns[i]);
+                if (filter != null) {
+                    verify(constantBlocks[i].isNull(0), "Non-null constant blocks are not supported");
+                    if (!filter.testNull()) {
+                        constantFilterIsFalse = true;
+                        return;
+                    }
+                }
+            }
+        }
+
+        boolean anyConstantFilterFunctions = false;
+        ImmutableList.Builder<AbstractFilterFunction> nonDeterministicBuilder = ImmutableList.builder();
+        for (AbstractFilterFunction filter : filterFunctions) {
+            if (isConstantFilterFunction(filter, constantBlocks)) {
+                if (filter.isDeterministic()) {
+                    qualifyingSet.setRange(0, 1);
+                    evaluateConstantFilterFunction(filter, constantBlocks, qualifyingSet);
+                    if (qualifyingSet.isEmpty()) {
+                        constantFilterIsFalse = true;
+                        return;
+                    }
+                    ErrorSet errors = qualifyingSet.getOrCreateErrorSet();
+                    if (!errors.isEmpty()) {
+                        constantError = errors.getFirstError(1);
+                    }
+                }
+                else {
+                    nonDeterministicBuilder.add(filter);
+                }
+                anyConstantFilterFunctions = true;
+            }
+        }
+
+        nonDeterministicConstantFilters = nonDeterministicBuilder.build();
+
+        AbstractFilterFunction[] nonConstantFilterFunctions;
+        if (anyConstantFilterFunctions) {
+            nonConstantFilterFunctions = filterFunctions.stream()
+                    .filter(f -> !isConstantFilterFunction(f, constantBlocks))
+                    .toArray(AbstractFilterFunction[]::new);
+        }
+        else {
+            nonConstantFilterFunctions = this.filterFunctions.toArray(new AbstractFilterFunction[0]);
+        }
+
+        int[] channels = new int[outputColumns.size()];
+        for (int i = 0; i < outputColumns.size(); i++) {
+            channels[i] = outputColumns.get(i) == -1 ? -1 : i;
+        }
+
+        reader = new ColumnGroupReader(
+                streamReaders,
+                presentColumns,
+                channelColumns,
+                types,
+                channels,
+                channels,
+                columnFilters,
+                nonConstantFilterFunctions,
+                enforceMemoryBudget,
+                constantBlocks);
+        targetResultBytes = options.getTargetBytes();
+        reader.setResultSizeBudget(targetResultBytes);
+    }
+
+    private static boolean isConstantFilterFunction(AbstractFilterFunction filter, Block[] constantBlocks)
+    {
+        return Arrays.stream(filter.getInputChannels()).allMatch(channel -> constantBlocks[channel] != null);
+    }
+
+    private static void evaluateConstantFilterFunction(AbstractFilterFunction filter, Block[] constantBlocks, QualifyingSet qualifyingSet)
+    {
+        int[] channels = filter.getInputChannels();
+        Block[] inputs = new Block[channels.length];
+        for (int i = 0; i < channels.length; i++) {
+            inputs[i] = constantBlocks[channels[i]];
+        }
+        int[] filterResults = new int[qualifyingSet.getPositionCount()];
+        ErrorSet errors = qualifyingSet.getOrCreateErrorSet();
+        int numHits = filter.filter(new Page(qualifyingSet.getPositionCount(), inputs), filterResults, errors);
+        qualifyingSet.compactPositionsAndErrors(filterResults, numHits);
+    }
+
+    public Page getNextPage()
+            throws IOException
+    {
+        if (constantFilterIsFalse) {
+            return null;
+        }
+        reader.newBatch(numResults);
+        numResults = 0;
+        for (; ; ) {
+            if (currentRowGroup == -1 || (qualifyingSet.isEmpty() && qualifyingSet.getEnd() == currentGroupRowCount)) {
+                if (currentPosition == totalRowCount) {
+                    return null;
+                }
+                if (!advanceToNextRowGroup()) {
+                    if (reorderFilters && currentRowGroup < ROW_GROUP_REVIEW_INTERVAL * 2) {
+                        // If file ends before 2 reorder checks, do
+                        // one more. Subsequent splits may start with
+                        // the adaptation from the previous one.
+                        reader.maybeReorderFilters();
+                    }
+                    filePosition = fileRowCount;
+                    currentPosition = totalRowCount;
+                    return resultPage();
+                }
+                qualifyingSet.setRange(0, Math.min(ariaBatchRows, currentGroupRowCount));
+                reader.setQualifyingSets(qualifyingSet, null);
+                if (currentRowGroup != 0 && (currentRowGroup % ROW_GROUP_REVIEW_INTERVAL == 0)) {
+                    // Decay row size stats and reconsider filter
+                    // order every ROW_GROUP_REVIEW_INTERVAL row
+                    // groups.
+                    numAriaRows /= 2;
+                    numAriaBytes /= 2;
+                    if (reorderFilters) {
+                        reader.maybeReorderFilters();
+                    }
+                }
+                if (numResults > 0 && reader.mustExtractValuesBeforeScan(currentRowGroup == 0)) {
+                    return resultPage();
+                }
+            }
+            if (qualifyingSet.isEmpty()) {
+                qualifyingSet.setRange(qualifyingSet.getEnd(), Math.min(qualifyingSet.getEnd() + ariaBatchRows, currentGroupRowCount));
+            }
+            long bytesBeforeAdvance = reader.getResultSizeInBytes();
+            int numResultsBeforeAdvance = reader.getNumResults();
+            // Decimates qualifyingSet by any column-independent
+            // nondeterministic filters.
+            applyNonDeterministicConstantFilters();
+            if (qualifyingSet.isEmpty()) {
+                continue;
+            }
+            try {
+                reader.advance();
+            }
+            catch (BatchTooLargeException e) {
+                // The reader ran out of budget. Retry with a smaller
+                // input qualifying set. First remove any values added
+                // by the last advance.  The input qualifying set is
+                // unaltered when the reader throws this exception.
+                // If we are at minimum batch size we must also have unlimited budget. Check that this path is not taken with minimum batch size.
+                int batchSize = qualifyingSet.getEnd() - qualifyingSet.getPositions()[0];
+                verify(batchSize > MIN_BATCH_ROWS, "Running out of unlimited budget with minimum batch size");
+                reader.compactValues(new int[0], numResultsBeforeAdvance, 0);
+                ariaBatchRows = Math.max(MIN_BATCH_ROWS, ariaBatchRows / BATCH_HARD_SHRINK_FACTOR);
+                int[] rows = qualifyingSet.getPositions();
+                int numRows = Math.min(ariaBatchRows, batchSize);
+                qualifyingSet.setPositionCount(numRows);
+                // The first row not in scope is 1 above the last in scope.
+                qualifyingSet.setEnd(rows[numRows - 1] + 1);
+                setReadersToCurrentRowGroup();
+                if (reader.getNumResults() > 0) {
+                    setReaderBudget();
+                    return resultPage();
+                }
+                continue;
+            }
+            if (adjustAndCheckIfFullBatch(numResultsBeforeAdvance, bytesBeforeAdvance)) {
+                return resultPage();
+            }
+        }
+    }
+
+    private boolean adjustAndCheckIfFullBatch(int numResultsBeforeAdvance, long bytesBeforeAdvance)
+    {
+        numResults = reader.getNumResults();
+        long readerBytes = reader.getResultSizeInBytes();
+        long bytesInLastBatch = readerBytes - bytesBeforeAdvance;
+        numAriaBytes += bytesInLastBatch;
+        numAriaRows += numResults - numResultsBeforeAdvance;
+        if (bytesInLastBatch > targetResultBytes && ariaBatchRows > MIN_BATCH_ROWS) {
+            // Make batch smaller if not already at minimum.
+            ariaBatchRows = Math.max(ariaBatchRows / BATCH_SOFT_SHRINK_FACTOR, MIN_BATCH_ROWS);
+        }
+        else if (bytesInLastBatch == 0 && numAriaRows > 0) {
+            // If skipping over no hits, do not make the batch
+            // size too much larger than the number of hits that
+            // fit in a batch so as to avoid a retry.
+            long averageRowSize = numAriaBytes / (1 + numAriaRows);
+            int averageNumHitsInBatch = toIntExact(targetResultBytes / (1 + averageRowSize));
+            ariaBatchRows = Math.min(averageNumHitsInBatch * 2, ariaBatchRows * BATCH_SOFT_SHRINK_FACTOR);
+        }
+        else if (bytesInLastBatch < targetResultBytes / 8) {
+            // If filled less than 1/8 of the quota, can have
+            // larger batch next time.
+            ariaBatchRows = Math.min(ariaBatchRows * BATCH_GROW_FACTOR, currentGroupRowCount);
+        }
+        setReaderBudget();
+        // The result is full if there would not be room for another
+        // batch of the same size as the last. The cap on row count
+        // causes the scan to periodically return even if it does not
+        // project out column values so that the caller can check for yield
+        // and interruptions.
+        return numResults > targetResultRows || readerBytes > targetResultBytes - bytesInLastBatch;
+    }
+
+    private void setReaderBudget()
+    {
+        reader.setResultSizeBudget(ariaBatchRows <= MIN_BATCH_ROWS ? UNLIMITED_BUDGET : targetResultBytes);
+    }
+
+    private Page resultPage()
+    {
+        if (numResults == 0) {
+            return null;
+        }
+        if (constantError != null) {
+            throw new PrestoException(GENERIC_USER_ERROR, constantError);
+        }
+        return new Page(numResults, reader.getBlocks(numResults, reuseBlocks, false));
+    }
+
+    private void applyNonDeterministicConstantFilters()
+    {
+        for (AbstractFilterFunction filter : nonDeterministicConstantFilters) {
+            evaluateConstantFilterFunction(filter, constantBlocks, qualifyingSet);
         }
     }
 }

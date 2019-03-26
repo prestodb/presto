@@ -29,7 +29,13 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.InputReferenceExpression;
+import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.RowExpressionVisitor;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -77,6 +83,7 @@ import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToR
 import static com.facebook.presto.sql.relational.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
@@ -243,7 +250,9 @@ public class PickTableLayout
                         tableScanNode.getOutputVariables(),
                         tableScanNode.getAssignments(),
                         pushdownFilterResult.getLayout().getPredicate(),
-                        TupleDomain.all()));
+                        TupleDomain.all(),
+                        tableScanNode.isTemporaryTable(),
+                        tableScanNode.getRequiredSubfieldPaths()));
             }
 
             TableLayoutResult layout = metadata.getLayout(
@@ -264,7 +273,69 @@ public class PickTableLayout
                     tableScanNode.getOutputVariables(),
                     tableScanNode.getAssignments(),
                     layout.getLayout().getPredicate(),
-                    TupleDomain.all()));
+                    TupleDomain.all(),
+                    tableScanNode.isTemporaryTable(),
+                    tableScanNode.getRequiredSubfieldPaths()));
+        }
+    }
+
+    private static final class TranslateVariableNamesVisitor
+            implements RowExpressionVisitor<RowExpression, Map<String, String>>
+    {
+        @Override
+        public RowExpression visitCall(CallExpression call, Map<String, String> context)
+        {
+            return new CallExpression(
+                    call.getDisplayName(),
+                    call.getFunctionHandle(),
+                    call.getType(),
+                    call.getArguments().stream()
+                            .map(expression -> expression.accept(this, context))
+                            .collect(toImmutableList()));
+        }
+
+        @Override
+        public RowExpression visitInputReference(InputReferenceExpression reference, Map<String, String> context)
+        {
+            return reference;
+        }
+
+        @Override
+        public RowExpression visitConstant(ConstantExpression literal, Map<String, String> context)
+        {
+            return literal;
+        }
+
+        @Override
+        public RowExpression visitLambda(LambdaDefinitionExpression lambda, Map<String, String> context)
+        {
+            return new LambdaDefinitionExpression(
+                    lambda.getArgumentTypes(),
+                    lambda.getArguments(),
+                    lambda.getBody().accept(this, context));
+        }
+
+        @Override
+        public RowExpression visitVariableReference(VariableReferenceExpression reference, Map<String, String> context)
+        {
+            String newName = context.get(reference.getName());
+            if (newName != null) {
+                return new VariableReferenceExpression(newName, reference.getType());
+            }
+
+            // This variable must be part of a lambda expression
+            return reference;
+        }
+
+        @Override
+        public RowExpression visitSpecialForm(SpecialFormExpression specialForm, Map<String, String> context)
+        {
+            return new SpecialFormExpression(
+                    specialForm.getForm(),
+                    specialForm.getType(),
+                    specialForm.getArguments().stream()
+                            .map(expression -> expression.accept(this, context))
+                            .collect(toImmutableList()));
         }
     }
 
@@ -309,7 +380,9 @@ public class PickTableLayout
                     node.getOutputVariables(),
                     node.getAssignments(),
                     layout.getPredicate(),
-                    TupleDomain.all());
+                    TupleDomain.all(),
+                    node.isTemporaryTable(),
+                    node.getRequiredSubfieldPaths());
 
             RowExpression unenforcedFilter = pushdownFilterResult.getUnenforcedFilter();
             if (!TRUE_CONSTANT.equals(unenforcedFilter)) {
@@ -376,7 +449,9 @@ public class PickTableLayout
                 node.getOutputVariables(),
                 node.getAssignments(),
                 layout.getLayout().getPredicate(),
-                computeEnforced(newDomain, layout.getUnenforcedConstraint()));
+                computeEnforced(newDomain, layout.getUnenforcedConstraint()),
+                node.isTemporaryTable(),
+                node.getRequiredSubfieldPaths());
 
         // The order of the arguments to combineConjuncts matters:
         // * Unenforced constraints go first because they can only be simple column references,

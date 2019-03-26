@@ -105,7 +105,7 @@ public class StripeReader
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
     }
 
-    public Stripe readStripe(StripeInformation stripe, AggregatedMemoryContext systemMemoryUsage)
+    public Stripe readStripe(StripeInformation stripe, AggregatedMemoryContext systemMemoryUsage, boolean alwaysUseCheckpoints)
             throws IOException
     {
         // read the stripe footer

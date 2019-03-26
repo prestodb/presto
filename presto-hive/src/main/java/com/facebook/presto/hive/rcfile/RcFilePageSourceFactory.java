@@ -27,7 +27,9 @@ import com.facebook.presto.rcfile.text.TextRcFileEncoding;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableMap;
@@ -58,6 +60,8 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
 import static com.facebook.presto.rcfile.text.TextRcFileEncoding.DEFAULT_NULL_SEQUENCE;
 import static com.facebook.presto.rcfile.text.TextRcFileEncoding.DEFAULT_SEPARATORS;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -98,8 +102,10 @@ public class RcFilePageSourceFactory
             long length,
             long fileSize,
             Properties schema,
+            List<HiveColumnHandle> outputColumns,
             List<HiveColumnHandle> columns,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
+            TupleDomain<Subfield> domainPredicate,
+            RowExpression remainingPredicate,
             DateTimeZone hiveStorageTimeZone)
     {
         RcFileEncoding rcFileEncoding;
@@ -116,6 +122,12 @@ public class RcFilePageSourceFactory
 
         if (fileSize == 0) {
             throw new PrestoException(HIVE_BAD_DATA, "RCFile is empty: " + path);
+        }
+
+        checkArgument(TRUE_CONSTANT.equals(remainingPredicate), "RC file reader doesn't support arbitrary predicates");
+        if (domainPredicate.getDomains().isPresent()) {
+            checkArgument(domainPredicate.transform(subfield -> !isEntireColumn(subfield) ? subfield : null).isAll(),
+                    "RC file reader doesn't support predicates on subfields");
         }
 
         FSDataInputStream inputStream;
@@ -170,6 +182,11 @@ public class RcFilePageSourceFactory
             }
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
+    }
+
+    private static boolean isEntireColumn(Subfield subfield)
+    {
+        return subfield.getPath().isEmpty();
     }
 
     private static String splitError(Throwable t, Path path, long start, long length)

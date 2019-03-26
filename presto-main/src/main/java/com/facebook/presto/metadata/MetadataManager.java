@@ -34,6 +34,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
@@ -374,6 +375,18 @@ public class MetadataManager
             return metadata.getSystemTable(session.toConnectorSession(connectorId), tableName.asSchemaTableName());
         }
         return Optional.empty();
+    }
+
+    @Override
+    public Map<ColumnHandle, ColumnHandle> pushdownSubfieldPruning(Session session, TableHandle tableHandle, Map<ColumnHandle, List<Subfield>> desiredSubfields)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorTableHandle connectorTable = tableHandle.getConnectorHandle();
+
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+        return metadata.pushdownSubfieldPruning(connectorSession, connectorTable, desiredSubfields);
     }
 
     @Override

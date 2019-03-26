@@ -394,6 +394,7 @@ public final class ExpressionDomainTranslator
             if (!optionalNormalized.isPresent()) {
                 return super.visitComparisonExpression(node, complement);
             }
+
             NormalizedSimpleComparison normalized = optionalNormalized.get();
 
             Expression symbolExpression = normalized.getSymbolExpression();
@@ -403,7 +404,8 @@ public final class ExpressionDomainTranslator
                 Type type = value.getType(); // common type for symbol and value
                 return createComparisonExtractionResult(normalized.getComparisonOperator(), symbol, type, value.getValue(), complement);
             }
-            else if (symbolExpression instanceof Cast) {
+
+            if (symbolExpression instanceof Cast) {
                 Cast castExpression = (Cast) symbolExpression;
                 if (!isImplicitCoercion(castExpression)) {
                     //
@@ -439,9 +441,8 @@ public final class ExpressionDomainTranslator
 
                 return super.visitComparisonExpression(node, complement);
             }
-            else {
-                return super.visitComparisonExpression(node, complement);
-            }
+
+            return super.visitComparisonExpression(node, complement);
         }
 
         /**

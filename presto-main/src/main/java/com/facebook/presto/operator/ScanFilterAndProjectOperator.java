@@ -23,6 +23,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.PageSourceOptions;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.UpdatablePageSource;
@@ -47,6 +48,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.SystemSessionProperties.isAriaScanEnabled;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
@@ -77,6 +79,8 @@ public class ScanFilterAndProjectOperator
 
     private long completedBytes;
     private long readTimeNanos;
+
+    private boolean reusePages;
 
     protected ScanFilterAndProjectOperator(
             OperatorContext operatorContext,
@@ -224,6 +228,7 @@ public class ScanFilterAndProjectOperator
             }
             else {
                 pageSource = source;
+                setupAria();
             }
         }
 
@@ -387,5 +392,29 @@ public class ScanFilterAndProjectOperator
         {
             closed = true;
         }
+    }
+
+    private void setupAria()
+    {
+        if (!isAriaScanEnabled(operatorContext.getSession())) {
+            return;
+        }
+
+        PageSourceOptions options = new PageSourceOptions(
+                reusePages,
+                mergingOutput.getMinPageSizeInBytes());
+        pageSource.pushdownFilterAndProjection(options);
+    }
+
+    @Override
+    public boolean retainsInputPages()
+    {
+        return false;
+    }
+
+    @Override
+    public void enableOutputPageReuse()
+    {
+        reusePages = true;
     }
 }

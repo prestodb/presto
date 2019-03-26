@@ -21,9 +21,14 @@ import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
+import com.facebook.presto.spi.Subfield;
+import com.facebook.presto.spi.Subfield.LongSubscript;
+import com.facebook.presto.spi.Subfield.PathElement;
 import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
@@ -39,7 +44,9 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.StreamReaders.createStreamReader;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.spi.Subfield.allSubscripts;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -65,10 +72,47 @@ public class ListStreamReader
 
     private boolean rowGroupOpen;
 
+    // The set of subscripts for which data needs to be
+    // returned. Other positions can be initialized to null. If this
+    // is null, values for all subscripts must be returned.
+    private int[] subscripts;
+
     public ListStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.elementStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone, systemMemoryContext);
+    }
+
+    @Override
+    public void setReferencedSubfields(List<Subfield> subfields, int depth)
+    {
+        ImmutableSet.Builder<Integer> referencedSubscripts = ImmutableSet.builder();
+        ImmutableList.Builder<Subfield> pathsForElement = ImmutableList.builder();
+        boolean mayPruneElement = true;
+        for (Subfield subfield : subfields) {
+            List<PathElement> pathElements = subfield.getPath();
+            PathElement subscript = pathElements.get(depth);
+            checkArgument(subscript instanceof LongSubscript, "List reader needs a PathElement with a subscript");
+            if (subscript == allSubscripts()) {
+                referencedSubscripts = null;
+            }
+            else {
+                referencedSubscripts.add(toIntExact(((LongSubscript) subscript).getIndex()));
+            }
+            if (pathElements.size() > depth) {
+                pathsForElement.add(subfield);
+            }
+            else {
+                mayPruneElement = false;
+            }
+        }
+        if (mayPruneElement) {
+            elementStreamReader.setReferencedSubfields(pathsForElement.build(), depth + 1);
+        }
+        subscripts = referencedSubscripts.build().stream()
+                .sorted()
+                .mapToInt(Integer::intValue)
+                .toArray();
     }
 
     @Override

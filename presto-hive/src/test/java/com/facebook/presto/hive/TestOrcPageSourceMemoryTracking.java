@@ -92,11 +92,15 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveTestUtils.DETERMINISM_EVALUATOR;
+import static com.facebook.presto.hive.HiveTestUtils.EXPRESSION_OPTIMIZER;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static com.facebook.presto.hive.HiveTestUtils.PREDICATE_COMPILER;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -136,8 +140,8 @@ public class TestOrcPageSourceMemoryTracking
 
     private final Random random = new Random();
     private final List<TestColumn> testColumns = ImmutableList.<TestColumn>builder()
-            .add(new TestColumn("p_empty_string", javaStringObjectInspector, () -> "", true))
             .add(new TestColumn("p_string", javaStringObjectInspector, () -> Long.toHexString(random.nextLong()), false))
+            .add(new TestColumn("p_empty_string", javaStringObjectInspector, () -> "", true))
             .build();
 
     private File tempFile;
@@ -182,7 +186,7 @@ public class TestOrcPageSourceMemoryTracking
             assertFalse(pageSource.isFinished());
             Page page = pageSource.getNextPage();
             assertNotNull(page);
-            Block block = page.getBlock(1);
+            Block block = page.getBlock(0);
 
             if (memoryUsage == -1) {
                 assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 180000L, 189999L); // Memory usage before lazy-loading the block
@@ -203,7 +207,7 @@ public class TestOrcPageSourceMemoryTracking
             assertFalse(pageSource.isFinished());
             Page page = pageSource.getNextPage();
             assertNotNull(page);
-            Block block = page.getBlock(1);
+            Block block = page.getBlock(0);
 
             if (memoryUsage == -1) {
                 assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 180000L, 189999L); // Memory usage before lazy-loading the block
@@ -224,7 +228,7 @@ public class TestOrcPageSourceMemoryTracking
             assertFalse(pageSource.isFinished());
             Page page = pageSource.getNextPage();
             assertNotNull(page);
-            Block block = page.getBlock(1);
+            Block block = page.getBlock(0);
 
             if (memoryUsage == -1) {
                 assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 90000L, 99999L); // Memory usage before lazy-loading the block
@@ -264,7 +268,7 @@ public class TestOrcPageSourceMemoryTracking
                 .add(new TestColumn("p_empty_string", javaStringObjectInspector, () -> "", true));
         GrowingTestColumn[] dataColumns = new GrowingTestColumn[numColumns];
         for (int i = 0; i < numColumns; i++) {
-            dataColumns[i] = new GrowingTestColumn("p_string", javaStringObjectInspector, () -> Long.toHexString(random.nextLong()), false, step * (i + 1));
+            dataColumns[i] = new GrowingTestColumn("p_string_" + i, javaStringObjectInspector, () -> Long.toHexString(random.nextLong()), false, step * (i + 1));
             columnBuilder.add(dataColumns[i]);
         }
         List<TestColumn> testColumns = columnBuilder.build();
@@ -322,7 +326,7 @@ public class TestOrcPageSourceMemoryTracking
             assertFalse(operator.isFinished());
             Page page = operator.getOutput();
             assertNotNull(page);
-            page.getBlock(1);
+            page.getBlock(0);
             if (memoryUsage == -1) {
                 memoryUsage = driverContext.getSystemMemoryUsage();
                 assertBetweenInclusive(memoryUsage, 460000L, 469999L);
@@ -338,7 +342,7 @@ public class TestOrcPageSourceMemoryTracking
             assertFalse(operator.isFinished());
             Page page = operator.getOutput();
             assertNotNull(page);
-            page.getBlock(1);
+            page.getBlock(0);
             if (memoryUsage == -1) {
                 memoryUsage = driverContext.getSystemMemoryUsage();
                 assertBetweenInclusive(memoryUsage, 460000L, 469999L);
@@ -354,7 +358,7 @@ public class TestOrcPageSourceMemoryTracking
             assertFalse(operator.isFinished());
             Page page = operator.getOutput();
             assertNotNull(page);
-            page.getBlock(1);
+            page.getBlock(0);
             if (memoryUsage == -1) {
                 memoryUsage = driverContext.getSystemMemoryUsage();
                 assertBetweenInclusive(memoryUsage, 360000L, 369999L);
@@ -466,7 +470,7 @@ public class TestOrcPageSourceMemoryTracking
 
         public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats, ConnectorSession session)
         {
-            OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT, stats, 100);
+            OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(TYPE_MANAGER, DETERMINISM_EVALUATOR, EXPRESSION_OPTIMIZER, PREDICATE_COMPILER, false, 100, HDFS_ENVIRONMENT, stats);
             return HivePageSourceProvider.createHivePageSource(
                     ImmutableSet.of(),
                     ImmutableSet.of(orcPageSourceFactory),
@@ -479,6 +483,8 @@ public class TestOrcPageSourceMemoryTracking
                     fileSplit.getLength(),
                     schema,
                     TupleDomain.all(),
+                    TRUE_CONSTANT,
+                    ImmutableMap.of(),
                     columns,
                     partitionKeys,
                     DateTimeZone.UTC,

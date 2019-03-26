@@ -22,7 +22,13 @@ import com.facebook.presto.hive.HivePageSourceFactory;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.DeterminismEvaluator;
+import com.facebook.presto.spi.relation.ExpressionOptimizer;
+import com.facebook.presto.spi.relation.PredicateCompiler;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -50,17 +56,40 @@ public class DwrfPageSourceFactory
         implements HivePageSourceFactory
 {
     private final TypeManager typeManager;
+    private final DeterminismEvaluator determinismEvaluator;
+    private final ExpressionOptimizer expressionOptimizer;
+    private final PredicateCompiler predicateCompiler;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
     private final int domainCompactionThreshold;
 
     @Inject
-    public DwrfPageSourceFactory(TypeManager typeManager, HiveClientConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
+    public DwrfPageSourceFactory(
+            TypeManager typeManager,
+            RowExpressionService rowExpressionService,
+            HdfsEnvironment hdfsEnvironment,
+            FileFormatDataSourceStats stats,
+            HiveClientConfig config)
+    {
+        this(typeManager, requireNonNull(rowExpressionService, "rowExpressionService is null").getDeterminismEvaluator(), rowExpressionService.getExpressionOptimizer(), rowExpressionService.getPredicateCompiler(), hdfsEnvironment, stats, requireNonNull(config, "config is null").getDomainCompactionThreshold());
+    }
+
+    public DwrfPageSourceFactory(
+            TypeManager typeManager,
+            DeterminismEvaluator determinismEvaluator,
+            ExpressionOptimizer expressionOptimizer,
+            PredicateCompiler predicateCompiler,
+            HdfsEnvironment hdfsEnvironment,
+            FileFormatDataSourceStats stats,
+            int domainCompactionThreshold)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.determinismEvaluator = requireNonNull(determinismEvaluator, "determinismEvaluator is null");
+        this.expressionOptimizer = requireNonNull(expressionOptimizer, "expressionOptimizer is null");
+        this.predicateCompiler = requireNonNull(predicateCompiler, "predicateCompiler is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
-        this.domainCompactionThreshold = requireNonNull(config, "config is null").getDomainCompactionThreshold();
+        this.domainCompactionThreshold = domainCompactionThreshold;
     }
 
     @Override
@@ -71,8 +100,10 @@ public class DwrfPageSourceFactory
             long length,
             long fileSize,
             Properties schema,
+            List<HiveColumnHandle> outputColumns,
             List<HiveColumnHandle> columns,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
+            TupleDomain<Subfield> domainPredicate,
+            RowExpression remainingPredicate,
             DateTimeZone hiveStorageTimeZone)
     {
         if (!isDeserializerClass(schema, OrcSerde.class)) {
@@ -84,6 +115,7 @@ public class DwrfPageSourceFactory
         }
 
         return Optional.of(createOrcPageSource(
+                session,
                 DWRF,
                 hdfsEnvironment,
                 session.getUser(),
@@ -92,11 +124,16 @@ public class DwrfPageSourceFactory
                 start,
                 length,
                 fileSize,
+                outputColumns,
                 columns,
                 false,
-                effectivePredicate,
+                domainPredicate,
+                remainingPredicate,
                 hiveStorageTimeZone,
                 typeManager,
+                determinismEvaluator,
+                expressionOptimizer,
+                predicateCompiler,
                 getOrcMaxMergeDistance(session),
                 getOrcMaxBufferSize(session),
                 getOrcStreamBufferSize(session),

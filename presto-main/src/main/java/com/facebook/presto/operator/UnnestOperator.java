@@ -259,4 +259,10 @@ public class UnnestOperator
         pageBuilder.reset();
         return page;
     }
+
+    @Override
+    public boolean retainsInputPages()
+    {
+        return false;
+    }
 }

@@ -622,7 +622,8 @@ public class PlanFragmenter
                     assignments,
                     TupleDomain.all(),
                     TupleDomain.all(),
-                    true);
+                    true,
+                    ImmutableMap.of());
         }
 
         private TableFinishNode createTemporaryTableWrite(
@@ -1207,7 +1208,8 @@ public class PlanFragmenter
                     node.getAssignments(),
                     node.getCurrentConstraint(),
                     node.getEnforcedConstraint(),
-                    node.isTemporaryTable());
+                    node.isTemporaryTable(),
+                    node.getRequiredSubfieldPaths());
         }
     }
 

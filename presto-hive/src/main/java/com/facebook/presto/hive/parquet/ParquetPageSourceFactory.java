@@ -27,8 +27,10 @@ import com.facebook.presto.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -71,7 +73,10 @@ import static com.facebook.presto.parquet.ParquetTypeUtils.getDescriptors;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetTypeByName;
 import static com.facebook.presto.parquet.predicate.PredicateUtils.buildPredicate;
 import static com.facebook.presto.parquet.predicate.PredicateUtils.predicateMatches;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -106,13 +111,23 @@ public class ParquetPageSourceFactory
             long length,
             long fileSize,
             Properties schema,
+            List<HiveColumnHandle> outputColumns,
             List<HiveColumnHandle> columns,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
+            TupleDomain<Subfield> domainPredicate,
+            RowExpression remainingPredicate,
             DateTimeZone hiveStorageTimeZone)
     {
         if (!PARQUET_SERDE_CLASS_NAMES.contains(getDeserializerClassName(schema))) {
             return Optional.empty();
         }
+
+        checkArgument(TRUE_CONSTANT.equals(remainingPredicate), "Parquet reader doesn't support arbitrary predicates");
+        if (domainPredicate.getDomains().isPresent()) {
+            checkArgument(domainPredicate.transform(subfield -> !isEntireColumn(subfield) ? subfield : null).isAll(),
+                    "Parquet reader doesn't support predicates on subfields");
+        }
+
+        Map<String, HiveColumnHandle> columnsByName = uniqueIndex(columns, HiveColumnHandle::getName);
 
         return Optional.of(createParquetPageSource(
                 hdfsEnvironment,
@@ -127,8 +142,13 @@ public class ParquetPageSourceFactory
                 isUseParquetColumnNames(session),
                 isFailOnCorruptedParquetStatistics(session),
                 typeManager,
-                effectivePredicate,
+                domainPredicate.transform(subfield -> columnsByName.get(subfield.getRootName())),
                 stats));
+    }
+
+    private static boolean isEntireColumn(Subfield subfield)
+    {
+        return subfield.getPath().isEmpty();
     }
 
     public static ParquetPageSource createParquetPageSource(

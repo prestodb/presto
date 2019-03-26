@@ -48,7 +48,10 @@ public final class OrcInputStream
     private FixedLengthSliceInput current;
 
     private byte[] buffer;
+    private byte[] uncompressedBuffer;
+    private int uncompressedBufferOffset;
     private final LocalMemoryContext bufferMemoryUsage;
+    private boolean isUncompressed;
 
     public OrcInputStream(
             OrcDataSourceId orcDataSourceId,
@@ -83,7 +86,8 @@ public final class OrcInputStream
     @Override
     public void close()
     {
-        // close is never called, so do not add code here
+        // close may be called to unpin cache or pool resources.
+        compressedSliceInput.close();
     }
 
     @Override
@@ -99,6 +103,22 @@ public final class OrcInputStream
     public boolean markSupported()
     {
         return false;
+    }
+
+    public byte[] getBuffer(int minBytes)
+    {
+        if (available() < minBytes) {
+            return null;
+        }
+        if (isUncompressed) {
+            return uncompressedBuffer;
+        }
+        return buffer;
+    }
+
+    public int getOffsetInBuffer()
+    {
+        return (int) current.position() + uncompressedBufferOffset;
     }
 
     @Override
@@ -238,7 +258,7 @@ public final class OrcInputStream
         int b1 = compressedSliceInput.readUnsignedByte();
         int b2 = compressedSliceInput.readUnsignedByte();
 
-        boolean isUncompressed = (b0 & 0x01) == 1;
+        isUncompressed = (b0 & 0x01) == 1;
         int chunkLength = (b2 << 15) | (b1 << 7) | (b0 >>> 1);
         if (chunkLength < 0 || chunkLength > compressedSliceInput.remaining()) {
             throw new OrcCorruptionException(orcDataSourceId, "The chunkLength (%s) must not be negative or greater than remaining size (%s)", chunkLength, compressedSliceInput.remaining());
@@ -248,8 +268,12 @@ public final class OrcInputStream
 
         if (isUncompressed) {
             current = chunk.getInput();
+            uncompressedBuffer = (byte[]) chunk.getBase();
+            uncompressedBufferOffset = (int) chunk.getAddress() - ARRAY_BYTE_BASE_OFFSET;
         }
         else {
+            uncompressedBuffer = null;
+            uncompressedBufferOffset = 0;
             OrcDecompressor.OutputBuffer output = new OrcDecompressor.OutputBuffer()
             {
                 @Override

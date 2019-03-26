@@ -443,7 +443,9 @@ public class PruneUnreferencedOutputs
                     newOutputs,
                     newAssignments,
                     node.getCurrentConstraint(),
-                    node.getEnforcedConstraint());
+                    node.getEnforcedConstraint(),
+                    node.isTemporaryTable(),
+                    node.getRequiredSubfieldPaths());
         }
 
         @Override

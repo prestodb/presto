@@ -23,6 +23,7 @@ import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import io.airlift.slice.Slice;
@@ -201,6 +202,12 @@ public final class TestingOrcPredicate
             }
 
             return true;
+        }
+
+        @Override
+        public Map<Integer, Filter> getFilters()
+        {
+            return ImmutableMap.of();
         }
     }
 

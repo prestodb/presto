@@ -780,7 +780,9 @@ public class TestCostCalculator
                 variables,
                 assignments.build(),
                 TupleDomain.all(),
-                TupleDomain.all());
+                TupleDomain.all(),
+                false,
+                ImmutableMap.of());
     }
 
     private PlanNode project(String id, PlanNode source, VariableReferenceExpression variable, Expression expression)

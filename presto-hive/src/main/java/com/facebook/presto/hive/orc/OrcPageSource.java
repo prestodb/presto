@@ -21,6 +21,7 @@ import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageSourceOptions;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -60,6 +61,8 @@ public class OrcPageSource
     private boolean closed;
 
     private final AggregatedMemoryContext systemMemoryContext;
+
+    private boolean useAriaScan;
 
     private final FileFormatDataSourceStats stats;
 
@@ -109,6 +112,18 @@ public class OrcPageSource
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
 
+    // Sets the channel of the ith Block in the output layout to
+    // inputToOutputChannel[i]. Omits the Block from the output Page
+    // if inputToOutputChannel[i[ == -1. If inputToOutputChannel is
+    // null, the output Page layout is unaffected.
+    @Override
+    public boolean pushdownFilterAndProjection(PageSourceOptions options)
+    {
+        recordReader.pushdownFilterAndProjection(options, hiveColumnIndexes, types, constantBlocks);
+        useAriaScan = true;
+        return true;
+    }
+
     @Override
     public long getCompletedBytes()
     {
@@ -131,6 +146,13 @@ public class OrcPageSource
     public Page getNextPage()
     {
         try {
+            if (useAriaScan) {
+                Page page = recordReader.getNextPage();
+                if (page == null) {
+                    close();
+                }
+                return page;
+            }
             batchId++;
             int batchSize = recordReader.nextBatch();
             if (batchSize <= 0) {

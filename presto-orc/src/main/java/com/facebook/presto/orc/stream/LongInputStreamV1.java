@@ -19,6 +19,8 @@ import com.facebook.presto.orc.checkpoint.LongStreamV1Checkpoint;
 
 import java.io.IOException;
 
+import static java.lang.Math.toIntExact;
+
 public class LongInputStreamV1
         implements LongInputStream
 {
@@ -33,6 +35,16 @@ public class LongInputStreamV1
     private int used;
     private boolean repeat;
     private long lastReadInputCheckpoint;
+
+    // Position of the first value of the run in literals from the checkpoint.
+    private int currentRunOffset;
+    // Positions to visit in scan(), offset from last checkpoint.
+    private int[] offsets;
+    private int numOffsets;
+    private int offsetIdx;
+    private ResultsConsumer resultsConsumer;
+    private int beginOffset;
+    private int numResults;
 
     public LongInputStreamV1(OrcInputStream input, boolean signed)
     {
@@ -109,12 +121,14 @@ public class LongInputStreamV1
         // if the checkpoint is within the current buffer, just adjust the pointer
         if (lastReadInputCheckpoint == v1Checkpoint.getInputStreamCheckpoint() && v1Checkpoint.getOffset() <= numLiterals) {
             used = v1Checkpoint.getOffset();
+            currentRunOffset = -used;
         }
         else {
             // otherwise, discard the buffer and start over
             input.seekToCheckpoint(v1Checkpoint.getInputStreamCheckpoint());
             numLiterals = 0;
             used = 0;
+            currentRunOffset = -v1Checkpoint.getOffset();
             skip(v1Checkpoint.getOffset());
         }
     }
@@ -130,6 +144,73 @@ public class LongInputStreamV1
             long consume = Math.min(items, numLiterals - used);
             used += consume;
             items -= consume;
+            if (items != 0) {
+                // A skip of multiple runs can take place at seeking
+                // to checkpoint. Keep track of the start of the run
+                // in literals for use by next scan().
+                currentRunOffset += toIntExact(consume);
+            }
+        }
+    }
+
+    public int scan(
+            int[] offsets,
+            int beginOffset,
+            int numOffsets,
+            int endOffset,
+            ResultsConsumer resultsConsumer)
+            throws IOException
+    {
+        this.offsets = offsets;
+        this.beginOffset = beginOffset;
+        this.numOffsets = numOffsets;
+        this.resultsConsumer = resultsConsumer;
+        this.numResults = 0;
+        this.offsetIdx = beginOffset;
+
+        if (numLiterals > 0) {
+            scanLiterals();
+        }
+        while (offsetIdx < beginOffset + numOffsets) {
+            used = 0;
+            numLiterals = 0;
+            readValues();
+            scanLiterals();
+        }
+        skip(endOffset - offsets[beginOffset + numOffsets - 1] - 1);
+        this.offsets = null;
+        return numResults;
+    }
+
+    // Apply filter to values materialized in literals.
+    private void scanLiterals()
+            throws IOException
+    {
+        for (; ; ) {
+            if (offsetIdx >= beginOffset + numOffsets) {
+                return;
+            }
+            int offset = offsets[offsetIdx];
+            if (offset >= numLiterals + currentRunOffset) {
+                currentRunOffset += numLiterals;
+                used = 0;
+                numLiterals = 0;
+                return;
+            }
+            if (resultsConsumer.consume(offsetIdx, getValue())) {
+                ++numResults;
+            }
+            ++offsetIdx;
+        }
+    }
+
+    private long getValue()
+    {
+        if (repeat) {
+            return literals[0] + (offsets[offsetIdx] - currentRunOffset) * delta;
+        }
+        else {
+            return literals[offsets[offsetIdx] - currentRunOffset];
         }
     }
 }

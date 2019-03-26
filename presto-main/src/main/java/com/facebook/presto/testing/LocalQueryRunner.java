@@ -518,6 +518,11 @@ public class LocalQueryRunner
         return accessControl;
     }
 
+    public BlockEncodingManager getBlockEncodingManager()
+    {
+        return blockEncodingManager;
+    }
+
     public ExecutorService getExecutor()
     {
         return notificationExecutor;

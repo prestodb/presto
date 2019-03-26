@@ -737,6 +737,11 @@ public abstract class AbstractTestHiveClient
         timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(timeZoneId));
     }
 
+    private Subfield toSubfield(ColumnHandle column)
+    {
+        return new Subfield(((HiveColumnHandle) column).getName(), ImmutableList.of());
+    }
+
     protected final void setup(String host, int port, String databaseName, String timeZone)
     {
         HiveClientConfig hiveClientConfig = getHiveClientConfig();

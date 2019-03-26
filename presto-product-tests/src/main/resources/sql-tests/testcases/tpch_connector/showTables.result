@@ -1,6 +1,7 @@
 -- delimiter: |; ignoreOrder: true;
 customer|
 lineitem|
+lineitem_ext|
 nation|
 orders|
 part|

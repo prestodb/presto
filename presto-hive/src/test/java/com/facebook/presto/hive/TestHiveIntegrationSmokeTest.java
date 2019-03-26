@@ -64,6 +64,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -84,12 +85,14 @@ import static com.facebook.presto.hive.HiveQueryRunner.createMaterializeExchange
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveSessionProperties.RCFILE_OPTIMIZED_WRITER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.getInsertExistingPartitionsBehavior;
+import static com.facebook.presto.hive.HiveSessionProperties.isPushdownFilterEnabled;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
+import static com.facebook.presto.spi.predicate.Marker.Bound.ABOVE;
 import static com.facebook.presto.spi.predicate.Marker.Bound.EXACTLY;
 import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -199,14 +202,28 @@ public class TestHiveIntegrationSmokeTest
         // Test IO explain with small number of discrete components.
         computeActual("CREATE TABLE test_orders WITH (partitioned_by = ARRAY['orderkey', 'processing']) AS SELECT custkey, orderkey, orderstatus = 'P' processing FROM orders WHERE orderkey < 3");
 
+        Set<ColumnConstraint> extraAriaConstraints = ImmutableSet.of();
+        if (isPushdownFilterEnabled(getSession().toConnectorSession(new ConnectorId(HIVE_CATALOG)))) {
+            extraAriaConstraints = ImmutableSet.of(
+                    new ColumnConstraint(
+                            "custkey",
+                            BIGINT.getTypeSignature(),
+                            new FormattedDomain(false,
+                                    ImmutableSet.of(
+                                            new FormattedRange(
+                                                    new FormattedMarker(Optional.empty(), ABOVE),
+                                                    new FormattedMarker(Optional.of("10"), EXACTLY))))));
+        }
+
         MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey, processing FROM test_orders where custkey <= 10");
         assertEquals(
                 jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IOPlan(
                         ImmutableSet.of(new TableColumnInfo(
                                 new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
-                                ImmutableSet.of(
-                                        new ColumnConstraint(
+                                ImmutableSet.<ColumnConstraint>builder()
+                                        .addAll(extraAriaConstraints)
+                                        .add(new ColumnConstraint(
                                                 "orderkey",
                                                 BIGINT.getTypeSignature(),
                                                 new FormattedDomain(
@@ -217,8 +234,8 @@ public class TestHiveIntegrationSmokeTest
                                                                         new FormattedMarker(Optional.of("1"), EXACTLY)),
                                                                 new FormattedRange(
                                                                         new FormattedMarker(Optional.of("2"), EXACTLY),
-                                                                        new FormattedMarker(Optional.of("2"), EXACTLY))))),
-                                        new ColumnConstraint(
+                                                                        new FormattedMarker(Optional.of("2"), EXACTLY))))))
+                                        .add(new ColumnConstraint(
                                                 "processing",
                                                 BOOLEAN.getTypeSignature(),
                                                 new FormattedDomain(
@@ -226,7 +243,8 @@ public class TestHiveIntegrationSmokeTest
                                                         ImmutableSet.of(
                                                                 new FormattedRange(
                                                                         new FormattedMarker(Optional.of("false"), EXACTLY),
-                                                                        new FormattedMarker(Optional.of("false"), EXACTLY)))))))),
+                                                                        new FormattedMarker(Optional.of("false"), EXACTLY))))))
+                                        .build())),
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders"))));
 
         assertUpdate("DROP TABLE test_orders");
@@ -240,8 +258,9 @@ public class TestHiveIntegrationSmokeTest
                 new IOPlan(
                         ImmutableSet.of(new TableColumnInfo(
                                 new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
-                                ImmutableSet.of(
-                                        new ColumnConstraint(
+                                ImmutableSet.<ColumnConstraint>builder()
+                                        .addAll(extraAriaConstraints)
+                                        .add(new ColumnConstraint(
                                                 "orderkey",
                                                 BIGINT.getTypeSignature(),
                                                 new FormattedDomain(
@@ -249,7 +268,8 @@ public class TestHiveIntegrationSmokeTest
                                                         ImmutableSet.of(
                                                                 new FormattedRange(
                                                                         new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                        new FormattedMarker(Optional.of("199"), EXACTLY)))))))),
+                                                                        new FormattedMarker(Optional.of("199"), EXACTLY))))))
+                                        .build())),
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders"))));
 
         assertUpdate("DROP TABLE test_orders");
@@ -4058,7 +4078,38 @@ public class TestHiveIntegrationSmokeTest
                 "SELECT * FROM test_prune_failure\n" +
                 "WHERE x < 0 AND cast(p AS int) > 0");
 
+        assertQueryFails("SELECT * FROM test_prune_failure " +
+                "WHERE x > 0 AND cast(p AS int) > 0",
+                "Cannot cast 'abc' to INT");
+
         assertUpdate("DROP TABLE test_prune_failure");
+    }
+
+    @Test
+    public void testPartitionPredicates()
+    {
+        assertUpdate("CREATE TABLE test_partition_predicates " +
+                "WITH (partitioned_by = ARRAY['p']) AS " +
+                "SELECT 123 x, 'abc' p", 1);
+
+        // Simple TupleDomain predicates
+        assertQuery("SELECT x FROM test_partition_predicates WHERE p = 'abc'", "SELECT 123");
+
+        assertQueryReturnsEmptyResult("SELECT x FROM test_partition_predicates WHERE p = 'ddd'");
+
+        // Complex predicates
+        assertQuery("SELECT x FROM test_partition_predicates WHERE p like 'ab%'", "SELECT 123");
+
+        assertQueryReturnsEmptyResult("SELECT x FROM test_partition_predicates WHERE p like 'dd%'");
+
+        assertQuery("SELECT x FROM test_partition_predicates WHERE p not like 'dd%'", "SELECT 123");
+
+        // Partition column projected out
+        assertQuery("SELECT x, p FROM test_partition_predicates WHERE p like 'ab%'", "SELECT 123, 'abc'");
+
+        assertQuery("SELECT p, x FROM test_partition_predicates WHERE p like 'ab%'", "SELECT 'abc', 123");
+
+        assertUpdate("DROP TABLE test_partition_predicates");
     }
 
     @Test

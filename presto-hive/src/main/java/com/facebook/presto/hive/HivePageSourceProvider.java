@@ -25,6 +25,7 @@ import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -48,6 +49,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -104,9 +106,9 @@ public class HivePageSourceProvider
                 hiveSplit.getLength(),
                 hiveSplit.getFileSize(),
                 hiveSplit.getSchema(),
-                hiveSplit.getDomainPredicate()
-                        .transform(Subfield::getRootName)
-                        .transform(hiveSplit.getPredicateColumns()::get),
+                hiveSplit.getDomainPredicate(),
+                hiveSplit.getRemainingPredicate(),
+                hiveSplit.getPredicateColumns(),
                 hiveColumns,
                 hiveSplit.getPartitionKeys(),
                 hiveStorageTimeZone,
@@ -131,7 +133,9 @@ public class HivePageSourceProvider
             long length,
             long fileSize,
             Properties schema,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
+            TupleDomain<Subfield> domainPredicate,
+            RowExpression remainingPredicate,
+            Map<String, HiveColumnHandle> predicateColumns,
             List<HiveColumnHandle> hiveColumns,
             List<HivePartitionKey> partitionKeys,
             DateTimeZone hiveStorageTimeZone,
@@ -140,10 +144,14 @@ public class HivePageSourceProvider
             Optional<BucketConversion> bucketConversion,
             boolean s3SelectPushdownEnabled)
     {
+        ImmutableSet.Builder<HiveColumnHandle> requiredInterimColumns = ImmutableSet.builder();
+        requiredInterimColumns.addAll(predicateColumns.values());
+        requiredInterimColumns.addAll(bucketConversion.map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()));
+
         List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(
                 partitionKeys,
                 hiveColumns,
-                bucketConversion.map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()),
+                requiredInterimColumns.build(),
                 columnCoercions,
                 path,
                 tableBucketNumber);
@@ -161,6 +169,7 @@ public class HivePageSourceProvider
         });
 
         for (HivePageSourceFactory pageSourceFactory : pageSourceFactories) {
+            List<HiveColumnHandle> outputColumns = applyCoercion(hiveColumns, columnCoercions);
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
                     configuration,
                     session,
@@ -169,13 +178,16 @@ public class HivePageSourceProvider
                     length,
                     fileSize,
                     schema,
+                    outputColumns,
                     toColumnHandles(regularAndInterimColumnMappings, true),
-                    effectivePredicate,
+                    domainPredicate,
+                    remainingPredicate,
                     hiveStorageTimeZone);
             if (pageSource.isPresent()) {
                 return Optional.of(
                         new HivePageSource(
                                 columnMappings,
+                                outputColumns,
                                 bucketAdaptation,
                                 hiveStorageTimeZone,
                                 typeManager,
@@ -187,6 +199,12 @@ public class HivePageSourceProvider
             // GenericHiveRecordCursor will automatically do the coercion without HiveCoercionRecordCursor
             boolean doCoercion = !(provider instanceof GenericHiveRecordCursorProvider);
 
+            checkArgument(TRUE_CONSTANT.equals(remainingPredicate), "Cursor providers don't support arbitrary predicates");
+            if (domainPredicate.getDomains().isPresent()) {
+                checkArgument(domainPredicate.transform(subfield -> !isEntireColumn(subfield) ? subfield : null).isAll(),
+                        "Cursor providers don't support predicates on subfields");
+            }
+
             Optional<RecordCursor> cursor = provider.createRecordCursor(
                     configuration,
                     session,
@@ -196,7 +214,7 @@ public class HivePageSourceProvider
                     fileSize,
                     schema,
                     toColumnHandles(regularAndInterimColumnMappings, doCoercion),
-                    effectivePredicate,
+                    domainPredicate.transform(Subfield::getRootName).transform(predicateColumns::get),
                     hiveStorageTimeZone,
                     typeManager,
                     s3SelectPushdownEnabled);
@@ -234,6 +252,31 @@ public class HivePageSourceProvider
         }
 
         return Optional.empty();
+    }
+
+    private static List<HiveColumnHandle> applyCoercion(List<HiveColumnHandle> columns, Map<Integer, HiveType> coercions)
+    {
+        return columns.stream()
+                .map(column -> {
+                    HiveType coercionFrom = coercions.get(column.getHiveColumnIndex());
+                    if (coercionFrom != null) {
+                        return new HiveColumnHandle(
+                                column.getName(),
+                                coercionFrom,
+                                coercionFrom.getTypeSignature(),
+                                column.getHiveColumnIndex(),
+                                column.getColumnType(),
+                                Optional.empty());
+                    }
+
+                    return column;
+                })
+                .collect(toImmutableList());
+    }
+
+    private static boolean isEntireColumn(Subfield subfield)
+    {
+        return subfield.getPath().isEmpty();
     }
 
     public static class ColumnMapping
@@ -310,7 +353,7 @@ public class HivePageSourceProvider
         public static List<ColumnMapping> buildColumnMappings(
                 List<HivePartitionKey> partitionKeys,
                 List<HiveColumnHandle> columns,
-                List<HiveColumnHandle> requiredInterimColumns,
+                Set<HiveColumnHandle> requiredInterimColumns,
                 Map<Integer, HiveType> columnCoercions,
                 Path path,
                 OptionalInt bucketNumber)

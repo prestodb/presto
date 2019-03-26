@@ -84,6 +84,8 @@ public final class HiveSessionProperties
     private static final String TEMPORARY_TABLE_STORAGE_FORMAT = "temporary_table_storage_format";
     private static final String TEMPORARY_TABLE_COMPRESSION_CODEC = "temporary_table_compression_codec";
     public static final String PUSHDOWN_FILTER_ENABLED = "pushdown_filter_enabled";
+    public static final String FILTER_REORDERING_ENABLED = "filter_reordering_enabled";
+    public static final String READER_BUDGET_ENFORCEMENT_ENABLED = "reader_budget_enforcement_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -356,6 +358,16 @@ public final class HiveSessionProperties
                         PUSHDOWN_FILTER_ENABLED,
                         "Experimental: enable complex filter pushdown",
                         false,
+                        false),
+                booleanProperty(
+                        FILTER_REORDERING_ENABLED,
+                        "Should reorder filters to apply most efficient first",
+                        false,
+                        false),
+                booleanProperty(
+                        READER_BUDGET_ENFORCEMENT_ENABLED,
+                        "Should enforce memory budget for ORC readers",
+                        false,
                         false));
     }
 
@@ -594,6 +606,16 @@ public final class HiveSessionProperties
     public static boolean isPushdownFilterEnabled(ConnectorSession session)
     {
         return session.getProperty(PUSHDOWN_FILTER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isFilterReorderingEnabled(ConnectorSession session)
+    {
+        return session.getProperty(FILTER_REORDERING_ENABLED, Boolean.class);
+    }
+
+    public static boolean isReaderBudgetEnforcementEnabled(ConnectorSession session)
+    {
+        return session.getProperty(READER_BUDGET_ENFORCEMENT_ENABLED, Boolean.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)

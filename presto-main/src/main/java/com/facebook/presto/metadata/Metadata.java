@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
@@ -79,6 +80,8 @@ public interface Metadata
      * @apiNote This method is unstable and subject to change in the future.
      */
     TableLayoutResult getLayout(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns);
+
+    Map<ColumnHandle, ColumnHandle> pushdownSubfieldPruning(Session session, TableHandle tableHandle, Map<ColumnHandle, List<Subfield>> desiredSubfields);
 
     /**
      * Returns table's layout properties for a given table handle.

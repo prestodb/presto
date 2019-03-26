@@ -112,14 +112,22 @@ public final class HiveTestUtils
 
     public static final PageSorter PAGE_SORTER = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
 
+    public static final MetadataManager METADATA_MANAGER = MetadataManager.createTestMetadataManager();
+
+    public static final DeterminismEvaluator DETERMINISM_EVALUATOR = ROW_EXPRESSION_SERVICE.getDeterminismEvaluator();
+
+    public static final ExpressionOptimizer EXPRESSION_OPTIMIZER = ROW_EXPRESSION_SERVICE.getExpressionOptimizer();
+
+    public static final PredicateCompiler PREDICATE_COMPILER = ROW_EXPRESSION_SERVICE.getPredicateCompiler();
+
     public static Set<HivePageSourceFactory> getDefaultHiveDataStreamFactories(HiveClientConfig hiveClientConfig)
     {
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
         return ImmutableSet.<HivePageSourceFactory>builder()
                 .add(new RcFilePageSourceFactory(TYPE_MANAGER, testHdfsEnvironment, stats))
-                .add(new OrcPageSourceFactory(TYPE_MANAGER, hiveClientConfig, testHdfsEnvironment, stats))
-                .add(new DwrfPageSourceFactory(TYPE_MANAGER, hiveClientConfig, testHdfsEnvironment, stats))
+                .add(new OrcPageSourceFactory(TYPE_MANAGER, DETERMINISM_EVALUATOR, EXPRESSION_OPTIMIZER, PREDICATE_COMPILER, hiveClientConfig.isUseOrcColumnNames(), hiveClientConfig.getDomainCompactionThreshold(), testHdfsEnvironment, stats))
+                .add(new DwrfPageSourceFactory(TYPE_MANAGER, DETERMINISM_EVALUATOR, EXPRESSION_OPTIMIZER, PREDICATE_COMPILER, testHdfsEnvironment, stats, hiveClientConfig.getDomainCompactionThreshold()))
                 .add(new ParquetPageSourceFactory(TYPE_MANAGER, testHdfsEnvironment, stats))
                 .build();
     }

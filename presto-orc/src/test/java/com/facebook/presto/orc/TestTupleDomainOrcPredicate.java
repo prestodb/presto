@@ -21,15 +21,18 @@ import com.facebook.presto.orc.metadata.statistics.DecimalStatistics;
 import com.facebook.presto.orc.metadata.statistics.DoubleStatistics;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
 import com.facebook.presto.orc.metadata.statistics.StringStatistics;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.testing.TestingMetadata;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 
+import static com.facebook.presto.orc.TupleDomainFilters.toFilter;
 import static com.facebook.presto.orc.TupleDomainOrcPredicate.getDomain;
 import static com.facebook.presto.orc.metadata.statistics.ShortDecimalStatisticsBuilder.SHORT_DECIMAL_VALUE_BYTES;
 import static com.facebook.presto.spi.predicate.Domain.create;
@@ -58,6 +61,28 @@ public class TestTupleDomainOrcPredicate
     private static final Type SHORT_DECIMAL = createDecimalType(5, 2);
     private static final Type LONG_DECIMAL = createDecimalType(20, 10);
     private static final Type CHAR = createCharType(10);
+
+    private static final ColumnHandle C_BOOLEAN = new TestingMetadata.TestingColumnHandle("c_boolean");
+
+    @Test
+    public void testBooleanFilters()
+    {
+        assertFilter(C_BOOLEAN, BOOLEAN, notNull(BOOLEAN), Filters.isNotNull());
+        assertFilter(C_BOOLEAN, BOOLEAN, onlyNull(BOOLEAN), Filters.isNull());
+        assertFilter(C_BOOLEAN, BOOLEAN, singleValue(BOOLEAN, true), new Filters.BooleanValue(true, false));
+        assertFilter(C_BOOLEAN, BOOLEAN, singleValue(BOOLEAN, false), new Filters.BooleanValue(false, false));
+        assertNoFilter(C_BOOLEAN, BOOLEAN, Domain.all(BOOLEAN));
+    }
+
+    private void assertFilter(ColumnHandle columnHandle, Type type, Domain domain, Filter expectedFilter)
+    {
+        assertEquals(expectedFilter, toFilter(domain));
+    }
+
+    private void assertNoFilter(ColumnHandle columnHandle, Type type, Domain domain)
+    {
+        assertEquals(null, toFilter(domain));
+    }
 
     @Test
     public void testBoolean()

@@ -208,7 +208,9 @@ public class BeginTableWrite
                         scan.getOutputVariables(),
                         scan.getAssignments(),
                         layoutResult.getLayout().getPredicate(),
-                        computeEnforced(originalEnforcedConstraint, layoutResult.getUnenforcedConstraint()));
+                        computeEnforced(originalEnforcedConstraint, layoutResult.getUnenforcedConstraint()),
+                        scan.isTemporaryTable(),
+                        scan.getRequiredSubfieldPaths());
             }
 
             if (node instanceof FilterNode) {

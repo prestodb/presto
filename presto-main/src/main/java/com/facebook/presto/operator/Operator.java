@@ -99,4 +99,25 @@ public interface Operator
             throws Exception
     {
     }
+
+    /**
+     * Does this take ownership of input Pages. If true, the upstream
+     * operator may not change any memory that may be accessed through
+     * any of its output Pages once the output Page has been
+     * produced. If false, this operator completely [processes its
+     * input Page between the call to addInput() and the next time
+     * needsInput() is true and the upstream operator may rewrite any
+     * memory associated with its output. */
+    default boolean retainsInputPages()
+    {
+        return true;
+    }
+
+    /** Gives this operator the permission to keep returning the same
+     * Page, including any constituent memory, from successive calls
+     * to getOutput(). The operator is not required to alter its
+     * behavior, however. */
+    default void enableOutputPageReuse()
+    {
+    }
 }

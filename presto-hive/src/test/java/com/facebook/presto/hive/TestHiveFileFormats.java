@@ -66,11 +66,16 @@ import static com.facebook.presto.hive.HiveStorageFormat.RCBINARY;
 import static com.facebook.presto.hive.HiveStorageFormat.RCTEXT;
 import static com.facebook.presto.hive.HiveStorageFormat.SEQUENCEFILE;
 import static com.facebook.presto.hive.HiveStorageFormat.TEXTFILE;
+import static com.facebook.presto.hive.HiveTestUtils.DETERMINISM_EVALUATOR;
+import static com.facebook.presto.hive.HiveTestUtils.EXPRESSION_OPTIMIZER;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.HIVE_CLIENT_CONFIG;
+import static com.facebook.presto.hive.HiveTestUtils.PREDICATE_COMPILER;
+import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.filter;
@@ -262,7 +267,7 @@ public class TestHiveFileFormats
         assertThatFileFormat(ORC)
                 .withColumns(TEST_COLUMNS)
                 .withRowsCount(rowCount)
-                .isReadableByPageSource(new OrcPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT, STATS, 100));
+                .isReadableByPageSource(newOrcPageSourceFactory(false));
     }
 
     @Test(dataProvider = "rowCount")
@@ -288,7 +293,7 @@ public class TestHiveFileFormats
                 .withSession(session)
                 .withFileWriterFactory(new OrcFileWriterFactory(HDFS_ENVIRONMENT, TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE, STATS, new OrcWriterOptions()))
                 .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
-                .isReadableByPageSource(new OrcPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT, STATS, 100));
+                .isReadableByPageSource(newOrcPageSourceFactory(false));
     }
 
     @Test(dataProvider = "rowCount")
@@ -302,7 +307,7 @@ public class TestHiveFileFormats
                 .withRowsCount(rowCount)
                 .withReadColumns(Lists.reverse(TEST_COLUMNS))
                 .withSession(session)
-                .isReadableByPageSource(new OrcPageSourceFactory(TYPE_MANAGER, true, HDFS_ENVIRONMENT, STATS, 100));
+                .isReadableByPageSource(newOrcPageSourceFactory(true));
     }
 
     @Test(dataProvider = "rowCount")
@@ -393,7 +398,7 @@ public class TestHiveFileFormats
         assertThatFileFormat(DWRF)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
-                .isReadableByPageSource(new DwrfPageSourceFactory(TYPE_MANAGER, HIVE_CLIENT_CONFIG, HDFS_ENVIRONMENT, STATS));
+                .isReadableByPageSource(new DwrfPageSourceFactory(TYPE_MANAGER, ROW_EXPRESSION_SERVICE, HDFS_ENVIRONMENT, STATS, HIVE_CLIENT_CONFIG));
     }
 
     @Test(dataProvider = "rowCount")
@@ -421,7 +426,7 @@ public class TestHiveFileFormats
                 .withSession(session)
                 .withFileWriterFactory(new OrcFileWriterFactory(HDFS_ENVIRONMENT, TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE, STATS, new OrcWriterOptions()))
                 .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
-                .isReadableByPageSource(new DwrfPageSourceFactory(TYPE_MANAGER, HIVE_CLIENT_CONFIG, HDFS_ENVIRONMENT, STATS));
+                .isReadableByPageSource(newDwrfPageSourceFactory());
     }
 
     @Test
@@ -446,7 +451,7 @@ public class TestHiveFileFormats
         assertThatFileFormat(ORC)
                 .withWriteColumns(ImmutableList.of(writeColumn))
                 .withReadColumns(ImmutableList.of(readColumn))
-                .isReadableByPageSource(new OrcPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT, STATS, 100));
+                .isReadableByPageSource(newOrcPageSourceFactory(false));
 
         assertThatFileFormat(PARQUET)
                 .withWriteColumns(ImmutableList.of(writeColumn))
@@ -494,7 +499,7 @@ public class TestHiveFileFormats
 
         assertThatFileFormat(ORC)
                 .withColumns(columns)
-                .isFailingForPageSource(new OrcPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT, STATS, 100), expectedErrorCode, expectedMessage);
+                .isFailingForPageSource(newOrcPageSourceFactory(false), expectedErrorCode, expectedMessage);
 
         assertThatFileFormat(PARQUET)
                 .withColumns(columns)
@@ -508,6 +513,16 @@ public class TestHiveFileFormats
         assertThatFileFormat(TEXTFILE)
                 .withColumns(columns)
                 .isFailingForRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT), expectedErrorCode, expectedMessage);
+    }
+
+    private static OrcPageSourceFactory newOrcPageSourceFactory(boolean useOrcColumnNames)
+    {
+        return new OrcPageSourceFactory(TYPE_MANAGER, DETERMINISM_EVALUATOR, EXPRESSION_OPTIMIZER, PREDICATE_COMPILER, useOrcColumnNames, 100, HDFS_ENVIRONMENT, STATS);
+    }
+
+    private static DwrfPageSourceFactory newDwrfPageSourceFactory()
+    {
+        return new DwrfPageSourceFactory(TYPE_MANAGER, DETERMINISM_EVALUATOR, EXPRESSION_OPTIMIZER, PREDICATE_COMPILER, HDFS_ENVIRONMENT, STATS, 100);
     }
 
     private void testCursorProvider(HiveRecordCursorProvider cursorProvider,
@@ -542,6 +557,8 @@ public class TestHiveFileFormats
                 split.getLength(),
                 splitProperties,
                 TupleDomain.all(),
+                TRUE_CONSTANT,
+                ImmutableMap.of(),
                 getColumnHandles(testColumns),
                 partitionKeys,
                 DateTimeZone.getDefault(),
@@ -588,6 +605,8 @@ public class TestHiveFileFormats
                 split.getLength(),
                 splitProperties,
                 TupleDomain.all(),
+                TRUE_CONSTANT,
+                ImmutableMap.of(),
                 columnHandles,
                 partitionKeys,
                 DateTimeZone.getDefault(),
