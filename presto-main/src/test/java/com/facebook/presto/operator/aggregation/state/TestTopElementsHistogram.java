@@ -1,6 +1,7 @@
 package com.facebook.presto.operator.aggregation.state;
 
 
+import io.airlift.slice.Slice;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.testng.annotations.Test;
 
@@ -73,4 +74,13 @@ public class TestTopElementsHistogram {
         System.out.println(histogram.getTopElements());
     }
 
+    @Test
+    public void testSerialize(){
+        TopElementsHistogram<Character> in = new TopElementsHistogram<Character>(5, 0.01, 0.99, 1);
+        populate_0(in);
+        TopElementsHistogram<Character> out = new TopElementsHistogram(in.serialize());
+        System.out.println(in.getTopElements().toString());
+        System.out.println(out.getTopElements().toString());
+        assertEquals(in.getTopElements().toString(), out.getTopElements().toString());
+    }
 }

@@ -14,6 +14,8 @@
 
 package com.facebook.presto.operator.aggregation.heavyhitters;
 
+import com.google.common.annotations.VisibleForTesting;
+import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 /**
@@ -58,7 +60,7 @@ public class ConservativeAddSketch extends CountMinSketch {
         for (int i = 1; i < depth; ++i) {
             min = Math.min(min, table[i][buckets[i]]);
         }
-        long newVal=min;
+        long newVal = min;
         for (int i = 0; i < depth; ++i) {
             newVal = Math.max(table[i][buckets[i]], min + count);
             table[i][buckets[i]] = newVal;
@@ -79,12 +81,17 @@ public class ConservativeAddSketch extends CountMinSketch {
         for (int i = 1; i < depth; ++i) {
             min = Math.min(min, table[i][buckets[i]]);
         }
-        long newVal=min;
+        long newVal = min;
         for (int i = 0; i < depth; ++i) {
             newVal = Math.max(table[i][buckets[i]], min + count);
             table[i][buckets[i]] = newVal;
         }
         size += count;
         return newVal;
+    }
+
+    @VisibleForTesting
+    public ConservativeAddSketch(Slice serialized) {
+        super(serialized);
     }
 }

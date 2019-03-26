@@ -16,6 +16,8 @@ package com.facebook.presto.operator.aggregation.state;
 import com.facebook.presto.operator.aggregation.heavyhitters.ConservativeAddSketch;
 import com.facebook.presto.operator.aggregation.heavyhitters.IndexedPriorityQueue;
 import com.facebook.presto.operator.aggregation.heavyhitters.IndexedPriorityQueue.Entry;
+import com.google.common.annotations.VisibleForTesting;
+import io.airlift.slice.*;
 import org.openjdk.jol.info.ClassLayout;
 import org.openjdk.jol.info.GraphLayout;
 
@@ -25,7 +27,7 @@ import java.util.*;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class TopElementsHistogram<E> implements Serializable
+public class TopElementsHistogram<E>
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(TopElementsHistogram.class).instanceSize();
 
@@ -121,6 +123,33 @@ public class TopElementsHistogram<E> implements Serializable
     public long estimatedInMemorySize()
     {
         return INSTANCE_SIZE + ccms.estimatedInMemorySize() + this.topEntries.estimatedInMemorySize();
+    }
+
+    public Slice serialize(){
+        SliceOutput s = new DynamicSliceOutput((int)estimatedInMemorySize());
+        s.writeInt(rowsProcessed);
+        s.writeDouble(min_percent_share);
+
+        Slice slcCcms = ccms.serialize();
+        s.writeInt(slcCcms.length());
+        s.writeBytes(slcCcms);
+
+        Slice slcTopEntries = topEntries.serialize();
+        s.writeInt(slcTopEntries.length());
+        s.writeBytes(slcTopEntries);
+        return s.slice();
+    }
+
+    @VisibleForTesting
+    public TopElementsHistogram(Slice serialized){
+        SliceInput s = new BasicSliceInput(serialized);
+        rowsProcessed = s.readInt();
+        min_percent_share = s.readDouble();
+        int ccmsSize = s.readInt();
+        ccms = new ConservativeAddSketch(s.readSlice(ccmsSize));
+
+        int topEntriesSize = s.readInt();
+        topEntries = new IndexedPriorityQueue(s.readSlice(topEntriesSize));
     }
 
 }
