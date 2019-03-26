@@ -70,4 +70,9 @@ public class DoubleInputStream
             type.writeDouble(builder, next());
         }
     }
+
+    public OrcInputStream getInput()
+    {
+        return input;
+    }
 }

@@ -34,8 +34,8 @@ public final class HiveTableLayoutHandle
     private final SchemaTableName schemaTableName;
     private final List<ColumnHandle> partitionColumns;
     private final List<HivePartition> partitions;
-    private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
-    private final TupleDomain<ColumnHandle> promisedPredicate;
+    private final TupleDomain<? extends ColumnHandle> effectivePredicate;
+    private final TupleDomain<ColumnHandle> partitionColumnPredicate;
     private final Optional<HiveBucketHandle> bucketHandle;
     private final Optional<HiveBucketFilter> bucketFilter;
 
@@ -43,16 +43,16 @@ public final class HiveTableLayoutHandle
     public HiveTableLayoutHandle(
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
             @JsonProperty("partitionColumns") List<ColumnHandle> partitionColumns,
-            @JsonProperty("compactEffectivePredicate") TupleDomain<ColumnHandle> compactEffectivePredicate,
-            @JsonProperty("promisedPredicate") TupleDomain<ColumnHandle> promisedPredicate,
+            @JsonProperty("effectivePredicate") TupleDomain<ColumnHandle> effectivePredicate,
+            @JsonProperty("partitionColumnPredicate") TupleDomain<ColumnHandle> partitionColumnPredicate,
             @JsonProperty("bucketHandle") Optional<HiveBucketHandle> bucketHandle,
             @JsonProperty("bucketFilter") Optional<HiveBucketFilter> bucketFilter)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
-        this.compactEffectivePredicate = requireNonNull(compactEffectivePredicate, "compactEffectivePredicate is null");
+        this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
+        this.partitionColumnPredicate = requireNonNull(partitionColumnPredicate, "partitionColumnPredicate is null");
         this.partitions = null;
-        this.promisedPredicate = requireNonNull(promisedPredicate, "promisedPredicate is null");
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
     }
@@ -61,16 +61,16 @@ public final class HiveTableLayoutHandle
             SchemaTableName schemaTableName,
             List<ColumnHandle> partitionColumns,
             List<HivePartition> partitions,
-            TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
-            TupleDomain<ColumnHandle> promisedPredicate,
+            TupleDomain<? extends ColumnHandle> effectivePredicate,
+            TupleDomain<ColumnHandle> partitionColumnPredicate,
             Optional<HiveBucketHandle> bucketHandle,
             Optional<HiveBucketFilter> bucketFilter)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         this.partitions = requireNonNull(partitions, "partitions is null");
-        this.compactEffectivePredicate = requireNonNull(compactEffectivePredicate, "compactEffectivePredicate is null");
-        this.promisedPredicate = requireNonNull(promisedPredicate, "promisedPredicate is null");
+        this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
+        this.partitionColumnPredicate = requireNonNull(partitionColumnPredicate, "partitionColumnPredicate is null");
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
     }
@@ -99,15 +99,15 @@ public final class HiveTableLayoutHandle
     }
 
     @JsonProperty
-    public TupleDomain<? extends ColumnHandle> getCompactEffectivePredicate()
+    public TupleDomain<? extends ColumnHandle> getEffectivePredicate()
     {
-        return compactEffectivePredicate;
+        return effectivePredicate;
     }
 
     @JsonProperty
-    public TupleDomain<ColumnHandle> getPromisedPredicate()
+    public TupleDomain<ColumnHandle> getPartitionColumnPredicate()
     {
-        return promisedPredicate;
+        return partitionColumnPredicate;
     }
 
     @JsonProperty
