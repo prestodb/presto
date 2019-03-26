@@ -21,12 +21,8 @@ import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationT
 import com.facebook.presto.operator.aggregation.groupByAggregations.GroupByAggregationTestUtils;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 import org.testng.internal.collections.Ints;
@@ -36,18 +32,28 @@ import java.util.*;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.*;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static org.testng.Assert.assertTrue;
+import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
+
 
 public class TestApproximateHeavyHittersAggregation
 {
     private static final FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
+
+    @Test
+    public void testSimple()
+    {
+        InternalAggregationFunction approxHeavyHitters = getAggregation(VARCHAR, DOUBLE);
+        assertAggregation(
+                approxHeavyHitters,
+                ImmutableMap.of("a", 3L),
+                createStringsBlock("a","b","c","a","a","b"),
+                createRLEBlock(40.0, 6)
+        );
+    }
 
     @Test
     public void testEmpty()
@@ -55,86 +61,42 @@ public class TestApproximateHeavyHittersAggregation
         InternalAggregationFunction approxHeavyHitters = getAggregation(VARCHAR, DOUBLE);
         assertAggregation(
                 approxHeavyHitters,
-                ImmutableMap.of("a", 3L, "b", 2L, "c", 1L),
-                createStringsBlock("a","b","c","a","a","b")
+                null,
+                createStringsBlock((String) null),
+                createRLEBlock(40.0, 1)
         );
     }
 
     @Test
     public void testNullOnly()
     {
-        InternalAggregationFunction bigIntAgg = getAggregation(BIGINT);
+        InternalAggregationFunction approxHeavyHitters = getAggregation(VARCHAR, DOUBLE);
         assertAggregation(
-                bigIntAgg,
-                Arrays.asList(null, null, null),
-                createLongsBlock(new Long[] {null, null, null}));
+                approxHeavyHitters,
+                ImmutableMap.of(null, 1L, null, 1L, null, 1L),
+                createStringsBlock(null, null, null),
+                createRLEBlock(40.0, 1)
+        );
     }
 
     @Test
     public void testNullPartial()
     {
-        InternalAggregationFunction bigIntAgg = getAggregation(BIGINT);
+        InternalAggregationFunction approxHeavyHitters = getAggregation(VARCHAR, DOUBLE);
         assertAggregation(
-                bigIntAgg,
-                Arrays.asList(null, 2L, null, 3L, null),
-                createLongsBlock(new Long[] {null, 2L, null, 3L, null}));
+                approxHeavyHitters,
+                ImmutableMap.of(null, 1L, null, 1L, null, 1L),
+                createStringsBlock(null, "a", null, "b", null),
+                createRLEBlock(10.0, 1)
+        );
     }
 
-    @Test
-    public void testBoolean()
-    {
-        InternalAggregationFunction booleanAgg = getAggregation(BOOLEAN);
-        assertAggregation(
-                booleanAgg,
-                Arrays.asList(true, false),
-                createBooleansBlock(new Boolean[] {true, false}));
-    }
-
-    @Test
-    public void testBigInt()
-    {
-        InternalAggregationFunction bigIntAgg = getAggregation(BIGINT);
-        assertAggregation(
-                bigIntAgg,
-                Arrays.asList(2L, 1L, 2L),
-                createLongsBlock(new Long[] {2L, 1L, 2L}));
-    }
-
-    @Test
-    public void testVarchar()
-    {
-        InternalAggregationFunction varcharAgg = getAggregation(VARCHAR);
-        assertAggregation(
-                varcharAgg,
-                Arrays.asList("hello", "world"),
-                createStringsBlock(new String[] {"hello", "world"}));
-    }
-
-    @Test
-    public void testDate()
-    {
-        InternalAggregationFunction varcharAgg = getAggregation(DATE);
-        assertAggregation(
-                varcharAgg,
-                Arrays.asList(new SqlDate(1), new SqlDate(2), new SqlDate(4)),
-                createTypedLongsBlock(DATE, ImmutableList.of(1L, 2L, 4L)));
-    }
-
-    @Test
-    public void testArray()
-    {
-        InternalAggregationFunction varcharAgg = getAggregation(new ArrayType(BIGINT));
-        assertAggregation(
-                varcharAgg,
-                Arrays.asList(Arrays.asList(1L), Arrays.asList(1L, 2L), Arrays.asList(1L, 2L, 3L)),
-                createArrayBigintBlock(ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(1L, 2L), ImmutableList.of(1L, 2L, 3L))));
-    }
 
     @Test
     public void testEmptyStateOutputsNull()
     {
-        InternalAggregationFunction bigIntAgg = getAggregation(BIGINT);
-        GroupedAccumulator groupedAccumulator = bigIntAgg.bind(Ints.asList(new int[] {}), Optional.empty())
+        InternalAggregationFunction approxHeavyHitters = getAggregation(VARCHAR, DOUBLE);
+        GroupedAccumulator groupedAccumulator = approxHeavyHitters.bind(Ints.asList(new int[] {}), Optional.empty())
                 .createGroupedAccumulator();
         BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(null, 1000);
 
@@ -145,13 +107,16 @@ public class TestApproximateHeavyHittersAggregation
     @Test
     public void testWithMultiplePages()
     {
-        InternalAggregationFunction varcharAgg = getAggregation(VARCHAR);
+        InternalAggregationFunction approxHeavyHitters = getAggregation(VARCHAR, DOUBLE);
 
         AggregationTestInputBuilder testInputBuilder = new AggregationTestInputBuilder(
                 new Block[] {
-                        createStringsBlock("hello", "world", "hello2", "world2", "hello3", "world3", "goodbye")},
-                varcharAgg);
-        AggregationTestOutput testOutput = new AggregationTestOutput(ImmutableList.of("hello", "world", "hello2", "world2", "hello3", "world3", "goodbye"));
+                        createStringsBlock("hello", "world", "hello", "world", "hello", "world", "goodbye"),
+                        createRLEBlock(10.0, 7),
+                },
+                approxHeavyHitters
+        );
+        AggregationTestOutput testOutput = new AggregationTestOutput(ImmutableMap.of("hello", 3, "world", 3, "goodbye", 1));
         AggregationTestInput testInput = testInputBuilder.build();
 
         testInput.runPagesOnAccumulatorWithAssertion(0L, testInput.createGroupedAccumulator(), testOutput);
@@ -160,23 +125,24 @@ public class TestApproximateHeavyHittersAggregation
     @Test
     public void testMultipleGroupsWithMultiplePages()
     {
-        InternalAggregationFunction varcharAgg = getAggregation(VARCHAR);
+        InternalAggregationFunction approxHeavyHitters = getAggregation(VARCHAR, DOUBLE);
 
         Block block1 = createStringsBlock("a", "b", "c", "d", "e");
         Block block2 = createStringsBlock("f", "g", "h", "i", "j");
-        AggregationTestOutput aggregationTestOutput1 = new AggregationTestOutput(ImmutableList.of("a", "b", "c", "d", "e"));
+        Block minPercentShare = createRLEBlock(9.0, 5);
+        AggregationTestOutput aggregationTestOutput1 = new AggregationTestOutput(ImmutableMap.of("a", 1, "b", 1, "c", 1, "d", 1, "e", 1));
         AggregationTestInputBuilder testInputBuilder1 = new AggregationTestInputBuilder(
-                new Block[] {block1},
-                varcharAgg);
+                new Block[] {block1, minPercentShare},
+                approxHeavyHitters);
         AggregationTestInput test1 = testInputBuilder1.build();
         GroupedAccumulator groupedAccumulator = test1.createGroupedAccumulator();
 
         test1.runPagesOnAccumulatorWithAssertion(0L, groupedAccumulator, aggregationTestOutput1);
 
-        AggregationTestOutput aggregationTestOutput2 = new AggregationTestOutput(ImmutableList.of("f", "g", "h", "i", "j"));
+        AggregationTestOutput aggregationTestOutput2 = new AggregationTestOutput(ImmutableMap.of("f", 1, "g",  1, "h", 1,  "i", 1,  "j", 1));
         AggregationTestInputBuilder testBuilder2 = new AggregationTestInputBuilder(
-                new Block[] {block2},
-                varcharAgg);
+                new Block[] {block2, minPercentShare},
+                approxHeavyHitters);
         AggregationTestInput test2 = testBuilder2.build();
         test2.runPagesOnAccumulatorWithAssertion(255L, groupedAccumulator, aggregationTestOutput2);
     }
@@ -185,27 +151,28 @@ public class TestApproximateHeavyHittersAggregation
     public void testManyValues()
     {
         // Test many values so multiple BlockBuilders will be used to store group state.
-        InternalAggregationFunction varcharAgg = getAggregation(VARCHAR);
+        InternalAggregationFunction approxHeavyHitters = getAggregation(VARCHAR, DOUBLE);
 
         int numGroups = 50000;
         int arraySize = 30;
         Random random = new Random();
-        GroupedAccumulator groupedAccumulator = createGroupedAccumulator(varcharAgg);
+        GroupedAccumulator groupedAccumulator = createGroupedAccumulator(approxHeavyHitters);
+        Block minPercentShare = createRLEBlock(2.0, arraySize);
 
         for (int j = 0; j < numGroups; j++) {
-            List<String> expectedValues = new ArrayList<>();
+            Map<String, Long> expectedValues = new HashMap<>();
             List<String> valueList = new ArrayList<>();
 
             for (int i = 0; i < arraySize; i++) {
                 String str = String.valueOf(random.nextInt());
                 valueList.add(str);
-                expectedValues.add(str);
+                expectedValues.merge(str, 1L, Long::sum);
             }
 
             Block block = createStringsBlock(valueList);
             AggregationTestInputBuilder testInputBuilder = new AggregationTestInputBuilder(
-                    new Block[] {block},
-                    varcharAgg);
+                    new Block[] {block, minPercentShare},
+                    approxHeavyHitters);
             AggregationTestInput test1 = testInputBuilder.build();
 
             test1.runPagesOnAccumulatorWithAssertion(j, groupedAccumulator, new AggregationTestOutput(expectedValues));

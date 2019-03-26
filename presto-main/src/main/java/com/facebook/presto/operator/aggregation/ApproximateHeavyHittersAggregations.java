@@ -17,12 +17,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.aggregation.state.TopElementsHistogram;
 import com.facebook.presto.operator.aggregation.state.TopElementsState;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.AggregationFunction;
-import com.facebook.presto.spi.function.AggregationState;
-import com.facebook.presto.spi.function.CombineFunction;
-import com.facebook.presto.spi.function.InputFunction;
-import com.facebook.presto.spi.function.OutputFunction;
-import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.*;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -37,24 +32,24 @@ public class ApproximateHeavyHittersAggregations
     private ApproximateHeavyHittersAggregations() {}
 
     @InputFunction
-    public static void input(@AggregationState TopElementsState state, @SqlType(StandardTypes.VARCHAR) Slice slice, @SqlType(StandardTypes.DOUBLE) double min_percent_share)
+    public static void input(@AggregationState TopElementsState state, @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice slice, @SqlType(StandardTypes.DOUBLE) double min_percent_share)
     {
         input(state, slice, min_percent_share, 0.01, 0.99);
     }
 
     //TODO how to add a input function which accepts confidence but uses default value for error
     @InputFunction
-    public static void input(@AggregationState TopElementsState state, @SqlType(StandardTypes.VARCHAR) Slice slice, @SqlType(StandardTypes.DOUBLE) double min_percent_share, @SqlType(StandardTypes.DOUBLE) double error)
+    public static void input(@AggregationState TopElementsState state, @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice slice, @SqlType(StandardTypes.DOUBLE) double min_percent_share, @SqlType(StandardTypes.DOUBLE) double error)
     {
         input(state, slice, min_percent_share, error, 0.99);
     }
 
     @InputFunction
-    public static void input(@AggregationState TopElementsState state, @SqlType(StandardTypes.VARCHAR) Slice slice, @SqlType(StandardTypes.DOUBLE) double min_percent_share, @SqlType(StandardTypes.DOUBLE) double error, @SqlType(StandardTypes.DOUBLE) double confidence)
+    public static void input(@AggregationState TopElementsState state, @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice slice, @SqlType(StandardTypes.DOUBLE) double min_percent_share, @SqlType(StandardTypes.DOUBLE) double error, @SqlType(StandardTypes.DOUBLE) double confidence)
     {
-        TopElementsHistogram histogram = state.getHistogram();
+        TopElementsHistogram<String> histogram = state.getHistogram();
         if (histogram == null) {
-            histogram = new TopElementsHistogram(min_percent_share, error, confidence, 1);  //TODO set the seed to be derived from the column name
+            histogram = new TopElementsHistogram<>(min_percent_share, error, confidence, 1);  //TODO set the seed to be derived from the column name
             state.setHistogram(histogram);
             //TODO add memoryUsage here
             //state.addMemoryUsage(histogram.estimatedInMemorySize());
@@ -81,7 +76,7 @@ public class ApproximateHeavyHittersAggregations
         }
     }
 
-    @OutputFunction("map(string,long)")
+    @OutputFunction("map(varchar,bigint)")
     public static void output(@AggregationState TopElementsState state, BlockBuilder out)
     {
         TopElementsHistogram histogram = state.getHistogram();

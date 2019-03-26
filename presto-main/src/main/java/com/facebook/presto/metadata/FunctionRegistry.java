@@ -389,6 +389,7 @@ class FunctionRegistry
                 .aggregate(SumDataSizeForStats.class)
                 .aggregate(MaxDataSizeForStats.class)
                 .aggregates(CountAggregation.class)
+                .aggregates(ApproximateHeavyHittersAggregations.class)
                 .aggregates(VarianceAggregation.class)
                 .aggregates(CentralMomentsAggregation.class)
                 .aggregates(ApproximateLongPercentileAggregations.class)
@@ -602,7 +603,6 @@ class FunctionRegistry
                 .function(TRY_CAST)
                 .aggregate(MergeSetDigestAggregation.class)
                 .aggregate(BuildSetDigestAggregation.class)
-                .aggregate(ApproximateHeavyHittersAggregations.class)
                 .scalars(SetDigestFunctions.class)
                 .scalars(SetDigestOperators.class)
                 .scalars(WilsonInterval.class);
