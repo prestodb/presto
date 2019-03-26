@@ -34,6 +34,11 @@ import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.parquet.ParquetResultVerifierUtils;
 import com.facebook.presto.parquet.PrimitiveField;
 import com.facebook.presto.parquet.RichColumnDescriptor;
+import com.facebook.presto.parquet.crypto.HiddenColumnChunkMetaData;
+import com.facebook.presto.parquet.crypto.InternalColumnDecryptionSetup;
+import com.facebook.presto.parquet.crypto.InternalFileDecryptor;
+import com.facebook.presto.parquet.predicate.Predicate;
+import com.facebook.presto.parquet.predicate.TupleDomainParquetPredicate;
 import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
 import it.unimi.dsi.fastutil.booleans.BooleanList;
@@ -75,15 +80,14 @@ public class ParquetReader
     private static final int INITIAL_BATCH_SIZE = 1;
     private static final int BATCH_SIZE_GROWTH_FACTOR = 2;
 
+    private final InternalFileDecryptor fileDecryptor;
     private final List<BlockMetaData> blocks;
     private final List<PrimitiveColumnIO> columns;
-    private final ParquetDataSource dataSource;
     private final AggregatedMemoryContext systemMemoryContext;
     private final boolean batchReadEnabled;
     private final boolean enableVerification;
 
     private int currentBlock;
-    private BlockMetaData currentBlockMetadata;
     private long currentPosition;
     private long currentGroupRowCount;
     private long nextRowInGroup;
@@ -96,8 +100,9 @@ public class ParquetReader
     private long maxCombinedBytesPerRow;
     private final long maxReadBlockBytes;
     private int maxBatchSize = MAX_VECTOR_LENGTH;
-
     private AggregatedMemoryContext currentRowGroupMemoryContext;
+    protected final ParquetDataSource dataSource;
+    protected BlockMetaData currentBlockMetadata;
 
     public ParquetReader(MessageColumnIO
             messageColumnIO,
@@ -106,7 +111,8 @@ public class ParquetReader
             AggregatedMemoryContext systemMemoryContext,
             DataSize maxReadBlockSize,
             boolean batchReadEnabled,
-            boolean enableVerification)
+            boolean enableVerification,
+            InternalFileDecryptor fileDecryptor)
     {
         this.blocks = blocks;
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
@@ -119,6 +125,12 @@ public class ParquetReader
         this.enableVerification = enableVerification;
         verificationColumnReaders = enableVerification ? new ColumnReader[columns.size()] : null;
         maxBytesPerCell = new long[columns.size()];
+        for (PrimitiveColumnIO column : columns) {
+            ColumnDescriptor columnDescriptor = column.getColumnDescriptor();
+            this.paths.put(ColumnPath.get(columnDescriptor.getPath()), columnDescriptor);
+        }
+        this.currentBlock = -1; // Set it as invalid block
+        this.fileDecryptor = fileDecryptor;
     }
 
     @Override
@@ -231,7 +243,7 @@ public class ParquetReader
         return new ColumnChunk(rowBlock, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
     }
 
-    private ColumnChunk readPrimitive(PrimitiveField field)
+    protected ColumnChunk readPrimitive(PrimitiveField field)
             throws IOException
     {
         ColumnDescriptor columnDescriptor = field.getDescriptor();
@@ -276,7 +288,13 @@ public class ParquetReader
         return columnChunk;
     }
 
-    private byte[] allocateBlock(int length)
+    private boolean isEncryptedColumn(InternalFileDecryptor fileDecryptor, ColumnDescriptor columnDescriptor)
+    {
+        ColumnPath columnPath = ColumnPath.get(columnDescriptor.getPath());
+        return fileDecryptor != null && !fileDecryptor.plaintextFile() && fileDecryptor.getColumnSetup(columnPath).isEncrypted();
+    }
+
+    protected byte[] allocateBlock(int length)
     {
         byte[] buffer = new byte[length];
         LocalMemoryContext blockMemoryContext = currentRowGroupMemoryContext.newLocalMemoryContext(ParquetReader.class.getSimpleName());
@@ -284,12 +302,14 @@ public class ParquetReader
         return buffer;
     }
 
-    private ColumnChunkMetaData getColumnChunkMetaData(ColumnDescriptor columnDescriptor)
+    protected ColumnChunkMetaData getColumnChunkMetaData(ColumnDescriptor columnDescriptor)
             throws IOException
     {
         for (ColumnChunkMetaData metadata : currentBlockMetadata.getColumns()) {
-            if (metadata.getPath().equals(ColumnPath.get(columnDescriptor.getPath()))) {
-                return metadata;
+            if (!HiddenColumnChunkMetaData.isHiddenColumn(metadata)) {
+                if (metadata.getPath().equals(ColumnPath.get(columnDescriptor.getPath()))) {
+                    return metadata;
+                }
             }
         }
         throw new ParquetCorruptionException("Metadata is missing for column: %s", columnDescriptor);

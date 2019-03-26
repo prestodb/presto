@@ -21,7 +21,7 @@ public class ParquetTypeConverter
 {
     private ParquetTypeConverter() {}
 
-    public static org.apache.parquet.format.Type getType(PrimitiveType.PrimitiveTypeName type)
+    public static Type getType(PrimitiveType.PrimitiveTypeName type)
     {
         switch (type) {
             case INT64:

@@ -20,6 +20,8 @@ import com.facebook.presto.parquet.ParquetCorruptionException;
 import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.parquet.ParquetEncoding;
 import com.facebook.presto.parquet.RichColumnDescriptor;
+import com.facebook.presto.parquet.crypto.HiddenColumnChunkMetaData;
+import com.facebook.presto.parquet.format.Util;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -33,7 +35,6 @@ import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.format.DictionaryPageHeader;
 import org.apache.parquet.format.PageHeader;
 import org.apache.parquet.format.PageType;
-import org.apache.parquet.format.Util;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
@@ -101,11 +102,13 @@ public final class PredicateUtils
     {
         ImmutableMap.Builder<ColumnDescriptor, Statistics<?>> statistics = ImmutableMap.builder();
         for (ColumnChunkMetaData columnMetaData : blockMetadata.getColumns()) {
-            Statistics<?> columnStatistics = columnMetaData.getStatistics();
-            if (columnStatistics != null) {
-                RichColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
-                if (descriptor != null) {
-                    statistics.put(descriptor, columnStatistics);
+            if (!HiddenColumnChunkMetaData.isHiddenColumn(columnMetaData)) {
+                Statistics<?> columnStatistics = columnMetaData.getStatistics();
+                if (columnStatistics != null) {
+                    RichColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
+                    if (descriptor != null) {
+                        statistics.put(descriptor, columnStatistics);
+                    }
                 }
             }
         }
@@ -115,14 +118,16 @@ public final class PredicateUtils
     private static boolean dictionaryPredicatesMatch(Predicate parquetPredicate, BlockMetaData blockMetadata, ParquetDataSource dataSource, Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<ColumnDescriptor> parquetTupleDomain)
     {
         for (ColumnChunkMetaData columnMetaData : blockMetadata.getColumns()) {
-            RichColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
-            if (descriptor != null) {
-                if (isOnlyDictionaryEncodingPages(columnMetaData) && isColumnPredicate(descriptor, parquetTupleDomain)) {
-                    byte[] buffer = new byte[toIntExact(columnMetaData.getTotalSize())];
-                    dataSource.readFully(columnMetaData.getStartingPos(), buffer);
-                    //  Early abort, predicate already filters block so no more dictionaries need be read
-                    if (!parquetPredicate.matches(new DictionaryDescriptor(descriptor, readDictionaryPage(buffer, columnMetaData.getCodec())))) {
-                        return false;
+            if (!HiddenColumnChunkMetaData.isHiddenColumn(columnMetaData)) {
+                RichColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
+                if (descriptor != null) {
+                    if (isOnlyDictionaryEncodingPages(columnMetaData) && isColumnPredicate(descriptor, parquetTupleDomain)) {
+                        byte[] buffer = new byte[toIntExact(columnMetaData.getTotalSize())];
+                        dataSource.readFully(columnMetaData.getStartingPos(), buffer);
+                        //  Early abort, predicate already filters block so no more dictionaries need be read
+                        if (!parquetPredicate.matches(new DictionaryDescriptor(descriptor, readDictionaryPage(buffer, columnMetaData.getCodec())))) {
+                            return false;
+                        }
                     }
                 }
             }

@@ -325,6 +325,20 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredResourcePatterns>
+                        <ignoredResourcePattern>parquet.thrift</ignoredResourcePattern>
+                        <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                    </ignoredResourcePatterns>
+                    <ignoredClassPatterns>
+                        <ignoredClassPattern>shaded.parquet.it.unimi.dsi.fastutil.*</ignoredClassPattern>
+                        <ignoredClassPattern>module-info</ignoredClassPattern>
+                    </ignoredClassPatterns>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>

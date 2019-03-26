@@ -396,6 +396,13 @@
             <artifactId>jmh-generator-annprocess</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.12</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -469,6 +476,20 @@
                             <includes>
                                 <include>**/TestHiveDistributedQueriesWithExchangeMaterialization.java</include>
                             </includes>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.basepom.maven</groupId>
+                        <artifactId>duplicate-finder-maven-plugin</artifactId>
+                        <configuration>
+                            <ignoredResourcePatterns>
+                                <ignoredResourcePattern>parquet.thrift</ignoredResourcePattern>
+                                <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                            </ignoredResourcePatterns>
+                            <ignoredClassPatterns>
+                                <ignoredClassPattern>shaded.parquet.it.unimi.dsi.fastutil.*</ignoredClassPattern>
+                                <ignoredClassPattern>module-info</ignoredClassPattern>
+                            </ignoredClassPatterns>
                         </configuration>
                     </plugin>
                 </plugins>

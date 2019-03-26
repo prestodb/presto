@@ -104,7 +104,7 @@ class MessageTypeConverter
         return FieldRepetitionType.valueOf(repetition.name());
     }
 
-    private static org.apache.parquet.format.Type getType(PrimitiveType.PrimitiveTypeName type)
+    private static Type getType(PrimitiveType.PrimitiveTypeName type)
     {
         switch (type) {
             case INT64:

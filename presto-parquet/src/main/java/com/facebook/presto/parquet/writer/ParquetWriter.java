@@ -26,7 +26,6 @@ import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.format.ColumnMetaData;
 import org.apache.parquet.format.FileMetaData;
 import org.apache.parquet.format.RowGroup;
-import org.apache.parquet.format.Util;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
 import org.openjdk.jol.info.ClassLayout;
@@ -249,7 +248,7 @@ public class ParquetWriter
         fileMetaData.setRow_groups(ImmutableList.copyOf(rowGroups));
 
         DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(40);
-        Util.writeFileMetaData(fileMetaData, dynamicSliceOutput);
+        org.apache.parquet.format.Util.writeFileMetaData(fileMetaData, dynamicSliceOutput);
         return dynamicSliceOutput.slice();
     }
 
