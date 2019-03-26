@@ -14,46 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.block.BlockSerdeUtil;
-import com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregation;
-import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileAggregations;
-import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileArrayAggregations;
-import com.facebook.presto.operator.aggregation.ApproximateLongPercentileAggregations;
-import com.facebook.presto.operator.aggregation.ApproximateLongPercentileArrayAggregations;
-import com.facebook.presto.operator.aggregation.ApproximateRealPercentileAggregations;
-import com.facebook.presto.operator.aggregation.ApproximateRealPercentileArrayAggregations;
-import com.facebook.presto.operator.aggregation.ApproximateSetAggregation;
-import com.facebook.presto.operator.aggregation.AverageAggregations;
-import com.facebook.presto.operator.aggregation.BitwiseAndAggregation;
-import com.facebook.presto.operator.aggregation.BitwiseOrAggregation;
-import com.facebook.presto.operator.aggregation.BooleanAndAggregation;
-import com.facebook.presto.operator.aggregation.BooleanOrAggregation;
-import com.facebook.presto.operator.aggregation.CentralMomentsAggregation;
-import com.facebook.presto.operator.aggregation.CountAggregation;
-import com.facebook.presto.operator.aggregation.CountIfAggregation;
-import com.facebook.presto.operator.aggregation.DefaultApproximateCountDistinctAggregation;
-import com.facebook.presto.operator.aggregation.DoubleCorrelationAggregation;
-import com.facebook.presto.operator.aggregation.DoubleCovarianceAggregation;
-import com.facebook.presto.operator.aggregation.DoubleHistogramAggregation;
-import com.facebook.presto.operator.aggregation.DoubleRegressionAggregation;
-import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
-import com.facebook.presto.operator.aggregation.GeometricMeanAggregations;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.operator.aggregation.IntervalDayToSecondAverageAggregation;
-import com.facebook.presto.operator.aggregation.IntervalDayToSecondSumAggregation;
-import com.facebook.presto.operator.aggregation.IntervalYearToMonthAverageAggregation;
-import com.facebook.presto.operator.aggregation.IntervalYearToMonthSumAggregation;
-import com.facebook.presto.operator.aggregation.LongSumAggregation;
-import com.facebook.presto.operator.aggregation.MaxDataSizeForStats;
-import com.facebook.presto.operator.aggregation.MergeHyperLogLogAggregation;
-import com.facebook.presto.operator.aggregation.MergeQuantileDigestFunction;
-import com.facebook.presto.operator.aggregation.RealCorrelationAggregation;
-import com.facebook.presto.operator.aggregation.RealCovarianceAggregation;
-import com.facebook.presto.operator.aggregation.RealGeometricMeanAggregations;
-import com.facebook.presto.operator.aggregation.RealHistogramAggregation;
-import com.facebook.presto.operator.aggregation.RealRegressionAggregation;
-import com.facebook.presto.operator.aggregation.RealSumAggregation;
-import com.facebook.presto.operator.aggregation.SumDataSizeForStats;
-import com.facebook.presto.operator.aggregation.VarianceAggregation;
+import com.facebook.presto.operator.aggregation.*;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggregationFunction;
 import com.facebook.presto.operator.aggregation.histogram.Histogram;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggregationFunction;
@@ -641,6 +602,7 @@ class FunctionRegistry
                 .function(TRY_CAST)
                 .aggregate(MergeSetDigestAggregation.class)
                 .aggregate(BuildSetDigestAggregation.class)
+                .aggregate(ApproximateHeavyHittersAggregations.class)
                 .scalars(SetDigestFunctions.class)
                 .scalars(SetDigestOperators.class)
                 .scalars(WilsonInterval.class);
