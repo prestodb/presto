@@ -18,7 +18,6 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.IndexHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.block.SortOrder;
@@ -375,28 +374,21 @@ public class PlanBuilder
                 new TestingTableHandle(),
                 TestingTransactionHandle.create(),
                 Optional.of(TestingHandle.INSTANCE));
-        return tableScan(tableHandle, symbols, assignments, Optional.empty(), TupleDomain.all(), TupleDomain.all());
+        return tableScan(tableHandle, symbols, assignments, TupleDomain.all(), TupleDomain.all());
     }
 
-    public TableScanNode tableScan(TableHandle tableHandle, List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
+    public TableScanNode tableScan(
+            TableHandle tableHandle,
+            List<Symbol> symbols,
+            Map<Symbol, ColumnHandle> assignments)
     {
-        return tableScan(tableHandle, symbols, assignments, Optional.empty());
+        return tableScan(tableHandle, symbols, assignments, TupleDomain.all(), TupleDomain.all());
     }
 
     public TableScanNode tableScan(
             TableHandle tableHandle,
             List<Symbol> symbols,
             Map<Symbol, ColumnHandle> assignments,
-            Optional<TableLayoutHandle> tableLayout)
-    {
-        return tableScan(tableHandle, symbols, assignments, tableLayout, TupleDomain.all(), TupleDomain.all());
-    }
-
-    public TableScanNode tableScan(
-            TableHandle tableHandle,
-            List<Symbol> symbols,
-            Map<Symbol, ColumnHandle> assignments,
-            Optional<TableLayoutHandle> tableLayout,
             TupleDomain<ColumnHandle> currentConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint)
     {
@@ -405,7 +397,6 @@ public class PlanBuilder
                 tableHandle,
                 symbols,
                 assignments,
-                tableLayout,
                 currentConstraint,
                 enforcedConstraint);
     }

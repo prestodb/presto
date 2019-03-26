@@ -27,7 +27,6 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.testing.TestingHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
@@ -52,6 +51,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
+import static com.facebook.presto.sql.planner.plan.TableScanNode.createTableScanNode;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.testng.Assert.assertEquals;
 
@@ -181,7 +181,7 @@ public class TestPhasedExecutionSchedule
     private static PlanFragment createBroadcastJoinPlanFragment(String name, PlanFragment buildFragment)
     {
         Symbol symbol = new Symbol("column");
-        PlanNode tableScan = new TableScanNode(
+        PlanNode tableScan = createTableScanNode(
                 new PlanNodeId(name),
                 new TableHandle(
                         new ConnectorId("test"),
@@ -235,7 +235,7 @@ public class TestPhasedExecutionSchedule
     private static PlanFragment createTableScanPlanFragment(String name)
     {
         Symbol symbol = new Symbol("column");
-        PlanNode planNode = new TableScanNode(
+        PlanNode planNode = createTableScanNode(
                 new PlanNodeId(name),
                 new TableHandle(
                         new ConnectorId("test"),

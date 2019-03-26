@@ -232,7 +232,6 @@ public class PickTableLayout
                     tableScanNode.getTable(),
                     tableScanNode.getOutputSymbols(),
                     tableScanNode.getAssignments(),
-                    Optional.of(layout.get().getLayout().getHandle()),
                     TupleDomain.all(),
                     TupleDomain.all()));
         }
@@ -303,7 +302,6 @@ public class PickTableLayout
                 node.getTable(),
                 node.getOutputSymbols(),
                 node.getAssignments(),
-                Optional.of(layout.get().getLayout().getHandle()),
                 layout.get().getLayout().getPredicate(),
                 computeEnforced(newDomain, layout.get().getUnenforcedConstraint()));
 

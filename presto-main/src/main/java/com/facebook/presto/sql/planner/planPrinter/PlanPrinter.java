@@ -756,9 +756,9 @@ public class PlanPrinter
         {
             TableHandle table = node.getTable();
 
-            if (node.getLayout().isPresent()) {
+            if (table.getLayout().isPresent()) {
                 // TODO: find a better way to do this
-                ConnectorTableLayoutHandle layout = node.getLayout().get().getConnectorHandle();
+                ConnectorTableLayoutHandle layout = table.getLayout().get();
                 if (!table.getConnectorHandle().toString().equals(layout.toString())) {
                     nodeOutput.appendDetailsLine("LAYOUT: %s", layout);
                 }

@@ -786,7 +786,6 @@ public class PlanFragmenter
                     newTableHandle,
                     node.getOutputSymbols(),
                     node.getAssignments(),
-                    Optional.empty(),
                     node.getCurrentConstraint(),
                     node.getEnforcedConstraint());
         }

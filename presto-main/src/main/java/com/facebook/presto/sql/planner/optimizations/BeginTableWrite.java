@@ -209,7 +209,6 @@ public class BeginTableWrite
                         handle,
                         scan.getOutputSymbols(),
                         scan.getAssignments(),
-                        Optional.of(layoutResult.getLayout().getHandle()),
                         layoutResult.getLayout().getPredicate(),
                         computeEnforced(originalEnforcedConstraint, layoutResult.getUnenforcedConstraint()));
             }
