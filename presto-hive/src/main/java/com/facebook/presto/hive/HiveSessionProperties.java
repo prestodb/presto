@@ -83,6 +83,7 @@ public final class HiveSessionProperties
     public static final String WRITING_STAGING_FILES_ENABLED = "writing_staging_files_enabled";
     private static final String TEMPORARY_TABLE_SCHEMA = "temporary_table_schema";
     private static final String TEMPORARY_TABLE_STORAGE_FORMAT = "temporary_table_storage_format";
+    private static final String ARIA_SCAN_ENABLED = "aria_scan_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -342,7 +343,12 @@ public final class HiveSessionProperties
                         hiveClientConfig.getTemporaryTableStorageFormat(),
                         false,
                         value -> HiveStorageFormat.valueOf(((String) value).toUpperCase()),
-                        HiveStorageFormat::name));
+                        HiveStorageFormat::name),
+                booleanProperty(
+                        ARIA_SCAN_ENABLED,
+                        "Aria scan enabled",
+                        true,
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -574,6 +580,11 @@ public final class HiveSessionProperties
     public static HiveStorageFormat getTemporaryTableStorageFormat(ConnectorSession session)
     {
         return session.getProperty(TEMPORARY_TABLE_STORAGE_FORMAT, HiveStorageFormat.class);
+    }
+
+    public static boolean isAriaScanEnabled(ConnectorSession session)
+    {
+        return session.getProperty(ARIA_SCAN_ENABLED, Boolean.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)
