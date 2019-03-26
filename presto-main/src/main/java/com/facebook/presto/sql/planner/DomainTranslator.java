@@ -89,7 +89,6 @@ import static java.util.Collections.emptyList;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.collectingAndThen;
-
 import static java.util.stream.Collectors.toList;
 
 public final class DomainTranslator

@@ -464,6 +464,7 @@ public class ElasticsearchClient
             return rightLength - leftLength;
         }
     }
+
     static TransportClient createTransportClient(ElasticsearchConnectorConfig config, TransportAddress address)
     {
         return createTransportClient(config, address, Optional.empty());

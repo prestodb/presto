@@ -40,6 +40,7 @@ public final class ColumnDefinition
     {
         this(Optional.of(location), name, type, nullable, properties, comment);
     }
+
     private ColumnDefinition(Optional<NodeLocation> location, Identifier name, String type, boolean nullable, List<Property> properties, Optional<String> comment)
     {
         super(location);
