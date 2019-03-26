@@ -97,6 +97,12 @@ public class InterpretedPageFilter
         return PageFilter.positionsArrayToSelectedPositions(selectedPositions, page.getPositionCount());
     }
 
+    @Override
+    public boolean filter(ConnectorSession session, Page page, int position)
+    {
+        return filter(page, position);
+    }
+
     private boolean filter(Page page, int position)
     {
         return TRUE.equals(evaluator.evaluate(position, page));
