@@ -33,7 +33,7 @@ public final class IndexedPriorityQueue<E>
 {
     private E dummy;
     private long generation;
-    private long estimatedInMemorySize;
+    private int estimatedInMemorySize;
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(IndexedPriorityQueue.class).instanceSize();
 
     private final Map<E, Entry<E>> index = new HashMap<>();
@@ -151,62 +151,52 @@ public final class IndexedPriorityQueue<E>
      * @param itemCount  if add than +1, if removed than -1
      * @return final memory after the change.
      */
-    public long updateMemoryForElement(Entry<E> value, long itemCount){
+    public int updateMemoryForElement(Entry<E> value, int itemCount){
         estimatedInMemorySize += itemCount*value.estimatedInMemorySize();  //itemCount can be negative
         if (estimatedInMemorySize < 0)
             estimatedInMemorySize = 0;
         return this.estimatedInMemorySize();
     }
 
-    public long estimatedInMemorySize() {
+    public int estimatedInMemorySize() {
         return INSTANCE_SIZE + estimatedInMemorySize;
     }
 
 
-//    public Slice serialize() {
-//        int requiredBytes = 2*SIZE_OF_LONG;   //generation, estimatedInMemorySize
-//        SliceOutput s = new DynamicSliceOutput(requiredBytes);
-//
-//        s.writeLong(generation);
-//        s.writeLong(estimatedInMemorySize);
-//        s.writeInt(queue.size());
-//        if(dummy instanceof String){
-//            foreach(Entry<E> e: queue.iterator()){
-//                s.writeBytes(Slices.utf8Slice((String)));
-//            }
-//        }
-//        foreach(int i = 0; i < depth; ++i) {
-//            s.writeLong(hashA[i]);
-//            for (int j = 0; j < width; ++j) {
-//                s.writeLong(table[i][j]);
-//            }
-//        }
-//        return s.slice();
-//    }
+    public Slice serialize() {
+        int requiredBytes = 2*SIZE_OF_LONG + estimatedInMemorySize;   //generation, estimatedInMemorySize
+        SliceOutput s = new DynamicSliceOutput(requiredBytes);
 
-//
-//    //Constructor based upon deserialization
-//    public CountMinSketch(Slice serialized) {
-//        SliceInput s = new BasicSliceInput(serialized);
-//        size = s.readLong();
-//        depth = s.readInt();
-//        width = s.readInt();
-//        size = s.readLong();
-//        estimatedInMemorySize = s.readLong();
-//        // e/w = eps ; w = e/eps  Where e is the natural log base.
-//        // 1/2^depth <= 1-confidence ; depth >= log2(1/(1-confidence))
-//        eps = Math.E / width;
-//        confidence = 1 - 1 / Math.pow(Math.E, depth);
-//        hashA = new long[depth];
-//        table = new long[depth][width];
-//        for (int i = 0; i < depth; ++i) {
-//            hashA[i] = s.readLong();
-//            for (int j = 0; j < width; ++j) {
-//                table[i][j] = s.readLong();
-//            }
-//        }
-//    }
+        s.writeLong(generation);
+        s.writeInt(estimatedInMemorySize);
+        s.writeInt(queue.size());
+        for (Iterator<Entry<E>> it = queue.iterator(); it.hasNext(); ) {
+            Entry<E> e = it.next();
+            Slice slc = e.serialize();
+            s.writeInt(slc.length());
+            s.writeBytes(slc);
+        }
+        return s.slice();
+    }
 
+
+    //Constructor based upon deserialization
+    public IndexedPriorityQueue(Slice serialized) {
+        SliceInput s = new BasicSliceInput(serialized);
+        generation = s.readLong();
+        estimatedInMemorySize = s.readInt();
+        int qSize = s.readInt();
+        for(int i=0; i<qSize; i++){
+            int elemSize = s.readInt();
+            Entry<E> e = new Entry<>(s.readSlice(elemSize));
+            index.put(e.getValue(), e);
+            queue.add(e);
+        }
+    }
+
+    public String toString(){
+        return queue.toString();
+    }
 
     public static final class Entry<E>
     {
@@ -241,6 +231,10 @@ public final class IndexedPriorityQueue<E>
 
         public long estimatedInMemorySize(){
             return INSTANCE_SIZE + GraphLayout.parseInstance(value).totalSize();
+        }
+
+        public String toString(){
+            return value.toString() + ":" + String.valueOf(priority);
         }
 
         public Slice serialize(){

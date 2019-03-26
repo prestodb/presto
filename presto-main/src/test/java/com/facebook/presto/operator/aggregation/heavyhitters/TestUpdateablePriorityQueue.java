@@ -71,18 +71,28 @@ public class TestUpdateablePriorityQueue
     }
 
     @Test
-    public void testSerializationEntryString(){
+    public void testSerializeEntryString(){
         IndexedPriorityQueue<String> testQ = new IndexedPriorityQueue<>();
         testQ.addOrUpdate("abc",1);
-        Entry<Integer> e = new Entry<>(testQ.poll().serialize());
-        System.out.println("value:" + e.getValue() + " priority:" + e.getPriority());
+        Entry<String> in = testQ.poll();
+        Entry<String> out = new Entry<>(in.serialize());
+        assertEquals(in.toString(), out.toString());
     }
 
     @Test
-    public void testSerializationEntryInt(){
+    public void testSerializeEntryInt(){
         IndexedPriorityQueue<Integer> testQ = new IndexedPriorityQueue<>();
         testQ.addOrUpdate(1,1);
-        Entry<Integer> e = new Entry<>(testQ.poll().serialize());
-        System.out.println("value:" + e.getValue() + " priority:" + e.getPriority());
+        Entry<Integer> in = testQ.poll();
+        Entry<Integer> out = new Entry<>(in.serialize());
+        assertEquals(in.toString(), out.toString());
+    }
+
+    @Test
+    public void testSerializeQueueInt(){
+        IndexedPriorityQueue<Integer> testQ = new IndexedPriorityQueue<>();
+        populate(testQ);
+        IndexedPriorityQueue<Integer> revivedQ = new IndexedPriorityQueue(testQ.serialize());
+        assertEquals(testQ.toString(), revivedQ.toString());
     }
 }
