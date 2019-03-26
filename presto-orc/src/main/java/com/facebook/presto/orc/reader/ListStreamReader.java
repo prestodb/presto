@@ -21,6 +21,8 @@ import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
+import com.facebook.presto.spi.SubfieldPath;
+import com.facebook.presto.spi.SubfieldPath.PathElement;
 import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
@@ -32,6 +34,9 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -65,10 +70,49 @@ public class ListStreamReader
 
     private boolean rowGroupOpen;
 
+    // The set of subscripts for which data needs to be
+    // returned. Other positions can be initialized to null. If this
+    // is null, values for all subscripts must be returned.
+    long[] subscripts;
+
     public ListStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.elementStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone, systemMemoryContext);
+    }
+
+    @Override
+    public void setReferencedSubfields(List<SubfieldPath> subfields, int depth)
+    {
+        HashSet<Long> referencedSubscripts = new HashSet();
+        boolean mayPruneElement = true;
+        ArrayList<SubfieldPath> pathsForElement = new ArrayList();
+        for (SubfieldPath subfield : subfields) {
+            List<PathElement> pathElements = subfield.getPath();
+            PathElement subscript = pathElements.get(depth + 1);
+            if (!subscript.getIsSubscript()) {
+                throw new IllegalArgumentException("List reader needs a PathElement with a subscript");
+            }
+            if (subscript.getSubscript() == PathElement.allSubscripts) {
+                referencedSubscripts = null;
+            }
+            else {
+                referencedSubscripts.add(subscript.getSubscript());
+            }
+            if (pathElements.size() > depth + 1) {
+                pathsForElement.add(subfield);
+            }
+            else {
+                mayPruneElement = false;
+            }
+        }
+        if (mayPruneElement) {
+            elementStreamReader.setReferencedSubfields(pathsForElement, depth + 1);
+        }
+        if (referencedSubscripts != null) {
+            subscripts = referencedSubscripts.stream().mapToLong(Long::longValue).toArray();
+            Arrays.sort(subscripts);
+        }
     }
 
     @Override

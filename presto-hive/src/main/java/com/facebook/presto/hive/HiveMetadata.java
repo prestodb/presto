@@ -136,6 +136,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HivePartitionManager.extractPartitionValues;
 import static com.facebook.presto.hive.HiveSessionProperties.getHiveStorageFormat;
+import static com.facebook.presto.hive.HiveSessionProperties.isAriaScanEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isBucketExecutionEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isCollectColumnStatisticsOnWrite;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedMismatchedBucketCount;
@@ -196,6 +197,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
+import static com.facebook.presto.spi.predicate.TupleDomain.all;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
@@ -203,11 +205,14 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Predicates.in;
+import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Maps.filterKeys;
 import static com.google.common.collect.Streams.stream;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -1603,6 +1608,13 @@ public class HiveMetadata
             throw new TableNotFoundException(handle.getSchemaTableName());
         }
 
+        List<ColumnHandle> partitionColumns = layoutHandle.getPartitionColumns();
+        if (!layoutHandle.getEffectivePredicate().getDomains()
+                .map(domains -> filterKeys(domains, not(in(partitionColumns))))
+                .orElse(ImmutableMap.of()).isEmpty()) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector only supports delete where one or more partitions are deleted entirely");
+        }
+
         if (table.get().getPartitionColumns().isEmpty()) {
             metastore.truncateUnpartitionedTable(session, handle.getSchemaName(), handle.getTableName());
         }
@@ -1621,9 +1633,9 @@ public class HiveMetadata
             return layoutHandle.getPartitions().get();
         }
         else {
-            TupleDomain<ColumnHandle> promisedPredicate = layoutHandle.getPromisedPredicate();
-            Predicate<Map<ColumnHandle, NullableValue>> predicate = convertToPredicate(promisedPredicate);
-            List<ConnectorTableLayoutResult> tableLayoutResults = getTableLayouts(session, tableHandle, new Constraint<>(promisedPredicate, predicate), Optional.empty());
+            TupleDomain<ColumnHandle> partitionColumnPredicate = layoutHandle.getPartitionColumnPredicate();
+            Predicate<Map<ColumnHandle, NullableValue>> predicate = convertToPredicate(partitionColumnPredicate);
+            List<ConnectorTableLayoutResult> tableLayoutResults = getTableLayouts(session, tableHandle, new Constraint<>(partitionColumnPredicate, predicate), Optional.empty());
             return ((HiveTableLayoutHandle) Iterables.getOnlyElement(tableLayoutResults).getTableLayout().getHandle()).getPartitions().get();
         }
     }
@@ -1653,6 +1665,16 @@ public class HiveMetadata
             hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, constraint);
         }
 
+        // TODO Synchronize this flag with engine's aria-enabled
+        boolean ariaScanEnabled = isAriaScanEnabled(session);
+        if (ariaScanEnabled) {
+            HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(getTableMetadata(session, tableHandle).getProperties());
+            if (hiveStorageFormat != HiveStorageFormat.ORC && hiveStorageFormat != HiveStorageFormat.DWRF) {
+                ariaScanEnabled = false;
+                // TODO Make HivePageSourceFactory for RC and Parquet fail if non-partition key predicates are present
+            }
+        }
+
         return ImmutableList.of(new ConnectorTableLayoutResult(
                 getTableLayout(
                         session,
@@ -1660,11 +1682,11 @@ public class HiveMetadata
                                 handle.getSchemaTableName(),
                                 ImmutableList.copyOf(hivePartitionResult.getPartitionColumns()),
                                 getPartitionsAsList(hivePartitionResult),
-                                hivePartitionResult.getCompactEffectivePredicate(),
+                                hivePartitionResult.getEffectivePredicate(),
                                 hivePartitionResult.getEnforcedConstraint(),
                                 hivePartitionResult.getBucketHandle(),
                                 hivePartitionResult.getBucketFilter())),
-                hivePartitionResult.getUnenforcedConstraint()));
+                ariaScanEnabled ? all() : hivePartitionResult.getUnenforcedConstraint()));
     }
 
     @Override
@@ -1674,7 +1696,19 @@ public class HiveMetadata
         List<ColumnHandle> partitionColumns = hiveLayoutHandle.getPartitionColumns();
         List<HivePartition> partitions = hiveLayoutHandle.getPartitions().get();
 
-        TupleDomain<ColumnHandle> predicate = createPredicate(partitionColumns, partitions);
+        TupleDomain<ColumnHandle> predicate;
+        if (partitions.isEmpty()) {
+            predicate = TupleDomain.none();
+        }
+        else {
+            ImmutableMap.Builder<ColumnHandle, Domain> predicateBuilder = ImmutableMap.builder();
+            hiveLayoutHandle.getEffectivePredicate().getDomains()
+                    .map(domains -> filterKeys(domains, not(in(partitionColumns))))
+                    .ifPresent(predicateBuilder::putAll);
+            createPredicate(partitionColumns, partitions).getDomains()
+                    .ifPresent(predicateBuilder::putAll);
+            predicate = withColumnDomains(predicateBuilder.build());
+        }
 
         Optional<DiscretePredicates> discretePredicates = Optional.empty();
         if (!partitionColumns.isEmpty()) {
@@ -1784,8 +1818,8 @@ public class HiveMetadata
                 hiveLayoutHandle.getSchemaTableName(),
                 hiveLayoutHandle.getPartitionColumns(),
                 hiveLayoutHandle.getPartitions().get(),
-                hiveLayoutHandle.getCompactEffectivePredicate(),
-                hiveLayoutHandle.getPromisedPredicate(),
+                hiveLayoutHandle.getEffectivePredicate(),
+                hiveLayoutHandle.getPartitionColumnPredicate(),
                 Optional.of(new HiveBucketHandle(bucketHandle.getColumns(), bucketHandle.getTableBucketCount(), hivePartitioningHandle.getBucketCount())),
                 hiveLayoutHandle.getBucketFilter());
     }
