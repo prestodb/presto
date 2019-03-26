@@ -63,10 +63,6 @@ public class TopElementsHistogram<E>
         return topElements;
     }
 
-    public long getMinItemCountInTop(){
-        return topEntries.getMinPriority();
-    }
-
     public void add(E  item)
     {
         this.add(item, 1);

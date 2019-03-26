@@ -35,13 +35,14 @@ public class TopElementsStateSerializer
             out.appendNull();
         }
         else {
+            VARBINARY.writeSlice(out, state.getHistogram().serialize());
         }
     }
 
     @Override
     public void deserialize(Block block, int index, TopElementsState state)
     {
-        //state.setHistogram(new TopElementsState(VARBINARY.getSlice(block, index), ));
+        state.setHistogram(new TopElementsHistogram(VARBINARY.getSlice(block, index)));
     }
 }
 
