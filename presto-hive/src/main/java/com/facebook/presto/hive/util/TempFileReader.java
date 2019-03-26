@@ -23,6 +23,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 
 import java.io.IOException;
@@ -65,6 +66,7 @@ public class TempFileReader
 
             reader = orcReader.createRecordReader(
                     includedColumns,
+                    ImmutableMap.of(),
                     OrcPredicate.TRUE,
                     UTC,
                     newSimpleAggregatedMemoryContext(),

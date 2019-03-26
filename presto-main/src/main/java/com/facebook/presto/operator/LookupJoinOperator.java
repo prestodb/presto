@@ -687,4 +687,10 @@ public class LookupJoinOperator
         buildPage();
         probe = null;
     }
+
+    @Override
+    public boolean retainsInputPages()
+    {
+        return false;
+    }
 }

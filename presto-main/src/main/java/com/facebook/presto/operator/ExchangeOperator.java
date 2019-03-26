@@ -192,4 +192,10 @@ public class ExchangeOperator
     {
         exchangeClient.close();
     }
+
+    @Override
+    public boolean retainsInputPages()
+    {
+        return false;
+    }
 }

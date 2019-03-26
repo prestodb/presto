@@ -19,6 +19,7 @@ import com.facebook.presto.orc.checkpoint.LongStreamV2Checkpoint;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 
 /**
  * @see {@link org.apache.hadoop.hive.ql.io.orc.RunLengthIntegerWriterV2} for description of various lightweight compression techniques.
@@ -43,6 +44,22 @@ public class LongInputStreamV2
     private int used;
     private final boolean skipCorrupt;
     private long lastReadInputCheckpoint;
+    // Position of the first value of the run in literals from the checkpoint.
+    private int currentRunOffset;
+    // Positions to visit in scan(), offset from last checkpoint.
+    private int[] offsets;
+    private int beginOffset;
+    private int numOffsets;
+    private int offsetIdx;
+    private ResultsConsumer resultsConsumer;
+    // Offset of first row not covered by the current call to scan().
+    private int endOffset;
+    private int numResults;
+
+    // readValues sets this to true to indicate that all operations
+    // needed by scan() where performed inside readValues. If false,
+    // scan() must look at the literals.
+    private boolean scanDone;
 
     public LongInputStreamV2(OrcInputStream input, boolean signed, boolean skipCorrupt)
     {
@@ -76,6 +93,71 @@ public class LongInputStreamV2
         }
         else {
             readDeltaValues(firstByte);
+        }
+    }
+
+    // Applies filter to values at numOffsets first positions in
+    // offsets. If the filter is true for the value at offsets[i],
+    // appends inputNumbers[i] to inputNumbersOut and rowNumbers[i] to
+    // rowNumbersOut and the value itself to valuesOut. If filter is
+    // null, all values pass the filter. If rowNumbers is null, the
+    // value at offsets[i] is used instead. If inputNumbers is null, i
+    // is used instead of inputNumbers[i]. valuesOut may be null, in
+    // which case the value is discarded after the filter. Returns the
+    // number of values written into the output arrays.
+    public int scan(
+            int[] offsets,
+            int beginOffset,
+            int numOffsets,
+            int endOffset,
+            ResultsConsumer resultsConsumer)
+            throws IOException
+    {
+        this.offsets = offsets;
+        this.beginOffset = beginOffset;
+        this.numOffsets = numOffsets;
+        this.endOffset = endOffset;
+        this.resultsConsumer = resultsConsumer;
+        numResults = 0;
+        offsetIdx = beginOffset;
+        if (numLiterals > 0) {
+            scanLiterals();
+        }
+        while (offsetIdx < beginOffset + numOffsets) {
+            if (offsetIdx >= 100_000) {
+                System.out.println("***");
+            }
+            used = 0;
+            numLiterals = 0;
+            scanDone = false;
+            readValues();
+            if (!scanDone) {
+                scanLiterals();
+            }
+        }
+        this.offsets = null;
+        return numResults;
+    }
+
+    // Apply filter to values materialized in literals.
+    private void scanLiterals()
+            throws IOException
+    {
+        for (; ; ) {
+            if (offsetIdx >= beginOffset + numOffsets) {
+                return;
+            }
+            int offset = offsets[offsetIdx];
+            if (offset >= numLiterals + currentRunOffset) {
+                currentRunOffset += numLiterals;
+                used = 0;
+                numLiterals = 0;
+                return;
+            }
+            if (resultsConsumer.consume(offsetIdx, literals[offset - currentRunOffset])) {
+                ++numResults;
+            }
+            ++offsetIdx;
         }
     }
 
@@ -262,7 +344,33 @@ public class LongInputStreamV2
         length |= input.read();
         // runs are one off
         length += 1;
-
+        if (offsets != null) {
+            int numInRange = numOffsetsWithin(length);
+            if (numInRange == 0 && (fixedBits & 0x7) == 0) {
+                // If packing width is an integer number of bytes, skip.
+                input.skipFully(length * fixedBits / 8);
+                currentRunOffset += length;
+                scanDone = true;
+                return;
+            }
+            if (numInRange > 0) {
+                packer.unpackAtOffsets(literals, numLiterals, length, fixedBits, offsets, offsetIdx, numInRange, currentRunOffset, input);
+                if (signed) {
+                    for (int i = 0; i < numInRange; i++) {
+                        literals[numLiterals + i] = LongDecode.zigzagDecode(literals[numLiterals + i]);
+                    }
+                }
+                for (int i = 0; i < numInRange; i++) {
+                    if (resultsConsumer.consume(offsetIdx, literals[i + numLiterals])) {
+                        ++numResults;
+                    }
+                    ++offsetIdx;
+                }
+                currentRunOffset += length;
+                scanDone = true;
+                return;
+            }
+        }
         // write the unpacked values and zigzag decode to result buffer
         packer.unpack(literals, numLiterals, length, fixedBits, input);
         if (signed) {
@@ -290,17 +398,56 @@ public class LongInputStreamV2
         // run lengths values are stored only after MIN_REPEAT value is met
         length += MIN_REPEAT_SIZE;
 
-        // read the repeated value which is store using fixed bytes
-        long val = bytesToLongBE(input, size);
+        // read the repeated value which is stored using fixed bytes
+        long literal = bytesToLongBE(input, size);
 
         if (signed) {
-            val = LongDecode.zigzagDecode(val);
+            literal = LongDecode.zigzagDecode(literal);
         }
 
-        // repeat the value for length times
-        for (int i = 0; i < length; i++) {
-            literals[numLiterals++] = val;
+        if (offsets != null) {
+            if (offsets[offsetIdx] >= currentRunOffset + length) {
+                currentRunOffset += length;
+                scanDone = true;
+                return;
+            }
+            int numInRle = numOffsetsWithin(length);
+            if (numInRle > 0) {
+                numResults += resultsConsumer.consumeRepeated(offsetIdx, literal, numInRle);
+                offsetIdx += numInRle;
+                currentRunOffset += length;
+                scanDone = true;
+                return;
+            }
         }
+            // repeat the value for length times
+        for (int i = 0; i < length; i++) {
+            literals[numLiterals++] = literal;
+        }
+    }
+
+    private int numOffsetsWithin(int length)
+            throws IOException
+    {
+        int i;
+        int limit = currentRunOffset + length;
+        if (offsets[offsetIdx] >= limit) {
+            return 0;
+        }
+        if (limit > endOffset) {
+            // The scanned range ends in mid-run. We revert to reading
+            // the run into literals and then process those that fall
+            // within the range of this scan(). The next scan can pick
+            // up in the middle of the literals.
+            return -1;
+        }
+        // Are all the offsets consecutive for the length of the run?
+        if (offsetIdx + length < numOffsets && offsets[offsetIdx + length - 1] == currentRunOffset + length - 1) {
+            return length;
+        }
+        int last = Math.min(offsetIdx + length, numOffsets);
+        int position = Arrays.binarySearch(offsets, offsetIdx, last, limit);
+        return position > 0 ? position - offsetIdx : (-position - 1) - offsetIdx;
     }
 
     /**
@@ -338,21 +485,25 @@ public class LongInputStreamV2
         return LongStreamV2Checkpoint.class;
     }
 
+    static boolean enableSeekInBuffer = true;
+
     @Override
     public void seekToCheckpoint(LongStreamCheckpoint checkpoint)
             throws IOException
     {
         LongStreamV2Checkpoint v2Checkpoint = (LongStreamV2Checkpoint) checkpoint;
-
         // if the checkpoint is within the current buffer, just adjust the pointer
-        if (lastReadInputCheckpoint == v2Checkpoint.getInputStreamCheckpoint() && v2Checkpoint.getOffset() <= numLiterals) {
+        if (enableSeekInBuffer && lastReadInputCheckpoint == v2Checkpoint.getInputStreamCheckpoint() && v2Checkpoint.getOffset() <= numLiterals) {
             used = v2Checkpoint.getOffset();
+            currentRunOffset = -used;
         }
         else {
             // otherwise, discard the buffer and start over
             input.seekToCheckpoint(v2Checkpoint.getInputStreamCheckpoint());
             numLiterals = 0;
             used = 0;
+            // The checkpoint can be in the middle of the run. So offset 0 in scan offsets corresponds to offset checkpoint.offset().
+            currentRunOffset = -v2Checkpoint.getOffset();
             skip(v2Checkpoint.getOffset());
         }
     }
@@ -370,6 +521,12 @@ public class LongInputStreamV2
             long consume = Math.min(items, numLiterals - used);
             used += consume;
             items -= consume;
+            if (items != 0) {
+                // A skip of multiple runs can take place at seeking
+                // to checkpoint. Keep track of the start of the run
+                // in literals for use by next scan().
+                currentRunOffset += (int) consume;
+            }
         }
     }
 }

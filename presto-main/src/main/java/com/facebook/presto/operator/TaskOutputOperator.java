@@ -155,4 +155,10 @@ public class TaskOutputOperator
     {
         return null;
     }
+
+    @Override
+    public boolean retainsInputPages()
+    {
+        return false;
+    }
 }
