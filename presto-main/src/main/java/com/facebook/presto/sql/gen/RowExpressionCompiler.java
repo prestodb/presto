@@ -93,7 +93,7 @@ public class RowExpressionCompiler
                     cachedInstanceBinder,
                     functionManager);
 
-            return (new FunctionCallCodeGenerator()).generateCall(call.getFunctionHandle().getSignature(), generatorContext, call.getType(), call.getArguments(), context.getOutputBlockVariable());
+            return (new FunctionCallCodeGenerator()).generateCall(call.getFunctionHandle(), generatorContext, call.getType(), call.getArguments(), context.getOutputBlockVariable());
         }
 
         @Override
