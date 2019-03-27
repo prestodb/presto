@@ -19,7 +19,6 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.operator.scalar.TryFunction;
 import com.facebook.presto.spi.ColumnHandle;
@@ -232,11 +231,7 @@ public class PickTableLayout
 
             return Result.ofPlanNode(new TableScanNode(
                     tableScanNode.getId(),
-                    new TableHandle(
-                            tableScanNode.getTable().getConnectorId(),
-                            tableScanNode.getTable().getConnectorHandle(),
-                            tableScanNode.getTable().getTransaction(),
-                            Optional.of(layout.getLayout().getHandle().getConnectorHandle())),
+                    layout.getLayout().getNewTableHandle(),
                     tableScanNode.getOutputSymbols(),
                     tableScanNode.getAssignments(),
                     layout.getLayout().getPredicate(),
@@ -309,11 +304,7 @@ public class PickTableLayout
 
         TableScanNode tableScan = new TableScanNode(
                 node.getId(),
-                new TableHandle(
-                        node.getTable().getConnectorId(),
-                        node.getTable().getConnectorHandle(),
-                        node.getTable().getTransaction(),
-                        Optional.of(layout.getLayout().getHandle().getConnectorHandle())),
+                layout.getLayout().getNewTableHandle(),
                 node.getOutputSymbols(),
                 node.getAssignments(),
                 layout.getLayout().getPredicate(),

@@ -548,11 +548,7 @@ public class PlanFragmenter
 
             return new TableScanNode(
                     idAllocator.getNextId(),
-                    new TableHandle(
-                            tableHandle.getConnectorId(),
-                            tableHandle.getConnectorHandle(),
-                            tableHandle.getTransaction(),
-                            Optional.of(selectedLayout.getLayout().getHandle().getConnectorHandle())),
+                    selectedLayout.getLayout().getNewTableHandle(),
                     outputSymbols,
                     assignments,
                     TupleDomain.all(),

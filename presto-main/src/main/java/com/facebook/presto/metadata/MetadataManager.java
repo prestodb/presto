@@ -398,7 +398,7 @@ public class MetadataManager
             throw new PrestoException(NOT_SUPPORTED, "Connector returned multiple layouts for table " + table);
         }
 
-        return new TableLayoutResult(fromConnectorLayout(connectorId, table.getTransaction(), layouts.get(0).getTableLayout()), layouts.get(0).getUnenforcedConstraint());
+        return new TableLayoutResult(fromConnectorLayout(connectorId, table.getConnectorHandle(), table.getTransaction(), layouts.get(0).getTableLayout()), layouts.get(0).getUnenforcedConstraint());
     }
 
     @Override
@@ -407,7 +407,7 @@ public class MetadataManager
         ConnectorId connectorId = handle.getConnectorId();
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
-        return fromConnectorLayout(connectorId, handle.getTransaction(), metadata.getTableLayout(session.toConnectorSession(connectorId), resolveTableLayout(session, handle)));
+        return fromConnectorLayout(connectorId, handle.getConnectorHandle(), handle.getTransaction(), metadata.getTableLayout(session.toConnectorSession(connectorId), resolveTableLayout(session, handle)));
     }
 
     @Override
@@ -1238,7 +1238,7 @@ public class MetadataManager
             return tableHandle.getLayout().get();
         }
         TableLayoutResult result = getLayout(session, tableHandle, alwaysTrue(), Optional.empty());
-        return result.getLayout().getHandle().getConnectorHandle();
+        return result.getLayout().getLayoutHandle();
     }
 
     @VisibleForTesting

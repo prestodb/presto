@@ -73,7 +73,7 @@ public class SplitManager
         ConnectorTableLayoutHandle layout;
         if (!table.getLayout().isPresent()) {
             TableLayoutResult result = metadata.getLayout(session, table, Constraint.alwaysTrue(), Optional.empty());
-            layout = result.getLayout().getHandle().getConnectorHandle();
+            layout = result.getLayout().getLayoutHandle();
         }
         else {
             layout = table.getLayout().get();
