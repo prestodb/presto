@@ -16,7 +16,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlOperator;
-import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.gen.CachedInstanceBinder;
@@ -35,13 +35,13 @@ import io.airlift.bytecode.instruction.LabelNode;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
-import static com.facebook.presto.metadata.InternalSignatureUtils.internalOperator;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
 import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.function.Signature.withVariadicBound;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.gen.InvokeFunctionBytecodeExpression.invokeFunction;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
@@ -132,15 +132,13 @@ public class RowIndeterminateOperator
                                 .push(true)
                                 .gotoLabel(end));
 
-                Signature signature = internalOperator(
-                        INDETERMINATE.name(),
-                        BOOLEAN.getTypeSignature(),
-                        ImmutableList.of(fieldTypes.get(i).getTypeSignature()));
-                ScalarFunctionImplementation function = functionManager.getScalarFunctionImplementation(signature);
+                FunctionHandle functionHandle = functionManager.resolveOperator(INDETERMINATE, fromTypes(fieldTypes.get(i)));
+
+                ScalarFunctionImplementation function = functionManager.getScalarFunctionImplementation(functionHandle);
                 BytecodeExpression element = constantType(binder, fieldTypes.get(i)).getValue(value, constantInt(i));
 
                 ifNullField.ifFalse(new IfStatement("if the field is not null but indeterminate...")
-                        .condition(invokeFunction(scope, cachedInstanceBinder, signature.getName(), function, element))
+                        .condition(invokeFunction(scope, cachedInstanceBinder, functionHandle.getSignature().getName(), function, element))
                         .ifTrue(new BytecodeBlock()
                                 .push(true)
                                 .gotoLabel(end)));
