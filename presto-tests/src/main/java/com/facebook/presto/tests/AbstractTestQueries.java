@@ -4016,6 +4016,14 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testInvalidWindowFunction()
+    {
+        assertQueryFails("SELECT abs(x) OVER ()\n" +
+                "FROM (VALUES (1), (2), (3)) t(x)",
+                "line 1:1: Not a window function: abs");
+    }
+
+    @Test
     public void testScalarFunction()
     {
         assertQuery("SELECT SUBSTR('Quadratically', 5, 6)");
