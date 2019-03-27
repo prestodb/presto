@@ -16,6 +16,7 @@ package com.facebook.presto.sql;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.block.Block;
@@ -60,7 +61,9 @@ import org.testng.annotations.Test;
 import java.util.Map;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.ROW_CONSTRUCTOR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -144,7 +147,7 @@ public class TestRowExpressionSerde
     }
 
     @Test
-    public void testArrayGet()
+    public void testArraySubscript()
     {
         assertEquals(getRoundTrip("(ARRAY [1, 2, 3])[1]", false),
                 call(operator(SUBSCRIPT, new ArrayType(INTEGER), BIGINT),
@@ -170,6 +173,25 @@ public class TestRowExpressionSerde
                                         DOUBLE)),
                         constant(1L, INTEGER),
                         constant(1.1, DOUBLE)));
+    }
+
+    @Test
+    public void testRowDereference()
+    {
+        assertEquals(getRoundTrip("CAST(ROW(1) AS ROW(col1 integer)).col1", false),
+                specialForm(
+                        DEREFERENCE,
+                        INTEGER,
+                        call(
+                                cast(CAST,
+                                        RowType.anonymous(ImmutableList.of(INTEGER)),
+                                        RowType.from(ImmutableList.of(RowType.field("col1", INTEGER)))),
+                                RowType.from(ImmutableList.of(RowType.field("col1", INTEGER))),
+                                specialForm(
+                                        ROW_CONSTRUCTOR,
+                                        RowType.anonymous(ImmutableList.of(INTEGER)),
+                                        constant(1L, INTEGER))),
+                        constant(0L, INTEGER)));
     }
 
     @Test
@@ -218,6 +240,11 @@ public class TestRowExpressionSerde
     private FunctionHandle operator(OperatorType operatorType, Type... types)
     {
         return metadata.getFunctionManager().resolveOperator(operatorType, fromTypes(types));
+    }
+
+    private FunctionHandle cast(CastType castType, Type fromType, Type toType)
+    {
+        return metadata.getFunctionManager().lookupCast(castType, fromType.getTypeSignature(), toType.getTypeSignature());
     }
 
     private FunctionHandle function(String name, Type... types)
