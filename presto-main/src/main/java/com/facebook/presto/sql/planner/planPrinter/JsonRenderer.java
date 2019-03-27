@@ -46,7 +46,6 @@ public class JsonRenderer
         return new JsonRenderedNode(
                 node.getId().toString(),
                 node.getName(),
-                node.getType(),
                 node.getIdentifier(),
                 node.getDetails(),
                 children,
@@ -59,17 +58,15 @@ public class JsonRenderer
     {
         private final String id;
         private final String name;
-        private final String type;
         private final String identifier;
         private final String details;
         private final List<JsonRenderedNode> children;
         private final List<String> remoteSources;
 
-        public JsonRenderedNode(String id, String name, String type, String identifier, String details, List<JsonRenderedNode> children, List<String> remoteSources)
+        public JsonRenderedNode(String id, String name, String identifier, String details, List<JsonRenderedNode> children, List<String> remoteSources)
         {
             this.id = requireNonNull(id, "id is null");
             this.name = requireNonNull(name, "name is null");
-            this.type = requireNonNull(type, "type is null");
             this.identifier = requireNonNull(identifier, "identifier is null");
             this.details = requireNonNull(details, "details is null");
             this.children = requireNonNull(children, "children is null");
