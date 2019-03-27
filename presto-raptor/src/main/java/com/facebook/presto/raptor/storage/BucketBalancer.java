@@ -18,6 +18,7 @@ import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.backup.BackupService;
 import com.facebook.presto.raptor.metadata.BucketNode;
 import com.facebook.presto.raptor.metadata.Distribution;
+import com.facebook.presto.raptor.metadata.MetadataConfig;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
@@ -79,6 +80,7 @@ public class BucketBalancer
     private final ShardManager shardManager;
     private final boolean enabled;
     private final Duration interval;
+    private final Duration initialDelay;
     private final boolean backupAvailable;
     private final boolean coordinator;
     private final ScheduledExecutorService executor;
@@ -93,14 +95,16 @@ public class BucketBalancer
             NodeManager nodeManager,
             NodeSupplier nodeSupplier,
             ShardManager shardManager,
-            BucketBalancerConfig config,
+            BucketBalancerConfig balancerConfig,
+            MetadataConfig metadataConfig,
             BackupService backupService,
             RaptorConnectorId connectorId)
     {
         this(nodeSupplier,
                 shardManager,
-                config.isBalancerEnabled(),
-                config.getBalancerInterval(),
+                balancerConfig.isBalancerEnabled(),
+                balancerConfig.getBalancerInterval(),
+                metadataConfig.getStartupGracePeriod(),
                 backupService.isBackupAvailable(),
                 nodeManager.getCurrentNode().isCoordinator(),
                 connectorId.toString());
@@ -111,6 +115,7 @@ public class BucketBalancer
             ShardManager shardManager,
             boolean enabled,
             Duration interval,
+            Duration initialDelay,
             boolean backupAvailable,
             boolean coordinator,
             String connectorId)
@@ -119,6 +124,7 @@ public class BucketBalancer
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
         this.enabled = enabled;
         this.interval = requireNonNull(interval, "interval is null");
+        this.initialDelay = requireNonNull(initialDelay, "initialDelay is null");
         this.backupAvailable = backupAvailable;
         this.coordinator = coordinator;
         this.executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("bucket-balancer-" + connectorId));
@@ -128,7 +134,7 @@ public class BucketBalancer
     public void start()
     {
         if (enabled && backupAvailable && coordinator && !started.getAndSet(true)) {
-            executor.scheduleWithFixedDelay(this::runBalanceJob, interval.toMillis(), interval.toMillis(), MILLISECONDS);
+            executor.scheduleWithFixedDelay(this::runBalanceJob, initialDelay.toMillis(), interval.toMillis(), MILLISECONDS);
         }
     }
 
