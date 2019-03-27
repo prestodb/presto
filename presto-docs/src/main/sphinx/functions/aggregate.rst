@@ -293,6 +293,34 @@ Approximate Aggregate Functions
     for all ``value``\ s. This function is equivalent to the variant of
     :func:`numeric_histogram` that takes a ``weight``, with a per-item weight of ``1``.
 
+.. function:: approx_heavy_hitters(x, min_percent_share) -> map<varchar, bigint>
+    :noindex:
+
+    See :doc:`approx_heavy_hitters`.
+
+.. function:: approx_heavy_hitters(x, min_percent_share, error) -> map<varchar, bigint>
+    :noindex:
+
+    See :doc:`approx_heavy_hitters`.
+
+.. function:: approx_heavy_hitters(x, min_percent_share, error, confidence) -> map<varchar, bigint>
+
+    Returns the elements which has percent share of atleast min_percent_share
+    along with the approximate occurence count. If not provided, default values
+    are error=0.01 and confidence=0.99
+    Lower-error/Higher-confidence results in increase in memory usage.
+
+    The algorithm is based on:
+    .. code-block:: none
+
+        Cormode, Graham; S. Muthukrishnan, "An Improved Data Stream Summary:
+        The Count-Min Sketch and its Applications" (2005)
+
+    This function should produce counts with atmost "error" with probability of "confidence"
+    Count-min-sketch is a biased estimator which may overestimate but never underestimate.
+    All elements having percent share greater than min_percent_share are part of the result
+    however some elements with higher error may make it to final result inaccurately.
+
 Statistical Aggregate Functions
 -------------------------------
 
