@@ -1718,7 +1718,7 @@ public class TestHiveIntegrationSmokeTest
 
                     TableLayout layout = metadata.getLayout(transactionSession, tableHandle.get(), Constraint.alwaysTrue(), Optional.empty())
                             .getLayout();
-                    return propertyGetter.apply((HiveTableLayoutHandle) layout.getHandle().getConnectorHandle());
+                    return propertyGetter.apply((HiveTableLayoutHandle) layout.getNewTableHandle().getLayout().get());
                 });
     }
 
