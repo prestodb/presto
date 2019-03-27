@@ -98,7 +98,7 @@ public final class IndexedPriorityQueue<E>
         return entry;
     }
 
-    public void removeBelowPriority(long tillPriority){
+    public void removeBelowPriority(double tillPriority){
         Iterator<Entry<E>> iterator = queue.iterator();
         while (iterator.hasNext()) {
             Entry<E> entry = iterator.next();
@@ -136,6 +136,17 @@ public final class IndexedPriorityQueue<E>
     {
         return (Iterator<Entry<E>>) queue.iterator();
     }
+
+    /**
+     * When only keys are required.
+     * By using this iterator java.util.ConcurrentModificationException can be avoided for just updating priority
+     * @return
+     */
+    public Iterator<E> keysIterator()
+    {
+        return (Iterator<E>) index.keySet().iterator();
+    }
+
 
     public long getMinPriority(){
         if(queue.size() > 0){

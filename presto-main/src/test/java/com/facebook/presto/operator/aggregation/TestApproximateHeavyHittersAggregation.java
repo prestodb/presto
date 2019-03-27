@@ -49,9 +49,9 @@ public class TestApproximateHeavyHittersAggregation
         InternalAggregationFunction approxHeavyHitters = getAggregation(VARCHAR, DOUBLE);
         assertAggregation(
                 approxHeavyHitters,
-                ImmutableMap.of("a", 3L),
+                ImmutableMap.of("a", 3L, "b",2L),
                 createStringsBlock("a","b","c","a","a","b"),
-                createRLEBlock(40.0, 6)
+                createRLEBlock(30.0, 6)
         );
     }
 
@@ -73,9 +73,9 @@ public class TestApproximateHeavyHittersAggregation
         InternalAggregationFunction approxHeavyHitters = getAggregation(VARCHAR, DOUBLE);
         assertAggregation(
                 approxHeavyHitters,
-                ImmutableMap.of(null, 1L, null, 1L, null, 1L),
+                null,
                 createStringsBlock(null, null, null),
-                createRLEBlock(40.0, 1)
+                createRLEBlock(40.0, 3)
         );
     }
 
@@ -85,9 +85,9 @@ public class TestApproximateHeavyHittersAggregation
         InternalAggregationFunction approxHeavyHitters = getAggregation(VARCHAR, DOUBLE);
         assertAggregation(
                 approxHeavyHitters,
-                ImmutableMap.of(null, 1L, null, 1L, null, 1L),
+                ImmutableMap.of("a", 1L, "b", 1L),
                 createStringsBlock(null, "a", null, "b", null),
-                createRLEBlock(10.0, 1)
+                createRLEBlock(10.0, 5)
         );
     }
 
@@ -116,7 +116,7 @@ public class TestApproximateHeavyHittersAggregation
                 },
                 approxHeavyHitters
         );
-        AggregationTestOutput testOutput = new AggregationTestOutput(ImmutableMap.of("hello", 3, "world", 3, "goodbye", 1));
+        AggregationTestOutput testOutput = new AggregationTestOutput(ImmutableMap.of("hello", 3L, "world", 3L, "goodbye", 1L));
         AggregationTestInput testInput = testInputBuilder.build();
 
         testInput.runPagesOnAccumulatorWithAssertion(0L, testInput.createGroupedAccumulator(), testOutput);
@@ -130,7 +130,7 @@ public class TestApproximateHeavyHittersAggregation
         Block block1 = createStringsBlock("a", "b", "c", "d", "e");
         Block block2 = createStringsBlock("f", "g", "h", "i", "j");
         Block minPercentShare = createRLEBlock(9.0, 5);
-        AggregationTestOutput aggregationTestOutput1 = new AggregationTestOutput(ImmutableMap.of("a", 1, "b", 1, "c", 1, "d", 1, "e", 1));
+        AggregationTestOutput aggregationTestOutput1 = new AggregationTestOutput(ImmutableMap.of("a", 1L, "b", 1L, "c", 1L, "d", 1L, "e", 1L));
         AggregationTestInputBuilder testInputBuilder1 = new AggregationTestInputBuilder(
                 new Block[] {block1, minPercentShare},
                 approxHeavyHitters);
@@ -139,7 +139,7 @@ public class TestApproximateHeavyHittersAggregation
 
         test1.runPagesOnAccumulatorWithAssertion(0L, groupedAccumulator, aggregationTestOutput1);
 
-        AggregationTestOutput aggregationTestOutput2 = new AggregationTestOutput(ImmutableMap.of("f", 1, "g",  1, "h", 1,  "i", 1,  "j", 1));
+        AggregationTestOutput aggregationTestOutput2 = new AggregationTestOutput(ImmutableMap.of("f", 1L, "g",  1L, "h", 1L,  "i", 1L,  "j", 1L));
         AggregationTestInputBuilder testBuilder2 = new AggregationTestInputBuilder(
                 new Block[] {block2, minPercentShare},
                 approxHeavyHitters);

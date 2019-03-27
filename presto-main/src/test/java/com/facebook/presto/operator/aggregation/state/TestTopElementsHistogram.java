@@ -1,10 +1,14 @@
 package com.facebook.presto.operator.aggregation.state;
 
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.sun.tools.javac.util.List;
 import io.airlift.slice.Slice;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Random;
@@ -17,6 +21,20 @@ import static org.testng.Assert.assertTrue;
 public class TestTopElementsHistogram {
 
     @Test
+    public void testNull() {
+        TopElementsHistogram<String> histogram = new TopElementsHistogram<>(40, 0.01, 0.99, 1);
+        histogram.add(Arrays.asList(null,"b",null,"a",null,"b"));
+        assertEquals(histogram.getTopElements(), ImmutableMap.of("b", 2L));
+    }
+
+    @Test
+    public void testSimple() {
+        TopElementsHistogram<String> histogram = new TopElementsHistogram<>(30, 0.01, 0.99, 1);
+        histogram.add(Arrays.asList("a","b","c","a","a","b"));
+        assertEquals(histogram.getTopElements(), ImmutableMap.of("a", 3L, "b", 2L));
+    }
+
+    @Test
     public void testTopElements_5() {
         TopElementsHistogram<Character> histogram = new TopElementsHistogram<Character>(5, 0.01, 0.99, 1);
         populate_0(histogram);
@@ -27,7 +45,7 @@ public class TestTopElementsHistogram {
     public void testTopElements_7() {
         TopElementsHistogram<Character> histogram = new TopElementsHistogram<Character>(7, 0.01, 0.99, 1);
         populate_0(histogram);
-        assertEquals(histogram.getTopElements().keySet(), new HashSet<Character>(Arrays.asList('r','s','t','u','v')));
+        assertEquals(histogram.getTopElements(), ImmutableMap.of('r', 175L, 's', 185L, 't', 195L, 'u', 205L, 'v', 215L));
     }
 
     public static void populate_0(TopElementsHistogram<Character> histogram){
@@ -71,7 +89,6 @@ public class TestTopElementsHistogram {
         assertNull(histogram.getTopElements().get("a"));  //a should not make it to top elements
         assertEquals((long)histogram.getTopElements().get("b"), 3);
         assertEquals((long)histogram.getTopElements().get("c"), 5);
-        System.out.println(histogram.getTopElements());
     }
 
     @Test
@@ -81,6 +98,7 @@ public class TestTopElementsHistogram {
         TopElementsHistogram<Character> out = new TopElementsHistogram(in.serialize());
         System.out.println(in.getTopElements().toString());
         System.out.println(out.getTopElements().toString());
+        //TODO why assert fails when "toString" is removed?
         assertEquals(in.getTopElements().toString(), out.getTopElements().toString());
     }
 }

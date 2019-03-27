@@ -70,24 +70,48 @@ public class TopElementsHistogram<E>
 
     public void add(E  item, long count)
     {
+        if(item == null) {
+            // Mimic Presto's avg function behavious which ignores null both in the numerator and denominator
+            return;
+        }
         Long itemCount=ccms.add(item.toString(), count);
         rowsProcessed += count;
+        // This is the only place where trim can be done before adding since only one element is being added
+        // And we have handle to that one element.
         trimTopElements();
         if(100.0*itemCount/rowsProcessed >= min_percent_share) {
-            boolean isAdded=topEntries.addOrUpdate(item, itemCount);
+            topEntries.addOrUpdate(item, itemCount);
+        }
+    }
+
+    public void add(List<E> list){
+        for(E item: list){
+            add(item);
+        }
+    }
+
+    public void add(Map<E, Long> map){
+        for(Map.Entry<E, Long> entry: map.entrySet()){
+            add(entry.getKey(), entry.getValue());
         }
     }
 
     public void trimTopElements(){
-        double minItemCount = Math.floor(min_percent_share*rowsProcessed/100.0);
+        double minItemCount = min_percent_share * rowsProcessed / 100.0;
         if(topEntries.getMinPriority() < minItemCount) {
-            topEntries.removeBelowPriority((long) (minItemCount));
+            topEntries.removeBelowPriority(minItemCount);
         }
     }
 
+    /**
+     * Be EXTREMELY careful in changing this method.
+     * Changes here can result in many unintended consequences in the edge cases
+     * @param histograms
+     */
     public void merge(TopElementsHistogram... histograms)
     {
         if (histograms != null && histograms.length > 0) {
+            // Merge ALL conservative-count-min-sketch and rowsProcessed before calling any estimateCount!!
             for (TopElementsHistogram histogram : histograms) {
                 if (histogram == null || histogram.rowsProcessed <= 0)
                     continue;
@@ -99,17 +123,32 @@ public class TopElementsHistogram<E>
                     throw new RuntimeException(e);
                 }
                 this.rowsProcessed += histogram.rowsProcessed;
-                Iterator<Entry<E>> elements = histogram.topEntries.iterator();
+            }
+
+            // DON'T merge this "for" loop with the previous one. It will impact the behaviour of the class
+            // All elements must be counted after merging ALL conservative-count-min-sketch for accuracy
+            for (TopElementsHistogram histogram : histograms) {
+                Iterator<E> elements = this.topEntries.keysIterator();
                 while(elements.hasNext()){
-                    Entry<E> item=elements.next();
+                    E item=elements.next();
                     //Estimate the count after the merger
-                    Long itemCount=ccms.estimateCount(item.getValue().toString());
-                    topEntries.addOrUpdate(item.getValue(), itemCount);
+                    Long itemCount=ccms.estimateCount(item.toString());
+                    topEntries.addOrUpdate(item, itemCount);
                 }
-                //Trim the size of top entries maintained to conserve memory
-                trimTopElements();
             }
         }
+        // Elements from "this-instance" must be counted again after the conservative-count-min-sketch merger
+        Iterator<E> elements = this.topEntries.keysIterator();
+        while(elements.hasNext()){
+            E item=elements.next();
+            //Estimate the count after the merger
+            Long itemCount=ccms.estimateCount(item.toString());
+            topEntries.addOrUpdate(item, itemCount);
+        }
+
+        // DON'T trim earlier for conserving memory. Trimming can only be done at the end.
+        // If done earlier we may loose items due to increased rowsProcessed
+        trimTopElements();
     }
 
     public long getRowsProcessed(){
