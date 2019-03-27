@@ -17,7 +17,6 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -47,7 +46,6 @@ public class TestValidateStreamingAggregations
     private SqlParser sqlParser;
     private PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
     private TableHandle nationTableHandle;
-    private TableLayoutHandle nationTableLayoutHandle;
 
     @BeforeClass
     public void setup()
@@ -62,10 +60,6 @@ public class TestValidateStreamingAggregations
                 nationTpchTableHandle,
                 TestingTransactionHandle.create(),
                 Optional.of(new TpchTableLayoutHandle(nationTpchTableHandle, TupleDomain.all())));
-
-        nationTableLayoutHandle = new TableLayoutHandle(connectorId,
-                TestingTransactionHandle.create(),
-                new TpchTableLayoutHandle((TpchTableHandle) nationTableHandle.getConnectorHandle(), TupleDomain.all()));
     }
 
     @Test
