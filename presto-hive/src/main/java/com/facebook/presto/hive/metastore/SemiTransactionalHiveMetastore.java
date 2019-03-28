@@ -2114,10 +2114,9 @@ public class SemiTransactionalHiveMetastore
             // This method augments the location field of the partition to the staging location.
             // This way, if the partition is accessed in an ongoing transaction, staged data
             // can be found and accessed.
-            Partition partition = this.partition;
             String currentLocation = this.currentLocation.toString();
             if (!currentLocation.equals(partition.getStorage().getLocation())) {
-                partition = Partition.builder(partition)
+                return Partition.builder(partition)
                         .withStorage(storage -> storage.setLocation(currentLocation))
                         .build();
             }
