@@ -42,7 +42,7 @@ public final class IndexedPriorityQueue<E>
         if (priorityComparison != 0) {
                 return priorityComparison;
         }
-        return Long.compare(entry1.getGeneration(), entry2.getGeneration());
+        return entry1.getValue().toString().compareTo(entry2.getValue().toString());
     });
 
 

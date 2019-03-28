@@ -34,14 +34,14 @@ public class ApproximateHeavyHittersAggregations
     @InputFunction
     public static void input(@AggregationState TopElementsState state, @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice slice, @SqlType(StandardTypes.DOUBLE) double min_percent_share)
     {
-        input(state, slice, min_percent_share, 0.01, 0.99);
+        input(state, slice, min_percent_share, 0.001, 0.999);
     }
 
     //TODO how to add a input function which accepts confidence but uses default value for error
     @InputFunction
     public static void input(@AggregationState TopElementsState state, @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice slice, @SqlType(StandardTypes.DOUBLE) double min_percent_share, @SqlType(StandardTypes.DOUBLE) double error)
     {
-        input(state, slice, min_percent_share, error, 0.99);
+        input(state, slice, min_percent_share, error, 0.999);
     }
 
     @InputFunction
@@ -50,29 +50,24 @@ public class ApproximateHeavyHittersAggregations
         TopElementsHistogram<String> histogram = state.getHistogram();
         if (histogram == null) {
             histogram = new TopElementsHistogram<>(min_percent_share, error, confidence, 1);  //TODO set the seed to be derived from the column name
-            state.setHistogram(histogram);
-            //TODO add memoryUsage here
-            //state.addMemoryUsage(histogram.estimatedInMemorySize());
         }
 
         histogram.add(slice.toStringUtf8());
-        //TODO add memoryUsage here
-        //state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
-
+        state.setHistogram(histogram);
+        state.addMemoryUsage(histogram.estimatedInMemorySize());
     }
 
     @CombineFunction
     public static void combine(@AggregationState TopElementsState state, @AggregationState TopElementsState otherState)
     {
         TopElementsHistogram currHistogram = state.getHistogram();
+        TopElementsHistogram otherHistogram = otherState.getHistogram();
         if (currHistogram == null) {
-            state.setHistogram(otherState.getHistogram());
-            //TODO add memoryUsage here
-            //state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
+            state.setHistogram(otherHistogram);
+            state.addMemoryUsage(otherHistogram.estimatedInMemorySize());
         }else{
-            currHistogram.merge(otherState.getHistogram());
-            //TODO add memoryUsage here
-            //state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
+            currHistogram.merge(otherHistogram);
+            state.addMemoryUsage(otherHistogram.estimatedInMemorySize());
         }
     }
 

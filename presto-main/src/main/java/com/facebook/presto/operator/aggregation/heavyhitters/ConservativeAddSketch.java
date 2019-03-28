@@ -20,6 +20,10 @@ import org.openjdk.jol.info.ClassLayout;
 
 /**
  * Copied from: https://github.com/addthis/stream-lib
+ * Initially this class was used but due to it's non-deterministic results it was dropped.
+ * Count estimation changes based upon the sequence in which the elements are added.
+ * Class is still kept as a reminder that this algorithm does not work.
+ *
  * A more accurate (by some large, but ill-defined amount), but slower (by some
  * small, but equally ill-defined amount) count min sketch. It seemed like a
  * simple optimization and later internet searching suggested it might be
@@ -29,22 +33,11 @@ public class ConservativeAddSketch extends CountMinSketch {
 
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ConservativeAddSketch.class).instanceSize();
 
-//    ConservativeAddSketch() {
-//        super();
-//    }
-//
-//    public ConservativeAddSketch(int depth, int width, int seed) {
-//        super(depth, width, seed);
-//    }
-
     public ConservativeAddSketch(double epsOfTotalCount, double confidence, int seed) {
         super(epsOfTotalCount, confidence, seed);
     }
 
-//    ConservativeAddSketch(int depth, int width, long size, long[] hashA, long[][] table) {
-//        super(depth, width, size, hashA, table);
-//    }
-
+    //TODO any way to collapse all the add methods?
     @Override
     public long add(long item, long count) {
         if (count < 0) {
@@ -60,13 +53,12 @@ public class ConservativeAddSketch extends CountMinSketch {
         for (int i = 1; i < depth; ++i) {
             min = Math.min(min, table[i][buckets[i]]);
         }
-        long newVal = min;
         for (int i = 0; i < depth; ++i) {
-            newVal = Math.max(table[i][buckets[i]], min + count);
+            long newVal = Math.max(table[i][buckets[i]], min + count);
             table[i][buckets[i]] = newVal;
         }
         size += count;
-        return newVal;
+        return min + count;
     }
 
     @Override
@@ -81,13 +73,32 @@ public class ConservativeAddSketch extends CountMinSketch {
         for (int i = 1; i < depth; ++i) {
             min = Math.min(min, table[i][buckets[i]]);
         }
-        long newVal = min;
         for (int i = 0; i < depth; ++i) {
-            newVal = Math.max(table[i][buckets[i]], min + count);
+            long newVal = Math.max(table[i][buckets[i]], min + count);
             table[i][buckets[i]] = newVal;
         }
         size += count;
-        return newVal;
+        return min + count;
+    }
+
+    @Override
+    public long add(Slice item, long count) {
+        if (count < 0) {
+            // Negative values are not implemented in the regular version, and do not
+            // play nicely with this algorithm anyway
+            throw new IllegalArgumentException("Negative increments not implemented");
+        }
+        int[] buckets = Filter.getHashBuckets(item, depth, width);
+        long min = table[0][buckets[0]];
+        for (int i = 1; i < depth; ++i) {
+            min = Math.min(min, table[i][buckets[i]]);
+        }
+        for (int i = 0; i < depth; ++i) {
+            long newVal = Math.max(table[i][buckets[i]], min + count);
+            table[i][buckets[i]] = newVal;
+        }
+        size += count;
+        return min + count;
     }
 
     @VisibleForTesting

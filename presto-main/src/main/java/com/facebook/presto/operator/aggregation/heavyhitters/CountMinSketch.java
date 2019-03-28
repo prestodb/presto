@@ -16,6 +16,7 @@
 package com.facebook.presto.operator.aggregation.heavyhitters;
 
 import io.airlift.slice.*;
+import org.apache.commons.math3.stat.descriptive.rank.Median;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.ByteArrayInputStream;
@@ -26,6 +27,7 @@ import java.io.IOException;
 
 import java.util.Arrays;
 import java.util.Random;
+import java.util.stream.LongStream;
 
 import static io.airlift.slice.SizeOf.*;
 
@@ -36,7 +38,7 @@ import static io.airlift.slice.SizeOf.*;
  * An Improved Data Stream Summary: The Count-Min Sketch and its Applications
  * https://web.archive.org/web/20060907232042/http://www.eecs.harvard.edu/~michaelm/CS222/countmin.pdf
  */
-public class CountMinSketch {
+public class CountMinSketch{
 
     public static final long PRIME_MODULUS = (1L << 31) - 1;
     private static final long serialVersionUID = -5084982213094657923L;
@@ -55,14 +57,6 @@ public class CountMinSketch {
     CountMinSketch() {
     }
 
-//TODO this method is not required and should be deleted
-//    public CountMinSketch(int depth, int width, int seed) {
-//        this.depth = depth;
-//        this.width = width;
-//        this.eps = 2.0 / width;
-//        this.confidence = 1 - 1 / Math.pow(2, depth);
-//        initTablesWith(depth, width, seed);
-//    }
 
     /**
      * This class is to find heavy hitters and based upon the paper: http://theory.stanford.edu/~tim/s17/l/l2.pdf
@@ -86,19 +80,6 @@ public class CountMinSketch {
         estimatedInMemorySize=SizeOf.sizeOf(table) + SizeOf.sizeOf(hashA);
     }
 
-//    CountMinSketch(int depth, int width, long size, long[] hashA, long[][] table) {
-//        this.depth = depth;
-//        this.width = width;
-//        this.eps = 2.0 / width;
-//        this.confidence = 1 - 1 / Math.pow(2, depth);
-//        this.hashA = hashA;
-//        this.table = table;
-//
-//        if(size < 0){
-//            throw new IllegalArgumentException("The size cannot be smaller than ZER0: " + size);
-//        }
-//        this.size = size;
-//    }
 
     @Override
     public String toString() {
@@ -205,10 +186,10 @@ public class CountMinSketch {
         }
     }
 
-    private void checkSizeAfterAdd(String item, long count) {
+    private void checkSizeAfterAdd(long count) {
         long previousSize = size;
         size += count;
-        checkSizeAfterOperation(previousSize, "add(" + item + "," + count + ")", size);
+        checkSizeAfterOperation(previousSize, "add", size);
     }
 
     /**
@@ -233,7 +214,7 @@ public class CountMinSketch {
             table[i][j] += count;
             res = Math.min(res, table[i][j]);
         }
-        checkSizeAfterAdd(String.valueOf(item), count);
+        checkSizeAfterAdd(count);
         return res;
     }
 
@@ -258,7 +239,26 @@ public class CountMinSketch {
             table[i][buckets[i]] += count;
             res = Math.min(res, table[i][buckets[i]]);
         }
-        checkSizeAfterAdd(item, count);
+        checkSizeAfterAdd(count);
+        return res;
+    }
+
+    public long add(Slice item, long count) {
+        if (count < 0) {
+            // Actually for negative increments we'll need to use the median
+            // instead of minimum, and accuracy will suffer somewhat.
+            // Probably makes sense to add an "allow negative increments"
+            // parameter to constructor.
+            throw new IllegalArgumentException("Negative increments not implemented");
+        }
+
+        long res = Long.MAX_VALUE;
+        int[] buckets = Filter.getHashBuckets(item, depth, width);
+        for (int i = 0; i < depth; ++i) {
+            table[i][buckets[i]] += count;
+            res = Math.min(res, table[i][buckets[i]]);
+        }
+        checkSizeAfterAdd(count);
         return res;
     }
 
@@ -285,6 +285,21 @@ public class CountMinSketch {
             res = Math.min(res, table[i][buckets[i]]);
         }
         return res;
+    }
+
+    public long estimateMeanCount(String item) {
+        // Based upon https://en.wikipedia.org/wiki/Count–min_sketch#Bias
+        long res = Long.MAX_VALUE;
+        double resMean[] = new double[depth];
+        int[] buckets = Filter.getHashBuckets(item, depth, width);
+        for (int i = 0; i < depth; ++i) {
+            long rawRes = table[i][buckets[i]];
+            res = Math.min(res, rawRes);
+            long noiseEstimation = (size - rawRes) / (width - 1);
+            resMean[i] = rawRes - noiseEstimation;
+        }
+        Median median = new Median();
+        return Math.min((long)median.evaluate(resMean), res);
     }
 
     /**
