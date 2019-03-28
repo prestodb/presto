@@ -51,6 +51,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.lang.String.format;
 import static java.util.Comparator.comparingInt;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -83,6 +84,7 @@ public class BucketBalancer
     private final Duration initialDelay;
     private final boolean backupAvailable;
     private final boolean coordinator;
+    private final int minimumNodeCount;
     private final ScheduledExecutorService executor;
 
     private final AtomicBoolean started = new AtomicBoolean();
@@ -105,6 +107,7 @@ public class BucketBalancer
                 balancerConfig.isBalancerEnabled(),
                 balancerConfig.getBalancerInterval(),
                 metadataConfig.getStartupGracePeriod(),
+                metadataConfig.getMinimumNodeCount(),
                 backupService.isBackupAvailable(),
                 nodeManager.getCurrentNode().isCoordinator(),
                 connectorId.toString());
@@ -116,6 +119,7 @@ public class BucketBalancer
             boolean enabled,
             Duration interval,
             Duration initialDelay,
+            int minimumNodeCount,
             boolean backupAvailable,
             boolean coordinator,
             String connectorId)
@@ -125,6 +129,7 @@ public class BucketBalancer
         this.enabled = enabled;
         this.interval = requireNonNull(interval, "interval is null");
         this.initialDelay = requireNonNull(initialDelay, "initialDelay is null");
+        this.minimumNodeCount = minimumNodeCount;
         this.backupAvailable = backupAvailable;
         this.coordinator = coordinator;
         this.executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("bucket-balancer-" + connectorId));
@@ -178,6 +183,12 @@ public class BucketBalancer
     @VisibleForTesting
     synchronized int balance()
     {
+        int currentNodeCount = nodeSupplier.getWorkerNodes().size();
+        if (currentNodeCount < minimumNodeCount) {
+            log.warn(format("Rebalancing skipped because not enough nodes are available (required: %s, current: %s)", minimumNodeCount, currentNodeCount));
+            return 0;
+        }
+
         log.info("Bucket balancer started. Computing assignments...");
         Multimap<String, BucketAssignment> sourceToAssignmentChanges = computeAssignmentChanges(fetchClusterState());
 
