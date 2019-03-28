@@ -32,7 +32,8 @@ public class TestMetadataConfig
         assertRecordedDefaults(recordDefaults(MetadataConfig.class)
                 .setStartupGracePeriod(new Duration(5, MINUTES))
                 .setReassignmentDelay(new Duration(0, MINUTES))
-                .setReassignmentInterval(new Duration(0, MINUTES)));
+                .setReassignmentInterval(new Duration(0, MINUTES))
+                .setMinimumNodeCount(0));
     }
 
     @Test
@@ -42,12 +43,14 @@ public class TestMetadataConfig
                 .put("raptor.startup-grace-period", "42m")
                 .put("raptor.reassignment-delay", "6m")
                 .put("raptor.reassignment-interval", "7m")
+                .put("raptor.minimum-node-count", "39")
                 .build();
 
         MetadataConfig expected = new MetadataConfig()
                 .setStartupGracePeriod(new Duration(42, MINUTES))
                 .setReassignmentDelay(new Duration(6, MINUTES))
-                .setReassignmentInterval(new Duration(7, MINUTES));
+                .setReassignmentInterval(new Duration(7, MINUTES))
+                .setMinimumNodeCount(39);
 
         assertFullMapping(properties, expected);
     }

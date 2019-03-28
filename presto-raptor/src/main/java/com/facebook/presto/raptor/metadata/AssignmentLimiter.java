@@ -33,6 +33,7 @@ import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_NOT_ENOUGH_NODES;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_REASSIGNMENT_DELAY;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_REASSIGNMENT_THROTTLE;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -51,6 +52,7 @@ public class AssignmentLimiter
     private final Ticker ticker;
     private final Duration reassignmentDelay;
     private final Duration reassignmentInterval;
+    private final int minimumNodeCount;
 
     private final ScheduledExecutorService scheduler = newScheduledThreadPool(1, daemonThreadsNamed("assignment-limiter"));
     private final AtomicBoolean started = new AtomicBoolean();
@@ -65,15 +67,16 @@ public class AssignmentLimiter
     @Inject
     public AssignmentLimiter(NodeSupplier nodeSupplier, Ticker ticker, MetadataConfig config)
     {
-        this(nodeSupplier, ticker, config.getReassignmentDelay(), config.getReassignmentInterval());
+        this(nodeSupplier, ticker, config.getReassignmentDelay(), config.getReassignmentInterval(), config.getMinimumNodeCount());
     }
 
-    public AssignmentLimiter(NodeSupplier nodeSupplier, Ticker ticker, Duration reassignmentDelay, Duration reassignmentInterval)
+    public AssignmentLimiter(NodeSupplier nodeSupplier, Ticker ticker, Duration reassignmentDelay, Duration reassignmentInterval, int minimumNodeCount)
     {
         this.nodeSupplier = requireNonNull(nodeSupplier, "nodeSupplier is null");
         this.ticker = requireNonNull(ticker, "ticker is null");
         this.reassignmentDelay = requireNonNull(reassignmentDelay, "reassignmentDelay is null");
         this.reassignmentInterval = requireNonNull(reassignmentInterval, "reassignmentInterval is null");
+        this.minimumNodeCount = minimumNodeCount;
     }
 
     @PostConstruct
@@ -99,6 +102,11 @@ public class AssignmentLimiter
 
     public synchronized void checkAssignFrom(String nodeIdentifier)
     {
+        int currentNodeCount = nodeSupplier.getWorkerNodes().size();
+        if (currentNodeCount < minimumNodeCount) {
+            throw new PrestoException(RAPTOR_NOT_ENOUGH_NODES, format("Not enough nodes available (required: %s, current: %s)", minimumNodeCount, currentNodeCount));
+        }
+
         if (offlineNodes.contains(nodeIdentifier)) {
             return;
         }
