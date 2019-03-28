@@ -22,7 +22,6 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.InvocationConvention;
 import com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention;
 import com.facebook.presto.spi.function.InvocationConvention.InvocationReturnConvention;
-import com.facebook.presto.spi.function.Signature;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.util.List;
@@ -44,11 +43,6 @@ public class FunctionInvokerProvider
     public FunctionInvokerProvider(FunctionManager functionManager)
     {
         this.functionManager = functionManager;
-    }
-
-    public FunctionInvoker createFunctionInvoker(Signature signature, Optional<InvocationConvention> invocationConvention)
-    {
-        return createFunctionInvoker(new FunctionHandle(signature), invocationConvention);
     }
 
     public FunctionInvoker createFunctionInvoker(FunctionHandle functionHandle, Optional<InvocationConvention> invocationConvention)
