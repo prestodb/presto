@@ -356,7 +356,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
-class FunctionRegistry
+class StaticFunctionNamespace
 {
     private final TypeManager typeManager;
     private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
@@ -366,11 +366,10 @@ class FunctionRegistry
     private final MagicLiteralFunction magicLiteralFunction;
     private volatile FunctionMap functions = new FunctionMap();
 
-    public FunctionRegistry(
+    public StaticFunctionNamespace(
             TypeManager typeManager,
             BlockEncodingSerde blockEncodingSerde,
             FeaturesConfig featuresConfig,
-            // TODO: Remove FunctionManager once the logic requiring this is moved to FunctionNamespace.
             FunctionManager functionManager)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -674,7 +673,7 @@ class FunctionRegistry
         this.functions = new FunctionMap(this.functions, functions);
     }
 
-    public List<SqlFunction> list()
+    public List<SqlFunction> listFunctions()
     {
         return functions.list().stream()
                 .filter(function -> !function.isHidden())
@@ -968,6 +967,11 @@ class FunctionRegistry
             throwIfInstanceOf(e.getCause(), PrestoException.class);
             throw e;
         }
+    }
+
+    public ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle)
+    {
+        return getScalarFunctionImplementation(functionHandle.getSignature());
     }
 
     public ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)
