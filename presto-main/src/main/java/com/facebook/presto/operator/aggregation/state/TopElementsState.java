@@ -25,4 +25,6 @@ public interface TopElementsState
 
     void setHistogram(TopElementsHistogram value);
 
+    public void addMemoryUsage(long value);
+
 }

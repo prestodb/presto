@@ -306,8 +306,9 @@ Approximate Aggregate Functions
 .. function:: approx_heavy_hitters(x, min_percent_share, error, confidence) -> map<varchar, bigint>
 
     Returns the elements which has percent share of atleast min_percent_share
-    along with the approximate occurence count. If not provided, default values
-    are error=0.01 and confidence=0.99
+    along with the approximate occurence count. min_percent_share must be between 0.0 to 100.0
+    If not provided, default values are error=0.01  and confidence=0.99.
+    Valid values for both error and confidence are between 0 and 1.
     Lower-error/Higher-confidence results in increase in memory usage.
 
     The algorithm is based on:

@@ -75,6 +75,12 @@ public class TopElementsStateFactory
         }
 
         @Override
+        public void addMemoryUsage(long value)
+        {
+            size += value;
+        }
+
+        @Override
         public long getEstimatedSize()
         {
             return INSTANCE_SIZE + size + histogram.sizeOf();
@@ -106,5 +112,12 @@ public class TopElementsStateFactory
             }
             return histogram.estimatedInMemorySize();
         }
+
+        @Override
+        public void addMemoryUsage(long value)
+        {
+            // noop
+        }
+
     }
 }

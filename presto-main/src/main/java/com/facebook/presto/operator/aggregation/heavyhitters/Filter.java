@@ -18,6 +18,8 @@
 */
 package com.facebook.presto.operator.aggregation.heavyhitters;
 
+import io.airlift.slice.Slice;
+
 import java.io.UnsupportedEncodingException;
 
 
@@ -74,4 +76,9 @@ public abstract class Filter {
         }
         return result;
     }
+
+    static int[] getHashBuckets(Slice slice, int hashCount, int max) {
+        return getHashBuckets(slice.getBytes(), hashCount, max);
+    }
+
 }

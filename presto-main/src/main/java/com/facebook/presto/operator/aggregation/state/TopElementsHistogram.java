@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.operator.aggregation.heavyhitters.ConservativeAddSketch;
+import com.facebook.presto.operator.aggregation.heavyhitters.CountMinSketch;
 import com.facebook.presto.operator.aggregation.heavyhitters.IndexedPriorityQueue;
 import com.facebook.presto.operator.aggregation.heavyhitters.IndexedPriorityQueue.Entry;
 import com.google.common.annotations.VisibleForTesting;
@@ -33,7 +34,7 @@ public class TopElementsHistogram<E>
 
     private int rowsProcessed=0;
     private double min_percent_share=100;
-    private ConservativeAddSketch ccms;
+    private CountMinSketch ccms;
     private IndexedPriorityQueue<E> topEntries = new IndexedPriorityQueue<E>();
 
 
@@ -50,7 +51,7 @@ public class TopElementsHistogram<E>
         requireNonNull(min_percent_share, "min_percent_share is null");
 
         this.min_percent_share = min_percent_share;   //k = (min_percent_share*n)/100
-        this.ccms=new ConservativeAddSketch(epsError, confidence, seed);
+        this.ccms=new CountMinSketch(epsError, confidence, seed);
     }
 
     public Map<E, Long> getTopElements(){
@@ -71,17 +72,25 @@ public class TopElementsHistogram<E>
     public void add(E  item, long count)
     {
         if(item == null) {
-            // Mimic Presto's avg function behavious which ignores null both in the numerator and denominator
+            // Mimic Presto's avg function behavior which ignores null both in the numerator and denominator
             return;
         }
-        Long itemCount=ccms.add(item.toString(), count);
+
+        Long itemCount;
+        //TODO can we avoid this if
+        if(item instanceof Slice) {
+            itemCount = ccms.add((Slice)item, count);
+        }
+        else {
+            itemCount = ccms.add(item.toString(), count);
+        }
         rowsProcessed += count;
         // This is the only place where trim can be done before adding since only one element is being added
         // And we have handle to that one element.
-        trimTopElements();
         if(100.0*itemCount/rowsProcessed >= min_percent_share) {
             topEntries.addOrUpdate(item, itemCount);
         }
+        trimTopElements();
     }
 
     public void add(List<E> list){
@@ -96,10 +105,20 @@ public class TopElementsHistogram<E>
         }
     }
 
+    public long estimateCount(E item){
+            return ccms.estimateCount(item.toString());
+    }
+
+    public long estimateMeanCount(E item){
+        return ccms.estimateMeanCount(item.toString());
+    }
+
     public void trimTopElements(){
-        double minItemCount = min_percent_share * rowsProcessed / 100.0;
-        if(topEntries.getMinPriority() < minItemCount) {
-            topEntries.removeBelowPriority(minItemCount);
+        if(topEntries.size() > 100/min_percent_share){
+            double minItemCount = min_percent_share * rowsProcessed / 100.0;
+            if(topEntries.getMinPriority() < minItemCount) {
+                topEntries.removeBelowPriority(minItemCount);
+            }
         }
     }
 
@@ -108,37 +127,41 @@ public class TopElementsHistogram<E>
      * Changes here can result in many unintended consequences in the edge cases
      * @param histograms
      */
-    public void merge(TopElementsHistogram... histograms)
+    public void merge(TopElementsHistogram<E>... histograms)
     {
-        if (histograms != null && histograms.length > 0) {
-            // Merge ALL conservative-count-min-sketch and rowsProcessed before calling any estimateCount!!
-            for (TopElementsHistogram histogram : histograms) {
-                if (histogram == null || histogram.rowsProcessed <= 0)
-                    continue;
-                try {
-                    this.ccms.merge(histogram.ccms);
-                }catch(Exception e){
-                    //TODO how to handle the CountMinSketch.CMSMergeException
-                    // Shouldn't happen
-                    throw new RuntimeException(e);
-                }
-                this.rowsProcessed += histogram.rowsProcessed;
-            }
+        if (histograms == null || histograms.length <= 0) {
+            //Nothing to merge
+            return;
+        }
 
-            // DON'T merge this "for" loop with the previous one. It will impact the behaviour of the class
-            // All elements must be counted after merging ALL conservative-count-min-sketch for accuracy
-            for (TopElementsHistogram histogram : histograms) {
-                Iterator<E> elements = this.topEntries.keysIterator();
-                while(elements.hasNext()){
-                    E item=elements.next();
-                    //Estimate the count after the merger
-                    Long itemCount=ccms.estimateCount(item.toString());
-                    topEntries.addOrUpdate(item, itemCount);
-                }
+        // Merge ALL conservative-count-min-sketch and rowsProcessed before calling any estimateCount!!
+        for (TopElementsHistogram<E> histogram : histograms) {
+            if (histogram == null || histogram.rowsProcessed <= 0)
+                continue;
+            try {
+                this.ccms.merge(histogram.ccms);
+            }catch(Exception e){
+                //TODO how to handle the CountMinSketch.CMSMergeException
+                // Shouldn't happen
+                throw new RuntimeException(e);
+            }
+            this.rowsProcessed += histogram.rowsProcessed;
+        }
+
+        // DON'T merge this "for" loop with the previous one. It will impact the behaviour of the class
+        // All elements must be counted after merging ALL conservative-count-min-sketch for accuracy
+        for (TopElementsHistogram<E> histogram : histograms) {
+            Iterator<E> elements = this.topEntries.keysIterator();
+            while(elements.hasNext()){
+                E item=elements.next();
+                //Estimate the count after the merger
+                Long itemCount=ccms.estimateCount(item.toString());
+                topEntries.addOrUpdate(item, itemCount);
             }
         }
         // Elements from "this-instance" must be counted again after the conservative-count-min-sketch merger
         Iterator<E> elements = this.topEntries.keysIterator();
+        //TODO is it ok to update values of the iterator's underlying map?
         while(elements.hasNext()){
             E item=elements.next();
             //Estimate the count after the merger
@@ -181,7 +204,7 @@ public class TopElementsHistogram<E>
         rowsProcessed = s.readInt();
         min_percent_share = s.readDouble();
         int ccmsSize = s.readInt();
-        ccms = new ConservativeAddSketch(s.readSlice(ccmsSize));
+        ccms = new CountMinSketch(s.readSlice(ccmsSize));
 
         int topEntriesSize = s.readInt();
         topEntries = new IndexedPriorityQueue(s.readSlice(topEntriesSize));
