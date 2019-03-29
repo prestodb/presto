@@ -1471,7 +1471,7 @@ public abstract class AbstractTestHiveClient
             List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
             Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
-            assertTableIsBucketed(tableHandle);
+            assertTableIsBucketed(transaction, tableHandle);
 
             String testString = "test";
             Integer testInt = 13;
@@ -1511,7 +1511,7 @@ public abstract class AbstractTestHiveClient
             List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
             Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
-            assertTableIsBucketed(tableHandle);
+            assertTableIsBucketed(transaction, tableHandle);
 
             String testString = "test";
             Long testBigint = 89L;
@@ -1550,7 +1550,7 @@ public abstract class AbstractTestHiveClient
             List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
             Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
-            assertTableIsBucketed(tableHandle);
+            assertTableIsBucketed(transaction, tableHandle);
 
             ImmutableMap<ColumnHandle, NullableValue> bindings = ImmutableMap.<ColumnHandle, NullableValue>builder()
                     .put(columnHandles.get(columnIndex.get("t_float")), NullableValue.of(REAL, (long) floatToRawIntBits(87.1f)))
@@ -1785,10 +1785,10 @@ public abstract class AbstractTestHiveClient
         assertEquals(idCount.keySet(), expectedIds);
     }
 
-    private void assertTableIsBucketed(ConnectorTableHandle tableHandle)
+    private void assertTableIsBucketed(Transaction transaction, ConnectorTableHandle tableHandle)
     {
         // the bucketed test tables should have exactly 32 splits
-        List<ConnectorSplit> splits = getAllSplits(tableHandle, TupleDomain.all());
+        List<ConnectorSplit> splits = getAllSplits(transaction, tableHandle, TupleDomain.all());
         assertEquals(splits.size(), 32);
 
         // verify all paths are unique
@@ -1811,7 +1811,7 @@ public abstract class AbstractTestHiveClient
             List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
             Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
-            List<ConnectorSplit> splits = getAllSplits(tableHandle, TupleDomain.all());
+            List<ConnectorSplit> splits = getAllSplits(transaction, tableHandle, TupleDomain.all());
             assertEquals(splits.size(), partitionCount);
             for (ConnectorSplit split : splits) {
                 HiveSplit hiveSplit = (HiveSplit) split;
@@ -1901,7 +1901,7 @@ public abstract class AbstractTestHiveClient
             List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
             Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
-            List<ConnectorSplit> splits = getAllSplits(tableHandle, TupleDomain.all());
+            List<ConnectorSplit> splits = getAllSplits(transaction, tableHandle, TupleDomain.all());
             assertEquals(splits.size(), partitionCount);
             for (ConnectorSplit split : splits) {
                 HiveSplit hiveSplit = (HiveSplit) split;
@@ -1942,7 +1942,7 @@ public abstract class AbstractTestHiveClient
             List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
             Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
-            List<ConnectorSplit> splits = getAllSplits(tableHandle, TupleDomain.all());
+            List<ConnectorSplit> splits = getAllSplits(transaction, tableHandle, TupleDomain.all());
             assertEquals(splits.size(), 1);
 
             for (ConnectorSplit split : splits) {
@@ -2445,7 +2445,7 @@ public abstract class AbstractTestHiveClient
             ConnectorTableHandle tableHandle = getTableHandle(metadata, table);
             List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
 
-            List<ConnectorSplit> splits = getAllSplits(tableHandle, TupleDomain.all());
+            List<ConnectorSplit> splits = getAllSplits(transaction, tableHandle, TupleDomain.all());
             assertThat(splits).hasSize(bucketCount);
 
             int actualRowCount = 0;
@@ -3842,7 +3842,7 @@ public abstract class AbstractTestHiveClient
 
             ConnectorTableHandle tableHandle = getTableHandle(metadata, new SchemaTableName(database, tableName));
             ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
-            HiveSplit hiveSplit = getHiveSplit(tableHandle);
+            HiveSplit hiveSplit = getHiveSplit(transaction, tableHandle);
 
             List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
 
@@ -3851,9 +3851,9 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    protected HiveSplit getHiveSplit(ConnectorTableHandle tableHandle)
+    protected HiveSplit getHiveSplit(Transaction transaction, ConnectorTableHandle tableHandle)
     {
-        List<ConnectorSplit> splits = getAllSplits(tableHandle, TupleDomain.all());
+        List<ConnectorSplit> splits = getAllSplits(transaction, tableHandle, TupleDomain.all());
         assertEquals(splits.size(), 1);
         return (HiveSplit) getOnlyElement(splits);
     }
@@ -4159,15 +4159,13 @@ public abstract class AbstractTestHiveClient
         return splitCount;
     }
 
-    private List<ConnectorSplit> getAllSplits(ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
+    private List<ConnectorSplit> getAllSplits(Transaction transaction, ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
     {
-        try (Transaction transaction = newTransaction()) {
-            ConnectorSession session = newSession();
-            ConnectorMetadata metadata = transaction.getMetadata();
-            List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, tableHandle, new Constraint<>(tupleDomain), Optional.empty());
-            ConnectorTableLayoutHandle layoutHandle = getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
-            return getAllSplits(splitManager.getSplits(transaction.getTransactionHandle(), session, layoutHandle, UNGROUPED_SCHEDULING));
-        }
+        ConnectorSession session = newSession();
+        ConnectorMetadata metadata = transaction.getMetadata();
+        List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, tableHandle, new Constraint<>(tupleDomain), Optional.empty());
+        ConnectorTableLayoutHandle layoutHandle = getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
+        return getAllSplits(splitManager.getSplits(transaction.getTransactionHandle(), session, layoutHandle, UNGROUPED_SCHEDULING));
     }
 
     protected static List<ConnectorSplit> getAllSplits(ConnectorSplitSource splitSource)
