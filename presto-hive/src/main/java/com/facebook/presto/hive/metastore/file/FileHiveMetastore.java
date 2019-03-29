@@ -55,7 +55,6 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.metastore.TableType;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -87,6 +86,9 @@ import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyCanDropColumn;
+import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
+import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
+import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
@@ -99,9 +101,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
-import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
-import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
-import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 
 @ThreadSafe
 public class FileHiveMetastore
@@ -240,15 +239,15 @@ public class FileHiveMetastore
         Path tableMetadataDirectory = getTableMetadataDirectory(table);
 
         // validate table location
-        if (table.getTableType().equals(VIRTUAL_VIEW.name())) {
+        if (table.getTableType().equals(VIRTUAL_VIEW)) {
             checkArgument(table.getStorage().getLocation().isEmpty(), "Storage location for view must be empty");
         }
-        else if (table.getTableType().equals(MANAGED_TABLE.name())) {
+        else if (table.getTableType().equals(MANAGED_TABLE)) {
             if (!tableMetadataDirectory.equals(new Path(table.getStorage().getLocation()))) {
                 throw new PrestoException(HIVE_METASTORE_ERROR, "Table directory must be " + tableMetadataDirectory);
             }
         }
-        else if (table.getTableType().equals(EXTERNAL_TABLE.name())) {
+        else if (table.getTableType().equals(EXTERNAL_TABLE)) {
             try {
                 Path externalLocation = new Path(table.getStorage().getLocation());
                 FileSystem externalFileSystem = hdfsEnvironment.getFileSystem(hdfsContext, externalLocation);
@@ -402,7 +401,7 @@ public class FileHiveMetastore
                 .map(tableName -> getTable(databaseName, tableName))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .filter(table -> table.getTableType().equals(VIRTUAL_VIEW.name()))
+                .filter(table -> table.getTableType().equals(VIRTUAL_VIEW))
                 .map(Table::getTableName)
                 .collect(toList());
 
@@ -420,7 +419,7 @@ public class FileHiveMetastore
         Path tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
 
         // It is safe to delete the whole meta directory for external tables and views
-        if (!table.getTableType().equals(MANAGED_TABLE.name()) || deleteData) {
+        if (!table.getTableType().equals(MANAGED_TABLE) || deleteData) {
             deleteMetadataDirectory(tableMetadataDirectory);
         }
         else {
@@ -434,7 +433,7 @@ public class FileHiveMetastore
     public synchronized void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
     {
         Table table = getRequiredTable(databaseName, tableName);
-        if (!table.getTableType().equals(VIRTUAL_VIEW.name()) || !newTable.getTableType().equals(VIRTUAL_VIEW.name())) {
+        if (!table.getTableType().equals(VIRTUAL_VIEW) || !newTable.getTableType().equals(VIRTUAL_VIEW)) {
             throw new PrestoException(HIVE_METASTORE_ERROR, "Only views can be updated with replaceTable");
         }
         if (!table.getDatabaseName().equals(databaseName) || !table.getTableName().equals(tableName)) {
@@ -572,8 +571,7 @@ public class FileHiveMetastore
 
         Table table = getRequiredTable(databaseName, tableName);
 
-        TableType tableType = TableType.valueOf(table.getTableType());
-        checkArgument(EnumSet.of(MANAGED_TABLE, EXTERNAL_TABLE).contains(tableType), "Invalid table type: %s", tableType);
+        checkArgument(EnumSet.of(MANAGED_TABLE, EXTERNAL_TABLE).contains(table.getTableType()), "Invalid table type: %s", table.getTableType());
 
         try {
             Map<Path, byte[]> schemaFiles = new LinkedHashMap<>();
@@ -621,12 +619,12 @@ public class FileHiveMetastore
     {
         Path partitionMetadataDirectory = getPartitionMetadataDirectory(table, partition.getValues());
 
-        if (table.getTableType().equals(MANAGED_TABLE.name())) {
+        if (table.getTableType().equals(MANAGED_TABLE)) {
             if (!partitionMetadataDirectory.equals(new Path(partition.getStorage().getLocation()))) {
                 throw new PrestoException(HIVE_METASTORE_ERROR, "Partition directory must be " + partitionMetadataDirectory);
             }
         }
-        else if (table.getTableType().equals(EXTERNAL_TABLE.name())) {
+        else if (table.getTableType().equals(EXTERNAL_TABLE)) {
             try {
                 Path externalLocation = new Path(partition.getStorage().getLocation());
                 FileSystem externalFileSystem = hdfsEnvironment.getFileSystem(hdfsContext, externalLocation);

@@ -104,7 +104,11 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURI
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyCanDropColumn;
+import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
+import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
 import static com.facebook.presto.hive.metastore.glue.GlueExpressionUtil.buildGlueExpression;
+import static com.facebook.presto.hive.metastore.glue.converter.GlueInputConverter.convertColumn;
+import static com.facebook.presto.hive.metastore.glue.converter.GlueInputConverter.toTableInput;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
@@ -115,8 +119,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
-import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 
 public class GlueHiveMetastore
         implements ExtendedHiveMetastore
@@ -206,11 +208,22 @@ public class GlueHiveMetastore
     @Override
     public Optional<Table> getTable(String databaseName, String tableName)
     {
+        return getGlueTable(databaseName, tableName).map(table -> GlueToPrestoConverter.convertTable(table, databaseName));
+    }
+
+    private com.amazonaws.services.glue.model.Table getGlueTableOrElseThrow(String databaseName, String tableName)
+    {
+        return getGlueTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+    }
+
+    private Optional<com.amazonaws.services.glue.model.Table> getGlueTable(String databaseName, String tableName)
+    {
         try {
             GetTableResult result = glueClient.getTable(new GetTableRequest()
                     .withDatabaseName(databaseName)
                     .withName(tableName));
-            return Optional.of(GlueToPrestoConverter.convertTable(result.getTable(), databaseName));
+            return Optional.of(result.getTable());
         }
         catch (EntityNotFoundException e) {
             return Optional.empty();
@@ -464,7 +477,7 @@ public class GlueHiveMetastore
 
     private static boolean isManagedTable(Table table)
     {
-        return table.getTableType().equals(MANAGED_TABLE.name());
+        return table.getTableType().equals(MANAGED_TABLE);
     }
 
     private static void deleteDir(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path, boolean recursive)
@@ -504,57 +517,76 @@ public class GlueHiveMetastore
     @Override
     public void addColumn(String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
-        Table oldTable = getTableOrElseThrow(databaseName, tableName);
-        Table newTable = Table.builder(oldTable)
-                .addDataColumn(new Column(columnName, columnType, Optional.ofNullable(columnComment)))
-                .build();
-        replaceTable(databaseName, tableName, newTable, null);
+        com.amazonaws.services.glue.model.Table table = getGlueTableOrElseThrow(databaseName, tableName);
+        ImmutableList.Builder<com.amazonaws.services.glue.model.Column> newDataColumns = ImmutableList.builder();
+        newDataColumns.addAll(table.getStorageDescriptor().getColumns());
+        newDataColumns.add(convertColumn(new Column(columnName, columnType, Optional.ofNullable(columnComment))));
+        table.getStorageDescriptor().setColumns(newDataColumns.build());
+        replaceGlueTable(databaseName, tableName, table);
     }
 
     @Override
     public void renameColumn(String databaseName, String tableName, String oldColumnName, String newColumnName)
     {
-        Table oldTable = getTableOrElseThrow(databaseName, tableName);
-        if (oldTable.getPartitionColumns().stream().anyMatch(c -> c.getName().equals(oldColumnName))) {
+        com.amazonaws.services.glue.model.Table table = getGlueTableOrElseThrow(databaseName, tableName);
+        if (table.getPartitionKeys() != null && table.getPartitionKeys().stream().anyMatch(c -> c.getName().equals(oldColumnName))) {
             throw new PrestoException(NOT_SUPPORTED, "Renaming partition columns is not supported");
         }
-
-        ImmutableList.Builder<Column> newDataColumns = ImmutableList.builder();
-        for (Column column : oldTable.getDataColumns()) {
+        ImmutableList.Builder<com.amazonaws.services.glue.model.Column> newDataColumns = ImmutableList.builder();
+        for (com.amazonaws.services.glue.model.Column column : table.getStorageDescriptor().getColumns()) {
             if (column.getName().equals(oldColumnName)) {
-                newDataColumns.add(new Column(newColumnName, column.getType(), column.getComment()));
+                newDataColumns.add(new com.amazonaws.services.glue.model.Column()
+                        .withName(newColumnName)
+                        .withType(column.getType())
+                        .withComment(column.getComment()));
             }
             else {
                 newDataColumns.add(column);
             }
         }
-
-        Table newTable = Table.builder(oldTable)
-                .setDataColumns(newDataColumns.build())
-                .build();
-        replaceTable(databaseName, tableName, newTable, null);
+        table.getStorageDescriptor().setColumns(newDataColumns.build());
+        replaceGlueTable(databaseName, tableName, table);
     }
 
     @Override
     public void dropColumn(String databaseName, String tableName, String columnName)
     {
         verifyCanDropColumn(this, databaseName, tableName, columnName);
-        Table oldTable = getTableOrElseThrow(databaseName, tableName);
+        com.amazonaws.services.glue.model.Table table = getGlueTableOrElseThrow(databaseName, tableName);
 
-        if (!oldTable.getColumn(columnName).isPresent()) {
+        ImmutableList.Builder<com.amazonaws.services.glue.model.Column> newDataColumns = ImmutableList.builder();
+        boolean found = false;
+        for (com.amazonaws.services.glue.model.Column column : table.getStorageDescriptor().getColumns()) {
+            if (column.getName().equals(columnName)) {
+                found = true;
+            }
+            else {
+                newDataColumns.add(column);
+            }
+        }
+
+        if (!found) {
             SchemaTableName name = new SchemaTableName(databaseName, tableName);
             throw new ColumnNotFoundException(name, columnName);
         }
 
-        ImmutableList.Builder<Column> newDataColumns = ImmutableList.builder();
-        oldTable.getDataColumns().stream()
-                .filter(fieldSchema -> !fieldSchema.getName().equals(columnName))
-                .forEach(newDataColumns::add);
+        table.getStorageDescriptor().setColumns(newDataColumns.build());
+        replaceGlueTable(databaseName, tableName, table);
+    }
 
-        Table newTable = Table.builder(oldTable)
-                .setDataColumns(newDataColumns.build())
-                .build();
-        replaceTable(databaseName, tableName, newTable, null);
+    private void replaceGlueTable(String databaseName, String tableName, com.amazonaws.services.glue.model.Table newTable)
+    {
+        try {
+            glueClient.updateTable(new UpdateTableRequest()
+                    .withDatabaseName(databaseName)
+                    .withTableInput(toTableInput(newTable)));
+        }
+        catch (EntityNotFoundException e) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+        catch (AmazonServiceException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
     }
 
     @Override

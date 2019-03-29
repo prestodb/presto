@@ -40,6 +40,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
+import static com.facebook.presto.hive.metastore.PrestoTableType.OTHER;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MIN_VALUE;
@@ -69,7 +70,7 @@ public class TestRecordingHiveMetastore
             "database",
             "table",
             "owner",
-            "table_type",
+            OTHER,
             TABLE_STORAGE,
             ImmutableList.of(TABLE_COLUMN),
             ImmutableList.of(TABLE_COLUMN),

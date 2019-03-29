@@ -27,13 +27,13 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.hadoop.hive.metastore.TableType;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static java.util.Objects.requireNonNull;
@@ -85,7 +85,7 @@ public class PartitionMetadata
                 .filter(format -> tableFormat.equals(StorageFormat.fromHiveStorageFormat(format)))
                 .findFirst();
 
-        if (table.getTableType().equals(TableType.EXTERNAL_TABLE.name())) {
+        if (table.getTableType().equals(EXTERNAL_TABLE)) {
             externalLocation = Optional.of(partition.getStorage().getLocation());
         }
         else {
