@@ -77,6 +77,8 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.getFileSystem;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.renameFile;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.waitForListenableFutures;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
+import static com.facebook.presto.hive.metastore.PrestoTableType.TEMPORARY_TABLE;
+import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
 import static com.facebook.presto.hive.util.Statistics.ReduceOperator.SUBTRACT;
 import static com.facebook.presto.hive.util.Statistics.merge;
 import static com.facebook.presto.hive.util.Statistics.reduce;
@@ -446,8 +448,8 @@ public class SemiTransactionalHiveMetastore
         setShared();
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Action<TableAndMore> oldTableAction = tableActions.get(schemaTableName);
-        if (oldTableAction == null) {
-            Table table = delegate.getTable(databaseName, tableName)
+        if (oldTableAction == null || oldTableAction.getData().getTable().getTableType().equals(TEMPORARY_TABLE)) {
+            Table table = getTable(databaseName, tableName)
                     .orElseThrow(() -> new TableNotFoundException(schemaTableName));
             PartitionStatistics currentStatistics = getTableStatistics(databaseName, tableName);
             HdfsContext context = new HdfsContext(session, databaseName, tableName);
@@ -1086,6 +1088,12 @@ public class SemiTransactionalHiveMetastore
             deleteOnly = false;
 
             Table table = tableAndMore.getTable();
+
+            if (table.getTableType().equals(TEMPORARY_TABLE)) {
+                prepareDropTemporaryTable(context, tableAndMore);
+                return;
+            }
+
             if (table.getTableType().equals(MANAGED_TABLE)) {
                 String targetLocation = table.getStorage().getLocation();
                 checkArgument(!targetLocation.isEmpty(), "target location is empty");
@@ -1142,6 +1150,12 @@ public class SemiTransactionalHiveMetastore
             deleteOnly = false;
 
             Table table = tableAndMore.getTable();
+
+            if (table.getTableType().equals(TEMPORARY_TABLE)) {
+                prepareDropTemporaryTable(context, tableAndMore);
+                return;
+            }
+
             Path targetPath = new Path(table.getStorage().getLocation());
             Path currentPath = tableAndMore.getCurrentLocation().get();
             cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, false));
@@ -1295,6 +1309,11 @@ public class SemiTransactionalHiveMetastore
                     Optional.of(getPartitionName(partition.getDatabaseName(), partition.getTableName(), partition.getValues())),
                     partitionAndMore.getStatisticsUpdate(),
                     true));
+        }
+
+        private void prepareDropTemporaryTable(HdfsContext context, TableAndMore tableAndMore)
+        {
+            tableAndMore.getCurrentLocation().ifPresent(currentLocation -> deletionTasksForFinish.add(new DirectoryDeletionTask(context, currentLocation)));
         }
 
         private void executeCleanupTasksForAbort(List<String> filePrefixes)
@@ -1985,7 +2004,7 @@ public class SemiTransactionalHiveMetastore
             this.statistics = requireNonNull(statistics, "statistics is null");
             this.statisticsUpdate = requireNonNull(statisticsUpdate, "statisticsUpdate is null");
 
-            checkArgument(!table.getStorage().getLocation().isEmpty() || !currentLocation.isPresent(), "currentLocation can not be supplied for table without location");
+            checkArgument(!table.getTableType().equals(VIRTUAL_VIEW) || !currentLocation.isPresent(), "currentLocation can not be supplied for view");
             checkArgument(!fileNames.isPresent() || currentLocation.isPresent(), "fileNames can be supplied only when currentLocation is supplied");
         }
 

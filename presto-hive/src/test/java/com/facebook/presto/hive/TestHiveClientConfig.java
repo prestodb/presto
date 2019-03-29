@@ -30,6 +30,8 @@ import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
+import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.TestHiveUtil.nonDefaultTimeZone;
 
 public class TestHiveClientConfig
@@ -70,7 +72,7 @@ public class TestHiveClientConfig
                 .setDomainSocketPath(null)
                 .setS3FileSystemType(S3FileSystemType.PRESTO)
                 .setResourceConfigFiles("")
-                .setHiveStorageFormat(HiveStorageFormat.ORC)
+                .setHiveStorageFormat(ORC)
                 .setHiveCompressionCodec(HiveCompressionCodec.GZIP)
                 .setRespectTableFormat(true)
                 .setImmutablePartitions(false)
@@ -121,7 +123,9 @@ public class TestHiveClientConfig
                 .setTemporaryStagingDirectoryEnabled(true)
                 .setTemporaryStagingDirectoryPath("/tmp/presto-${USER}")
                 .setPreloadSplitsForGroupedExecution(false)
-                .setWritingStagingFilesEnabled(false));
+                .setWritingStagingFilesEnabled(false)
+                .setTemporaryTableSchema("default")
+                .setTemporaryTableStorageFormat(ORC));
     }
 
     @Test
@@ -211,6 +215,8 @@ public class TestHiveClientConfig
                 .put("hive.temporary-staging-directory-path", "updated")
                 .put("hive.preload-splits-for-grouped-execution", "true")
                 .put("hive.writing-staging-files-enabled", "true")
+                .put("hive.temporary-table-schema", "other")
+                .put("hive.temporary-table-storage-format", "DWRF")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -297,7 +303,9 @@ public class TestHiveClientConfig
                 .setTemporaryStagingDirectoryEnabled(false)
                 .setTemporaryStagingDirectoryPath("updated")
                 .setPreloadSplitsForGroupedExecution(true)
-                .setWritingStagingFilesEnabled(true);
+                .setWritingStagingFilesEnabled(true)
+                .setTemporaryTableSchema("other")
+                .setTemporaryTableStorageFormat(DWRF);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

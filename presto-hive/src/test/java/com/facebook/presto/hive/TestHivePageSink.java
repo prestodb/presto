@@ -67,6 +67,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
+import static com.facebook.presto.hive.LocationHandle.TableType.NEW;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static com.facebook.presto.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -237,7 +238,7 @@ public class TestHivePageSink
 
     private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveClientConfig config, ExtendedHiveMetastore metastore, Path outputPath, HiveWriterStats stats)
     {
-        LocationHandle locationHandle = new LocationHandle(outputPath, outputPath, false, DIRECT_TO_TARGET_NEW_DIRECTORY);
+        LocationHandle locationHandle = new LocationHandle(outputPath, outputPath, NEW, DIRECT_TO_TARGET_NEW_DIRECTORY);
         HiveOutputTableHandle handle = new HiveOutputTableHandle(
                 SCHEMA_NAME,
                 TABLE_NAME,

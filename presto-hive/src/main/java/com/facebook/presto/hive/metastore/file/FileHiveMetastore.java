@@ -88,6 +88,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
+import static com.facebook.presto.hive.metastore.PrestoTableType.TEMPORARY_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
@@ -234,6 +235,8 @@ public class FileHiveMetastore
     @Override
     public synchronized void createTable(Table table, PrincipalPrivileges principalPrivileges)
     {
+        checkArgument(!table.getTableType().equals(TEMPORARY_TABLE), "temporary tables must never be committed to the metastore");
+
         verifyTableNotExists(table.getDatabaseName(), table.getTableName());
 
         Path tableMetadataDirectory = getTableMetadataDirectory(table);
@@ -432,6 +435,8 @@ public class FileHiveMetastore
     @Override
     public synchronized void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
     {
+        checkArgument(!newTable.getTableType().equals(TEMPORARY_TABLE), "temporary tables must never be stored in the metastore");
+
         Table table = getRequiredTable(databaseName, tableName);
         if (!table.getTableType().equals(VIRTUAL_VIEW) || !newTable.getTableType().equals(VIRTUAL_VIEW)) {
             throw new PrestoException(HIVE_METASTORE_ERROR, "Only views can be updated with replaceTable");
