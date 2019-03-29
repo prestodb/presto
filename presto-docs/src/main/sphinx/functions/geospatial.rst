@@ -316,6 +316,11 @@ Accessors
     Returns the length of a linestring or multi-linestring using Euclidean measurement on a
     two dimensional plane (based on spatial ref) in projected units.
 
+.. function:: ST_Length(SphericalGeography) -> double
+
+    Returns the length of a linestring or multi-linestring on a spherical model of the Earth.
+    This is equivalent to the sum of great-circle distances between adjacent points on the linestring.
+
 .. function:: ST_PointN(LineString, index) -> Point
 
     Returns the vertex of a linestring at a given index (indices start at 1).
